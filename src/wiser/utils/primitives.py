@@ -38,7 +38,7 @@ Residency = Literal["spill_required", "ram_cacheable"]
 ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
-RefSource = Literal["allocated", "external"]
+RefSource = Literal["internal", "external"]
 
 if TYPE_CHECKING:
     from wiser.utils.task_system import BasePlanMeta
@@ -63,7 +63,7 @@ class DataRef:
     chunks: Optional[Tuple[int, ...]] = None
     residency: Residency = "spill_required"
     materialization_loc: MaterializationLocation = "none"
-    source: RefSource = "allocated"
+    source: RefSource = "internal"
     readonly: bool = False
 
     def get_byte_estimate(self) -> Optional[int]:

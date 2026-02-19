@@ -304,7 +304,7 @@ class StorageLayer:
                 chunks=tuple(desc.chunks) if desc.chunks is not None else None,
                 residency=desc.residency,
                 materialization_loc="ram",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
@@ -334,7 +334,7 @@ class StorageLayer:
                 disk_format="json",
                 residency=desc.residency,
                 materialization_loc="disk",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
@@ -375,7 +375,7 @@ class StorageLayer:
                 chunks=None,
                 residency=desc.residency,
                 materialization_loc="disk",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
@@ -418,7 +418,7 @@ class StorageLayer:
                 chunks=chunks,
                 residency=desc.residency,
                 materialization_loc="disk",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
