@@ -63,6 +63,7 @@ def _derive_region_meta(meta: DataMeta, region: DataRegion) -> RegionMeta:
             bad_bands = bad_bands[region.b0 : region.b1]
     return RegionMeta(
         region=region,
+        elem_type=meta.elem_type,
         wavelengths=wavelengths,
         wavelength_units=meta.wavelength_units,
         nodata=meta.nodata,

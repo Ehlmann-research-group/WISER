@@ -28,6 +28,7 @@ from .storage_layer import ExternalHandle
 
 logger = logging.getLogger(__name__)
 
+
 def _safe_np_dtype(value: Any) -> np.dtype:
     if value is None:
         return np.dtype("object")
@@ -498,6 +499,14 @@ class StorageService:
             return "json"
         return "memmap"
 
+    def _get_ram_object(self, uri: str) -> Any:
+        if not uri.startswith("mem://"):
+            raise ValueError(f"Expected mem:// uri, got: {uri}")
+        try:
+            return self.ram_objects[uri]
+        except KeyError as e:
+            raise KeyError(f"No RAM object for uri={uri}") from e
+
     def _derive_region_meta(self, meta: DataMeta, region: DataRegion) -> RegionMeta:
         wavelengths = meta.wavelengths
         bad_bands = meta.bad_bands
@@ -508,6 +517,7 @@ class StorageService:
                 bad_bands = bad_bands[region.b0 : region.b1]
         return RegionMeta(
             region=region,
+            elem_type=meta.elem_type,
             wavelengths=wavelengths,
             wavelength_units=meta.wavelength_units,
             nodata=meta.nodata,

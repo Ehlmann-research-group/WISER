@@ -105,6 +105,18 @@ class DataMeta:
 
 
 @dataclass(frozen=True)
+class RegionMeta:
+    region: DataRegion
+    elem_type: np.dtype
+    wavelengths: Optional[np.ndarray] = None
+    wavelength_units: Optional[u.Unit] = None
+    nodata: Optional[float | int] = None
+    bad_bands: Optional[np.ndarray] = None
+    crs_wkt: Optional[str] = None
+    geotransform: Optional[Tuple[float, ...]] = None
+
+
+@dataclass(frozen=True)
 class AllocationRequest:
     """
     To reserve the right amount of space on the disk, different
@@ -147,17 +159,6 @@ class DataBinding:
 class DataRegion:
     def scalar_count(self) -> int:
         raise NotImplementedError
-
-
-@dataclass(frozen=True)
-class RegionMeta:
-    region: DataRegion
-    wavelengths: Optional[np.ndarray] = None
-    wavelength_units: Optional[u.Unit] = None
-    nodata: Optional[float | int] = None
-    bad_bands: Optional[np.ndarray] = None
-    crs_wkt: Optional[str] = None
-    geotransform: Optional[Tuple[float, ...]] = None
 
 
 @dataclass(frozen=True)
