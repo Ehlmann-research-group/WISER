@@ -267,7 +267,7 @@ class StorageService:
         region: Optional[DataRegion],
         mode: Literal["r", "rw"] = "r",
     ) -> AccessDescriptor:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         if mode == "rw":
             self._ensure_writable(canonical, op_name="get_access(rw)")
 
@@ -341,14 +341,24 @@ class StorageService:
     # -------------------------------------------------------------------------
     # Read/write API
     # -------------------------------------------------------------------------
-    def read_data(self, ref: DataRef) -> DataRef:
+    def read_data_ref(self, ref: DataRef) -> DataRef:
         try:
             return self.data_refs[ref.ref_id]
         except KeyError as e:
             raise KeyError(f"Unknown ref_id: {ref.ref_id}") from e
 
+    def read_data(self, ref: DataRef) -> tuple[np.ndarray, RegionMeta]:
+        desc = self.get_access(ref, region=None, mode="r")
+        if isinstance(desc, JsonAccessDescriptor):
+            raise TypeError("read_data not supported for JSON; use read_json_value")
+
+        whole_region = self._whole_region_from_meta(desc.meta)
+        region_meta = self.get_region_meta(desc.ref, whole_region)
+        arr = self.read_region(desc.ref, whole_region)
+        return np.asarray(arr), region_meta
+
     def read_region(self, ref: DataRef, region: DataRegion) -> Any:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         if canonical.source == "external":
             return self.external_handles[canonical.ref_id].read_region(region)
 
@@ -370,7 +380,7 @@ class StorageService:
         raise ValueError(f"Unsupported disk format: {canonical.disk_format}")
 
     def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         self._ensure_writable(canonical)
 
         if canonical.materialization_loc == "ram":
@@ -396,7 +406,7 @@ class StorageService:
         raise ValueError(f"Unsupported disk format: {canonical.disk_format}")
 
     def write_data(self, ref: DataRef, value: Any) -> None:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         self._ensure_writable(canonical)
 
         if canonical.materialization_loc == "ram":
@@ -431,7 +441,7 @@ class StorageService:
         raise ValueError(f"Unsupported disk format: {canonical.disk_format}")
 
     def read_json_value(self, ref: DataRef) -> Any:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         if canonical.disk_format != "json":
             raise TypeError("read_json_value requires a JSON ref")
         path = self._file_uri_to_path(canonical.uri)
@@ -439,7 +449,7 @@ class StorageService:
             return json.load(f)
 
     def write_json_value(self, ref: DataRef, value: Any) -> None:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         self._ensure_writable(canonical, op_name="write_json_value")
         if canonical.disk_format != "json":
             raise TypeError("write_json_value requires a JSON ref")
@@ -451,7 +461,7 @@ class StorageService:
     # Metadata
     # -------------------------------------------------------------------------
     def get_meta(self, ref: DataRef) -> DataMeta:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         if canonical.ref_id in self.meta_by_ref:
             return self.meta_by_ref[canonical.ref_id]
 
@@ -463,18 +473,18 @@ class StorageService:
         return meta
 
     def get_region_meta(self, ref: DataRef, region: DataRegion) -> RegionMeta:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         if canonical.source == "external":
             return self.external_handles[canonical.ref_id].get_region_meta(region)
         return self._derive_region_meta(self.get_meta(canonical), region)
 
     def set_meta(self, ref: DataRef, meta: DataMeta) -> None:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         self._ensure_writable(canonical, op_name="set_meta")
         self.meta_by_ref[canonical.ref_id] = meta
 
     def update_meta(self, ref: DataRef, **fields: Any) -> DataMeta:
-        canonical = self.read_data(ref)
+        canonical = self.read_data_ref(ref)
         self._ensure_writable(canonical, op_name="update_meta")
         updated = replace(self.get_meta(canonical), **fields)
         self.meta_by_ref[canonical.ref_id] = updated
@@ -504,6 +514,32 @@ class StorageService:
             bad_bands=bad_bands,
             crs_wkt=meta.crs_wkt,
             geotransform=meta.geotransform,
+        )
+
+    def _whole_region_from_meta(self, meta: DataMeta) -> DataRegion:
+        if meta.kind == "dataset":
+            if len(meta.shape) != 3:
+                raise ValueError(f"Dataset meta.shape must be 3D, got {meta.shape}")
+            return DatasetRegionRef(0, meta.shape[0], 0, meta.shape[1], 0, meta.shape[2])
+        if meta.kind == "spectrum":
+            if len(meta.shape) != 1:
+                raise ValueError(f"Spectrum meta.shape must be 1D, got {meta.shape}")
+            return SpectrumRef(length=meta.shape[0])
+        if meta.kind == "spectra_list":
+            if len(meta.shape) != 2:
+                raise ValueError(f"Spectra list meta.shape must be 2D, got {meta.shape}")
+            return SpectraBatchRef(i0=0, i1=meta.shape[0], length=meta.shape[1])
+
+        # Fallback for "array" and other generic numeric refs.
+        if len(meta.shape) == 1:
+            return SpectrumRef(length=meta.shape[0])
+        if len(meta.shape) == 2:
+            return SpectraBatchRef(i0=0, i1=meta.shape[0], length=meta.shape[1])
+        if len(meta.shape) == 3:
+            return DatasetRegionRef(0, meta.shape[0], 0, meta.shape[1], 0, meta.shape[2])
+        raise TypeError(
+            f"Cannot derive whole-data region for kind={meta.kind} shape={meta.shape}; "
+            "use read_region with an explicit DataRegion"
         )
 
     def _read_region_from_array(self, arr: Any, region: DataRegion) -> Any:
