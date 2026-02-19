@@ -35,7 +35,7 @@ class TestStorageServiceClient(unittest.TestCase):
         else:
             np.testing.assert_array_equal(left.bad_bands, right.bad_bands)
 
-    def test_external_disk_and_ram_backed_dataset_read_data_and_meta(self):
+    def test_external_disk_backed_dataset_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
             client = StorageClient(service=service)
@@ -64,6 +64,11 @@ class TestStorageServiceClient(unittest.TestCase):
                     0, expected_disk.shape[0], 0, expected_disk.shape[1], 0, expected_disk.shape[2]
                 ),
             )
+
+    def test_external_ram_backed_dataset_read_data_and_meta(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            client = StorageClient(service=service)
 
             # External RAM-backed dataset using NumPyRasterDataImpl.
             arr_band_first = (np.arange(3 * 4 * 5, dtype=np.float32).reshape(3, 4, 5) * 1.5) - 4.25
