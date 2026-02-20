@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from multiprocessing.managers import SharedMemoryManager
+from multiprocessing.shared_memory import SharedMemory
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Callable, Dict, Literal, Optional, Tuple
 import json
 import logging
 import uuid
@@ -75,6 +77,25 @@ class JsonAccessDescriptor(AccessDescriptor):
     path: Path
 
 
+@dataclass(frozen=True)
+class SharedMemArrayDescriptor:
+    """
+    Minimal descriptor for a NumPy array stored in shared memory.
+
+    - name: SharedMemory name (string handle)
+    - shape: array shape
+    - dtype_str: dtype in string form (e.g. "float32", "int64")
+    - strides: optional; needed for non-contiguous views
+    - nbytes: total bytes allocated (useful for sanity checks)
+    """
+
+    name: str
+    shape: Tuple[int, ...]
+    dtype_str: str
+    strides: Optional[Tuple[int, ...]]
+    nbytes: int
+
+
 @dataclass
 class StorageService:
     root_dir: Path = temp_dir()
@@ -82,16 +103,40 @@ class StorageService:
     disk_byte_limit: Optional[int] = None
 
     data_refs: Dict[str, DataRef] = field(default_factory=dict)
-    ram_objects: Dict[str, Any] = field(default_factory=dict)
+    ram_objects: Dict[str, SharedMemArrayDescriptor] = field(default_factory=dict)
     ram_est_bytes: Dict[str, int] = field(default_factory=dict)
     meta_by_ref: Dict[str, DataMeta] = field(default_factory=dict)
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
+    _shared_mem_handles: Dict[str, SharedMemory] = field(default_factory=dict, init=False, repr=False)
+    _shared_memory_manager: SharedMemoryManager = field(init=False, repr=False)
 
     _ram_used_bytes: int = 0
 
     def __post_init__(self) -> None:
         self.root_dir = Path(self.root_dir).resolve()
         self.root_dir.mkdir(parents=True, exist_ok=True)
+        self._shared_memory_manager = SharedMemoryManager()
+        self._shared_memory_manager.start()
+
+    def close(self) -> None:
+        for shm in self._shared_mem_handles.values():
+            try:
+                shm.close()
+            except Exception:
+                logger.debug("SharedMemory close failed during shutdown", exc_info=True)
+        self._shared_mem_handles.clear()
+        self.ram_objects.clear()
+        self.ram_est_bytes.clear()
+        try:
+            self._shared_memory_manager.shutdown()
+        except Exception:
+            logger.debug("SharedMemoryManager shutdown failed", exc_info=True)
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     # -------------------------------------------------------------------------
     # External registration
@@ -132,13 +177,13 @@ class StorageService:
         ref_id = self._new_ref_id()
         kind: RefKind = desc.kind
 
+        can_allocate_shared = desc.kind != "json" and desc.shape is not None and desc.dtype is not None
         want_ram = desc.residency == "ram_cacheable"
-        if want_ram and self._can_fit_in_ram(desc):
+        if want_ram and can_allocate_shared and self._can_fit_in_ram(desc):
             uri = f"mem://{ref_id}"
-            obj = self._allocate_in_ram_object(desc)
-            self.ram_objects[uri] = obj
+            shm_desc = self._allocate_in_ram_object(uri, desc)
             self.ram_est_bytes[uri] = desc.size_est
-            self._ram_used_bytes += self._estimate_bytes(obj, fallback_est=desc.size_est)
+            self._ram_used_bytes += self._estimate_bytes(shm_desc, fallback_est=desc.size_est)
 
             ref = DataRef(
                 kind=kind,
@@ -364,8 +409,7 @@ class StorageService:
             return self.external_handles[canonical.ref_id].read_region(region)
 
         if canonical.materialization_loc == "ram":
-            obj = self._get_ram_object(canonical.uri)
-            return self._read_region_from_array(obj, region)
+            return self._read_region_from_ram(canonical.uri, region)
 
         if canonical.materialization_loc != "disk":
             raise ValueError(f"Ref is not materialized: {canonical.ref_id}")
@@ -385,8 +429,7 @@ class StorageService:
         self._ensure_writable(canonical)
 
         if canonical.materialization_loc == "ram":
-            obj = self._get_ram_object(canonical.uri)
-            self._write_region_into_array(obj, region, value)
+            self._write_region_into_ram(canonical.uri, region, value)
             return
 
         if canonical.materialization_loc != "disk":
@@ -412,15 +455,9 @@ class StorageService:
 
         if canonical.materialization_loc == "ram":
             existing = self.ram_objects.get(canonical.uri)
-            if isinstance(existing, np.ndarray) and isinstance(value, np.ndarray):
-                existing[...] = value
-                return
-
-            est_bytes = self.ram_est_bytes.get(canonical.uri, 0)
-            if existing is not None:
-                self._ram_used_bytes -= self._estimate_bytes(existing, fallback_est=est_bytes)
-            self.ram_objects[canonical.uri] = value
-            self._ram_used_bytes += self._estimate_bytes(value, fallback_est=est_bytes)
+            if existing is None:
+                raise KeyError(f"No RAM object for uri={canonical.uri}")
+            self._write_array_into_shared_mem(existing, value)
             return
 
         if canonical.materialization_loc != "disk":
@@ -499,13 +536,13 @@ class StorageService:
             return "json"
         return "memmap"
 
-    def _get_ram_object(self, uri: str) -> Any:
+    def _get_ram_array(self, uri: str) -> np.ndarray:
         if not uri.startswith("mem://"):
             raise ValueError(f"Expected mem:// uri, got: {uri}")
-        try:
-            return self.ram_objects[uri]
-        except KeyError as e:
-            raise KeyError(f"No RAM object for uri={uri}") from e
+        descriptor = self.ram_objects.get(uri)
+        if descriptor is None:
+            raise KeyError(f"No RAM object for uri={uri}")
+        return self._with_shared_mem_array(descriptor, lambda arr: np.asarray(arr).copy())
 
     def _derive_region_meta(self, meta: DataMeta, region: DataRegion) -> RegionMeta:
         wavelengths = meta.wavelengths
@@ -626,6 +663,8 @@ class StorageService:
         return n * np.dtype(desc.dtype).itemsize
 
     def _estimate_bytes(self, obj: Any, fallback_est: int) -> int:
+        if isinstance(obj, SharedMemArrayDescriptor):
+            return int(obj.nbytes)
         if isinstance(obj, np.ndarray):
             return int(obj.nbytes)
         return fallback_est
@@ -641,12 +680,78 @@ class StorageService:
             elem_type=_safe_np_dtype(ref.dtype),
         )
 
-    def _allocate_in_ram_object(self, desc: AllocationRequest) -> Any:
-        if desc.kind == "json":
-            return {}
+    def _allocate_in_ram_object(self, uri: str, desc: AllocationRequest) -> SharedMemArrayDescriptor:
         if desc.shape is None or desc.dtype is None:
-            return None
-        return np.zeros(tuple(desc.shape), dtype=desc.dtype)
+            raise ValueError("RAM shared-memory allocation requires desc.shape and desc.dtype")
+        shape = tuple(int(dim) for dim in desc.shape)
+        dtype = np.dtype(desc.dtype)
+        nbytes = int(np.prod(shape, dtype=np.int64) * dtype.itemsize)
+        shm: SharedMemory = self._shared_memory_manager.SharedMemory(create=True, size=nbytes)
+        shm_desc = SharedMemArrayDescriptor(
+            name=shm.name,
+            shape=shape,
+            dtype_str=dtype.str,
+            strides=None,
+            nbytes=nbytes,
+        )
+        self._shared_mem_handles[uri] = shm
+        self.ram_objects[uri] = shm_desc
+        self._with_shared_mem_array(shm_desc, lambda arr: arr.fill(0))
+        return shm_desc
+
+    def _attach_shared_mem(self, descriptor: SharedMemArrayDescriptor) -> SharedMemory:
+        return SharedMemory(name=descriptor.name, create=False)
+
+    def _array_from_descriptor(self, shm: SharedMemory, descriptor: SharedMemArrayDescriptor) -> np.ndarray:
+        return np.ndarray(
+            shape=descriptor.shape,
+            dtype=np.dtype(descriptor.dtype_str),
+            buffer=shm.buf,
+            strides=descriptor.strides,
+        )
+
+    def _with_shared_mem_array(
+        self,
+        descriptor: SharedMemArrayDescriptor,
+        fn: Callable[[np.ndarray], Any],
+    ) -> Any:
+        shm = self._attach_shared_mem(descriptor)
+        try:
+            arr = self._array_from_descriptor(shm, descriptor)
+            return fn(arr)
+        finally:
+            shm.close()
+
+    def _read_region_from_ram(self, uri: str, region: DataRegion) -> Any:
+        """
+        Read a region from a RAM-backed shared memory object and return a
+        fresh independent NumPy array copy.
+
+        Raises:
+            KeyError: If no RAM-backed object exists for the given URI.
+        """
+        descriptor = self.ram_objects.get(uri)
+        if descriptor is None:
+            raise KeyError(f"No RAM object for uri={uri}")
+        return self._with_shared_mem_array(
+            descriptor,
+            lambda arr: np.asarray(self._read_region_from_array(arr, region)).copy(),
+        )
+
+    def _write_region_into_ram(self, uri: str, region: DataRegion, value: Any) -> None:
+        descriptor = self.ram_objects.get(uri)
+        if descriptor is None:
+            raise KeyError(f"No RAM object for uri={uri}")
+        self._with_shared_mem_array(
+            descriptor,
+            lambda arr: self._write_region_into_array(arr, region, value),
+        )
+
+    def _write_array_into_shared_mem(self, descriptor: SharedMemArrayDescriptor, value: Any) -> None:
+        def _writer(arr: np.ndarray) -> None:
+            arr[...] = value
+
+        self._with_shared_mem_array(descriptor, _writer)
 
     def _new_ref_id(self) -> str:
         return uuid.uuid4().hex
