@@ -686,7 +686,7 @@ class StorageService:
         shape = tuple(int(dim) for dim in desc.shape)
         dtype = np.dtype(desc.dtype)
         nbytes = int(np.prod(shape, dtype=np.int64) * dtype.itemsize)
-        shm: SharedMemory = self._shared_memory_manager.SharedMemory(create=True, size=nbytes)
+        shm: SharedMemory = self._shared_memory_manager.SharedMemory(size=nbytes)
         shm_desc = SharedMemArrayDescriptor(
             name=shm.name,
             shape=shape,
