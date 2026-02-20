@@ -76,19 +76,19 @@ class StorageClient:
             return np.asarray(arr_region), region_meta
 
         if isinstance(desc, (ExternalRamAccessDescriptor, ExternalDiskAccessDescriptor)):
-            arr = self.service.read_region(desc.ref, whole_region)
-            return np.asarray(arr), region_meta
+            arr = self._read_external_region(desc.ref.ref_id, whole_region)
+            return np.array(arr, copy=True), region_meta
 
         if isinstance(desc, MemmapAccessDescriptor):
             mm = np.load(str(desc.path), mmap_mode="r")
-            arr = self.service._read_region_from_array(mm, whole_region)
-            return np.asarray(arr), region_meta
+            arr = self._read_region_from_array(mm, whole_region)
+            return np.array(arr, copy=True), region_meta
 
         if isinstance(desc, ZarrAccessDescriptor):
             store = zarr.DirectoryStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
-            arr = self.service._read_region_from_array(grp[desc.array_name], whole_region)
-            return np.asarray(arr), region_meta
+            arr = self._read_region_from_array(grp[desc.array_name], whole_region)
+            return np.array(arr, copy=True), region_meta
 
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
@@ -134,6 +134,13 @@ class StorageClient:
             return arr[region.i0 : region.i1]
         raise TypeError(f"Unknown DataRegion type: {type(region)}")
 
+    def _read_external_region(self, ref_id: str, region: DataRegion) -> Any:
+        try:
+            handle = self.service.external_handles[ref_id]
+        except KeyError as e:
+            raise KeyError(f"No external handle for ref_id={ref_id}") from e
+        return handle.read_region(region)
+
     def _write_region_into_array(self, arr: Any, region: DataRegion, value: Any) -> None:
         if isinstance(region, DatasetRegionRef):
             arr[
@@ -172,8 +179,8 @@ class StorageClient:
             raise TypeError("read_region not supported for JSON; use read_json_value")
 
         if desc.ref.source == "external":
-            arr = self.service.read_region(desc.ref, region)
-            return np.asarray(arr), desc.region_meta
+            arr = self._read_external_region(desc.ref.ref_id, region)
+            return np.array(arr, copy=True), desc.region_meta
 
         if isinstance(desc, RamAccessDescriptor):
             arr = self._read_ram_array_view(desc.ref.uri)
@@ -182,14 +189,14 @@ class StorageClient:
 
         if isinstance(desc, MemmapAccessDescriptor):
             mm = np.load(str(desc.path), mmap_mode="r")
-            arr = self.service._read_region_from_array(mm, region)
-            return np.asarray(arr), desc.region_meta
+            arr = self._read_region_from_array(mm, region)
+            return np.array(arr, copy=True), desc.region_meta
 
         if isinstance(desc, ZarrAccessDescriptor):
             store = zarr.DirectoryStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
-            arr = self.service._read_region_from_array(grp[desc.array_name], region)
-            return np.asarray(arr), desc.region_meta
+            arr = self._read_region_from_array(grp[desc.array_name], region)
+            return np.array(arr, copy=True), desc.region_meta
 
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
