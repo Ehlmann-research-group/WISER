@@ -208,6 +208,10 @@ class StorageClient:
         if isinstance(desc, JsonAccessDescriptor):
             self.service.write_json_value(desc.ref, value)
             return
+        if isinstance(desc, RamAccessDescriptor):
+            arr = self._read_ram_array_view(desc.ref.uri)
+            arr[...] = value
+            return
         self.service.write_data(desc.ref, value)
 
     def read_json_value(self, ref: DataRef) -> Any:
