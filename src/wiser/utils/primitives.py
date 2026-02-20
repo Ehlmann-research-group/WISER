@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from abc import ABC
 from enum import Enum
 from typing import (
+    Any,
     Dict,
     Literal,
     Optional,
@@ -39,6 +40,16 @@ ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
 RefSource = Literal["internal", "external"]
+ExternalParamsFamily = Literal["dataset", "spectra_list", "array"]
+ExternalParamsDriver = Literal[
+    "netcdf_gdal",
+    "pds3_gdal",
+    "jp2_gdal",
+    "gdal_generic",
+    "envi_sli",
+    "memmap",
+    "zarr",
+]
 
 if TYPE_CHECKING:
     from wiser.utils.task_system import BasePlanMeta
@@ -46,6 +57,17 @@ if TYPE_CHECKING:
 
 def temp_dir() -> Path:
     return Path(tempfile.gettempdir()) / "wiser"
+
+
+@dataclass(frozen=True)
+class ExternalParams:
+    """
+    Reconstruction contract for external disk-backed refs.
+    """
+
+    family: ExternalParamsFamily
+    driver: ExternalParamsDriver
+    kwargs: Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -65,6 +87,7 @@ class DataRef:
     materialization_loc: MaterializationLocation = "none"
     source: RefSource = "internal"
     readonly: bool = False
+    external_params: Optional[ExternalParams] = None
 
     def get_byte_estimate(self) -> Optional[int]:
         # Need both to estimate
