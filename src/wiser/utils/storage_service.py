@@ -73,8 +73,18 @@ class ZarrAccessDescriptor(AccessDescriptor):
 
 
 @dataclass(frozen=True)
-class JsonAccessDescriptor(AccessDescriptor):
+class JsonDiskAccessDescriptor(AccessDescriptor):
     path: Path
+
+
+@dataclass(frozen=True)
+class JsonRamAccessDescriptor(AccessDescriptor):
+    value: Any
+
+
+@dataclass(frozen=True)
+class ExternalJsonRamAccessDescriptor(AccessDescriptor):
+    value: Any
 
 
 @dataclass(frozen=True)
@@ -103,7 +113,7 @@ class StorageService:
     disk_byte_limit: Optional[int] = None
 
     data_refs: Dict[str, DataRef] = field(default_factory=dict)
-    ram_objects: Dict[str, SharedMemArrayDescriptor] = field(default_factory=dict)  # uri -> descriptor
+    ram_objects: Dict[str, Any] = field(default_factory=dict)  # uri -> shared mem descriptor or JSON object
     ram_est_bytes: Dict[str, int] = field(default_factory=dict)
     meta_by_ref: Dict[str, DataMeta] = field(default_factory=dict)
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
@@ -321,6 +331,15 @@ class StorageService:
         region_meta = self.get_region_meta(canonical, region) if region is not None else None
 
         if canonical.source == "external":
+            if canonical.kind == "json":
+                return ExternalJsonRamAccessDescriptor(
+                    ref=canonical,
+                    mode=mode,
+                    region=region,
+                    meta=meta,
+                    region_meta=region_meta,
+                    value=self._get_external_json_value(canonical),
+                )
             if canonical.materialization_loc in ("none", "ram"):
                 shared_mem = self._ensure_external_ram_shared(canonical, meta)
                 return ExternalRamAccessDescriptor(
@@ -373,7 +392,7 @@ class StorageService:
                     store_path=self._zarr_uri_to_path(canonical.uri),
                 )
             if canonical.disk_format == "json":
-                return JsonAccessDescriptor(
+                return JsonDiskAccessDescriptor(
                     ref=canonical,
                     mode=mode,
                     region=region,
@@ -381,6 +400,15 @@ class StorageService:
                     region_meta=region_meta,
                     path=self._file_uri_to_path(canonical.uri),
                 )
+        if canonical.materialization_loc == "ram" and canonical.kind == "json":
+            return JsonRamAccessDescriptor(
+                ref=canonical,
+                mode=mode,
+                region=region,
+                meta=meta,
+                region_meta=region_meta,
+                value=self._get_json_ram_value(canonical),
+            )
 
         raise ValueError(
             f"Unsupported materialization/storage: {canonical.materialization_loc}/{canonical.disk_format}"
@@ -397,7 +425,10 @@ class StorageService:
 
     def read_data(self, ref: DataRef) -> tuple[np.ndarray, RegionMeta]:
         desc = self.get_access(ref, region=None, mode="r")
-        if isinstance(desc, JsonAccessDescriptor):
+        if isinstance(
+            desc,
+            (JsonDiskAccessDescriptor, JsonRamAccessDescriptor, ExternalJsonRamAccessDescriptor),
+        ):
             raise TypeError("read_data not supported for JSON; use read_json_value")
 
         whole_region = self._whole_region_from_meta(desc.meta)
@@ -497,6 +528,15 @@ class StorageService:
         with path.open("w", encoding="utf-8") as f:
             json.dump(value, f)
 
+    def write_json_ram_value(self, ref: DataRef, value: Any) -> None:
+        canonical = self.read_data_ref(ref)
+        self._ensure_writable(canonical, op_name="write_json_ram_value")
+        if canonical.kind != "json":
+            raise TypeError("write_json_ram_value requires ref.kind == 'json'")
+        if canonical.materialization_loc != "ram":
+            raise TypeError("write_json_ram_value requires a RAM-backed JSON ref")
+        self.ram_objects[canonical.uri] = value
+
     # -------------------------------------------------------------------------
     # Metadata
     # -------------------------------------------------------------------------
@@ -544,6 +584,8 @@ class StorageService:
         descriptor = self.ram_objects.get(uri)
         if descriptor is None:
             raise KeyError(f"No RAM object for uri={uri}")
+        if not isinstance(descriptor, SharedMemArrayDescriptor):
+            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
         return self._with_shared_mem_array(descriptor, lambda arr: np.asarray(arr).copy())
 
     def _derive_region_meta(self, meta: DataMeta, region: DataRegion) -> RegionMeta:
@@ -735,6 +777,8 @@ class StorageService:
         descriptor = self.ram_objects.get(uri)
         if descriptor is None:
             raise KeyError(f"No RAM object for uri={uri}")
+        if not isinstance(descriptor, SharedMemArrayDescriptor):
+            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
         return self._with_shared_mem_array(
             descriptor,
             lambda arr: np.asarray(self._read_region_from_array(arr, region)).copy(),
@@ -744,6 +788,8 @@ class StorageService:
         descriptor = self.ram_objects.get(uri)
         if descriptor is None:
             raise KeyError(f"No RAM object for uri={uri}")
+        if not isinstance(descriptor, SharedMemArrayDescriptor):
+            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
         self._with_shared_mem_array(
             descriptor,
             lambda arr: self._write_region_into_array(arr, region, value),
@@ -785,6 +831,25 @@ class StorageService:
         self.ram_objects[ref.uri] = shm_desc
         self._with_shared_mem_array(shm_desc, lambda target: np.copyto(target, arr))
         return shm_desc
+
+    def _get_external_json_value(self, ref: DataRef) -> Any:
+        cached = self.ram_objects.get(ref.uri)
+        if cached is not None and not isinstance(cached, SharedMemArrayDescriptor):
+            return cached
+        if ref.ref_id not in self.external_handles:
+            raise KeyError(f"No external handle for ref_id={ref.ref_id}")
+        raise TypeError(
+            f"External JSON ref {ref.ref_id} does not have a cached RAM value; "
+            "populate service.ram_objects[ref.uri] with a JSON object before requesting access"
+        )
+
+    def _get_json_ram_value(self, ref: DataRef) -> Any:
+        cached = self.ram_objects.get(ref.uri)
+        if cached is None:
+            raise KeyError(f"No RAM JSON object for uri={ref.uri}")
+        if isinstance(cached, SharedMemArrayDescriptor):
+            raise TypeError(f"RAM object for uri={ref.uri} is shared-memory array, not JSON")
+        return cached
 
     def _new_ref_id(self) -> str:
         return uuid.uuid4().hex

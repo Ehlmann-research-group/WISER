@@ -19,8 +19,10 @@ from .primitives import (
 from .storage_service import (
     AccessDescriptor,
     ExternalDiskAccessDescriptor,
+    ExternalJsonRamAccessDescriptor,
     ExternalRamAccessDescriptor,
-    JsonAccessDescriptor,
+    JsonDiskAccessDescriptor,
+    JsonRamAccessDescriptor,
     MemmapAccessDescriptor,
     RamAccessDescriptor,
     SharedMemArrayDescriptor,
@@ -64,7 +66,9 @@ class StorageClient:
         (not a copy), backed by an attached `SharedMemory` segment.
         """
         desc = self.service.get_access(ref, region=None, mode="r")
-        if isinstance(desc, JsonAccessDescriptor):
+        if isinstance(
+            desc, (JsonDiskAccessDescriptor, JsonRamAccessDescriptor, ExternalJsonRamAccessDescriptor)
+        ):
             raise TypeError("read_data not supported for JSON; use read_json_value")
 
         whole_region = self._whole_region_from_meta(desc.meta)
@@ -183,7 +187,9 @@ class StorageClient:
         desc = self.service.get_access(ref, region, mode="r")
         if desc.region_meta is None:
             raise ValueError("Region metadata is required for region reads")
-        if isinstance(desc, JsonAccessDescriptor):
+        if isinstance(
+            desc, (JsonDiskAccessDescriptor, JsonRamAccessDescriptor, ExternalJsonRamAccessDescriptor)
+        ):
             raise TypeError("read_region not supported for JSON; use read_json_value")
 
         if isinstance(desc, ExternalRamAccessDescriptor):
@@ -247,13 +253,24 @@ class StorageClient:
 
     def read_json_value(self, ref: DataRef) -> Any:
         desc = self.service.get_access(ref, region=None, mode="r")
-        if not isinstance(desc, JsonAccessDescriptor):
+        if isinstance(desc, ExternalJsonRamAccessDescriptor):
+            return desc.value
+        if isinstance(desc, JsonRamAccessDescriptor):
+            return desc.value
+        if not isinstance(desc, JsonDiskAccessDescriptor):
             raise TypeError("read_json_value requires a JSON ref")
         return self.service.read_json_value(desc.ref)
 
     def write_json_value(self, ref: DataRef, value: Any) -> None:
         desc = self.service.get_access(ref, region=None, mode="rw")
-        if not isinstance(desc, JsonAccessDescriptor):
+        if isinstance(desc, ExternalJsonRamAccessDescriptor):
+            raise PermissionError(
+                f"write_json_value is not allowed for external/read-only refs: {desc.ref.ref_id}"
+            )
+        if isinstance(desc, JsonRamAccessDescriptor):
+            self.service.write_json_ram_value(desc.ref, value)
+            return
+        if not isinstance(desc, JsonDiskAccessDescriptor):
             raise TypeError("write_json_value requires a JSON ref")
         self.service.write_json_value(desc.ref, value)
 
