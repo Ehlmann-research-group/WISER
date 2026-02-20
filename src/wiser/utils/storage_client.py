@@ -202,24 +202,35 @@ class StorageClient:
 
     def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
         desc = self.service.get_access(ref, region, mode="rw")
-        if isinstance(desc, JsonAccessDescriptor):
-            raise TypeError("write_region not supported for JSON; use write_json_value")
-        if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
+        if isinstance(desc, MemmapAccessDescriptor):
+            arr = np.load(str(desc.path), mmap_mode="r+")
             self._write_region_into_array(arr, region, value)
+            if hasattr(arr, "flush"):
+                arr.flush()
             return
-        self.service.write_region(desc.ref, region, value)
+        if isinstance(desc, ZarrAccessDescriptor):
+            store = zarr.DirectoryStore(str(desc.store_path))
+            grp = zarr.open_group(store=store, mode="r+")
+            self._write_region_into_array(grp[desc.array_name], region, value)
+            return
+        raise TypeError(
+            "StorageClient.write_region currently supports only memmap and zarr access descriptors"
+        )
 
     def write_data(self, ref: DataRef, value: Any) -> None:
         desc = self.service.get_access(ref, region=None, mode="rw")
-        if isinstance(desc, JsonAccessDescriptor):
-            self.service.write_json_value(desc.ref, value)
-            return
-        if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
+        if isinstance(desc, MemmapAccessDescriptor):
+            arr = np.load(str(desc.path), mmap_mode="r+")
             arr[...] = value
+            if hasattr(arr, "flush"):
+                arr.flush()
             return
-        self.service.write_data(desc.ref, value)
+        if isinstance(desc, ZarrAccessDescriptor):
+            store = zarr.DirectoryStore(str(desc.store_path))
+            grp = zarr.open_group(store=store, mode="r+")
+            grp[desc.array_name][...] = value
+            return
+        raise TypeError("StorageClient.write_data currently supports only memmap and zarr access descriptors")
 
     def read_json_value(self, ref: DataRef) -> Any:
         desc = self.service.get_access(ref, region=None, mode="r")
