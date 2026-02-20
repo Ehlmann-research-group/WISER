@@ -75,7 +75,12 @@ class StorageClient:
             arr_region = self._read_region_from_array(arr, whole_region)
             return np.asarray(arr_region), region_meta
 
-        if isinstance(desc, (ExternalRamAccessDescriptor, ExternalDiskAccessDescriptor)):
+        if isinstance(desc, ExternalRamAccessDescriptor):
+            arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
+            arr_region = self._read_region_from_array(arr, whole_region)
+            return np.asarray(arr_region), region_meta
+
+        if isinstance(desc, ExternalDiskAccessDescriptor):
             arr = self._read_external_region(desc.ref.ref_id, whole_region)
             return np.array(arr, copy=True), region_meta
 
@@ -94,6 +99,9 @@ class StorageClient:
 
     def _read_ram_array_view(self, uri: str) -> np.ndarray:
         descriptor = self._get_ram_descriptor(uri)
+        return self._read_shared_mem_descriptor_view(descriptor)
+
+    def _read_shared_mem_descriptor_view(self, descriptor: SharedMemArrayDescriptor) -> np.ndarray:
         shm = self._get_or_attach_shm(descriptor)
         return np.ndarray(
             shape=descriptor.shape,
@@ -178,7 +186,12 @@ class StorageClient:
         if isinstance(desc, JsonAccessDescriptor):
             raise TypeError("read_region not supported for JSON; use read_json_value")
 
-        if desc.ref.source == "external":
+        if isinstance(desc, ExternalRamAccessDescriptor):
+            arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
+            arr = self._read_region_from_array(arr, region)
+            return np.asarray(arr), desc.region_meta
+
+        if isinstance(desc, ExternalDiskAccessDescriptor):
             arr = self._read_external_region(desc.ref.ref_id, region)
             return np.array(arr, copy=True), desc.region_meta
 

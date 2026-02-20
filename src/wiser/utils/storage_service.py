@@ -53,7 +53,7 @@ class RamAccessDescriptor(AccessDescriptor):
 
 @dataclass(frozen=True)
 class ExternalRamAccessDescriptor(AccessDescriptor):
-    pass
+    shared_mem: SharedMemArrayDescriptor
 
 
 @dataclass(frozen=True)
@@ -103,7 +103,7 @@ class StorageService:
     disk_byte_limit: Optional[int] = None
 
     data_refs: Dict[str, DataRef] = field(default_factory=dict)
-    ram_objects: Dict[str, SharedMemArrayDescriptor] = field(default_factory=dict)
+    ram_objects: Dict[str, SharedMemArrayDescriptor] = field(default_factory=dict)  # uri -> descriptor
     ram_est_bytes: Dict[str, int] = field(default_factory=dict)
     meta_by_ref: Dict[str, DataMeta] = field(default_factory=dict)
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
@@ -322,12 +322,14 @@ class StorageService:
 
         if canonical.source == "external":
             if canonical.materialization_loc in ("none", "ram"):
+                shared_mem = self._ensure_external_ram_shared(canonical, meta)
                 return ExternalRamAccessDescriptor(
                     ref=canonical,
                     mode=mode,
                     region=region,
                     meta=meta,
                     region_meta=region_meta,
+                    shared_mem=shared_mem,
                 )
             if canonical.materialization_loc == "disk":
                 return ExternalDiskAccessDescriptor(
@@ -752,6 +754,37 @@ class StorageService:
             arr[...] = value
 
         self._with_shared_mem_array(descriptor, _writer)
+
+    def _ensure_external_ram_shared(self, ref: DataRef, meta: DataMeta) -> SharedMemArrayDescriptor:
+        existing = self.ram_objects.get(ref.uri)
+        if existing is not None:
+            return existing
+
+        if not (ref.source == "external" and ref.readonly):
+            raise ValueError("_ensure_external_ram_shared requires an external read-only ref")
+        if meta.kind == "json":
+            raise TypeError("External RAM shared-memory materialization is not supported for JSON refs")
+        if not meta.shape:
+            raise ValueError(
+                f"Cannot materialize external shared memory for ref_id={ref.ref_id} without shape"
+            )
+
+        whole_region = self._whole_region_from_meta(meta)
+        value = self.external_handles[ref.ref_id].read_region(whole_region)
+        arr = np.asarray(value)
+        nbytes = int(arr.nbytes)
+        shm: SharedMemory = self._shared_memory_manager.SharedMemory(size=nbytes)
+        shm_desc = SharedMemArrayDescriptor(
+            name=shm.name,
+            shape=tuple(arr.shape),
+            dtype_str=np.dtype(arr.dtype).str,
+            strides=tuple(arr.strides),
+            nbytes=nbytes,
+        )
+        self._shared_mem_handles[ref.uri] = shm
+        self.ram_objects[ref.uri] = shm_desc
+        self._with_shared_mem_array(shm_desc, lambda target: np.copyto(target, arr))
+        return shm_desc
 
     def _new_ref_id(self) -> str:
         return uuid.uuid4().hex
