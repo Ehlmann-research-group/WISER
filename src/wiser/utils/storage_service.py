@@ -13,9 +13,23 @@ from urllib.parse import quote, unquote, urlparse
 import numpy as np
 import zarr
 
+from wiser.raster.dataset_impl import (
+    ASC_GDALRasterDataImpl,
+    ENVI_GDALRasterDataImpl,
+    GDALRasterDataImpl,
+    GTiff_GDALRasterDataImpl,
+    JP2_GDALRasterDataImpl,
+    NetCDF_GDALRasterDataImpl,
+    PDS3_GDALRasterDataImpl,
+    PDS4_GDALRasterDataImpl,
+)
+from wiser.raster.dataset import RasterDataSet
+from wiser.raster.envi_spectral_library import ENVISpectralLibrary
+
 from .primitives import (
     AllocationRequest,
     DataMeta,
+    ExternalParams,
     DataRef,
     DataRegion,
     DatasetRegionRef,
@@ -154,6 +168,14 @@ class StorageService:
     def register_external(self, handle: ExternalHandle) -> DataRef:
         ref_id = self._new_ref_id()
         meta = handle.get_meta()
+        external_params = self._build_external_params(handle)
+        # TODO: After the below check, check the type of ExternalHandle
+        # (ExternalRasterHandle, vs ExternalSpectraListHandle, vs ExternalSpectrumHandle)
+        # then check their "_obj"s to see if they are RAM loaded. Or think of a better way
+        # to do this.
+        materialization_loc: Literal["none", "ram", "disk"] = (
+            "disk" if external_params is not None else "none"
+        )
         ref = DataRef(
             kind=meta.kind,
             ref_id=ref_id,
@@ -163,15 +185,95 @@ class StorageService:
             dtype=_safe_np_dtype(meta.elem_type),
             chunks=None,
             residency="spill_required",
-            materialization_loc="none",
+            materialization_loc=materialization_loc,
             source="external",
             readonly=True,
+            external_params=external_params,
         )
         self.data_refs[ref_id] = ref
         self.external_handles[ref_id] = handle
         self.meta_by_ref[ref_id] = meta
         logger.info("register_external ref_id=%s kind=%s", ref_id, ref.kind)
         return ref
+
+    def _build_external_params(self, handle: ExternalHandle) -> Optional[ExternalParams]:
+        if handle.kind == "dataset" and hasattr(handle, "dataset_obj"):
+            dataset_obj: RasterDataSet = getattr(handle, "dataset_obj")
+            serialized = dataset_obj.get_serialized_form()
+            serialize_value = serialized.get_serialize_value()
+            metadata = serialized.get_metadata()
+            if not isinstance(serialize_value, str):
+                return None
+
+            impl_type = metadata.get("impl_type")
+            impl = dataset_obj.get_impl()
+            if isinstance(impl, NetCDF_GDALRasterDataImpl) or impl_type == "NetCDF_GDALRasterDataImpl":
+                return ExternalParams(
+                    family="dataset",
+                    driver="netcdf_gdal",
+                    kwargs={
+                        "path": serialize_value,
+                        "subdataset_name": metadata.get("subdataset_name"),
+                    },
+                )
+            if isinstance(impl, ENVI_GDALRasterDataImpl) or impl_type == "ENVI_GDALRasterDataImpl":
+                return ExternalParams(
+                    family="dataset",
+                    driver="envi_gdal",
+                    kwargs={"path": serialize_value},
+                )
+            if isinstance(impl, GTiff_GDALRasterDataImpl):
+                return ExternalParams(
+                    family="dataset",
+                    driver="gtiff_gdal",
+                    kwargs={"path": serialize_value},
+                )
+            if isinstance(impl, ASC_GDALRasterDataImpl):
+                return ExternalParams(
+                    family="dataset",
+                    driver="asc_gdal",
+                    kwargs={"path": serialize_value},
+                )
+            if isinstance(impl, PDS3_GDALRasterDataImpl) or impl_type == "PDS3_GDALRasterDataImpl":
+                return ExternalParams(
+                    family="dataset",
+                    driver="pds3_gdal",
+                    kwargs={"path": serialize_value},
+                )
+            if isinstance(impl, PDS4_GDALRasterDataImpl):
+                return ExternalParams(
+                    family="dataset",
+                    driver="pds4_gdal",
+                    kwargs={"path": serialize_value},
+                )
+            if isinstance(impl, JP2_GDALRasterDataImpl) or impl_type == "JP2_GDAL_PDR_RasterDataImpl":
+                return ExternalParams(
+                    family="dataset",
+                    driver="jp2_gdal",
+                    kwargs={"path": serialize_value},
+                )
+            if isinstance(impl, GDALRasterDataImpl) or impl_type == "GDALRasterDataImpl":
+                return ExternalParams(
+                    family="dataset",
+                    driver="gdal_generic",
+                    kwargs={"path": serialize_value},
+                )
+            return None
+
+        if handle.kind == "spectra_list" and hasattr(handle, "lib_obj"):
+            lib_obj = getattr(handle, "lib_obj")
+            if isinstance(lib_obj, ENVISpectralLibrary):
+                filepaths = lib_obj.get_filepaths()
+                if filepaths:
+                    return ExternalParams(
+                        family="spectra_list",
+                        driver="envi_sli",
+                        kwargs={"path": filepaths[0]},
+                    )
+            return None
+
+        # External spectrum refs are currently RAM/no-disk reconstruction only.
+        return None
 
     # -------------------------------------------------------------------------
     # Allocation

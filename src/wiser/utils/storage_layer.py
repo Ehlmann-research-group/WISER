@@ -78,7 +78,7 @@ class ExternalHandle(Protocol):
 
     kind: InputKind
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         ...
 
     def get_meta(self) -> DataMeta:
@@ -93,7 +93,7 @@ class ExternalRasterHandle:
     dataset_obj: "RasterDataSet"
     kind: InputKind = "dataset"
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         if not isinstance(region, DatasetRegionRef):
             raise TypeError(f"Dataset external read requires DatasetRegionRef, got {type(region)}")
         arr_by_band = self.dataset_obj.get_image_data_subset(
@@ -133,7 +133,7 @@ class ExternalSpectrumHandle:
     spectrum_obj: "Spectrum"
     kind: InputKind = "spectrum"
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         if not isinstance(region, SpectrumRef):
             raise TypeError(f"Spectrum external read requires SpectrumRef, got {type(region)}")
         spectrum = np.asarray(self.spectrum_obj.get_spectrum())
@@ -160,7 +160,7 @@ class ExternalSpectralLibraryHandle:
     lib_obj: "SpectralLibrary"
     kind: InputKind = "spectra_list"
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         if not isinstance(region, SpectraBatchRef):
             raise TypeError(f"Spectral library external read requires SpectraBatchRef, got {type(region)}")
         rows: list[np.ndarray] = []

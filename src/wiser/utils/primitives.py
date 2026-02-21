@@ -44,7 +44,11 @@ ExternalParamsFamily = Literal["dataset", "spectra_list", "array"]
 ExternalParamsDriver = Literal[
     "netcdf_gdal",
     "pds3_gdal",
+    "pds4_gdal",
     "jp2_gdal",
+    "envi_gdal",
+    "gtiff_gdal",
+    "asc_gdal",
     "gdal_generic",
     "envi_sli",
     "memmap",
