@@ -7,7 +7,7 @@ import numpy as np
 import tests.context
 
 from wiser.raster.dataset import RasterDataSet
-from wiser.raster.dataset_impl import NumPyRasterDataImpl
+from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl, NumPyRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import AllocationRequest, DatasetRegionRef
 from wiser.utils.storage_client import StorageClient
@@ -46,6 +46,40 @@ class TestStorageServiceClient(unittest.TestCase):
                 Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "caltech_425_7_7_nm"
             )
             disk_dataset = loader.load_from_file(str(fixture_path), interactive=False)[0]
+            disk_ref = service.register_external(ExternalRasterHandle(dataset_obj=disk_dataset))
+            disk_ref = replace(disk_ref, materialization_loc="disk")
+            service.data_refs[disk_ref.ref_id] = disk_ref
+
+            expected_disk = np.asarray(disk_dataset.get_image_data()).transpose(1, 2, 0)
+            got_disk, disk_region_meta = client.read_data(disk_ref)
+            np.testing.assert_allclose(got_disk, expected_disk, equal_nan=True)
+
+            disk_meta_service = service.get_meta(disk_ref)
+            disk_meta_client = client.get_meta(disk_ref)
+            self._assert_meta_equal(disk_meta_service, disk_meta_client)
+            self.assertEqual(np.dtype(disk_region_meta.elem_type), np.dtype(disk_meta_client.elem_type))
+            self.assertEqual(
+                disk_region_meta.region,
+                DatasetRegionRef(
+                    0, expected_disk.shape[0], 0, expected_disk.shape[1], 0, expected_disk.shape[2]
+                ),
+            )
+
+    def test_external_disk_backed_netcdf_reflectance_read_data_and_meta(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            client = StorageClient(service=service)
+
+            fixture_path = (
+                Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "netcdf.nc"
+            )
+            netcdf_impl = NetCDF_GDALRasterDataImpl.try_load_file(
+                str(fixture_path),
+                subdataset_name="reflectance",
+                interactive=False,
+            )[0]
+            disk_dataset = RasterDataSet(netcdf_impl)
+
             disk_ref = service.register_external(ExternalRasterHandle(dataset_obj=disk_dataset))
             disk_ref = replace(disk_ref, materialization_loc="disk")
             service.data_refs[disk_ref.ref_id] = disk_ref
