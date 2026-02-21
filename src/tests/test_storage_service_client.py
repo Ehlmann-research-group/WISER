@@ -146,7 +146,7 @@ class TestStorageServiceClient(unittest.TestCase):
             self.assertEqual(ref.disk_format, "memmap")
 
             expected = ((np.arange(4 * 3 * 6, dtype=np.float32).reshape(4, 3, 6) % 7.0) * 2.25) - 3.0
-            service.write_data(ref, expected)
+            client.write_data(ref, expected)
 
             got, region_meta = client.read_data(ref)
             np.testing.assert_allclose(got, expected, equal_nan=True)
@@ -177,7 +177,7 @@ class TestStorageServiceClient(unittest.TestCase):
             self.assertEqual(ref.materialization_loc, "ram")
 
             expected = (np.arange(3 * 5 * 4, dtype=np.float32).reshape(3, 5, 4) / 3.0) + 0.125
-            service.write_data(ref, expected)
+            client.write_data(ref, expected)
 
             got, region_meta = client.read_data(ref)
             np.testing.assert_allclose(got, expected, equal_nan=True)

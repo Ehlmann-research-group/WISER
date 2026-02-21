@@ -525,94 +525,6 @@ class StorageService:
         except KeyError as e:
             raise KeyError(f"Unknown ref_id: {ref.ref_id}") from e
 
-    def read_data(self, ref: DataRef) -> tuple[np.ndarray, RegionMeta]:
-        desc = self.get_access(ref, region=None, mode="r")
-        if isinstance(
-            desc,
-            (JsonDiskAccessDescriptor, JsonRamAccessDescriptor, ExternalJsonRamAccessDescriptor),
-        ):
-            raise TypeError("read_data not supported for JSON; use read_json_value")
-
-        whole_region = self._whole_region_from_meta(desc.meta)
-        region_meta = self.get_region_meta(desc.ref, whole_region)
-        arr = self.read_region(desc.ref, whole_region)
-        return np.asarray(arr), region_meta
-
-    def read_region(self, ref: DataRef, region: DataRegion) -> Any:
-        canonical = self.read_data_ref(ref)
-        if canonical.source == "external":
-            return self.external_handles[canonical.ref_id].read_region(region)
-
-        if canonical.materialization_loc == "ram":
-            return self._read_region_from_ram(canonical.uri, region)
-
-        if canonical.materialization_loc != "disk":
-            raise ValueError(f"Ref is not materialized: {canonical.ref_id}")
-
-        if canonical.disk_format == "json":
-            raise TypeError("read_region not supported for JSON; use read_json_value")
-        if canonical.disk_format == "memmap":
-            arr = np.load(str(self._file_uri_to_path(canonical.uri)), mmap_mode="r")
-            return self._read_region_from_array(arr, region)
-        if canonical.disk_format == "zarr":
-            z = self._open_zarr_array(canonical.uri, mode="r")
-            return self._read_region_from_array(z, region)
-        raise ValueError(f"Unsupported disk format: {canonical.disk_format}")
-
-    def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
-        canonical = self.read_data_ref(ref)
-        self._ensure_writable(canonical)
-
-        if canonical.materialization_loc == "ram":
-            self._write_region_into_ram(canonical.uri, region, value)
-            return
-
-        if canonical.materialization_loc != "disk":
-            raise ValueError(f"Ref is not materialized: {canonical.ref_id}")
-
-        if canonical.disk_format == "json":
-            raise TypeError("write_region not supported for JSON; use write_json_value")
-        if canonical.disk_format == "memmap":
-            arr = np.load(str(self._file_uri_to_path(canonical.uri)), mmap_mode="r+")
-            self._write_region_into_array(arr, region, value)
-            if hasattr(arr, "flush"):
-                arr.flush()
-            return
-        if canonical.disk_format == "zarr":
-            z = self._open_zarr_array(canonical.uri, mode="r+")
-            self._write_region_into_array(z, region, value)
-            return
-        raise ValueError(f"Unsupported disk format: {canonical.disk_format}")
-
-    def write_data(self, ref: DataRef, value: Any) -> None:
-        canonical = self.read_data_ref(ref)
-        self._ensure_writable(canonical)
-
-        if canonical.materialization_loc == "ram":
-            existing = self.ram_objects.get(canonical.uri)
-            if existing is None:
-                raise KeyError(f"No RAM object for uri={canonical.uri}")
-            self._write_array_into_shared_mem(existing, value)
-            return
-
-        if canonical.materialization_loc != "disk":
-            raise ValueError(f"Ref is not materialized: {canonical}")
-
-        if canonical.disk_format == "json":
-            self.write_json_value(canonical, value)
-            return
-        if canonical.disk_format == "memmap":
-            arr = np.load(str(self._file_uri_to_path(canonical.uri)), mmap_mode="r+")
-            arr[...] = value
-            if hasattr(arr, "flush"):
-                arr.flush()
-            return
-        if canonical.disk_format == "zarr":
-            z = self._open_zarr_array(canonical.uri, mode="r+")
-            z[...] = value
-            return
-        raise ValueError(f"Unsupported disk format: {canonical.disk_format}")
-
     def read_json_value(self, ref: DataRef) -> Any:
         canonical = self.read_data_ref(ref)
         if canonical.disk_format != "json":
@@ -680,16 +592,6 @@ class StorageService:
             return "json"
         return "memmap"
 
-    def _get_ram_array(self, uri: str) -> np.ndarray:
-        if not uri.startswith("mem://"):
-            raise ValueError(f"Expected mem:// uri, got: {uri}")
-        descriptor = self.ram_objects.get(uri)
-        if descriptor is None:
-            raise KeyError(f"No RAM object for uri={uri}")
-        if not isinstance(descriptor, SharedMemArrayDescriptor):
-            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
-        return self._with_shared_mem_array(descriptor, lambda arr: np.asarray(arr).copy())
-
     def _derive_region_meta(self, meta: DataMeta, region: DataRegion) -> RegionMeta:
         wavelengths = meta.wavelengths
         bad_bands = meta.bad_bands
@@ -734,43 +636,6 @@ class StorageService:
             f"Cannot derive whole-data region for kind={meta.kind} shape={meta.shape}; "
             "use read_region with an explicit DataRegion"
         )
-
-    def _read_region_from_array(self, arr: Any, region: DataRegion) -> Any:
-        if isinstance(region, DatasetRegionRef):
-            return arr[
-                region.y0 : region.y1,
-                region.x0 : region.x1,
-                region.b0 : (region.b1 if region.b1 is not None else None),
-            ]
-        if isinstance(region, SpectrumRef):
-            return arr[...]
-        if isinstance(region, SpectraBatchRef):
-            return arr[region.i0 : region.i1]
-        raise TypeError(f"Unknown DataRegion type: {type(region)}")
-
-    def _write_region_into_array(self, arr: Any, region: DataRegion, value: Any) -> None:
-        if isinstance(region, DatasetRegionRef):
-            arr[
-                region.y0 : region.y1,
-                region.x0 : region.x1,
-                region.b0 : (region.b1 if region.b1 is not None else None),
-            ] = value
-            return
-        if isinstance(region, SpectrumRef):
-            arr[...] = value
-            return
-        if isinstance(region, SpectraBatchRef):
-            arr[region.i0 : region.i1] = value
-            return
-        raise TypeError(f"Unknown DataRegion type: {type(region)}")
-
-    def _open_zarr_array(self, uri: str, mode: str) -> zarr.Array:
-        if not uri.startswith("zarr://"):
-            raise ValueError(f"Expected zarr:// uri, got: {uri}")
-        store_path = self._zarr_uri_to_path(uri)
-        store = zarr.DirectoryStore(str(store_path))
-        grp = zarr.open_group(store=store, mode=mode)
-        return grp["data"]
 
     def _file_uri_to_path(self, uri: str) -> Path:
         parsed = urlparse(uri)
@@ -867,41 +732,6 @@ class StorageService:
             return fn(arr)
         finally:
             shm.close()
-
-    def _read_region_from_ram(self, uri: str, region: DataRegion) -> Any:
-        """
-        Read a region from a RAM-backed shared memory object and return a
-        fresh independent NumPy array copy.
-
-        Raises:
-            KeyError: If no RAM-backed object exists for the given URI.
-        """
-        descriptor = self.ram_objects.get(uri)
-        if descriptor is None:
-            raise KeyError(f"No RAM object for uri={uri}")
-        if not isinstance(descriptor, SharedMemArrayDescriptor):
-            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
-        return self._with_shared_mem_array(
-            descriptor,
-            lambda arr: np.asarray(self._read_region_from_array(arr, region)).copy(),
-        )
-
-    def _write_region_into_ram(self, uri: str, region: DataRegion, value: Any) -> None:
-        descriptor = self.ram_objects.get(uri)
-        if descriptor is None:
-            raise KeyError(f"No RAM object for uri={uri}")
-        if not isinstance(descriptor, SharedMemArrayDescriptor):
-            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
-        self._with_shared_mem_array(
-            descriptor,
-            lambda arr: self._write_region_into_array(arr, region, value),
-        )
-
-    def _write_array_into_shared_mem(self, descriptor: SharedMemArrayDescriptor, value: Any) -> None:
-        def _writer(arr: np.ndarray) -> None:
-            arr[...] = value
-
-        self._with_shared_mem_array(descriptor, _writer)
 
     def _ensure_external_ram_shared(self, ref: DataRef, meta: DataMeta) -> SharedMemArrayDescriptor:
         existing = self.ram_objects.get(ref.uri)

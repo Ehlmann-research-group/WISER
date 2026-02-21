@@ -178,6 +178,10 @@ class StorageClient:
 
     def write_data(self, ref: DataRef, value: Any) -> None:
         desc = self.service.get_access(ref, region=None, mode="rw")
+        if isinstance(desc, RamAccessDescriptor):
+            arr = self._read_ram_array_view(desc.ref.uri)
+            arr[...] = value
+            return
         if isinstance(desc, MemmapAccessDescriptor):
             arr = np.load(str(desc.path), mmap_mode="r+")
             arr[...] = value
@@ -189,7 +193,10 @@ class StorageClient:
             grp = zarr.open_group(store=store, mode="r+")
             grp[desc.array_name][...] = value
             return
-        raise TypeError("StorageClient.write_data currently supports only memmap and zarr access descriptors")
+        raise TypeError(
+            "StorageClient.write_data currently supports RAM, memmap, and zarr access descriptors."
+            f"\nIt does not support {type(desc)} descriptors."
+        )
 
     def read_json_value(self, ref: DataRef) -> Any:
         desc = self.service.get_access(ref, region=None, mode="r")
