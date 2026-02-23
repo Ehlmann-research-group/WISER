@@ -210,6 +210,10 @@ class StorageClient:
 
     def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=region, mode="rw")
+        if isinstance(desc, RamAccessDescriptor):
+            arr = self._read_ram_array_view(desc.ref.uri)
+            self._write_region_into_array(arr, region, value)
+            return
         if isinstance(desc, MemmapAccessDescriptor):
             arr = np.load(str(desc.path), mmap_mode="r+")
             self._write_region_into_array(arr, region, value)
