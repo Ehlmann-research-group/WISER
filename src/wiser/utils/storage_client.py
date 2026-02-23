@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Tuple
 
 import numpy as np
 import zarr
@@ -50,9 +51,23 @@ class StorageClient:
     """
 
     service: StorageService
+    service_address: Tuple[str, int]
+    service_authkey: bytes
+    _conn: Optional[Connection] = field(default=None, init=False, repr=False)
     _shared_mem_handles: Dict[str, SharedMemory] = field(default_factory=dict, init=False, repr=False)
 
+    def __post_init__(self) -> None:
+        self._connect_to_service()
+
     def close(self) -> None:
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+            finally:
+                self._conn = None
+
         for shm in self._shared_mem_handles.values():
             try:
                 shm.close()
@@ -65,6 +80,13 @@ class StorageClient:
             self.close()
         except Exception:
             pass
+
+    def _connect_to_service(self) -> None:
+        if self.service_address is None or self.service_authkey is None:
+            raise RuntimeError(
+                "StorageClient requires service_address and service_authkey at construction time"
+            )
+        self._conn = Client(self.service_address, authkey=self.service_authkey)
 
     def read_data_ref(self, ref: DataRef) -> DataRef:
         desc = self.service.get_access(ref, region=None, mode="r")

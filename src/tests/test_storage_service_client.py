@@ -38,7 +38,8 @@ class TestStorageServiceClient(unittest.TestCase):
     def test_external_disk_backed_dataset_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
-            client = StorageClient(service=service)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
 
             # External disk-backed dataset from test fixtures.
             loader = RasterDataLoader()
@@ -68,7 +69,8 @@ class TestStorageServiceClient(unittest.TestCase):
     def test_external_disk_backed_netcdf_reflectance_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
-            client = StorageClient(service=service)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
 
             fixture_path = (
                 Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "netcdf.nc"
@@ -102,7 +104,8 @@ class TestStorageServiceClient(unittest.TestCase):
     def test_external_ram_backed_dataset_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
-            client = StorageClient(service=service)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
 
             # External RAM-backed dataset using NumPyRasterDataImpl.
             arr_band_first = (np.arange(3 * 4 * 5, dtype=np.float32).reshape(3, 4, 5) * 1.5) - 4.25
@@ -129,7 +132,8 @@ class TestStorageServiceClient(unittest.TestCase):
     def test_internal_disk_backed_dataset_write_then_client_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
-            client = StorageClient(service=service)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
 
             ref = service.allocate_data(
                 AllocationRequest(
@@ -162,7 +166,8 @@ class TestStorageServiceClient(unittest.TestCase):
     def test_internal_ram_backed_dataset_write_then_client_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir, ram_byte_limit=10_000_000)
-            client = StorageClient(service=service)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
 
             ref = service.allocate_data(
                 AllocationRequest(

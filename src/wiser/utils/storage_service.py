@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from multiprocessing.connection import Connection, Listener
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing.shared_memory import SharedMemory
 from pathlib import Path
+import secrets
+import threading
 from typing import Any, Callable, Dict, Literal, Optional, Tuple
 import json
 import logging
@@ -123,6 +126,7 @@ class SharedMemArrayDescriptor:
 @dataclass
 class StorageService:
     root_dir: Path = temp_dir()
+    listener_host: str = "127.0.0.1"
     ram_byte_limit: Optional[int] = None
     disk_byte_limit: Optional[int] = None
 
@@ -133,16 +137,50 @@ class StorageService:
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
     _shared_mem_handles: Dict[str, SharedMemory] = field(default_factory=dict, init=False, repr=False)
     _shared_memory_manager: SharedMemoryManager = field(init=False, repr=False)
+    _listener: Optional[Listener] = field(default=None, init=False, repr=False)
+    _listener_address: Optional[Tuple[str, int]] = field(default=None, init=False)
+    _listener_authkey: bytes = field(default=b"", init=False, repr=False)
+    _listener_stop_event: threading.Event = field(init=False, repr=False)
+    _accept_thread: Optional[threading.Thread] = field(default=None, init=False, repr=False)
+    _active_connections: Dict[int, Connection] = field(default_factory=dict, init=False, repr=False)
+    _connection_threads: Dict[int, threading.Thread] = field(default_factory=dict, init=False, repr=False)
 
     _ram_used_bytes: int = 0
 
     def __post_init__(self) -> None:
         self.root_dir = Path(self.root_dir).resolve()
         self.root_dir.mkdir(parents=True, exist_ok=True)
+        self._listener_stop_event = threading.Event()
+        self._listener_authkey = secrets.token_bytes(32)
+        self._start_listener()
         self._shared_memory_manager = SharedMemoryManager()
         self._shared_memory_manager.start()
 
     def close(self) -> None:
+        self._listener_stop_event.set()
+        if self._listener is not None:
+            try:
+                self._listener.close()
+            except Exception:
+                logger.debug("Listener close failed during shutdown", exc_info=True)
+            finally:
+                self._listener = None
+
+        for conn in list(self._active_connections.values()):
+            try:
+                conn.close()
+            except Exception:
+                logger.debug("Connection close failed during shutdown", exc_info=True)
+        self._active_connections.clear()
+
+        if self._accept_thread is not None:
+            self._accept_thread.join(timeout=1.0)
+            self._accept_thread = None
+
+        for thread in list(self._connection_threads.values()):
+            thread.join(timeout=1.0)
+        self._connection_threads.clear()
+
         for shm in self._shared_mem_handles.values():
             try:
                 shm.close()
@@ -161,6 +199,65 @@ class StorageService:
             self.close()
         except Exception:
             pass
+
+    @property
+    def listener_address(self) -> Tuple[str, int]:
+        if self._listener_address is None:
+            raise RuntimeError("StorageService listener has not been initialized")
+        return self._listener_address
+
+    @property
+    def listener_authkey(self) -> bytes:
+        return self._listener_authkey
+
+    def get_connection_bootstrap(self) -> tuple[Tuple[str, int], bytes]:
+        return self.listener_address, self.listener_authkey
+
+    def _start_listener(self) -> None:
+        self._listener = Listener((self.listener_host, 0), authkey=self._listener_authkey)
+        address = self._listener.address
+        if not (isinstance(address, tuple) and len(address) == 2):
+            raise RuntimeError(f"Unexpected listener address format: {address!r}")
+        self._listener_address = (str(address[0]), int(address[1]))
+        self._accept_thread = threading.Thread(target=self._accept_loop, daemon=True)
+        self._accept_thread.start()
+
+    def _accept_loop(self) -> None:
+        while not self._listener_stop_event.is_set():
+            listener = self._listener
+            if listener is None:
+                break
+            try:
+                conn = listener.accept()
+            except (OSError, EOFError):
+                if self._listener_stop_event.is_set():
+                    break
+                logger.debug("Listener accept failed", exc_info=True)
+                continue
+
+            conn_id = id(conn)
+            self._active_connections[conn_id] = conn
+            thread = threading.Thread(target=self._handle_connection, args=(conn,), daemon=True)
+            self._connection_threads[conn_id] = thread
+            thread.start()
+
+    def _handle_connection(self, conn: Connection) -> None:
+        conn_id = id(conn)
+        try:
+            while not self._listener_stop_event.is_set():
+                _ = conn.recv()
+        except EOFError:
+            logger.debug("StorageService client disconnected")
+        except (OSError, ConnectionError):
+            if not self._listener_stop_event.is_set():
+                logger.debug("StorageService connection handler error", exc_info=True)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                logger.debug("StorageService connection close failed", exc_info=True)
+            self._active_connections.pop(conn_id, None)
+            self._connection_threads.pop(conn_id, None)
 
     # -------------------------------------------------------------------------
     # External registration
