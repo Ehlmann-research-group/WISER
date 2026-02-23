@@ -562,15 +562,6 @@ class StorageService:
                 f"for ref_id={canonical.ref_id}"
             )
 
-        if canonical.materialization_loc == "ram":
-            return RamAccessDescriptor(
-                ref=canonical,
-                mode=mode,
-                region=region,
-                meta=meta,
-                region_meta=region_meta,
-            )
-
         if canonical.materialization_loc == "disk":
             if canonical.disk_format == "memmap":
                 return MemmapAccessDescriptor(
@@ -607,6 +598,15 @@ class StorageService:
                 meta=meta,
                 region_meta=region_meta,
                 value=self._get_json_ram_value(canonical),
+            )
+
+        if canonical.materialization_loc == "ram":
+            return RamAccessDescriptor(
+                ref=canonical,
+                mode=mode,
+                region=region,
+                meta=meta,
+                region_meta=region_meta,
             )
 
         raise ValueError(
