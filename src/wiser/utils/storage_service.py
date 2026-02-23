@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from multiprocessing.connection import Connection, Listener
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing.shared_memory import SharedMemory
 from pathlib import Path
+import secrets
+import threading
+import traceback
 from typing import Any, Callable, Dict, Literal, Optional, Tuple
 import json
 import logging
@@ -123,6 +127,7 @@ class SharedMemArrayDescriptor:
 @dataclass
 class StorageService:
     root_dir: Path = temp_dir()
+    listener_host: str = "127.0.0.1"
     ram_byte_limit: Optional[int] = None
     disk_byte_limit: Optional[int] = None
 
@@ -133,16 +138,52 @@ class StorageService:
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
     _shared_mem_handles: Dict[str, SharedMemory] = field(default_factory=dict, init=False, repr=False)
     _shared_memory_manager: SharedMemoryManager = field(init=False, repr=False)
+    _listener: Optional[Listener] = field(default=None, init=False, repr=False)
+    _listener_address: Optional[Tuple[str, int]] = field(default=None, init=False)
+    _listener_authkey: bytes = field(default=b"", init=False, repr=False)
+    _listener_stop_event: threading.Event = field(init=False, repr=False)
+    _accept_thread: Optional[threading.Thread] = field(default=None, init=False, repr=False)
+    _active_connections: Dict[int, Connection] = field(default_factory=dict, init=False, repr=False)
+    _connection_threads: Dict[int, threading.Thread] = field(default_factory=dict, init=False, repr=False)
+    _rpc_allowlist: Dict[str, Callable[..., Any]] = field(default_factory=dict, init=False, repr=False)
 
     _ram_used_bytes: int = 0
 
     def __post_init__(self) -> None:
         self.root_dir = Path(self.root_dir).resolve()
         self.root_dir.mkdir(parents=True, exist_ok=True)
+        self._listener_stop_event = threading.Event()
+        self._listener_authkey = secrets.token_bytes(32)
+        self._start_listener()
+        self._register_rpc_methods()
         self._shared_memory_manager = SharedMemoryManager()
         self._shared_memory_manager.start()
 
     def close(self) -> None:
+        self._listener_stop_event.set()
+        if self._listener is not None:
+            try:
+                self._listener.close()
+            except Exception:
+                logger.debug("Listener close failed during shutdown", exc_info=True)
+            finally:
+                self._listener = None
+
+        for conn in list(self._active_connections.values()):
+            try:
+                conn.close()
+            except Exception:
+                logger.debug("Connection close failed during shutdown", exc_info=True)
+        self._active_connections.clear()
+
+        if self._accept_thread is not None:
+            self._accept_thread.join(timeout=1.0)
+            self._accept_thread = None
+
+        for thread in list(self._connection_threads.values()):
+            thread.join(timeout=1.0)
+        self._connection_threads.clear()
+
         for shm in self._shared_mem_handles.values():
             try:
                 shm.close()
@@ -161,6 +202,156 @@ class StorageService:
             self.close()
         except Exception:
             pass
+
+    @property
+    def listener_address(self) -> Tuple[str, int]:
+        if self._listener_address is None:
+            raise RuntimeError("StorageService listener has not been initialized")
+        return self._listener_address
+
+    @property
+    def listener_authkey(self) -> bytes:
+        return self._listener_authkey
+
+    def get_connection_bootstrap(self) -> tuple[Tuple[str, int], bytes]:
+        return self.listener_address, self.listener_authkey
+
+    def _start_listener(self) -> None:
+        self._listener = Listener((self.listener_host, 0), authkey=self._listener_authkey)
+        address = self._listener.address
+        if not (isinstance(address, tuple) and len(address) == 2):
+            raise RuntimeError(f"Unexpected listener address format: {address!r}")
+        self._listener_address = (str(address[0]), int(address[1]))
+        self._accept_thread = threading.Thread(target=self._accept_loop, daemon=True)
+        self._accept_thread.start()
+
+    def _accept_loop(self) -> None:
+        while not self._listener_stop_event.is_set():
+            listener = self._listener
+            if listener is None:
+                break
+            try:
+                conn = listener.accept()
+            except (OSError, EOFError):
+                if self._listener_stop_event.is_set():
+                    break
+                logger.debug("Listener accept failed", exc_info=True)
+                continue
+
+            conn_id = id(conn)
+            self._active_connections[conn_id] = conn
+            thread = threading.Thread(target=self._handle_connection, args=(conn,), daemon=True)
+            self._connection_threads[conn_id] = thread
+            thread.start()
+
+    def _handle_connection(self, conn: Connection) -> None:
+        conn_id = id(conn)
+        try:
+            while not self._listener_stop_event.is_set():
+                request = conn.recv()
+                response = self._dispatch_rpc_request(request)
+                conn.send(response)
+        except EOFError:
+            logger.debug("StorageService client disconnected")
+        except (OSError, ConnectionError):
+            if not self._listener_stop_event.is_set():
+                logger.debug("StorageService connection handler error", exc_info=True)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                logger.debug("StorageService connection close failed", exc_info=True)
+            self._active_connections.pop(conn_id, None)
+            self._connection_threads.pop(conn_id, None)
+
+    def _register_rpc_methods(self) -> None:
+        self._rpc_allowlist = {
+            "read_data_ref": self.read_data_ref,
+            "get_access": self.get_access,
+            "get_meta": self.get_meta,
+            "get_region_meta": self.get_region_meta,
+            "read_json_value": self.read_json_value,
+            "write_json_value": self.write_json_value,
+            "write_json_ram_value": self.write_json_ram_value,
+            "get_ram_descriptor": self.get_ram_descriptor,
+        }
+
+    def _dispatch_rpc_request(self, request: Any) -> dict[str, Any]:
+        request_id = None
+        try:
+            if not isinstance(request, dict):
+                return self._rpc_error_response(
+                    request_id=None,
+                    code="BAD_REQUEST",
+                    message="RPC request must be a dictionary",
+                    details={"received_type": type(request).__name__},
+                )
+
+            request_id = request.get("request_id")
+            method_name = request.get("method")
+            params = request.get("params", {})
+
+            if not isinstance(request_id, str) or not request_id:
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="BAD_REQUEST",
+                    message="request_id must be a non-empty string",
+                    details={},
+                )
+            if not isinstance(method_name, str) or not method_name:
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="BAD_REQUEST",
+                    message="method must be a non-empty string",
+                    details={},
+                )
+            if not isinstance(params, dict):
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="BAD_REQUEST",
+                    message="params must be a dictionary",
+                    details={"received_type": type(params).__name__},
+                )
+
+            handler = self._rpc_allowlist.get(method_name)
+            if handler is None:
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="METHOD_NOT_ALLOWED",
+                    message=f"Unknown method: {method_name}",
+                    details={"method": method_name},
+                )
+
+            result = handler(**params)
+            return {"request_id": request_id, "ok": True, "result": result}
+        except Exception as exc:
+            return self._rpc_error_response(
+                request_id=request_id,
+                code="INTERNAL_ERROR",
+                message=str(exc),
+                details={
+                    "exception_type": type(exc).__name__,
+                    "traceback": traceback.format_exc(),
+                },
+            )
+
+    def _rpc_error_response(
+        self,
+        request_id: Optional[str],
+        *,
+        code: str,
+        message: str,
+        details: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "request_id": request_id,
+            "ok": False,
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details,
+            },
+        }
 
     # -------------------------------------------------------------------------
     # External registration
@@ -550,6 +741,17 @@ class StorageService:
         if canonical.materialization_loc != "ram":
             raise TypeError("write_json_ram_value requires a RAM-backed JSON ref")
         self.ram_objects[canonical.uri] = value
+
+    def get_ram_descriptor(self, uri: str) -> SharedMemArrayDescriptor:
+        if not uri.startswith("mem://"):
+            raise ValueError(f"Expected mem:// uri, got: {uri}")
+        try:
+            descriptor = self.ram_objects[uri]
+        except KeyError as e:
+            raise KeyError(f"No RAM object for uri={uri}") from e
+        if not isinstance(descriptor, SharedMemArrayDescriptor):
+            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
+        return descriptor
 
     # -------------------------------------------------------------------------
     # Metadata
