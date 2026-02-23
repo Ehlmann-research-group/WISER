@@ -37,3 +37,18 @@ class TestStorageConnectionInfra(unittest.TestCase):
                     client.close()
                 service.close()
                 service.close()
+
+    def test_client_rpc_unknown_method_returns_structured_error(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            client = None
+            try:
+                address, authkey = service.get_connection_bootstrap()
+                client = StorageClient(service=service, service_address=address, service_authkey=authkey)
+                with self.assertRaises(RuntimeError) as exc:
+                    client._rpc_call("definitely_not_allowed")
+                self.assertIn("METHOD_NOT_ALLOWED", str(exc.exception))
+            finally:
+                if client is not None:
+                    client.close()
+                service.close()

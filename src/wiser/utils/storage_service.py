@@ -7,6 +7,7 @@ from multiprocessing.shared_memory import SharedMemory
 from pathlib import Path
 import secrets
 import threading
+import traceback
 from typing import Any, Callable, Dict, Literal, Optional, Tuple
 import json
 import logging
@@ -144,6 +145,7 @@ class StorageService:
     _accept_thread: Optional[threading.Thread] = field(default=None, init=False, repr=False)
     _active_connections: Dict[int, Connection] = field(default_factory=dict, init=False, repr=False)
     _connection_threads: Dict[int, threading.Thread] = field(default_factory=dict, init=False, repr=False)
+    _rpc_allowlist: Dict[str, Callable[..., Any]] = field(default_factory=dict, init=False, repr=False)
 
     _ram_used_bytes: int = 0
 
@@ -153,6 +155,7 @@ class StorageService:
         self._listener_stop_event = threading.Event()
         self._listener_authkey = secrets.token_bytes(32)
         self._start_listener()
+        self._register_rpc_methods()
         self._shared_memory_manager = SharedMemoryManager()
         self._shared_memory_manager.start()
 
@@ -245,7 +248,9 @@ class StorageService:
         conn_id = id(conn)
         try:
             while not self._listener_stop_event.is_set():
-                _ = conn.recv()
+                request = conn.recv()
+                response = self._dispatch_rpc_request(request)
+                conn.send(response)
         except EOFError:
             logger.debug("StorageService client disconnected")
         except (OSError, ConnectionError):
@@ -258,6 +263,95 @@ class StorageService:
                 logger.debug("StorageService connection close failed", exc_info=True)
             self._active_connections.pop(conn_id, None)
             self._connection_threads.pop(conn_id, None)
+
+    def _register_rpc_methods(self) -> None:
+        self._rpc_allowlist = {
+            "read_data_ref": self.read_data_ref,
+            "get_access": self.get_access,
+            "get_meta": self.get_meta,
+            "get_region_meta": self.get_region_meta,
+            "read_json_value": self.read_json_value,
+            "write_json_value": self.write_json_value,
+            "write_json_ram_value": self.write_json_ram_value,
+            "get_ram_descriptor": self.get_ram_descriptor,
+        }
+
+    def _dispatch_rpc_request(self, request: Any) -> dict[str, Any]:
+        request_id = None
+        try:
+            if not isinstance(request, dict):
+                return self._rpc_error_response(
+                    request_id=None,
+                    code="BAD_REQUEST",
+                    message="RPC request must be a dictionary",
+                    details={"received_type": type(request).__name__},
+                )
+
+            request_id = request.get("request_id")
+            method_name = request.get("method")
+            params = request.get("params", {})
+
+            if not isinstance(request_id, str) or not request_id:
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="BAD_REQUEST",
+                    message="request_id must be a non-empty string",
+                    details={},
+                )
+            if not isinstance(method_name, str) or not method_name:
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="BAD_REQUEST",
+                    message="method must be a non-empty string",
+                    details={},
+                )
+            if not isinstance(params, dict):
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="BAD_REQUEST",
+                    message="params must be a dictionary",
+                    details={"received_type": type(params).__name__},
+                )
+
+            handler = self._rpc_allowlist.get(method_name)
+            if handler is None:
+                return self._rpc_error_response(
+                    request_id=request_id,
+                    code="METHOD_NOT_ALLOWED",
+                    message=f"Unknown method: {method_name}",
+                    details={"method": method_name},
+                )
+
+            result = handler(**params)
+            return {"request_id": request_id, "ok": True, "result": result}
+        except Exception as exc:
+            return self._rpc_error_response(
+                request_id=request_id,
+                code="INTERNAL_ERROR",
+                message=str(exc),
+                details={
+                    "exception_type": type(exc).__name__,
+                    "traceback": traceback.format_exc(),
+                },
+            )
+
+    def _rpc_error_response(
+        self,
+        request_id: Optional[str],
+        *,
+        code: str,
+        message: str,
+        details: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "request_id": request_id,
+            "ok": False,
+            "error": {
+                "code": code,
+                "message": message,
+                "details": details,
+            },
+        }
 
     # -------------------------------------------------------------------------
     # External registration
@@ -647,6 +741,17 @@ class StorageService:
         if canonical.materialization_loc != "ram":
             raise TypeError("write_json_ram_value requires a RAM-backed JSON ref")
         self.ram_objects[canonical.uri] = value
+
+    def get_ram_descriptor(self, uri: str) -> SharedMemArrayDescriptor:
+        if not uri.startswith("mem://"):
+            raise ValueError(f"Expected mem:// uri, got: {uri}")
+        try:
+            descriptor = self.ram_objects[uri]
+        except KeyError as e:
+            raise KeyError(f"No RAM object for uri={uri}") from e
+        if not isinstance(descriptor, SharedMemArrayDescriptor):
+            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
+        return descriptor
 
     # -------------------------------------------------------------------------
     # Metadata

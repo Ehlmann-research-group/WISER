@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
 from typing import Any, Dict, Literal, Optional, Tuple
+import uuid
 
 import numpy as np
 import zarr
@@ -88,9 +89,35 @@ class StorageClient:
             )
         self._conn = Client(self.service_address, authkey=self.service_authkey)
 
+    def _rpc_call(self, method: str, **params: Any) -> Any:
+        if self._conn is None:
+            raise RuntimeError("StorageClient is not connected to StorageService")
+
+        request_id = uuid.uuid4().hex
+        request = {"request_id": request_id, "method": method, "params": params}
+        self._conn.send(request)
+        response = self._conn.recv()
+
+        if not isinstance(response, dict):
+            raise RuntimeError(f"Invalid RPC response type: {type(response).__name__}")
+        response_request_id = response.get("request_id")
+        if response_request_id != request_id:
+            raise RuntimeError(
+                "Mismatched RPC response request_id: " f"expected={request_id}, got={response_request_id}"
+            )
+        if response.get("ok") is True:
+            return response.get("result")
+
+        error = response.get("error")
+        if not isinstance(error, dict):
+            raise RuntimeError(f"Invalid RPC error response for method={method}: {response!r}")
+        code = error.get("code", "UNKNOWN_ERROR")
+        message = error.get("message", "RPC call failed")
+        details = error.get("details")
+        raise RuntimeError(f"Storage RPC {method} failed [{code}]: {message} details={details}")
+
     def read_data_ref(self, ref: DataRef) -> DataRef:
-        desc = self.service.get_access(ref, region=None, mode="r")
-        return desc.ref
+        return self._rpc_call("read_data_ref", ref=ref)
 
     def get_access(
         self,
@@ -98,7 +125,7 @@ class StorageClient:
         region: Optional[DataRegion],
         mode: Literal["r", "rw"] = "r",
     ) -> AccessDescriptor:
-        return self.service.get_access(ref, region, mode=mode)
+        return self._rpc_call("get_access", ref=ref, region=region, mode=mode)
 
     def read_data(self, ref: DataRef) -> tuple[np.ndarray, RegionMeta]:
         """
@@ -107,14 +134,14 @@ class StorageClient:
         For `RamAccessDescriptor`, the returned array is a shared-memory view
         (not a copy), backed by an attached `SharedMemory` segment.
         """
-        desc = self.service.get_access(ref, region=None, mode="r")
+        desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="r")
         if isinstance(
             desc, (JsonDiskAccessDescriptor, JsonRamAccessDescriptor, ExternalJsonRamAccessDescriptor)
         ):
             raise TypeError("read_data not supported for JSON; use read_json_value")
 
         whole_region = self._whole_region_from_meta(desc.meta)
-        region_meta = self.service.get_region_meta(desc.ref, whole_region)
+        region_meta: RegionMeta = self._rpc_call("get_region_meta", ref=desc.ref, region=whole_region)
 
         if isinstance(desc, RamAccessDescriptor):
             arr = self._read_ram_array_view(desc.ref.uri)
@@ -145,7 +172,7 @@ class StorageClient:
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
     def read_region(self, ref: DataRef, region: DataRegion) -> tuple[np.ndarray, RegionMeta]:
-        desc = self.service.get_access(ref, region, mode="r")
+        desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=region, mode="r")
         if desc.region_meta is None:
             raise ValueError("Region metadata is required for region reads")
         if isinstance(
@@ -182,7 +209,7 @@ class StorageClient:
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
     def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
-        desc = self.service.get_access(ref, region, mode="rw")
+        desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=region, mode="rw")
         if isinstance(desc, MemmapAccessDescriptor):
             arr = np.load(str(desc.path), mmap_mode="r+")
             self._write_region_into_array(arr, region, value)
@@ -199,7 +226,7 @@ class StorageClient:
         )
 
     def write_data(self, ref: DataRef, value: Any) -> None:
-        desc = self.service.get_access(ref, region=None, mode="rw")
+        desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="rw")
         if isinstance(desc, RamAccessDescriptor):
             arr = self._read_ram_array_view(desc.ref.uri)
             arr[...] = value
@@ -221,27 +248,27 @@ class StorageClient:
         )
 
     def read_json_value(self, ref: DataRef) -> Any:
-        desc = self.service.get_access(ref, region=None, mode="r")
+        desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="r")
         if isinstance(desc, ExternalJsonRamAccessDescriptor):
             return desc.value
         if isinstance(desc, JsonRamAccessDescriptor):
             return desc.value
         if not isinstance(desc, JsonDiskAccessDescriptor):
             raise TypeError("read_json_value requires a JSON ref")
-        return self.service.read_json_value(desc.ref)
+        return self._rpc_call("read_json_value", ref=desc.ref)
 
     def write_json_value(self, ref: DataRef, value: Any) -> None:
-        desc = self.service.get_access(ref, region=None, mode="rw")
+        desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="rw")
         if isinstance(desc, ExternalJsonRamAccessDescriptor):
             raise PermissionError(
                 f"write_json_value is not allowed for external/read-only refs: {desc.ref.ref_id}"
             )
         if isinstance(desc, JsonRamAccessDescriptor):
-            self.service.write_json_ram_value(desc.ref, value)
+            self._rpc_call("write_json_ram_value", ref=desc.ref, value=value)
             return
         if not isinstance(desc, JsonDiskAccessDescriptor):
             raise TypeError("write_json_value requires a JSON ref")
-        self.service.write_json_value(desc.ref, value)
+        self._rpc_call("write_json_value", ref=desc.ref, value=value)
 
     def _read_ram_array_view(self, uri: str) -> np.ndarray:
         descriptor = self._get_ram_descriptor(uri)
@@ -257,15 +284,7 @@ class StorageClient:
         )
 
     def _get_ram_descriptor(self, uri: str) -> SharedMemArrayDescriptor:
-        if not uri.startswith("mem://"):
-            raise ValueError(f"Expected mem:// uri, got: {uri}")
-        try:
-            descriptor = self.service.ram_objects[uri]
-        except KeyError as e:
-            raise KeyError(f"No RAM object for uri={uri}") from e
-        if not isinstance(descriptor, SharedMemArrayDescriptor):
-            raise TypeError(f"RAM object for uri={uri} is not a SharedMemArrayDescriptor")
-        return descriptor
+        return self._rpc_call("get_ram_descriptor", uri=uri)
 
     def _get_or_attach_shm(self, descriptor: SharedMemArrayDescriptor) -> SharedMemory:
         shm = self._shared_mem_handles.get(descriptor.name)
@@ -418,10 +437,10 @@ class StorageClient:
         raise TypeError(f"Unknown DataRegion type: {type(region)}")
 
     def get_meta(self, ref: DataRef) -> DataMeta:
-        return self.service.get_meta(ref)
+        return self._rpc_call("get_meta", ref=ref)
 
     def get_region_meta(self, ref: DataRef, region: DataRegion) -> RegionMeta:
-        return self.service.get_region_meta(ref, region)
+        return self._rpc_call("get_region_meta", ref=ref, region=region)
 
     def _whole_region_from_meta(self, meta: DataMeta) -> DataRegion:
         if meta.kind == "dataset":
