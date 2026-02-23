@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from abc import ABC
 from enum import Enum
 from typing import (
+    Any,
     Dict,
     Literal,
     Optional,
@@ -38,7 +39,21 @@ Residency = Literal["spill_required", "ram_cacheable"]
 ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
-RefSource = Literal["allocated", "external"]
+RefSource = Literal["internal", "external"]
+ExternalParamsFamily = Literal["dataset", "spectra_list", "array"]
+ExternalParamsDriver = Literal[
+    "netcdf_gdal",
+    "pds3_gdal",
+    "pds4_gdal",
+    "jp2_gdal",
+    "envi_gdal",
+    "gtiff_gdal",
+    "asc_gdal",
+    "gdal_generic",
+    "envi_sli",
+    "memmap",
+    "zarr",
+]
 
 if TYPE_CHECKING:
     from wiser.utils.task_system import BasePlanMeta
@@ -46,6 +61,17 @@ if TYPE_CHECKING:
 
 def temp_dir() -> Path:
     return Path(tempfile.gettempdir()) / "wiser"
+
+
+@dataclass(frozen=True)
+class ExternalParams:
+    """
+    Reconstruction contract for external disk-backed refs.
+    """
+
+    family: ExternalParamsFamily
+    driver: ExternalParamsDriver
+    kwargs: Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -63,8 +89,9 @@ class DataRef:
     chunks: Optional[Tuple[int, ...]] = None
     residency: Residency = "spill_required"
     materialization_loc: MaterializationLocation = "none"
-    source: RefSource = "allocated"
+    source: RefSource = "internal"
     readonly: bool = False
+    external_params: Optional[ExternalParams] = None
 
     def get_byte_estimate(self) -> Optional[int]:
         # Need both to estimate
@@ -95,6 +122,18 @@ class DataRef:
 class DataMeta:
     kind: RefKind
     shape: Tuple[int, ...]
+    elem_type: np.dtype
+    wavelengths: Optional[np.ndarray] = None
+    wavelength_units: Optional[u.Unit] = None
+    nodata: Optional[float | int] = None
+    bad_bands: Optional[np.ndarray] = None
+    crs_wkt: Optional[str] = None
+    geotransform: Optional[Tuple[float, ...]] = None
+
+
+@dataclass(frozen=True)
+class RegionMeta:
+    region: DataRegion
     elem_type: np.dtype
     wavelengths: Optional[np.ndarray] = None
     wavelength_units: Optional[u.Unit] = None
@@ -147,17 +186,6 @@ class DataBinding:
 class DataRegion:
     def scalar_count(self) -> int:
         raise NotImplementedError
-
-
-@dataclass(frozen=True)
-class RegionMeta:
-    region: DataRegion
-    wavelengths: Optional[np.ndarray] = None
-    wavelength_units: Optional[u.Unit] = None
-    nodata: Optional[float | int] = None
-    bad_bands: Optional[np.ndarray] = None
-    crs_wkt: Optional[str] = None
-    geotransform: Optional[Tuple[float, ...]] = None
 
 
 @dataclass(frozen=True)

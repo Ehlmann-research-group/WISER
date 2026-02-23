@@ -63,6 +63,7 @@ def _derive_region_meta(meta: DataMeta, region: DataRegion) -> RegionMeta:
             bad_bands = bad_bands[region.b0 : region.b1]
     return RegionMeta(
         region=region,
+        elem_type=meta.elem_type,
         wavelengths=wavelengths,
         wavelength_units=meta.wavelength_units,
         nodata=meta.nodata,
@@ -77,7 +78,7 @@ class ExternalHandle(Protocol):
 
     kind: InputKind
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         ...
 
     def get_meta(self) -> DataMeta:
@@ -92,7 +93,7 @@ class ExternalRasterHandle:
     dataset_obj: "RasterDataSet"
     kind: InputKind = "dataset"
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         if not isinstance(region, DatasetRegionRef):
             raise TypeError(f"Dataset external read requires DatasetRegionRef, got {type(region)}")
         arr_by_band = self.dataset_obj.get_image_data_subset(
@@ -132,7 +133,7 @@ class ExternalSpectrumHandle:
     spectrum_obj: "Spectrum"
     kind: InputKind = "spectrum"
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         if not isinstance(region, SpectrumRef):
             raise TypeError(f"Spectrum external read requires SpectrumRef, got {type(region)}")
         spectrum = np.asarray(self.spectrum_obj.get_spectrum())
@@ -159,7 +160,7 @@ class ExternalSpectralLibraryHandle:
     lib_obj: "SpectralLibrary"
     kind: InputKind = "spectra_list"
 
-    def read_region(self, region: DataRegion) -> Any:
+    def read_region(self, region: DataRegion) -> np.ndarray:
         if not isinstance(region, SpectraBatchRef):
             raise TypeError(f"Spectral library external read requires SpectraBatchRef, got {type(region)}")
         rows: list[np.ndarray] = []
@@ -304,7 +305,7 @@ class StorageLayer:
                 chunks=tuple(desc.chunks) if desc.chunks is not None else None,
                 residency=desc.residency,
                 materialization_loc="ram",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
@@ -334,7 +335,7 @@ class StorageLayer:
                 disk_format="json",
                 residency=desc.residency,
                 materialization_loc="disk",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
@@ -375,7 +376,7 @@ class StorageLayer:
                 chunks=None,
                 residency=desc.residency,
                 materialization_loc="disk",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
@@ -418,7 +419,7 @@ class StorageLayer:
                 chunks=chunks,
                 residency=desc.residency,
                 materialization_loc="disk",
-                source="allocated",
+                source="internal",
                 readonly=False,
             )
             self.data_refs[ref_id] = ref
