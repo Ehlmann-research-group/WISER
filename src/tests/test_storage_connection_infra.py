@@ -29,7 +29,7 @@ class TestStorageConnectionInfra(unittest.TestCase):
                 address, authkey = service.get_connection_bootstrap()
                 client = StorageClient(service=service, service_address=address, service_authkey=authkey)
                 self.assertIsNotNone(client._conn)
-                self.git(client._conn.readable)
+                self.assertTrue(client._conn.readable)
                 self.assertTrue(client._conn.writable)
             finally:
                 if client is not None:
