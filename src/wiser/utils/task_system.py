@@ -199,7 +199,7 @@ class WorkUnit:
     input_region: DataRegion
     writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
-    # I think the params should be in fn (so fn ilike a lambda with params preloaded)
+    # I think the params should be in fn (so fn is a lambda with params preloaded)
     # but I am still unsure so keeping it for now.
     # params: Dict[str, Any]
     broadcast: Dict[str, "DataRef"]
