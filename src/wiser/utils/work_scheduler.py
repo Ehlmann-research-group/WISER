@@ -1,4 +1,4 @@
-SCHEDULER_CPU_BUDGET = 6
+SCHEDULER_PROCESS_BUDGET = 6
 SCHEDULER_RAM_BUDGET = 4000000000
 SCHEDULER_THREAD_BUDGET = 32
 
@@ -9,9 +9,9 @@ class SchedulerConfig:
     """
 
     def __init__(self):
-        self._cpu_budget = SCHEDULER_CPU_BUDGET
-        self._ram_budget = SCHEDULER_RAM_BUDGET
+        self._process_budget = SCHEDULER_PROCESS_BUDGET
         self._thread_budget = SCHEDULER_THREAD_BUDGET
+        self._ram_budget = SCHEDULER_RAM_BUDGET
 
 
 class WorkScheduler:
