@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
-from dataclasses import dataclass
-from threading import Semaphore
-from typing import Any, Callable, Dict, TYPE_CHECKING
+from dataclasses import dataclass, field
+from collections import deque
+from threading import Lock, Semaphore
+from typing import Any, Callable, Deque, Dict, TYPE_CHECKING
 
 from .primitives import PriorityClass
+from .task_system import TaskPlan, WorkUnit
 from .worker_runtime import initialize_process_storage_client, initialize_thread_worker
 
 if TYPE_CHECKING:
@@ -25,6 +27,36 @@ class SchedulerConfig:
     _process_budget: int = SCHEDULER_PROCESS_BUDGET
     _thread_budget: int = SCHEDULER_THREAD_BUDGET
     _ram_budget: int = SCHEDULER_RAM_BUDGET
+
+
+@dataclass(frozen=True)
+class QueuedWorkUnit:
+    plan_id: str
+    stage_id: str
+    work_unit: WorkUnit
+
+
+@dataclass
+class StageExecutionState:
+    stage_id: str
+    expected_unit_ids: set[str]
+    submitted_unit_ids: set[str] = field(default_factory=set)
+    succeeded_unit_ids: set[str] = field(default_factory=set)
+    failed_unit_ids: dict[str, BaseException] = field(default_factory=dict)
+
+    def is_terminal(self) -> bool:
+        terminal_count = len(self.succeeded_unit_ids) + len(self.failed_unit_ids)
+        return terminal_count == len(self.expected_unit_ids)
+
+
+@dataclass
+class PlanExecutionState:
+    task_plan: TaskPlan
+    stage_order: list[str]
+    stage_states: dict[str, StageExecutionState]
+    completion_future: Future[None] = field(default_factory=Future)
+    stage_index: int = 0
+    failed_units: dict[str, BaseException] = field(default_factory=dict)
 
 
 def _priority_weight(priority: PriorityClass) -> float:
@@ -101,6 +133,14 @@ class WorkScheduler:
         self._thread_semaphores: Dict[PriorityClass, Semaphore] = {
             p: Semaphore(self._thread_tokens[p]) for p in self._thread_tokens
         }
+        self._process_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
+            p: deque() for p in self._process_tokens
+        }
+        self._thread_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
+            p: deque() for p in self._thread_tokens
+        }
+        self._plan_states: Dict[str, PlanExecutionState] = {}
+        self._state_lock = Lock()
 
     def submit_process(
         self,
@@ -137,3 +177,170 @@ class WorkScheduler:
 
     def thread_tokens(self) -> Dict[PriorityClass, int]:
         return dict(self._thread_tokens)
+
+    def run_task_plan(self, task_plan: TaskPlan) -> Future[None]:
+        self._validate_task_plan(task_plan)
+        stage_order = self._ordered_stage_ids(task_plan)
+        stage_states = {
+            stage_id: StageExecutionState(
+                stage_id=stage_id,
+                expected_unit_ids=set(task_plan.stage_work_units.get(stage_id, [])),
+            )
+            for stage_id in stage_order
+        }
+        plan_state = PlanExecutionState(
+            task_plan=task_plan,
+            stage_order=stage_order,
+            stage_states=stage_states,
+        )
+        with self._state_lock:
+            self._plan_states[task_plan.plan_id] = plan_state
+            self._enqueue_stage_locked(plan_state, stage_order[0])
+            self._drain_queues_locked()
+        return plan_state.completion_future
+
+    def _validate_task_plan(self, task_plan: TaskPlan) -> None:
+        if not task_plan.stage_work_units:
+            raise ValueError("TaskPlan has no stage_work_units")
+        for stage_id, unit_ids in task_plan.stage_work_units.items():
+            for unit_id in unit_ids:
+                if unit_id not in task_plan.work_units:
+                    raise KeyError(f"TaskPlan stage {stage_id} references unknown work unit {unit_id}")
+                unit = task_plan.work_units[unit_id]
+                if unit.stage_id != stage_id:
+                    raise ValueError(f"WorkUnit {unit_id} has stage_id={unit.stage_id}, expected {stage_id}")
+
+    def _ordered_stage_ids(self, task_plan: TaskPlan) -> list[str]:
+        return sorted(task_plan.stage_work_units.keys(), key=self._stage_sort_key)
+
+    def _stage_sort_key(self, stage_id: str) -> tuple[int, str]:
+        digits = "".join(ch for ch in stage_id if ch.isdigit())
+        if digits:
+            return int(digits), stage_id
+        return 10**9, stage_id
+
+    def _enqueue_stage_locked(self, plan_state: PlanExecutionState, stage_id: str) -> None:
+        task_plan = plan_state.task_plan
+        for unit_id in task_plan.stage_work_units.get(stage_id, []):
+            work_unit = task_plan.work_units[unit_id]
+            item = QueuedWorkUnit(plan_id=task_plan.plan_id, stage_id=stage_id, work_unit=work_unit)
+            if work_unit.executor_kind == "process":
+                self._process_queues[work_unit.priority_class].append(item)
+            elif work_unit.executor_kind == "thread":
+                self._thread_queues[work_unit.priority_class].append(item)
+            else:
+                raise ValueError(f"Unknown executor kind: {work_unit.executor_kind!r}")
+
+    def _drain_queues_locked(self) -> None:
+        made_progress = True
+        while made_progress:
+            made_progress = False
+            for priority in (
+                PriorityClass.INTERACTIVE,
+                PriorityClass.RENDER,
+                PriorityClass.BACKGROUND,
+            ):
+                process_queue = self._process_queues[priority]
+                process_sem = self._process_semaphores[priority]
+                while process_queue and process_sem.acquire(blocking=False):
+                    item = process_queue.popleft()
+                    self._submit_queued_item_locked(item, process_sem)
+                    made_progress = True
+
+                thread_queue = self._thread_queues[priority]
+                thread_sem = self._thread_semaphores[priority]
+                while thread_queue and thread_sem.acquire(blocking=False):
+                    item = thread_queue.popleft()
+                    self._submit_queued_item_locked(item, thread_sem)
+                    made_progress = True
+
+    def _submit_queued_item_locked(self, item: QueuedWorkUnit, sem: Semaphore) -> None:
+        plan_state = self._plan_states.get(item.plan_id)
+        if plan_state is None or plan_state.completion_future.done():
+            sem.release()
+            return
+
+        stage_state = plan_state.stage_states[item.stage_id]
+        stage_state.submitted_unit_ids.add(item.work_unit.unit_id)
+        executor = (
+            self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
+        )
+        future = executor.submit(self._execute_work_unit, item.work_unit)
+        future.add_done_callback(
+            lambda fut,
+            pid=item.plan_id,
+            sid=item.stage_id,
+            uid=item.work_unit.unit_id,
+            s=sem: self._on_unit_done(pid, sid, uid, fut, s)
+        )
+
+    def _on_unit_done(
+        self,
+        plan_id: str,
+        stage_id: str,
+        unit_id: str,
+        fut: Future[Any],
+        sem: Semaphore,
+    ) -> None:
+        with self._state_lock:
+            sem.release()
+            plan_state = self._plan_states.get(plan_id)
+            if plan_state is None:
+                return
+            if plan_state.completion_future.done():
+                return
+
+            stage_state = plan_state.stage_states[stage_id]
+            exc = fut.exception()
+            if exc is None:
+                stage_state.succeeded_unit_ids.add(unit_id)
+            else:
+                stage_state.failed_unit_ids[unit_id] = exc
+                plan_state.failed_units[unit_id] = exc
+
+                if plan_state.task_plan.fail_fast:
+                    self._purge_plan_from_queues_locked(plan_id)
+                    plan_state.completion_future.set_exception(
+                        RuntimeError(
+                            f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
+                            f"to work unit {unit_id}: {exc}"
+                        )
+                    )
+                    self._plan_states.pop(plan_id, None)
+                    self._drain_queues_locked()
+                    return
+
+            if not stage_state.is_terminal():
+                self._drain_queues_locked()
+                return
+
+            at_last_stage = plan_state.stage_index >= len(plan_state.stage_order) - 1
+            if at_last_stage:
+                if plan_state.failed_units:
+                    first_unit_id, first_exc = next(iter(plan_state.failed_units.items()))
+                    plan_state.completion_future.set_exception(
+                        RuntimeError(
+                            f"TaskPlan {plan_id} completed with failures; "
+                            f"first failure unit={first_unit_id}: {first_exc}"
+                        )
+                    )
+                else:
+                    plan_state.completion_future.set_result(None)
+                self._plan_states.pop(plan_id, None)
+                self._drain_queues_locked()
+                return
+
+            plan_state.stage_index += 1
+            next_stage_id = plan_state.stage_order[plan_state.stage_index]
+            self._enqueue_stage_locked(plan_state, next_stage_id)
+            self._drain_queues_locked()
+
+    def _purge_plan_from_queues_locked(self, plan_id: str) -> None:
+        for queue_map in (self._process_queues, self._thread_queues):
+            for priority in queue_map:
+                retained = deque(item for item in queue_map[priority] if item.plan_id != plan_id)
+                queue_map[priority] = retained
+
+    @staticmethod
+    def _execute_work_unit(work_unit: WorkUnit) -> Any:
+        return work_unit.fn()

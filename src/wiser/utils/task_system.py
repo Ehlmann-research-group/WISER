@@ -48,7 +48,7 @@ class TaskStage:
 
     output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
 
-    broadcast_input: Dict[str,] = field(default_factory=dict)
+    broadcast_input: Dict[str, "DataRef"] = field(default_factory=dict)
 
 
 @dataclass
@@ -225,6 +225,7 @@ class TaskPlan:
     )  # Each work unit has a parent and/or a child
     stage_work_units: Dict[str, List[str]] = field(default_factory=dict)  # List of work units per stage
     bindings: Dict[str, DataRef] = field(default_factory=dict)
+    fail_fast: bool = True
 
 
 class ChunkingPolicy(Protocol):
@@ -362,6 +363,8 @@ class TaskPlanner:
                 raise NotImplementedError("Draft only implements MapStage expansion.")
 
             # 2) resolve stage input ref
+            # input names should be the same as output names from a previous step
+            # unless its __task_input__
             input_ref = plan.bindings[stage.input_binding.name]
 
             # 3) use stage planning metadata provided by the semantic planner.
