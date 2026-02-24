@@ -38,6 +38,8 @@ class QueuedWorkUnit:
 
 @dataclass
 class StageExecutionState:
+    """Tracks submission and completion status for one stage in a task plan."""
+
     stage_id: str
     expected_unit_ids: set[str]
     submitted_unit_ids: set[str] = field(default_factory=set)
@@ -51,6 +53,8 @@ class StageExecutionState:
 
 @dataclass
 class PlanExecutionState:
+    """Mutable runtime state for a task plan as it moves stage-by-stage."""
+
     task_plan: TaskPlan
     stage_order: list[str]
     stage_states: dict[str, StageExecutionState]
@@ -68,6 +72,8 @@ def _priority_weight(priority: PriorityClass) -> float:
 
 
 def _allocate_priority_tokens(budget: int) -> Dict[PriorityClass, int]:
+    """Split executor slots across priorities while guaranteeing at least one each."""
+
     if budget < 3:
         raise ValueError(f"Budget must be >= 3 to guarantee non-zero per priority, got {budget}")
 
@@ -78,6 +84,7 @@ def _allocate_priority_tokens(budget: int) -> Dict[PriorityClass, int]:
         return allocation
 
     weighted = {p: remaining * _priority_weight(p) for p in priorities}
+    # Allocate deterministic floor first, then distribute remaining slots by largest remainder.
     floor_parts = {p: int(weighted[p]) for p in priorities}
     for p in priorities:
         allocation[p] += floor_parts[p]
@@ -179,6 +186,8 @@ class WorkScheduler:
         return dict(self._thread_tokens)
 
     def run_task_plan(self, task_plan: TaskPlan) -> Future[None]:
+        """Validate, initialize, and enqueue a task plan for staged execution."""
+
         self._validate_task_plan(task_plan)
         stage_order = self._ordered_stage_ids(task_plan)
         stage_states = {
@@ -195,11 +204,14 @@ class WorkScheduler:
         )
         with self._state_lock:
             self._plan_states[task_plan.plan_id] = plan_state
+            # Stage execution is strictly sequential; enqueue only the first stage now.
             self._enqueue_stage_locked(plan_state, stage_order[0])
             self._drain_queues_locked()
         return plan_state.completion_future
 
     def _validate_task_plan(self, task_plan: TaskPlan) -> None:
+        """Ensure stage/unit mappings are internally consistent before scheduling."""
+
         if not task_plan.stage_work_units:
             raise ValueError("TaskPlan has no stage_work_units")
         for stage_id, unit_ids in task_plan.stage_work_units.items():
@@ -220,6 +232,8 @@ class WorkScheduler:
         return 10**9, stage_id
 
     def _enqueue_stage_locked(self, plan_state: PlanExecutionState, stage_id: str) -> None:
+        """Queue all work units for a stage into executor queues by priority and kind."""
+
         task_plan = plan_state.task_plan
         for unit_id in task_plan.stage_work_units.get(stage_id, []):
             work_unit = task_plan.work_units[unit_id]
@@ -232,6 +246,8 @@ class WorkScheduler:
                 raise ValueError(f"Unknown executor kind: {work_unit.executor_kind!r}")
 
     def _drain_queues_locked(self) -> None:
+        """Submit queued work while priority semaphores indicate available capacity."""
+
         made_progress = True
         while made_progress:
             made_progress = False
@@ -242,6 +258,7 @@ class WorkScheduler:
             ):
                 process_queue = self._process_queues[priority]
                 process_sem = self._process_semaphores[priority]
+                # Keep pulling while both work and capacity exist for this priority bucket.
                 while process_queue and process_sem.acquire(blocking=False):
                     item = process_queue.popleft()
                     self._submit_queued_item_locked(item, process_sem)
@@ -255,6 +272,8 @@ class WorkScheduler:
                     made_progress = True
 
     def _submit_queued_item_locked(self, item: QueuedWorkUnit, sem: Semaphore) -> None:
+        """Submit one queued unit under lock and bind completion handling to token release."""
+
         plan_state = self._plan_states.get(item.plan_id)
         if plan_state is None or plan_state.completion_future.done():
             sem.release()
@@ -282,7 +301,10 @@ class WorkScheduler:
         fut: Future[Any],
         sem: Semaphore,
     ) -> None:
+        """Handle unit completion, advance stages, and resolve the plan future."""
+
         with self._state_lock:
+            # Always return capacity token, even when state is already terminal/evicted.
             sem.release()
             plan_state = self._plan_states.get(plan_id)
             if plan_state is None:
@@ -299,6 +321,7 @@ class WorkScheduler:
                 plan_state.failed_units[unit_id] = exc
 
                 if plan_state.task_plan.fail_fast:
+                    # Cancel queued-but-not-submitted work and fail immediately.
                     self._purge_plan_from_queues_locked(plan_id)
                     plan_state.completion_future.set_exception(
                         RuntimeError(
@@ -311,6 +334,7 @@ class WorkScheduler:
                     return
 
             if not stage_state.is_terminal():
+                # Stage still has in-flight work; only attempt to fill any open slots.
                 self._drain_queues_locked()
                 return
 
@@ -330,6 +354,7 @@ class WorkScheduler:
                 self._drain_queues_locked()
                 return
 
+            # Stage is complete; enqueue the next stage and continue draining.
             plan_state.stage_index += 1
             next_stage_id = plan_state.stage_order[plan_state.stage_index]
             self._enqueue_stage_locked(plan_state, next_stage_id)
