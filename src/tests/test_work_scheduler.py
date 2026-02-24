@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 import tests.context
+# import context
 
 from wiser.utils.primitives import DataRef, DatasetRegionRef, PriorityClass
 from wiser.utils.storage_service import StorageService
@@ -125,7 +126,7 @@ class TestWorkScheduler(unittest.TestCase):
                 )
 
                 completion = scheduler.run_task_plan(plan)
-                completion.result(timeout=15)
+                completion.result(timeout=5)
 
                 events = recorder.events
                 self.assertTrue(events, "Expected scheduler to emit recorder events")
@@ -263,3 +264,9 @@ class TestWorkScheduler(unittest.TestCase):
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
+
+
+if __name__ == "__main__":
+    test_work_scheduler = TestWorkScheduler()
+    test_work_scheduler.test_run_task_plan_two_stages_records_expected_events()
+    # test_work_scheduler.test_run_task_plan_fail_fast_stops_before_stage_2()

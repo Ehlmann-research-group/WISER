@@ -36,6 +36,15 @@ class QueuedWorkUnit:
     work_unit: WorkUnit
 
 
+@dataclass(frozen=True)
+class PendingDoneCallback:
+    future: Future[Any]
+    plan_id: str
+    stage_id: str
+    unit_id: str
+    sem: Semaphore
+
+
 @dataclass
 class StageExecutionState:
     """Tracks submission and completion status for one stage in a task plan."""
@@ -220,6 +229,7 @@ class WorkScheduler:
         self._thread_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
             p: deque() for p in self._thread_tokens
         }
+        self._pending_done_callbacks: Deque[PendingDoneCallback] = deque()
         self._plan_states: Dict[str, PlanExecutionState] = {}
         self._state_lock = Lock()
 
@@ -283,6 +293,9 @@ class WorkScheduler:
             # Stage execution is strictly sequential; enqueue only the first stage now.
             self._enqueue_stage_locked(plan_state, stage_order[0])
             self._drain_queues_locked()
+        # Attach callbacks only after releasing scheduler state lock to avoid
+        # immediate callback re-entry while lock is still held.
+        self._flush_pending_done_callbacks()
         return plan_state.completion_future
 
     def _validate_task_plan(self, task_plan: TaskPlan) -> None:
@@ -309,7 +322,6 @@ class WorkScheduler:
 
     def _enqueue_stage_locked(self, plan_state: PlanExecutionState, stage_id: str) -> None:
         """Queue all work units for a stage into executor queues by priority and kind."""
-
         task_plan = plan_state.task_plan
         if self._recorder is not None:
             self._recorder.on_stage_enqueued(task_plan.plan_id, stage_id)
@@ -371,12 +383,14 @@ class WorkScheduler:
             self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
         )
         future = executor.submit(self._execute_work_unit, item.work_unit)
-        future.add_done_callback(
-            lambda fut,
-            pid=item.plan_id,
-            sid=item.stage_id,
-            uid=item.work_unit.unit_id,
-            s=sem: self._on_unit_done(pid, sid, uid, fut, s)
+        self._pending_done_callbacks.append(
+            PendingDoneCallback(
+                future=future,
+                plan_id=item.plan_id,
+                stage_id=item.stage_id,
+                unit_id=item.work_unit.unit_id,
+                sem=sem,
+            )
         )
 
     def _on_unit_done(
@@ -388,73 +402,98 @@ class WorkScheduler:
         sem: Semaphore,
     ) -> None:
         """Handle unit completion, advance stages, and resolve the plan future."""
+        try:
+            with self._state_lock:
+                # Always return capacity token, even when state is already terminal/evicted.
+                sem.release()
+                plan_state = self._plan_states.get(plan_id)
+                if plan_state is None:
+                    return
+                if plan_state.completion_future.done():
+                    return
 
-        with self._state_lock:
-            # Always return capacity token, even when state is already terminal/evicted.
-            sem.release()
-            plan_state = self._plan_states.get(plan_id)
-            if plan_state is None:
-                return
-            if plan_state.completion_future.done():
-                return
-
-            stage_state = plan_state.stage_states[stage_id]
-            exc = fut.exception()
-            if exc is None:
-                stage_state.succeeded_unit_ids.add(unit_id)
-                if self._recorder is not None:
-                    self._recorder.on_unit_done(plan_id, stage_id, unit_id, success=True)
-            else:
-                stage_state.failed_unit_ids[unit_id] = exc
-                plan_state.failed_units[unit_id] = exc
-                if self._recorder is not None:
-                    self._recorder.on_unit_done(
-                        plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
-                    )
-
-                if plan_state.task_plan.fail_fast:
-                    # Cancel queued-but-not-submitted work and fail immediately.
-                    self._purge_plan_from_queues_locked(plan_id)
-                    fail_message = (
-                        f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
-                        f"to work unit {unit_id}: {exc}"
-                    )
-                    plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                stage_state = plan_state.stage_states[stage_id]
+                exc = fut.exception()
+                if exc is None:
+                    stage_state.succeeded_unit_ids.add(unit_id)
                     if self._recorder is not None:
-                        self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
+                        self._recorder.on_unit_done(plan_id, stage_id, unit_id, success=True)
+                else:
+                    stage_state.failed_unit_ids[unit_id] = exc
+                    plan_state.failed_units[unit_id] = exc
+                    if self._recorder is not None:
+                        self._recorder.on_unit_done(
+                            plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
+                        )
+
+                    if plan_state.task_plan.fail_fast:
+                        # Cancel queued-but-not-submitted work and fail immediately.
+                        self._purge_plan_from_queues_locked(plan_id)
+                        fail_message = (
+                            f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
+                            f"to work unit {unit_id}: {exc}"
+                        )
+                        plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                        if self._recorder is not None:
+                            self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
+                        self._plan_states.pop(plan_id, None)
+                        self._drain_queues_locked()
+                        return
+
+                if not stage_state.is_terminal():
+                    # Stage still has in-flight work; only attempt to fill any open slots.
+                    self._drain_queues_locked()
+                    return
+
+                at_last_stage = plan_state.stage_index >= len(plan_state.stage_order) - 1
+                if at_last_stage:
+                    if plan_state.failed_units:
+                        first_unit_id, first_exc = next(iter(plan_state.failed_units.items()))
+                        fail_message = (
+                            f"TaskPlan {plan_id} completed with failures; "
+                            f"first failure unit={first_unit_id}: {first_exc}"
+                        )
+                        plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                        if self._recorder is not None:
+                            self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
+                    else:
+                        plan_state.completion_future.set_result(None)
+                        if self._recorder is not None:
+                            self._recorder.on_plan_completed(plan_id, success=True)
                     self._plan_states.pop(plan_id, None)
                     self._drain_queues_locked()
                     return
 
-            if not stage_state.is_terminal():
-                # Stage still has in-flight work; only attempt to fill any open slots.
+                # Stage is complete; enqueue the next stage and continue draining.
+                plan_state.stage_index += 1
+                next_stage_id = plan_state.stage_order[plan_state.stage_index]
+                self._enqueue_stage_locked(plan_state, next_stage_id)
                 self._drain_queues_locked()
-                return
+        finally:
+            # _on_unit_done can enqueue more work under lock; flush registrations
+            # now so newly submitted futures get callbacks attached lock-free.
+            self._flush_pending_done_callbacks()
 
-            at_last_stage = plan_state.stage_index >= len(plan_state.stage_order) - 1
-            if at_last_stage:
-                if plan_state.failed_units:
-                    first_unit_id, first_exc = next(iter(plan_state.failed_units.items()))
-                    fail_message = (
-                        f"TaskPlan {plan_id} completed with failures; "
-                        f"first failure unit={first_unit_id}: {first_exc}"
-                    )
-                    plan_state.completion_future.set_exception(RuntimeError(fail_message))
-                    if self._recorder is not None:
-                        self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
-                else:
-                    plan_state.completion_future.set_result(None)
-                    if self._recorder is not None:
-                        self._recorder.on_plan_completed(plan_id, success=True)
-                self._plan_states.pop(plan_id, None)
-                self._drain_queues_locked()
-                return
+    def _flush_pending_done_callbacks(self) -> None:
+        """
+        Attach queued done callbacks after lock-protected scheduling completes.
 
-            # Stage is complete; enqueue the next stage and continue draining.
-            plan_state.stage_index += 1
-            next_stage_id = plan_state.stage_order[plan_state.stage_index]
-            self._enqueue_stage_locked(plan_state, next_stage_id)
-            self._drain_queues_locked()
+        We collect callback registrations while holding `_state_lock`, then
+        attach them after releasing the lock so `Future.add_done_callback(...)`
+        cannot synchronously invoke `_on_unit_done` re-entrantly under lock.
+        """
+        with self._state_lock:
+            pending = list(self._pending_done_callbacks)
+            self._pending_done_callbacks.clear()
+
+        for pending_callback in pending:
+            pending_callback.future.add_done_callback(
+                lambda fut,
+                pid=pending_callback.plan_id,
+                sid=pending_callback.stage_id,
+                uid=pending_callback.unit_id,
+                s=pending_callback.sem: self._on_unit_done(pid, sid, uid, fut, s)
+            )
 
     def _purge_plan_from_queues_locked(self, plan_id: str) -> None:
         for queue_map in (self._process_queues, self._thread_queues):
