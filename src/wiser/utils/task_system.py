@@ -236,8 +236,7 @@ class ChunkingPolicy(Protocol):
         resource_model: ResourceModel,
         scheme_type: type,
         constraints: Dict[str, Any],
-    ) -> ChunkingScheme:
-        ...
+    ) -> ChunkingScheme: ...
 
 
 class SimpleChunkingPolicy:

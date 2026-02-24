@@ -63,6 +63,74 @@ class PlanExecutionState:
     failed_units: dict[str, BaseException] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class SchedulerEvent:
+    kind: str
+    plan_id: str
+    stage_id: str | None = None
+    unit_id: str | None = None
+    executor_kind: str | None = None
+    priority_class: PriorityClass | None = None
+    success: bool | None = None
+    error: str | None = None
+
+
+@dataclass
+class RecordingWorkScheduler:
+    """In-memory event recorder for asserting scheduler behavior in tests."""
+
+    events: list[SchedulerEvent] = field(default_factory=list)
+
+    def on_plan_submitted(self, plan_id: str) -> None:
+        self.events.append(SchedulerEvent(kind="plan_submitted", plan_id=plan_id))
+
+    def on_stage_enqueued(self, plan_id: str, stage_id: str) -> None:
+        self.events.append(SchedulerEvent(kind="stage_enqueued", plan_id=plan_id, stage_id=stage_id))
+
+    def on_unit_submitted(
+        self,
+        plan_id: str,
+        stage_id: str,
+        unit_id: str,
+        executor_kind: str,
+        priority_class: PriorityClass,
+    ) -> None:
+        self.events.append(
+            SchedulerEvent(
+                kind="unit_submitted",
+                plan_id=plan_id,
+                stage_id=stage_id,
+                unit_id=unit_id,
+                executor_kind=executor_kind,
+                priority_class=priority_class,
+            )
+        )
+
+    def on_unit_done(
+        self,
+        plan_id: str,
+        stage_id: str,
+        unit_id: str,
+        success: bool,
+        error: str | None = None,
+    ) -> None:
+        self.events.append(
+            SchedulerEvent(
+                kind="unit_done",
+                plan_id=plan_id,
+                stage_id=stage_id,
+                unit_id=unit_id,
+                success=success,
+                error=error,
+            )
+        )
+
+    def on_plan_completed(self, plan_id: str, success: bool, error: str | None = None) -> None:
+        self.events.append(
+            SchedulerEvent(kind="plan_completed", plan_id=plan_id, success=success, error=error)
+        )
+
+
 def _priority_weight(priority: PriorityClass) -> float:
     if priority == PriorityClass.INTERACTIVE:
         return 1.0 / 2.0
@@ -108,10 +176,16 @@ def _allocate_priority_tokens(budget: int) -> Dict[PriorityClass, int]:
 
 
 class WorkScheduler:
-    def __init__(self, config: SchedulerConfig, storage_service: "StorageService"):
+    def __init__(
+        self,
+        config: SchedulerConfig,
+        storage_service: "StorageService",
+        recorder: RecordingWorkScheduler | None = None,
+    ):
         self._config = config
         self._process_budget = int(self._config._process_budget)
         self._thread_budget = int(self._config._thread_budget)
+        self._recorder = recorder
 
         if self._process_budget < 3:
             raise ValueError(f"WorkScheduler requires process budget >= 3, got {self._process_budget}")
@@ -189,6 +263,8 @@ class WorkScheduler:
         """Validate, initialize, and enqueue a task plan for staged execution."""
 
         self._validate_task_plan(task_plan)
+        if self._recorder is not None:
+            self._recorder.on_plan_submitted(task_plan.plan_id)
         stage_order = self._ordered_stage_ids(task_plan)
         stage_states = {
             stage_id: StageExecutionState(
@@ -235,6 +311,8 @@ class WorkScheduler:
         """Queue all work units for a stage into executor queues by priority and kind."""
 
         task_plan = plan_state.task_plan
+        if self._recorder is not None:
+            self._recorder.on_stage_enqueued(task_plan.plan_id, stage_id)
         for unit_id in task_plan.stage_work_units.get(stage_id, []):
             work_unit = task_plan.work_units[unit_id]
             item = QueuedWorkUnit(plan_id=task_plan.plan_id, stage_id=stage_id, work_unit=work_unit)
@@ -281,6 +359,14 @@ class WorkScheduler:
 
         stage_state = plan_state.stage_states[item.stage_id]
         stage_state.submitted_unit_ids.add(item.work_unit.unit_id)
+        if self._recorder is not None:
+            self._recorder.on_unit_submitted(
+                plan_id=item.plan_id,
+                stage_id=item.stage_id,
+                unit_id=item.work_unit.unit_id,
+                executor_kind=item.work_unit.executor_kind,
+                priority_class=item.work_unit.priority_class,
+            )
         executor = (
             self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
         )
@@ -316,19 +402,26 @@ class WorkScheduler:
             exc = fut.exception()
             if exc is None:
                 stage_state.succeeded_unit_ids.add(unit_id)
+                if self._recorder is not None:
+                    self._recorder.on_unit_done(plan_id, stage_id, unit_id, success=True)
             else:
                 stage_state.failed_unit_ids[unit_id] = exc
                 plan_state.failed_units[unit_id] = exc
+                if self._recorder is not None:
+                    self._recorder.on_unit_done(
+                        plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
+                    )
 
                 if plan_state.task_plan.fail_fast:
                     # Cancel queued-but-not-submitted work and fail immediately.
                     self._purge_plan_from_queues_locked(plan_id)
-                    plan_state.completion_future.set_exception(
-                        RuntimeError(
-                            f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
-                            f"to work unit {unit_id}: {exc}"
-                        )
+                    fail_message = (
+                        f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
+                        f"to work unit {unit_id}: {exc}"
                     )
+                    plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                    if self._recorder is not None:
+                        self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                     self._plan_states.pop(plan_id, None)
                     self._drain_queues_locked()
                     return
@@ -342,14 +435,17 @@ class WorkScheduler:
             if at_last_stage:
                 if plan_state.failed_units:
                     first_unit_id, first_exc = next(iter(plan_state.failed_units.items()))
-                    plan_state.completion_future.set_exception(
-                        RuntimeError(
-                            f"TaskPlan {plan_id} completed with failures; "
-                            f"first failure unit={first_unit_id}: {first_exc}"
-                        )
+                    fail_message = (
+                        f"TaskPlan {plan_id} completed with failures; "
+                        f"first failure unit={first_unit_id}: {first_exc}"
                     )
+                    plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                    if self._recorder is not None:
+                        self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                 else:
                     plan_state.completion_future.set_result(None)
+                    if self._recorder is not None:
+                        self._recorder.on_plan_completed(plan_id, success=True)
                 self._plan_states.pop(plan_id, None)
                 self._drain_queues_locked()
                 return
