@@ -194,6 +194,7 @@ class WriteSpec:
 class WorkUnit:
     unit_id: str
     stage_id: str
+    priority_class: PriorityClass
     executor_kind: ExecutorType
     input_ref: DataRef
     input_region: DataRegion
@@ -402,6 +403,7 @@ class TaskPlanner:
                 unit = WorkUnit(
                     unit_id=unit_id,
                     stage_id=stage_id,
+                    priority_class=semantic_task.get_priority_class(),
                     executor_kind=stage.default_executor,
                     input_ref=input_ref,
                     input_region=input_region,
@@ -452,7 +454,7 @@ class SemanticTask(ABC):
         # the task is used
         self.id: Optional[int] = None
         self.input_ref = input_ref
-        self._priorit_class: PriorityClass = priority_class
+        self._priority_class: PriorityClass = priority_class
         self._output_spec: AllocationRequest = output_spec
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
@@ -463,3 +465,6 @@ class SemanticTask(ABC):
 
     def get_algorithm(self) -> AlgorithmPipeline:
         return self._algorithm
+
+    def get_priority_class(self) -> PriorityClass:
+        return self._priority_class
