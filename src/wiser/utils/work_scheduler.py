@@ -4,7 +4,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from collections import deque
 from threading import Lock, Semaphore
-from typing import Any, Callable, Deque, Dict, TYPE_CHECKING
+from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
 
 from .primitives import PriorityClass
 from .task_system import TaskPlan, WorkUnit
@@ -76,12 +76,12 @@ class PlanExecutionState:
 class SchedulerEvent:
     kind: str
     plan_id: str
-    stage_id: str | None = None
-    unit_id: str | None = None
-    executor_kind: str | None = None
-    priority_class: PriorityClass | None = None
-    success: bool | None = None
-    error: str | None = None
+    stage_id: Optional[str] = None
+    unit_id: Optional[str] = None
+    executor_kind: Optional[str] = None
+    priority_class: Optional[PriorityClass] = None
+    success: Optional[bool] = None
+    error: Optional[str] = None
 
 
 @dataclass
@@ -121,7 +121,7 @@ class RecordingWorkScheduler:
         stage_id: str,
         unit_id: str,
         success: bool,
-        error: str | None = None,
+        error: Optional[str] = None,
     ) -> None:
         self.events.append(
             SchedulerEvent(
@@ -134,7 +134,7 @@ class RecordingWorkScheduler:
             )
         )
 
-    def on_plan_completed(self, plan_id: str, success: bool, error: str | None = None) -> None:
+    def on_plan_completed(self, plan_id: str, success: bool, error: Optional[str] = None) -> None:
         self.events.append(
             SchedulerEvent(kind="plan_completed", plan_id=plan_id, success=success, error=error)
         )
@@ -189,7 +189,7 @@ class WorkScheduler:
         self,
         config: SchedulerConfig,
         storage_service: "StorageService",
-        recorder: RecordingWorkScheduler | None = None,
+        recorder: Optional[RecordingWorkScheduler] = None,
     ):
         self._config = config
         self._process_budget = int(self._config._process_budget)
@@ -370,6 +370,7 @@ class WorkScheduler:
             return
 
         stage_state = plan_state.stage_states[item.stage_id]
+        # Mark as submitted before dispatch so stage accounting reflects in-flight work.
         stage_state.submitted_unit_ids.add(item.work_unit.unit_id)
         if self._recorder is not None:
             self._recorder.on_unit_submitted(
@@ -383,6 +384,8 @@ class WorkScheduler:
             self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
         )
         future = executor.submit(self._execute_work_unit, item.work_unit)
+        # Defer callback attachment until after lock release to avoid immediate
+        # callback re-entry (`add_done_callback` can invoke synchronously).
         self._pending_done_callbacks.append(
             PendingDoneCallback(
                 future=future,
