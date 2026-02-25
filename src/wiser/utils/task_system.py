@@ -112,7 +112,7 @@ class MapStage(TaskStage):
     def map_fn(
         self,
         input_region: DataRegion,
-        output_ref: DataRef,
+        output_writes: Dict[str, WriteSpec],  # name -> WriteSpec
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
         raise NotImplementedError("Subclasses must implement map_fn")
@@ -389,11 +389,11 @@ class TaskPlanner:
             unit_ids_for_stage: List[str] = []
 
             for input_region in scheme.iter_chunks(input_meta):
-                out_writes: List[WriteSpec] = []
+                out_writes: Dict[str, WriteSpec] = {}
                 for ob in stage.output_bindings:
                     out_ref = plan.bindings[ob.name]
                     out_region = stage.output_region_for(input_region)
-                    out_writes.append(WriteSpec(name=ob.name, ref=out_ref, region=out_region))
+                    out_writes[ob.name] = WriteSpec(name=ob.name, ref=out_ref, region=out_region)
 
                 # 7) estimate RAM (rough)
                 ram_est = self._estimate_ram(stage.resource_model, input_region, out_writes, input_meta)

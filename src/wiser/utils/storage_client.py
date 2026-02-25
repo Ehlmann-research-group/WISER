@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
 import uuid
 
 import numpy as np
@@ -43,6 +43,9 @@ from .storage_service import (
     StorageService,
     ZarrAccessDescriptor,
 )
+
+if TYPE_CHECKING:
+    from .task_system import WriteSpec
 
 
 @dataclass
@@ -210,46 +213,21 @@ class StorageClient:
 
     def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=region, mode="rw")
-        if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            self._write_region_into_array(arr, region, value)
-            return
-        if isinstance(desc, MemmapAccessDescriptor):
-            arr = np.load(str(desc.path), mmap_mode="r+")
-            self._write_region_into_array(arr, region, value)
-            if hasattr(arr, "flush"):
-                arr.flush()
-            return
-        if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
-            grp = zarr.open_group(store=store, mode="r+")
-            self._write_region_into_array(grp[desc.array_name], region, value)
-            return
-        raise TypeError(
-            "StorageClient.write_region currently supports only memmap and zarr access descriptors"
-        )
+        self._write_access_value(desc=desc, value=value, region=region, op_name="write_region")
 
     def write_data(self, ref: DataRef, value: Any) -> None:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="rw")
-        if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            arr[...] = value
-            return
-        if isinstance(desc, MemmapAccessDescriptor):
-            arr = np.load(str(desc.path), mmap_mode="r+")
-            arr[...] = value
-            if hasattr(arr, "flush"):
-                arr.flush()
-            return
-        if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
-            grp = zarr.open_group(store=store, mode="r+")
-            grp[desc.array_name][...] = value
-            return
-        raise TypeError(
-            "StorageClient.write_data currently supports RAM, memmap, and zarr access descriptors."
-            f"\nIt does not support {type(desc)} descriptors."
+        self._write_access_value(desc=desc, value=value, region=None, op_name="write_data")
+
+    def write_spec(self, write_spec: "WriteSpec", value: Any) -> None:
+        region = write_spec.region
+        desc: AccessDescriptor = self._rpc_call(
+            "get_access",
+            ref=write_spec.ref,
+            region=region,
+            mode="rw",
         )
+        self._write_access_value(desc=desc, value=value, region=region, op_name="write_spec")
 
     def read_json_value(self, ref: DataRef) -> Any:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="r")
@@ -439,6 +417,46 @@ class StorageClient:
             arr[region.i0 : region.i1] = value
             return
         raise TypeError(f"Unknown DataRegion type: {type(region)}")
+
+    def _write_access_value(
+        self,
+        *,
+        desc: AccessDescriptor,
+        value: Any,
+        region: Optional[DataRegion],
+        op_name: str,
+    ) -> None:
+        if isinstance(desc, RamAccessDescriptor):
+            arr = self._read_ram_array_view(desc.ref.uri)
+            if region is None:
+                arr[...] = value
+            else:
+                self._write_region_into_array(arr, region, value)
+            return
+
+        if isinstance(desc, MemmapAccessDescriptor):
+            arr = np.load(str(desc.path), mmap_mode="r+")
+            if region is None:
+                arr[...] = value
+            else:
+                self._write_region_into_array(arr, region, value)
+            if hasattr(arr, "flush"):
+                arr.flush()
+            return
+
+        if isinstance(desc, ZarrAccessDescriptor):
+            store = zarr.DirectoryStore(str(desc.store_path))
+            grp = zarr.open_group(store=store, mode="r+")
+            if region is None:
+                grp[desc.array_name][...] = value
+            else:
+                self._write_region_into_array(grp[desc.array_name], region, value)
+            return
+
+        raise TypeError(
+            f"StorageClient.{op_name} currently supports RAM, memmap, and zarr access descriptors."
+            f"\nIt does not support {type(desc)} descriptors."
+        )
 
     def get_meta(self, ref: DataRef) -> DataMeta:
         return self._rpc_call("get_meta", ref=ref)
