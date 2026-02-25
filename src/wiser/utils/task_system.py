@@ -20,7 +20,7 @@ from .primitives import (
     SpectraBatchScheme,
     SpectralBatchDatasetScheme,
 )
-from .storage_layer import StorageLayer
+from .storage_service import StorageService
 
 
 class SchedulerConfig(Protocol):
@@ -38,7 +38,6 @@ class ResourceModel:
 @dataclass
 class TaskStage:
     default_executor: ExecutorType
-    input_ref: DataRef
     input_plan_meta: "BasePlanMeta"
     resource_model: ResourceModel
     fn_kwargs: Dict[str, Any] = field(default_factory=dict)
@@ -325,7 +324,7 @@ class SimpleChunkingPolicy:
 @dataclass
 class PlanningContext:
     sched_cfg: "SchedulerConfig"
-    storage: StorageLayer
+    storage: StorageService
     chunking_policy: ChunkingPolicy
 
 
@@ -468,21 +467,19 @@ class SemanticTask(ABC):
         priority_class: PriorityClass,
         input_ref: DataRef,
         algorithm_pipeline: AlgorithmPipeline,
-        algo_kwargs: Dict,
-        output_spec: AllocationRequest,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
         self.id: Optional[int] = None
-        self.input_ref = input_ref
+        self._input_ref = input_ref
         self._priority_class: PriorityClass = priority_class
-        self._output_spec: AllocationRequest = output_spec
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
-        self._algo_kwargs: Dict = algo_kwargs
 
-    def get_output_alloc_request(self) -> AllocationRequest:
-        return self._output_spec
+    @property
+    def input_ref(self) -> DataRef:
+        """Entry-point DataRef for this semantic task."""
+        return self._input_ref
 
     def get_algorithm(self) -> AlgorithmPipeline:
         return self._algorithm

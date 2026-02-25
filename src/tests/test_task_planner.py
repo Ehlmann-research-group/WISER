@@ -96,7 +96,6 @@ class TestTaskPlanner(unittest.TestCase):
 
         stage = _IdentityMapStage(
             default_executor="thread",
-            input_ref=input_ref,
             input_plan_meta=input_meta,
             resource_model=ResourceModel(
                 fixed_overhead_bytes=0,
@@ -112,16 +111,6 @@ class TestTaskPlanner(unittest.TestCase):
             priority_class="interactive",
             input_ref=input_ref,
             algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
-            algo_kwargs={},
-            output_spec=AllocationRequest(
-                name="final_out",
-                kind="dataset",
-                residency="ram_cacheable",
-                size_est=6 * 9 * 3 * 4,
-                shape=(6, 9, 3),
-                dtype=np.dtype(np.float32),
-                chunks=None,
-            ),
         )
         semantic_task.id = 42
 
