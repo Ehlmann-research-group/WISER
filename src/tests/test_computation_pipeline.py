@@ -203,8 +203,7 @@ class TestComputationPipeline(unittest.TestCase):
                 dataset = RasterDataLoader().load_from_file(str(fixture_path), interactive=False)[0]
                 dataset_ref = service.register_external(ExternalRasterHandle(dataset_obj=dataset))
 
-                spectrum_arr = np.asarray(dataset.get_all_bands_at(1, 1, filter_bad_values=False))
-                print(f"spectrum_arr: {spectrum_arr}")
+                spectrum_arr = np.asarray(dataset.get_all_bands_at(1, 1, filter_bad_values=True))
                 spectrum_obj = NumPyArraySpectrum(
                     arr=spectrum_arr,
                     name="pixel_0_0",
@@ -263,7 +262,13 @@ class TestComputationPipeline(unittest.TestCase):
                 output_ref = plan.bindings["stage_out_2"]
                 output_arr, _ = client.read_data(output_ref)
                 input_arr, _ = client.read_data(dataset_ref)
-                np.testing.assert_allclose(output_arr, input_arr, rtol=1e-5, atol=1e-8, equal_nan=True)
+                spectrum_arr, _ = client.read_data(spectrum_ref)
+
+                # Divide-then-multiply preserves input only where spectrum is finite;
+                # NaNs in spectrum propagate through both stages and should remain NaN.
+                valid_spectrum_mask = np.where(np.isnan(spectrum_arr), np.nan, 1.0)
+                expected_arr = input_arr * valid_spectrum_mask
+                np.testing.assert_allclose(output_arr, expected_arr, rtol=1e-5, atol=1e-8, equal_nan=True)
             finally:
                 scheduler.shutdown(wait=True)
                 client.close()
