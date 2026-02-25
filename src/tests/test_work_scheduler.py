@@ -64,6 +64,7 @@ def _make_work_unit(
         input_region=DatasetRegionRef(y0=0, y1=1, x0=0, x1=1, b0=0, b1=1),
         writes=(),
         fn=fn,
+        fn_kwargs={},
         broadcast={},
         ram_peak_est_bytes=1,
     )

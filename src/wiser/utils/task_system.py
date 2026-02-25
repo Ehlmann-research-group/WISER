@@ -41,6 +41,7 @@ class TaskStage:
     input_ref: DataRef
     input_plan_meta: "BasePlanMeta"
     resource_model: ResourceModel
+    fn_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Where this stage reads from. It is a key in the task plan's table
     # __task_input__ is the first input to the semantic task
@@ -48,14 +49,14 @@ class TaskStage:
 
     output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
 
-    broadcast_input: Dict[str, "DataRef"] = field(default_factory=dict)
+    broadcast_input: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ReduceStage(TaskStage):
     @abstractmethod
     def reduce_fn():
-        pass
+        raise NotImplementedError("Subclasses must implement reduce_fn")
 
 
 @dataclass
@@ -77,13 +78,13 @@ class MapStage(TaskStage):
             DataRegion: The output region that the data in the input region
             will map to.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement output_region_for")
 
     def make_allocation_requests(
         self,
         *,
         input_meta: "BasePlanMeta",
-        # we will probably neede a params dict, but I don't know if it
+        # we will probably need a params dict, but I don't know if it
         # will be a UI passed in parameter or something the developer will code
         # params: dict,
         chosen_scheme: ChunkingScheme | None,
@@ -105,17 +106,16 @@ class MapStage(TaskStage):
         :return: Description
         :rtype: list[AllocationRequest]
         """
-        pass
+        raise NotImplementedError("Subclasses must implement make_allocation_requests")
 
     @abstractmethod
     def map_fn(
         self,
-        input_region,
-        output_ref,
-        kwargs,
-        broadcast_inputs: list[str] = [],
+        input_region: DataRegion,
+        output_ref: DataRef,
+        broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
-        pass
+        raise NotImplementedError("Subclasses must implement map_fn")
 
 
 @dataclass(frozen=True)
@@ -200,12 +200,8 @@ class WorkUnit:
     input_region: DataRegion
     writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
-    # I think the params should be in fn (so fn is a lambda with params preloaded)
-    # but I am still unsure so keeping it for now.
-    # params: Dict[str, Any]
-    broadcast: Dict[str, "DataRef"]
-    # We don't subdivide the ram into i/o, processing, output because the scheduler
-    # itself doesn't have divisions
+    fn_kwargs: Dict[str, Any]
+    broadcast: Dict[str, Any]
     ram_peak_est_bytes: int
     deps: Tuple[str, ...] = ()  # dependency unit_ids (NOT WorkUnit objects)
 
@@ -410,10 +406,10 @@ class TaskPlanner:
                     executor_kind=stage.default_executor,
                     input_ref=input_ref,
                     input_region=input_region,
-                    writes=tuple(out_writes),
+                    writes=tuple[WriteSpec, ...](out_writes),
                     fn=stage.map_fn,
-                    # params=dict(stage.params()),
-                    broadcast=dict[str, DataRef](stage.broadcast_input),  # name->DataRef
+                    fn_kwargs=dict(stage.fn_kwargs),
+                    broadcast=dict[str, Any](stage.broadcast_input),  # name->DataRef
                     ram_peak_est_bytes=ram_est,
                     deps=tuple(prev_stage_unit_ids),
                 )
