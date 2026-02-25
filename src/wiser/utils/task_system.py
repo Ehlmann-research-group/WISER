@@ -198,6 +198,16 @@ class WriteSpec:
 
 
 @dataclass(frozen=True)
+class WorkUnitMeta:
+    """Planning-time I/O metadata keyed by work unit id in TaskPlan."""
+
+    input_ref: DataRef
+    input_region: DataRegion
+    output_writes: Dict[str, WriteSpec]
+    broadcast_inputs: Dict[str, "DataRef"]
+
+
+@dataclass(frozen=True)
 class WorkUnit:
     unit_id: str
     stage_id: str
@@ -221,6 +231,7 @@ class TaskPlan:
     work_units: Dict[str, WorkUnit] = field(
         default_factory=dict
     )  # Each work unit has a parent and/or a child
+    work_units_meta: Dict[str, WorkUnitMeta] = field(default_factory=dict)
     stage_work_units: Dict[str, List[str]] = field(default_factory=dict)  # List of work units per stage
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
@@ -401,22 +412,29 @@ class TaskPlanner:
                 ram_est = self._estimate_ram(stage.resource_model, input_region, out_writes, input_meta)
 
                 unit_id = self._new_unit_id(plan_id)
+                unit_meta = WorkUnitMeta(
+                    input_ref=input_ref,
+                    input_region=input_region,
+                    output_writes=out_writes,
+                    broadcast_inputs=dict[str, DataRef](stage.broadcast_input),
+                )
                 unit = WorkUnit(
                     unit_id=unit_id,
                     stage_id=stage_id,
                     priority_class=semantic_task.get_priority_class(),
                     executor_kind=stage.default_executor,
                     fn=stage.map_fn(
-                        input_ref=input_ref,
-                        input_region=input_region,
-                        output_writes=out_writes,
-                        broadcast_inputs=stage.broadcast_input,
+                        input_ref=unit_meta.input_ref,
+                        input_region=unit_meta.input_region,
+                        output_writes=unit_meta.output_writes,
+                        broadcast_inputs=unit_meta.broadcast_inputs,
                     ),
                     ram_peak_est_bytes=ram_est,
                     deps=tuple(prev_stage_unit_ids),
                 )
 
                 plan.work_units[unit_id] = unit
+                plan.work_units_meta[unit_id] = unit_meta
                 unit_ids_for_stage.append(unit_id)
 
             plan.stage_work_units[stage_id] = unit_ids_for_stage
