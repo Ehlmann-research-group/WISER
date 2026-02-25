@@ -111,10 +111,17 @@ class MapStage(TaskStage):
     @abstractmethod
     def map_fn(
         self,
+        input_ref: DataRef,
         input_region: DataRegion,
         output_writes: Dict[str, WriteSpec],  # name -> WriteSpec
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
+        """
+        This function must return a top level callable! It can not return a closure.
+        Even though the class has an input_ref, that input_ref may not be made at
+        the time this class is made because it may be the output of another stage.
+        We will likely remove the input_ref attribute in the future.
+        """
         raise NotImplementedError("Subclasses must implement map_fn")
 
 
@@ -196,12 +203,7 @@ class WorkUnit:
     stage_id: str
     priority_class: PriorityClass
     executor_kind: ExecutorType
-    input_ref: DataRef
-    input_region: DataRegion
-    writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
-    fn_kwargs: Dict[str, Any]
-    broadcast: Dict[str, Any]
     ram_peak_est_bytes: int
     deps: Tuple[str, ...] = ()  # dependency unit_ids (NOT WorkUnit objects)
 
@@ -404,12 +406,12 @@ class TaskPlanner:
                     stage_id=stage_id,
                     priority_class=semantic_task.get_priority_class(),
                     executor_kind=stage.default_executor,
-                    input_ref=input_ref,
-                    input_region=input_region,
-                    writes=tuple[WriteSpec, ...](out_writes),
-                    fn=stage.map_fn,
-                    fn_kwargs=dict(stage.fn_kwargs),
-                    broadcast=dict[str, Any](stage.broadcast_input),  # name->DataRef
+                    fn=stage.map_fn(
+                        input_ref=input_ref,
+                        input_region=input_region,
+                        output_writes=out_writes,
+                        broadcast_inputs=stage.broadcast_input,
+                    ),
                     ram_peak_est_bytes=ram_est,
                     deps=tuple(prev_stage_unit_ids),
                 )
@@ -426,12 +428,14 @@ class TaskPlanner:
         self,
         rm: ResourceModel,
         input_region: DataRegion,
-        writes: Sequence[WriteSpec],
+        writes: Dict[str, WriteSpec],
         input_meta: BasePlanMeta,
     ) -> int:
         # Very rough: fixed + per-pixel in/out + scratch. Assumes DataRegion can compute pixel count.
         in_scalar_count = input_region.scalar_count()  # you likely already have this
-        out_scalar_count = sum((w.region.scalar_count() if w.region is not None else 0) for w in writes)
+        out_scalar_count = sum(
+            (w.region.scalar_count() if w.region is not None else 0) for w in writes.values()
+        )
         return (
             rm.fixed_overhead_bytes
             + rm.bytes_per_scalar_in * in_scalar_count * input_meta.dtype_bytes
