@@ -1,137 +1,134 @@
-# WISER Task and Scheduler System Overview
+# WISER Task, Storage, and Scheduler System Overview
 
-This document describes the high-level architecture of WISER's task execution system and how planning, storage, and scheduling work together.
+This document describes the current architecture of WISER's task execution stack and how task planning, storage, and scheduling interact.
 
 The system is designed to:
-- execute large operations under RAM and disk constraints,
+- execute chunked operations under RAM and disk constraints,
 - keep interactive workflows responsive,
+- support process-safe worker execution,
 - support progress/cancellation,
-- and run chunked computation on large inputs.
+- keep data movement explicit via storage-backed bindings.
 
 ## Core Concepts
 
 ### SemanticTask
 
-A `SemanticTask` is a user-facing request (for example, PCA, continuum removal, or statistics generation). It describes **intent**, not execution.
+A `SemanticTask` is a user-facing request (for example: PCA, continuum removal, band math, or derived products). It describes **intent**, not runtime execution.
 
 It carries:
-- priority,
-- algorithm parameters,
-- an `AlgorithmPipeline`,
-- output allocation intent.
+- priority class,
+- entry input (`input_ref`),
+- an `AlgorithmPipeline`.
 
-It does **not** allocate storage, create work units, or run compute directly.
+`SemanticTask` does not allocate storage, choose chunking, or schedule compute.
 
-### AlgorithmPipeline
+### AlgorithmPipeline and TaskStage
 
-An `AlgorithmPipeline` is an ordered list of `TaskStage` objects that define the logical computation flow.
+An `AlgorithmPipeline` is an ordered list of `TaskStage` objects.
 
-Typical pattern:
-- map-like stage(s) for chunk-local work,
-- optional reduce stage(s) for aggregation,
-- optional map stage(s) for final transforms.
+Each stage defines:
+- input binding name (`input_binding`),
+- output binding names (`output_bindings`),
+- chunking scheme type,
+- allocation requests for stage outputs,
+- a top-level callable producer (`map_fn` / `reduce_fn`),
+- optional broadcast refs (e.g. spectrum refs needed by every chunk).
 
-The pipeline is still abstract at this point: no concrete unit graph exists yet.
+Important: stage input refs are resolved by binding name during planning. Stages should not assume direct ownership of concrete `DataRef`s.
 
-### TaskStage
+### TaskPlan, WorkUnit, WorkUnitMeta
 
-A `TaskStage` is a reusable template for one phase of computation. Stages provide:
-- input/output binding definitions,
-- resource model hints,
-- chunking scheme requirements,
-- stage compute function (`map_fn`/`reduce_fn`),
-- allocation requests for stage outputs.
+`TaskPlanner` builds a concrete `TaskPlan`.
 
-Stages do not own concrete storage handles (`DataRef`) or scheduling state. 
-The `TaskPlan` owns a map between bindings and `DataRef`s.
+- `TaskPlan.bindings`: semantic binding name -> `DataRef`
+- `TaskPlan.work_units`: schedulable units with executor kind, deps, and prebuilt callable
+- `TaskPlan.work_units_meta`: planning I/O metadata (`input_ref`, `input_region`, output `WriteSpec`s, broadcast refs)
 
-### WorkUnit
+`WorkUnit` is intentionally lightweight at runtime; detailed I/O metadata lives in `WorkUnitMeta`.
 
-A `WorkUnit` is the smallest schedulable executable item. Each unit contains:
-- input reference + input region,
-- one or more output write specs (target ref + region),
-- executor kind (thread/process),
-- RAM estimate,
-- dependency IDs.
+### StorageService (Authoritative Storage Registry)
 
-Work units are produced by the `Task Planner` from stage definitions and chunking decisions.
+`StorageService` is the central storage authority used by planner and workers. It manages:
+- `AllocationRequest -> DataRef` allocation,
+- RAM vs disk materialization,
+- metadata and region metadata,
+- external data registration (datasets, spectra, spectra lists),
+- access descriptors for reads/writes (`RamAccessDescriptor`, `MemmapAccessDescriptor`, `ZarrAccessDescriptor`, external descriptors, JSON descriptors).
 
-### StorageLayer
+Internally it exposes an RPC listener used by worker-side clients.
 
-`StorageLayer` manages data materialization:
-- `AllocationRequest -> DataRef`,
-- RAM or disk residency,
-- region read/write for refs.
+### StorageClient (Worker-Side Data Access)
 
-It is intentionally independent of task graph logic and scheduler policy.
+`StorageClient` is the worker-facing API that talks to `StorageService` over RPC.
+
+Workers use it to:
+- resolve access descriptors (`get_access`),
+- read full data or regions (`read_data`, `read_region`),
+- write full data, regions, or `WriteSpec` outputs (`write_data`, `write_region`, `write_spec`),
+- fetch metadata (`get_meta`, `get_region_meta`).
+
+For dataset-shaped reads, client conventions are:
+- dataset: `[y][x][b]`
+- spectrum: `[b]`
+- spectra list: `[i][b]`
 
 ### WorkScheduler
 
-`WorkScheduler` executes a `TaskPlan` by:
-- enforcing dependency order,
-- admitting ready units under resource budgets,
-- dispatching to thread/process executors,
-- tracking completion/cancellation/progress.
+`WorkScheduler` executes a `TaskPlan` stage-by-stage.
 
-The scheduler executes units; it does not redefine bindings or storage layout.
+It:
+- validates stage/unit structure,
+- enqueues units by priority and executor kind,
+- dispatches to process/thread pools under token budgets,
+- tracks success/failure and fail-fast behavior,
+- advances to next stage only when current stage is terminal.
 
-## How Task Planning Works
+Process workers are initialized with `initialize_process_storage_client(...)` so unit callables can use `get_process_storage_client()` safely.
 
-The `TaskPlanner` converts one `SemanticTask` into a concrete `TaskPlan`.
+## Planning Flow
 
-### 1) Build Binding Table
+`TaskPlanner.plan_semantic_task(...)` performs:
 
-Planner initializes a binding map:
-- `bindings: Dict[str, DataRef]`
+1. **Initialize bindings**
+   - `bindings["__task_input__"] = semantic_task.input_ref`
+2. **For each stage in order**
+   - resolve stage input ref from `bindings[stage.input_binding.name]`
+   - choose chunking with `ChunkingPolicy`
+   - call `stage.make_allocation_requests(...)`
+   - allocate outputs via `StorageService.allocate_data(...)`
+   - store new output refs in `bindings`
+   - expand chunks into units
+   - build per-unit `WriteSpec` map and `WorkUnitMeta`
+   - build runnable top-level callable via `stage.map_fn(...)`
+3. **Record dependencies**
+   - default behavior is stage barrier: stage N depends on all units in stage N-1
 
-Bindings connect semantic names (for stage inputs/outputs) to concrete storage references.
+If allocation or binding resolution fails, planning fails before scheduling.
 
-### 2) Plan Each Stage
+## Data Handoff Between Stages
 
-For each stage in pipeline order:
+Data does not flow directly in-memory between work units. Stage handoff is storage-backed:
 
-1. **Resolve stage input binding**
-   - Find the input `DataRef` from `bindings`.
-2. **Choose chunking**
-   - Use `ChunkingPolicy` + stage resource model + scheduler constraints.
-3. **Allocate outputs up front**
-   - Stage emits `AllocationRequest`s.
-   - Planner calls `StorageLayer.allocate_data(...)`.
-   - Resulting output refs are inserted into `bindings`.
-4. **Expand into work units**
-   - Iterate stage input regions from the chosen chunking scheme.
-   - Map input region to output region(s).
-   - Create `WorkUnit`s with write specs and dependency links.
+1. Stage A writes to an allocated output ref (`WriteSpec.ref`) using regions.
+2. That output ref is already stored in `TaskPlan.bindings` under the output binding name.
+3. Stage B declares `input_binding` with that same name.
+4. Planner resolves Stage B input to the same `DataRef`.
+5. Stage B units read regions through `StorageClient`.
 
-If required allocation fails during planning, task submission fails early.
+Benefits:
+- process-safe cross-worker exchange,
+- predictable memory behavior,
+- disk spill compatibility,
+- deterministic stage wiring via binding names.
 
-## Data Transfer Between Work Units (Key Mechanism)
+## Storage and Execution Path
 
-Data does not move directly from one work unit to another in memory. Instead, units communicate through storage-backed bindings:
+End-to-end:
 
-1. Stage A writes to output refs (`DataRef`) using regioned writes.
-2. Those refs are already registered in `bindings` by semantic output name.
-3. Stage B resolves its input binding name to the same `DataRef`.
-4. Stage B work units read required regions from storage.
+`SemanticTask` -> `AlgorithmPipeline` -> `TaskPlanner` -> `TaskPlan` (bindings + work units + unit meta) -> `WorkScheduler` -> worker callable -> `StorageClient` RPC -> `StorageService` access/metadata -> data read/write.
 
-This design gives:
-- stable cross-stage handoff,
-- disk spill support,
-- process-safe exchange (no large in-memory payload passing),
-- predictable memory behavior via chunked access.
-
-## Up-Front Allocation Strategy
-
-A core design choice is allocating stage outputs during planning (before execution starts):
-
-- validates storage feasibility early,
-- prevents mid-run "out of disk" surprises,
-- ensures all work units target known refs from the start.
-
-Computation memory is still budgeted at runtime by the scheduler, but output containers are planned and allocated ahead of execution.
-
-## End-to-End Interaction
-
-`SemanticTask` -> `AlgorithmPipeline` -> `TaskPlanner` -> (output allocation via `StorageLayer`) -> `TaskPlan` (work units + bindings) -> `WorkScheduler` -> executors -> `StorageLayer` reads/writes.
-
-This separation keeps stage logic reusable, planning deterministic, scheduling policy-driven, and data movement explicit through bindings.
+This separation keeps:
+- stage logic reusable,
+- planning deterministic,
+- scheduling policy-driven,
+- storage concerns centralized and explicit.
