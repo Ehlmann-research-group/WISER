@@ -79,7 +79,7 @@ class MapStage(TaskStage):
         """
         raise NotImplementedError("Subclasses must implement output_region_for")
 
-    def make_allocation_requests(
+    def generate_allocation_requests(
         self,
         *,
         input_meta: "BasePlanMeta",
@@ -105,7 +105,7 @@ class MapStage(TaskStage):
         :return: Description
         :rtype: list[AllocationRequest]
         """
-        raise NotImplementedError("Subclasses must implement make_allocation_requests")
+        raise NotImplementedError("Subclasses must implement generate_allocation_requests")
 
     @abstractmethod
     def map_fn(
@@ -388,7 +388,7 @@ class TaskPlanner:
             )
 
             # 5) allocate outputs up front
-            alloc_reqs = stage.make_allocation_requests(
+            alloc_reqs = stage.generate_allocation_requests(
                 input_meta=input_meta,
                 # params=semantic_task.params(),
                 chosen_scheme=scheme,

@@ -61,7 +61,7 @@ class _DivideBySpectrumStage(MapStage):
     def output_region_for(self, input_region: DatasetRegionRef) -> DatasetRegionRef:
         return input_region
 
-    def make_allocation_requests(self, *, input_meta, chosen_scheme):
+    def generate_allocation_requests(self, *, input_meta, chosen_scheme):
         _ = chosen_scheme
         total_bytes = input_meta.height * input_meta.width * input_meta.bands * input_meta.dtype.itemsize
         return [
@@ -86,7 +86,7 @@ class _MultiplyBySpectrumStage(MapStage):
     def output_region_for(self, input_region: DatasetRegionRef) -> DatasetRegionRef:
         return input_region
 
-    def make_allocation_requests(self, *, input_meta, chosen_scheme):
+    def generate_allocation_requests(self, *, input_meta, chosen_scheme):
         _ = chosen_scheme
         total_bytes = input_meta.height * input_meta.width * input_meta.bands * input_meta.dtype.itemsize
         return [

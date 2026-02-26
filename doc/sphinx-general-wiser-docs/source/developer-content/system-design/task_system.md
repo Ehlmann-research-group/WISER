@@ -94,7 +94,7 @@ Process workers are initialized with `initialize_process_storage_client(...)` so
 2. **For each stage in order**
    - resolve stage input ref from `bindings[stage.input_binding.name]`
    - choose chunking with `ChunkingPolicy`
-   - call `stage.make_allocation_requests(...)`
+   - call `stage.generate_allocation_requests(...)`
    - allocate outputs via `StorageService.allocate_data(...)`
    - store new output refs in `bindings`
    - expand chunks into units

@@ -54,7 +54,7 @@ class _IdentityMapStage(MapStage):
     def output_region_for(self, input_region: DatasetRegionRef) -> DatasetRegionRef:
         return input_region
 
-    def make_allocation_requests(self, *, input_meta, chosen_scheme):
+    def generate_allocation_requests(self, *, input_meta, chosen_scheme):
         _ = chosen_scheme
         return [
             AllocationRequest(
