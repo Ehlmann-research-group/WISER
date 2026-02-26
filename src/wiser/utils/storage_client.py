@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
 import uuid
 
 import numpy as np
@@ -43,6 +43,9 @@ from .storage_service import (
     StorageService,
     ZarrAccessDescriptor,
 )
+
+if TYPE_CHECKING:
+    from .task_system import WriteSpec
 
 
 @dataclass
@@ -127,12 +130,22 @@ class StorageClient:
     ) -> AccessDescriptor:
         return self._rpc_call("get_access", ref=ref, region=region, mode=mode)
 
-    def read_data(self, ref: DataRef) -> tuple[np.ndarray, RegionMeta]:
+    def read_data(
+        self,
+        ref: DataRef,
+        *,
+        filter_data_ignore_value: bool = True,
+    ) -> tuple[np.ndarray | np.ma.MaskedArray, RegionMeta]:
         """
         Read the whole object for `ref`.
 
         For `RamAccessDescriptor`, the returned array is a shared-memory view
         (not a copy), backed by an attached `SharedMemory` segment.
+
+        Dimension conventions:
+        - dataset refs return arrays shaped as [y][x][b]
+        - spectrum refs return arrays shaped as [b]
+        - spectra_list refs return arrays shaped as [i][b]
         """
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="r")
         if isinstance(
@@ -146,32 +159,51 @@ class StorageClient:
         if isinstance(desc, RamAccessDescriptor):
             arr = self._read_ram_array_view(desc.ref.uri)
             arr_region = self._read_region_from_array(arr, whole_region)
-            return np.asarray(arr_region), region_meta
+            data = np.asarray(arr_region)
+            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
 
         if isinstance(desc, ExternalRamAccessDescriptor):
             arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
             arr_region = self._read_region_from_array(arr, whole_region)
-            return np.asarray(arr_region), region_meta
+            data = np.asarray(arr_region)
+            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
 
         if isinstance(desc, ExternalDiskAccessDescriptor):
             arr = self._read_external_region(desc.ref, whole_region)
             # TODO: Don't copy for GDAL-backed datasets.
-            return np.array(arr, copy=True), region_meta
+            data = np.array(arr, copy=True)
+            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
 
         if isinstance(desc, MemmapAccessDescriptor):
             mm = np.load(str(desc.path), mmap_mode="r")
             arr = self._read_region_from_array(mm, whole_region)
-            return np.array(arr, copy=True), region_meta
+            data = np.array(arr, copy=True)
+            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
 
         if isinstance(desc, ZarrAccessDescriptor):
             store = zarr.DirectoryStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
             arr = self._read_region_from_array(grp[desc.array_name], whole_region)
-            return np.array(arr, copy=True), region_meta
+            data = np.array(arr, copy=True)
+            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
 
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
-    def read_region(self, ref: DataRef, region: DataRegion) -> tuple[np.ndarray, RegionMeta]:
+    def read_region(
+        self,
+        ref: DataRef,
+        region: DataRegion,
+        *,
+        filter_data_ignore_value: bool = True,
+    ) -> tuple[np.ndarray | np.ma.MaskedArray, RegionMeta]:
+        """
+        Read the specified region for `ref`.
+
+        Dimension conventions:
+        - dataset regions return arrays shaped as [y][x][b]
+        - spectrum regions return arrays shaped as [b]
+        - spectra_list regions return arrays shaped as [i][b]
+        """
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=region, mode="r")
         if desc.region_meta is None:
             raise ValueError("Region metadata is required for region reads")
@@ -183,73 +215,88 @@ class StorageClient:
         if isinstance(desc, ExternalRamAccessDescriptor):
             arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
             arr = self._read_region_from_array(arr, region)
-            return np.asarray(arr), desc.region_meta
+            data = np.asarray(arr)
+            return (
+                self._mask_data_ignore_value(
+                    data,
+                    desc.region_meta,
+                    filter_data_ignore_value,
+                ),
+                desc.region_meta,
+            )
 
         if isinstance(desc, ExternalDiskAccessDescriptor):
             arr = self._read_external_region(desc.ref, region)
             # TODO: Don't copy for GDAL-backed datasets.
-            return np.array(arr, copy=True), desc.region_meta
+            data = np.array(arr, copy=True)
+            return (
+                self._mask_data_ignore_value(
+                    data,
+                    desc.region_meta,
+                    filter_data_ignore_value,
+                ),
+                desc.region_meta,
+            )
 
         if isinstance(desc, RamAccessDescriptor):
             arr = self._read_ram_array_view(desc.ref.uri)
             arr = self._read_region_from_array(arr, region)
-            return np.asarray(arr), desc.region_meta
+            data = np.asarray(arr)
+            return (
+                self._mask_data_ignore_value(
+                    data,
+                    desc.region_meta,
+                    filter_data_ignore_value,
+                ),
+                desc.region_meta,
+            )
 
         if isinstance(desc, MemmapAccessDescriptor):
             mm = np.load(str(desc.path), mmap_mode="r")
             arr = self._read_region_from_array(mm, region)
-            return np.array(arr, copy=True), desc.region_meta
+            data = np.array(arr, copy=True)
+            return (
+                self._mask_data_ignore_value(
+                    data,
+                    desc.region_meta,
+                    filter_data_ignore_value,
+                ),
+                desc.region_meta,
+            )
 
         if isinstance(desc, ZarrAccessDescriptor):
             store = zarr.DirectoryStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
             arr = self._read_region_from_array(grp[desc.array_name], region)
-            return np.array(arr, copy=True), desc.region_meta
+            data = np.array(arr, copy=True)
+            return (
+                self._mask_data_ignore_value(
+                    data,
+                    desc.region_meta,
+                    filter_data_ignore_value,
+                ),
+                desc.region_meta,
+            )
 
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
     def write_region(self, ref: DataRef, region: DataRegion, value: Any) -> None:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=region, mode="rw")
-        if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            self._write_region_into_array(arr, region, value)
-            return
-        if isinstance(desc, MemmapAccessDescriptor):
-            arr = np.load(str(desc.path), mmap_mode="r+")
-            self._write_region_into_array(arr, region, value)
-            if hasattr(arr, "flush"):
-                arr.flush()
-            return
-        if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
-            grp = zarr.open_group(store=store, mode="r+")
-            self._write_region_into_array(grp[desc.array_name], region, value)
-            return
-        raise TypeError(
-            "StorageClient.write_region currently supports only memmap and zarr access descriptors"
-        )
+        self._write_access_value(desc=desc, value=value, region=region, op_name="write_region")
 
     def write_data(self, ref: DataRef, value: Any) -> None:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="rw")
-        if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            arr[...] = value
-            return
-        if isinstance(desc, MemmapAccessDescriptor):
-            arr = np.load(str(desc.path), mmap_mode="r+")
-            arr[...] = value
-            if hasattr(arr, "flush"):
-                arr.flush()
-            return
-        if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
-            grp = zarr.open_group(store=store, mode="r+")
-            grp[desc.array_name][...] = value
-            return
-        raise TypeError(
-            "StorageClient.write_data currently supports RAM, memmap, and zarr access descriptors."
-            f"\nIt does not support {type(desc)} descriptors."
+        self._write_access_value(desc=desc, value=value, region=None, op_name="write_data")
+
+    def write_spec(self, write_spec: "WriteSpec", value: Any) -> None:
+        region = write_spec.region
+        desc: AccessDescriptor = self._rpc_call(
+            "get_access",
+            ref=write_spec.ref,
+            region=region,
+            mode="rw",
         )
+        self._write_access_value(desc=desc, value=value, region=region, op_name="write_spec")
 
     def read_json_value(self, ref: DataRef) -> Any:
         desc: AccessDescriptor = self._rpc_call("get_access", ref=ref, region=None, mode="r")
@@ -439,6 +486,66 @@ class StorageClient:
             arr[region.i0 : region.i1] = value
             return
         raise TypeError(f"Unknown DataRegion type: {type(region)}")
+
+    def _write_access_value(
+        self,
+        *,
+        desc: AccessDescriptor,
+        value: Any,
+        region: Optional[DataRegion],
+        op_name: str,
+    ) -> None:
+        if isinstance(desc, RamAccessDescriptor):
+            arr = self._read_ram_array_view(desc.ref.uri)
+            if region is None:
+                arr[...] = value
+            else:
+                self._write_region_into_array(arr, region, value)
+            return
+
+        if isinstance(desc, MemmapAccessDescriptor):
+            arr = np.load(str(desc.path), mmap_mode="r+")
+            if region is None:
+                arr[...] = value
+            else:
+                self._write_region_into_array(arr, region, value)
+            if hasattr(arr, "flush"):
+                arr.flush()
+            return
+
+        if isinstance(desc, ZarrAccessDescriptor):
+            store = zarr.DirectoryStore(str(desc.store_path))
+            grp = zarr.open_group(store=store, mode="r+")
+            if region is None:
+                grp[desc.array_name][...] = value
+            else:
+                self._write_region_into_array(grp[desc.array_name], region, value)
+            return
+
+        raise TypeError(
+            f"StorageClient.{op_name} currently supports RAM, memmap, and zarr access descriptors."
+            f"\nIt does not support {type(desc)} descriptors."
+        )
+
+    def _mask_data_ignore_value(
+        self,
+        data: np.ndarray | np.ma.MaskedArray,
+        region_meta: RegionMeta,
+        filter_data_ignore_value: bool,
+    ) -> np.ndarray | np.ma.MaskedArray:
+        if not filter_data_ignore_value:
+            return data
+        if region_meta.nodata is None:
+            return data
+
+        arr = np.ma.array(data, copy=False)
+        raw = np.ma.getdata(arr)
+        if np.isnan(region_meta.nodata):
+            nodata_mask = np.isnan(raw)
+        else:
+            nodata_mask = raw == region_meta.nodata
+        combined_mask = np.ma.mask_or(np.ma.getmaskarray(arr), nodata_mask)
+        return np.ma.array(raw, mask=combined_mask, copy=False)
 
     def get_meta(self, ref: DataRef) -> DataMeta:
         return self._rpc_call("get_meta", ref=ref)

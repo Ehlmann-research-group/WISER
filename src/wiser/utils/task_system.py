@@ -20,7 +20,7 @@ from .primitives import (
     SpectraBatchScheme,
     SpectralBatchDatasetScheme,
 )
-from .storage_layer import StorageLayer
+from .storage_service import StorageService
 
 
 class SchedulerConfig(Protocol):
@@ -38,9 +38,9 @@ class ResourceModel:
 @dataclass
 class TaskStage:
     default_executor: ExecutorType
-    input_ref: DataRef
     input_plan_meta: "BasePlanMeta"
     resource_model: ResourceModel
+    fn_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Where this stage reads from. It is a key in the task plan's table
     # __task_input__ is the first input to the semantic task
@@ -48,14 +48,14 @@ class TaskStage:
 
     output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
 
-    broadcast_input: Dict[str,] = field(default_factory=dict)
+    broadcast_input: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ReduceStage(TaskStage):
     @abstractmethod
     def reduce_fn():
-        pass
+        raise NotImplementedError("Subclasses must implement reduce_fn")
 
 
 @dataclass
@@ -77,13 +77,13 @@ class MapStage(TaskStage):
             DataRegion: The output region that the data in the input region
             will map to.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement output_region_for")
 
     def make_allocation_requests(
         self,
         *,
         input_meta: "BasePlanMeta",
-        # we will probably neede a params dict, but I don't know if it
+        # we will probably need a params dict, but I don't know if it
         # will be a UI passed in parameter or something the developer will code
         # params: dict,
         chosen_scheme: ChunkingScheme | None,
@@ -105,17 +105,23 @@ class MapStage(TaskStage):
         :return: Description
         :rtype: list[AllocationRequest]
         """
-        pass
+        raise NotImplementedError("Subclasses must implement make_allocation_requests")
 
     @abstractmethod
     def map_fn(
         self,
-        input_region,
-        output_ref,
-        kwargs,
-        broadcast_inputs: list[str] = [],
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, WriteSpec],  # name -> WriteSpec
+        broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
-        pass
+        """
+        This function must return a top level callable! It can not return a closure.
+        Even though the class has an input_ref, that input_ref may not be made at
+        the time this class is made because it may be the output of another stage.
+        We will likely remove the input_ref attribute in the future.
+        """
+        raise NotImplementedError("Subclasses must implement map_fn")
 
 
 @dataclass(frozen=True)
@@ -191,20 +197,22 @@ class WriteSpec:
 
 
 @dataclass(frozen=True)
+class WorkUnitMeta:
+    """Planning-time I/O metadata keyed by work unit id in TaskPlan."""
+
+    input_ref: DataRef
+    input_region: DataRegion
+    output_writes: Dict[str, WriteSpec]
+    broadcast_inputs: Dict[str, "DataRef"]
+
+
+@dataclass(frozen=True)
 class WorkUnit:
     unit_id: str
     stage_id: str
+    priority_class: PriorityClass
     executor_kind: ExecutorType
-    input_ref: DataRef
-    input_region: DataRegion
-    writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
-    # I think the params should be in fn (so fn ilike a lambda with params preloaded)
-    # but I am still unsure so keeping it for now.
-    # params: Dict[str, Any]
-    broadcast: Dict[str, "DataRef"]
-    # We don't subdivide the ram into i/o, processing, output because the scheduler
-    # itself doesn't have divisions
     ram_peak_est_bytes: int
     deps: Tuple[str, ...] = ()  # dependency unit_ids (NOT WorkUnit objects)
 
@@ -222,8 +230,10 @@ class TaskPlan:
     work_units: Dict[str, WorkUnit] = field(
         default_factory=dict
     )  # Each work unit has a parent and/or a child
+    work_units_meta: Dict[str, WorkUnitMeta] = field(default_factory=dict)
     stage_work_units: Dict[str, List[str]] = field(default_factory=dict)  # List of work units per stage
     bindings: Dict[str, DataRef] = field(default_factory=dict)
+    fail_fast: bool = True
 
 
 class ChunkingPolicy(Protocol):
@@ -314,7 +324,7 @@ class SimpleChunkingPolicy:
 @dataclass
 class PlanningContext:
     sched_cfg: "SchedulerConfig"
-    storage: StorageLayer
+    storage: StorageService
     chunking_policy: ChunkingPolicy
 
 
@@ -361,6 +371,8 @@ class TaskPlanner:
                 raise NotImplementedError("Draft only implements MapStage expansion.")
 
             # 2) resolve stage input ref
+            # input names should be the same as output names from a previous step
+            # unless its __task_input__
             input_ref = plan.bindings[stage.input_binding.name]
 
             # 3) use stage planning metadata provided by the semantic planner.
@@ -389,31 +401,39 @@ class TaskPlanner:
             unit_ids_for_stage: List[str] = []
 
             for input_region in scheme.iter_chunks(input_meta):
-                out_writes: List[WriteSpec] = []
+                out_writes: Dict[str, WriteSpec] = {}
                 for ob in stage.output_bindings:
                     out_ref = plan.bindings[ob.name]
                     out_region = stage.output_region_for(input_region)
-                    out_writes.append(WriteSpec(name=ob.name, ref=out_ref, region=out_region))
+                    out_writes[ob.name] = WriteSpec(name=ob.name, ref=out_ref, region=out_region)
 
                 # 7) estimate RAM (rough)
                 ram_est = self._estimate_ram(stage.resource_model, input_region, out_writes, input_meta)
 
                 unit_id = self._new_unit_id(plan_id)
+                unit_meta = WorkUnitMeta(
+                    input_ref=input_ref,
+                    input_region=input_region,
+                    output_writes=out_writes,
+                    broadcast_inputs=dict[str, DataRef](stage.broadcast_input),
+                )
                 unit = WorkUnit(
                     unit_id=unit_id,
                     stage_id=stage_id,
+                    priority_class=semantic_task.get_priority_class(),
                     executor_kind=stage.default_executor,
-                    input_ref=input_ref,
-                    input_region=input_region,
-                    writes=tuple(out_writes),
-                    fn=stage.map_fn,
-                    # params=dict(stage.params()),
-                    broadcast=dict[str, DataRef](stage.broadcast_input),  # name->DataRef
+                    fn=stage.map_fn(
+                        input_ref=unit_meta.input_ref,
+                        input_region=unit_meta.input_region,
+                        output_writes=unit_meta.output_writes,
+                        broadcast_inputs=unit_meta.broadcast_inputs,
+                    ),
                     ram_peak_est_bytes=ram_est,
                     deps=tuple(prev_stage_unit_ids),
                 )
 
                 plan.work_units[unit_id] = unit
+                plan.work_units_meta[unit_id] = unit_meta
                 unit_ids_for_stage.append(unit_id)
 
             plan.stage_work_units[stage_id] = unit_ids_for_stage
@@ -425,12 +445,14 @@ class TaskPlanner:
         self,
         rm: ResourceModel,
         input_region: DataRegion,
-        writes: Sequence[WriteSpec],
+        writes: Dict[str, WriteSpec],
         input_meta: BasePlanMeta,
     ) -> int:
         # Very rough: fixed + per-pixel in/out + scratch. Assumes DataRegion can compute pixel count.
         in_scalar_count = input_region.scalar_count()  # you likely already have this
-        out_scalar_count = sum((w.region.scalar_count() if w.region is not None else 0) for w in writes)
+        out_scalar_count = sum(
+            (w.region.scalar_count() if w.region is not None else 0) for w in writes.values()
+        )
         return (
             rm.fixed_overhead_bytes
             + rm.bytes_per_scalar_in * in_scalar_count * input_meta.dtype_bytes
@@ -445,21 +467,22 @@ class SemanticTask(ABC):
         priority_class: PriorityClass,
         input_ref: DataRef,
         algorithm_pipeline: AlgorithmPipeline,
-        algo_kwargs: Dict,
-        output_spec: AllocationRequest,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
         self.id: Optional[int] = None
-        self.input_ref = input_ref
-        self._priorit_class: PriorityClass = priority_class
-        self._output_spec: AllocationRequest = output_spec
+        self._input_ref = input_ref
+        self._priority_class: PriorityClass = priority_class
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
-        self._algo_kwargs: Dict = algo_kwargs
 
-    def get_output_alloc_request(self) -> AllocationRequest:
-        return self._output_spec
+    @property
+    def input_ref(self) -> DataRef:
+        """Entry-point DataRef for this semantic task."""
+        return self._input_ref
 
     def get_algorithm(self) -> AlgorithmPipeline:
         return self._algorithm
+
+    def get_priority_class(self) -> PriorityClass:
+        return self._priority_class

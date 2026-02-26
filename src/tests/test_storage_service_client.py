@@ -35,6 +35,21 @@ class TestStorageServiceClient(unittest.TestCase):
         else:
             np.testing.assert_array_equal(left.bad_bands, right.bad_bands)
 
+    def _assert_array_and_mask_equal(self, actual, expected) -> None:
+        actual_ma = np.ma.array(actual, copy=False)
+        expected_ma = np.ma.array(expected, copy=False)
+
+        actual_mask = np.ma.getmaskarray(actual_ma)
+        expected_mask = np.ma.getmaskarray(expected_ma)
+        np.testing.assert_array_equal(actual_mask, expected_mask)
+
+        valid = ~expected_mask
+        np.testing.assert_allclose(
+            np.asarray(actual_ma.data)[valid],
+            np.asarray(expected_ma.data)[valid],
+            equal_nan=True,
+        )
+
     def test_external_disk_backed_dataset_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
@@ -192,3 +207,72 @@ class TestStorageServiceClient(unittest.TestCase):
             self._assert_meta_equal(meta_service, meta_client)
             self.assertEqual(np.dtype(region_meta.elem_type), np.dtype(expected.dtype))
             self.assertEqual(region_meta.region, DatasetRegionRef(0, 3, 0, 5, 0, 4))
+
+    def test_external_dataset_filtered_reads_match_raster_dataset_values_and_masks(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
+            try:
+                loader = RasterDataLoader()
+                fixture_path = (
+                    Path(__file__).resolve().parent
+                    / ".."
+                    / "test_utils"
+                    / "test_datasets"
+                    / "caltech_425_7_7_nm"
+                )
+                dataset = loader.load_from_file(str(fixture_path), interactive=False)[0]
+                ref = service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+                ref = replace(ref, materialization_loc="disk")
+                service.data_refs[ref.ref_id] = ref
+
+                # Compare full-cube read.
+                expected_image = np.ma.array(
+                    dataset.get_image_data(filter_data_ignore_value=True),
+                    copy=False,
+                ).transpose(1, 2, 0)
+                got_image, _ = client.read_data(ref, filter_data_ignore_value=True)
+                self._assert_array_and_mask_equal(got_image, expected_image)
+
+                # Compare subset read.
+                x, y, b = 1, 2, 3
+                dx, dy, db = 3, 3, 5
+                expected_subset = np.ma.array(
+                    dataset.get_image_data_subset(
+                        x=x,
+                        y=y,
+                        band=b,
+                        dx=dx,
+                        dy=dy,
+                        dband=db,
+                        filter_data_ignore_value=True,
+                    ),
+                    copy=False,
+                ).transpose(1, 2, 0)
+                subset_region = DatasetRegionRef(y, y + dy, x, x + dx, b, b + db)
+                got_subset, _ = client.read_region(
+                    ref,
+                    subset_region,
+                    filter_data_ignore_value=True,
+                )
+                self._assert_array_and_mask_equal(got_subset, expected_subset)
+
+                # Compare single-band read.
+                band_index = 10
+                expected_band = dataset.get_band_data(
+                    band_index=band_index,
+                    filter_data_ignore_value=True,
+                )
+                h, w, _ = ref.shape
+                band_region = DatasetRegionRef(0, h, 0, w, band_index, band_index + 1)
+                got_band_3d, _ = client.read_region(
+                    ref,
+                    band_region,
+                    filter_data_ignore_value=True,
+                )
+                got_band = np.ma.array(got_band_3d, copy=False)[:, :, 0]
+                self._assert_array_and_mask_equal(got_band, expected_band)
+            finally:
+                client.close()
+                service.close()

@@ -68,8 +68,8 @@ class _IdentityMapStage(MapStage):
             )
         ]
 
-    def map_fn(self, input_region, output_ref, kwargs, broadcast_inputs=None):
-        _ = (input_region, output_ref, kwargs, broadcast_inputs)
+    def map_fn(self, input_ref, input_region, output_writes, broadcast_inputs=None):
+        _ = (input_ref, input_region, output_writes, broadcast_inputs)
         return None
 
 
@@ -96,7 +96,6 @@ class TestTaskPlanner(unittest.TestCase):
 
         stage = _IdentityMapStage(
             default_executor="thread",
-            input_ref=input_ref,
             input_plan_meta=input_meta,
             resource_model=ResourceModel(
                 fixed_overhead_bytes=0,
@@ -112,16 +111,6 @@ class TestTaskPlanner(unittest.TestCase):
             priority_class="interactive",
             input_ref=input_ref,
             algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
-            algo_kwargs={},
-            output_spec=AllocationRequest(
-                name="final_out",
-                kind="dataset",
-                residency="ram_cacheable",
-                size_est=6 * 9 * 3 * 4,
-                shape=(6, 9, 3),
-                dtype=np.dtype(np.float32),
-                chunks=None,
-            ),
         )
         semantic_task.id = 42
 
@@ -145,8 +134,10 @@ class TestTaskPlanner(unittest.TestCase):
         self.assertEqual(alloc.name, "stage_out")
         self.assertEqual(alloc.shape, (6, 9, 3))
 
-        # Verify each work unit writes an output region that matches its input region.
-        for unit in task_plan.work_units.values():
-            self.assertIsInstance(unit.input_region, DatasetRegionRef)
-            self.assertEqual(len(unit.writes), 1)
-            self.assertEqual(unit.writes[0].region, unit.input_region)
+        # Verify each work unit's metadata writes to the same region as its input region.
+        for unit_id in task_plan.work_units:
+            unit_meta = task_plan.work_units_meta[unit_id]
+            self.assertIsInstance(unit_meta.input_region, DatasetRegionRef)
+            self.assertEqual(len(unit_meta.output_writes), 1)
+            write = unit_meta.output_writes["stage_out"]
+            self.assertEqual(write.region, unit_meta.input_region)
