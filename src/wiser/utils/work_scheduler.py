@@ -159,7 +159,7 @@ class ReservedTracker:
             priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
             reserved_queue = self._reserved_queue_by_priority[priority_class]
             if slot_offset < len(reserved_queue):
-                return slot_index, reserved_queue[slot_offset]
+                return slot_index, reserved_queue[0]
         return None
 
     def next_admissible_reserved_unit(
