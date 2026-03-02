@@ -401,9 +401,3 @@ class TestWorkScheduler(unittest.TestCase):
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
-
-
-if __name__ == "__main__":
-    test_work_scheduler = TestWorkScheduler()
-    test_work_scheduler.test_queue_transition_log_shows_main_blocked_reserved_flow()
-    # test_work_scheduler.test_run_task_plan_fail_fast_stops_before_stage_2()
