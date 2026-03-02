@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 SCHEDULER_PROCESS_BUDGET = 6
 SCHEDULER_RAM_BUDGET = 4_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
+SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
 
 
 @dataclass
@@ -29,11 +30,12 @@ class SchedulerConfig:
     _ram_budget: int = SCHEDULER_RAM_BUDGET
 
 
-@dataclass(frozen=True)
+@dataclass
 class QueuedWorkUnit:
     plan_id: str
     stage_id: str
     work_unit: WorkUnit
+    defer_count: int = 0
 
 
 class ReservedTracker:
@@ -117,6 +119,17 @@ class ReservedTracker:
     def reserved_queue_size(self, priority_class: PriorityClass) -> int:
         return len(self._reserved_queue_by_priority[priority_class])
 
+    def remove_units_for_plan(self, plan_id: str) -> int:
+        removed_count = 0
+        for priority_class in self._priority_iteration_order:
+            reserved_queue = self._reserved_queue_by_priority[priority_class]
+            filtered_items = deque(item for item in reserved_queue if item.plan_id != plan_id)
+            removed_count += len(reserved_queue) - len(filtered_items)
+            self._reserved_queue_by_priority[priority_class] = filtered_items
+        if removed_count > 0:
+            self._recompute_hold_bytes()
+        return removed_count
+
     def pop_next_admissible_reserved_unit(
         self,
         in_flight_ram_bytes: int,
@@ -127,7 +140,7 @@ class ReservedTracker:
             return None
         reservation_slot_index, candidate = candidate_with_slot
         candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
-        if candidate_ram_bytes + in_flight_ram_bytes >= scheduler_ram_cap_bytes:
+        if candidate_ram_bytes + in_flight_ram_bytes > scheduler_ram_cap_bytes:
             return None
 
         removed = self.remove_reserved_unit(candidate)
@@ -159,7 +172,7 @@ class ReservedTracker:
             priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
             reserved_queue = self._reserved_queue_by_priority[priority_class]
             if slot_offset < len(reserved_queue):
-                return slot_index, reserved_queue[0]
+                return slot_index, reserved_queue[slot_offset]
         return None
 
     def next_admissible_reserved_unit(
@@ -188,7 +201,7 @@ class ReservedTracker:
             return None
         _, candidate = candidate_with_slot
         candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
-        if candidate_ram_bytes + in_flight_ram_bytes < scheduler_ram_cap_bytes:
+        if candidate_ram_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
             return candidate
         return None
 
@@ -215,6 +228,7 @@ class PendingDoneCallback:
     stage_id: str
     unit_id: str
     sem: Semaphore
+    ram_peak_est_bytes: int
 
 
 @dataclass
@@ -366,6 +380,9 @@ class WorkScheduler:
         self._config = config
         self._process_budget = int(self._config._process_budget)
         self._thread_budget = int(self._config._thread_budget)
+        self._ram_budget_bytes = int(self._config._ram_budget)
+        self._in_flight_ram_bytes = 0
+        self._defer_to_reserved_threshold = SCHEDULER_DEFER_TO_RESERVED_THRESHOLD
         self._recorder = recorder
 
         if self._process_budget < 3:
@@ -398,9 +415,20 @@ class WorkScheduler:
         self._process_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
             p: deque() for p in self._process_tokens
         }
+        self._process_blocked_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
+            p: deque() for p in self._process_tokens
+        }
         self._thread_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
             p: deque() for p in self._thread_tokens
         }
+        self._thread_blocked_queues: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
+            p: deque() for p in self._thread_tokens
+        }
+        self._reserved_tracker = ReservedTracker(
+            interactive_reservation_window_size=3,
+            render_reservation_window_size=2,
+            background_reservation_window_size=1,
+        )
         self._pending_done_callbacks: Deque[PendingDoneCallback] = deque()
         self._plan_states: Dict[str, PlanExecutionState] = {}
         self._state_lock = Lock()
@@ -513,37 +541,140 @@ class WorkScheduler:
         made_progress = True
         while made_progress:
             made_progress = False
+            if self._attempt_submit_reserved_locked():
+                made_progress = True
+                continue
             for priority in (
                 PriorityClass.INTERACTIVE,
                 PriorityClass.RENDER,
                 PriorityClass.BACKGROUND,
             ):
-                process_queue = self._process_queues[priority]
                 process_sem = self._process_semaphores[priority]
-                # Keep pulling while both work and capacity exist for this priority bucket.
-                while process_queue and process_sem.acquire(blocking=False):
-                    item = process_queue.popleft()
-                    self._submit_queued_item_locked(item, process_sem)
+                if self._attempt_submit_from_queue_locked(
+                    main_queue=self._process_queues[priority],
+                    blocked_queue=self._process_blocked_queues[priority],
+                    sem=process_sem,
+                ):
                     made_progress = True
 
-                thread_queue = self._thread_queues[priority]
                 thread_sem = self._thread_semaphores[priority]
-                while thread_queue and thread_sem.acquire(blocking=False):
-                    item = thread_queue.popleft()
-                    self._submit_queued_item_locked(item, thread_sem)
+                if self._attempt_submit_from_queue_locked(
+                    main_queue=self._thread_queues[priority],
+                    blocked_queue=self._thread_blocked_queues[priority],
+                    sem=thread_sem,
+                ):
                     made_progress = True
 
-    def _submit_queued_item_locked(self, item: QueuedWorkUnit, sem: Semaphore) -> None:
-        """Submit one queued unit under lock and bind completion handling to token release."""
+    def _attempt_submit_reserved_locked(self) -> bool:
+        candidate = self._reserved_tracker.next_admissible_reserved_unit(
+            in_flight_ram_bytes=self._in_flight_ram_bytes,
+            scheduler_ram_cap_bytes=self._ram_budget_bytes,
+        )
+        if candidate is None:
+            return False
+        priority_class = candidate.work_unit.priority_class
+        sem = (
+            self._process_semaphores[priority_class]
+            if candidate.work_unit.executor_kind == "process"
+            else self._thread_semaphores[priority_class]
+        )
+        if not sem.acquire(blocking=False):
+            return False
+        candidate_after_capacity_check = self._reserved_tracker.next_admissible_reserved_unit(
+            in_flight_ram_bytes=self._in_flight_ram_bytes,
+            scheduler_ram_cap_bytes=self._ram_budget_bytes,
+        )
+        if candidate_after_capacity_check is None:
+            sem.release()
+            return False
+        if not self._reserved_tracker.remove_reserved_unit(candidate_after_capacity_check):
+            sem.release()
+            return False
+        return self._submit_runnable_item_locked(candidate_after_capacity_check, sem)
 
+    def _attempt_submit_from_queue_locked(
+        self,
+        main_queue: Deque[QueuedWorkUnit],
+        blocked_queue: Deque[QueuedWorkUnit],
+        sem: Semaphore,
+    ) -> bool:
+        if not blocked_queue and not main_queue:
+            return False
+        if not sem.acquire(blocking=False):
+            return False
+        return self._submit_non_reserved_from_queues_locked(main_queue, blocked_queue, sem)
+
+    def _submit_non_reserved_from_queues_locked(
+        self,
+        main_queue: Deque[QueuedWorkUnit],
+        blocked_queue: Deque[QueuedWorkUnit],
+        sem: Semaphore,
+    ) -> bool:
+        """
+        Attempt one non-reserved submission with strict blocked-before-main behavior.
+
+        - If blocked head exists, only that unit is considered.
+        - If blocked head is not runnable, we stop and wait for later memory relief.
+        - If blocked is empty, we consider main head and defer/promote on admission failure.
+        """
+        if blocked_queue:
+            blocked_head = blocked_queue[0]
+            if self._can_admit_non_reserved(blocked_head):
+                blocked_queue.popleft()
+                return self._submit_runnable_item_locked(blocked_head, sem)
+            blocked_head.defer_count += 1
+            if blocked_head.defer_count > self._defer_to_reserved_threshold:
+                blocked_queue.popleft()
+                self._reserved_tracker.enqueue_reserved_unit(blocked_head)
+            sem.release()
+            return False
+
+        if not main_queue:
+            sem.release()
+            return False
+
+        main_head = main_queue[0]
+        if self._can_admit_non_reserved(main_head):
+            main_queue.popleft()
+            return self._submit_runnable_item_locked(main_head, sem)
+
+        main_head.defer_count += 1
+        main_queue.popleft()
+        if main_head.defer_count > self._defer_to_reserved_threshold:
+            self._reserved_tracker.enqueue_reserved_unit(main_head)
+        else:
+            blocked_queue.append(main_head)
+        sem.release()
+        return False
+
+    def _can_admit_non_reserved(self, item: QueuedWorkUnit) -> bool:
+        required_ram_bytes = item.work_unit.ram_peak_est_bytes
+        available_ram_bytes = self._ram_budget_bytes - self._reserved_hold_bytes()
+        return self._in_flight_ram_bytes + required_ram_bytes <= available_ram_bytes
+
+    def _submit_runnable_item_locked(self, item: QueuedWorkUnit, sem: Semaphore) -> bool:
+        """
+        Submit a work unit that has already passed admission checks.
+
+        This method assumes `_state_lock` is held and the caller already acquired
+        `sem` for the unit's priority/executor lane. On success it:
+          - marks the stage unit as submitted,
+          - increments `_in_flight_ram_bytes`,
+          - submits the unit to the appropriate executor, and
+          - records a pending done-callback registration.
+
+        If the plan is no longer active, it releases `sem` and returns `False`.
+        """
         plan_state = self._plan_states.get(item.plan_id)
         if plan_state is None or plan_state.completion_future.done():
             sem.release()
-            return
+            return False
 
+        required_ram_bytes = item.work_unit.ram_peak_est_bytes
         stage_state = plan_state.stage_states[item.stage_id]
         # Mark as submitted before dispatch so stage accounting reflects in-flight work.
         stage_state.submitted_unit_ids.add(item.work_unit.unit_id)
+        self._in_flight_ram_bytes += required_ram_bytes
         if self._recorder is not None:
             self._recorder.on_unit_submitted(
                 plan_id=item.plan_id,
@@ -565,8 +696,13 @@ class WorkScheduler:
                 stage_id=item.stage_id,
                 unit_id=item.work_unit.unit_id,
                 sem=sem,
+                ram_peak_est_bytes=required_ram_bytes,
             )
         )
+        return True
+
+    def _reserved_hold_bytes(self) -> int:
+        return self._reserved_tracker.hold_bytes()
 
     def _on_unit_done(
         self,
@@ -575,12 +711,14 @@ class WorkScheduler:
         unit_id: str,
         fut: Future[Any],
         sem: Semaphore,
+        ram_peak_est_bytes: int,
     ) -> None:
         """Handle unit completion, advance stages, and resolve the plan future."""
         try:
             with self._state_lock:
                 # Always return capacity token, even when state is already terminal/evicted.
                 sem.release()
+                self._in_flight_ram_bytes = max(0, self._in_flight_ram_bytes - ram_peak_est_bytes)
                 plan_state = self._plan_states.get(plan_id)
                 if plan_state is None:
                     return
@@ -667,14 +805,21 @@ class WorkScheduler:
                 pid=pending_callback.plan_id,
                 sid=pending_callback.stage_id,
                 uid=pending_callback.unit_id,
-                s=pending_callback.sem: self._on_unit_done(pid, sid, uid, fut, s)
+                s=pending_callback.sem,
+                r=pending_callback.ram_peak_est_bytes: self._on_unit_done(pid, sid, uid, fut, s, r)
             )
 
     def _purge_plan_from_queues_locked(self, plan_id: str) -> None:
-        for queue_map in (self._process_queues, self._thread_queues):
+        for queue_map in (
+            self._process_queues,
+            self._thread_queues,
+            self._process_blocked_queues,
+            self._thread_blocked_queues,
+        ):
             for priority in queue_map:
                 retained = deque(item for item in queue_map[priority] if item.plan_id != plan_id)
                 queue_map[priority] = retained
+        self._reserved_tracker.remove_units_for_plan(plan_id)
 
     @staticmethod
     def _execute_work_unit(work_unit: WorkUnit) -> Any:
