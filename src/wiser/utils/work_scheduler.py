@@ -36,6 +36,178 @@ class QueuedWorkUnit:
     work_unit: WorkUnit
 
 
+class ReservedTracker:
+    """
+    Tracks reserved/starved units per priority class in strict FIFO order.
+
+    For v1, this tracker uses a fixed fairness window:
+      - first 3 INTERACTIVE units
+      - first 2 RENDER units
+      - first 1 BACKGROUND unit
+
+    The hold budget is the sum of `ram_peak_est_bytes` across those windows.
+    """
+
+    def __init__(
+        self,
+        interactive_reservation_window_size: int = 3,
+        render_reservation_window_size: int = 2,
+        background_reservation_window_size: int = 1,
+    ) -> None:
+        self._window_size_by_priority: Dict[PriorityClass, int] = {
+            PriorityClass.INTERACTIVE: int(interactive_reservation_window_size),
+            PriorityClass.RENDER: int(render_reservation_window_size),
+            PriorityClass.BACKGROUND: int(background_reservation_window_size),
+        }
+        self._reserved_queue_by_priority: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
+            PriorityClass.INTERACTIVE: deque(),
+            PriorityClass.RENDER: deque(),
+            PriorityClass.BACKGROUND: deque(),
+        }
+        self._priority_iteration_order = (
+            PriorityClass.INTERACTIVE,
+            PriorityClass.RENDER,
+            PriorityClass.BACKGROUND,
+        )
+        self._reservation_slots_in_order: list[tuple[PriorityClass, int]] = []
+        for priority_class in self._priority_iteration_order:
+            reservation_window_size = self._window_size_by_priority[priority_class]
+            for slot_offset in range(max(0, reservation_window_size)):
+                self._reservation_slots_in_order.append((priority_class, slot_offset))
+        self._next_reservation_slot_index = 0
+        self._hold_bytes_by_priority: Dict[PriorityClass, int] = {
+            PriorityClass.INTERACTIVE: 0,
+            PriorityClass.RENDER: 0,
+            PriorityClass.BACKGROUND: 0,
+        }
+        self._total_hold_bytes = 0
+        self._recompute_hold_bytes()
+
+    def enqueue_reserved_unit(self, queued_work_unit: QueuedWorkUnit) -> None:
+        priority_class = queued_work_unit.work_unit.priority_class
+        self._reserved_queue_by_priority[priority_class].append(queued_work_unit)
+        self._recompute_hold_bytes()
+
+    def pop_reserved_head(self, priority_class: PriorityClass) -> Optional[QueuedWorkUnit]:
+        reserved_queue = self._reserved_queue_by_priority[priority_class]
+        if not reserved_queue:
+            return None
+        queued_work_unit = reserved_queue.popleft()
+        self._recompute_hold_bytes()
+        return queued_work_unit
+
+    def peek_reserved_head(self, priority_class: PriorityClass) -> Optional[QueuedWorkUnit]:
+        reserved_queue = self._reserved_queue_by_priority[priority_class]
+        if not reserved_queue:
+            return None
+        return reserved_queue[0]
+
+    def hold_bytes(self) -> int:
+        return self._total_hold_bytes
+
+    def hold_bytes_for_interactive(self) -> int:
+        return self._hold_bytes_by_priority[PriorityClass.INTERACTIVE]
+
+    def hold_bytes_for_render(self) -> int:
+        return self._hold_bytes_by_priority[PriorityClass.RENDER]
+
+    def hold_bytes_for_background(self) -> int:
+        return self._hold_bytes_by_priority[PriorityClass.BACKGROUND]
+
+    def reserved_queue_size(self, priority_class: PriorityClass) -> int:
+        return len(self._reserved_queue_by_priority[priority_class])
+
+    def pop_next_admissible_reserved_unit(
+        self,
+        in_flight_ram_bytes: int,
+        scheduler_ram_cap_bytes: int,
+    ) -> Optional[QueuedWorkUnit]:
+        candidate_with_slot = self._next_candidate_with_slot()
+        if candidate_with_slot is None:
+            return None
+        reservation_slot_index, candidate = candidate_with_slot
+        candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
+        if candidate_ram_bytes + in_flight_ram_bytes >= scheduler_ram_cap_bytes:
+            return None
+
+        removed = self.remove_reserved_unit(candidate)
+        if not removed:
+            return None
+
+        if self._reservation_slots_in_order:
+            self._next_reservation_slot_index = (reservation_slot_index + 1) % len(
+                self._reservation_slots_in_order
+            )
+        return candidate
+
+    def remove_reserved_unit(self, queued_work_unit: QueuedWorkUnit) -> bool:
+        priority_class = queued_work_unit.work_unit.priority_class
+        reserved_queue = self._reserved_queue_by_priority[priority_class]
+        try:
+            reserved_queue.remove(queued_work_unit)
+        except ValueError:
+            return False
+        self._recompute_hold_bytes()
+        return True
+
+    def _next_candidate_with_slot(self) -> Optional[tuple[int, QueuedWorkUnit]]:
+        if not self._reservation_slots_in_order:
+            return None
+        total_slots = len(self._reservation_slots_in_order)
+        for scanned_slots in range(total_slots):
+            slot_index = (self._next_reservation_slot_index + scanned_slots) % total_slots
+            priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
+            reserved_queue = self._reserved_queue_by_priority[priority_class]
+            if slot_offset < len(reserved_queue):
+                return slot_index, reserved_queue[slot_offset]
+        return None
+
+    def next_admissible_reserved_unit(
+        self,
+        in_flight_ram_bytes: int,
+        scheduler_ram_cap_bytes: int,
+    ) -> Optional[QueuedWorkUnit]:
+        """
+        Return the next reserved unit that can run under Variant B reserved admission.
+
+        Candidate order is deterministic and fairness-windowed via round-robin slots:
+          1) INTERACTIVE slots 0..m-1,
+          2) then RENDER slots 0..n-1,
+          3) then BACKGROUND slots 0..k-1,
+        and the tracker remembers the last served slot to continue fairly.
+
+        Strict fairness rule:
+          - only the current round-robin candidate slot is eligible now.
+          - if that candidate does not fit, this method returns None (no fallback scanning).
+
+        The candidate is admissible when:
+            candidate.ram_peak_est_bytes + in_flight_ram_bytes < scheduler_ram_cap_bytes
+        """
+        candidate_with_slot = self._next_candidate_with_slot()
+        if candidate_with_slot is None:
+            return None
+        _, candidate = candidate_with_slot
+        candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
+        if candidate_ram_bytes + in_flight_ram_bytes < scheduler_ram_cap_bytes:
+            return candidate
+        return None
+
+    def _recompute_hold_bytes(self) -> None:
+        total_hold_bytes = 0
+        for priority_class in self._priority_iteration_order:
+            hold_window_size = self._window_size_by_priority[priority_class]
+            hold_bytes_for_priority = 0
+            if hold_window_size > 0:
+                reserved_queue = self._reserved_queue_by_priority[priority_class]
+                for queue_index, queued_work_unit in enumerate(reserved_queue):
+                    if queue_index >= hold_window_size:
+                        break
+                    hold_bytes_for_priority += queued_work_unit.work_unit.ram_peak_est_bytes
+            self._hold_bytes_by_priority[priority_class] = hold_bytes_for_priority
+            total_hold_bytes += hold_bytes_for_priority
+        self._total_hold_bytes = total_hold_bytes
+
+
 @dataclass(frozen=True)
 class PendingDoneCallback:
     future: Future[Any]
