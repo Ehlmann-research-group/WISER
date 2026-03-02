@@ -28,6 +28,7 @@ class SchedulerConfig:
     _process_budget: int = SCHEDULER_PROCESS_BUDGET
     _thread_budget: int = SCHEDULER_THREAD_BUDGET
     _ram_budget: int = SCHEDULER_RAM_BUDGET
+    _defer_to_reserved_threshold: int = SCHEDULER_DEFER_TO_RESERVED_THRESHOLD
 
 
 @dataclass
@@ -410,7 +411,7 @@ class WorkScheduler:
         self._thread_budget = int(self._config._thread_budget)
         self._ram_budget_bytes = int(self._config._ram_budget)
         self._in_flight_ram_bytes = 0
-        self._defer_to_reserved_threshold = SCHEDULER_DEFER_TO_RESERVED_THRESHOLD
+        self._defer_to_reserved_threshold = int(self._config._defer_to_reserved_threshold)
         self._recorder = recorder
 
         if self._process_budget < 3:

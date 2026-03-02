@@ -1,5 +1,7 @@
 import tempfile
+import time
 import unittest
+from functools import partial
 
 import numpy as np
 import tests.context
@@ -33,6 +35,11 @@ def _ok_thread_a() -> str:
     return "ok-thread-a"
 
 
+def _sleep_then_return(label: str, sleep_seconds: float) -> str:
+    time.sleep(sleep_seconds)
+    return label
+
+
 def _boom_process() -> None:
     raise RuntimeError("boom")
 
@@ -60,6 +67,7 @@ def _make_work_unit(
     priority: PriorityClass,
     executor_kind: str,
     fn,
+    ram_peak_est_bytes: int = 1,
 ) -> WorkUnit:
     return WorkUnit(
         unit_id=unit_id,
@@ -67,11 +75,114 @@ def _make_work_unit(
         priority_class=priority,
         executor_kind=executor_kind,  # type: ignore[arg-type]
         fn=fn,
-        ram_peak_est_bytes=1,
+        ram_peak_est_bytes=ram_peak_est_bytes,
     )
 
 
 class TestWorkScheduler(unittest.TestCase):
+    def test_queue_transition_log_shows_main_blocked_reserved_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=6,
+                    _thread_budget=3,
+                    _ram_budget=5_000,
+                    _defer_to_reserved_threshold=2,
+                ),
+                service,
+            )
+            try:
+                # Required stage order by RAM size: 1000, 5000, 1000, 5000.
+                u1 = _make_work_unit(
+                    unit_id="u1_1000",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "u1", 2),
+                    ram_peak_est_bytes=1_000,
+                )
+                u2 = _make_work_unit(
+                    unit_id="u2_5000",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "u2", 0.1),
+                    ram_peak_est_bytes=5_000,
+                )
+                u3 = _make_work_unit(
+                    unit_id="u3_1000",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "u3", 0.1),
+                    ram_peak_est_bytes=1_000,
+                )
+                u4 = _make_work_unit(
+                    unit_id="u4_1000",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "u4", 0.1),
+                    ram_peak_est_bytes=1_000,
+                )
+
+                plan = TaskPlan(
+                    plan_id="plan-blocked-reserved",
+                    semantic_task_id="semantic-blocked-reserved",
+                    work_units={
+                        u1.unit_id: u1,
+                        u2.unit_id: u2,
+                        u3.unit_id: u3,
+                        u4.unit_id: u4,
+                    },
+                    stage_work_units={"s00": [u1.unit_id, u2.unit_id, u3.unit_id, u4.unit_id]},
+                    fail_fast=True,
+                )
+
+                completion = scheduler.run_task_plan(plan)
+                completion.result(timeout=30)
+
+                u2_events = scheduler.get_queue_transition_log_for_unit("u2_5000")
+                u2_to_queues = [event.to_queue for event in u2_events]
+                self.assertEqual(
+                    u2_to_queues,
+                    [
+                        "main:process:interactive",
+                        "blocked:process:interactive",
+                        "in_flight:process",
+                        "done",
+                    ],
+                )
+
+                u2_reasons = [event.reason for event in u2_events]
+                self.assertEqual(
+                    u2_reasons,
+                    [
+                        "stage_enqueued",
+                        "ram_gate_failed",
+                        "blocked_admitted",
+                        "unit_succeeded",
+                    ],
+                )
+
+                u2_from_queues = [event.from_queue for event in u2_events]
+                self.assertEqual(
+                    u2_from_queues,
+                    [
+                        None,
+                        "main:process:interactive",
+                        "blocked:process:interactive",
+                        "in_flight:process",
+                    ],
+                )
+
+                u2_defer_counts = [event.defer_count for event in u2_events]
+                self.assertEqual(u2_defer_counts, [0, 1, 1, 0])
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
     def test_run_task_plan_two_stages_records_expected_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
@@ -270,5 +381,5 @@ class TestWorkScheduler(unittest.TestCase):
 
 if __name__ == "__main__":
     test_work_scheduler = TestWorkScheduler()
-    test_work_scheduler.test_run_task_plan_two_stages_records_expected_events()
+    test_work_scheduler.test_queue_transition_log_shows_main_blocked_reserved_flow()
     # test_work_scheduler.test_run_task_plan_fail_fast_stops_before_stage_2()
