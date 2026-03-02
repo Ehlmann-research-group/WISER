@@ -244,6 +244,7 @@ class PendingDoneCallback:
     unit_id: str
     sem: Semaphore
     ram_peak_est_bytes: int
+    executor_kind: str
 
 
 @dataclass
@@ -283,6 +284,18 @@ class SchedulerEvent:
     priority_class: Optional[PriorityClass] = None
     success: Optional[bool] = None
     error: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class QueueTransitionEvent:
+    sequence_id: int
+    plan_id: str
+    stage_id: str
+    unit_id: str
+    from_queue: Optional[str]
+    to_queue: Optional[str]
+    reason: str
+    defer_count: int
 
 
 @dataclass
@@ -446,6 +459,8 @@ class WorkScheduler:
         )
         self._pending_done_callbacks: Deque[PendingDoneCallback] = deque()
         self._plan_states: Dict[str, PlanExecutionState] = {}
+        self._queue_transition_log: list[QueueTransitionEvent] = []
+        self._queue_transition_sequence_id = 0
         self._state_lock = Lock()
 
     def submit_process(
@@ -483,6 +498,14 @@ class WorkScheduler:
 
     def thread_tokens(self) -> Dict[PriorityClass, int]:
         return dict(self._thread_tokens)
+
+    def get_queue_transition_log(self) -> list[QueueTransitionEvent]:
+        with self._state_lock:
+            return list(self._queue_transition_log)
+
+    def get_queue_transition_log_for_unit(self, unit_id: str) -> list[QueueTransitionEvent]:
+        with self._state_lock:
+            return [event for event in self._queue_transition_log if event.unit_id == unit_id]
 
     def run_task_plan(self, task_plan: TaskPlan) -> Future[None]:
         """Validate, initialize, and enqueue a task plan for staged execution."""
@@ -545,8 +568,20 @@ class WorkScheduler:
             item = QueuedWorkUnit(plan_id=task_plan.plan_id, stage_id=stage_id, work_unit=work_unit)
             if work_unit.executor_kind == "process":
                 self._process_queues[work_unit.priority_class].append(item)
+                self._log_queue_transition_locked(
+                    item=item,
+                    from_queue=None,
+                    to_queue=self._main_queue_name(work_unit.executor_kind, work_unit.priority_class),
+                    reason="stage_enqueued",
+                )
             elif work_unit.executor_kind == "thread":
                 self._thread_queues[work_unit.priority_class].append(item)
+                self._log_queue_transition_locked(
+                    item=item,
+                    from_queue=None,
+                    to_queue=self._main_queue_name(work_unit.executor_kind, work_unit.priority_class),
+                    reason="stage_enqueued",
+                )
             else:
                 raise ValueError(f"Unknown executor kind: {work_unit.executor_kind!r}")
 
@@ -614,6 +649,12 @@ class WorkScheduler:
         if not self._reserved_tracker.remove_reserved_unit(candidate_after_capacity_check):
             sem.release()
             return False
+        self._log_queue_transition_locked(
+            item=candidate_after_capacity_check,
+            from_queue=self._reserved_queue_name(candidate_after_capacity_check.work_unit.priority_class),
+            to_queue=self._in_flight_queue_name(candidate_after_capacity_check.work_unit.executor_kind),
+            reason="reserved_admitted",
+        )
         return self._submit_runnable_item_locked(candidate_after_capacity_check, sem)
 
     def _attempt_submit_from_queue_locked(
@@ -647,12 +688,30 @@ class WorkScheduler:
             blocked_head = blocked_queue[0]
             if self._can_admit_non_reserved(blocked_head):
                 blocked_queue.popleft()
+                self._log_queue_transition_locked(
+                    item=blocked_head,
+                    from_queue=self._blocked_queue_name(
+                        blocked_head.work_unit.executor_kind,
+                        blocked_head.work_unit.priority_class,
+                    ),
+                    to_queue=self._in_flight_queue_name(blocked_head.work_unit.executor_kind),
+                    reason="blocked_admitted",
+                )
                 return self._submit_runnable_item_locked(blocked_head, sem)
             blocked_head.defer_count += 1
             if blocked_head.defer_count > self._defer_to_reserved_threshold:
                 # Promote from blocked -> reserved once the unit has aged enough.
                 blocked_queue.popleft()
                 self._reserved_tracker.enqueue_reserved_unit(blocked_head)
+                self._log_queue_transition_locked(
+                    item=blocked_head,
+                    from_queue=self._blocked_queue_name(
+                        blocked_head.work_unit.executor_kind,
+                        blocked_head.work_unit.priority_class,
+                    ),
+                    to_queue=self._reserved_queue_name(blocked_head.work_unit.priority_class),
+                    reason="defer_threshold_exceeded",
+                )
             # Head still blocked (or promoted); do not look behind it this cycle.
             sem.release()
             return False
@@ -664,6 +723,15 @@ class WorkScheduler:
         main_head = main_queue[0]
         if self._can_admit_non_reserved(main_head):
             main_queue.popleft()
+            self._log_queue_transition_locked(
+                item=main_head,
+                from_queue=self._main_queue_name(
+                    main_head.work_unit.executor_kind,
+                    main_head.work_unit.priority_class,
+                ),
+                to_queue=self._in_flight_queue_name(main_head.work_unit.executor_kind),
+                reason="main_admitted",
+            )
             return self._submit_runnable_item_locked(main_head, sem)
 
         main_head.defer_count += 1
@@ -671,8 +739,29 @@ class WorkScheduler:
         main_queue.popleft()
         if main_head.defer_count > self._defer_to_reserved_threshold:
             self._reserved_tracker.enqueue_reserved_unit(main_head)
+            self._log_queue_transition_locked(
+                item=main_head,
+                from_queue=self._main_queue_name(
+                    main_head.work_unit.executor_kind,
+                    main_head.work_unit.priority_class,
+                ),
+                to_queue=self._reserved_queue_name(main_head.work_unit.priority_class),
+                reason="defer_threshold_exceeded",
+            )
         else:
             blocked_queue.append(main_head)
+            self._log_queue_transition_locked(
+                item=main_head,
+                from_queue=self._main_queue_name(
+                    main_head.work_unit.executor_kind,
+                    main_head.work_unit.priority_class,
+                ),
+                to_queue=self._blocked_queue_name(
+                    main_head.work_unit.executor_kind,
+                    main_head.work_unit.priority_class,
+                ),
+                reason="ram_gate_failed",
+            )
         sem.release()
         return False
 
@@ -727,6 +816,7 @@ class WorkScheduler:
                 unit_id=item.work_unit.unit_id,
                 sem=sem,
                 ram_peak_est_bytes=required_ram_bytes,
+                executor_kind=item.work_unit.executor_kind,
             )
         )
         return True
@@ -734,6 +824,59 @@ class WorkScheduler:
     def _reserved_hold_bytes(self) -> int:
         """Total bytes withheld from non-reserved admissions."""
         return self._reserved_tracker.hold_bytes()
+
+    def _main_queue_name(self, executor_kind: str, priority_class: PriorityClass) -> str:
+        return f"main:{executor_kind}:{priority_class.value}"
+
+    def _blocked_queue_name(self, executor_kind: str, priority_class: PriorityClass) -> str:
+        return f"blocked:{executor_kind}:{priority_class.value}"
+
+    def _reserved_queue_name(self, priority_class: PriorityClass) -> str:
+        return f"reserved:{priority_class.value}"
+
+    def _in_flight_queue_name(self, executor_kind: str) -> str:
+        return f"in_flight:{executor_kind}"
+
+    def _log_queue_transition_locked(
+        self,
+        item: QueuedWorkUnit,
+        from_queue: Optional[str],
+        to_queue: Optional[str],
+        reason: str,
+    ) -> None:
+        self._log_queue_transition_by_fields_locked(
+            plan_id=item.plan_id,
+            stage_id=item.stage_id,
+            unit_id=item.work_unit.unit_id,
+            from_queue=from_queue,
+            to_queue=to_queue,
+            reason=reason,
+            defer_count=item.defer_count,
+        )
+
+    def _log_queue_transition_by_fields_locked(
+        self,
+        plan_id: str,
+        stage_id: str,
+        unit_id: str,
+        from_queue: Optional[str],
+        to_queue: Optional[str],
+        reason: str,
+        defer_count: int,
+    ) -> None:
+        self._queue_transition_sequence_id += 1
+        self._queue_transition_log.append(
+            QueueTransitionEvent(
+                sequence_id=self._queue_transition_sequence_id,
+                plan_id=plan_id,
+                stage_id=stage_id,
+                unit_id=unit_id,
+                from_queue=from_queue,
+                to_queue=to_queue,
+                reason=reason,
+                defer_count=defer_count,
+            )
+        )
 
     def _on_unit_done(
         self,
@@ -743,6 +886,7 @@ class WorkScheduler:
         fut: Future[Any],
         sem: Semaphore,
         ram_peak_est_bytes: int,
+        executor_kind: str,
     ) -> None:
         """Handle unit completion, advance stages, and resolve the plan future."""
         try:
@@ -760,11 +904,29 @@ class WorkScheduler:
                 exc = fut.exception()
                 if exc is None:
                     stage_state.succeeded_unit_ids.add(unit_id)
+                    self._log_queue_transition_by_fields_locked(
+                        plan_id=plan_id,
+                        stage_id=stage_id,
+                        unit_id=unit_id,
+                        from_queue=self._in_flight_queue_name(executor_kind),
+                        to_queue="done",
+                        reason="unit_succeeded",
+                        defer_count=0,
+                    )
                     if self._recorder is not None:
                         self._recorder.on_unit_done(plan_id, stage_id, unit_id, success=True)
                 else:
                     stage_state.failed_unit_ids[unit_id] = exc
                     plan_state.failed_units[unit_id] = exc
+                    self._log_queue_transition_by_fields_locked(
+                        plan_id=plan_id,
+                        stage_id=stage_id,
+                        unit_id=unit_id,
+                        from_queue=self._in_flight_queue_name(executor_kind),
+                        to_queue="done",
+                        reason="unit_failed",
+                        defer_count=0,
+                    )
                     if self._recorder is not None:
                         self._recorder.on_unit_done(
                             plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
@@ -837,7 +999,8 @@ class WorkScheduler:
                 sid=pending_callback.stage_id,
                 uid=pending_callback.unit_id,
                 s=pending_callback.sem,
-                r=pending_callback.ram_peak_est_bytes: self._on_unit_done(pid, sid, uid, fut, s, r)
+                r=pending_callback.ram_peak_est_bytes,
+                ek=pending_callback.executor_kind: self._on_unit_done(pid, sid, uid, fut, s, r, ek)
             )
 
     def _purge_plan_from_queues_locked(self, plan_id: str) -> None:
