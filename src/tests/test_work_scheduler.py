@@ -85,21 +85,31 @@ class TestWorkScheduler(unittest.TestCase):
             service = StorageService(root_dir=tmp_dir)
             scheduler = WorkScheduler(
                 SchedulerConfig(
-                    _process_budget=6,
+                    _process_budget=7,
                     _thread_budget=3,
                     _ram_budget=5_000,
                     _defer_to_reserved_threshold=2,
+                    _process_priority_tokens={
+                        PriorityClass.INTERACTIVE: 5,
+                        PriorityClass.RENDER: 1,
+                        PriorityClass.BACKGROUND: 1,
+                    },
+                    _thread_priority_tokens={
+                        PriorityClass.INTERACTIVE: 1,
+                        PriorityClass.RENDER: 1,
+                        PriorityClass.BACKGROUND: 1,
+                    },
                 ),
                 service,
             )
             try:
-                # Required stage order by RAM size: 1000, 5000, 1000, 5000.
+                # Required stage order by RAM size: 1000, 5000, 1000, 1000.
                 u1 = _make_work_unit(
                     unit_id="u1_1000",
                     stage_id="s00",
                     priority=PriorityClass.INTERACTIVE,
                     executor_kind="process",
-                    fn=partial(_sleep_then_return, "u1", 2),
+                    fn=partial(_sleep_then_return, "u1", 1),
                     ram_peak_est_bytes=1_000,
                 )
                 u2 = _make_work_unit(
@@ -115,7 +125,7 @@ class TestWorkScheduler(unittest.TestCase):
                     stage_id="s00",
                     priority=PriorityClass.INTERACTIVE,
                     executor_kind="process",
-                    fn=partial(_sleep_then_return, "u3", 0.1),
+                    fn=partial(_sleep_then_return, "u3", 1),
                     ram_peak_est_bytes=1_000,
                 )
                 u4 = _make_work_unit(
@@ -123,7 +133,16 @@ class TestWorkScheduler(unittest.TestCase):
                     stage_id="s00",
                     priority=PriorityClass.INTERACTIVE,
                     executor_kind="process",
-                    fn=partial(_sleep_then_return, "u4", 0.1),
+                    fn=partial(_sleep_then_return, "u4", 1),
+                    ram_peak_est_bytes=1_000,
+                )
+
+                u5 = _make_work_unit(
+                    unit_id="u5_1000",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "u5", 1),
                     ram_peak_est_bytes=1_000,
                 )
 
@@ -135,8 +154,9 @@ class TestWorkScheduler(unittest.TestCase):
                         u2.unit_id: u2,
                         u3.unit_id: u3,
                         u4.unit_id: u4,
+                        u5.unit_id: u5,
                     },
-                    stage_work_units={"s00": [u1.unit_id, u2.unit_id, u3.unit_id, u4.unit_id]},
+                    stage_work_units={"s00": [u1.unit_id, u2.unit_id, u3.unit_id, u4.unit_id, u5.unit_id]},
                     fail_fast=True,
                 )
 
@@ -144,12 +164,14 @@ class TestWorkScheduler(unittest.TestCase):
                 completion.result(timeout=30)
 
                 u2_events = scheduler.get_queue_transition_log_for_unit("u2_5000")
+
                 u2_to_queues = [event.to_queue for event in u2_events]
                 self.assertEqual(
                     u2_to_queues,
                     [
                         "main:process:interactive",
                         "blocked:process:interactive",
+                        "reserved:interactive",
                         "in_flight:process",
                         "done",
                     ],
@@ -161,7 +183,8 @@ class TestWorkScheduler(unittest.TestCase):
                     [
                         "stage_enqueued",
                         "ram_gate_failed",
-                        "blocked_admitted",
+                        "defer_threshold_exceeded",
+                        "reserved_admitted",
                         "unit_succeeded",
                     ],
                 )
@@ -173,12 +196,13 @@ class TestWorkScheduler(unittest.TestCase):
                         None,
                         "main:process:interactive",
                         "blocked:process:interactive",
+                        "reserved:interactive",
                         "in_flight:process",
                     ],
                 )
 
                 u2_defer_counts = [event.defer_count for event in u2_events]
-                self.assertEqual(u2_defer_counts, [0, 1, 1, 0])
+                self.assertEqual(u2_defer_counts, [0, 1, 3, 3, 0])
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()

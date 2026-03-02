@@ -29,6 +29,8 @@ class SchedulerConfig:
     _thread_budget: int = SCHEDULER_THREAD_BUDGET
     _ram_budget: int = SCHEDULER_RAM_BUDGET
     _defer_to_reserved_threshold: int = SCHEDULER_DEFER_TO_RESERVED_THRESHOLD
+    _process_priority_tokens: Optional[Dict[PriorityClass, int]] = None
+    _thread_priority_tokens: Optional[Dict[PriorityClass, int]] = None
 
 
 @dataclass
@@ -399,6 +401,39 @@ def _allocate_priority_tokens(budget: int) -> Dict[PriorityClass, int]:
     return allocation
 
 
+def _normalize_explicit_priority_tokens(
+    *,
+    explicit_tokens: Dict[PriorityClass, int],
+    executor_budget: int,
+    executor_kind: str,
+) -> Dict[PriorityClass, int]:
+    priorities = [PriorityClass.INTERACTIVE, PriorityClass.RENDER, PriorityClass.BACKGROUND]
+    missing_priorities = [priority for priority in priorities if priority not in explicit_tokens]
+    unknown_priorities = [priority for priority in explicit_tokens if priority not in priorities]
+    if missing_priorities:
+        raise ValueError(
+            f"Explicit {executor_kind} tokens missing priorities: "
+            f"{[priority.value for priority in missing_priorities]}"
+        )
+    if unknown_priorities:
+        raise ValueError(f"Explicit {executor_kind} tokens contain unknown priorities: {unknown_priorities}")
+
+    normalized_tokens = {priority: int(explicit_tokens[priority]) for priority in priorities}
+    for priority, token_count in normalized_tokens.items():
+        if token_count < 0:
+            raise ValueError(
+                f"Explicit {executor_kind} tokens must be >= 0; got {token_count} for {priority.value}"
+            )
+
+    total_tokens = sum(normalized_tokens.values())
+    if total_tokens > executor_budget:
+        raise ValueError(
+            f"Explicit {executor_kind} tokens sum ({total_tokens}) exceeds "
+            f"{executor_kind} budget ({executor_budget})"
+        )
+    return normalized_tokens
+
+
 class WorkScheduler:
     def __init__(
         self,
@@ -433,8 +468,23 @@ class WorkScheduler:
             initializer=initialize_thread_worker,
         )
 
-        self._process_tokens = _allocate_priority_tokens(self._process_budget)
-        self._thread_tokens = _allocate_priority_tokens(self._thread_budget)
+        if self._config._process_priority_tokens is not None:
+            self._process_tokens = _normalize_explicit_priority_tokens(
+                explicit_tokens=self._config._process_priority_tokens,
+                executor_budget=self._process_budget,
+                executor_kind="process",
+            )
+        else:
+            self._process_tokens = _allocate_priority_tokens(self._process_budget)
+
+        if self._config._thread_priority_tokens is not None:
+            self._thread_tokens = _normalize_explicit_priority_tokens(
+                explicit_tokens=self._config._thread_priority_tokens,
+                executor_budget=self._thread_budget,
+                executor_kind="thread",
+            )
+        else:
+            self._thread_tokens = _allocate_priority_tokens(self._thread_budget)
         self._process_semaphores: Dict[PriorityClass, Semaphore] = {
             p: Semaphore(self._process_tokens[p]) for p in self._process_tokens
         }
@@ -678,91 +728,85 @@ class WorkScheduler:
         sem: Semaphore,
     ) -> bool:
         """
-        Attempt one non-reserved submission with strict blocked-before-main behavior.
+        Attempt one non-reserved submission with blocked-first, then main scanning.
 
-        - If blocked head exists, only that unit is considered.
-        - If blocked head is not runnable, we stop and wait for later memory relief.
-        - If blocked is empty, we consider main head and defer/promote on admission failure.
+        - We scan blocked queue candidates first and submit the first admissible one.
+        - If no blocked candidate can run, we scan main queue candidates.
+        - We stop after one successful submission, or after exhausting both queues.
         """
-        if blocked_queue:
-            # Never pop blocked head unless it is actually promoted/submitted.
-            blocked_head = blocked_queue[0]
-            if self._can_admit_non_reserved(blocked_head):
-                blocked_queue.popleft()
+        for blocked_candidate in list(blocked_queue):
+            if blocked_candidate not in blocked_queue:
+                continue
+            if self._can_admit_non_reserved(blocked_candidate):
+                blocked_queue.remove(blocked_candidate)
                 self._log_queue_transition_locked(
-                    item=blocked_head,
+                    item=blocked_candidate,
                     from_queue=self._blocked_queue_name(
-                        blocked_head.work_unit.executor_kind,
-                        blocked_head.work_unit.priority_class,
+                        blocked_candidate.work_unit.executor_kind,
+                        blocked_candidate.work_unit.priority_class,
                     ),
-                    to_queue=self._in_flight_queue_name(blocked_head.work_unit.executor_kind),
+                    to_queue=self._in_flight_queue_name(blocked_candidate.work_unit.executor_kind),
                     reason="blocked_admitted",
                 )
-                return self._submit_runnable_item_locked(blocked_head, sem)
-            blocked_head.defer_count += 1
-            if blocked_head.defer_count > self._defer_to_reserved_threshold:
-                # Promote from blocked -> reserved once the unit has aged enough.
-                blocked_queue.popleft()
-                self._reserved_tracker.enqueue_reserved_unit(blocked_head)
+                return self._submit_runnable_item_locked(blocked_candidate, sem)
+
+            blocked_candidate.defer_count += 1
+            if blocked_candidate.defer_count > self._defer_to_reserved_threshold:
+                blocked_queue.remove(blocked_candidate)
+                self._reserved_tracker.enqueue_reserved_unit(blocked_candidate)
                 self._log_queue_transition_locked(
-                    item=blocked_head,
+                    item=blocked_candidate,
                     from_queue=self._blocked_queue_name(
-                        blocked_head.work_unit.executor_kind,
-                        blocked_head.work_unit.priority_class,
+                        blocked_candidate.work_unit.executor_kind,
+                        blocked_candidate.work_unit.priority_class,
                     ),
-                    to_queue=self._reserved_queue_name(blocked_head.work_unit.priority_class),
+                    to_queue=self._reserved_queue_name(blocked_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
-            # Head still blocked (or promoted); do not look behind it this cycle.
-            sem.release()
-            return False
 
-        if not main_queue:
-            sem.release()
-            return False
+        for main_candidate in list(main_queue):
+            if main_candidate not in main_queue:
+                continue
+            if self._can_admit_non_reserved(main_candidate):
+                main_queue.remove(main_candidate)
+                self._log_queue_transition_locked(
+                    item=main_candidate,
+                    from_queue=self._main_queue_name(
+                        main_candidate.work_unit.executor_kind,
+                        main_candidate.work_unit.priority_class,
+                    ),
+                    to_queue=self._in_flight_queue_name(main_candidate.work_unit.executor_kind),
+                    reason="main_admitted",
+                )
+                return self._submit_runnable_item_locked(main_candidate, sem)
 
-        main_head = main_queue[0]
-        if self._can_admit_non_reserved(main_head):
-            main_queue.popleft()
-            self._log_queue_transition_locked(
-                item=main_head,
-                from_queue=self._main_queue_name(
-                    main_head.work_unit.executor_kind,
-                    main_head.work_unit.priority_class,
-                ),
-                to_queue=self._in_flight_queue_name(main_head.work_unit.executor_kind),
-                reason="main_admitted",
-            )
-            return self._submit_runnable_item_locked(main_head, sem)
-
-        main_head.defer_count += 1
-        # Remove from main only after we decide the fate of the failed admission.
-        main_queue.popleft()
-        if main_head.defer_count > self._defer_to_reserved_threshold:
-            self._reserved_tracker.enqueue_reserved_unit(main_head)
-            self._log_queue_transition_locked(
-                item=main_head,
-                from_queue=self._main_queue_name(
-                    main_head.work_unit.executor_kind,
-                    main_head.work_unit.priority_class,
-                ),
-                to_queue=self._reserved_queue_name(main_head.work_unit.priority_class),
-                reason="defer_threshold_exceeded",
-            )
-        else:
-            blocked_queue.append(main_head)
-            self._log_queue_transition_locked(
-                item=main_head,
-                from_queue=self._main_queue_name(
-                    main_head.work_unit.executor_kind,
-                    main_head.work_unit.priority_class,
-                ),
-                to_queue=self._blocked_queue_name(
-                    main_head.work_unit.executor_kind,
-                    main_head.work_unit.priority_class,
-                ),
-                reason="ram_gate_failed",
-            )
+            main_candidate.defer_count += 1
+            main_queue.remove(main_candidate)
+            if main_candidate.defer_count > self._defer_to_reserved_threshold:
+                self._reserved_tracker.enqueue_reserved_unit(main_candidate)
+                self._log_queue_transition_locked(
+                    item=main_candidate,
+                    from_queue=self._main_queue_name(
+                        main_candidate.work_unit.executor_kind,
+                        main_candidate.work_unit.priority_class,
+                    ),
+                    to_queue=self._reserved_queue_name(main_candidate.work_unit.priority_class),
+                    reason="defer_threshold_exceeded",
+                )
+            else:
+                blocked_queue.append(main_candidate)
+                self._log_queue_transition_locked(
+                    item=main_candidate,
+                    from_queue=self._main_queue_name(
+                        main_candidate.work_unit.executor_kind,
+                        main_candidate.work_unit.priority_class,
+                    ),
+                    to_queue=self._blocked_queue_name(
+                        main_candidate.work_unit.executor_kind,
+                        main_candidate.work_unit.priority_class,
+                    ),
+                    reason="ram_gate_failed",
+                )
         sem.release()
         return False
 
