@@ -24,6 +24,12 @@ from wiser.utils.task_system import (
     TaskPlanner,
 )
 
+import pytest
+
+pytestmark = [
+    pytest.mark.task_manager,
+]
+
 
 class _NoopSchedulerConfig:
     pass

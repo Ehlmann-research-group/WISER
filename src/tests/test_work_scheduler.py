@@ -10,6 +10,12 @@ from wiser.utils.storage_service import StorageService
 from wiser.utils.task_system import TaskPlan, WorkUnit
 from wiser.utils.work_scheduler import RecordingWorkScheduler, SchedulerConfig, WorkScheduler
 
+import pytest
+
+pytestmark = [
+    pytest.mark.scheduler,
+]
+
 
 def _ok_process_a() -> str:
     return "ok-process-a"

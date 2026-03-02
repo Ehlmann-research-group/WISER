@@ -14,6 +14,12 @@ from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.storage_service import StorageService
 
+import pytest
+
+pytestmark = [
+    pytest.mark.storage,
+]
+
 
 class TestStorageServiceClient(unittest.TestCase):
     def _assert_meta_equal(self, left, right) -> None:

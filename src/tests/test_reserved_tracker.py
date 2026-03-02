@@ -6,6 +6,12 @@ from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_system import WorkUnit
 from wiser.utils.work_scheduler import QueuedWorkUnit, ReservedTracker
 
+import pytest
+
+pytestmark = [
+    pytest.mark.scheduler,
+]
+
 
 def _noop_work_fn() -> None:
     return None

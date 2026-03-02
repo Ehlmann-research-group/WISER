@@ -12,6 +12,9 @@ markers = [
   "smoke: checks of core paths",
   "slow: tests that are slow",
   "unit: verifies small, isolated functionality work",
+  "scheduler: the work unit scheduler",
+  "storage: the storage client and service system",
+  "task_manager: the task manager / planner system",
 ]
 testpaths = [
   "src/tests",

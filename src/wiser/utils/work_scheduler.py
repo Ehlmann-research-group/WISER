@@ -35,6 +35,7 @@ class QueuedWorkUnit:
     plan_id: str
     stage_id: str
     work_unit: WorkUnit
+    # Number of times this unit hit queue-head admission and failed RAM gating.
     defer_count: int = 0
 
 
@@ -71,6 +72,8 @@ class ReservedTracker:
             PriorityClass.RENDER,
             PriorityClass.BACKGROUND,
         )
+        # Fixed slot template used for fair round-robin selection across windows.
+        # Example for (3,2,1): I0,I1,I2,R0,R1,B0.
         self._reservation_slots_in_order: list[tuple[PriorityClass, int]] = []
         for priority_class in self._priority_iteration_order:
             reservation_window_size = self._window_size_by_priority[priority_class]
@@ -86,6 +89,7 @@ class ReservedTracker:
         self._recompute_hold_bytes()
 
     def enqueue_reserved_unit(self, queued_work_unit: QueuedWorkUnit) -> None:
+        """Append to class FIFO and refresh hold accounting."""
         priority_class = queued_work_unit.work_unit.priority_class
         self._reserved_queue_by_priority[priority_class].append(queued_work_unit)
         self._recompute_hold_bytes()
@@ -120,6 +124,7 @@ class ReservedTracker:
         return len(self._reserved_queue_by_priority[priority_class])
 
     def remove_units_for_plan(self, plan_id: str) -> int:
+        """Best-effort purge hook used when a plan is cancelled/failed."""
         removed_count = 0
         for priority_class in self._priority_iteration_order:
             reserved_queue = self._reserved_queue_by_priority[priority_class]
@@ -154,6 +159,7 @@ class ReservedTracker:
         return candidate
 
     def remove_reserved_unit(self, queued_work_unit: QueuedWorkUnit) -> bool:
+        """Remove a specific reserved unit instance without reordering survivors."""
         priority_class = queued_work_unit.work_unit.priority_class
         reserved_queue = self._reserved_queue_by_priority[priority_class]
         try:
@@ -164,6 +170,12 @@ class ReservedTracker:
         return True
 
     def _next_candidate_with_slot(self) -> Optional[tuple[int, QueuedWorkUnit]]:
+        """
+        Return current round-robin candidate.
+
+        We scan at most one full slot cycle and pick the first slot that is
+        currently populated in its class queue.
+        """
         if not self._reservation_slots_in_order:
             return None
         total_slots = len(self._reservation_slots_in_order)
@@ -172,7 +184,9 @@ class ReservedTracker:
             priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
             reserved_queue = self._reserved_queue_by_priority[priority_class]
             if slot_offset < len(reserved_queue):
-                return slot_index, reserved_queue[slot_offset]
+                # We use the slot_index to know what priority class to use. Then
+                # we just get the first item in the queue.
+                return slot_index, reserved_queue[0]
         return None
 
     def next_admissible_reserved_unit(
@@ -206,6 +220,7 @@ class ReservedTracker:
         return None
 
     def _recompute_hold_bytes(self) -> None:
+        """Recompute per-class and total hold over configured window sizes."""
         total_hold_bytes = 0
         for priority_class in self._priority_iteration_order:
             hold_window_size = self._window_size_by_priority[priority_class]
@@ -541,6 +556,7 @@ class WorkScheduler:
         made_progress = True
         while made_progress:
             made_progress = False
+            # Reserved work gets first admission chance by policy.
             if self._attempt_submit_reserved_locked():
                 made_progress = True
                 continue
@@ -566,6 +582,13 @@ class WorkScheduler:
                     made_progress = True
 
     def _attempt_submit_reserved_locked(self) -> bool:
+        """
+        Attempt one reserved admission without mutating reserved order prematurely.
+
+        We first peek for an admissible reserved candidate, then acquire the
+        relevant semaphore, then re-check and finally remove the exact unit
+        immediately before submitting.
+        """
         candidate = self._reserved_tracker.next_admissible_reserved_unit(
             in_flight_ram_bytes=self._in_flight_ram_bytes,
             scheduler_ram_cap_bytes=self._ram_budget_bytes,
@@ -580,6 +603,7 @@ class WorkScheduler:
         )
         if not sem.acquire(blocking=False):
             return False
+        # Re-check under held token because memory/completion state may have changed.
         candidate_after_capacity_check = self._reserved_tracker.next_admissible_reserved_unit(
             in_flight_ram_bytes=self._in_flight_ram_bytes,
             scheduler_ram_cap_bytes=self._ram_budget_bytes,
@@ -598,6 +622,7 @@ class WorkScheduler:
         blocked_queue: Deque[QueuedWorkUnit],
         sem: Semaphore,
     ) -> bool:
+        """Try one non-reserved submission attempt for a priority lane."""
         if not blocked_queue and not main_queue:
             return False
         if not sem.acquire(blocking=False):
@@ -618,14 +643,17 @@ class WorkScheduler:
         - If blocked is empty, we consider main head and defer/promote on admission failure.
         """
         if blocked_queue:
+            # Never pop blocked head unless it is actually promoted/submitted.
             blocked_head = blocked_queue[0]
             if self._can_admit_non_reserved(blocked_head):
                 blocked_queue.popleft()
                 return self._submit_runnable_item_locked(blocked_head, sem)
             blocked_head.defer_count += 1
             if blocked_head.defer_count > self._defer_to_reserved_threshold:
+                # Promote from blocked -> reserved once the unit has aged enough.
                 blocked_queue.popleft()
                 self._reserved_tracker.enqueue_reserved_unit(blocked_head)
+            # Head still blocked (or promoted); do not look behind it this cycle.
             sem.release()
             return False
 
@@ -639,6 +667,7 @@ class WorkScheduler:
             return self._submit_runnable_item_locked(main_head, sem)
 
         main_head.defer_count += 1
+        # Remove from main only after we decide the fate of the failed admission.
         main_queue.popleft()
         if main_head.defer_count > self._defer_to_reserved_threshold:
             self._reserved_tracker.enqueue_reserved_unit(main_head)
@@ -648,6 +677,7 @@ class WorkScheduler:
         return False
 
     def _can_admit_non_reserved(self, item: QueuedWorkUnit) -> bool:
+        """Variant B gate for non-reserved work: cap minus reserved hold."""
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
         available_ram_bytes = self._ram_budget_bytes - self._reserved_hold_bytes()
         return self._in_flight_ram_bytes + required_ram_bytes <= available_ram_bytes
@@ -702,6 +732,7 @@ class WorkScheduler:
         return True
 
     def _reserved_hold_bytes(self) -> int:
+        """Total bytes withheld from non-reserved admissions."""
         return self._reserved_tracker.hold_bytes()
 
     def _on_unit_done(
