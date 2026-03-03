@@ -351,7 +351,13 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#taskplan-workunit-workunitmeta">TaskPlan, WorkUnit, WorkUnitMeta</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageservice-authoritative-storage-registry">StorageService (Authoritative Storage Registry)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageclient-worker-side-data-access">StorageClient (Worker-Side Data Access)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler">WorkScheduler</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler">WorkScheduler</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#queue-model-high-level">Queue model (high level)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ram-and-hold-byte-model-high-level">RAM and hold-byte model (high level)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#reservedtracker-high-level">ReservedTracker (high level)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#key-scheduler-methods">Key scheduler methods</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#planning-flow">Planning Flow</a></li>
@@ -453,10 +459,61 @@ document.write(`
 <li><p>validates stage/unit structure,</p></li>
 <li><p>enqueues units by priority and executor kind,</p></li>
 <li><p>dispatches to process/thread pools under token budgets,</p></li>
+<li><p>enforces a transient RAM budget across both process and thread units,</p></li>
 <li><p>tracks success/failure and fail-fast behavior,</p></li>
 <li><p>advances to next stage only when current stage is terminal.</p></li>
 </ul>
 <p>Process workers are initialized with <code class="docutils literal notranslate"><span class="pre">initialize_process_storage_client(...)</span></code> so unit callables can use <code class="docutils literal notranslate"><span class="pre">get_process_storage_client()</span></code> safely.</p>
+<section id="queue-model-high-level">
+<h4>Queue model (high level)<a class="headerlink" href="#queue-model-high-level" title="Link to this heading">#</a></h4>
+<p>Each priority/executor lane has:</p>
+<ul class="simple">
+<li><p>a <strong>main queue</strong> (newly enqueued work),</p></li>
+<li><p>a <strong>blocked queue</strong> (work that failed RAM admission before),</p></li>
+<li><p>and the scheduler-wide <strong>ReservedTracker</strong> (aged/starved units promoted out of blocked/main).</p></li>
+</ul>
+<p>Dispatch order is:</p>
+<ol class="arabic simple">
+<li><p>reserved work first,</p></li>
+<li><p>then blocked work,</p></li>
+<li><p>then main work.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">QueuedWorkUnit.defer_count</span></code> is incremented when RAM admission fails. If this count exceeds a threshold, the unit is promoted into <code class="docutils literal notranslate"><span class="pre">ReservedTracker</span></code>.</p>
+</section>
+<section id="ram-and-hold-byte-model-high-level">
+<h4>RAM and hold-byte model (high level)<a class="headerlink" href="#ram-and-hold-byte-model-high-level" title="Link to this heading">#</a></h4>
+<p>The scheduler tracks:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">in_flight</span></code> RAM bytes: admitted units currently running,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hold</span></code> bytes: bytes withheld for reserved fairness windows.</p></li>
+</ul>
+<p>For non-reserved units, admission uses the held cap (<code class="docutils literal notranslate"><span class="pre">cap</span> <span class="pre">-</span> <span class="pre">hold</span></code>).
+For reserved units, admission uses full cap (<code class="docutils literal notranslate"><span class="pre">cap</span></code>).</p>
+<p>This prevents non-reserved work from continually consuming all slack while still allowing reserved units to run once feasible.</p>
+</section>
+<section id="reservedtracker-high-level">
+<h4>ReservedTracker (high level)<a class="headerlink" href="#reservedtracker-high-level" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">ReservedTracker</span></code> keeps per-priority FIFO queues and computes hold bytes from configurable windows (currently interactive/render/background = 3/2/1).</p>
+<p>It provides:</p>
+<ul class="simple">
+<li><p>deterministic reserved candidate selection,</p></li>
+<li><p>FIFO ownership for reserved units,</p></li>
+<li><p>hold-byte totals used by scheduler RAM admission.</p></li>
+</ul>
+</section>
+<section id="key-scheduler-methods">
+<h4>Key scheduler methods<a class="headerlink" href="#key-scheduler-methods" title="Link to this heading">#</a></h4>
+<p>The main methods to understand runtime behavior are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">run_task_plan(...)</span></code> - validates and starts scheduling.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_enqueue_stage_locked(...)</span></code> - places stage units into main queues.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_drain_queues_locked(...)</span></code> - main dispatch loop (reserved, blocked, main).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_attempt_submit_reserved_locked(...)</span></code> - reserved admission path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_submit_non_reserved_from_queues_locked(...)</span></code> - blocked/main admission path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_submit_runnable_item_locked(...)</span></code> - final executor submission + in-flight accounting.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_on_unit_done(...)</span></code> - completion accounting, stage progression, and re-dispatch.</p></li>
+</ul>
+</section>
 </section>
 </section>
 <section id="planning-flow">
@@ -472,7 +529,7 @@ document.write(`
 <ul class="simple">
 <li><p>resolve stage input ref from <code class="docutils literal notranslate"><span class="pre">bindings[stage.input_binding.name]</span></code></p></li>
 <li><p>choose chunking with <code class="docutils literal notranslate"><span class="pre">ChunkingPolicy</span></code></p></li>
-<li><p>call <code class="docutils literal notranslate"><span class="pre">stage.make_allocation_requests(...)</span></code></p></li>
+<li><p>call <code class="docutils literal notranslate"><span class="pre">stage.generate_allocation_requests(...)</span></code></p></li>
 <li><p>allocate outputs via <code class="docutils literal notranslate"><span class="pre">StorageService.allocate_data(...)</span></code></p></li>
 <li><p>store new output refs in <code class="docutils literal notranslate"><span class="pre">bindings</span></code></p></li>
 <li><p>expand chunks into units</p></li>
@@ -553,7 +610,13 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#taskplan-workunit-workunitmeta">TaskPlan, WorkUnit, WorkUnitMeta</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageservice-authoritative-storage-registry">StorageService (Authoritative Storage Registry)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageclient-worker-side-data-access">StorageClient (Worker-Side Data Access)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler">WorkScheduler</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler">WorkScheduler</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#queue-model-high-level">Queue model (high level)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ram-and-hold-byte-model-high-level">RAM and hold-byte model (high level)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#reservedtracker-high-level">ReservedTracker (high level)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#key-scheduler-methods">Key scheduler methods</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#planning-flow">Planning Flow</a></li>

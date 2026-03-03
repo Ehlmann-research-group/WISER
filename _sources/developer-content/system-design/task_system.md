@@ -80,10 +80,56 @@ It:
 - validates stage/unit structure,
 - enqueues units by priority and executor kind,
 - dispatches to process/thread pools under token budgets,
+- enforces a transient RAM budget across both process and thread units,
 - tracks success/failure and fail-fast behavior,
 - advances to next stage only when current stage is terminal.
 
 Process workers are initialized with `initialize_process_storage_client(...)` so unit callables can use `get_process_storage_client()` safely.
+
+#### Queue model (high level)
+
+Each priority/executor lane has:
+- a **main queue** (newly enqueued work),
+- a **blocked queue** (work that failed RAM admission before),
+- and the scheduler-wide **ReservedTracker** (aged/starved units promoted out of blocked/main).
+
+Dispatch order is:
+1. reserved work first,
+2. then blocked work,
+3. then main work.
+
+`QueuedWorkUnit.defer_count` is incremented when RAM admission fails. If this count exceeds a threshold, the unit is promoted into `ReservedTracker`.
+
+#### RAM and hold-byte model (high level)
+
+The scheduler tracks:
+- `in_flight` RAM bytes: admitted units currently running,
+- `hold` bytes: bytes withheld for reserved fairness windows.
+
+For non-reserved units, admission uses the held cap (`cap - hold`).
+For reserved units, admission uses full cap (`cap`).
+
+This prevents non-reserved work from continually consuming all slack while still allowing reserved units to run once feasible.
+
+#### ReservedTracker (high level)
+
+`ReservedTracker` keeps per-priority FIFO queues and computes hold bytes from configurable windows (currently interactive/render/background = 3/2/1).
+
+It provides:
+- deterministic reserved candidate selection,
+- FIFO ownership for reserved units,
+- hold-byte totals used by scheduler RAM admission.
+
+#### Key scheduler methods
+
+The main methods to understand runtime behavior are:
+- `run_task_plan(...)` - validates and starts scheduling.
+- `_enqueue_stage_locked(...)` - places stage units into main queues.
+- `_drain_queues_locked(...)` - main dispatch loop (reserved, blocked, main).
+- `_attempt_submit_reserved_locked(...)` - reserved admission path.
+- `_submit_non_reserved_from_queues_locked(...)` - blocked/main admission path.
+- `_submit_runnable_item_locked(...)` - final executor submission + in-flight accounting.
+- `_on_unit_done(...)` - completion accounting, stage progression, and re-dispatch.
 
 ## Planning Flow
 
@@ -94,7 +140,7 @@ Process workers are initialized with `initialize_process_storage_client(...)` so
 2. **For each stage in order**
    - resolve stage input ref from `bindings[stage.input_binding.name]`
    - choose chunking with `ChunkingPolicy`
-   - call `stage.make_allocation_requests(...)`
+   - call `stage.generate_allocation_requests(...)`
    - allocate outputs via `StorageService.allocate_data(...)`
    - store new output refs in `bindings`
    - expand chunks into units
