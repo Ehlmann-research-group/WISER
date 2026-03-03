@@ -80,6 +80,88 @@ def _make_work_unit(
 
 
 class TestWorkScheduler(unittest.TestCase):
+    def test_stage_steps_enforce_barrier_between_stage_steps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            recorder = RecordingWorkScheduler()
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=3,
+                    _process_priority_tokens={
+                        PriorityClass.INTERACTIVE: 3,
+                        PriorityClass.RENDER: 0,
+                        PriorityClass.BACKGROUND: 0,
+                    },
+                ),
+                service,
+                recorder=recorder,
+            )
+            try:
+                step1_u1 = _make_work_unit(
+                    unit_id="step1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "step1_u1", 0.3),
+                )
+                step1_u2 = _make_work_unit(
+                    unit_id="step1_u2",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "step1_u2", 0.3),
+                )
+                step2_u1 = _make_work_unit(
+                    unit_id="step2_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="process",
+                    fn=partial(_sleep_then_return, "step2_u1", 0.01),
+                )
+
+                plan = TaskPlan(
+                    plan_id="plan-stage-steps",
+                    semantic_task_id="semantic-stage-steps",
+                    work_units={
+                        step1_u1.unit_id: step1_u1,
+                        step1_u2.unit_id: step1_u2,
+                        step2_u1.unit_id: step2_u1,
+                    },
+                    stage_work_units={
+                        "s00": [step1_u1.unit_id, step1_u2.unit_id, step2_u1.unit_id],
+                    },
+                    stage_steps={
+                        "s00": [[step1_u1.unit_id, step1_u2.unit_id], [step2_u1.unit_id]],
+                    },
+                    fail_fast=True,
+                )
+
+                completion = scheduler.run_task_plan(plan)
+                completion.result(timeout=15)
+
+                events = recorder.events
+                done_index_by_unit = {
+                    e.unit_id: idx
+                    for idx, e in enumerate(events)
+                    if e.kind == "unit_done" and e.plan_id == plan.plan_id
+                }
+                submit_index_by_unit = {
+                    e.unit_id: idx
+                    for idx, e in enumerate(events)
+                    if e.kind == "unit_submitted" and e.plan_id == plan.plan_id
+                }
+                self.assertIn("step1_u1", done_index_by_unit)
+                self.assertIn("step1_u2", done_index_by_unit)
+                self.assertIn("step2_u1", submit_index_by_unit)
+                self.assertGreater(
+                    submit_index_by_unit["step2_u1"],
+                    max(done_index_by_unit["step1_u1"], done_index_by_unit["step1_u2"]),
+                )
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
     def test_queue_transition_log_shows_main_blocked_reserved_flow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)

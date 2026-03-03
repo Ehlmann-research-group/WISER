@@ -133,6 +133,8 @@ class TestTaskPlanner(unittest.TestCase):
         self.assertEqual(len(task_plan.work_units), 9)
         self.assertIn("s00", task_plan.stage_work_units)
         self.assertEqual(len(task_plan.stage_work_units["s00"]), 9)
+        self.assertIn("s00", task_plan.stage_steps)
+        self.assertEqual(task_plan.stage_steps["s00"], [task_plan.stage_work_units["s00"]])
 
         # Verify one output allocation was requested and shape matches full dataset.
         self.assertEqual(len(storage.requests), 1)

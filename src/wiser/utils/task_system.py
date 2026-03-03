@@ -232,6 +232,12 @@ class TaskPlan:
     )  # Each work unit has a parent and/or a child
     work_units_meta: Dict[str, WorkUnitMeta] = field(default_factory=dict)
     stage_work_units: Dict[str, List[str]] = field(default_factory=dict)  # List of work units per stage
+    # Ordered barrier steps per stage. Each inner list contains units that may run in parallel.
+    # Example:
+    #   - fully parallel stage: [[u1, u2, u3]]
+    #   - fully sequential stage: [[u1], [u2], [u3]]
+    #   - mixed: [[u1, u2], [u3], [u4, u5]]
+    stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
 
@@ -437,6 +443,9 @@ class TaskPlanner:
                 unit_ids_for_stage.append(unit_id)
 
             plan.stage_work_units[stage_id] = unit_ids_for_stage
+            # Default expansion preserves current behavior: one step per stage,
+            # with all stage units runnable in parallel.
+            plan.stage_steps[stage_id] = [list(unit_ids_for_stage)]
             prev_stage_unit_ids = unit_ids_for_stage
 
         return plan
