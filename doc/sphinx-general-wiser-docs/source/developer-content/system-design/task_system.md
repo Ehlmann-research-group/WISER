@@ -30,8 +30,9 @@ Each stage defines:
 - input binding name (`input_binding`),
 - output binding names (`output_bindings`),
 - chunking scheme type,
+- work-unit dependency mode (`work_unit_dependency`: `independent` or `sequential`),
 - allocation requests for stage outputs,
-- a top-level callable producer (`map_fn` / `reduce_fn`),
+- a top-level callable producer (`task_fn` / `reduce_fn`),
 - optional broadcast refs (e.g. spectrum refs needed by every chunk).
 
 Important: stage input refs are resolved by binding name during planning. Stages should not assume direct ownership of concrete `DataRef`s.
@@ -45,6 +46,10 @@ Important: stage input refs are resolved by binding name during planning. Stages
 - `TaskPlan.work_units_meta`: planning I/O metadata (`input_ref`, `input_region`, output `WriteSpec`s, broadcast refs)
 - `TaskPlan.stage_work_units`: per-stage unit membership metadata
 - `TaskPlan.stage_steps`: ordered barrier steps per stage; units in a step can run in parallel, steps run in order
+
+By default:
+- `MapStage` uses `work_unit_dependency="independent"` (single step containing all units)
+- `SequentialStage` uses `work_unit_dependency="sequential"` (one unit per step)
 
 `WorkUnit` is intentionally lightweight at runtime; detailed I/O metadata lives in `WorkUnitMeta`.
 
@@ -148,11 +153,13 @@ The main methods to understand runtime behavior are:
    - store new output refs in `bindings`
    - expand chunks into units
    - build per-unit `WriteSpec` map and `WorkUnitMeta`
-   - build runnable top-level callable via `stage.map_fn(...)`
-   - set a default single-step stage plan (`stage_steps[stage_id] = [all_stage_units]`)
-3. **Record dependencies and stage step defaults**
+   - build runnable top-level callable via `stage.task_fn(...)`
+   - build `stage_steps` from `work_unit_dependency`
+     - `independent`: `stage_steps[stage_id] = [all_stage_units]`
+     - `sequential`: `stage_steps[stage_id] = [[u1], [u2], ...]`
+3. **Record dependencies and stage step layout**
    - default behavior is stage barrier: stage N depends on all units in stage N-1
-   - default stage behavior is fully parallel within the stage unless `stage_steps` is overridden
+   - within-stage behavior is derived from each stage's `work_unit_dependency`
 
 If allocation or binding resolution fails, planning fails before scheduling.
 

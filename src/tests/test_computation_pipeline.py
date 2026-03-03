@@ -76,7 +76,7 @@ class _DivideBySpectrumStage(MapStage):
             )
         ]
 
-    def map_fn(self, input_ref, input_region, output_writes, broadcast_inputs={}):
+    def task_fn(self, input_ref, input_region, output_writes, broadcast_inputs={}):
         output_write = output_writes["stage_out"]
         spectrum_ref: DataRef = broadcast_inputs["spectrum_ref"]
         return partial(_run_map, input_ref, input_region, output_write, spectrum_ref)
@@ -101,7 +101,7 @@ class _MultiplyBySpectrumStage(MapStage):
             )
         ]
 
-    def map_fn(self, input_ref, input_region, output_writes, broadcast_inputs={}):
+    def task_fn(self, input_ref, input_region, output_writes, broadcast_inputs={}):
         output_write = output_writes["stage_out_2"]
         spectrum_ref: DataRef = broadcast_inputs["spectrum_ref"]
         return partial(_run_multiply_map, input_ref, input_region, output_write, spectrum_ref)
