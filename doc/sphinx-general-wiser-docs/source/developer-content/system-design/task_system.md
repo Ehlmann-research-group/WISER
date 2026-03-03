@@ -43,6 +43,8 @@ Important: stage input refs are resolved by binding name during planning. Stages
 - `TaskPlan.bindings`: semantic binding name -> `DataRef`
 - `TaskPlan.work_units`: schedulable units with executor kind, deps, and prebuilt callable
 - `TaskPlan.work_units_meta`: planning I/O metadata (`input_ref`, `input_region`, output `WriteSpec`s, broadcast refs)
+- `TaskPlan.stage_work_units`: per-stage unit membership metadata
+- `TaskPlan.stage_steps`: ordered barrier steps per stage; units in a step can run in parallel, steps run in order
 
 `WorkUnit` is intentionally lightweight at runtime; detailed I/O metadata lives in `WorkUnitMeta`.
 
@@ -74,7 +76,7 @@ For dataset-shaped reads, client conventions are:
 
 ### WorkScheduler
 
-`WorkScheduler` executes a `TaskPlan` stage-by-stage.
+`WorkScheduler` executes a `TaskPlan` stage-by-stage, and within each stage step-by-step.
 
 It:
 - validates stage/unit structure,
@@ -83,6 +85,7 @@ It:
 - enforces a transient RAM budget across both process and thread units,
 - tracks success/failure and fail-fast behavior,
 - advances to next stage only when current stage is terminal.
+- enforces intra-stage barriers by advancing to the next stage step only when the current step is terminal.
 
 Process workers are initialized with `initialize_process_storage_client(...)` so unit callables can use `get_process_storage_client()` safely.
 
@@ -146,8 +149,10 @@ The main methods to understand runtime behavior are:
    - expand chunks into units
    - build per-unit `WriteSpec` map and `WorkUnitMeta`
    - build runnable top-level callable via `stage.map_fn(...)`
-3. **Record dependencies**
+   - set a default single-step stage plan (`stage_steps[stage_id] = [all_stage_units]`)
+3. **Record dependencies and stage step defaults**
    - default behavior is stage barrier: stage N depends on all units in stage N-1
+   - default stage behavior is fully parallel within the stage unless `stage_steps` is overridden
 
 If allocation or binding resolution fails, planning fails before scheduling.
 
