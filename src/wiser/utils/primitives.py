@@ -29,7 +29,7 @@ class PriorityClass(Enum):
 
 OutputKind = Literal["dataset", "spectrum", "spectra_list", "array", "json"]
 InputKind = Literal["dataset", "spectrum", "spectra_list"]
-
+WorkUnitDependency = Literal["independent", "sequential"]
 
 DiskFormat = Literal["memmap", "zarr", "json"]
 RefKind = OutputKind

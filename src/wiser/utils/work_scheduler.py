@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from collections import deque
+from collections import Counter, deque
 from threading import Lock, Semaphore
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
 
@@ -252,13 +252,52 @@ class PendingDoneCallback:
 
 @dataclass
 class StageExecutionState:
-    """Tracks submission and completion status for one stage in a task plan."""
+    """
+    Mutable execution bookkeeping for a single stage in a task plan.
+
+    This state tracks both:
+    - stage-level completion (`expected_unit_ids`), and
+    - step-level barrier progress (`step_unit_ids` + `step_index`).
+
+    `step_unit_ids` is an ordered list of barrier steps for the stage. Units in the
+    same inner list are allowed to run in parallel; the next step cannot begin until
+    the current step becomes terminal.
+
+    The scheduler updates this object as units are submitted and completed:
+    - `submitted_unit_ids` records units dispatched to an executor,
+    - `succeeded_unit_ids` records units that finished successfully,
+    - `failed_unit_ids` records units that finished with exceptions.
+    """
 
     stage_id: str
     expected_unit_ids: set[str]
+    step_unit_ids: list[list[str]]
+    step_index: int = 0
     submitted_unit_ids: set[str] = field(default_factory=set)
     succeeded_unit_ids: set[str] = field(default_factory=set)
     failed_unit_ids: dict[str, BaseException] = field(default_factory=dict)
+
+    def _completed_unit_ids(self) -> set[str]:
+        return self.succeeded_unit_ids | set(self.failed_unit_ids.keys())
+
+    def is_current_step_terminal(self) -> bool:
+        """
+        Return True when the currently active step has no remaining work.
+
+        A step is considered terminal when any of the following is true:
+        - `step_index` is past the last configured step,
+        - the current step is empty, or
+        - every unit in the current step has completed (success or failure).
+
+        This method is used to enforce intra-stage barrier semantics: the scheduler
+        advances to the next step only after this returns True.
+        """
+        if self.step_index >= len(self.step_unit_ids):
+            return True
+        current_step_expected_unit_ids = set(self.step_unit_ids[self.step_index])
+        if not current_step_expected_unit_ids:
+            return True
+        return current_step_expected_unit_ids.issubset(self._completed_unit_ids())
 
     def is_terminal(self) -> bool:
         terminal_count = len(self.succeeded_unit_ids) + len(self.failed_unit_ids)
@@ -569,6 +608,7 @@ class WorkScheduler:
             stage_id: StageExecutionState(
                 stage_id=stage_id,
                 expected_unit_ids=set(task_plan.stage_work_units.get(stage_id, [])),
+                step_unit_ids=self._steps_for_stage(task_plan, stage_id),
             )
             for stage_id in stage_order
         }
@@ -600,6 +640,31 @@ class WorkScheduler:
                 if unit.stage_id != stage_id:
                     raise ValueError(f"WorkUnit {unit_id} has stage_id={unit.stage_id}, expected {stage_id}")
 
+            if stage_id not in task_plan.stage_steps:
+                continue
+
+            configured_steps = task_plan.stage_steps[stage_id]
+            flattened_step_unit_ids: list[str] = []
+            for step_unit_ids in configured_steps:
+                for unit_id in step_unit_ids:
+                    if unit_id not in task_plan.work_units:
+                        raise KeyError(
+                            f"TaskPlan stage_steps {stage_id} references unknown work unit {unit_id}"
+                        )
+                    unit = task_plan.work_units[unit_id]
+                    if unit.stage_id != stage_id:
+                        raise ValueError(
+                            f"TaskPlan stage_steps {stage_id} contains work unit {unit_id} "
+                            f"with stage_id={unit.stage_id}"
+                        )
+                    flattened_step_unit_ids.append(unit_id)
+
+            if Counter(flattened_step_unit_ids) != Counter(unit_ids):
+                raise ValueError(
+                    f"TaskPlan stage_steps for stage {stage_id} must contain the same units as "
+                    "stage_work_units (including multiplicity)."
+                )
+
     def _ordered_stage_ids(self, task_plan: TaskPlan) -> list[str]:
         return sorted(task_plan.stage_work_units.keys(), key=self._stage_sort_key)
 
@@ -609,12 +674,25 @@ class WorkScheduler:
             return int(digits), stage_id
         return 10**9, stage_id
 
+    def _steps_for_stage(self, task_plan: TaskPlan, stage_id: str) -> list[list[str]]:
+        configured_steps = task_plan.stage_steps.get(stage_id)
+        if configured_steps is not None:
+            return [list(step_unit_ids) for step_unit_ids in configured_steps]
+        # Backward compatibility: one parallel step with all stage units.
+        return [list(task_plan.stage_work_units.get(stage_id, []))]
+
     def _enqueue_stage_locked(self, plan_state: PlanExecutionState, stage_id: str) -> None:
-        """Queue all work units for a stage into executor queues by priority and kind."""
+        """Queue current stage step work units into executor queues by priority and kind."""
         task_plan = plan_state.task_plan
+        stage_state = plan_state.stage_states[stage_id]
+        if stage_state.step_index >= len(stage_state.step_unit_ids):
+            return
+
         if self._recorder is not None:
-            self._recorder.on_stage_enqueued(task_plan.plan_id, stage_id)
-        for unit_id in task_plan.stage_work_units.get(stage_id, []):
+            # Emit once per stage, not once per step, for stable recorder semantics.
+            if stage_state.step_index == 0:
+                self._recorder.on_stage_enqueued(task_plan.plan_id, stage_id)
+        for unit_id in stage_state.step_unit_ids[stage_state.step_index]:
             work_unit = task_plan.work_units[unit_id]
             item = QueuedWorkUnit(plan_id=task_plan.plan_id, stage_id=stage_id, work_unit=work_unit)
             if work_unit.executor_kind == "process":
@@ -991,8 +1069,15 @@ class WorkScheduler:
                         self._drain_queues_locked()
                         return
 
-                if not stage_state.is_terminal():
-                    # Stage still has in-flight work; only attempt to fill any open slots.
+                if not stage_state.is_current_step_terminal():
+                    # Current step still has in-flight work; only attempt to fill open slots.
+                    self._drain_queues_locked()
+                    return
+
+                # Current step completed; enqueue the next step for this stage, if any.
+                if stage_state.step_index < len(stage_state.step_unit_ids) - 1:
+                    stage_state.step_index += 1
+                    self._enqueue_stage_locked(plan_state, stage_id)
                     self._drain_queues_locked()
                     return
 

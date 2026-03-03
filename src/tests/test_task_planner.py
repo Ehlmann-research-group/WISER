@@ -19,6 +19,7 @@ from wiser.utils.task_system import (
     MapStage,
     PlanningContext,
     ResourceModel,
+    SequentialStage,
     SemanticTask,
     SimpleChunkingPolicy,
     TaskPlanner,
@@ -74,7 +75,30 @@ class _IdentityMapStage(MapStage):
             )
         ]
 
-    def map_fn(self, input_ref, input_region, output_writes, broadcast_inputs=None):
+    def task_fn(self, input_ref, input_region, output_writes, broadcast_inputs=None):
+        _ = (input_ref, input_region, output_writes, broadcast_inputs)
+        return None
+
+
+class _IdentitySequentialStage(SequentialStage):
+    def output_region_for(self, input_region: DatasetRegionRef) -> DatasetRegionRef:
+        return input_region
+
+    def generate_allocation_requests(self, *, input_meta, chosen_scheme):
+        _ = chosen_scheme
+        return [
+            AllocationRequest(
+                name="stage_out_seq",
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height * input_meta.width * input_meta.bands * 4,
+                shape=input_meta.shape,
+                dtype=input_meta.dtype,
+                chunks=None,
+            )
+        ]
+
+    def task_fn(self, input_ref, input_region, output_writes, broadcast_inputs=None):
         _ = (input_ref, input_region, output_writes, broadcast_inputs)
         return None
 
@@ -133,6 +157,8 @@ class TestTaskPlanner(unittest.TestCase):
         self.assertEqual(len(task_plan.work_units), 9)
         self.assertIn("s00", task_plan.stage_work_units)
         self.assertEqual(len(task_plan.stage_work_units["s00"]), 9)
+        self.assertIn("s00", task_plan.stage_steps)
+        self.assertEqual(task_plan.stage_steps["s00"], [task_plan.stage_work_units["s00"]])
 
         # Verify one output allocation was requested and shape matches full dataset.
         self.assertEqual(len(storage.requests), 1)
@@ -147,3 +173,59 @@ class TestTaskPlanner(unittest.TestCase):
             self.assertEqual(len(unit_meta.output_writes), 1)
             write = unit_meta.output_writes["stage_out"]
             self.assertEqual(write.region, unit_meta.input_region)
+
+    def test_plan_semantic_task_with_sequential_stage_creates_singleton_steps(self):
+        input_ref = DataRef(
+            kind="dataset",
+            ref_id="input-seq-1",
+            uri="mem://input-seq-1",
+            disk_format=None,
+            shape=(6, 9, 3),
+            dtype=np.dtype(np.float32),
+            chunks=None,
+            residency="ram_cacheable",
+            materialization_loc="ram",
+            source="allocated",
+            readonly=False,
+        )
+        input_meta = DatasetPlanMeta(
+            kind="dataset",
+            dtype=np.dtype(np.float32),
+            shape=input_ref.shape,
+        )
+
+        stage = _IdentitySequentialStage(
+            default_executor="thread",
+            input_plan_meta=input_meta,
+            resource_model=ResourceModel(
+                fixed_overhead_bytes=0,
+                bytes_per_scalar_in=1,
+                bytes_per_scalar_out=1,
+                scratch_bytes_per_scalar_in=0,
+            ),
+            chunking_scheme_type=SpatialTileScheme,
+            output_bindings=(DataBinding("stage_out_seq"),),
+        )
+
+        semantic_task = SemanticTask(
+            priority_class="interactive",
+            input_ref=input_ref,
+            algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+        )
+        semantic_task.id = 43
+
+        storage = _RecordingStorage()
+        ctx = PlanningContext(
+            sched_cfg=_NoopSchedulerConfig(),
+            storage=storage,
+            chunking_policy=SimpleChunkingPolicy(),
+        )
+        task_planner = TaskPlanner(ctx)
+        task_plan = task_planner.plan_semantic_task(semantic_task)
+
+        self.assertEqual(stage.work_unit_dependency, "sequential")
+        self.assertIn("s00", task_plan.stage_steps)
+        stage_steps = task_plan.stage_steps["s00"]
+        self.assertEqual(len(stage_steps), len(task_plan.stage_work_units["s00"]))
+        for step in stage_steps:
+            self.assertEqual(len(step), 1)

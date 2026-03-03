@@ -19,6 +19,7 @@ from .primitives import (
     SpatialTileScheme,
     SpectraBatchScheme,
     SpectralBatchDatasetScheme,
+    WorkUnitDependency,
 )
 from .storage_service import StorageService
 
@@ -40,6 +41,8 @@ class TaskStage:
     default_executor: ExecutorType
     input_plan_meta: "BasePlanMeta"
     resource_model: ResourceModel
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+    work_unit_dependency: WorkUnitDependency = "independent"
     fn_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Where this stage reads from. It is a key in the task plan's table
@@ -49,21 +52,6 @@ class TaskStage:
     output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
 
     broadcast_input: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ReduceStage(TaskStage):
-    @abstractmethod
-    def reduce_fn():
-        raise NotImplementedError("Subclasses must implement reduce_fn")
-
-
-@dataclass
-class MapStage(TaskStage):
-    # TODO (Joshua G-K): output_region_for should output a list of DataRegions
-    # or at least multiple data regions (make its in a Dict). This is because
-    # on task stage should be able to output more than one output.
-    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     @abstractmethod
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -79,13 +67,11 @@ class MapStage(TaskStage):
         """
         raise NotImplementedError("Subclasses must implement output_region_for")
 
+    @abstractmethod
     def generate_allocation_requests(
         self,
         *,
         input_meta: "BasePlanMeta",
-        # we will probably need a params dict, but I don't know if it
-        # will be a UI passed in parameter or something the developer will code
-        # params: dict,
         chosen_scheme: ChunkingScheme | None,
     ) -> list[AllocationRequest]:
         """
@@ -108,11 +94,11 @@ class MapStage(TaskStage):
         raise NotImplementedError("Subclasses must implement generate_allocation_requests")
 
     @abstractmethod
-    def map_fn(
+    def task_fn(
         self,
         input_ref: DataRef,
         input_region: DataRegion,
-        output_writes: Dict[str, WriteSpec],  # name -> WriteSpec
+        output_writes: Dict[str, "WriteSpec"],
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
         """
@@ -121,7 +107,21 @@ class MapStage(TaskStage):
         the time this class is made because it may be the output of another stage.
         We will likely remove the input_ref attribute in the future.
         """
-        raise NotImplementedError("Subclasses must implement map_fn")
+        raise NotImplementedError("Subclasses must implement task_fn")
+
+
+@dataclass
+class SequentialStage(TaskStage):
+    """Stage type where work units are planned as sequential steps."""
+
+    work_unit_dependency: WorkUnitDependency = "sequential"
+
+
+@dataclass
+class MapStage(TaskStage):
+    """Stage type where work units in a stage can run independently."""
+
+    work_unit_dependency: WorkUnitDependency = "independent"
 
 
 @dataclass(frozen=True)
@@ -232,6 +232,12 @@ class TaskPlan:
     )  # Each work unit has a parent and/or a child
     work_units_meta: Dict[str, WorkUnitMeta] = field(default_factory=dict)
     stage_work_units: Dict[str, List[str]] = field(default_factory=dict)  # List of work units per stage
+    # Ordered barrier steps per stage. Each inner list contains units that may run in parallel.
+    # Example:
+    #   - fully parallel stage: [[u1, u2, u3]]
+    #   - fully sequential stage: [[u1], [u2], [u3]]
+    #   - mixed: [[u1, u2], [u3], [u4, u5]]
+    stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
 
@@ -367,8 +373,8 @@ class TaskPlanner:
         for stage_idx, stage in enumerate(semantic_task.get_algorithm().stages):
             stage_id = f"s{stage_idx:02d}"
 
-            if not isinstance(stage, MapStage):
-                raise NotImplementedError("Draft only implements MapStage expansion.")
+            if not isinstance(stage, TaskStage):
+                raise NotImplementedError("Draft only implements TaskStage expansion.")
 
             # 2) resolve stage input ref
             # input names should be the same as output names from a previous step
@@ -399,6 +405,7 @@ class TaskPlanner:
 
             # 6) expand regions -> WorkUnits
             unit_ids_for_stage: List[str] = []
+            stage_step_unit_ids: List[List[str]] = []
 
             for input_region in scheme.iter_chunks(input_meta):
                 out_writes: Dict[str, WriteSpec] = {}
@@ -422,7 +429,7 @@ class TaskPlanner:
                     stage_id=stage_id,
                     priority_class=semantic_task.get_priority_class(),
                     executor_kind=stage.default_executor,
-                    fn=stage.map_fn(
+                    fn=stage.task_fn(
                         input_ref=unit_meta.input_ref,
                         input_region=unit_meta.input_region,
                         output_writes=unit_meta.output_writes,
@@ -435,8 +442,16 @@ class TaskPlanner:
                 plan.work_units[unit_id] = unit
                 plan.work_units_meta[unit_id] = unit_meta
                 unit_ids_for_stage.append(unit_id)
+                if stage.work_unit_dependency == "sequential":
+                    stage_step_unit_ids.append([unit_id])
 
             plan.stage_work_units[stage_id] = unit_ids_for_stage
+            if stage.work_unit_dependency == "independent":
+                plan.stage_steps[stage_id] = [list(unit_ids_for_stage)]
+            elif stage.work_unit_dependency == "sequential":
+                plan.stage_steps[stage_id] = stage_step_unit_ids
+            else:
+                raise ValueError(f"Unknown WorkUnitDependency: {stage.work_unit_dependency!r}")
             prev_stage_unit_ids = unit_ids_for_stage
 
         return plan
