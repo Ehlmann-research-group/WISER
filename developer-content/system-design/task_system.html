@@ -406,8 +406,9 @@ document.write(`
 <li><p>input binding name (<code class="docutils literal notranslate"><span class="pre">input_binding</span></code>),</p></li>
 <li><p>output binding names (<code class="docutils literal notranslate"><span class="pre">output_bindings</span></code>),</p></li>
 <li><p>chunking scheme type,</p></li>
+<li><p>work-unit dependency mode (<code class="docutils literal notranslate"><span class="pre">work_unit_dependency</span></code>: <code class="docutils literal notranslate"><span class="pre">independent</span></code> or <code class="docutils literal notranslate"><span class="pre">sequential</span></code>),</p></li>
 <li><p>allocation requests for stage outputs,</p></li>
-<li><p>a top-level callable producer (<code class="docutils literal notranslate"><span class="pre">map_fn</span></code> / <code class="docutils literal notranslate"><span class="pre">reduce_fn</span></code>),</p></li>
+<li><p>a top-level callable producer (<code class="docutils literal notranslate"><span class="pre">task_fn</span></code> / <code class="docutils literal notranslate"><span class="pre">reduce_fn</span></code>),</p></li>
 <li><p>optional broadcast refs (e.g. spectrum refs needed by every chunk).</p></li>
 </ul>
 <p>Important: stage input refs are resolved by binding name during planning. Stages should not assume direct ownership of concrete <code class="docutils literal notranslate"><span class="pre">DataRef</span></code>s.</p>
@@ -419,6 +420,13 @@ document.write(`
 <li><p><code class="docutils literal notranslate"><span class="pre">TaskPlan.bindings</span></code>: semantic binding name -&gt; <code class="docutils literal notranslate"><span class="pre">DataRef</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">TaskPlan.work_units</span></code>: schedulable units with executor kind, deps, and prebuilt callable</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">TaskPlan.work_units_meta</span></code>: planning I/O metadata (<code class="docutils literal notranslate"><span class="pre">input_ref</span></code>, <code class="docutils literal notranslate"><span class="pre">input_region</span></code>, output <code class="docutils literal notranslate"><span class="pre">WriteSpec</span></code>s, broadcast refs)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">TaskPlan.stage_work_units</span></code>: per-stage unit membership metadata</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">TaskPlan.stage_steps</span></code>: ordered barrier steps per stage; units in a step can run in parallel, steps run in order</p></li>
+</ul>
+<p>By default:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">MapStage</span></code> uses <code class="docutils literal notranslate"><span class="pre">work_unit_dependency=&quot;independent&quot;</span></code> (single step containing all units)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SequentialStage</span></code> uses <code class="docutils literal notranslate"><span class="pre">work_unit_dependency=&quot;sequential&quot;</span></code> (one unit per step)</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">WorkUnit</span></code> is intentionally lightweight at runtime; detailed I/O metadata lives in <code class="docutils literal notranslate"><span class="pre">WorkUnitMeta</span></code>.</p>
 </section>
@@ -453,7 +461,7 @@ document.write(`
 </section>
 <section id="workscheduler">
 <h3>WorkScheduler<a class="headerlink" href="#workscheduler" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code> executes a <code class="docutils literal notranslate"><span class="pre">TaskPlan</span></code> stage-by-stage.</p>
+<p><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code> executes a <code class="docutils literal notranslate"><span class="pre">TaskPlan</span></code> stage-by-stage, and within each stage step-by-step.</p>
 <p>It:</p>
 <ul class="simple">
 <li><p>validates stage/unit structure,</p></li>
@@ -462,6 +470,7 @@ document.write(`
 <li><p>enforces a transient RAM budget across both process and thread units,</p></li>
 <li><p>tracks success/failure and fail-fast behavior,</p></li>
 <li><p>advances to next stage only when current stage is terminal.</p></li>
+<li><p>enforces intra-stage barriers by advancing to the next stage step only when the current step is terminal.</p></li>
 </ul>
 <p>Process workers are initialized with <code class="docutils literal notranslate"><span class="pre">initialize_process_storage_client(...)</span></code> so unit callables can use <code class="docutils literal notranslate"><span class="pre">get_process_storage_client()</span></code> safely.</p>
 <section id="queue-model-high-level">
@@ -534,12 +543,19 @@ For reserved units, admission uses full cap (<code class="docutils literal notra
 <li><p>store new output refs in <code class="docutils literal notranslate"><span class="pre">bindings</span></code></p></li>
 <li><p>expand chunks into units</p></li>
 <li><p>build per-unit <code class="docutils literal notranslate"><span class="pre">WriteSpec</span></code> map and <code class="docutils literal notranslate"><span class="pre">WorkUnitMeta</span></code></p></li>
-<li><p>build runnable top-level callable via <code class="docutils literal notranslate"><span class="pre">stage.map_fn(...)</span></code></p></li>
+<li><p>build runnable top-level callable via <code class="docutils literal notranslate"><span class="pre">stage.task_fn(...)</span></code></p></li>
+<li><p>build <code class="docutils literal notranslate"><span class="pre">stage_steps</span></code> from <code class="docutils literal notranslate"><span class="pre">work_unit_dependency</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">independent</span></code>: <code class="docutils literal notranslate"><span class="pre">stage_steps[stage_id]</span> <span class="pre">=</span> <span class="pre">[all_stage_units]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sequential</span></code>: <code class="docutils literal notranslate"><span class="pre">stage_steps[stage_id]</span> <span class="pre">=</span> <span class="pre">[[u1],</span> <span class="pre">[u2],</span> <span class="pre">...]</span></code></p></li>
 </ul>
 </li>
-<li><p><strong>Record dependencies</strong></p>
+</ul>
+</li>
+<li><p><strong>Record dependencies and stage step layout</strong></p>
 <ul class="simple">
 <li><p>default behavior is stage barrier: stage N depends on all units in stage N-1</p></li>
+<li><p>within-stage behavior is derived from each stage’s <code class="docutils literal notranslate"><span class="pre">work_unit_dependency</span></code></p></li>
 </ul>
 </li>
 </ol>
