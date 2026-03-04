@@ -121,6 +121,7 @@ class DataRef:
 @dataclass(frozen=True)
 class DataMeta:
     kind: RefKind
+    # [y][x][b] for dataset, [b] for spectrum, [i][b] for spectra_list [i][b]
     shape: Tuple[int, ...]
     elem_type: np.dtype
     wavelengths: Optional[np.ndarray] = None

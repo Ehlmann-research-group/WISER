@@ -98,7 +98,8 @@ class TaskStage:
         input_ref: DataRef,
         input_region: DataRegion,
         output_writes: Dict[str, "WriteSpec"],
-        broadcast_inputs: Dict[str, DataRef] = {},
+        # Type is usually a DataAny but can be any small serializable object
+        broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable[..., None]:
         """
         This function must return a top level callable! It can not return a closure.
@@ -201,7 +202,8 @@ class WorkUnitMeta:
     input_ref: DataRef
     input_region: DataRegion
     output_writes: Dict[str, WriteSpec]
-    broadcast_inputs: Dict[str, "DataRef"]
+    # Type is usually a data ref but can be a small serializable object
+    broadcast_inputs: Dict[str, Any]
 
 
 @dataclass(frozen=True)
