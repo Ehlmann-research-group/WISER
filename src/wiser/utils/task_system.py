@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING
 
 import numpy as np
 
@@ -23,9 +23,8 @@ from .primitives import (
 )
 from .storage_service import StorageService
 
-
-class SchedulerConfig(Protocol):
-    """Scheduler configuration interface used for planning-time typing."""
+if TYPE_CHECKING:
+    from wiser.utils.work_scheduler import SchedulerConfig
 
 
 @dataclass(frozen=True)
@@ -220,7 +219,7 @@ class WorkUnit:
 class TaskPlan:
     """
     Contains a work unit graph / dependencies.
-        - WOrk units for the same stage are bundled together
+        - Work units for the same stage are bundled together
         - Stages that can be run in parallel are
     """
 
