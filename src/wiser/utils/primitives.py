@@ -187,6 +187,10 @@ class DataRegion:
     def scalar_count(self) -> int:
         raise NotImplementedError
 
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """Validate that an array's shape matches this region."""
+        raise NotImplementedError
+
 
 @dataclass(frozen=True)
 class DatasetRegionRef(DataRegion):
@@ -204,6 +208,26 @@ class DatasetRegionRef(DataRegion):
             raise ValueError("DatasetRegionRef has invalid bounds.")
         return (self.y1 - self.y0) * (self.x1 - self.x0) * (self.b1 - self.b0)
 
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """
+        Validate that `arr` fits this dataset region.
+
+        Expected input array shape is `[y][x][b]` (NumPy shape `(y, x, b)`), where:
+        - `y == (y1 - y0)`
+        - `x == (x1 - x0)`
+        - `b == (b1 - b0)`
+        """
+        expected_shape = (self.y1 - self.y0, self.x1 - self.x0, self.b1 - self.b0)
+        if arr.ndim != 3:
+            raise ValueError(
+                f"DatasetRegionRef expects a 3D array with shape [y][x][b]; got ndim={arr.ndim}."
+            )
+        if arr.shape != expected_shape:
+            raise ValueError(
+                f"DatasetRegionRef expects shape {expected_shape} for bounds "
+                f"(y:{self.y0}:{self.y1}, x:{self.x0}:{self.x1}, b:{self.b0}:{self.b1}); got {arr.shape}."
+            )
+
 
 @dataclass(frozen=True)
 class SpectrumRef(DataRegion):
@@ -214,6 +238,19 @@ class SpectrumRef(DataRegion):
         if self.length < 0:
             raise ValueError("SpectrumRef length must be non-negative.")
         return self.length
+
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """
+        Validate that `arr` fits this spectrum region.
+
+        Expected input array shape is `[b]` (NumPy shape `(b,)`), where:
+        - `b == length`
+        """
+        expected_shape = (self.length,)
+        if arr.ndim != 1:
+            raise ValueError(f"SpectrumRef expects a 1D array with shape [b]; got ndim={arr.ndim}.")
+        if arr.shape != expected_shape:
+            raise ValueError(f"SpectrumRef expects shape {expected_shape}; got {arr.shape}.")
 
 
 @dataclass(frozen=True)
@@ -226,6 +263,23 @@ class SpectraBatchRef(DataRegion):
         if self.i1 < self.i0 or self.length < 0:
             raise ValueError("SpectraBatchRef has invalid bounds.")
         return (self.i1 - self.i0) * self.length
+
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """
+        Validate that `arr` fits this spectra batch region.
+
+        Expected input array shape is `[i][b]` (NumPy shape `(i, b)`), where:
+        - `i == (i1 - i0)`
+        - `b == length`
+        """
+        expected_shape = (self.i1 - self.i0, self.length)
+        if arr.ndim != 2:
+            raise ValueError(f"SpectraBatchRef expects a 2D array with shape [i][b]; got ndim={arr.ndim}.")
+        if arr.shape != expected_shape:
+            raise ValueError(
+                f"SpectraBatchRef expects shape {expected_shape} for bounds "
+                f"(i:{self.i0}:{self.i1}, b:{self.length}); got {arr.shape}."
+            )
 
 
 # Returns input and output regions (aka ChunkRefs)

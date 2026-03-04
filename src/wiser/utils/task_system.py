@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 
 import numpy as np
 
@@ -72,7 +72,7 @@ class TaskStage:
         self,
         *,
         input_meta: "BasePlanMeta",
-        chosen_scheme: ChunkingScheme | None,
+        chosen_scheme: Optional[ChunkingScheme],
     ) -> list[AllocationRequest]:
         """
         Make allocation requests that the Task Planner will
@@ -99,13 +99,12 @@ class TaskStage:
         input_ref: DataRef,
         input_region: DataRegion,
         output_writes: Dict[str, "WriteSpec"],
-        broadcast_inputs: Dict[str, Any] = {},
-    ) -> Callable:
+        broadcast_inputs: Dict[str, DataRef] = {},
+    ) -> Callable[..., None]:
         """
         This function must return a top level callable! It can not return a closure.
         Even though the class has an input_ref, that input_ref may not be made at
         the time this class is made because it may be the output of another stage.
-        We will likely remove the input_ref attribute in the future.
         """
         raise NotImplementedError("Subclasses must implement task_fn")
 
@@ -476,7 +475,7 @@ class TaskPlanner:
         )
 
 
-class SemanticTask(ABC):
+class SemanticTask:
     def __init__(
         self,
         priority_class: PriorityClass,

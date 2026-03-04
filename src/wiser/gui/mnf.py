@@ -1,7 +1,125 @@
+from functools import partial
+from typing import Any, Callable, Dict, Optional
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from wiser.utils.primitives import (
+    AllocationRequest,
+    ChunkingScheme,
+    DataBinding,
+    DataRef,
+    DataRegion,
+    DatasetRegionRef,
+    SpectralBatchDatasetScheme,
+)
+from wiser.utils.task_system import (
+    AlgorithmPipeline,
+    BasePlanMeta,
+    DatasetPlanMeta,
+    MapStage,
+    ResourceModel,
+    SemanticTask,
+    WriteSpec,
+)
+from wiser.utils.worker_runtime import get_process_storage_client
+
+
+def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write: "WriteSpec") -> None:
+    storage_client = get_process_storage_client()
+    array, meta = storage_client.read_region(input_ref, input_region)
+    noise = array[:-1, :, :] - array[1:, :, :]
+    assert output_write.region is not None, "output_write's region can not be none in _run_shift_y_diff"
+    assert output_write.region.validate_array_shape(
+        noise.shape
+    ), "output_write's region shape does not match the noise's shape"
+    storage_client.write_spec(output_write, noise)
+
+
+class CalculateShiftYDiffNoise(MapStage):
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        """
+        Because this algorithm uses shift difference with just +1
+        """
+        assert isinstance(
+            input_region, DatasetRegionRef
+        ), "Input region for calculate shift difference noise must be DatasetRegionRef"
+
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1 - 1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=input_region.b0,
+            b1=input_region.b1,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        """
+        This stage will just allocate data for the covariance matrix. We
+        will be writing to this array.
+        """
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "input_meta must be of type DatasetPlanMeta for CalculateShiftYDiffNoise"
+
+        size_est = input_meta.bands * input_meta.bands
+        alloc_request = AllocationRequest(
+            name="shift_y_diff_noise",
+            kind="array",
+            residency="ram_cacheable",
+            size_est=size_est,
+            shape=(input_meta.bands, input_meta.bands),
+        )
+        return [alloc_request]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, DataRef] = {},
+    ) -> Callable:
+        output_write = output_writes["shift_y_diff_noise"]
+        return partial(_run_shift_y_diff, input_ref, input_region, output_write)
+
 
 class MinimumNoiseFractionDialog(QDialog):
-    pass
+    """
+    Use the shift difference method. Let the user have a dark image option. Let the user
+    save their statistics
+    """
+
+    def __init__(self):
+        pass
+
+    def perform_mnf(self, dataset_ref: DataRef):
+        storage_client = get_process_storage_client()
+
+        algo_pipeline = AlgorithmPipeline(
+            [
+                CalculateShiftYDiffNoise(
+                    default_executor="process",
+                    input_plan_meta=storage_client.get_meta(dataset_ref),
+                    resource_model=ResourceModel(
+                        fixed_overhead_bytes=0,
+                        bytes_per_scalar_in=1,
+                        bytes_per_scalar_out=1,
+                        scratch_bytes_per_scalar_in=0,
+                    ),
+                    chunking_scheme_type=SpectralBatchDatasetScheme,
+                    output_bindings=(DataBinding("shift_y_diff_noise")),
+                )
+            ]
+        )
+
+        mnf_task = SemanticTask(  # noqa: F841
+            priority_class="background",
+            input_ref=dataset_ref,
+            algorithm_pipeline=algo_pipeline,
+        )
