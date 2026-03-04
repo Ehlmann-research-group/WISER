@@ -162,7 +162,7 @@ class AllocationRequest:
     # For numeric arrays (dataset/spectrum/spectra_list/array)
     shape: Optional[Tuple[int, ...]] = None
     dtype: Optional[np.dtype] = None
-    chunks: Optional[Tuple[int, ...]] = None  # for zarr / chunked storage
+    chunks: Optional[Tuple[int, ...]] = None  # optional for zarr / chunked storage
 
     # Optional metadata tags (task_id, stage_id, output_name)
     tags: Optional[Dict[str, str]] = None
@@ -285,7 +285,7 @@ class SpectraBatchRef(DataRegion):
 # Returns input and output regions (aka ChunkRefs)
 @dataclass
 class ChunkingScheme(ABC):
-    kind: ClassVar[InputKind] = "dataset"
+    kind: ClassVar[list[RefKind]] = ["dataset"]
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable["DataRegion"]:
         pass
@@ -293,7 +293,7 @@ class ChunkingScheme(ABC):
 
 @dataclass
 class SpatialTileScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "dataset"
+    kind: ClassVar[list[RefKind]] = ["dataset"]
     tile_h: int
     tile_w: int
 
@@ -308,7 +308,7 @@ class SpatialTileScheme(ChunkingScheme):
 
 @dataclass
 class SpectralBatchDatasetScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "dataset"
+    kind: ClassVar[list[RefKind]] = ["dataset", "array"]
     band_step: int = 32
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[DatasetRegionRef]:
@@ -320,7 +320,7 @@ class SpectralBatchDatasetScheme(ChunkingScheme):
 
 @dataclass
 class SingleSpectrumScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "spectrum"
+    kind: ClassVar[list[RefKind]] = ["spectrum"]
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectrumRef]:
         yield SpectrumRef(meta.length)
@@ -328,7 +328,7 @@ class SingleSpectrumScheme(ChunkingScheme):
 
 @dataclass
 class SpectraBatchScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "spectra_list"
+    kind: ClassVar[list[RefKind]] = ["spectra_list"]
     batch_size: int = 256
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectraBatchRef]:

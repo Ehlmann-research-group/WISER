@@ -1,8 +1,10 @@
 from PySide2.QtCore import QObject
 
+from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_service import StorageService
 from wiser.utils.task_system import PlanningContext, SimpleChunkingPolicy, TaskPlanner
 from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
+from wiser.utils.worker_runtime import initialize_process_storage_client
 
 
 class AppServices(QObject):
@@ -12,6 +14,10 @@ class AppServices(QObject):
             # TODO (Joshua G-K): Change this to be based on remaining data at app start up time
             disk_byte_limit=16_000_000_000,
         )
+
+        # Initialize the storage client for the main process
+        listener_address, listener_authkey = self._storage_service.get_connection_bootstrap()
+        initialize_process_storage_client(listener_address, listener_authkey)
 
         scheduler_config = SchedulerConfig()
         self._scheduler = WorkScheduler(
@@ -30,6 +36,10 @@ class AppServices(QObject):
     @property
     def storage_service(self):
         return self._storage_service
+
+    @property
+    def storage_client(self):
+        return self._storage_client
 
     @property
     def scheduler(self):

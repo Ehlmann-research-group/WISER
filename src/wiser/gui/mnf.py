@@ -1,5 +1,6 @@
 from functools import partial
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, cast
+import numpy as np
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -12,6 +13,7 @@ from wiser.utils.primitives import (
     DataRef,
     DataRegion,
     DatasetRegionRef,
+    PriorityClass,
     SpectralBatchDatasetScheme,
 )
 from wiser.utils.task_system import (
@@ -30,10 +32,10 @@ def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write
     storage_client = get_process_storage_client()
     array, meta = storage_client.read_region(input_ref, input_region)
     noise = array[:-1, :, :] - array[1:, :, :]
+    print(f"%$^ shape noise: {noise.shape}")
     assert output_write.region is not None, "output_write's region can not be none in _run_shift_y_diff"
-    assert output_write.region.validate_array_shape(
-        noise.shape
-    ), "output_write's region shape does not match the noise's shape"
+    print(f"output_write.region type: {type(output_write.region)}")
+    output_write.region.validate_array_shape(noise)
     storage_client.write_spec(output_write, noise)
 
 
@@ -76,6 +78,7 @@ class CalculateShiftYDiffNoise(MapStage):
             residency="ram_cacheable",
             size_est=size_est,
             shape=(input_meta.bands, input_meta.bands),
+            dtype=np.float32,
         )
         return [alloc_request]
 
@@ -102,11 +105,13 @@ class MinimumNoiseFractionDialog:
     def perform_mnf(self, dataset_ref: DataRef):
         storage_client = get_process_storage_client()
 
+        data_meta = storage_client.get_meta(dataset_ref)
+        plan_meta = DatasetPlanMeta(shape=data_meta.shape)
         algo_pipeline = AlgorithmPipeline(
             [
                 CalculateShiftYDiffNoise(
                     default_executor="process",
-                    input_plan_meta=storage_client.get_meta(dataset_ref),
+                    input_plan_meta=plan_meta,
                     resource_model=ResourceModel(
                         fixed_overhead_bytes=0,
                         bytes_per_scalar_in=1,
@@ -114,13 +119,13 @@ class MinimumNoiseFractionDialog:
                         scratch_bytes_per_scalar_in=0,
                     ),
                     chunking_scheme_type=SpectralBatchDatasetScheme,
-                    output_bindings=(DataBinding("shift_y_diff_noise")),
+                    output_bindings=[DataBinding("shift_y_diff_noise")],
                 )
             ]
         )
 
         mnf_task = SemanticTask(  # noqa: F841
-            priority_class="background",
+            priority_class=PriorityClass.BACKGROUND,
             input_ref=dataset_ref,
             algorithm_pipeline=algo_pipeline,
         )

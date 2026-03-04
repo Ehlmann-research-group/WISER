@@ -281,38 +281,48 @@ class SimpleChunkingPolicy:
         """
 
         # 1) Validate InputKind matches
-        scheme_kind = getattr(scheme_type, "kind", None)
-        if scheme_kind is None:
-            raise TypeError(f"{scheme_type.__name__} must define a class variable `kind` (InputKind).")
+        scheme_kinds = getattr(scheme_type, "kind", None)
+        if not isinstance(scheme_kinds, list) or not scheme_kinds:
+            raise TypeError(
+                f"{scheme_type.__name__} must define a non-empty class variable `kind` " "(list[RefKind])."
+            )
 
-        if scheme_kind != meta.kind:
+        if meta.kind not in scheme_kinds:
             raise ValueError(
                 f"ChunkingScheme InputKind mismatch: scheme_type={scheme_type.__name__} "
-                f"has kind={scheme_kind!r}, but meta.kind={meta.kind!r}."
+                f"has kind={scheme_kinds!r}, but meta.kind={meta.kind}."
             )
 
         # 2) Instantiate with simple logic for known schemes
         if scheme_type is SpatialTileScheme:
-            assert isinstance(meta, DatasetPlanMeta)
+            assert isinstance(
+                meta, DatasetPlanMeta
+            ), f"The argument meta should be of type DatasetPlanMeta, instead it's of type {type(meta)}"
             # tile_h/tile_w = 1/3 of height/width
             tile_h = max(1, int(meta.height // 3))  # type: ignore[attr-defined]
             tile_w = max(1, int(meta.width // 3))  # type: ignore[attr-defined]
             return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
 
         if scheme_type is SpectralBatchDatasetScheme:
-            assert isinstance(meta, DatasetPlanMeta)
+            assert isinstance(
+                meta, DatasetPlanMeta
+            ), f"The argument meta should be of type DatasetPlanMeta, instead it's of type {type(meta)}"
             # band_step = 1/3 of bands
             band_step = max(1, int(meta.bands // 3))  # type: ignore[attr-defined]
             return SpectralBatchDatasetScheme(band_step=band_step)
 
         if scheme_type is SpectraBatchScheme:
-            assert isinstance(meta, SpectraListPlanMeta)
+            assert isinstance(
+                meta, SpectraListPlanMeta
+            ), f"The argument meta should be of type SpectraListPlanMeta, instead it's of type {type(meta)}"
             # batch_size = 1/3 of num_spectra
             batch_size = max(1, int(meta.num_spectra // 3))  # type: ignore[attr-defined]
             return SpectraBatchScheme(batch_size=batch_size)
 
         if scheme_type is SingleSpectrumScheme:
-            assert isinstance(meta, SpectrumPlanMeta)
+            assert isinstance(
+                meta, SpectrumPlanMeta
+            ), f"The argument meta should be of type SpectrumPlanMeta, instead it's of type {type(meta)}"
             return SingleSpectrumScheme()
 
         # 3) Fallback: instantiate with default constructor
