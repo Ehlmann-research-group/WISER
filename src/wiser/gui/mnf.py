@@ -4,6 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from wiser.gui.app_services import AppServices
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -89,14 +90,14 @@ class CalculateShiftYDiffNoise(MapStage):
         return partial(_run_shift_y_diff, input_ref, input_region, output_write)
 
 
-class MinimumNoiseFractionDialog(QDialog):
+class MinimumNoiseFractionDialog:
     """
     Use the shift difference method. Let the user have a dark image option. Let the user
     save their statistics
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, app_services: AppServices):
+        self._app_services = app_services
 
     def perform_mnf(self, dataset_ref: DataRef):
         storage_client = get_process_storage_client()
@@ -123,3 +124,8 @@ class MinimumNoiseFractionDialog(QDialog):
             input_ref=dataset_ref,
             algorithm_pipeline=algo_pipeline,
         )
+
+        task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
+        future = self._app_services.scheduler.run_task_plan(task_plan)
+
+        return future
