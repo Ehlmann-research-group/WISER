@@ -8,7 +8,7 @@ import tests.context
 from wiser.gui.app_services import AppServices
 from wiser.utils.task_stages import (
     EigenVectorsAndValues,
-    get_apply_whitening_matrix_stage,
+    get_apply_matrix_to_dataset_stage,
     get_eigendecomposition_pipeline,
     get_noise_covariance_pipeline,
     get_spectral_mean_stage,
@@ -346,7 +346,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             process_storage_client.write_data(whitening_matrix_ref, whitening_matrix)
 
             output_ref_name = "noise_whitened_dataset"
-            stage = get_apply_whitening_matrix_stage(
+            stage = get_apply_matrix_to_dataset_stage(
                 dataset_ref,
                 whitening_matrix_ref,
                 output_ref_name,
