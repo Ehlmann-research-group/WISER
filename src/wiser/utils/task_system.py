@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 
@@ -50,6 +50,7 @@ class TaskStage:
 
     output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
 
+    # If the value is a DataBinding it will be substituted for a DataRef at runtime
     broadcast_input: Dict[str, Any] = field(default_factory=dict)
 
     @abstractmethod
@@ -413,6 +414,16 @@ class TaskPlanner:
                 out_ref = self._ctx.storage.allocate_data(req)
                 plan.bindings[req.name] = out_ref
 
+            # 5.5) Substitute out data bindings for data refs
+            # Note, data bindings should refer to data refs from
+            # previous stages
+            stage_broadcast_inputs: Dict[str, Union[Any, DataRef]] = {}
+            for input_name, input_value in stage.broadcast_input.items():
+                if isinstance(input_value, DataBinding):
+                    stage_broadcast_inputs[input_name] = plan.bindings[input_name]
+                else:
+                    stage_broadcast_inputs[input_name] = input_value
+
             # 6) expand regions -> WorkUnits
             unit_ids_for_stage: List[str] = []
             stage_step_unit_ids: List[List[str]] = []
@@ -432,7 +443,7 @@ class TaskPlanner:
                     input_ref=input_ref,
                     input_region=input_region,
                     output_writes=out_writes,
-                    broadcast_inputs=dict[str, DataRef](stage.broadcast_input),
+                    broadcast_inputs=dict[str, Any](stage_broadcast_inputs),
                 )
                 unit = WorkUnit(
                     unit_id=unit_id,
