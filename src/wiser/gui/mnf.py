@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, Optional, cast
 from numba.core.target_extension import NonexistentTargetError
@@ -48,15 +48,17 @@ def _running_covariance(
     mean_arr, _ = client.read_data(mean_ref)
     assert noise.ndim == 3, "noise should have 3 dimensions"
     assert mean_arr.ndim == 1, "mean_arr should have 1 dimension"
-    mean_arr = mean_arr[:, np.newaxis, np.newaxis]
+    mean_arr = mean_arr[np.newaxis, np.newaxis, :]
     mean_centered_noise = noise - mean_arr
-    flattened_noise = mean_centered_noise.reshape(-1, mean_centered_noise.shape[1])
+    flattened_noise = mean_centered_noise.reshape(-1, mean_centered_noise.shape[2])
     sum_outer_product = flattened_noise.T @ flattened_noise
     partial_cov_matrix = sum_outer_product / (total - 1)
+    partial_cov_matrix = partial_cov_matrix[:, :, np.newaxis]
     running_cov += partial_cov_matrix
     client.write_data(output_ref, running_cov)
 
 
+@dataclass
 class CalcCovMatrixStage(SequentialStage):
     """
     Calculates the covariance matrix of a noise matrix. This
@@ -67,23 +69,25 @@ class CalcCovMatrixStage(SequentialStage):
 
     # You must override this
     _total_spectra: int = 0
-    # You must override this
+    # You must define this
+    _output_ref_name: str = "cov_running"
+    # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
-    # You should override this
-    _output_ref_name: str = "cov_matrix"
-    resource_model = ResourceModel(
-        fixed_overhead_bytes=0,
-        bytes_per_scalar_in=1,
-        bytes_per_scalar_out=1,
-        scratch_bytes_per_scalar_in=0,
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
     )
     chunking_scheme_type = SpatialTileScheme
 
     def __post_init__(self):
-        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
         if "mean" not in self.broadcast_input:
             self.broadcast_input |= {"mean": self._mean_ref}
         self.broadcast_input |= {"total": self._total_spectra}
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         """
@@ -142,17 +146,21 @@ class CalcCovMatrixStage(SequentialStage):
         )
 
 
-# def get_noise_covariance_pipeline(noise_ref: DataRef):
-#     mean_output_ref_name = "mean_stage"
-#     storage_client = get_process_storage_client()
-#     data_meta = storage_client.get_meta(noise_ref)
-#     plan_meta = DatasetPlanMeta(shape=data_meta, dtype=data_meta.elem_type)
-#     noise_mean_stage = get_spectral_mean_stage(noise_ref, mean_output_ref_name)
-#     noise_cov_stage = CalcCovMatrixStage(
-#         default_executor="process",
-#         input_plan_meta=plan_meta,
-#         broadcast_input={"mean": mean_outp},
-#     )
+def get_noise_covariance_pipeline(noise_ref: DataRef, output_ref_name: str) -> AlgorithmPipeline:
+    mean_output_ref_name = "mean_stage"
+    storage_client = get_process_storage_client()
+    data_meta = storage_client.get_meta(noise_ref)
+    plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=data_meta.elem_type)
+    noise_mean_stage = get_spectral_mean_stage(noise_ref, mean_output_ref_name)
+    noise_cov_stage = CalcCovMatrixStage(
+        _total_spectra=data_meta.shape[2],
+        _output_ref_name=output_ref_name,
+        default_executor="process",
+        input_plan_meta=plan_meta,
+        broadcast_input={"mean": DataBinding(mean_output_ref_name)},
+    )
+
+    return AlgorithmPipeline([noise_mean_stage, noise_cov_stage])
 
 
 def _running_mean(input_ref: DataRef, input_region: DataRegion, output_write: "WriteSpec", total) -> None:
@@ -173,6 +181,9 @@ class SpectralMeanStage(SequentialStage):
 
     # You should override this
     _output_ref_name: str = "spectral_mean_1"
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         """

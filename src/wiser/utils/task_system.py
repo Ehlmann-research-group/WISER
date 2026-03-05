@@ -48,7 +48,7 @@ class TaskStage:
     # __task_input__ is the first input to the semantic task
     input_binding: DataBinding = field(default_factory=lambda: DataBinding("__task_input__"))
 
-    output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
+    output_bindings: Sequence[DataBinding] = field(default_factory=list)
 
     # If the value is a DataBinding it will be substituted for a DataRef at runtime
     broadcast_input: Dict[str, Any] = field(default_factory=dict)
@@ -420,7 +420,7 @@ class TaskPlanner:
             stage_broadcast_inputs: Dict[str, Union[Any, DataRef]] = {}
             for input_name, input_value in stage.broadcast_input.items():
                 if isinstance(input_value, DataBinding):
-                    stage_broadcast_inputs[input_name] = plan.bindings[input_name]
+                    stage_broadcast_inputs[input_name] = plan.bindings[input_value.name]
                 else:
                     stage_broadcast_inputs[input_name] = input_value
 
