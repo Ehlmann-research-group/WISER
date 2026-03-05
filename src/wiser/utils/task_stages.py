@@ -208,16 +208,16 @@ class SpectralMeanStage(SequentialStage):
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for SpectralMeanStage"
 
-        dtype = np.float32
+        np_type = np.float32
 
-        size_est = input_meta.bands * np.dtype(dtype).itemsize
+        size_est = input_meta.bands * np.dtype(np_type).itemsize
         alloc_request = AllocationRequest(
             name=self._output_ref_name,
             kind="spectrum",
             residency="ram_cacheable",
             size_est=size_est,
             shape=(input_meta.bands,),
-            dtype=dtype,
+            dtype=np.dtype(np_type),
         )
         return [alloc_request]
 
@@ -461,3 +461,146 @@ def get_eigendecomposition_stage(
 
 def get_eigendecomposition_pipeline(matrix_ref: DataRef, output_ref_name: str) -> AlgorithmPipeline:
     return AlgorithmPipeline([get_eigendecomposition_stage(matrix_ref, output_ref_name)])
+
+
+def _write_whitening_matrix(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_ref: DataRef,
+) -> None:
+    _ = input_region
+    client = get_process_storage_client()
+    envelope_payload = client.read_json_value(input_ref)
+    if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
+        raise ValueError("Expected JSON payload with key 'eigen' for whitening matrix stage input")
+
+    descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+    if not isinstance(descriptor, EigenVectorsAndValues):
+        raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
+
+    eigen_vectors, _ = client.read_data(descriptor.eigen_vectors_ref)
+    eigen_values, _ = client.read_data(descriptor.eigen_values_ref)
+    eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float32)
+    eigen_values_array = np.asarray(np.ma.getdata(eigen_values), dtype=np.float32)
+
+    if eigen_vectors_array.ndim != 2:
+        raise ValueError(f"Expected eigen vectors with 2D shape [n][d], got {eigen_vectors_array.shape}")
+    if eigen_values_array.ndim != 1:
+        raise ValueError(f"Expected eigen values with 1D shape [n], got {eigen_values_array.shape}")
+    if eigen_vectors_array.shape[0] != eigen_values_array.shape[0]:
+        raise ValueError(
+            f"Eigen vector/value count mismatch: n_vectors={eigen_vectors_array.shape[0]}, "
+            f"n_values={eigen_values_array.shape[0]}"
+        )
+
+    inverse_sqrt_eigen_values = np.zeros_like(eigen_values_array, dtype=np.float32)
+    assert (eigen_values_array > 0).all(), "All eigen values of a covariance matrix should be positive"
+    inverse_sqrt_eigen_values = 1.0 / np.sqrt(eigen_values_array)
+    whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array
+    client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
+
+
+@dataclass
+class WhiteningMatrixStage(SequentialStage):
+    """
+    Build a whitening matrix from an EigenVectorsAndValues descriptor.
+
+    Expects the stage input to be a JSON ref with payload:
+      {"eigen": EigenVectorsAndValues(...)}
+    """
+
+    _output_ref_name: str = "whitening_matrix"
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type = NoChunkingScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, SpectraBatchRef
+        ), "Input region for WhiteningMatrixStage must be SpectraBatchRef"
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        assert isinstance(
+            input_meta, SpectraListPlanMeta
+        ), "input_meta must be of type SpectraListPlanMeta for WhiteningMatrixStage"
+
+        dtype = np.float32
+        size_est = input_meta.num_spectra * input_meta.spectrum_length * np.dtype(dtype).itemsize
+        alloc_request = AllocationRequest(
+            name=self._output_ref_name,
+            kind="array",
+            residency="ram_cacheable",
+            size_est=size_est,
+            shape=(input_meta.num_spectra, input_meta.spectrum_length),
+            dtype=dtype,
+        )
+        return [alloc_request]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _write_whitening_matrix,
+            input_ref,
+            input_region,
+            output_write.ref,
+        )
+
+
+def get_whitening_matrix_stage(
+    eigen_descriptor_ref: DataRef,
+    output_ref_name: str,
+) -> WhiteningMatrixStage:
+    storage_client = get_process_storage_client()
+    envelope_payload = storage_client.read_json_value(eigen_descriptor_ref)
+    if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
+        raise ValueError("Expected JSON payload with key 'eigen' for whitening matrix stage input")
+    descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+    if not isinstance(descriptor, EigenVectorsAndValues):
+        raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
+
+    input_meta = SpectraListPlanMeta(
+        num_spectra=descriptor.num_vectors,
+        spectrum_length=descriptor.vector_dimension,
+        dtype=np.dtype(np.float32),
+    )
+    return WhiteningMatrixStage(
+        _output_ref_name=output_ref_name,
+        default_executor="process",
+        input_plan_meta=input_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
+
+def get_whitening_matrix_pipeline(
+    eigen_descriptor_ref: DataRef,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    return AlgorithmPipeline([get_whitening_matrix_stage(eigen_descriptor_ref, output_ref_name)])

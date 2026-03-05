@@ -482,8 +482,6 @@ class StorageService:
 
         can_allocate_shared = desc.kind != "json" and desc.shape is not None and desc.dtype is not None
         want_ram = desc.residency == "ram_cacheable"
-        if desc.kind == "json":
-            print(f"allocating  storage: want_ram: {want_ram}, desc.kind: {desc.kind}")
         if want_ram and desc.kind == "json":
             uri = f"mem://{ref_id}"
             self.ram_objects[uri] = {}

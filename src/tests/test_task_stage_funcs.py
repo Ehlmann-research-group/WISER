@@ -11,6 +11,7 @@ from wiser.utils.task_stages import (
     get_eigendecomposition_pipeline,
     get_noise_covariance_pipeline,
     get_spectral_mean_stage,
+    get_whitening_matrix_stage,
 )
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import AllocationRequest, PriorityClass
@@ -28,119 +29,119 @@ pytestmark = [
 
 
 class TestTaskStageFuncs(unittest.TestCase):
-    # def test_spectral_mean_stage_pipeline_execution(self) -> None:
-    #     # RasterDataLoader expects [band][y][x]. Each pixel has a constant spectrum value.
-    #     array_2x2x4 = np.array(
-    #         [
-    #             [[1.0, 2.0], [3.0, 4.0]],
-    #             [[1.0, 2.0], [3.0, 4.0]],
-    #             [[1.0, 2.0], [3.0, 4.0]],
-    #             [[1.0, 2.0], [3.0, 4.0]],
-    #         ],
-    #         dtype=np.float32,
-    #     )
-    #     dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
+    def test_spectral_mean_stage_pipeline_execution(self) -> None:
+        # RasterDataLoader expects [band][y][x]. Each pixel has a constant spectrum value.
+        array_2x2x4 = np.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[1.0, 2.0], [3.0, 4.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
 
-    #     app_services = AppServices()
-    #     storage_client = None
-    #     try:
-    #         input_ref = app_services.storage_service.register_external(
-    #             ExternalRasterHandle(dataset_obj=dataset)
-    #         )
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
 
-    #         output_ref_name = "spectral_mean"
-    #         stage = get_spectral_mean_stage(input_ref, output_ref_name)
+            output_ref_name = "spectral_mean"
+            stage = get_spectral_mean_stage(input_ref, output_ref_name)
 
-    #         task = SemanticTask(
-    #             priority_class=PriorityClass.BACKGROUND,
-    #             input_ref=input_ref,
-    #             algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
-    #         )
-    #         task.id = 1001
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1001
 
-    #         task_plan = app_services.task_planner.plan_semantic_task(task)
+            task_plan = app_services.task_planner.plan_semantic_task(task)
 
-    #         future = app_services.scheduler.run_task_plan(task_plan)
-    #         future.result(timeout=5)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=5)
 
-    #         output_ref = task_plan.bindings[output_ref_name]
+            output_ref = task_plan.bindings[output_ref_name]
 
-    #         listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
-    #         storage_client = StorageClient(
-    #             service=None,  # type: ignore[arg-type]
-    #             service_address=listener_address,
-    #             service_authkey=listener_authkey,
-    #         )
-    #         output_spectrum, _ = storage_client.read_data(output_ref)
-    #         self.assertEqual(output_spectrum.shape, (4,))
-    #         self.assertTrue(np.allclose(output_spectrum, 2.5))
-    #     finally:
-    #         if storage_client is not None:
-    #             storage_client.close()
-    #         app_services.scheduler.shutdown(wait=True)
-    #         app_services.storage_service.close()
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_spectrum, _ = storage_client.read_data(output_ref)
+            self.assertEqual(output_spectrum.shape, (4,))
+            self.assertTrue(np.allclose(output_spectrum, 2.5))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
-    # def test_noise_covariance_pipeline_execution(self) -> None:
-    #     # RasterDataLoader expects [band][y][x]. In [y][x][b], top row pixels are [1,2,1,2]
-    #     # and bottom row pixels are [4,1,4,1].
-    #     array_2x2x4 = np.array(
-    #         [
-    #             [[1.0, 1.0], [4.0, 4.0]],
-    #             [[2.0, 2.0], [1.0, 1.0]],
-    #             [[1.0, 1.0], [4.0, 4.0]],
-    #             [[2.0, 2.0], [1.0, 1.0]],
-    #         ],
-    #         dtype=np.float32,
-    #     )
-    #     dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
+    def test_noise_covariance_pipeline_execution(self) -> None:
+        # RasterDataLoader expects [band][y][x]. In [y][x][b], top row pixels are [1,2,1,2]
+        # and bottom row pixels are [4,1,4,1].
+        array_2x2x4 = np.array(
+            [
+                [[1.0, 1.0], [4.0, 4.0]],
+                [[2.0, 2.0], [1.0, 1.0]],
+                [[1.0, 1.0], [4.0, 4.0]],
+                [[2.0, 2.0], [1.0, 1.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
 
-    #     app_services = AppServices()
-    #     storage_client = None
-    #     try:
-    #         input_ref = app_services.storage_service.register_external(
-    #             ExternalRasterHandle(dataset_obj=dataset)
-    #         )
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
 
-    #         output_ref_name = "noise_covariance"
-    #         noise_cov_pipeline = get_noise_covariance_pipeline(input_ref, output_ref_name)
+            output_ref_name = "noise_covariance"
+            noise_cov_pipeline = get_noise_covariance_pipeline(input_ref, output_ref_name)
 
-    #         task = SemanticTask(
-    #             priority_class=PriorityClass.BACKGROUND,
-    #             input_ref=input_ref,
-    #             algorithm_pipeline=noise_cov_pipeline,
-    #         )
-    #         task.id = 1002
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=noise_cov_pipeline,
+            )
+            task.id = 1002
 
-    #         task_plan = app_services.task_planner.plan_semantic_task(task)
+            task_plan = app_services.task_planner.plan_semantic_task(task)
 
-    #         future = app_services.scheduler.run_task_plan(task_plan)
-    #         future.result(timeout=10)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
 
-    #         output_ref = task_plan.bindings[output_ref_name]
+            output_ref = task_plan.bindings[output_ref_name]
 
-    #         listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
-    #         storage_client = StorageClient(
-    #             service=None,  # type: ignore[arg-type]
-    #             service_address=listener_address,
-    #             service_authkey=listener_authkey,
-    #         )
-    #         output_cov, _ = storage_client.read_data(output_ref)
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_cov, _ = storage_client.read_data(output_ref)
 
-    #         expected_cov = np.array(
-    #             [
-    #                 [3.0, -1.0, 3.0, -1.0],
-    #                 [-1.0, 0.33333333, -1.0, 0.33333333],
-    #                 [3.0, -1.0, 3.0, -1.0],
-    #                 [-1.0, 0.33333333, -1.0, 0.33333333],
-    #             ],
-    #             dtype=np.float32,
-    #         )[..., None]
-    #         self.assertTrue(np.allclose(output_cov, expected_cov))
-    #     finally:
-    #         if storage_client is not None:
-    #             storage_client.close()
-    #         app_services.scheduler.shutdown(wait=True)
-    #         app_services.storage_service.close()
+            expected_cov = np.array(
+                [
+                    [3.0, -1.0, 3.0, -1.0],
+                    [-1.0, 0.33333333, -1.0, 0.33333333],
+                    [3.0, -1.0, 3.0, -1.0],
+                    [-1.0, 0.33333333, -1.0, 0.33333333],
+                ],
+                dtype=np.float32,
+            )[..., None]
+            self.assertTrue(np.allclose(output_cov, expected_cov))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
     def test_eigendecomposition_pipeline_stores_lightweight_json_descriptor(self) -> None:
         app_services = AppServices()
@@ -200,6 +201,100 @@ class TestTaskStageFuncs(unittest.TestCase):
                 vector_i = descriptor.get_eigen_vector(i)
                 value_i = descriptor.get_eigen_value(i)
                 self.assertTrue(np.allclose(matrix @ vector_i, value_i * vector_i, atol=1e-5))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_whitening_matrix_stage_computes_lambda_inverse_sqrt_times_e_transpose(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            vectors = np.array(
+                [
+                    [0.6, 0.8],
+                    [-0.8, 0.6],
+                ],
+                dtype=np.float32,
+            )
+            values = np.array([9.0, 4.0], dtype=np.float32)
+
+            vectors_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="test_whiten_vectors",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=vectors.size * vectors.dtype.itemsize,
+                    shape=vectors.shape,
+                    dtype=vectors.dtype,
+                )
+            )
+            values_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="test_whiten_values",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=values.size * values.dtype.itemsize,
+                    shape=values.shape,
+                    dtype=values.dtype,
+                )
+            )
+            descriptor_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="test_whiten_descriptor",
+                    kind="json",
+                    residency="ram_cacheable",
+                    size_est=1024,
+                )
+            )
+
+            process_storage_client.write_data(vectors_ref, vectors)
+            process_storage_client.write_data(values_ref, values)
+            process_storage_client.write_json_value(
+                descriptor_ref,
+                {
+                    "eigen": EigenVectorsAndValues(
+                        eigen_vectors_ref=vectors_ref,
+                        eigen_values_ref=values_ref,
+                        num_vectors=2,
+                        vector_dimension=2,
+                    )
+                },
+            )
+
+            output_ref_name = "whitening_matrix"
+            stage = get_whitening_matrix_stage(descriptor_ref, output_ref_name)
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=descriptor_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1004
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            whitening_matrix, _ = storage_client.read_data(output_ref)
+
+            expected = np.array(
+                [
+                    [0.2, 0.26666668],
+                    [-0.4, 0.3],
+                ],
+                dtype=np.float32,
+            )
+            self.assertEqual(whitening_matrix.shape, vectors.shape)
+            self.assertTrue(np.allclose(whitening_matrix, expected, atol=1e-6))
         finally:
             if storage_client is not None:
                 storage_client.close()
