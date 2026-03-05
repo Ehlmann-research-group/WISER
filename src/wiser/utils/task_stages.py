@@ -262,6 +262,8 @@ class EigenVectorsAndValues:
 
     This object intentionally stores only reference IDs and shape metadata so it
     can be serialized to JSON cheaply and passed through task outputs.
+
+    Eigen vectors should be in decreasing order of eigen value from left to right
     """
 
     eigen_vectors_ref: DataRef
@@ -750,3 +752,206 @@ def get_apply_matrix_to_dataset_pipeline(
     output_ref_name: str,
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline([get_apply_matrix_to_dataset_stage(dataset_ref, matrix_ref, output_ref_name)])
+
+
+def _project_dataset_onto_eigenvectors(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    eigen_descriptor_ref: DataRef,
+    num_components: int,
+) -> None:
+    client = get_process_storage_client()
+    data_tile, _ = client.read_region(input_ref, input_region)
+    envelope_payload = client.read_json_value(eigen_descriptor_ref)
+    if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
+        raise ValueError("Expected JSON payload with key 'eigen' for projection stage input")
+
+    descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+    if not isinstance(descriptor, EigenVectorsAndValues):
+        raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
+
+    eigen_vectors, _ = client.read_data(descriptor.eigen_vectors_ref)
+    data_tile_array = np.asarray(np.ma.getdata(data_tile))
+    eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float32)
+
+    if data_tile_array.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_array.shape}")
+    if eigen_vectors_array.ndim != 2:
+        raise ValueError(f"Expected eigen vectors shape [b][b], got {eigen_vectors_array.shape}")
+    if num_components <= 0:
+        raise ValueError(f"num_components must be positive, got {num_components}")
+
+    bands = data_tile_array.shape[2]
+    if eigen_vectors_array.shape[1] != bands:
+        raise ValueError(
+            f"Band mismatch between dataset tile and eigen vectors: "
+            f"tile_bands={bands}, eigen_vector_dimension={eigen_vectors_array.shape[1]}"
+        )
+    if num_components > eigen_vectors_array.shape[0]:
+        raise ValueError(
+            f"num_components exceeds available eigen vectors: "
+            f"num_components={num_components}, available={eigen_vectors_array.shape[0]}"
+        )
+
+    top_components = eigen_vectors_array[:num_components, :]
+    flattened = data_tile_array.reshape(-1, bands)
+    projected_flattened = flattened @ top_components.T
+    projected_tile = projected_flattened.reshape(
+        data_tile_array.shape[0], data_tile_array.shape[1], num_components
+    )
+    client.write_spec(output_write, projected_tile.astype(data_tile_array.dtype, copy=False))
+
+
+@dataclass
+class ProjectOntoEigenVectorsStage(MapStage):
+    """
+    Project a [y][x][b] dataset onto the first k eigen vectors to produce [y][x][k].
+    """
+
+    _num_components: int = 1
+    _output_ref_name: str = "projected_dataset"
+    _eigen_descriptor_ref: Optional[DataRef] = None
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type = SpatialTileScheme
+
+    def __post_init__(self):
+        if "eigen_descriptor_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"eigen_descriptor_ref": self._eigen_descriptor_ref}
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, DatasetRegionRef
+        ), "Input region for ProjectOntoEigenVectorsStage must be DatasetRegionRef"
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=self._num_components,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "input_meta must be of type DatasetPlanMeta for ProjectOntoEigenVectorsStage"
+        if self._num_components <= 0:
+            raise ValueError(f"num_components must be positive, got {self._num_components}")
+        if self._num_components > input_meta.bands:
+            raise ValueError(
+                f"num_components must be <= input bands, got num_components={self._num_components}, "
+                f"bands={input_meta.bands}"
+            )
+
+        size_est = input_meta.height * input_meta.width * self._num_components * input_meta.dtype.itemsize
+        alloc_request = AllocationRequest(
+            name=self._output_ref_name,
+            kind="dataset",
+            residency="ram_cacheable",
+            size_est=size_est,
+            shape=(input_meta.height, input_meta.width, self._num_components),
+            dtype=input_meta.dtype,
+        )
+        return [alloc_request]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        eigen_descriptor_ref: DataRef = broadcast_inputs["eigen_descriptor_ref"]
+        return partial(
+            _project_dataset_onto_eigenvectors,
+            input_ref,
+            input_region,
+            output_write,
+            eigen_descriptor_ref,
+            self._num_components,
+        )
+
+
+def get_project_onto_eigenvectors_stage(
+    dataset_ref: DataRef,
+    eigen_descriptor_ref: DataRef,
+    num_components: int,
+    output_ref_name: str,
+) -> ProjectOntoEigenVectorsStage:
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+    if num_components <= 0:
+        raise ValueError(f"num_components must be positive, got {num_components}")
+    if num_components > dataset_meta.shape[2]:
+        raise ValueError(
+            f"num_components must be <= input bands, got num_components={num_components}, "
+            f"bands={dataset_meta.shape[2]}"
+        )
+
+    envelope_payload = storage_client.read_json_value(eigen_descriptor_ref)
+    if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
+        raise ValueError("Expected JSON payload with key 'eigen' for projection stage input")
+    descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+    if not isinstance(descriptor, EigenVectorsAndValues):
+        raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
+    if num_components > descriptor.num_vectors:
+        raise ValueError(
+            f"num_components exceeds available eigen vectors: "
+            f"num_components={num_components}, available={descriptor.num_vectors}"
+        )
+    if descriptor.vector_dimension != dataset_meta.shape[2]:
+        raise ValueError(
+            f"Eigen vector dimension must match input bands: "
+            f"vector_dimension={descriptor.vector_dimension}, bands={dataset_meta.shape[2]}"
+        )
+
+    input_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
+    return ProjectOntoEigenVectorsStage(
+        _num_components=num_components,
+        _output_ref_name=output_ref_name,
+        _eigen_descriptor_ref=eigen_descriptor_ref,
+        default_executor="process",
+        input_plan_meta=input_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=SpatialTileScheme,
+    )
+
+
+def get_project_onto_eigenvectors_pipeline(
+    dataset_ref: DataRef,
+    eigen_descriptor_ref: DataRef,
+    num_components: int,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    return AlgorithmPipeline(
+        [
+            get_project_onto_eigenvectors_stage(
+                dataset_ref,
+                eigen_descriptor_ref,
+                num_components,
+                output_ref_name,
+            )
+        ]
+    )

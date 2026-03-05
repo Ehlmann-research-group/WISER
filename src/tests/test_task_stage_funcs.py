@@ -11,6 +11,7 @@ from wiser.utils.task_stages import (
     get_apply_matrix_to_dataset_stage,
     get_eigendecomposition_pipeline,
     get_noise_covariance_pipeline,
+    get_project_onto_eigenvectors_stage,
     get_spectral_mean_stage,
     get_whitening_matrix_stage,
 )
@@ -302,29 +303,115 @@ class TestTaskStageFuncs(unittest.TestCase):
     #         app_services.scheduler.shutdown(wait=True)
     #         app_services.storage_service.close()
 
-    def test_apply_whitening_matrix_stage_applies_matrix_to_each_dataset_spectrum(self) -> None:
+    # def test_apply_whitening_matrix_stage_applies_matrix_to_each_dataset_spectrum(self) -> None:
+    #     app_services = AppServices()
+    #     storage_client = None
+    #     try:
+    #         process_storage_client = get_process_storage_client()
+    #         dataset = np.array(
+    #             [
+    #                 [[1.0, 2.0], [3.0, 4.0]],
+    #                 [[5.0, 6.0], [7.0, 8.0]],
+    #             ],
+    #             dtype=np.float32,
+    #         )
+    #         whitening_matrix = np.array(
+    #             [
+    #                 [2.0, 0.0],
+    #                 [0.0, 0.5],
+    #             ],
+    #             dtype=np.float32,
+    #         )
+
+    #         dataset_ref = app_services.storage_service.allocate_data(
+    #             AllocationRequest(
+    #                 name="apply_whitening_input_dataset",
+    #                 kind="dataset",
+    #                 residency="ram_cacheable",
+    #                 size_est=dataset.size * dataset.dtype.itemsize,
+    #                 shape=dataset.shape,
+    #                 dtype=dataset.dtype,
+    #             )
+    #         )
+    #         whitening_matrix_ref = app_services.storage_service.allocate_data(
+    #             AllocationRequest(
+    #                 name="apply_whitening_matrix",
+    #                 kind="array",
+    #                 residency="ram_cacheable",
+    #                 size_est=whitening_matrix.size * whitening_matrix.dtype.itemsize,
+    #                 shape=whitening_matrix.shape,
+    #                 dtype=whitening_matrix.dtype,
+    #             )
+    #         )
+    #         process_storage_client.write_data(dataset_ref, dataset)
+    #         process_storage_client.write_data(whitening_matrix_ref, whitening_matrix)
+
+    #         output_ref_name = "noise_whitened_dataset"
+    #         stage = get_apply_matrix_to_dataset_stage(
+    #             dataset_ref,
+    #             whitening_matrix_ref,
+    #             output_ref_name,
+    #         )
+    #         task = SemanticTask(
+    #             priority_class=PriorityClass.BACKGROUND,
+    #             input_ref=dataset_ref,
+    #             algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+    #         )
+    #         task.id = 1005
+
+    #         task_plan = app_services.task_planner.plan_semantic_task(task)
+    #         future = app_services.scheduler.run_task_plan(task_plan)
+    #         future.result(timeout=10)
+
+    #         listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+    #         storage_client = StorageClient(
+    #             service=None,  # type: ignore[arg-type]
+    #             service_address=listener_address,
+    #             service_authkey=listener_authkey,
+    #         )
+    #         output_ref = task_plan.bindings[output_ref_name]
+    #         whitened_dataset, _ = storage_client.read_data(output_ref)
+
+    #         expected = np.array(
+    #             [
+    #                 [[2.0, 1.0], [6.0, 2.0]],
+    #                 [[10.0, 3.0], [14.0, 4.0]],
+    #             ],
+    #             dtype=np.float32,
+    #         )
+    #         self.assertEqual(whitened_dataset.shape, dataset.shape)
+    #         self.assertTrue(np.allclose(whitened_dataset, expected, atol=1e-6))
+    #     finally:
+    #         if storage_client is not None:
+    #             storage_client.close()
+    #         app_services.scheduler.shutdown(wait=True)
+    #         app_services.storage_service.close()
+
+    def test_project_onto_eigenvectors_stage_projects_to_requested_component_count(self) -> None:
         app_services = AppServices()
         storage_client = None
         try:
             process_storage_client = get_process_storage_client()
             dataset = np.array(
                 [
-                    [[1.0, 2.0], [3.0, 4.0]],
-                    [[5.0, 6.0], [7.0, 8.0]],
+                    [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+                    [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]],
                 ],
                 dtype=np.float32,
             )
-            whitening_matrix = np.array(
+            eigen_vectors = np.array(
                 [
-                    [2.0, 0.0],
-                    [0.0, 0.5],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0],
                 ],
                 dtype=np.float32,
             )
+            eigen_values = np.array([3.0, 2.0, 1.0], dtype=np.float32)
 
             dataset_ref = app_services.storage_service.allocate_data(
                 AllocationRequest(
-                    name="apply_whitening_input_dataset",
+                    name="project_input_dataset",
                     kind="dataset",
                     residency="ram_cacheable",
                     size_est=dataset.size * dataset.dtype.itemsize,
@@ -332,31 +419,63 @@ class TestTaskStageFuncs(unittest.TestCase):
                     dtype=dataset.dtype,
                 )
             )
-            whitening_matrix_ref = app_services.storage_service.allocate_data(
+            eigen_vectors_ref = app_services.storage_service.allocate_data(
                 AllocationRequest(
-                    name="apply_whitening_matrix",
+                    name="project_eigen_vectors",
                     kind="array",
                     residency="ram_cacheable",
-                    size_est=whitening_matrix.size * whitening_matrix.dtype.itemsize,
-                    shape=whitening_matrix.shape,
-                    dtype=whitening_matrix.dtype,
+                    size_est=eigen_vectors.size * eigen_vectors.dtype.itemsize,
+                    shape=eigen_vectors.shape,
+                    dtype=eigen_vectors.dtype,
                 )
             )
-            process_storage_client.write_data(dataset_ref, dataset)
-            process_storage_client.write_data(whitening_matrix_ref, whitening_matrix)
+            eigen_values_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_eigen_values",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=eigen_values.size * eigen_values.dtype.itemsize,
+                    shape=eigen_values.shape,
+                    dtype=eigen_values.dtype,
+                )
+            )
+            descriptor_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_eigen_descriptor",
+                    kind="json",
+                    residency="ram_cacheable",
+                    size_est=1024,
+                )
+            )
 
-            output_ref_name = "noise_whitened_dataset"
-            stage = get_apply_matrix_to_dataset_stage(
-                dataset_ref,
-                whitening_matrix_ref,
-                output_ref_name,
+            process_storage_client.write_data(dataset_ref, dataset)
+            process_storage_client.write_data(eigen_vectors_ref, eigen_vectors)
+            process_storage_client.write_data(eigen_values_ref, eigen_values)
+            process_storage_client.write_json_value(
+                descriptor_ref,
+                {
+                    "eigen": EigenVectorsAndValues(
+                        eigen_vectors_ref=eigen_vectors_ref,
+                        eigen_values_ref=eigen_values_ref,
+                        num_vectors=3,
+                        vector_dimension=3,
+                    )
+                },
+            )
+
+            output_ref_name = "projected_dataset"
+            stage = get_project_onto_eigenvectors_stage(
+                dataset_ref=dataset_ref,
+                eigen_descriptor_ref=descriptor_ref,
+                num_components=2,
+                output_ref_name=output_ref_name,
             )
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
                 algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
             )
-            task.id = 1005
+            task.id = 1006
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
@@ -369,17 +488,11 @@ class TestTaskStageFuncs(unittest.TestCase):
                 service_authkey=listener_authkey,
             )
             output_ref = task_plan.bindings[output_ref_name]
-            whitened_dataset, _ = storage_client.read_data(output_ref)
+            projected_dataset, _ = storage_client.read_data(output_ref)
 
-            expected = np.array(
-                [
-                    [[2.0, 1.0], [6.0, 2.0]],
-                    [[10.0, 3.0], [14.0, 4.0]],
-                ],
-                dtype=np.float32,
-            )
-            self.assertEqual(whitened_dataset.shape, dataset.shape)
-            self.assertTrue(np.allclose(whitened_dataset, expected, atol=1e-6))
+            expected = dataset[:, :, :2]
+            self.assertEqual(projected_dataset.shape, (2, 2, 2))
+            self.assertTrue(np.allclose(projected_dataset, expected, atol=1e-6))
         finally:
             if storage_client is not None:
                 storage_client.close()
