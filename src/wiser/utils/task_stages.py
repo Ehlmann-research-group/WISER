@@ -23,6 +23,7 @@ from wiser.utils.task_system import (
     AlgorithmPipeline,
     BasePlanMeta,
     DatasetPlanMeta,
+    MapStage,
     ResourceModel,
     SequentialStage,
     WriteSpec,
@@ -604,3 +605,150 @@ def get_whitening_matrix_pipeline(
     output_ref_name: str,
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline([get_whitening_matrix_stage(eigen_descriptor_ref, output_ref_name)])
+
+
+def _apply_noise_whitening(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    whitening_matrix_ref: DataRef,
+) -> None:
+    client = get_process_storage_client()
+    data_tile, _ = client.read_region(input_ref, input_region)
+    whitening_matrix, _ = client.read_data(whitening_matrix_ref)
+
+    data_tile_array = np.asarray(np.ma.getdata(data_tile))
+    whitening_matrix_array = np.asarray(np.ma.getdata(whitening_matrix))
+
+    if data_tile_array.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_array.shape}")
+    if whitening_matrix_array.ndim != 2:
+        raise ValueError(f"Expected whitening matrix shape [b][b], got {whitening_matrix_array.shape}")
+    if whitening_matrix_array.shape[0] != whitening_matrix_array.shape[1]:
+        raise ValueError(f"Whitening matrix must be square [b][b], got {whitening_matrix_array.shape}")
+
+    bands = data_tile_array.shape[2]
+    if whitening_matrix_array.shape[1] != bands:
+        raise ValueError(
+            f"Band mismatch between dataset tile and whitening matrix: "
+            f"tile_bands={bands}, matrix_width={whitening_matrix_array.shape[1]}"
+        )
+
+    flattened = data_tile_array.reshape(-1, bands)
+    whitened_flattened = flattened @ whitening_matrix_array.T
+    whitened_tile = whitened_flattened.reshape(data_tile_array.shape)
+    client.write_spec(output_write, whitened_tile.astype(data_tile_array.dtype, copy=False))
+
+
+@dataclass
+class ApplyWhiteningMatrixStage(MapStage):
+    """
+    Apply a [b][b] whitening matrix to each spectrum in a [y][x][b] dataset.
+    """
+
+    _output_ref_name: str = "noise_whitened_dataset"
+    _whitening_matrix_ref: Optional[DataRef] = None
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type = SpatialTileScheme
+
+    def __post_init__(self):
+        if "whitening_matrix_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"whitening_matrix_ref": self._whitening_matrix_ref}
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, DatasetRegionRef
+        ), "Input region for ApplyWhiteningMatrixStage must be DatasetRegionRef"
+        return input_region
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "input_meta must be of type DatasetPlanMeta for ApplyWhiteningMatrixStage"
+        size_est = input_meta.height * input_meta.width * input_meta.bands * input_meta.dtype.itemsize
+        alloc_request = AllocationRequest(
+            name=self._output_ref_name,
+            kind="dataset",
+            residency="ram_cacheable",
+            size_est=size_est,
+            shape=input_meta.shape,
+            dtype=input_meta.dtype,
+        )
+        return [alloc_request]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        whitening_matrix_ref: DataRef = broadcast_inputs["whitening_matrix_ref"]
+        return partial(
+            _apply_noise_whitening,
+            input_ref,
+            input_region,
+            output_write,
+            whitening_matrix_ref,
+        )
+
+
+def get_apply_whitening_matrix_stage(
+    dataset_ref: DataRef,
+    whitening_matrix_ref: DataRef,
+    output_ref_name: str,
+) -> ApplyWhiteningMatrixStage:
+    storage_client = get_process_storage_client()
+    data_meta = storage_client.get_meta(dataset_ref)
+    whitening_matrix_meta = storage_client.get_meta(whitening_matrix_ref)
+
+    if len(data_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {data_meta.shape}")
+    if len(whitening_matrix_meta.shape) != 2:
+        raise ValueError(f"Expected whitening matrix shape [b][b], got {whitening_matrix_meta.shape}")
+    if whitening_matrix_meta.shape[0] != whitening_matrix_meta.shape[1]:
+        raise ValueError(f"Expected whitening matrix to be square [b][b], got {whitening_matrix_meta.shape}")
+    if data_meta.shape[2] != whitening_matrix_meta.shape[1]:
+        raise ValueError(
+            f"Band mismatch: dataset bands={data_meta.shape[2]}, "
+            f"whitening matrix width={whitening_matrix_meta.shape[1]}"
+        )
+
+    input_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=data_meta.elem_type)
+    return ApplyWhiteningMatrixStage(
+        _output_ref_name=output_ref_name,
+        _whitening_matrix_ref=whitening_matrix_ref,
+        default_executor="process",
+        input_plan_meta=input_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=SpatialTileScheme,
+    )
+
+
+def get_apply_whitening_matrix_pipeline(
+    dataset_ref: DataRef,
+    whitening_matrix_ref: DataRef,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    return AlgorithmPipeline(
+        [get_apply_whitening_matrix_stage(dataset_ref, whitening_matrix_ref, output_ref_name)]
+    )
