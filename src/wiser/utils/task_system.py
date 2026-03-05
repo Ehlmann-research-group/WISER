@@ -125,7 +125,7 @@ class MapStage(TaskStage):
 
 @dataclass(frozen=True)
 class BasePlanMeta:
-    """Minimal, cheap-to-compute planning metadata."""
+    """Minimal, cheap-to-compute planning metadata needed to chunk data"""
 
     kind: InputKind
     dtype: np.dtype = np.dtype("float32")

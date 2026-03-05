@@ -6,7 +6,7 @@ import pytest
 import tests.context
 
 from wiser.gui.app_services import AppServices
-from wiser.gui.mnf import SpectralMean, get_spectral_mean_stage
+from wiser.gui.mnf import SpectralMeanStage, get_spectral_mean_stage
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import DataBinding, PriorityClass, SpatialTileScheme, SpectralBatchDatasetScheme
 from wiser.utils.storage_client import StorageClient
@@ -45,8 +45,8 @@ class TestTaskStageFuncs(unittest.TestCase):
                 ExternalRasterHandle(dataset_obj=dataset)
             )
 
-            stage_name = "spectral_mean"
-            stage = get_spectral_mean_stage(input_ref, stage_name)
+            output_ref_name = "spectral_mean"
+            stage = get_spectral_mean_stage(input_ref, output_ref_name)
 
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -60,7 +60,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             future = app_services.scheduler.run_task_plan(task_plan)
             future.result(timeout=5)
 
-            output_ref = task_plan.bindings[stage_name]
+            output_ref = task_plan.bindings[output_ref_name]
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
