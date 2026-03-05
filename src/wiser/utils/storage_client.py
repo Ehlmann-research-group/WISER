@@ -290,8 +290,6 @@ class StorageClient:
 
     def write_spec(self, write_spec: "WriteSpec", value: Any) -> None:
         region = write_spec.region
-        print(f"#$% region: {region}")
-        print(f"$%^ write_spec: {write_spec}")
         desc: AccessDescriptor = self._rpc_call(
             "get_access",
             ref=write_spec.ref,

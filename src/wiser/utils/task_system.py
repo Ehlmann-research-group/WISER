@@ -14,12 +14,17 @@ from .primitives import (
     DataRegion,
     ExecutorType,
     InputKind,
+    NoChunkingScheme,
     PriorityClass,
     SingleSpectrumScheme,
     SpatialTileScheme,
     SpectraBatchScheme,
     SpectralBatchDatasetScheme,
     WorkUnitDependency,
+    BasePlanMeta,
+    DatasetPlanMeta,
+    SpectrumPlanMeta,
+    SpectraListPlanMeta,
 )
 from .storage_service import StorageService
 
@@ -122,64 +127,6 @@ class MapStage(TaskStage):
     """Stage type where work units in a stage can run independently."""
 
     work_unit_dependency: WorkUnitDependency = "independent"
-
-
-@dataclass(frozen=True)
-class BasePlanMeta:
-    """Minimal, cheap-to-compute planning metadata needed to chunk data"""
-
-    kind: InputKind
-    dtype: np.dtype = np.dtype("float32")
-
-    @property
-    def dtype_bytes(self) -> int:
-        return self.dtype.itemsize
-
-
-@dataclass(frozen=True)
-class DatasetPlanMeta(BasePlanMeta):
-    """
-    Minimal metadata needed to plan chunking and estimate memory for dataset operations.
-    """
-
-    kind: InputKind = "dataset"
-    shape: Tuple[int, int, int] = (0, 0, 0)  # [y][x][b]
-
-    # Optional performance hints
-    gdal_block_shape: Optional[Tuple[int, int]] = None  # (block_h, block_w) if known
-
-    @property
-    def height(self) -> int:
-        return self.shape[0]
-
-    @property
-    def width(self) -> int:
-        return self.shape[1]
-
-    @property
-    def bands(self) -> int:
-        return self.shape[2]
-
-    @property
-    def pixels(self) -> int:
-        return self.height * self.width
-
-
-@dataclass(frozen=True)
-class SpectrumPlanMeta(BasePlanMeta):
-    """Minimal metadata for a single spectrum (1D array)."""
-
-    kind: InputKind = "spectrum"
-    length: int = 0  # number of wavelength samples
-
-
-@dataclass(frozen=True)
-class SpectraListPlanMeta(BasePlanMeta):
-    """Minimal metadata for a list of spectra (N spectra, each length L)."""
-
-    kind: InputKind = "spectra_list"
-    num_spectra: int = 0
-    spectrum_length: int = 0
 
 
 @dataclass
@@ -297,6 +244,13 @@ class SimpleChunkingPolicy:
             )
 
         # 2) Instantiate with simple logic for known schemes
+        if scheme_type is NoChunkingScheme:
+            assert isinstance(meta, (DatasetPlanMeta, SpectrumPlanMeta, SpectraListPlanMeta)), (
+                f"The argument meta should be of type DatasetPlanMeta, SpectrumPlanMeta, or "
+                f"SpectraListPlanMeta, instead it's of type {type(meta)}"
+            )
+            return NoChunkingScheme()
+
         if scheme_type is SpatialTileScheme:
             assert isinstance(
                 meta, DatasetPlanMeta

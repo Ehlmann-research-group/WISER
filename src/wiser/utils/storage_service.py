@@ -482,6 +482,34 @@ class StorageService:
 
         can_allocate_shared = desc.kind != "json" and desc.shape is not None and desc.dtype is not None
         want_ram = desc.residency == "ram_cacheable"
+        if desc.kind == "json":
+            print(f"allocating  storage: want_ram: {want_ram}, desc.kind: {desc.kind}")
+        if want_ram and desc.kind == "json":
+            uri = f"mem://{ref_id}"
+            self.ram_objects[uri] = {}
+            self.ram_est_bytes[uri] = desc.size_est
+            self._ram_used_bytes += desc.size_est
+            ref = DataRef(
+                kind="json",
+                ref_id=ref_id,
+                uri=uri,
+                disk_format=None,
+                residency=desc.residency,
+                materialization_loc="ram",
+                source="internal",
+                readonly=False,
+            )
+            self.data_refs[ref_id] = ref
+            self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
+            logger.info(
+                "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
+                ref.ref_id,
+                ref.uri,
+                ref.materialization_loc,
+                ref.disk_format,
+            )
+            return ref
+
         if want_ram and can_allocate_shared and self._can_fit_in_ram(desc):
             uri = f"mem://{ref_id}"
             shm_desc = self._allocate_in_ram_object(uri, desc)
