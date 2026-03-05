@@ -104,7 +104,7 @@ class TestStorageConnectionInfra(unittest.TestCase):
                         residency=residency,
                         size_est=5 * 6 * 7 * np.dtype(np.float32).itemsize,
                         shape=(5, 6, 7),
-                        dtype=np.float32,
+                        dtype=np.dtype(np.float32),
                         chunks=chunks,
                     ),
                     preferred_storage=preferred_storage,

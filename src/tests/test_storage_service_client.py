@@ -163,7 +163,7 @@ class TestStorageServiceClient(unittest.TestCase):
                     residency="spill_required",
                     size_est=4 * 3 * 6 * np.dtype(np.float32).itemsize,
                     shape=(4, 3, 6),
-                    dtype=np.float32,
+                    dtype=np.dtype(np.float32),
                 ),
                 preferred_storage="memmap",
             )
@@ -197,7 +197,7 @@ class TestStorageServiceClient(unittest.TestCase):
                     residency="ram_cacheable",
                     size_est=3 * 5 * 4 * np.dtype(np.float32).itemsize,
                     shape=(3, 5, 4),
-                    dtype=np.float32,
+                    dtype=np.dtype(np.float32),
                 )
             )
             self.assertEqual(ref.materialization_loc, "ram")

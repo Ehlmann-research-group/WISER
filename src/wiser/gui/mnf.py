@@ -83,7 +83,7 @@ class CalculateShiftYDiffNoise(MapStage):
             residency="ram_cacheable",
             size_est=size_est,
             shape=(input_meta.bands, input_meta.bands),
-            dtype=np.float32,
+            dtype=np.dtype(np.float32),
         )
         return [alloc_request]
 
