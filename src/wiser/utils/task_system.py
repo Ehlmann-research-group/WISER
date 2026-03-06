@@ -31,13 +31,15 @@ from .storage_service import StorageService
 if TYPE_CHECKING:
     from wiser.utils.work_scheduler import SchedulerConfig
 
+Number = Union[int, float]
+
 
 @dataclass(frozen=True)
 class ResourceModel:
-    fixed_overhead_bytes: int
-    bytes_per_scalar_in: int
-    bytes_per_scalar_out: int
-    scratch_bytes_per_scalar_in: int
+    fixed_overhead_bytes: Number
+    bytes_per_scalar_in: Number
+    bytes_per_scalar_out: Number
+    scratch_bytes_per_scalar_in: Number
 
 
 @dataclass

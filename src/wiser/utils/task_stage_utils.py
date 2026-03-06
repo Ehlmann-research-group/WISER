@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, Optional
 import numpy as np
+from sklearn.decomposition import IncrementalPCA
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -752,6 +753,253 @@ def get_apply_matrix_to_dataset_pipeline(
     output_ref_name: str,
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline([get_apply_matrix_to_dataset_stage(dataset_ref, matrix_ref, output_ref_name)])
+
+
+def _fit_incremental_pca_from_dataset_tiles(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_info_ref: DataRef,
+    output_vectors_ref: DataRef,
+    output_values_ref: DataRef,
+    num_components: int,
+    tile_scheme: SpatialTileScheme,
+    dataset_plan_meta: DatasetPlanMeta,
+) -> None:
+    _ = input_region
+    client = get_process_storage_client()
+    ipca = IncrementalPCA(n_components=num_components)
+    bands = dataset_plan_meta.bands
+
+    pending_batches: list[np.ndarray] = []
+    pending_rows = 0
+    initialized = False
+    total_rows = 0
+
+    for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
+        tile, _ = client.read_region(input_ref, tile_region)
+        tile_array = np.asarray(np.ma.getdata(tile), dtype=np.float32)
+        if tile_array.ndim != 3:
+            raise ValueError(f"Expected dataset tile shape [m][n][b], got {tile_array.shape}")
+        if tile_array.shape[2] != bands:
+            raise ValueError(
+                f"Band mismatch in tile for IncrementalPCA: "
+                f"tile_bands={tile_array.shape[2]}, expected={bands}"
+            )
+
+        flattened = tile_array.reshape(-1, bands)
+        total_rows += flattened.shape[0]
+
+        # Must have the same or more entries than components
+        if not initialized:
+            pending_batches.append(flattened)
+            pending_rows += flattened.shape[0]
+            if pending_rows >= num_components:
+                first_fit_batch = np.concatenate(pending_batches, axis=0)
+                ipca.partial_fit(first_fit_batch)
+                initialized = True
+                pending_batches.clear()
+                pending_rows = 0
+        else:
+            ipca.partial_fit(flattened)
+
+    if not initialized:
+        raise ValueError(
+            f"Not enough samples to fit IncrementalPCA: samples={total_rows}, num_components={num_components}"
+        )
+    if total_rows <= 1:
+        raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
+
+    singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
+    eigen_values = (singular_values**2) / (total_rows - 1)
+    eigen_vectors = np.asarray(ipca.components_, dtype=np.float32)
+
+    sort_desc = np.argsort(eigen_values)[::-1]
+    eigen_values = eigen_values[sort_desc]
+    eigen_vectors = eigen_vectors[sort_desc]
+
+    client.write_data(output_vectors_ref, eigen_vectors)
+    client.write_data(output_values_ref, eigen_values)
+    descriptor = EigenVectorsAndValues(
+        eigen_vectors_ref=output_vectors_ref,
+        eigen_values_ref=output_values_ref,
+        num_vectors=eigen_vectors.shape[0],
+        vector_dimension=eigen_vectors.shape[1],
+    )
+    client.write_json_value(output_info_ref, {"eigen": descriptor})
+
+
+@dataclass
+class IncrementalPcaPartialFitStage(SequentialStage):
+    """
+    Fit IncrementalPCA over a dataset by iterating spatial tiles and calling partial_fit.
+
+    The stage outputs an EigenVectorsAndValues JSON descriptor that references:
+      - eigen vectors array [k][b]
+      - eigen values array [k]
+    where k = num_components.
+    """
+
+    _num_components: int = 1
+    _output_ref_name: str = "ipca_eigenvectors_and_values"
+    _vectors_ref_name: str = "ipca_eigen_vectors"
+    _values_ref_name: str = "ipca_eigen_values"
+    _tile_scheme: Optional[SpatialTileScheme] = None
+    _dataset_plan_meta: Optional[DatasetPlanMeta] = None
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type = NoChunkingScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
+        self.broadcast_input |= {
+            "ipca_vectors_ref": DataBinding(self._vectors_ref_name),
+            "ipca_values_ref": DataBinding(self._values_ref_name),
+            "tile_scheme": self._tile_scheme,
+            "dataset_plan_meta": self._dataset_plan_meta,
+        }
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        _ = input_region
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "input_meta must be of type DatasetPlanMeta for IncrementalPcaPartialFitStage"
+        if self._num_components <= 0:
+            raise ValueError(f"num_components must be positive, got {self._num_components}")
+        if self._num_components > input_meta.bands:
+            raise ValueError(
+                f"num_components must be <= input bands, got num_components={self._num_components}, "
+                f"bands={input_meta.bands}"
+            )
+
+        vectors_dtype = np.float32
+        values_dtype = np.float32
+        vectors_size_est = self._num_components * input_meta.bands * np.dtype(vectors_dtype).itemsize
+        values_size_est = self._num_components * np.dtype(values_dtype).itemsize
+
+        return [
+            AllocationRequest(
+                name=self._vectors_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=vectors_size_est,
+                shape=(self._num_components, input_meta.bands),
+                dtype=vectors_dtype,
+            ),
+            AllocationRequest(
+                name=self._values_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=values_size_est,
+                shape=(self._num_components,),
+                dtype=values_dtype,
+            ),
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="json",
+                residency="ram_cacheable",
+                size_est=1024,
+            ),
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        output_vectors_ref: DataRef = broadcast_inputs["ipca_vectors_ref"]
+        output_values_ref: DataRef = broadcast_inputs["ipca_values_ref"]
+        tile_scheme: SpatialTileScheme = broadcast_inputs["tile_scheme"]
+        dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
+        return partial(
+            _fit_incremental_pca_from_dataset_tiles,
+            input_ref,
+            input_region,
+            output_write.ref,
+            output_vectors_ref,
+            output_values_ref,
+            self._num_components,
+            tile_scheme,
+            dataset_plan_meta,
+        )
+
+
+def _build_approximately_1mb_tile_scheme(meta: DatasetPlanMeta) -> SpatialTileScheme:
+    target_bytes = 1024 * 1024
+    bytes_per_pixel = max(1, meta.bands * meta.dtype.itemsize)
+    target_pixels = max(1, target_bytes // bytes_per_pixel)
+
+    tile_h = max(1, min(meta.height, int(np.sqrt(target_pixels))))
+    tile_w = max(1, min(meta.width, max(1, target_pixels // tile_h)))
+    return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
+
+
+def get_incremental_pca_partial_fit_stage(
+    dataset_ref: DataRef,
+    num_components: int,
+    output_ref_name: str,
+) -> IncrementalPcaPartialFitStage:
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    dataset_plan_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
+    tile_scheme = _build_approximately_1mb_tile_scheme(dataset_plan_meta)
+    tile_bytes = (
+        tile_scheme.tile_h * tile_scheme.tile_w * dataset_plan_meta.bands * dataset_plan_meta.dtype.itemsize
+    )
+    total_bytes = (
+        dataset_plan_meta.height
+        * dataset_plan_meta.width
+        * dataset_plan_meta.bands
+        * dataset_plan_meta.dtype.itemsize
+    )
+    tile_ratio = tile_bytes / total_bytes if total_bytes > 0 else 1.0
+
+    return IncrementalPcaPartialFitStage(
+        _num_components=num_components,
+        _output_ref_name=output_ref_name,
+        _vectors_ref_name=f"{output_ref_name}_vectors",
+        _values_ref_name=f"{output_ref_name}_values",
+        _tile_scheme=tile_scheme,
+        _dataset_plan_meta=dataset_plan_meta,
+        default_executor="process",
+        input_plan_meta=dataset_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=tile_ratio,  # type: ignore[arg-type]
+            bytes_per_scalar_out=tile_ratio,  # type: ignore[arg-type]
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
+
+def get_incremental_pca_partial_fit_pipeline(
+    dataset_ref: DataRef,
+    num_components: int,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    return AlgorithmPipeline(
+        [get_incremental_pca_partial_fit_stage(dataset_ref, num_components, output_ref_name)]
+    )
 
 
 def _project_dataset_onto_eigenvectors(
