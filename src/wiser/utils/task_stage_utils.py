@@ -617,7 +617,9 @@ def _apply_matrix_to_dataset(
     matrix_ref: DataRef,
 ) -> None:
     client = get_process_storage_client()
+    # Expected shape: (y, x, b)
     data_tile, _ = client.read_region(input_ref, input_region)
+    # Expected shape: (k, b)
     matrix, _ = client.read_data(matrix_ref)
 
     data_tile_array = np.asarray(np.ma.getdata(data_tile))
@@ -633,11 +635,6 @@ def _apply_matrix_to_dataset(
         raise ValueError(
             f"Band mismatch between dataset tile and matrix: "
             f"tile_bands={bands}, matrix_width={matrix_array.shape[1]}"
-        )
-    if matrix_array.shape[0] != bands:
-        raise ValueError(
-            f"Matrix output dimension must match dataset bands: "
-            f"matrix_height={matrix_array.shape[0]}, tile_bands={bands}"
         )
 
     flattened = data_tile_array.reshape(-1, bands)
