@@ -45,7 +45,7 @@ class ResourceModel:
 @dataclass
 class TaskStage:
     default_executor: ExecutorType
-    input_plan_meta: "BasePlanMeta"
+    input_plan_meta: "BasePlanMeta"  # Describes shape of input data to chunk it
     resource_model: ResourceModel
     chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
     work_unit_dependency: WorkUnitDependency = "independent"

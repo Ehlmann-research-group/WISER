@@ -62,8 +62,8 @@ def _running_covariance(
 @dataclass
 class CalcCovMatrixStage(SequentialStage):
     """
-    Calculates the covariance matrix of a noise matrix. This
-    assumes the data has been mean subtracted. The noise matrix
+    Calculates the covariance matrix of a dataset. This assumes
+    the data has not been mean subtracted. The input_ref data
     is assumed to be of shape [y][x][b] where [y][x] are the
     pixel axis and we want the noise of [b].
     """
@@ -352,7 +352,7 @@ class EigendecompositionStage(SequentialStage):
             scratch_bytes_per_scalar_in=0,
         )
     )
-    chunking_scheme_type = NoChunkingScheme
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
