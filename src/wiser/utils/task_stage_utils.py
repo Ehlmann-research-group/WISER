@@ -82,7 +82,7 @@ class CalcCovMatrixStage(SequentialStage):
             scratch_bytes_per_scalar_in=0,
         )
     )
-    chunking_scheme_type = SpatialTileScheme
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     def __post_init__(self):
         if "mean" not in self.broadcast_input:
@@ -522,7 +522,7 @@ class WhiteningMatrixStage(SequentialStage):
             scratch_bytes_per_scalar_in=0,
         )
     )
-    chunking_scheme_type = NoChunkingScheme
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
@@ -662,7 +662,7 @@ class ApplyMatrixToDatasetStage(MapStage):
             scratch_bytes_per_scalar_in=0,
         )
     )
-    chunking_scheme_type = SpatialTileScheme
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     def __post_init__(self):
         if "matrix_ref" not in self.broadcast_input:
@@ -853,7 +853,7 @@ class IncrementalPcaPartialFitStage(SequentialStage):
             scratch_bytes_per_scalar_in=0,
         )
     )
-    chunking_scheme_type = NoChunkingScheme
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
@@ -1068,7 +1068,7 @@ class ProjectOntoEigenVectorsStage(MapStage):
             scratch_bytes_per_scalar_in=0,
         )
     )
-    chunking_scheme_type = SpatialTileScheme
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     def __post_init__(self):
         if "eigen_descriptor_ref" not in self.broadcast_input:
