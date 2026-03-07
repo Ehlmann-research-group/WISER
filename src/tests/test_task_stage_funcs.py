@@ -548,6 +548,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             descriptor_ref = task_plan.bindings[output_ref_name]
             envelope_payload = storage_client.read_json_value(descriptor_ref)
             descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+            self.assertEqual(descriptor.count(), 2)
 
             eigen_values = np.array(
                 [descriptor.get_eigen_value(0), descriptor.get_eigen_value(1)],

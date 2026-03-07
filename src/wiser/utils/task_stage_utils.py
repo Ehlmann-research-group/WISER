@@ -497,9 +497,12 @@ def _write_whitening_matrix(
             f"n_values={eigen_values_array.shape[0]}"
         )
 
+    if np.any(eigen_values_array < 0):
+        raise ValueError("Whitening matrix cannot be computed: one or more eigen values are negative")
+
     inverse_sqrt_eigen_values = np.zeros_like(eigen_values_array, dtype=np.float32)
-    assert (eigen_values_array > 0).all(), "All eigen values of a covariance matrix should be positive"
-    inverse_sqrt_eigen_values = 1.0 / np.sqrt(eigen_values_array)
+    nonzero_mask = ~np.isclose(eigen_values_array, 0.0)
+    inverse_sqrt_eigen_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
     whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array
     client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
 
@@ -639,7 +642,9 @@ def _apply_matrix_to_dataset(
 
     flattened = data_tile_array.reshape(-1, bands)
     transformed_flattened = flattened @ matrix_array.T
-    transformed_tile = transformed_flattened.reshape(data_tile_array.shape)
+    transformed_tile = transformed_flattened.reshape(
+        data_tile_array.shape[0], data_tile_array.shape[1], matrix_array.shape[0]
+    )
     client.write_spec(output_write, transformed_tile.astype(data_tile_array.dtype, copy=False))
 
 
@@ -651,6 +656,7 @@ class ApplyMatrixToDatasetStage(MapStage):
 
     _output_ref_name: str = "matrix_applied_dataset"
     _matrix_ref: Optional[DataRef] = None
+    _output_bands: Optional[int] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -670,7 +676,16 @@ class ApplyMatrixToDatasetStage(MapStage):
         assert isinstance(
             input_region, DatasetRegionRef
         ), "Input region for ApplyMatrixToDatasetStage must be DatasetRegionRef"
-        return input_region
+        if self._output_bands is None:
+            return input_region
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=self._output_bands,
+        )
 
     def generate_allocation_requests(
         self,
@@ -681,13 +696,14 @@ class ApplyMatrixToDatasetStage(MapStage):
         assert isinstance(
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for ApplyMatrixToDatasetStage"
-        size_est = input_meta.height * input_meta.width * input_meta.bands * input_meta.dtype.itemsize
+        out_bands = self._output_bands if self._output_bands is not None else input_meta.bands
+        size_est = input_meta.height * input_meta.width * out_bands * input_meta.dtype.itemsize
         alloc_request = AllocationRequest(
             name=self._output_ref_name,
             kind="dataset",
             residency="ram_cacheable",
             size_est=size_est,
-            shape=input_meta.shape,
+            shape=(input_meta.height, input_meta.width, out_bands),
             dtype=input_meta.dtype,
         )
         return [alloc_request]
@@ -732,6 +748,7 @@ def get_apply_matrix_to_dataset_stage(
     return ApplyMatrixToDatasetStage(
         _output_ref_name=output_ref_name,
         _matrix_ref=matrix_ref,
+        _output_bands=matrix_meta.shape[0],
         default_executor="process",
         input_plan_meta=input_meta,
         resource_model=ResourceModel(
@@ -759,7 +776,6 @@ def _fit_incremental_pca_from_dataset_tiles(
     output_vectors_ref: DataRef,
     output_values_ref: DataRef,
     num_components: int,
-    tile_scheme: SpatialTileScheme,
     dataset_plan_meta: DatasetPlanMeta,
 ) -> None:
     _ = input_region
@@ -767,9 +783,16 @@ def _fit_incremental_pca_from_dataset_tiles(
     ipca = IncrementalPCA(n_components=num_components)
     bands = dataset_plan_meta.bands
 
-    pending_batches: list[np.ndarray] = []
-    pending_rows = 0
-    initialized = False
+    # Build tiles locally so batching logic and chunking strategy live together.
+    # We only require each nominal tile to have at least num_components pixels.
+    target_pixels = max(1, num_components)
+    tile_h = max(1, min(dataset_plan_meta.height, int(np.sqrt(target_pixels))))
+    tile_w = max(1, min(dataset_plan_meta.width, int(np.ceil(target_pixels / tile_h))))
+    tile_scheme = SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
+
+    batch_buffer: list[np.ndarray] = []
+    buffered_rows = 0
+    first_fit_done = False
     total_rows = 0
 
     for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
@@ -786,23 +809,34 @@ def _fit_incremental_pca_from_dataset_tiles(
         flattened = tile_array.reshape(-1, bands)
         total_rows += flattened.shape[0]
 
-        # Must have the same or more entries than components
-        if not initialized:
-            pending_batches.append(flattened)
-            pending_rows += flattened.shape[0]
-            if pending_rows >= num_components:
-                first_fit_batch = np.concatenate(pending_batches, axis=0)
-                ipca.partial_fit(first_fit_batch)
-                initialized = True
-                pending_batches.clear()
-                pending_rows = 0
-        else:
-            ipca.partial_fit(flattened)
+        batch_buffer.append(flattened)
+        buffered_rows += flattened.shape[0]
 
-    if not initialized:
+        # Consume buffered rows in num_components-sized batches.
+        while buffered_rows >= num_components:
+            merged = np.concatenate(batch_buffer, axis=0)
+            fit_batch = merged[:num_components, :]
+            remainder = merged[num_components:, :]
+            ipca.partial_fit(fit_batch)
+            first_fit_done = True
+            batch_buffer = [remainder] if remainder.size > 0 else []
+            buffered_rows = remainder.shape[0] if remainder.size > 0 else 0
+
+    # Flush trailing rows; legal only after first fit.
+    if buffered_rows > 0:
+        if not first_fit_done:
+            raise ValueError(
+                f"Not enough samples to fit IncrementalPCA: "
+                f"samples={total_rows}, num_components={num_components}"
+            )
+        merged = np.concatenate(batch_buffer, axis=0)
+        ipca.partial_fit(merged)
+
+    if not first_fit_done:
         raise ValueError(
             f"Not enough samples to fit IncrementalPCA: samples={total_rows}, num_components={num_components}"
         )
+
     if total_rows <= 1:
         raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
 
@@ -840,7 +874,6 @@ class IncrementalPcaPartialFitStage(SequentialStage):
     _output_ref_name: str = "ipca_eigenvectors_and_values"
     _vectors_ref_name: str = "ipca_eigen_vectors"
     _values_ref_name: str = "ipca_eigen_values"
-    _tile_scheme: Optional[SpatialTileScheme] = None
     _dataset_plan_meta: Optional[DatasetPlanMeta] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
@@ -857,7 +890,6 @@ class IncrementalPcaPartialFitStage(SequentialStage):
         self.broadcast_input |= {
             "ipca_vectors_ref": DataBinding(self._vectors_ref_name),
             "ipca_values_ref": DataBinding(self._values_ref_name),
-            "tile_scheme": self._tile_scheme,
             "dataset_plan_meta": self._dataset_plan_meta,
         }
 
@@ -922,7 +954,6 @@ class IncrementalPcaPartialFitStage(SequentialStage):
         output_write = output_writes[self._output_ref_name]
         output_vectors_ref: DataRef = broadcast_inputs["ipca_vectors_ref"]
         output_values_ref: DataRef = broadcast_inputs["ipca_values_ref"]
-        tile_scheme: SpatialTileScheme = broadcast_inputs["tile_scheme"]
         dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
         return partial(
             _fit_incremental_pca_from_dataset_tiles,
@@ -932,19 +963,8 @@ class IncrementalPcaPartialFitStage(SequentialStage):
             output_vectors_ref,
             output_values_ref,
             self._num_components,
-            tile_scheme,
             dataset_plan_meta,
         )
-
-
-def _build_approximately_1mb_tile_scheme(meta: DatasetPlanMeta) -> SpatialTileScheme:
-    target_bytes = 1024 * 1024
-    bytes_per_pixel = max(1, meta.bands * meta.dtype.itemsize)
-    target_pixels = max(1, target_bytes // bytes_per_pixel)
-
-    tile_h = max(1, min(meta.height, int(np.sqrt(target_pixels))))
-    tile_w = max(1, min(meta.width, max(1, target_pixels // tile_h)))
-    return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
 
 
 def get_incremental_pca_partial_fit_stage(
@@ -958,31 +978,26 @@ def get_incremental_pca_partial_fit_stage(
         raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
 
     dataset_plan_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
-    tile_scheme = _build_approximately_1mb_tile_scheme(dataset_plan_meta)
-    tile_bytes = (
-        tile_scheme.tile_h * tile_scheme.tile_w * dataset_plan_meta.bands * dataset_plan_meta.dtype.itemsize
-    )
-    total_bytes = (
-        dataset_plan_meta.height
-        * dataset_plan_meta.width
-        * dataset_plan_meta.bands
-        * dataset_plan_meta.dtype.itemsize
-    )
-    tile_ratio = tile_bytes / total_bytes if total_bytes > 0 else 1.0
+    num_samples = dataset_plan_meta.height * dataset_plan_meta.width
+    max_components = min(dataset_plan_meta.bands, max(0, num_samples - 1))
+    if num_components > max_components:
+        raise ValueError(
+            f"num_components={num_components} exceeds max supported={max_components} "
+            f"for shape={dataset_plan_meta.shape}"
+        )
 
     return IncrementalPcaPartialFitStage(
         _num_components=num_components,
         _output_ref_name=output_ref_name,
         _vectors_ref_name=f"{output_ref_name}_vectors",
         _values_ref_name=f"{output_ref_name}_values",
-        _tile_scheme=tile_scheme,
         _dataset_plan_meta=dataset_plan_meta,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
-            bytes_per_scalar_in=tile_ratio,  # type: ignore[arg-type]
-            bytes_per_scalar_out=tile_ratio,  # type: ignore[arg-type]
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
             scratch_bytes_per_scalar_in=0,
         ),
         chunking_scheme_type=NoChunkingScheme,

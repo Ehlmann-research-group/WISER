@@ -108,22 +108,6 @@ class CalculateShiftYDiffNoise(MapStage):
         return partial(_run_shift_y_diff, input_ref, input_region, output_write)
 
 
-def _build_approximately_1mb_tile_scheme(meta: DatasetPlanMeta) -> SpatialTileScheme:
-    target_bytes = 1024 * 1024
-    bytes_per_pixel = max(1, meta.bands * meta.dtype.itemsize)
-    target_pixels = max(1, target_bytes // bytes_per_pixel)
-
-    tile_h = max(1, min(meta.height, int(np.sqrt(target_pixels))))
-    tile_w = max(1, min(meta.width, max(1, target_pixels // tile_h)))
-    return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
-
-
-def _tile_ratio(meta: DatasetPlanMeta, scheme: SpatialTileScheme) -> float:
-    tile_bytes = scheme.tile_h * scheme.tile_w * meta.bands * meta.dtype.itemsize
-    total_bytes = meta.height * meta.width * meta.bands * meta.dtype.itemsize
-    return tile_bytes / total_bytes if total_bytes > 0 else 1.0
-
-
 def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateShiftYDiffNoise:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
@@ -150,9 +134,16 @@ def get_mnf_pipeline(
     data_meta = storage_client.get_meta(dataset_ref)
     dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
     bands = dataset_plan_meta.bands
-
-    if num_components <= 0 or num_components > bands:
-        raise ValueError(f"num_components must be in [1, {bands}], got {num_components}")
+    data_pixels = dataset_plan_meta.height * dataset_plan_meta.width
+    noise_pixels = max(0, dataset_plan_meta.height - 1) * dataset_plan_meta.width
+    max_internal_components = min(bands, max(0, noise_pixels - 1))
+    if max_internal_components <= 0:
+        raise ValueError(
+            f"MNF requires at least 2 samples in both data/noise domains; got "
+            f"data_pixels={data_pixels}, noise_pixels={noise_pixels}"
+        )
+    if num_components <= 0 or num_components > max_internal_components:
+        raise ValueError(f"num_components must be in [1, {max_internal_components}], got {num_components}")
 
     noise_ref_name = "mnf_shift_y_noise"
     noise_eigen_ref_name = "mnf_noise_eigen"
@@ -164,25 +155,26 @@ def get_mnf_pipeline(
         shape=(max(0, dataset_plan_meta.height - 1), dataset_plan_meta.width, bands),
         dtype=dataset_plan_meta.dtype,
     )
-    noise_tile_scheme = _build_approximately_1mb_tile_scheme(noise_plan_meta)
-    whitened_tile_scheme = _build_approximately_1mb_tile_scheme(dataset_plan_meta)
+    whitened_plan_meta = DatasetPlanMeta(
+        shape=(dataset_plan_meta.height, dataset_plan_meta.width, max_internal_components),
+        dtype=dataset_plan_meta.dtype,
+    )
 
     noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
 
     noise_ipca_stage = IncrementalPcaPartialFitStage(
-        _num_components=bands,
+        _num_components=max_internal_components,
         _output_ref_name=noise_eigen_ref_name,
         _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
         _values_ref_name=f"{noise_eigen_ref_name}_values",
-        _tile_scheme=noise_tile_scheme,
         _dataset_plan_meta=noise_plan_meta,
         default_executor="process",
         input_binding=DataBinding(noise_ref_name),
         input_plan_meta=noise_plan_meta,
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
-            bytes_per_scalar_in=_tile_ratio(noise_plan_meta, noise_tile_scheme),
-            bytes_per_scalar_out=_tile_ratio(noise_plan_meta, noise_tile_scheme),
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
             scratch_bytes_per_scalar_in=0,
         ),
     )
@@ -192,7 +184,7 @@ def get_mnf_pipeline(
         default_executor="process",
         input_binding=DataBinding(noise_eigen_ref_name),
         input_plan_meta=SpectraListPlanMeta(
-            num_spectra=bands,
+            num_spectra=max_internal_components,
             spectrum_length=bands,
             dtype=np.dtype(np.float32),
         ),
@@ -207,6 +199,7 @@ def get_mnf_pipeline(
     apply_whitening_stage = ApplyMatrixToDatasetStage(
         _output_ref_name=whitened_dataset_ref_name,
         _matrix_ref=None,
+        _output_bands=max_internal_components,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
@@ -220,19 +213,18 @@ def get_mnf_pipeline(
     )
 
     whitened_ipca_stage = IncrementalPcaPartialFitStage(
-        _num_components=bands,
+        _num_components=max_internal_components,
         _output_ref_name=whitened_eigen_ref_name,
         _vectors_ref_name=f"{whitened_eigen_ref_name}_vectors",
         _values_ref_name=f"{whitened_eigen_ref_name}_values",
-        _tile_scheme=whitened_tile_scheme,
-        _dataset_plan_meta=dataset_plan_meta,
+        _dataset_plan_meta=whitened_plan_meta,
         default_executor="process",
         input_binding=DataBinding(whitened_dataset_ref_name),
-        input_plan_meta=dataset_plan_meta,
+        input_plan_meta=whitened_plan_meta,
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
-            bytes_per_scalar_in=_tile_ratio(dataset_plan_meta, whitened_tile_scheme),
-            bytes_per_scalar_out=_tile_ratio(dataset_plan_meta, whitened_tile_scheme),
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
             scratch_bytes_per_scalar_in=0,
         ),
     )
@@ -243,7 +235,7 @@ def get_mnf_pipeline(
         _eigen_descriptor_ref=None,
         default_executor="process",
         input_binding=DataBinding(whitened_dataset_ref_name),
-        input_plan_meta=dataset_plan_meta,
+        input_plan_meta=whitened_plan_meta,
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
             bytes_per_scalar_in=1,
@@ -283,7 +275,11 @@ class MinimumNoiseFractionDialog:
     def perform_mnf(self, dataset_ref: DataRef):
         storage_client = get_process_storage_client()
         data_meta = storage_client.get_meta(dataset_ref)
-        num_components = min(10, data_meta.shape[2])
+        height, width, bands = data_meta.shape
+        data_pixels = height * width
+        noise_pixels = max(0, height - 1) * width
+        max_components = min(bands, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+        num_components = min(10, max_components)
 
         mnf_task = SemanticTask(
             priority_class=PriorityClass.BACKGROUND,
