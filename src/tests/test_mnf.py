@@ -138,7 +138,14 @@ class TestMnf(unittest.TestCase):
                 spy_mnf_transform.reduce(image, num=num_components),
                 dtype=np.float32,
             )
-            print(f"signal covariance: {spy_signal_stats.cov}")
+            spy_signal_norm = spy_signal_stats.cov / np.linalg.norm(spy_signal_stats.cov)
+            print(f"SPy signal covariance: {spy_signal_norm}")
+
+            noise_eigen = task_plan.bindings["mnf_noise_eigen"]
+            cov_ref = storage_client.read_json_value(noise_eigen)["eigen"].covariance_ref
+            cov_arr = storage_client.read_data(cov_ref)[0]
+            cov_norm = cov_arr / np.linalg.norm(cov_arr)
+            print(f"noise_eigen.covariance: {cov_norm}")
             # print(f"image: {image}")
             # # print(f"image.shape: {image.shape}")
             # print(f"=================")
@@ -148,6 +155,7 @@ class TestMnf(unittest.TestCase):
             # print(f"spy_mnf: {spy_mnf}")
             # # print(f"spy_mnf.shape: {spy_mnf.shape}")
             # print(f"=================")
+
             self.assertEqual(our_mnf.shape, spy_mnf.shape)
             cosine_similarities: list[float] = []
             for i in range(num_components):

@@ -271,6 +271,8 @@ class EigenVectorsAndValues:
     eigen_values_ref: DataRef
     num_vectors: int
     vector_dimension: int
+    covariance_ref: Optional[DataRef] = None
+    mean_ref: Optional[DataRef] = None
 
     def count(self) -> int:
         return self.num_vectors
@@ -778,6 +780,8 @@ def _fit_incremental_pca_from_dataset_tiles(
     output_info_ref: DataRef,
     output_vectors_ref: DataRef,
     output_values_ref: DataRef,
+    output_covariance_ref: DataRef,
+    output_mean_ref: DataRef,
     num_components: int,
     dataset_plan_meta: DatasetPlanMeta,
 ) -> None:
@@ -850,14 +854,21 @@ def _fit_incremental_pca_from_dataset_tiles(
     sort_desc = np.argsort(eigen_values)[::-1]
     eigen_values = eigen_values[sort_desc]
     eigen_vectors = eigen_vectors[sort_desc]
+    covariance = np.asarray(ipca.get_covariance(), dtype=np.float32)
+    mean = np.asarray(ipca.mean_, dtype=np.float32)
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values)
+    # print(f"#$% covariance: {covariance}")
+    client.write_data(output_covariance_ref, covariance)
+    client.write_data(output_mean_ref, mean)
     descriptor = EigenVectorsAndValues(
         eigen_vectors_ref=output_vectors_ref,
         eigen_values_ref=output_values_ref,
         num_vectors=eigen_vectors.shape[0],
         vector_dimension=eigen_vectors.shape[1],
+        covariance_ref=output_covariance_ref,
+        mean_ref=output_mean_ref,
     )
     client.write_json_value(output_info_ref, {"eigen": descriptor})
 
@@ -877,6 +888,8 @@ class IncrementalPcaPartialFitStage(SequentialStage):
     _output_ref_name: str = "ipca_eigenvectors_and_values"
     _vectors_ref_name: str = "ipca_eigen_vectors"
     _values_ref_name: str = "ipca_eigen_values"
+    _covariance_ref_name: str = "ipca_covariance"
+    _mean_ref_name: str = "ipca_mean"
     _dataset_plan_meta: Optional[DatasetPlanMeta] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
@@ -893,6 +906,8 @@ class IncrementalPcaPartialFitStage(SequentialStage):
         self.broadcast_input |= {
             "ipca_vectors_ref": DataBinding(self._vectors_ref_name),
             "ipca_values_ref": DataBinding(self._values_ref_name),
+            "ipca_covariance_ref": DataBinding(self._covariance_ref_name),
+            "ipca_mean_ref": DataBinding(self._mean_ref_name),
             "dataset_plan_meta": self._dataset_plan_meta,
         }
 
@@ -919,8 +934,12 @@ class IncrementalPcaPartialFitStage(SequentialStage):
 
         vectors_dtype = np.float32
         values_dtype = np.float32
+        covariance_dtype = np.float32
+        mean_dtype = np.float32
         vectors_size_est = self._num_components * input_meta.bands * np.dtype(vectors_dtype).itemsize
         values_size_est = self._num_components * np.dtype(values_dtype).itemsize
+        covariance_size_est = input_meta.bands * input_meta.bands * np.dtype(covariance_dtype).itemsize
+        mean_size_est = input_meta.bands * np.dtype(mean_dtype).itemsize
 
         return [
             AllocationRequest(
@@ -940,6 +959,22 @@ class IncrementalPcaPartialFitStage(SequentialStage):
                 dtype=values_dtype,
             ),
             AllocationRequest(
+                name=self._covariance_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=covariance_size_est,
+                shape=(input_meta.bands, input_meta.bands),
+                dtype=covariance_dtype,
+            ),
+            AllocationRequest(
+                name=self._mean_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=mean_size_est,
+                shape=(input_meta.bands,),
+                dtype=mean_dtype,
+            ),
+            AllocationRequest(
                 name=self._output_ref_name,
                 kind="json",
                 residency="ram_cacheable",
@@ -957,6 +992,8 @@ class IncrementalPcaPartialFitStage(SequentialStage):
         output_write = output_writes[self._output_ref_name]
         output_vectors_ref: DataRef = broadcast_inputs["ipca_vectors_ref"]
         output_values_ref: DataRef = broadcast_inputs["ipca_values_ref"]
+        output_covariance_ref: DataRef = broadcast_inputs["ipca_covariance_ref"]
+        output_mean_ref: DataRef = broadcast_inputs["ipca_mean_ref"]
         dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
         return partial(
             _fit_incremental_pca_from_dataset_tiles,
@@ -965,6 +1002,8 @@ class IncrementalPcaPartialFitStage(SequentialStage):
             output_write.ref,
             output_vectors_ref,
             output_values_ref,
+            output_covariance_ref,
+            output_mean_ref,
             self._num_components,
             dataset_plan_meta,
         )
@@ -994,6 +1033,8 @@ def get_incremental_pca_partial_fit_stage(
         _output_ref_name=output_ref_name,
         _vectors_ref_name=f"{output_ref_name}_vectors",
         _values_ref_name=f"{output_ref_name}_values",
+        _covariance_ref_name=f"{output_ref_name}_covariance",
+        _mean_ref_name=f"{output_ref_name}_mean",
         _dataset_plan_meta=dataset_plan_meta,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
