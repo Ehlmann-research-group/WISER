@@ -471,6 +471,7 @@ def _write_whitening_matrix(
     input_ref: DataRef,
     input_region: DataRegion,
     output_ref: DataRef,
+    data_variance_factor: int,
 ) -> None:
     _ = input_region
     client = get_process_storage_client()
@@ -503,7 +504,7 @@ def _write_whitening_matrix(
     inverse_sqrt_eigen_values = np.zeros_like(eigen_values_array, dtype=np.float32)
     nonzero_mask = ~np.isclose(eigen_values_array, 0.0)
     inverse_sqrt_eigen_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
-    whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array
+    whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array / data_variance_factor
     client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
 
 
@@ -517,6 +518,7 @@ class WhiteningMatrixStage(SequentialStage):
     """
 
     _output_ref_name: str = "whitening_matrix"
+    _data_variance_factor: int = 1
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -572,6 +574,7 @@ class WhiteningMatrixStage(SequentialStage):
             input_ref,
             input_region,
             output_write.ref,
+            self._data_variance_factor,
         )
 
 
