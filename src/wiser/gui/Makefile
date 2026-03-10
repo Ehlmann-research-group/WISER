@@ -10,6 +10,7 @@ TARGET_DIR = ./generated
 
 FILENAMES=\
 	about_dialog_ui.py \
+	activity_monitor_ui.py \
 	app_config_ui.py \
 	band_chooser_ui.py \
 	band_math_ui.py \

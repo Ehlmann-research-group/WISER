@@ -40,6 +40,7 @@ from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
 from .mnf import MinimumNoiseFractionDialog
+from .activity_monitor import ActivityMonitorWidget
 
 from .util import *
 
@@ -232,6 +233,8 @@ class DataVisualizerApp(QMainWindow):
         self._geo_ref_dialog: GeoReferencerDialog = None
         self._crs_creator_dialog: ReferenceCreatorDialog = None
         self._similarity_transform_dialog: SimilarityTransformDialog = None
+        self._mnf_dialog: MinimumNoiseFractionDialog = None
+        self._activity_monitor: ActivityMonitorWidget = None
         self._config_dialog: AppConfigDialog = None
 
     def _init_menus(self):
@@ -338,6 +341,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
+
+        act = self._tools_menu.addAction(self.tr("Activity Monitor"))
+        act.triggered.connect(self.show_activity_monitor)
 
         # Help menu
 
@@ -927,12 +933,21 @@ class DataVisualizerApp(QMainWindow):
             self._similarity_transform_dialog.show()
 
     def show_mnf_dialog(self, in_test_mode=False):
-        mnf_dialog = MinimumNoiseFractionDialog(self._app_state, self._app_services)
+        self._mnf_dialog = MinimumNoiseFractionDialog(self._app_state, self._app_services)
         if not in_test_mode:
-            if mnf_dialog.exec_() == QDialog.Accepted:
+            if self._mnf_dialog.exec_() == QDialog.Accepted:
                 pass
         else:
-            mnf_dialog.show()
+            self._mnf_dialog.show()
+
+    def show_activity_monitor(self, in_test_mode=False):
+        self._activity_monitor = ActivityMonitorWidget()
+        self._activity_monitor.register_task(
+            title="Test title",
+            meta={"a": "joshua.hdr", "b": "oscar.hdr"},
+            cancel_callback=lambda _: _,
+        )
+        self._activity_monitor.show()
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         """
