@@ -8,6 +8,8 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
+from wiser.gui.app_state import ApplicationState
+from wiser.gui.generated.mnf_dialog_ui import Ui_MNFDialog
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -34,6 +36,7 @@ from wiser.utils.task_system import (
     SemanticTask,
     WriteSpec,
 )
+from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 
 
@@ -263,7 +266,7 @@ def get_mnf_pipeline(
     )
 
 
-class MinimumNoiseFractionDialog:
+class MinimumNoiseFractionDialog(QDialog):
     """
     Use the shift difference method. Let the user have a dark image option. Let the user
     save their statistics
@@ -274,17 +277,82 @@ class MinimumNoiseFractionDialog:
     using covariance, apply to ever spectra, run pca
     """
 
-    def __init__(self, app_services: AppServices):
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        app_services: AppServices,
+        parent=None,
+    ):
+        super().__init__(parent=parent)
+        self._app_state = app_state
         self._app_services = app_services
+        self._selected_dataset_id: Optional[int] = None
 
-    def perform_mnf(self, dataset_ref: DataRef):
+        self._ui = Ui_MNFDialog()
+        self._ui.setupUi(self)
+
+    def show_mnf(self, dataset_id: Optional[int] = None) -> None:
+        cbox_dataset = self._ui.comboBox
+        datasets = self._app_state.get_datasets()
+
+        cbox_dataset.clear()
+        cbox_dataset.addItem(self.tr("(no data)"), -1)
+        for dataset in datasets:
+            cbox_dataset.addItem(dataset.get_name(), dataset.get_id())
+
+        if dataset_id is not None:
+            index = cbox_dataset.findData(dataset_id)
+            if index >= 0:
+                cbox_dataset.setCurrentIndex(index)
+            else:
+                cbox_dataset.setCurrentIndex(0)
+        else:
+            cbox_dataset.setCurrentIndex(0)
+
+        self._ui.sbox_component.setMinimum(1)
+        self._ui.sbox_component.setMaximum(10_000)
+        if self._ui.sbox_component.value() < 1:
+            self._ui.sbox_component.setValue(1)
+
+    def show(self):
+        self.show_mnf(dataset_id=self._selected_dataset_id)
+        super().show()
+
+    def get_selected_dataset_id(self) -> Optional[int]:
+        dataset_id = self._ui.comboBox.currentData()
+        if dataset_id is None or int(dataset_id) < 0:
+            return None
+        return int(dataset_id)
+
+    def get_selected_dataset(self):
+        dataset_id = self.get_selected_dataset_id()
+        if dataset_id is None:
+            return None
+        return self._app_state.get_dataset(dataset_id)
+
+    def get_num_components(self) -> int:
+        return int(self._ui.sbox_component.value())
+
+    def perform_mnf(self, dataset_id: Optional[int] = None):
+        if dataset_id is not None:
+            self._selected_dataset_id = int(dataset_id)
+            self.show_mnf(dataset_id=self._selected_dataset_id)
+        selected_dataset = self.get_selected_dataset()
+        if selected_dataset is None:
+            raise ValueError("No dataset selected for MNF")
+
+        dataset_ref = self._app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=selected_dataset)
+        )
         storage_client = get_process_storage_client()
         data_meta = storage_client.get_meta(dataset_ref)
         height, width, bands = data_meta.shape
         data_pixels = height * width
         noise_pixels = max(0, height - 1) * width
         max_components = min(bands, max(0, data_pixels - 1), max(0, noise_pixels - 1))
-        num_components = min(10, max_components)
+        num_components = min(self.get_num_components(), max_components)
+        if num_components <= 0:
+            raise ValueError("No valid MNF component count for selected dataset")
 
         mnf_task = SemanticTask(
             priority_class=PriorityClass.BACKGROUND,
