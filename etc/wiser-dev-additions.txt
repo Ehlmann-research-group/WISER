@@ -8,6 +8,7 @@
 # ruff==0.1.*
 
 dependencies:
+spectral=0.24
 sphinx=7.4.7
 sphinx-autodoc2=0.5.*
 sphinx-toolbox=4.*

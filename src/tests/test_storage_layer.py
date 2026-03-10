@@ -29,7 +29,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -57,7 +57,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=request_size_est,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -87,7 +87,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -114,7 +114,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -138,7 +138,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -161,7 +161,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request)
@@ -183,7 +183,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request, preferred_storage="zarr")
@@ -206,7 +206,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request)
@@ -240,7 +240,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request, preferred_storage="zarr")

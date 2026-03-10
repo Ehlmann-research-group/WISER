@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 
@@ -14,32 +14,38 @@ from .primitives import (
     DataRegion,
     ExecutorType,
     InputKind,
+    NoChunkingScheme,
     PriorityClass,
     SingleSpectrumScheme,
     SpatialTileScheme,
     SpectraBatchScheme,
     SpectralBatchDatasetScheme,
     WorkUnitDependency,
+    BasePlanMeta,
+    DatasetPlanMeta,
+    SpectrumPlanMeta,
+    SpectraListPlanMeta,
 )
 from .storage_service import StorageService
 
+if TYPE_CHECKING:
+    from wiser.utils.work_scheduler import SchedulerConfig
 
-class SchedulerConfig(Protocol):
-    """Scheduler configuration interface used for planning-time typing."""
+Number = Union[int, float]
 
 
 @dataclass(frozen=True)
 class ResourceModel:
-    fixed_overhead_bytes: int
-    bytes_per_scalar_in: int
-    bytes_per_scalar_out: int
-    scratch_bytes_per_scalar_in: int
+    fixed_overhead_bytes: Number
+    bytes_per_scalar_in: Number
+    bytes_per_scalar_out: Number
+    scratch_bytes_per_scalar_in: Number
 
 
 @dataclass
 class TaskStage:
     default_executor: ExecutorType
-    input_plan_meta: "BasePlanMeta"
+    input_plan_meta: "BasePlanMeta"  # Describes shape of input data to chunk it
     resource_model: ResourceModel
     chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
     work_unit_dependency: WorkUnitDependency = "independent"
@@ -49,8 +55,9 @@ class TaskStage:
     # __task_input__ is the first input to the semantic task
     input_binding: DataBinding = field(default_factory=lambda: DataBinding("__task_input__"))
 
-    output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
+    output_bindings: Sequence[DataBinding] = field(default_factory=list)
 
+    # If the value is a DataBinding it will be substituted for a DataRef at runtime
     broadcast_input: Dict[str, Any] = field(default_factory=dict)
 
     @abstractmethod
@@ -72,7 +79,7 @@ class TaskStage:
         self,
         *,
         input_meta: "BasePlanMeta",
-        chosen_scheme: ChunkingScheme | None,
+        chosen_scheme: Optional[ChunkingScheme],
     ) -> list[AllocationRequest]:
         """
         Make allocation requests that the Task Planner will
@@ -99,13 +106,13 @@ class TaskStage:
         input_ref: DataRef,
         input_region: DataRegion,
         output_writes: Dict[str, "WriteSpec"],
+        # Type is usually a DataAny but can be any small serializable object
         broadcast_inputs: Dict[str, Any] = {},
-    ) -> Callable:
+    ) -> Callable[..., None]:
         """
         This function must return a top level callable! It can not return a closure.
         Even though the class has an input_ref, that input_ref may not be made at
         the time this class is made because it may be the output of another stage.
-        We will likely remove the input_ref attribute in the future.
         """
         raise NotImplementedError("Subclasses must implement task_fn")
 
@@ -122,64 +129,6 @@ class MapStage(TaskStage):
     """Stage type where work units in a stage can run independently."""
 
     work_unit_dependency: WorkUnitDependency = "independent"
-
-
-@dataclass(frozen=True)
-class BasePlanMeta:
-    """Minimal, cheap-to-compute planning metadata."""
-
-    kind: InputKind
-    dtype: np.dtype = np.dtype("float32")
-
-    @property
-    def dtype_bytes(self) -> int:
-        return self.dtype.itemsize
-
-
-@dataclass(frozen=True)
-class DatasetPlanMeta(BasePlanMeta):
-    """
-    Minimal metadata needed to plan chunking and estimate memory for dataset operations.
-    """
-
-    kind: InputKind = "dataset"
-    shape: Tuple[int, int, int] = (0, 0, 0)  # [y][x][b]
-
-    # Optional performance hints
-    gdal_block_shape: Optional[Tuple[int, int]] = None  # (block_h, block_w) if known
-
-    @property
-    def height(self) -> int:
-        return self.shape[0]
-
-    @property
-    def width(self) -> int:
-        return self.shape[1]
-
-    @property
-    def bands(self) -> int:
-        return self.shape[2]
-
-    @property
-    def pixels(self) -> int:
-        return self.height * self.width
-
-
-@dataclass(frozen=True)
-class SpectrumPlanMeta(BasePlanMeta):
-    """Minimal metadata for a single spectrum (1D array)."""
-
-    kind: InputKind = "spectrum"
-    length: int = 0  # number of wavelength samples
-
-
-@dataclass(frozen=True)
-class SpectraListPlanMeta(BasePlanMeta):
-    """Minimal metadata for a list of spectra (N spectra, each length L)."""
-
-    kind: InputKind = "spectra_list"
-    num_spectra: int = 0
-    spectrum_length: int = 0
 
 
 @dataclass
@@ -203,7 +152,8 @@ class WorkUnitMeta:
     input_ref: DataRef
     input_region: DataRegion
     output_writes: Dict[str, WriteSpec]
-    broadcast_inputs: Dict[str, "DataRef"]
+    # Type is usually a data ref but can be a small serializable object
+    broadcast_inputs: Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -221,7 +171,7 @@ class WorkUnit:
 class TaskPlan:
     """
     Contains a work unit graph / dependencies.
-        - WOrk units for the same stage are bundled together
+        - Work units for the same stage are bundled together
         - Stages that can be run in parallel are
     """
 
@@ -283,38 +233,55 @@ class SimpleChunkingPolicy:
         """
 
         # 1) Validate InputKind matches
-        scheme_kind = getattr(scheme_type, "kind", None)
-        if scheme_kind is None:
-            raise TypeError(f"{scheme_type.__name__} must define a class variable `kind` (InputKind).")
+        scheme_kinds = getattr(scheme_type, "kind", None)
+        if not isinstance(scheme_kinds, list) or not scheme_kinds:
+            raise TypeError(
+                f"{scheme_type.__name__} must define a non-empty class variable `kind` " "(list[RefKind])."
+            )
 
-        if scheme_kind != meta.kind:
+        if meta.kind not in scheme_kinds:
             raise ValueError(
                 f"ChunkingScheme InputKind mismatch: scheme_type={scheme_type.__name__} "
-                f"has kind={scheme_kind!r}, but meta.kind={meta.kind!r}."
+                f"has kind={scheme_kinds!r}, but meta.kind={meta.kind}."
             )
 
         # 2) Instantiate with simple logic for known schemes
+        if scheme_type is NoChunkingScheme:
+            assert isinstance(meta, (DatasetPlanMeta, SpectrumPlanMeta, SpectraListPlanMeta)), (
+                f"The argument meta should be of type DatasetPlanMeta, SpectrumPlanMeta, or "
+                f"SpectraListPlanMeta, instead it's of type {type(meta)}"
+            )
+            return NoChunkingScheme()
+
         if scheme_type is SpatialTileScheme:
-            assert isinstance(meta, DatasetPlanMeta)
+            assert isinstance(
+                meta, DatasetPlanMeta
+            ), f"The argument meta should be of type DatasetPlanMeta, instead it's of type {type(meta)}"
             # tile_h/tile_w = 1/3 of height/width
             tile_h = max(1, int(meta.height // 3))  # type: ignore[attr-defined]
             tile_w = max(1, int(meta.width // 3))  # type: ignore[attr-defined]
             return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
 
         if scheme_type is SpectralBatchDatasetScheme:
-            assert isinstance(meta, DatasetPlanMeta)
+            assert isinstance(
+                meta, DatasetPlanMeta
+            ), f"The argument meta should be of type DatasetPlanMeta, instead it's of type {type(meta)}"
             # band_step = 1/3 of bands
             band_step = max(1, int(meta.bands // 3))  # type: ignore[attr-defined]
             return SpectralBatchDatasetScheme(band_step=band_step)
 
         if scheme_type is SpectraBatchScheme:
-            assert isinstance(meta, SpectraListPlanMeta)
+            assert isinstance(
+                meta, SpectraListPlanMeta
+            ), f"The argument meta should be of type SpectraListPlanMeta, instead it's of type {type(meta)}"
             # batch_size = 1/3 of num_spectra
             batch_size = max(1, int(meta.num_spectra // 3))  # type: ignore[attr-defined]
             return SpectraBatchScheme(batch_size=batch_size)
 
         if scheme_type is SingleSpectrumScheme:
-            assert isinstance(meta, SpectrumPlanMeta)
+            assert isinstance(
+                meta, SpectrumPlanMeta
+            ), f"The argument meta should be of type SpectrumPlanMeta, instead it's of type {type(meta)}"
             return SingleSpectrumScheme()
 
         # 3) Fallback: instantiate with default constructor
@@ -403,6 +370,16 @@ class TaskPlanner:
                 out_ref = self._ctx.storage.allocate_data(req)
                 plan.bindings[req.name] = out_ref
 
+            # 5.5) Substitute out data bindings for data refs
+            # Note, data bindings should refer to data refs from
+            # previous stages
+            stage_broadcast_inputs: Dict[str, Union[Any, DataRef]] = {}
+            for input_name, input_value in stage.broadcast_input.items():
+                if isinstance(input_value, DataBinding):
+                    stage_broadcast_inputs[input_name] = plan.bindings[input_value.name]
+                else:
+                    stage_broadcast_inputs[input_name] = input_value
+
             # 6) expand regions -> WorkUnits
             unit_ids_for_stage: List[str] = []
             stage_step_unit_ids: List[List[str]] = []
@@ -422,7 +399,7 @@ class TaskPlanner:
                     input_ref=input_ref,
                     input_region=input_region,
                     output_writes=out_writes,
-                    broadcast_inputs=dict[str, DataRef](stage.broadcast_input),
+                    broadcast_inputs=dict[str, Any](stage_broadcast_inputs),
                 )
                 unit = WorkUnit(
                     unit_id=unit_id,
@@ -476,7 +453,7 @@ class TaskPlanner:
         )
 
 
-class SemanticTask(ABC):
+class SemanticTask:
     def __init__(
         self,
         priority_class: PriorityClass,

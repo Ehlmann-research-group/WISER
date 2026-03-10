@@ -64,6 +64,64 @@ def temp_dir() -> Path:
 
 
 @dataclass(frozen=True)
+class BasePlanMeta:
+    """Minimal, cheap-to-compute planning metadata needed to chunk data"""
+
+    kind: InputKind
+    dtype: np.dtype = np.dtype("float32")
+
+    @property
+    def dtype_bytes(self) -> int:
+        return self.dtype.itemsize
+
+
+@dataclass(frozen=True)
+class DatasetPlanMeta(BasePlanMeta):
+    """
+    Minimal metadata needed to plan chunking and estimate memory for dataset operations.
+    """
+
+    kind: InputKind = "dataset"
+    shape: Tuple[int, int, int] = (0, 0, 0)  # [y][x][b]
+
+    # Optional performance hints
+    gdal_block_shape: Optional[Tuple[int, int]] = None  # (block_h, block_w) if known
+
+    @property
+    def height(self) -> int:
+        return self.shape[0]
+
+    @property
+    def width(self) -> int:
+        return self.shape[1]
+
+    @property
+    def bands(self) -> int:
+        return self.shape[2]
+
+    @property
+    def pixels(self) -> int:
+        return self.height * self.width
+
+
+@dataclass(frozen=True)
+class SpectrumPlanMeta(BasePlanMeta):
+    """Minimal metadata for a single spectrum (1D array)."""
+
+    kind: InputKind = "spectrum"
+    length: int = 0  # number of wavelength samples
+
+
+@dataclass(frozen=True)
+class SpectraListPlanMeta(BasePlanMeta):
+    """Minimal metadata for a list of spectra (N spectra, each length L)."""
+
+    kind: InputKind = "spectra_list"
+    num_spectra: int = 0
+    spectrum_length: int = 0
+
+
+@dataclass(frozen=True)
 class ExternalParams:
     """
     Reconstruction contract for external disk-backed refs.
@@ -121,6 +179,7 @@ class DataRef:
 @dataclass(frozen=True)
 class DataMeta:
     kind: RefKind
+    # [y][x][b] for dataset, [b] for spectrum, [i][b] for spectra_list [i][b]
     shape: Tuple[int, ...]
     elem_type: np.dtype
     wavelengths: Optional[np.ndarray] = None
@@ -162,7 +221,7 @@ class AllocationRequest:
     # For numeric arrays (dataset/spectrum/spectra_list/array)
     shape: Optional[Tuple[int, ...]] = None
     dtype: Optional[np.dtype] = None
-    chunks: Optional[Tuple[int, ...]] = None  # for zarr / chunked storage
+    chunks: Optional[Tuple[int, ...]] = None  # optional for zarr / chunked storage
 
     # Optional metadata tags (task_id, stage_id, output_name)
     tags: Optional[Dict[str, str]] = None
@@ -187,6 +246,10 @@ class DataRegion:
     def scalar_count(self) -> int:
         raise NotImplementedError
 
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """Validate that an array's shape matches this region."""
+        raise NotImplementedError
+
 
 @dataclass(frozen=True)
 class DatasetRegionRef(DataRegion):
@@ -204,6 +267,26 @@ class DatasetRegionRef(DataRegion):
             raise ValueError("DatasetRegionRef has invalid bounds.")
         return (self.y1 - self.y0) * (self.x1 - self.x0) * (self.b1 - self.b0)
 
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """
+        Validate that `arr` fits this dataset region.
+
+        Expected input array shape is `[y][x][b]` (NumPy shape `(y, x, b)`), where:
+        - `y == (y1 - y0)`
+        - `x == (x1 - x0)`
+        - `b == (b1 - b0)`
+        """
+        expected_shape = (self.y1 - self.y0, self.x1 - self.x0, self.b1 - self.b0)
+        if arr.ndim != 3:
+            raise ValueError(
+                f"DatasetRegionRef expects a 3D array with shape [y][x][b]; got ndim={arr.ndim}."
+            )
+        if arr.shape != expected_shape:
+            raise ValueError(
+                f"DatasetRegionRef expects shape {expected_shape} for bounds "
+                f"(y:{self.y0}:{self.y1}, x:{self.x0}:{self.x1}, b:{self.b0}:{self.b1}); got {arr.shape}."
+            )
+
 
 @dataclass(frozen=True)
 class SpectrumRef(DataRegion):
@@ -214,6 +297,19 @@ class SpectrumRef(DataRegion):
         if self.length < 0:
             raise ValueError("SpectrumRef length must be non-negative.")
         return self.length
+
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """
+        Validate that `arr` fits this spectrum region.
+
+        Expected input array shape is `[b]` (NumPy shape `(b,)`), where:
+        - `b == length`
+        """
+        expected_shape = (self.length,)
+        if arr.ndim != 1:
+            raise ValueError(f"SpectrumRef expects a 1D array with shape [b]; got ndim={arr.ndim}.")
+        if arr.shape != expected_shape:
+            raise ValueError(f"SpectrumRef expects shape {expected_shape}; got {arr.shape}.")
 
 
 @dataclass(frozen=True)
@@ -227,19 +323,51 @@ class SpectraBatchRef(DataRegion):
             raise ValueError("SpectraBatchRef has invalid bounds.")
         return (self.i1 - self.i0) * self.length
 
+    def validate_array_shape(self, arr: np.ndarray) -> None:
+        """
+        Validate that `arr` fits this spectra batch region.
+
+        Expected input array shape is `[i][b]` (NumPy shape `(i, b)`), where:
+        - `i == (i1 - i0)`
+        - `b == length`
+        """
+        expected_shape = (self.i1 - self.i0, self.length)
+        if arr.ndim != 2:
+            raise ValueError(f"SpectraBatchRef expects a 2D array with shape [i][b]; got ndim={arr.ndim}.")
+        if arr.shape != expected_shape:
+            raise ValueError(
+                f"SpectraBatchRef expects shape {expected_shape} for bounds "
+                f"(i:{self.i0}:{self.i1}, b:{self.length}); got {arr.shape}."
+            )
+
 
 # Returns input and output regions (aka ChunkRefs)
 @dataclass
 class ChunkingScheme(ABC):
-    kind: ClassVar[InputKind] = "dataset"
+    kind: ClassVar[list[RefKind]] = ["dataset"]
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable["DataRegion"]:
         pass
 
 
 @dataclass
+class NoChunkingScheme(ChunkingScheme):
+    kind: ClassVar[list[RefKind]] = ["dataset", "spectrum", "spectra_list"]
+
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable["DataRegion"]:
+        if isinstance(meta, DatasetPlanMeta):
+            yield DatasetRegionRef(0, meta.height, 0, meta.width, 0, meta.bands)
+        elif isinstance(meta, SpectrumPlanMeta):
+            yield SpectrumRef(meta.length)
+        elif isinstance(meta, SpectraListPlanMeta):
+            yield SpectraBatchRef(0, meta.num_spectra, meta.spectrum_length)
+        else:
+            raise ValueError(f"Unsupported meta type: {type(meta)}")
+
+
+@dataclass
 class SpatialTileScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "dataset"
+    kind: ClassVar[list[RefKind]] = ["dataset"]
     tile_h: int
     tile_w: int
 
@@ -254,7 +382,7 @@ class SpatialTileScheme(ChunkingScheme):
 
 @dataclass
 class SpectralBatchDatasetScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "dataset"
+    kind: ClassVar[list[RefKind]] = ["dataset", "array"]
     band_step: int = 32
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[DatasetRegionRef]:
@@ -266,7 +394,7 @@ class SpectralBatchDatasetScheme(ChunkingScheme):
 
 @dataclass
 class SingleSpectrumScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "spectrum"
+    kind: ClassVar[list[RefKind]] = ["spectrum"]
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectrumRef]:
         yield SpectrumRef(meta.length)
@@ -274,7 +402,7 @@ class SingleSpectrumScheme(ChunkingScheme):
 
 @dataclass
 class SpectraBatchScheme(ChunkingScheme):
-    kind: ClassVar[InputKind] = "spectra_list"
+    kind: ClassVar[list[RefKind]] = ["spectra_list"]
     batch_size: int = 256
 
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectraBatchRef]:

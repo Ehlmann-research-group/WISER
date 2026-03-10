@@ -1,26 +1,17 @@
-import datetime
 import json
 import logging
 import os
-import pathlib
 import platform
 import pprint
 import sys
 import traceback
 import webbrowser
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-
-from osgeo import gdal, osr
-
-from wiser.bandmath.types import VariableType, BandMathExprInfo
-from wiser.raster.serializable import SerializedForm
-
-from .app_config import PixelReticleType
 
 from wiser.bandmath.utils import (
     TEMP_FOLDER_PATH,
@@ -28,6 +19,7 @@ from wiser.bandmath.utils import (
     bandmath_progress_callback,
     bandmath_error_callback,
 )
+from wiser.gui.app_services import AppServices
 
 from .about_dialog import AboutDialog
 
@@ -58,7 +50,6 @@ from . import bug_reporting
 from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
-from .fits_loading_dialog import FitsSpectraLoadingDialog
 from .geo_reference_dialog import GeoReferencerDialog
 from .reference_creator_dialog import ReferenceCreatorDialog
 from wiser import bandmath
@@ -67,7 +58,6 @@ from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (
     SpectrumAtPoint,
     SpectrumAverageMode,
-    NumPyArraySpectrum,
 )
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
@@ -77,7 +67,6 @@ from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
-from wiser.gui.parallel_task import ParallelTaskProcess
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 
@@ -112,6 +101,7 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
+        self._app_services: AppServices = AppServices()
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
 

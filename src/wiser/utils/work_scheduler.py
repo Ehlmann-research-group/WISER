@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from wiser.utils.storage_service import StorageService
 
 SCHEDULER_PROCESS_BUDGET = 6
-SCHEDULER_RAM_BUDGET = 4_000_000_000
+SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
 
@@ -1060,7 +1060,8 @@ class WorkScheduler:
                         self._purge_plan_from_queues_locked(plan_id)
                         fail_message = (
                             f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
-                            f"to work unit {unit_id}: {exc}"
+                            f"to work unit {unit_id}: {exc}\n\n"
+                            f"Traceback:\n{exc.__traceback__}"
                         )
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
