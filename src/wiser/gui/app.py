@@ -39,6 +39,7 @@ from .image_coords_widget import ImageCoordsWidget
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
+from .mnf import MinimumNoiseFractionDialog
 
 from .util import *
 
@@ -334,6 +335,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr("Similarity Transform"))
         act.triggered.connect(self.show_similarity_transform_dialog)
+
+        act = self._tools_menu.addAction(self.tr("Minimum Noise Fraction"))
+        act.triggered.connect(self.show_mnf_dialog)
 
         # Help menu
 
@@ -921,6 +925,14 @@ class DataVisualizerApp(QMainWindow):
                 pass
         else:
             self._similarity_transform_dialog.show()
+
+    def show_mnf_dialog(self, in_test_mode=False):
+        mnf_dialog = MinimumNoiseFractionDialog(self._app_state, self._app_services)
+        if not in_test_mode:
+            if mnf_dialog.exec_() == QDialog.Accepted:
+                pass
+        else:
+            mnf_dialog.show()
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         """
