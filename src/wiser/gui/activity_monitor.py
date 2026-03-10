@@ -6,6 +6,7 @@ from PySide2.QtCore import QTimer, Qt
 from PySide2.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -142,6 +143,7 @@ class ActivityMonitorWidget(QWidget):
         table.horizontalHeader().sectionResized.connect(
             lambda logical_index, old_size, new_size, table=table: self._resize_all_rows(table)
         )
+        self._schedule_table_layout_refresh(table)
 
     def _build_task_widget(self, title: str, meta: Dict[str, str], enabled: bool) -> QLabel:
         label = QLabel()
@@ -235,6 +237,7 @@ class ActivityMonitorWidget(QWidget):
             table.setCellWidget(row, 2, remove_button)
 
         self._resize_row_to_contents(table, row)
+        self._schedule_table_layout_refresh(table)
         self._rebuild_task_locations()
 
     def _metadata_item(self, table: QTableWidget, row: int) -> QTableWidgetItem:
@@ -351,12 +354,24 @@ class ActivityMonitorWidget(QWidget):
     def _toggle_finished_tasks(self) -> None:
         self._finished_expanded = not self._finished_expanded
         self._ui.tbl_wdgt_finished_tasks.setVisible(self._finished_expanded)
+        if self._finished_expanded:
+            self._schedule_table_layout_refresh(self._ui.tbl_wdgt_finished_tasks)
         self._sync_finished_section_button()
 
     def _sync_finished_section_button(self) -> None:
         arrow = "\u25bc" if self._finished_expanded else "\u25b6"
         count = self._ui.tbl_wdgt_finished_tasks.rowCount()
         self._ui.btn_finished_tasks.setText(self.tr(f"Finished Tasks ({count}) {arrow}"))
+
+    def _schedule_table_layout_refresh(self, table: QTableWidget) -> None:
+        QTimer.singleShot(0, lambda table=table: self._refresh_table_layout(table))
+
+    def _refresh_table_layout(self, table: QTableWidget) -> None:
+        header = table.horizontalHeader()
+        for column in range(1, table.columnCount()):
+            if header.sectionResizeMode(column) == QHeaderView.ResizeToContents:
+                table.resizeColumnToContents(column)
+        self._resize_all_rows(table)
 
     def _resize_all_rows(self, table: QTableWidget) -> None:
         for row in range(table.rowCount()):
