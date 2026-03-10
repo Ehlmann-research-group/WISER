@@ -260,7 +260,7 @@ def main():
         splash = QSplashScreen(pixmap, flags)
         splash.show()
         splash.showMessage(
-            "WISER may take longer to load the\nfirst time after a fresh intsall.",
+            "WISER may take longer to load the\nfirst time after a fresh install.",
             Qt.AlignHCenter | Qt.AlignBottom,
             QColor("black"),
         )
