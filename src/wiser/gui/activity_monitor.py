@@ -139,6 +139,9 @@ class ActivityMonitorWidget(QWidget):
         if len(columns) > 2:
             table.horizontalHeader().setSectionResizeMode(2, table.horizontalHeader().ResizeToContents)
         table.setWordWrap(True)
+        table.horizontalHeader().sectionResized.connect(
+            lambda logical_index, old_size, new_size, table=table: self._resize_all_rows(table)
+        )
 
     def _build_task_widget(self, title: str, meta: Dict[str, str], enabled: bool) -> QLabel:
         label = QLabel()
@@ -231,6 +234,7 @@ class ActivityMonitorWidget(QWidget):
         if remove_button is not None and table.columnCount() > 2:
             table.setCellWidget(row, 2, remove_button)
 
+        self._resize_row_to_contents(table, row)
         self._rebuild_task_locations()
 
     def _metadata_item(self, table: QTableWidget, row: int) -> QTableWidgetItem:
@@ -353,6 +357,26 @@ class ActivityMonitorWidget(QWidget):
         arrow = "\u25bc" if self._finished_expanded else "\u25b6"
         count = self._ui.tbl_wdgt_finished_tasks.rowCount()
         self._ui.btn_finished_tasks.setText(self.tr(f"Finished Tasks ({count}) {arrow}"))
+
+    def _resize_all_rows(self, table: QTableWidget) -> None:
+        for row in range(table.rowCount()):
+            self._resize_row_to_contents(table, row)
+
+    def _resize_row_to_contents(self, table: QTableWidget, row: int) -> None:
+        height = table.verticalHeader().defaultSectionSize()
+        for column in range(table.columnCount()):
+            cell_widget = table.cellWidget(row, column)
+            if cell_widget is not None:
+                cell_widget.updateGeometry()
+                height = max(height, cell_widget.sizeHint().height())
+
+            item = table.item(row, column)
+            if item is not None:
+                size_hint = item.sizeHint()
+                if size_hint.isValid():
+                    height = max(height, size_hint.height())
+
+        table.setRowHeight(row, height)
 
     def _rebuild_task_locations(self) -> None:
         self._task_locations = {}
