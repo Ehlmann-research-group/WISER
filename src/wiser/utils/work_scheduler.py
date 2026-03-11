@@ -1099,6 +1099,9 @@ class WorkScheduler:
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                     else:
+                        completion_callback = plan_state.task_plan.completion_callback
+                        if completion_callback is not None:
+                            completion_callback(plan_state.task_plan.bindings)
                         plan_state.completion_future.set_result(None)
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=True)

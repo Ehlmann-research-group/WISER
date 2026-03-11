@@ -192,6 +192,7 @@ class TaskPlan:
     stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
+    completion_callback: Optional[Callable[[Dict[str, DataRef]], None]] = None
 
 
 @dataclass(frozen=True)
@@ -341,6 +342,7 @@ class TaskPlanner:
         bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
 
         plan.bindings.update(bindings)
+        plan.completion_callback = semantic_task.completion_callback
 
         # A simple policy: all units in stage i depend on completion of *all* units in stage i-1.
         prev_stage_unit_ids: List[str] = []
@@ -527,3 +529,13 @@ class SemanticTask:
 
     def get_priority_class(self) -> PriorityClass:
         return self._priority_class
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        """
+        Hook invoked after the task plan's final work unit completes successfully.
+
+        Implement this in user code to consume the task plan's final `bindings`
+        mapping, which contains the `DataRef` objects produced and tracked during
+        planning/execution.
+        """
+        pass
