@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, Dict, Optional
@@ -266,6 +267,59 @@ def get_mnf_pipeline(
     )
 
 
+class MNFSemanticTask(QObject, SemanticTask):
+    result_ready = Signal(object)
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        source_dataset,
+        input_ref: DataRef,
+        num_components: int,
+        output_ref_name: str = "mnf_data",
+    ):
+        QObject.__init__(self)
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=input_ref,
+            algorithm_pipeline=get_mnf_pipeline(input_ref, num_components, output_ref_name),
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._source_dataset = source_dataset
+        self._output_ref_name = output_ref_name
+        self.result_ready.connect(self._load_result_into_wiser)
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        output_ref = bindings.get(self._output_ref_name)
+        if output_ref is None:
+            raise KeyError(f"Missing MNF output binding: {self._output_ref_name}")
+
+        storage_client = get_process_storage_client()
+        data_meta = storage_client.get_meta(output_ref)
+        height, width, bands = data_meta.shape
+        output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
+        reduced_data, _ = storage_client.read_region(output_ref, output_region)
+        self.result_ready.emit(np.asarray(reduced_data))
+
+    @Slot(object)
+    def _load_result_into_wiser(self, reduced_data: object) -> None:
+        reduced_array = np.asarray(reduced_data)
+        reduced_array_by_band = reduced_array.transpose(2, 0, 1)
+
+        loader = self._app_state.get_loader()
+        cache = self._app_state.get_cache()
+        reduced_dataset = loader.dataset_from_numpy_array(reduced_array_by_band, cache)
+
+        source_name = self._source_dataset.get_name() or "Dataset"
+        timestamp = datetime.datetime.now().isoformat()
+        reduced_dataset.set_name(self._app_state.unique_dataset_name(f"MNF, Img: {source_name}"))
+        reduced_dataset.set_description(f"MNF reduced image-cube: {source_name} ({timestamp})")
+        reduced_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+        self._app_state.add_dataset(reduced_dataset, view_dataset=False)
+
+
 class MinimumNoiseFractionDialog(QDialog):
     """
     Use the shift difference method. Let the user have a dark image option. Let the user
@@ -353,10 +407,11 @@ class MinimumNoiseFractionDialog(QDialog):
         if num_components <= 0:
             raise ValueError("No valid MNF component count for selected dataset")
 
-        mnf_task = SemanticTask(
-            priority_class=PriorityClass.BACKGROUND,
+        mnf_task = MNFSemanticTask(
+            app_state=self._app_state,
+            source_dataset=selected_dataset,
             input_ref=dataset_ref,
-            algorithm_pipeline=get_mnf_pipeline(dataset_ref, num_components, "mnf_data"),
+            num_components=num_components,
         )
 
         task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
