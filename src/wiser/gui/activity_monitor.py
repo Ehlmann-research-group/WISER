@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from PySide2.QtCore import QTimer, Qt, Signal, Slot
 from PySide2.QtWidgets import (
     QAbstractItemView,
+    QDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -22,7 +23,7 @@ from wiser.gui.generated.activity_monitor_ui import Ui_ActivityMonitor
 from wiser.utils.task_system import ProgressUpdate
 
 
-class ActivityMonitorWidget(QWidget):
+class ActivityMonitorDialog(QDialog):
     progress_update = Signal(object)
 
     ACTIVE_COLUMNS = ("Task", "Activity")

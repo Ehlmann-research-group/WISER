@@ -31,7 +31,7 @@ from .primitives import (
 from .storage_service import StorageService
 
 if TYPE_CHECKING:
-    from wiser.gui.activity_monitor import ActivityMonitorWidget
+    from wiser.gui.activity_monitor import ActivityMonitorDialog
     from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 
 Number = Union[int, float]
@@ -474,7 +474,7 @@ class TaskManager(QObject):
     # move the activity row into the finished section as cancelled.
     task_cancelled = Signal(str)
 
-    def __init__(self, activity_monitor: "ActivityMonitorWidget"):
+    def __init__(self, activity_monitor: "ActivityMonitorDialog"):
         super().__init__()
         self._activity_monitor = activity_monitor
         self._activity_ids_by_plan_id: Dict[str, int] = {}
@@ -546,7 +546,7 @@ class TaskManager(QObject):
 
     def register_and_submit_task_plan(self, scheduler: "WorkScheduler", task_plan: TaskPlan) -> Future[None]:
         """
-        Registers the task plan to the task gui (the real name will be ActivityMonitorWidget
+        Registers the task plan to the task gui (the real name will be ActivityMonitorDialog
         (found in [activity_monitor.py](src/wiser/gui/activity_monitor.py))), then submits it?
         """
         activity_id = self._activity_monitor.register_task(

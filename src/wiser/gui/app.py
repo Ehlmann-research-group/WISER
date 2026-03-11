@@ -40,7 +40,7 @@ from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
 from .mnf import MinimumNoiseFractionDialog
-from .activity_monitor import ActivityMonitorWidget
+from .activity_monitor import ActivityMonitorDialog
 
 from .util import *
 
@@ -202,11 +202,11 @@ class DataVisualizerApp(QMainWindow):
 
         # Activity Monitor
 
-        self._activity_monitor: ActivityMonitorWidget = ActivityMonitorWidget()
+        self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
 
         # App Services
 
-        self._app_services: AppServices = AppServices(self._activity_monitor)
+        self._app_services: AppServices = AppServices(self._activity_monitor, parent=self)
 
         # Hook up widget events to their corresponding control functions.
 
@@ -948,7 +948,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_activity_monitor(self, in_test_mode=False):
         if self._activity_monitor is None:
-            self._activity_monitor = ActivityMonitorWidget()
+            self._activity_monitor = ActivityMonitorDialog(parent=self)
         self._activity_monitor.show()
         self._activity_monitor.raise_()
         self._activity_monitor.activateWindow()
