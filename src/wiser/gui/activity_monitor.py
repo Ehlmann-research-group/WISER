@@ -35,7 +35,7 @@ class ActivityMonitorWidget(QWidget):
     STATE_FAILED = "failed"
 
     TERMINAL_STATES = {STATE_FINISHED, STATE_CANCELLED, STATE_FAILED}
-    MOVE_DELAY_MS = 1000
+    MOVE_DELAY_MS = 0
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent=parent)

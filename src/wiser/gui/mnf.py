@@ -348,7 +348,6 @@ class MinimumNoiseFractionDialog(QDialog):
     def show_mnf(self, dataset_id: Optional[int] = None) -> None:
         cbox_dataset = self._ui.comboBox
         datasets = self._app_state.get_datasets()
-
         cbox_dataset.clear()
         cbox_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
@@ -368,9 +367,9 @@ class MinimumNoiseFractionDialog(QDialog):
         if self._ui.sbox_component.value() < 1:
             self._ui.sbox_component.setValue(1)
 
-    def show(self):
+    def showEvent(self, event):
         self.show_mnf(dataset_id=self._selected_dataset_id)
-        super().show()
+        super().showEvent(event)
 
     def get_selected_dataset_id(self) -> Optional[int]:
         dataset_id = self._ui.comboBox.currentData()
