@@ -50,7 +50,6 @@ def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write
     noise = array[:-1, :, :] - array[1:, :, :]
     assert output_write.region is not None, "output_write's region can not be none in _run_shift_y_diff"
     output_write.region.validate_array_shape(noise)
-    raise ValueError("Testing value error")
     storage_client.write_spec(output_write, noise)
 
 

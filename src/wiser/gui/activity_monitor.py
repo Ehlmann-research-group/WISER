@@ -191,6 +191,10 @@ class ActivityMonitorWidget(QWidget):
 
         view_errors_button = QPushButton(self.tr("View Errors"))
         view_errors_button.setEnabled(False)
+        view_errors_button.setStyleSheet(
+            "QPushButton:enabled { color: red; font-weight: bold; }"
+            "QPushButton:disabled { color: palette(buttontext); font-weight: normal; }"
+        )
         view_errors_button.clicked.connect(
             lambda checked=False, controls_container=container: self._show_errors_for_controls(
                 controls_container
@@ -320,6 +324,10 @@ class ActivityMonitorWidget(QWidget):
             cancel_callback=lambda checked=False: None,
         )
         controls["progress_bar"].setValue(metadata["controls"]["progress_bar"].value())
+        controls["progress_bar"].setRange(
+            metadata["controls"]["progress_bar"].minimum(),
+            metadata["controls"]["progress_bar"].maximum(),
+        )
         if metadata["errors"]:
             controls["view_errors_button"].setEnabled(True)
 
