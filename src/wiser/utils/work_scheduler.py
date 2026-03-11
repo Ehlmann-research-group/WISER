@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from wiser.utils.storage_service import StorageService
     from wiser.utils.task_system import TaskManager
 
-SCHEDULER_PROCESS_BUDGET = 6
+SCHEDULER_PROCESS_BUDGET = 12
 SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
@@ -1079,6 +1079,14 @@ class WorkScheduler:
                         self._plan_states.pop(plan_id, None)
                         self._drain_queues_locked()
                         return
+
+                if self._task_manager is not None:
+                    completed_units = sum(
+                        len(stage_state.succeeded_unit_ids) + len(stage_state.failed_unit_ids)
+                        for stage_state in plan_state.stage_states.values()
+                    )
+                    total_units = len(plan_state.task_plan.work_units)
+                    self._task_manager.task_progressed.emit((plan_id, completed_units, total_units))
 
                 if not stage_state.is_current_step_terminal():
                     # Current step still has in-flight work; only attempt to fill open slots.

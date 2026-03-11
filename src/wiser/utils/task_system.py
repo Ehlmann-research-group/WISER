@@ -466,6 +466,7 @@ class TaskPlanner:
 
 class TaskManager(QObject):
     task_finished = Signal(str)
+    task_progressed = Signal(object)
     task_errored = Signal(object)
 
     def __init__(self, activity_monitor: "ActivityMonitorWidget"):
@@ -474,6 +475,7 @@ class TaskManager(QObject):
         self._activity_ids_by_plan_id: Dict[str, int] = {}
         self._plan_ids_by_activity_id: Dict[int, str] = {}
         self.task_finished.connect(self._on_task_finished)
+        self.task_progressed.connect(self._on_task_progressed)
         self.task_errored.connect(self._on_task_errored)
 
     def emit_progress_update(self, activity_id: int, numerator: int, denominator: int) -> None:
@@ -489,6 +491,24 @@ class TaskManager(QObject):
                 ),
             )
         )
+
+    @Slot(object)
+    def _on_task_progressed(self, payload: object) -> None:
+        if not isinstance(payload, tuple) or len(payload) != 3:
+            return
+
+        task_plan_id, numerator, denominator = payload
+        if (
+            not isinstance(task_plan_id, str)
+            or not isinstance(numerator, int)
+            or not isinstance(denominator, int)
+        ):
+            return
+
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self.emit_progress_update(activity_id, numerator, denominator)
 
     @Slot(object)
     def _on_task_errored(self, payload: object) -> None:
@@ -516,7 +536,6 @@ class TaskManager(QObject):
         Registers the task plan to the task gui (the real name will be ActivityMonitorWidget
         (found in [activity_monitor.py](src/wiser/gui/activity_monitor.py))), then submits it?
         """
-        future = scheduler.run_task_plan(task_plan)
         activity_id = self._activity_monitor.register_task(
             title=task_plan.plan_id,
             meta={
@@ -529,6 +548,7 @@ class TaskManager(QObject):
         )
         self._activity_ids_by_plan_id[task_plan.plan_id] = activity_id
         self._plan_ids_by_activity_id[activity_id] = task_plan.plan_id
+        future = scheduler.run_task_plan(task_plan)
         return future
 
 
