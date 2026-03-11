@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class AppServices(QObject):
-    def __init__(self, activity_monitor: "ActivityMonitorWidget", parent=None):
+    def __init__(self, activity_monitor: "ActivityMonitorWidget" = None, parent=None):
         self._storage_service = StorageService(
             ram_byte_limit=2_000_000_000,
             # TODO (Joshua G-K): Change this to be based on remaining data at app start up time

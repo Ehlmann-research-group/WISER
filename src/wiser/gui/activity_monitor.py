@@ -213,6 +213,20 @@ class ActivityMonitorWidget(QWidget):
         progress_bar.setValue(0)
         progress_bar.setTextVisible(True)
         progress_bar.setEnabled(progress_enabled)
+        if not progress_enabled:
+            progress_bar.setStyleSheet(
+                "QProgressBar {"
+                " border: 1px solid #b8b8b8;"
+                " border-radius: 2px;"
+                " background-color: #efefef;"
+                " color: #666666;"
+                " text-align: center;"
+                "}"
+                "QProgressBar::chunk {"
+                " background-color: #a6a6a6;"
+                " margin: 0px;"
+                "}"
+            )
 
         layout.addWidget(top_row)
         layout.addWidget(progress_bar)
@@ -313,21 +327,24 @@ class ActivityMonitorWidget(QWidget):
             return
 
         metadata = self._get_task_metadata(activity_id)
+        source_progress_bar = metadata["controls"]["progress_bar"]
+        progress_complete = source_progress_bar.value() >= source_progress_bar.maximum()
         task_widget = self._build_task_widget(
             title=metadata["title"],
             meta=metadata["meta"],
             enabled=False,
         )
         controls_widget, controls = self._build_controls_widget(
-            progress_enabled=False,
+            progress_enabled=progress_complete,
             cancel_enabled=False,
             cancel_callback=lambda checked=False: None,
         )
-        controls["progress_bar"].setValue(metadata["controls"]["progress_bar"].value())
         controls["progress_bar"].setRange(
-            metadata["controls"]["progress_bar"].minimum(),
-            metadata["controls"]["progress_bar"].maximum(),
+            source_progress_bar.minimum(),
+            source_progress_bar.maximum(),
         )
+        controls["progress_bar"].setValue(source_progress_bar.value())
+        controls["progress_bar"].setFormat(source_progress_bar.format())
         if metadata["errors"]:
             controls["view_errors_button"].setEnabled(True)
 
