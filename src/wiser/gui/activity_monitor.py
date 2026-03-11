@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional, Tuple
 
-from PySide2.QtCore import QTimer, Qt
+from PySide2.QtCore import QTimer, Qt, Signal, Slot
 from PySide2.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -19,9 +19,12 @@ from PySide2.QtWidgets import (
 )
 
 from wiser.gui.generated.activity_monitor_ui import Ui_ActivityMonitor
+from wiser.utils.task_system import ProgressUpdate
 
 
 class ActivityMonitorWidget(QWidget):
+    progress_update = Signal(object)
+
     ACTIVE_COLUMNS = ("Task", "Activity")
     FINISHED_COLUMNS = ("Task", "Activity", "Remove")
 
@@ -39,27 +42,28 @@ class ActivityMonitorWidget(QWidget):
         self._ui = Ui_ActivityMonitor()
         self._ui.setupUi(self)
 
-        self._next_task_id = 1
-        self._task_locations: Dict[int, Tuple[QTableWidget, int]] = {}
+        self._next_activity_id = 1
+        self._activity_locations: Dict[int, Tuple[QTableWidget, int]] = {}
         self._finished_expanded = True
 
         self._configure_table(self._ui.tbl_wdgt_active_tasks, self.ACTIVE_COLUMNS)
         self._configure_table(self._ui.tbl_wdgt_finished_tasks, self.FINISHED_COLUMNS)
         self._ui.btn_finished_tasks.clicked.connect(self._toggle_finished_tasks)
+        self.progress_update.connect(self._on_progress_update)
         self._sync_finished_section_button()
 
     def register_task(self, title: str, meta: Dict[str, str], cancel_callback: Callable) -> int:
-        task_id = self._next_task_id
-        self._next_task_id += 1
+        activity_id = self._next_activity_id
+        self._next_activity_id += 1
 
         task_widget = self._build_task_widget(title=title, meta=meta, enabled=True)
         controls_widget, controls = self._build_controls_widget(
             progress_enabled=True,
             cancel_enabled=True,
-            cancel_callback=lambda checked=False, task_id=task_id: self._cancel_task(task_id),
+            cancel_callback=lambda checked=False, activity_id=activity_id: self._cancel_task(activity_id),
         )
         metadata = {
-            "task_id": task_id,
+            "activity_id": activity_id,
             "title": title,
             "meta": dict(meta),
             "state": self.STATE_IDLE,
@@ -76,50 +80,62 @@ class ActivityMonitorWidget(QWidget):
             task_widget=task_widget,
             controls_widget=controls_widget,
         )
-        return task_id
+        return activity_id
 
-    def set_task_running(self, task_id: int) -> None:
-        self._set_task_state(task_id, self.STATE_RUNNING)
+    def set_task_running(self, activity_id: int) -> None:
+        self._set_task_state(activity_id, self.STATE_RUNNING)
 
-    def set_task_progress(self, task_id: int, value: int) -> None:
-        metadata = self._get_task_metadata(task_id)
+    def set_task_progress(self, activity_id: int, value: int) -> None:
+        metadata = self._get_task_metadata(activity_id)
         controls = metadata["controls"]
         progress_bar = controls["progress_bar"]
         progress_bar.setValue(max(0, min(100, int(value))))
         if metadata["state"] == self.STATE_IDLE:
-            self._set_task_state(task_id, self.STATE_RUNNING)
+            self._set_task_state(activity_id, self.STATE_RUNNING)
 
-    def append_task_error(self, task_id: int, error_message: str) -> None:
-        metadata = self._get_task_metadata(task_id)
+    def set_task_progress_update(self, activity_id: int, progress: ProgressUpdate) -> None:
+        metadata = self._get_task_metadata(activity_id)
+        controls = metadata["controls"]
+        progress_bar = controls["progress_bar"]
+        denominator = max(1, int(progress.total_iterations))
+        numerator = max(0, min(denominator, int(progress.current_iteration)))
+        progress_bar.setRange(0, denominator)
+        progress_bar.setValue(numerator)
+        progress_bar.setFormat(f"{numerator}/{denominator}")
+        if metadata["state"] == self.STATE_IDLE:
+            self._set_task_state(activity_id, self.STATE_RUNNING)
+
+    def append_task_error(self, activity_id: int, error_message: str) -> None:
+        metadata = self._get_task_metadata(activity_id)
         errors: List[str] = metadata["errors"]
         errors.append(error_message)
         metadata["controls"]["view_errors_button"].setEnabled(True)
-        self._store_task_metadata(task_id, metadata)
+        self._store_task_metadata(activity_id, metadata)
 
-    def complete_task(self, task_id: int) -> None:
-        self.set_task_finished(task_id)
+    def complete_task(self, activity_id: int) -> None:
+        self.set_task_finished(activity_id)
 
-    def set_task_finished(self, task_id: int) -> None:
-        metadata = self._get_task_metadata(task_id)
+    def set_task_finished(self, activity_id: int) -> None:
+        metadata = self._get_task_metadata(activity_id)
         metadata["controls"]["progress_bar"].setValue(100)
-        self._store_task_metadata(task_id, metadata)
-        self._set_task_state(task_id, self.STATE_FINISHED)
-        self._schedule_move_to_finished(task_id)
+        self._store_task_metadata(activity_id, metadata)
+        self._set_task_state(activity_id, self.STATE_FINISHED)
+        self._schedule_move_to_finished(activity_id)
 
-    def set_task_cancelled(self, task_id: int) -> None:
-        self._set_task_state(task_id, self.STATE_CANCELLED)
-        self._schedule_move_to_finished(task_id)
+    def set_task_cancelled(self, activity_id: int) -> None:
+        self._set_task_state(activity_id, self.STATE_CANCELLED)
+        self._schedule_move_to_finished(activity_id)
 
-    def set_task_failed(self, task_id: int, error_message: Optional[str] = None) -> None:
+    def set_task_failed(self, activity_id: int, error_message: Optional[str] = None) -> None:
         if error_message:
-            self.append_task_error(task_id, error_message)
-        self._set_task_state(task_id, self.STATE_FAILED)
-        self._schedule_move_to_finished(task_id)
+            self.append_task_error(activity_id, error_message)
+        self._set_task_state(activity_id, self.STATE_FAILED)
+        self._schedule_move_to_finished(activity_id)
 
-    def remove_task(self, task_id: int) -> None:
-        location = self._task_locations.get(task_id)
+    def remove_task(self, activity_id: int) -> None:
+        location = self._activity_locations.get(activity_id)
         if location is None:
-            raise KeyError(f"Unknown task id: {task_id}")
+            raise KeyError(f"Unknown activity id: {activity_id}")
 
         table, row = location
         table.removeRow(row)
@@ -246,40 +262,43 @@ class ActivityMonitorWidget(QWidget):
             raise RuntimeError(f"Missing metadata item at row {row}")
         return item
 
-    def _get_task_metadata(self, task_id: int) -> Dict[str, object]:
-        location = self._task_locations.get(task_id)
+    def _get_task_metadata(self, activity_id: int) -> Dict[str, object]:
+        location = self._activity_locations.get(activity_id)
         if location is None:
-            raise KeyError(f"Unknown task id: {task_id}")
+            raise KeyError(f"Unknown activity id: {activity_id}")
 
         table, row = location
         return self._metadata_item(table, row).data(Qt.UserRole)
 
-    def _store_task_metadata(self, task_id: int, metadata: Dict[str, object]) -> None:
-        location = self._task_locations.get(task_id)
+    def _store_task_metadata(self, activity_id: int, metadata: Dict[str, object]) -> None:
+        location = self._activity_locations.get(activity_id)
         if location is None:
-            raise KeyError(f"Unknown task id: {task_id}")
+            raise KeyError(f"Unknown activity id: {activity_id}")
 
         table, row = location
         self._metadata_item(table, row).setData(Qt.UserRole, metadata)
 
-    def _set_task_state(self, task_id: int, state: str) -> None:
-        metadata = self._get_task_metadata(task_id)
+    def _set_task_state(self, activity_id: int, state: str) -> None:
+        metadata = self._get_task_metadata(activity_id)
         metadata["state"] = state
-        self._store_task_metadata(task_id, metadata)
+        self._store_task_metadata(activity_id, metadata)
 
-    def _schedule_move_to_finished(self, task_id: int) -> None:
-        metadata = self._get_task_metadata(task_id)
+    def _schedule_move_to_finished(self, activity_id: int) -> None:
+        metadata = self._get_task_metadata(activity_id)
         if metadata["state"] not in self.TERMINAL_STATES:
             return
         if metadata.get("move_scheduled"):
             return
 
         metadata["move_scheduled"] = True
-        self._store_task_metadata(task_id, metadata)
-        QTimer.singleShot(self.MOVE_DELAY_MS, lambda task_id=task_id: self._move_task_to_finished(task_id))
+        self._store_task_metadata(activity_id, metadata)
+        QTimer.singleShot(
+            self.MOVE_DELAY_MS,
+            lambda activity_id=activity_id: self._move_task_to_finished(activity_id),
+        )
 
-    def _move_task_to_finished(self, task_id: int) -> None:
-        location = self._task_locations.get(task_id)
+    def _move_task_to_finished(self, activity_id: int) -> None:
+        location = self._activity_locations.get(activity_id)
         if location is None:
             return
 
@@ -287,7 +306,7 @@ class ActivityMonitorWidget(QWidget):
         if source_table is self._ui.tbl_wdgt_finished_tasks:
             return
 
-        metadata = self._get_task_metadata(task_id)
+        metadata = self._get_task_metadata(activity_id)
         task_widget = self._build_task_widget(
             title=metadata["title"],
             meta=metadata["meta"],
@@ -307,7 +326,7 @@ class ActivityMonitorWidget(QWidget):
         metadata["move_scheduled"] = False
 
         remove_button = self._build_remove_button(
-            lambda checked=False, task_id=task_id: self.remove_task(task_id)
+            lambda checked=False, activity_id=activity_id: self.remove_task(activity_id)
         )
         source_table.removeRow(source_row)
         self._rebuild_task_locations()
@@ -323,32 +342,32 @@ class ActivityMonitorWidget(QWidget):
         if not self._finished_expanded:
             self._toggle_finished_tasks()
 
-    def _cancel_task(self, task_id: int) -> None:
-        metadata = self._get_task_metadata(task_id)
+    def _cancel_task(self, activity_id: int) -> None:
+        metadata = self._get_task_metadata(activity_id)
         cancel_callback = metadata["cancel_callback"]
         if callable(cancel_callback):
             try:
                 cancel_callback()
             except Exception as exc:
-                self.set_task_failed(task_id, str(exc))
+                self.set_task_failed(activity_id, str(exc))
                 return
-        self.set_task_cancelled(task_id)
+        self.set_task_cancelled(activity_id)
 
     def _show_errors_for_controls(self, controls_container: QWidget) -> None:
-        task_id = self._find_task_id_by_controls(controls_container)
-        if task_id is None:
+        activity_id = self._find_activity_id_by_controls(controls_container)
+        if activity_id is None:
             return
 
-        metadata = self._get_task_metadata(task_id)
+        metadata = self._get_task_metadata(activity_id)
         errors: List[str] = metadata["errors"]
         message = "\n\n".join(errors) if errors else self.tr("No errors recorded for this task.")
         QMessageBox.information(self, self.tr("Task Errors"), message)
 
-    def _find_task_id_by_controls(self, controls_container: QWidget) -> Optional[int]:
-        for task_id in self._task_locations:
-            metadata = self._get_task_metadata(task_id)
+    def _find_activity_id_by_controls(self, controls_container: QWidget) -> Optional[int]:
+        for activity_id in self._activity_locations:
+            metadata = self._get_task_metadata(activity_id)
             if metadata["controls"]["container"] is controls_container:
-                return task_id
+                return activity_id
         return None
 
     def _toggle_finished_tasks(self) -> None:
@@ -362,6 +381,17 @@ class ActivityMonitorWidget(QWidget):
         arrow = "\u25bc" if self._finished_expanded else "\u25b6"
         count = self._ui.tbl_wdgt_finished_tasks.rowCount()
         self._ui.btn_finished_tasks.setText(self.tr(f"Finished Tasks ({count}) {arrow}"))
+
+    @Slot(object)
+    def _on_progress_update(self, payload: object) -> None:
+        if not isinstance(payload, tuple) or len(payload) != 2:
+            return
+
+        activity_id, progress = payload
+        if not isinstance(activity_id, int) or not isinstance(progress, ProgressUpdate):
+            return
+
+        self.set_task_progress_update(activity_id, progress)
 
     def _schedule_table_layout_refresh(self, table: QTableWidget) -> None:
         QTimer.singleShot(0, lambda table=table: self._refresh_table_layout(table))
@@ -394,7 +424,7 @@ class ActivityMonitorWidget(QWidget):
         table.setRowHeight(row, height)
 
     def _rebuild_task_locations(self) -> None:
-        self._task_locations = {}
+        self._activity_locations = {}
         for table in (self._ui.tbl_wdgt_active_tasks, self._ui.tbl_wdgt_finished_tasks):
             for row in range(table.rowCount()):
                 item = table.item(row, 0)
@@ -403,10 +433,10 @@ class ActivityMonitorWidget(QWidget):
                 metadata = item.data(Qt.UserRole)
                 if not isinstance(metadata, dict):
                     continue
-                task_id = metadata.get("task_id")
-                if task_id is None:
+                activity_id = metadata.get("activity_id")
+                if activity_id is None:
                     continue
-                self._task_locations[int(task_id)] = (table, row)
+                self._activity_locations[int(activity_id)] = (table, row)
         self._sync_finished_section_button()
 
     def _format_task_html(self, title: str, meta: Dict[str, str]) -> str:

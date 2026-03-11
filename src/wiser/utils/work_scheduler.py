@@ -627,6 +627,11 @@ class WorkScheduler:
         self._flush_pending_done_callbacks()
         return plan_state.completion_future
 
+    def cancel_plan(self, plan_id: str) -> None:
+        """Remove queued work for a plan from scheduler-managed queues."""
+        with self._state_lock:
+            self._purge_plan_from_queues_locked(plan_id)
+
     def _validate_task_plan(self, task_plan: TaskPlan) -> None:
         """Ensure stage/unit mappings are internally consistent before scheduling."""
 
