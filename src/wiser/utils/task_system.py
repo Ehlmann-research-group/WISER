@@ -465,6 +465,7 @@ class TaskPlanner:
 
 
 class TaskManager(QObject):
+    task_finished = Signal(str)
     task_errored = Signal(object)
 
     def __init__(self, activity_monitor: "ActivityMonitorWidget"):
@@ -472,6 +473,7 @@ class TaskManager(QObject):
         self._activity_monitor = activity_monitor
         self._activity_ids_by_plan_id: Dict[str, int] = {}
         self._plan_ids_by_activity_id: Dict[int, str] = {}
+        self.task_finished.connect(self._on_task_finished)
         self.task_errored.connect(self._on_task_errored)
 
     def emit_progress_update(self, activity_id: int, numerator: int, denominator: int) -> None:
@@ -501,6 +503,13 @@ class TaskManager(QObject):
         if activity_id is None:
             return
         self._activity_monitor.append_task_error(activity_id, error_message)
+
+    @Slot(str)
+    def _on_task_finished(self, task_plan_id: str) -> None:
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.set_task_finished(activity_id)
 
     def register_and_submit_task_plan(self, scheduler: "WorkScheduler", task_plan: TaskPlan) -> Future[None]:
         """
