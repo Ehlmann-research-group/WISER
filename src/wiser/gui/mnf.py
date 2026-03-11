@@ -333,13 +333,12 @@ class MinimumNoiseFractionDialog(QDialog):
     def get_num_components(self) -> int:
         return int(self._ui.sbox_component.value())
 
-    def perform_mnf(self, dataset_id: Optional[int] = None):
-        if dataset_id is not None:
-            self._selected_dataset_id = int(dataset_id)
-            self.show_mnf(dataset_id=self._selected_dataset_id)
+    def perform_mnf(self):
         selected_dataset = self.get_selected_dataset()
         if selected_dataset is None:
             raise ValueError("No dataset selected for MNF")
+
+        self._selected_dataset_id = selected_dataset.get_id()
 
         dataset_ref = self._app_services.storage_service.register_external(
             ExternalRasterHandle(dataset_obj=selected_dataset)
@@ -363,3 +362,7 @@ class MinimumNoiseFractionDialog(QDialog):
         task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
         future = self._app_services.scheduler.run_task_plan(task_plan)
         return future
+
+    def accept(self):
+        self.perform_mnf()
+        super().accept()
