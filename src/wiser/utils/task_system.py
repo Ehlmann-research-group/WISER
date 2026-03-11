@@ -467,13 +467,19 @@ class TaskPlanner:
 class TaskManager(QObject):
     task_finished = Signal(str)
     task_progressed = Signal(object)
+    # Emitted when a work unit raises an exception so the UI can append error
+    # text for the plan without treating it as a user/system cancellation.
     task_errored = Signal(object)
+    # Emitted when a plan is cancelled by scheduler control flow so the UI can
+    # move the activity row into the finished section as cancelled.
+    task_cancelled = Signal(str)
 
     def __init__(self, activity_monitor: "ActivityMonitorWidget"):
         super().__init__()
         self._activity_monitor = activity_monitor
         self._activity_ids_by_plan_id: Dict[str, int] = {}
         self._plan_ids_by_activity_id: Dict[int, str] = {}
+        self.task_cancelled.connect(self._on_task_cancelled)
         self.task_finished.connect(self._on_task_finished)
         self.task_progressed.connect(self._on_task_progressed)
         self.task_errored.connect(self._on_task_errored)
@@ -509,6 +515,13 @@ class TaskManager(QObject):
         if activity_id is None:
             return
         self.emit_progress_update(activity_id, numerator, denominator)
+
+    @Slot(str)
+    def _on_task_cancelled(self, task_plan_id: str) -> None:
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.set_task_cancelled(activity_id)
 
     @Slot(object)
     def _on_task_errored(self, payload: object) -> None:

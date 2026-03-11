@@ -634,6 +634,10 @@ class WorkScheduler:
         """Remove queued work for a plan from scheduler-managed queues."""
         with self._state_lock:
             self._purge_plan_from_queues_locked(plan_id)
+            plan_state = self._plan_states.pop(plan_id, None)
+            if plan_state is not None and not plan_state.completion_future.done():
+                plan_state.completion_future.cancel()
+            self._drain_queues_locked()
 
     def _validate_task_plan(self, task_plan: TaskPlan) -> None:
         """Ensure stage/unit mappings are internally consistent before scheduling."""
@@ -1168,6 +1172,8 @@ class WorkScheduler:
                 retained = deque(item for item in queue_map[priority] if item.plan_id != plan_id)
                 queue_map[priority] = retained
         self._reserved_tracker.remove_units_for_plan(plan_id)
+        if self._task_manager is not None:
+            self._task_manager.task_cancelled.emit(plan_id)
 
     @staticmethod
     def _execute_work_unit(work_unit: WorkUnit) -> Any:

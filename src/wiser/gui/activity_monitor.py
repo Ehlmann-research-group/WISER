@@ -99,9 +99,10 @@ class ActivityMonitorWidget(QWidget):
         progress_bar = controls["progress_bar"]
         denominator = max(1, int(progress.total_iterations))
         numerator = max(0, min(denominator, int(progress.current_iteration)))
+        percent = int(round((numerator / denominator) * 100))
         progress_bar.setRange(0, denominator)
         progress_bar.setValue(numerator)
-        progress_bar.setFormat(f"{numerator}/{denominator}")
+        progress_bar.setFormat(f"{percent}%")
         if metadata["state"] == self.STATE_IDLE:
             self._set_task_state(activity_id, self.STATE_RUNNING)
 
@@ -117,7 +118,8 @@ class ActivityMonitorWidget(QWidget):
 
     def set_task_finished(self, activity_id: int) -> None:
         metadata = self._get_task_metadata(activity_id)
-        metadata["controls"]["progress_bar"].setValue(100)
+        progress_bar = metadata["controls"]["progress_bar"]
+        progress_bar.setValue(progress_bar.maximum())
         self._store_task_metadata(activity_id, metadata)
         self._set_task_state(activity_id, self.STATE_FINISHED)
         self._schedule_move_to_finished(activity_id)
