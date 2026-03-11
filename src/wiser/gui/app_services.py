@@ -1,14 +1,20 @@
+from typing import TYPE_CHECKING
+
 from PySide2.QtCore import QObject
 
+from wiser.gui.activity_monitor import ActivityMonitorWidget
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_service import StorageService
-from wiser.utils.task_system import PlanningContext, SimpleChunkingPolicy, TaskPlanner
+from wiser.utils.task_system import PlanningContext, SimpleChunkingPolicy, TaskManager, TaskPlanner
 from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 from wiser.utils.worker_runtime import initialize_process_storage_client
 
+if TYPE_CHECKING:
+    from wiser.gui.activity_monitor import ActivityMonitorWidget
+
 
 class AppServices(QObject):
-    def __init__(self):
+    def __init__(self, activity_monitor: "ActivityMonitorWidget", parent=None):
         self._storage_service = StorageService(
             ram_byte_limit=2_000_000_000,
             # TODO (Joshua G-K): Change this to be based on remaining data at app start up time
@@ -19,10 +25,17 @@ class AppServices(QObject):
         listener_address, listener_authkey = self._storage_service.get_connection_bootstrap()
         initialize_process_storage_client(listener_address, listener_authkey)
 
+        if activity_monitor is not None:
+            self._task_manager = TaskManager(activity_monitor)
+        else:
+            activity_monitor = ActivityMonitorWidget()
+            self._task_manager = TaskManager(activity_monitor)
+
         scheduler_config = SchedulerConfig()
         self._scheduler = WorkScheduler(
             config=scheduler_config,
             storage_service=self._storage_service,
+            task_manager=self._task_manager,
         )
 
         self._task_planner = TaskPlanner(
@@ -38,13 +51,13 @@ class AppServices(QObject):
         return self._storage_service
 
     @property
-    def storage_client(self):
-        return self._storage_client
-
-    @property
     def scheduler(self):
         return self._scheduler
 
     @property
     def task_planner(self):
         return self._task_planner
+
+    @property
+    def task_manager(self):
+        return self._task_manager

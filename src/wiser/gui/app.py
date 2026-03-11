@@ -103,7 +103,6 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
-        self._app_services: AppServices = AppServices()
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
 
@@ -201,6 +200,14 @@ class DataVisualizerApp(QMainWindow):
         )
         dockable.hide()
 
+        # Activity Monitor
+
+        self._activity_monitor: ActivityMonitorWidget = ActivityMonitorWidget()
+
+        # App Services
+
+        self._app_services: AppServices = AppServices(self._activity_monitor)
+
         # Hook up widget events to their corresponding control functions.
 
         self._context_pane.click_pixel.connect(self._on_context_raster_pixel_select)
@@ -234,7 +241,6 @@ class DataVisualizerApp(QMainWindow):
         self._crs_creator_dialog: ReferenceCreatorDialog = None
         self._similarity_transform_dialog: SimilarityTransformDialog = None
         self._mnf_dialog: MinimumNoiseFractionDialog = None
-        self._activity_monitor: ActivityMonitorWidget = None
         self._config_dialog: AppConfigDialog = None
 
     def _init_menus(self):
@@ -941,13 +947,11 @@ class DataVisualizerApp(QMainWindow):
             self._mnf_dialog.show()
 
     def show_activity_monitor(self, in_test_mode=False):
-        self._activity_monitor = ActivityMonitorWidget()
-        self._activity_monitor.register_task(
-            title="Test title",
-            meta={"a": "joshua.hdr", "b": "oscar.hdr"},
-            cancel_callback=lambda _: _,
-        )
+        if self._activity_monitor is None:
+            self._activity_monitor = ActivityMonitorWidget()
         self._activity_monitor.show()
+        self._activity_monitor.raise_()
+        self._activity_monitor.activateWindow()
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         """

@@ -414,7 +414,9 @@ class MinimumNoiseFractionDialog(QDialog):
         )
 
         task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
-        future = self._app_services.scheduler.run_task_plan(task_plan)
+        future = self._app_services.task_manager.register_and_submit_task_plan(
+            self._app_services.scheduler, task_plan
+        )
         return future
 
     def accept(self):

@@ -12,6 +12,7 @@ from .worker_runtime import initialize_process_storage_client, initialize_thread
 
 if TYPE_CHECKING:
     from wiser.utils.storage_service import StorageService
+    from wiser.utils.task_system import TaskManager
 
 SCHEDULER_PROCESS_BUDGET = 6
 SCHEDULER_RAM_BUDGET = 2_000_000_000
@@ -479,6 +480,7 @@ class WorkScheduler:
         config: SchedulerConfig,
         storage_service: "StorageService",
         recorder: Optional[RecordingWorkScheduler] = None,
+        task_manager: Optional["TaskManager"] = None,
     ):
         self._config = config
         self._process_budget = int(self._config._process_budget)
@@ -487,6 +489,7 @@ class WorkScheduler:
         self._in_flight_ram_bytes = 0
         self._defer_to_reserved_threshold = int(self._config._defer_to_reserved_threshold)
         self._recorder = recorder
+        self._task_manager = task_manager
 
         if self._process_budget < 3:
             raise ValueError(f"WorkScheduler requires process budget >= 3, got {self._process_budget}")
@@ -1059,6 +1062,8 @@ class WorkScheduler:
                         self._recorder.on_unit_done(
                             plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
                         )
+                    if self._task_manager is not None:
+                        self._task_manager.task_errored.emit((plan_id, f"{type(exc).__name__}: {exc}"))
 
                     if plan_state.task_plan.fail_fast:
                         # Cancel queued-but-not-submitted work and fail immediately.
