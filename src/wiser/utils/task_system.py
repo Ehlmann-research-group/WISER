@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING, Union
 
@@ -29,7 +30,8 @@ from .primitives import (
 from .storage_service import StorageService
 
 if TYPE_CHECKING:
-    from wiser.utils.work_scheduler import SchedulerConfig
+    from wiser.gui.activity_monitor import ActivityMonitorWidget
+    from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 
 Number = Union[int, float]
 
@@ -190,6 +192,12 @@ class TaskPlan:
     stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
+
+
+@dataclass(frozen=True)
+class ProgressUpdate:
+    current_iteration: int
+    total_iterations: int
 
 
 class ChunkingPolicy(Protocol):
@@ -451,6 +459,47 @@ class TaskPlanner:
             + rm.bytes_per_scalar_out * out_scalar_count * input_meta.dtype_bytes
             + rm.scratch_bytes_per_scalar_in * in_scalar_count
         )
+
+
+class TaskManager:
+    def __init__(self, activity_monitor: "ActivityMonitorWidget"):
+        self._activity_monitor = activity_monitor
+        self._activity_ids_by_plan_id: Dict[str, int] = {}
+        self._plan_ids_by_activity_id: Dict[int, str] = {}
+
+    def emit_progress_update(self, activity_id: int, numerator: int, denominator: int) -> None:
+        if activity_id not in self._plan_ids_by_activity_id:
+            raise KeyError(f"Unknown activity monitor activity id: {activity_id}")
+
+        self._activity_monitor.progress_update.emit(
+            (
+                activity_id,
+                ProgressUpdate(
+                    current_iteration=max(0, int(numerator)),
+                    total_iterations=max(1, int(denominator)),
+                ),
+            )
+        )
+
+    def register_and_submit_task_plan(self, scheduler: "WorkScheduler", task_plan: TaskPlan) -> Future[None]:
+        """
+        Registers the task plan to the task gui (the real name will be ActivityMonitorWidget
+        (found in [activity_monitor.py](src/wiser/gui/activity_monitor.py))), then submits it?
+        """
+        future = scheduler.run_task_plan(task_plan)
+        activity_id = self._activity_monitor.register_task(
+            title=task_plan.plan_id,
+            meta={
+                "plan_id": task_plan.plan_id,
+                "semantic_task_id": task_plan.semantic_task_id,
+                "stages": str(len(task_plan.stage_work_units)),
+                "work_units": str(len(task_plan.work_units)),
+            },
+            cancel_callback=lambda: scheduler.cancel_plan(task_plan.plan_id),
+        )
+        self._activity_ids_by_plan_id[task_plan.plan_id] = activity_id
+        self._plan_ids_by_activity_id[activity_id] = task_plan.plan_id
+        return future
 
 
 class SemanticTask:
