@@ -1,7 +1,7 @@
 import datetime
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional, TYPE_CHECKING
 
 import numpy as np
 from PySide2.QtCore import *
@@ -40,6 +40,8 @@ from wiser.utils.task_system import (
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
 
 # region MNF
 
@@ -273,7 +275,7 @@ class MNFSemanticTask(QObject, SemanticTask):
     def __init__(
         self,
         app_state: ApplicationState,
-        source_dataset,
+        source_dataset: "RasterDataSet",
         input_ref: DataRef,
         num_components: int,
         output_ref_name: str = "mnf_data",
@@ -284,6 +286,11 @@ class MNFSemanticTask(QObject, SemanticTask):
             priority_class=PriorityClass.BACKGROUND,
             input_ref=input_ref,
             algorithm_pipeline=get_mnf_pipeline(input_ref, num_components, output_ref_name),
+            task_title="Minimum Noise Fraction",
+            task_variables={
+                "Num Components": num_components,
+                "Dataset": source_dataset.get_name(),
+            },
         )
         self.id = app_state.take_next_id()
         self._app_state = app_state

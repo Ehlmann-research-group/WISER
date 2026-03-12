@@ -194,6 +194,10 @@ class TaskPlan:
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
     completion_callback: Optional[Callable[[Dict[str, DataRef]], None]] = None
+    # The below entries are for displaying to the user. They don't affect the internals
+    # of how a task plan is schedule or how data is transferred
+    task_title: str = "Generic Task Title"
+    task_input_variables: Optional[Dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -338,6 +342,8 @@ class TaskPlanner:
         # TODO: give plan id a uuid4
         plan_id = f"plan:{semantic_task.id}"
         plan = TaskPlan(plan_id=plan_id, semantic_task_id=str(semantic_task.id))
+        plan.task_title = semantic_task.task_title
+        plan.task_input_variables = semantic_task.task_variables
 
         # 1) init bindings
         bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
@@ -549,14 +555,15 @@ class TaskManager(QObject):
         Registers the task plan to the task gui (the real name will be ActivityMonitorDialog
         (found in [activity_monitor.py](src/wiser/gui/activity_monitor.py))), then submits it?
         """
+        task_meta = task_plan.task_input_variables or {
+            "plan_id": task_plan.plan_id,
+            "semantic_task_id": task_plan.semantic_task_id,
+            "stages": str(len(task_plan.stage_work_units)),
+            "work_units": str(len(task_plan.work_units)),
+        }
         activity_id = self._activity_monitor.register_task(
-            title=task_plan.plan_id,
-            meta={
-                "plan_id": task_plan.plan_id,
-                "semantic_task_id": task_plan.semantic_task_id,
-                "stages": str(len(task_plan.stage_work_units)),
-                "work_units": str(len(task_plan.work_units)),
-            },
+            title=task_plan.task_title,
+            meta=task_meta,
             cancel_callback=lambda: scheduler.cancel_plan(task_plan.plan_id),
         )
         self._activity_ids_by_plan_id[task_plan.plan_id] = activity_id
@@ -571,6 +578,8 @@ class SemanticTask:
         priority_class: PriorityClass,
         input_ref: DataRef,
         algorithm_pipeline: AlgorithmPipeline,
+        task_title: str = "Generic Task Title",
+        task_variables: Optional[Dict[str, str]] = None,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
@@ -579,6 +588,17 @@ class SemanticTask:
         self._priority_class: PriorityClass = priority_class
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
+
+        self._task_title = task_title
+        self._task_variables = task_variables or dict()
+
+    @property
+    def task_title(self) -> str:
+        return self._task_title
+
+    @property
+    def task_variables(self) -> Dict[str, str]:
+        return self._task_variables
 
     @property
     def input_ref(self) -> DataRef:
