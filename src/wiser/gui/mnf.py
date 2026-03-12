@@ -378,6 +378,10 @@ class MinimumNoiseFractionDialog(QDialog):
         self.show_mnf(dataset_id=self._selected_dataset_id)
         super().showEvent(event)
 
+    def select_dataset(self, dataset_id: Optional[int]) -> None:
+        self._selected_dataset_id = dataset_id
+        self.show_mnf(dataset_id=dataset_id)
+
     def get_selected_dataset_id(self) -> Optional[int]:
         dataset_id = self._ui.comboBox.currentData()
         if dataset_id is None or int(dataset_id) < 0:
