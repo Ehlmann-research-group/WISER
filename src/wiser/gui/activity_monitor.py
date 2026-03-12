@@ -25,6 +25,7 @@ from wiser.utils.task_system import ProgressUpdate
 
 class ActivityMonitorDialog(QDialog):
     progress_update = Signal(object)
+    active_task_count_changed = Signal(int)
 
     ACTIVE_COLUMNS = ("Task", "Activity")
     FINISHED_COLUMNS = ("Task", "Activity", "Remove")
@@ -143,6 +144,9 @@ class ActivityMonitorDialog(QDialog):
         table, row = location
         table.removeRow(row)
         self._rebuild_task_locations()
+
+    def get_active_task_count(self) -> int:
+        return self._ui.tbl_wdgt_active_tasks.rowCount()
 
     def _configure_table(self, table: QTableWidget, columns: Tuple[str, ...]) -> None:
         table.setColumnCount(len(columns))
@@ -465,6 +469,7 @@ class ActivityMonitorDialog(QDialog):
                 if activity_id is None:
                     continue
                 self._activity_locations[int(activity_id)] = (table, row)
+        self.active_task_count_changed.emit(self.get_active_task_count())
         self._sync_finished_section_button()
 
     def _format_task_html(self, title: str, meta: Dict[str, str]) -> str:
