@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from test_utils.test_model import WiserTestModel
 import tests.context
 
 from wiser.gui.app_services import AppServices
@@ -20,21 +21,27 @@ pytestmark = [
 
 
 class TestMnf(unittest.TestCase):
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
     def test_perform_mnf_runs_with_app_services_and_waits_for_future(self) -> None:
         dataset_path = (
             Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "caltech_425_7_7_nm"
         ).resolve()
-        dataset = RasterDataLoader().load_from_file(str(dataset_path), interactive=False)[0]
 
-        app_services = AppServices()
+        app_services = self.test_model.main_window._app_services
+
+        dataset = self.test_model.load_dataset(str(dataset_path))
 
         try:
-            dataset_ref = app_services.storage_service.register_external(
-                ExternalRasterHandle(dataset_obj=dataset)
-            )
-            dialog = MinimumNoiseFractionDialog(app_services=app_services)
+            dialog = self.test_model.show_mnf_dialog()
+            self.test_model.select_in_combo_box(dialog._ui.comboBox, dataset.get_id())
 
-            future = dialog.perform_mnf(dataset_ref)
+            future = dialog.perform_mnf()
 
             future.result(timeout=120)
         finally:
@@ -50,9 +57,9 @@ class TestMnf(unittest.TestCase):
             ],
             dtype=np.float32,
         )
-        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x3)
+        dataset = self.test_model.load_dataset(array_2x2x3)
 
-        app_services = AppServices()
+        app_services = self.test_model.app_services
         storage_client = None
         try:
             dataset_ref = app_services.storage_service.register_external(
@@ -95,9 +102,8 @@ class TestMnf(unittest.TestCase):
         dataset_path = (
             Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "circuit_4_100_150_um"
         ).resolve()
-        dataset = RasterDataLoader().load_from_file(str(dataset_path), interactive=False)[0]
-
-        app_services = AppServices()
+        dataset = self.test_model.load_dataset(str(dataset_path))
+        app_services = self.test_model.app_services
         storage_client = None
         try:
             image = np.nan_to_num(

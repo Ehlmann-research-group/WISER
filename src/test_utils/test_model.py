@@ -24,7 +24,7 @@ sys.path.append(target_dir)
 import numpy as np
 from astropy import units as u
 
-from typing import Tuple, Union, Optional, List, Dict
+from typing import Any, Tuple, Union, Optional, List, Dict
 
 from PySide2.QtTest import QTest
 from PySide2.QtCore import *
@@ -133,6 +133,7 @@ class WiserTestModel:
         self.main_window.show()
 
         self.app_state = self.main_window._app_state
+        self.app_services = self.main_window._app_services
         self.data_cache = self.main_window._data_cache
 
         self.spectrum_plot = self.main_window._spectrum_plot
@@ -1923,6 +1924,26 @@ class WiserTestModel:
     def simulate_left_dclick(self, widget: QWidget, pos: QPoint):
         QTest.mouseDClick(widget, Qt.LeftButton, Qt.NoModifier, pos)
         QTest.mouseRelease(widget, Qt.LeftButton, Qt.NoModifier, pos)
+
+    @run_in_wiser_decorator
+    def select_in_combo_box(self, cbox: QComboBox, data: Any):
+        i = cbox.findData(data)
+        if i == -1:
+            raise ValueError(f"Could not find combo-box item with data: {data!r}")
+        cbox.setCurrentIndex(i)
+        cbox.activated.emit(i)
+        cbox.currentIndexChanged.emit(i)
+
+    # ==========================================
+    # region Minimum Noise Fraction
+    # ==========================================
+
+    @run_in_wiser_decorator
+    def show_mnf_dialog(self):
+        self.main_window.show_mnf_dialog(in_test_mode=True)
+        dlg = self.main_window._mnf_dialog
+        QTest.qWaitForWindowExposed(dlg)
+        return dlg
 
     # ==========================================
     # region SAM & SFF
