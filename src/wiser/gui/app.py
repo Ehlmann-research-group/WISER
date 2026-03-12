@@ -353,9 +353,6 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
 
-        act = self._tools_menu.addAction(self.tr("Activity Monitor"))
-        act.triggered.connect(self._activity_monitor_button.show_activity_monitor)
-
         # Help menu
 
         self._help_menu = self.menuBar().addMenu(self.tr("&Help"))
