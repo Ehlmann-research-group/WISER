@@ -41,6 +41,7 @@ from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
 from .mnf import MinimumNoiseFractionDialog
 from .activity_monitor import ActivityMonitorDialog
+from .activity_monitor_button import ActivityMonitorButton
 
 from .util import *
 
@@ -106,6 +107,12 @@ class DataVisualizerApp(QMainWindow):
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
 
+        self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
+        self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
+            self._activity_monitor,
+            parent=self,
+        )
+
         # Application Toolbars
 
         self._init_menus()
@@ -119,6 +126,8 @@ class DataVisualizerApp(QMainWindow):
         self._init_plugins()
 
         # Status bar
+
+        self.statusBar().addPermanentWidget(self._activity_monitor_button)
 
         self._image_coords = ImageCoordsWidget(self)
         self.statusBar().addPermanentWidget(self._image_coords)
@@ -199,10 +208,6 @@ class DataVisualizerApp(QMainWindow):
             area=Qt.LeftDockWidgetArea,
         )
         dockable.hide()
-
-        # Activity Monitor
-
-        self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
 
         # App Services
 
@@ -349,7 +354,7 @@ class DataVisualizerApp(QMainWindow):
         act.triggered.connect(self.show_mnf_dialog)
 
         act = self._tools_menu.addAction(self.tr("Activity Monitor"))
-        act.triggered.connect(self.show_activity_monitor)
+        act.triggered.connect(self._activity_monitor_button.show_activity_monitor)
 
         # Help menu
 
@@ -945,13 +950,6 @@ class DataVisualizerApp(QMainWindow):
                 pass
         else:
             self._mnf_dialog.show()
-
-    def show_activity_monitor(self, in_test_mode=False):
-        if self._activity_monitor is None:
-            self._activity_monitor = ActivityMonitorDialog(parent=self)
-        self._activity_monitor.show()
-        self._activity_monitor.raise_()
-        self._activity_monitor.activateWindow()
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         """
