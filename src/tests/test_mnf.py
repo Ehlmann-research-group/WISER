@@ -2,10 +2,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+# import context
+import tests.context
+
 import numpy as np
 import pytest
 from test_utils.test_model import WiserTestModel
-import tests.context
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.mnf import MinimumNoiseFractionDialog, get_mnf_pipeline, get_y_shift_noise
@@ -163,3 +165,12 @@ class TestMnf(unittest.TestCase):
                 storage_client.close()
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+
+if __name__ == "__main__":
+    test_mnf = TestMnf()
+    test_mnf.setUp()
+    try:
+        test_mnf.test_get_mnf_pipeline_matches_spy_mnf_on_caltech_fixture()
+    finally:
+        test_mnf.tearDown()

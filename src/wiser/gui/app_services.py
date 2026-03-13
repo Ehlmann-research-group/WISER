@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from PySide2.QtCore import QObject
 
 from wiser.gui.activity_monitor import ActivityMonitorDialog
-from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_service import StorageService
 from wiser.utils.task_system import PlanningContext, SimpleChunkingPolicy, TaskManager, TaskPlanner
 from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler

@@ -4,6 +4,7 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from collections import Counter, deque
 from threading import Lock, Semaphore
+from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
 
 from .primitives import PriorityClass
@@ -321,6 +322,7 @@ class PlanExecutionState:
 class SchedulerEvent:
     kind: str
     plan_id: str
+    time: float
     stage_id: Optional[str] = None
     unit_id: Optional[str] = None
     executor_kind: Optional[str] = None
@@ -346,12 +348,39 @@ class RecordingWorkScheduler:
     """In-memory event recorder for asserting scheduler behavior in tests."""
 
     events: list[SchedulerEvent] = field(default_factory=list)
+    clock: Callable[[], float] = perf_counter
+
+    def _record_event(
+        self,
+        *,
+        kind: str,
+        plan_id: str,
+        stage_id: Optional[str] = None,
+        unit_id: Optional[str] = None,
+        executor_kind: Optional[str] = None,
+        priority_class: Optional[PriorityClass] = None,
+        success: Optional[bool] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        self.events.append(
+            SchedulerEvent(
+                kind=kind,
+                plan_id=plan_id,
+                time=self.clock(),
+                stage_id=stage_id,
+                unit_id=unit_id,
+                executor_kind=executor_kind,
+                priority_class=priority_class,
+                success=success,
+                error=error,
+            )
+        )
 
     def on_plan_submitted(self, plan_id: str) -> None:
-        self.events.append(SchedulerEvent(kind="plan_submitted", plan_id=plan_id))
+        self._record_event(kind="plan_submitted", plan_id=plan_id)
 
     def on_stage_enqueued(self, plan_id: str, stage_id: str) -> None:
-        self.events.append(SchedulerEvent(kind="stage_enqueued", plan_id=plan_id, stage_id=stage_id))
+        self._record_event(kind="stage_enqueued", plan_id=plan_id, stage_id=stage_id)
 
     def on_unit_submitted(
         self,
@@ -361,15 +390,13 @@ class RecordingWorkScheduler:
         executor_kind: str,
         priority_class: PriorityClass,
     ) -> None:
-        self.events.append(
-            SchedulerEvent(
-                kind="unit_submitted",
-                plan_id=plan_id,
-                stage_id=stage_id,
-                unit_id=unit_id,
-                executor_kind=executor_kind,
-                priority_class=priority_class,
-            )
+        self._record_event(
+            kind="unit_submitted",
+            plan_id=plan_id,
+            stage_id=stage_id,
+            unit_id=unit_id,
+            executor_kind=executor_kind,
+            priority_class=priority_class,
         )
 
     def on_unit_done(
@@ -380,21 +407,97 @@ class RecordingWorkScheduler:
         success: bool,
         error: Optional[str] = None,
     ) -> None:
-        self.events.append(
-            SchedulerEvent(
-                kind="unit_done",
-                plan_id=plan_id,
-                stage_id=stage_id,
-                unit_id=unit_id,
-                success=success,
-                error=error,
-            )
+        self._record_event(
+            kind="unit_done",
+            plan_id=plan_id,
+            stage_id=stage_id,
+            unit_id=unit_id,
+            success=success,
+            error=error,
         )
 
     def on_plan_completed(self, plan_id: str, success: bool, error: Optional[str] = None) -> None:
-        self.events.append(
-            SchedulerEvent(kind="plan_completed", plan_id=plan_id, success=success, error=error)
-        )
+        self._record_event(kind="plan_completed", plan_id=plan_id, success=success, error=error)
+
+    def print_timing_summary(self) -> None:
+        """Print plan, stage, and unit completion timings derived from recorder events."""
+
+        plan_ids_in_order = []
+        seen_plan_ids: set[str] = set()
+        for event in self.events:
+            if event.plan_id not in seen_plan_ids:
+                plan_ids_in_order.append(event.plan_id)
+                seen_plan_ids.add(event.plan_id)
+
+        for plan_id in plan_ids_in_order:
+            plan_events = [event for event in self.events if event.plan_id == plan_id]
+            plan_start = next((event.time for event in plan_events if event.kind == "plan_submitted"), None)
+            plan_end = next(
+                (event.time for event in reversed(plan_events) if event.kind == "plan_completed"), None
+            )
+            plan_duration = (
+                f"{plan_end - plan_start:.6f}s" if plan_start is not None and plan_end is not None else "n/a"
+            )
+            print(f"Plan {plan_id} ({plan_duration})")
+
+            stage_ids_in_order = []
+            seen_stage_ids: set[str] = set()
+            for event in plan_events:
+                if event.stage_id is None or event.stage_id in seen_stage_ids:
+                    continue
+                stage_ids_in_order.append(event.stage_id)
+                seen_stage_ids.add(event.stage_id)
+
+            for stage_id in stage_ids_in_order:
+                stage_events = [event for event in plan_events if event.stage_id == stage_id]
+                stage_start = next(
+                    (event.time for event in stage_events if event.kind == "stage_enqueued"),
+                    None,
+                )
+                stage_done_times = [
+                    event.time
+                    for event in stage_events
+                    if event.kind == "unit_done" and event.unit_id is not None
+                ]
+                stage_end = max(stage_done_times) if stage_done_times else None
+                stage_duration = (
+                    f"{stage_end - stage_start:.6f}s"
+                    if stage_start is not None and stage_end is not None
+                    else "n/a"
+                )
+                print(f"  Stage {stage_id} ({stage_duration})")
+
+                unit_ids_in_order = []
+                seen_unit_ids: set[str] = set()
+                for event in stage_events:
+                    if event.unit_id is None or event.unit_id in seen_unit_ids:
+                        continue
+                    unit_ids_in_order.append(event.unit_id)
+                    seen_unit_ids.add(event.unit_id)
+
+                for unit_id in unit_ids_in_order:
+                    unit_submit = next(
+                        (
+                            event.time
+                            for event in stage_events
+                            if event.kind == "unit_submitted" and event.unit_id == unit_id
+                        ),
+                        None,
+                    )
+                    unit_done = next(
+                        (
+                            event.time
+                            for event in stage_events
+                            if event.kind == "unit_done" and event.unit_id == unit_id
+                        ),
+                        None,
+                    )
+                    unit_duration = (
+                        f"{unit_done - unit_submit:.6f}s"
+                        if unit_submit is not None and unit_done is not None
+                        else "n/a"
+                    )
+                    print(f"    Unit {unit_id}: {unit_duration}")
 
 
 def _priority_weight(priority: PriorityClass) -> float:
