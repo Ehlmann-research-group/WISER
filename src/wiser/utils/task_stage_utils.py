@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, Optional
 import numpy as np
-from sklearn.decomposition import IncrementalPCA
+from sklearn.decomposition import IncrementalPCA, PCA
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -784,82 +784,112 @@ def _fit_incremental_pca_from_dataset_tiles(
     output_mean_ref: DataRef,
     num_components: int,
     dataset_plan_meta: DatasetPlanMeta,
+    test_full_pca: bool = True,
 ) -> None:
     _ = input_region
     client = get_process_storage_client()
-    ipca = IncrementalPCA(n_components=num_components)
     bands = dataset_plan_meta.bands
+    dataset_size_bytes = (
+        dataset_plan_meta.height
+        * dataset_plan_meta.width
+        * dataset_plan_meta.bands
+        * dataset_plan_meta.dtype.itemsize
+    )
+    full_region = DatasetRegionRef(0, dataset_plan_meta.height, 0, dataset_plan_meta.width, 0, bands)
 
-    # Build tiles locally so batching logic and chunking strategy live together.
-    # We only require each nominal tile to have at least num_components pixels.
-    target_pixels = max(1, num_components)
-    tile_h = max(1, min(dataset_plan_meta.height, int(np.sqrt(target_pixels))))
-    tile_w = max(1, min(dataset_plan_meta.width, int(np.ceil(target_pixels / tile_h))))
-    tile_scheme = SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
-
-    batch_buffer: list[np.ndarray] = []
-    buffered_rows = 0
-    first_fit_done = False
-    total_rows = 0
-
-    for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
-        tile, _ = client.read_region(input_ref, tile_region)
-        tile_array = np.asarray(np.ma.getdata(tile), dtype=np.float32)
-        if tile_array.ndim != 3:
-            raise ValueError(f"Expected dataset tile shape [m][n][b], got {tile_array.shape}")
-        if tile_array.shape[2] != bands:
+    if dataset_size_bytes <= 4 * 1024**3 and test_full_pca:
+        pca = PCA(n_components=num_components)
+        dataset, _ = client.read_region(input_ref, full_region)
+        dataset_array = np.asarray(np.ma.getdata(dataset), dtype=np.float32)
+        if dataset_array.ndim != 3:
+            raise ValueError(f"Expected dataset shape [m][n][b], got {dataset_array.shape}")
+        if dataset_array.shape[2] != bands:
             raise ValueError(
-                f"Band mismatch in tile for IncrementalPCA: "
-                f"tile_bands={tile_array.shape[2]}, expected={bands}"
+                f"Band mismatch in dataset for PCA: dataset_bands={dataset_array.shape[2]}, expected={bands}"
             )
 
-        flattened = tile_array.reshape(-1, bands)
-        total_rows += flattened.shape[0]
+        flattened = dataset_array.reshape(-1, bands)
+        total_rows = flattened.shape[0]
+        if total_rows <= 1:
+            raise ValueError("PCA requires at least 2 samples to derive eigen values")
 
-        batch_buffer.append(flattened)
-        buffered_rows += flattened.shape[0]
+        pca.fit(flattened)
+        eigen_values = np.asarray(pca.explained_variance_, dtype=np.float32)
+        eigen_vectors = np.asarray(pca.components_, dtype=np.float32)
+        covariance = np.asarray(pca.get_covariance(), dtype=np.float32)
+        mean = np.asarray(pca.mean_, dtype=np.float32)
+    else:
+        ipca = IncrementalPCA(n_components=num_components)
 
-        # Consume buffered rows in num_components-sized batches.
-        while buffered_rows >= num_components:
+        # This stage manages its own spatial reads instead of relying on the task system's
+        # chunking policy, so the tile iteration stays next to the IPCA buffering logic.
+        # The tile size is only chosen to guarantee at least num_components samples per
+        # nominal tile, which is enough to form the first legal partial_fit batch.
+        target_pixels = max(1, num_components)
+        tile_h = max(1, min(dataset_plan_meta.height, int(np.sqrt(target_pixels))))
+        tile_w = max(1, min(dataset_plan_meta.width, int(np.ceil(target_pixels / tile_h))))
+        tile_scheme = SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
+
+        batch_buffer: list[np.ndarray] = []
+        buffered_rows = 0
+        first_fit_done = False
+        total_rows = 0
+        for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
+            tile, _ = client.read_region(input_ref, tile_region)
+            tile_array = np.asarray(np.ma.getdata(tile), dtype=np.float32)
+            if tile_array.ndim != 3:
+                raise ValueError(f"Expected dataset tile shape [m][n][b], got {tile_array.shape}")
+            if tile_array.shape[2] != bands:
+                raise ValueError(
+                    f"Band mismatch in tile for IncrementalPCA: "
+                    f"tile_bands={tile_array.shape[2]}, expected={bands}"
+                )
+
+            flattened = tile_array.reshape(-1, bands)
+            total_rows += flattened.shape[0]
+
+            batch_buffer.append(flattened)
+            buffered_rows += flattened.shape[0]
+
+            while buffered_rows >= num_components:
+                merged = np.concatenate(batch_buffer, axis=0)
+                fit_batch = merged[:num_components, :]
+                remainder = merged[num_components:, :]
+                ipca.partial_fit(fit_batch)
+                first_fit_done = True
+                batch_buffer = [remainder] if remainder.size > 0 else []
+                buffered_rows = remainder.shape[0] if remainder.size > 0 else 0
+
+        if buffered_rows > 0:
+            if not first_fit_done:
+                raise ValueError(
+                    f"Not enough samples to fit IncrementalPCA: "
+                    f"samples={total_rows}, num_components={num_components}"
+                )
             merged = np.concatenate(batch_buffer, axis=0)
-            fit_batch = merged[:num_components, :]
-            remainder = merged[num_components:, :]
-            ipca.partial_fit(fit_batch)
-            first_fit_done = True
-            batch_buffer = [remainder] if remainder.size > 0 else []
-            buffered_rows = remainder.shape[0] if remainder.size > 0 else 0
+            ipca.partial_fit(merged)
 
-    # Flush trailing rows; legal only after first fit.
-    if buffered_rows > 0:
         if not first_fit_done:
             raise ValueError(
                 f"Not enough samples to fit IncrementalPCA: "
                 f"samples={total_rows}, num_components={num_components}"
             )
-        merged = np.concatenate(batch_buffer, axis=0)
-        ipca.partial_fit(merged)
 
-    if not first_fit_done:
-        raise ValueError(
-            f"Not enough samples to fit IncrementalPCA: samples={total_rows}, num_components={num_components}"
-        )
+        if total_rows <= 1:
+            raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
 
-    if total_rows <= 1:
-        raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
-
-    singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
-    eigen_values = (singular_values**2) / (total_rows - 1)
-    eigen_vectors = np.asarray(ipca.components_, dtype=np.float32)
+        singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
+        eigen_values = (singular_values**2) / (total_rows - 1)
+        eigen_vectors = np.asarray(ipca.components_, dtype=np.float32)
+        covariance = np.asarray(ipca.get_covariance(), dtype=np.float32)
+        mean = np.asarray(ipca.mean_, dtype=np.float32)
 
     sort_desc = np.argsort(eigen_values)[::-1]
     eigen_values = eigen_values[sort_desc]
     eigen_vectors = eigen_vectors[sort_desc]
-    covariance = np.asarray(ipca.get_covariance(), dtype=np.float32)
-    mean = np.asarray(ipca.mean_, dtype=np.float32)
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values)
-    # print(f"#$% covariance: {covariance}")
     client.write_data(output_covariance_ref, covariance)
     client.write_data(output_mean_ref, mean)
     descriptor = EigenVectorsAndValues(
@@ -900,6 +930,7 @@ class IncrementalPcaPartialFitStage(SequentialStage):
         )
     )
     chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+    test_full_pca: bool = True
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
@@ -1006,6 +1037,7 @@ class IncrementalPcaPartialFitStage(SequentialStage):
             output_mean_ref,
             self._num_components,
             dataset_plan_meta,
+            self.test_full_pca,
         )
 
 
