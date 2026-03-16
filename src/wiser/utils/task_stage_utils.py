@@ -31,6 +31,7 @@ from wiser.utils.task_system import (
 )
 from wiser.utils.worker_runtime import get_process_storage_client
 
+PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
 
 # region Task Stage utilities
 
@@ -774,7 +775,7 @@ def get_apply_matrix_to_dataset_pipeline(
     return AlgorithmPipeline([get_apply_matrix_to_dataset_stage(dataset_ref, matrix_ref, output_ref_name)])
 
 
-def _fit_incremental_pca_from_dataset_tiles(
+def _fit_dataset_pca_adaptive(
     input_ref: DataRef,
     input_region: DataRegion,
     output_info_ref: DataRef,
@@ -797,7 +798,7 @@ def _fit_incremental_pca_from_dataset_tiles(
     )
     full_region = DatasetRegionRef(0, dataset_plan_meta.height, 0, dataset_plan_meta.width, 0, bands)
 
-    if dataset_size_bytes <= 4 * 1024**3 and test_full_pca:
+    if dataset_size_bytes <= PCA_MEMORY_CUTOFF_BYTES and test_full_pca:
         pca = PCA(n_components=num_components)
         dataset, _ = client.read_region(input_ref, full_region)
         dataset_array = np.asarray(np.ma.getdata(dataset), dtype=np.float32)
@@ -904,9 +905,10 @@ def _fit_incremental_pca_from_dataset_tiles(
 
 
 @dataclass
-class IncrementalPcaPartialFitStage(SequentialStage):
+class AdaptivePcaFitStage(SequentialStage):
     """
-    Fit IncrementalPCA over a dataset by iterating spatial tiles and calling partial_fit.
+    Fit PCA over a dataset. If the dataset is 4GB or less we do a full PCA, if it is more than we
+    iterate over spatial tiles using IncrementalPCA.
 
     The stage outputs an EigenVectorsAndValues JSON descriptor that references:
       - eigen vectors array [k][b]
@@ -954,7 +956,7 @@ class IncrementalPcaPartialFitStage(SequentialStage):
     ) -> list[AllocationRequest]:
         assert isinstance(
             input_meta, DatasetPlanMeta
-        ), "input_meta must be of type DatasetPlanMeta for IncrementalPcaPartialFitStage"
+        ), "input_meta must be of type DatasetPlanMeta for AdaptivePcaFitStage"
         if self._num_components <= 0:
             raise ValueError(f"num_components must be positive, got {self._num_components}")
         if self._num_components > input_meta.bands:
@@ -1027,7 +1029,7 @@ class IncrementalPcaPartialFitStage(SequentialStage):
         output_mean_ref: DataRef = broadcast_inputs["ipca_mean_ref"]
         dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
         return partial(
-            _fit_incremental_pca_from_dataset_tiles,
+            _fit_dataset_pca_adaptive,
             input_ref,
             input_region,
             output_write.ref,
@@ -1045,7 +1047,7 @@ def get_incremental_pca_partial_fit_stage(
     dataset_ref: DataRef,
     num_components: int,
     output_ref_name: str,
-) -> IncrementalPcaPartialFitStage:
+) -> AdaptivePcaFitStage:
     storage_client = get_process_storage_client()
     dataset_meta = storage_client.get_meta(dataset_ref)
     if len(dataset_meta.shape) != 3:
@@ -1060,7 +1062,7 @@ def get_incremental_pca_partial_fit_stage(
             f"for shape={dataset_plan_meta.shape}"
         )
 
-    return IncrementalPcaPartialFitStage(
+    return AdaptivePcaFitStage(
         _num_components=num_components,
         _output_ref_name=output_ref_name,
         _vectors_ref_name=f"{output_ref_name}_vectors",

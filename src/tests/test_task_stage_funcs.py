@@ -5,8 +5,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-# import tests.context
-import context
+import tests.context
+# import context
 
 from wiser.gui.app_services import AppServices
 from wiser.utils.task_stage_utils import (

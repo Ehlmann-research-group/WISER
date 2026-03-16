@@ -25,7 +25,7 @@ from wiser.utils.primitives import (
 )
 from wiser.utils.task_stage_utils import (
     ApplyMatrixToDatasetStage,
-    IncrementalPcaPartialFitStage,
+    AdaptivePcaFitStage,
     ProjectOntoEigenVectorsStage,
     WhiteningMatrixStage,
 )
@@ -168,7 +168,7 @@ def get_mnf_pipeline(
 
     noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
 
-    noise_ipca_stage = IncrementalPcaPartialFitStage(
+    noise_ipca_stage = AdaptivePcaFitStage(
         _num_components=max_internal_components,
         _output_ref_name=noise_eigen_ref_name,
         _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
@@ -221,7 +221,7 @@ def get_mnf_pipeline(
         broadcast_input={"matrix_ref": DataBinding(noise_whitening_matrix_ref_name)},
     )
 
-    whitened_ipca_stage = IncrementalPcaPartialFitStage(
+    whitened_ipca_stage = AdaptivePcaFitStage(
         _num_components=max_internal_components,
         _output_ref_name=whitened_eigen_ref_name,
         _vectors_ref_name=f"{whitened_eigen_ref_name}_vectors",
