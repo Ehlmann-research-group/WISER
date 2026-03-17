@@ -474,7 +474,6 @@ def _write_whitening_matrix(
     input_ref: DataRef,
     input_region: DataRegion,
     output_ref: DataRef,
-    data_variance_factor: int,
 ) -> None:
     _ = input_region
     client = get_process_storage_client()
@@ -507,7 +506,7 @@ def _write_whitening_matrix(
     inverse_sqrt_eigen_values = np.zeros_like(eigen_values_array, dtype=np.float32)
     nonzero_mask = ~np.isclose(eigen_values_array, 0.0)
     inverse_sqrt_eigen_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
-    whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array / data_variance_factor
+    whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array
     client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
 
 
@@ -521,7 +520,6 @@ class WhiteningMatrixStage(SequentialStage):
     """
 
     _output_ref_name: str = "whitening_matrix"
-    _data_variance_factor: int = 1
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -577,7 +575,6 @@ class WhiteningMatrixStage(SequentialStage):
             input_ref,
             input_region,
             output_write.ref,
-            self._data_variance_factor,
         )
 
 
@@ -786,6 +783,7 @@ def _fit_dataset_pca_adaptive(
     num_components: int,
     dataset_plan_meta: DatasetPlanMeta,
     test_full_pca: bool = True,
+    data_variance_factor: int = 1,
 ) -> None:
     _ = input_region
     client = get_process_storage_client()
@@ -890,8 +888,8 @@ def _fit_dataset_pca_adaptive(
     eigen_vectors = eigen_vectors[sort_desc]
 
     client.write_data(output_vectors_ref, eigen_vectors)
-    client.write_data(output_values_ref, eigen_values)
-    client.write_data(output_covariance_ref, covariance)
+    client.write_data(output_values_ref, eigen_values / data_variance_factor)
+    client.write_data(output_covariance_ref, covariance / data_variance_factor)
     client.write_data(output_mean_ref, mean)
     descriptor = EigenVectorsAndValues(
         eigen_vectors_ref=output_vectors_ref,
@@ -917,6 +915,7 @@ class AdaptivePcaFitStage(SequentialStage):
     """
 
     _num_components: int = 1
+    _data_variance_factor: int = 1
     _output_ref_name: str = "ipca_eigenvectors_and_values"
     _vectors_ref_name: str = "ipca_eigen_vectors"
     _values_ref_name: str = "ipca_eigen_values"
@@ -1040,6 +1039,7 @@ class AdaptivePcaFitStage(SequentialStage):
             self._num_components,
             dataset_plan_meta,
             self.test_full_pca,
+            self._data_variance_factor,
         )
 
 

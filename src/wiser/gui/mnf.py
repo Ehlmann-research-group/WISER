@@ -170,6 +170,7 @@ def get_mnf_pipeline(
 
     noise_ipca_stage = AdaptivePcaFitStage(
         _num_components=max_internal_components,
+        _data_variance_factor=2,
         _output_ref_name=noise_eigen_ref_name,
         _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
         _values_ref_name=f"{noise_eigen_ref_name}_values",
@@ -189,7 +190,6 @@ def get_mnf_pipeline(
 
     noise_whitening_stage = WhiteningMatrixStage(
         _output_ref_name=noise_whitening_matrix_ref_name,
-        _data_variance_factor=2,
         default_executor="process",
         input_binding=DataBinding(noise_eigen_ref_name),
         input_plan_meta=SpectraListPlanMeta(
