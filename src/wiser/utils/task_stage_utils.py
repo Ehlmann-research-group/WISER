@@ -503,10 +503,8 @@ def _write_whitening_matrix(
     if np.any(eigen_values_array < 0):
         raise ValueError("Whitening matrix cannot be computed: one or more eigen values are negative")
 
-    inverse_sqrt_eigen_values = np.zeros_like(eigen_values_array, dtype=np.float32)
-    nonzero_mask = ~np.isclose(eigen_values_array, 0.0)
-    inverse_sqrt_eigen_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
-    whitening_matrix = inverse_sqrt_eigen_values[:, np.newaxis] * eigen_vectors_array
+    inverse_sqrt_eigen_values = np.diag(1.0 / np.sqrt(eigen_values_array))
+    whitening_matrix = eigen_vectors_array.T @ inverse_sqrt_eigen_values @ eigen_vectors_array
     client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
 
 
