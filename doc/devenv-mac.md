@@ -30,7 +30,16 @@ cd src
 ./wiser [file1 file2 ...]
 ```
 
-To build a distributable `.dmg` file, go back to the top level directory of the
+To build a distributable `.dmg` file, first make sure you are in the wiser-prod
+conda environment. You create this environment by going into the `/etc` folder
+and typing either `make install-prod-env ENV=intel` or
+`make install-prod-env ENV=arm` (depending on your CPU architecture).
+
+Then you will activate the conda environment
+by doing either `conda activate wiser-prod-arm`
+(MacOS ARM), or `conda activate wiser-prod-intel` (MacOS Intel).
+
+Then, go back to the top level directory of the
 WISER project, and build this `make` target:
 
 ```
