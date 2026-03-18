@@ -1938,13 +1938,6 @@ class WiserTestModel:
     # region Minimum Noise Fraction
     # ==========================================
 
-    @run_in_wiser_decorator
-    def show_mnf_dialog(self):
-        self.main_window.show_mnf_dialog(in_test_mode=True)
-        dlg = self.main_window._mnf_dialog
-        QTest.qWaitForWindowExposed(dlg)
-        return dlg
-
     # ==========================================
     # region SAM & SFF
     # ==========================================

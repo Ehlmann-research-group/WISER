@@ -266,6 +266,7 @@ class EigenVectorsAndValues:
     can be serialized to JSON cheaply and passed through task outputs.
 
     Eigen vectors should be in decreasing order of eigen value from left to right
+    Each row should have an eigen vector
     """
 
     eigen_vectors_ref: DataRef
@@ -317,11 +318,13 @@ def _write_eigendecomposition(
 
     # np.linalg.eig returns eigenvectors as columns. We transpose to [N][d] rows.
     eigen_values, eigen_vectors = np.linalg.eig(matrix_array)
+    # Numpy returns eigen vectors in columns, we want them in rows
+    eigen_vectors = eigen_vectors.T
     eigen_values = np.real_if_close(eigen_values)
     eigen_vectors = np.real_if_close(eigen_vectors)
     sort_desc = np.argsort(eigen_values)[::-1]
     eigen_values = np.asarray(eigen_values[sort_desc], dtype=np.float32)
-    eigen_vectors = np.asarray(eigen_vectors[:, sort_desc].T, dtype=np.float32)
+    eigen_vectors = np.asarray(eigen_vectors[sort_desc, :].T, dtype=np.float32)
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values)
@@ -1095,6 +1098,7 @@ def _project_dataset_onto_eigenvectors(
     input_region: DataRegion,
     output_write: "WriteSpec",
     eigen_descriptor_ref: DataRef,
+    spectral_mean_ref: Optional[DataRef],
     num_components: int,
 ) -> None:
     client = get_process_storage_client()
@@ -1132,6 +1136,17 @@ def _project_dataset_onto_eigenvectors(
 
     top_components = eigen_vectors_array[:num_components, :]
     flattened = data_tile_array.reshape(-1, bands)
+    if spectral_mean_ref is not None:
+        spectral_mean, _ = client.read_data(spectral_mean_ref)
+        spectral_mean_array = np.asarray(np.ma.getdata(spectral_mean), dtype=np.float32)
+        if spectral_mean_array.ndim != 1:
+            raise ValueError(f"Expected spectral mean shape [b], got {spectral_mean_array.shape}")
+        if spectral_mean_array.shape[0] != bands:
+            raise ValueError(
+                f"Band mismatch between dataset tile and spectral mean: "
+                f"tile_bands={bands}, spectral_mean_bands={spectral_mean_array.shape[0]}"
+            )
+        flattened = flattened - spectral_mean_array[np.newaxis, :]
     projected_flattened = flattened @ top_components.T
     projected_tile = projected_flattened.reshape(
         data_tile_array.shape[0], data_tile_array.shape[1], num_components
@@ -1148,6 +1163,7 @@ class ProjectOntoEigenVectorsStage(MapStage):
     _num_components: int = 1
     _output_ref_name: str = "projected_dataset"
     _eigen_descriptor_ref: Optional[DataRef] = None
+    _spectral_mean_ref: Optional[DataRef] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -1161,6 +1177,8 @@ class ProjectOntoEigenVectorsStage(MapStage):
     def __post_init__(self):
         if "eigen_descriptor_ref" not in self.broadcast_input:
             self.broadcast_input |= {"eigen_descriptor_ref": self._eigen_descriptor_ref}
+        if "spectral_mean_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"spectral_mean_ref": self._spectral_mean_ref}
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -1213,12 +1231,14 @@ class ProjectOntoEigenVectorsStage(MapStage):
     ) -> Callable:
         output_write = output_writes[self._output_ref_name]
         eigen_descriptor_ref: DataRef = broadcast_inputs["eigen_descriptor_ref"]
+        spectral_mean_ref: Optional[DataRef] = broadcast_inputs["spectral_mean_ref"]
         return partial(
             _project_dataset_onto_eigenvectors,
             input_ref,
             input_region,
             output_write,
             eigen_descriptor_ref,
+            spectral_mean_ref,
             self._num_components,
         )
 
