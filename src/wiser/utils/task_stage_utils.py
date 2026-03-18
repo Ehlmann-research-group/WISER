@@ -48,6 +48,10 @@ def _running_covariance(
     running_cov, _ = client.read_data(output_ref)
     noise, _ = client.read_region(input_ref, input_region)
     mean_arr, _ = client.read_data(mean_ref)
+    if np.ma.isMaskedArray(noise):
+        noise = np.ma.getdata(noise)
+    if np.ma.isMaskedArray(mean_arr):
+        mean_arr = np.ma.getdata(mean_arr)
     assert noise.ndim == 3, "noise should have 3 dimensions"
     assert mean_arr.ndim == 1, "mean_arr should have 1 dimension"
     mean_arr = mean_arr[np.newaxis, np.newaxis, :]
@@ -318,13 +322,13 @@ def _write_eigendecomposition(
 
     # np.linalg.eig returns eigenvectors as columns. We transpose to [N][d] rows.
     eigen_values, eigen_vectors = np.linalg.eig(matrix_array)
-    # Numpy returns eigen vectors in columns, we want them in rows
-    eigen_vectors = eigen_vectors.T
     eigen_values = np.real_if_close(eigen_values)
     eigen_vectors = np.real_if_close(eigen_vectors)
     sort_desc = np.argsort(eigen_values)[::-1]
     eigen_values = np.asarray(eigen_values[sort_desc], dtype=np.float32)
-    eigen_vectors = np.asarray(eigen_vectors[sort_desc, :].T, dtype=np.float32)
+    # We transpose because np.linalg.eig gives us eigen vectors in the columns, but
+    # we want them in the rows
+    eigen_vectors = np.asarray(eigen_vectors[:, sort_desc].T, dtype=np.float32)
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values)
@@ -1044,7 +1048,7 @@ class AdaptivePcaFitStage(SequentialStage):
         )
 
 
-def get_incremental_pca_partial_fit_stage(
+def get_adaptive_pca_partial_fit_stage(
     dataset_ref: DataRef,
     num_components: int,
     output_ref_name: str,
@@ -1083,13 +1087,13 @@ def get_incremental_pca_partial_fit_stage(
     )
 
 
-def get_incremental_pca_partial_fit_pipeline(
+def get_adaptive_pca_partial_fit_pipeline(
     dataset_ref: DataRef,
     num_components: int,
     output_ref_name: str,
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline(
-        [get_incremental_pca_partial_fit_stage(dataset_ref, num_components, output_ref_name)]
+        [get_adaptive_pca_partial_fit_stage(dataset_ref, num_components, output_ref_name)]
     )
 
 

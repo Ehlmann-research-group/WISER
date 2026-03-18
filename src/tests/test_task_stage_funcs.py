@@ -14,7 +14,7 @@ from wiser.utils.task_stage_utils import (
     EigendecompositionStage,
     EigenVectorsAndValues,
     get_apply_matrix_to_dataset_stage,
-    get_incremental_pca_partial_fit_stage,
+    get_adaptive_pca_partial_fit_stage,
     get_noise_covariance_pipeline,
     get_project_onto_eigenvectors_stage,
     get_spectral_mean_stage,
@@ -300,8 +300,8 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             expected = np.array(
                 [
-                    [0.2, 0.26666668],
-                    [-0.4, 0.3],
+                    [0.44, -0.08],
+                    [-0.08, 0.3933333],
                 ],
                 dtype=np.float32,
             )
@@ -534,7 +534,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             process_storage_client.write_data(dataset_ref, dataset)
 
             output_ref_name = "ipca_known_descriptor"
-            stage = get_incremental_pca_partial_fit_stage(
+            stage = get_adaptive_pca_partial_fit_stage(
                 dataset_ref=dataset_ref,
                 num_components=2,
                 output_ref_name=output_ref_name,
@@ -586,13 +586,8 @@ class TestTaskStageFuncs(unittest.TestCase):
         storage_client = None
         try:
             process_storage_client = get_process_storage_client()
-            dataset = np.array(
-                [
-                    [[2.0, 0.0], [0.0, 1.0]],
-                    [[-2.0, 0.0], [0.0, -1.0]],
-                ],
-                dtype=np.float32,
-            )
+            rng = np.random.default_rng(1)
+            dataset = rng.standard_normal((5, 7, 3), dtype=np.float32)
             dataset_ref = app_services.storage_service.allocate_data(
                 AllocationRequest(
                     name="ipca_vs_eig_dataset",
@@ -606,9 +601,9 @@ class TestTaskStageFuncs(unittest.TestCase):
             process_storage_client.write_data(dataset_ref, dataset)
 
             ipca_output_name = "ipca_vs_eig_descriptor"
-            ipca_stage = get_incremental_pca_partial_fit_stage(
+            ipca_stage = get_adaptive_pca_partial_fit_stage(
                 dataset_ref=dataset_ref,
-                num_components=2,
+                num_components=3,
                 output_ref_name=ipca_output_name,
             )
             ipca_task = SemanticTask(
@@ -689,7 +684,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             self.assertTrue(np.allclose(ipca_eigen_values, eig_eigen_values, atol=1e-4))
 
-            for i in range(2):
+            for i in range(dataset.shape[2]):
                 ipca_vec = np.asarray(ipca_descriptor.get_eigen_vector(i), dtype=np.float32)
                 eig_vec = np.asarray(eig_descriptor.get_eigen_vector(i), dtype=np.float32)
                 ipca_norm = np.linalg.norm(ipca_vec)
@@ -717,7 +712,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             )
 
             full_output_name = "ipca_full_pca_descriptor"
-            full_stage = get_incremental_pca_partial_fit_stage(
+            full_stage = get_adaptive_pca_partial_fit_stage(
                 dataset_ref=dataset_ref,
                 num_components=4,
                 output_ref_name=full_output_name,
@@ -734,7 +729,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             full_future.result(timeout=20)
 
             incremental_output_name = "ipca_incremental_descriptor"
-            incremental_stage = get_incremental_pca_partial_fit_stage(
+            incremental_stage = get_adaptive_pca_partial_fit_stage(
                 dataset_ref=dataset_ref,
                 num_components=4,
                 output_ref_name=incremental_output_name,
@@ -810,5 +805,5 @@ class TestTaskStageFuncs(unittest.TestCase):
 if __name__ == "__main__":
     test_stage_funcs = TestTaskStageFuncs()
     test_stage_funcs.setUp()
-    test_stage_funcs.test_incremental_pca_partial_fit_full_pca_matches_incremental_path()
+    test_stage_funcs.test_whitening_matrix_stage_computes_lambda_inverse_sqrt_times_e_transpose()
     test_stage_funcs.tearDown()
