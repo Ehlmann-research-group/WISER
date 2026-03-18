@@ -908,22 +908,33 @@ class ApplyMatrixToDatasetStage(MapStage):
             self._left_multiply_matrix_names = tuple(
                 f"left_matrix_ref_{i}" for i in range(len(self._left_multiply_matrices))
             )
+            for name, matrix_ref in zip(self._left_multiply_matrix_names, self._left_multiply_matrices):
+                if name not in self.broadcast_input:
+                    self.broadcast_input |= {name: matrix_ref}
+        else:
+            if len(self._left_multiply_matrices) > 0 and len(self._left_multiply_matrix_names) != len(
+                self._left_multiply_matrices
+            ):
+                raise ValueError("left matrix names must match left matrix refs count")
+            for name in self._left_multiply_matrix_names:
+                if name not in self.broadcast_input:
+                    raise ValueError(f"Missing broadcast input for left matrix '{name}'")
+
         if len(self._right_multiply_matrix_names) == 0:
             self._right_multiply_matrix_names = tuple(
                 f"right_matrix_ref_{i}" for i in range(len(self._right_multiply_matrices))
             )
-
-        if len(self._left_multiply_matrix_names) != len(self._left_multiply_matrices):
-            raise ValueError("left matrix names must match left matrix refs count")
-        if len(self._right_multiply_matrix_names) != len(self._right_multiply_matrices):
-            raise ValueError("right matrix names must match right matrix refs count")
-
-        for name, matrix_ref in zip(self._left_multiply_matrix_names, self._left_multiply_matrices):
-            if name not in self.broadcast_input:
-                self.broadcast_input |= {name: matrix_ref}
-        for name, matrix_ref in zip(self._right_multiply_matrix_names, self._right_multiply_matrices):
-            if name not in self.broadcast_input:
-                self.broadcast_input |= {name: matrix_ref}
+            for name, matrix_ref in zip(self._right_multiply_matrix_names, self._right_multiply_matrices):
+                if name not in self.broadcast_input:
+                    self.broadcast_input |= {name: matrix_ref}
+        else:
+            if len(self._right_multiply_matrices) > 0 and len(self._right_multiply_matrix_names) != len(
+                self._right_multiply_matrices
+            ):
+                raise ValueError("right matrix names must match right matrix refs count")
+            for name in self._right_multiply_matrix_names:
+                if name not in self.broadcast_input:
+                    raise ValueError(f"Missing broadcast input for right matrix '{name}'")
 
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
@@ -1392,6 +1403,7 @@ def _project_dataset_onto_eigenvectors(
     output_write: "WriteSpec",
     eigen_descriptor_ref: DataRef,
     spectral_mean_ref: Optional[DataRef],
+    eigenvector_multiply_matrices: Sequence[DataRef],
     num_components: int,
 ) -> None:
     client = get_process_storage_client()
@@ -1427,7 +1439,26 @@ def _project_dataset_onto_eigenvectors(
             f"num_components={num_components}, available={eigen_vectors_array.shape[0]}"
         )
 
-    top_components = eigen_vectors_array[:num_components, :]
+    projection_matrix = np.asarray(eigen_vectors_array[:num_components, :], dtype=np.float32)
+    for i, matrix_ref in enumerate(eigenvector_multiply_matrices):
+        matrix, _ = client.read_data(matrix_ref)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        if matrix_array.ndim == 3:
+            if matrix_array.shape[-1] != 1:
+                raise ValueError(
+                    f"Expected projection matrix at index {i} to have shape [in][out] or [in][out][1], "
+                    f"got {matrix_array.shape}"
+                )
+            matrix_array = np.squeeze(matrix_array, axis=2)
+        if matrix_array.ndim != 2:
+            raise ValueError(f"Expected projection matrix at index {i} to be 2D, got {matrix_array.shape}")
+        if projection_matrix.shape[1] != matrix_array.shape[0]:
+            raise ValueError(
+                f"Projection matrix chain mismatch at index {i}: "
+                f"eigen_matrix shape={projection_matrix.shape}, next matrix shape={matrix_array.shape}"
+            )
+        projection_matrix = projection_matrix @ matrix_array
+
     flattened = data_tile_array.reshape(-1, bands)
     if spectral_mean_ref is not None:
         spectral_mean, _ = client.read_data(spectral_mean_ref)
@@ -1440,7 +1471,12 @@ def _project_dataset_onto_eigenvectors(
                 f"tile_bands={bands}, spectral_mean_bands={spectral_mean_array.shape[0]}"
             )
         flattened = flattened - spectral_mean_array[np.newaxis, :]
-    projected_flattened = flattened @ top_components.T
+    if flattened.shape[1] != projection_matrix.shape[1]:
+        raise ValueError(
+            f"Band mismatch between centered data and projection matrix: "
+            f"data_bands={flattened.shape[1]}, projection_width={projection_matrix.shape[1]}"
+        )
+    projected_flattened = flattened @ projection_matrix.T
     projected_tile = projected_flattened.reshape(
         data_tile_array.shape[0], data_tile_array.shape[1], num_components
     )
@@ -1457,6 +1493,8 @@ class ProjectOntoEigenVectorsStage(MapStage):
     _output_ref_name: str = "projected_dataset"
     _eigen_descriptor_ref: Optional[DataRef] = None
     _spectral_mean_ref: Optional[DataRef] = None
+    _eigenvector_multiply_matrices: Sequence[DataRef] = ()
+    _eigenvector_multiply_matrix_names: Sequence[str] = ()
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -1472,6 +1510,24 @@ class ProjectOntoEigenVectorsStage(MapStage):
             self.broadcast_input |= {"eigen_descriptor_ref": self._eigen_descriptor_ref}
         if "spectral_mean_ref" not in self.broadcast_input:
             self.broadcast_input |= {"spectral_mean_ref": self._spectral_mean_ref}
+        if len(self._eigenvector_multiply_matrix_names) == 0:
+            self._eigenvector_multiply_matrix_names = tuple(
+                f"eigenvector_matrix_ref_{i}" for i in range(len(self._eigenvector_multiply_matrices))
+            )
+            for name, matrix_ref in zip(
+                self._eigenvector_multiply_matrix_names,
+                self._eigenvector_multiply_matrices,
+            ):
+                if name not in self.broadcast_input:
+                    self.broadcast_input |= {name: matrix_ref}
+        else:
+            if len(self._eigenvector_multiply_matrices) > 0 and len(
+                self._eigenvector_multiply_matrix_names
+            ) != len(self._eigenvector_multiply_matrices):
+                raise ValueError("projection matrix names must match projection matrix refs count")
+            for name in self._eigenvector_multiply_matrix_names:
+                if name not in self.broadcast_input:
+                    raise ValueError(f"Missing broadcast input for projection matrix '{name}'")
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -1525,6 +1581,9 @@ class ProjectOntoEigenVectorsStage(MapStage):
         output_write = output_writes[self._output_ref_name]
         eigen_descriptor_ref: DataRef = broadcast_inputs["eigen_descriptor_ref"]
         spectral_mean_ref: Optional[DataRef] = broadcast_inputs["spectral_mean_ref"]
+        eigenvector_multiply_matrices = [
+            broadcast_inputs[name] for name in self._eigenvector_multiply_matrix_names
+        ]
         return partial(
             _project_dataset_onto_eigenvectors,
             input_ref,
@@ -1532,6 +1591,7 @@ class ProjectOntoEigenVectorsStage(MapStage):
             output_write,
             eigen_descriptor_ref,
             spectral_mean_ref,
+            eigenvector_multiply_matrices,
             self._num_components,
         )
 
@@ -1541,6 +1601,7 @@ def get_project_onto_eigenvectors_stage(
     eigen_descriptor_ref: DataRef,
     num_components: int,
     output_ref_name: str,
+    eigenvector_multiply_matrices: Sequence[DataRef] = (),
 ) -> ProjectOntoEigenVectorsStage:
     storage_client = get_process_storage_client()
     dataset_meta = storage_client.get_meta(dataset_ref)
@@ -1576,6 +1637,7 @@ def get_project_onto_eigenvectors_stage(
         _num_components=num_components,
         _output_ref_name=output_ref_name,
         _eigen_descriptor_ref=eigen_descriptor_ref,
+        _eigenvector_multiply_matrices=tuple(eigenvector_multiply_matrices),
         default_executor="process",
         input_plan_meta=input_meta,
         resource_model=ResourceModel(
@@ -1593,6 +1655,7 @@ def get_project_onto_eigenvectors_pipeline(
     eigen_descriptor_ref: DataRef,
     num_components: int,
     output_ref_name: str,
+    eigenvector_multiply_matrices: Sequence[DataRef] = (),
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline(
         [
@@ -1601,6 +1664,7 @@ def get_project_onto_eigenvectors_pipeline(
                 eigen_descriptor_ref,
                 num_components,
                 output_ref_name,
+                eigenvector_multiply_matrices,
             )
         ]
     )
