@@ -27,6 +27,8 @@ from wiser.utils.task_stage_utils import (
     ApplyMatrixToDatasetStage,
     AdaptivePcaFitStage,
     CalcCovMatrixStage,
+    EigendecompositionStage,
+    MatrixMultiplicationStage,
     ProjectOntoEigenVectorsStage,
     SpectralMeanStage,
     WhiteningMatrixStage,
@@ -158,6 +160,7 @@ def get_mnf_pipeline(
     noise_whitening_matrix_ref_name = "mnf_noise_whitening_matrix"
     input_mean_ref_name = "mnf_input_spectral_mean"
     input_covariance_ref_name = "mnf_input_covariance"
+    whitened_covariance_ref_name = "mnf_whitened_covariance"
     whitened_dataset_ref_name = "mnf_noise_whitened_dataset"
     whitened_eigen_ref_name = "mnf_whitened_eigen"
     whitened_mean_ref_name = "mnf_whitened_spectral_mean"
@@ -213,7 +216,6 @@ def get_mnf_pipeline(
     input_mean_stage = SpectralMeanStage(
         _output_ref_name=input_mean_ref_name,
         default_executor="process",
-        input_binding=DataBinding("input"),
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -228,7 +230,6 @@ def get_mnf_pipeline(
         _total_spectra=data_pixels,
         _output_ref_name=input_covariance_ref_name,
         default_executor="process",
-        input_binding=DataBinding("input"),
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -237,6 +238,31 @@ def get_mnf_pipeline(
             scratch_bytes_per_scalar_in=0,
         ),
         broadcast_input={"mean": DataBinding(input_mean_ref_name)},
+    )
+
+    whitened_covariance_stage = MatrixMultiplicationStage(
+        _output_ref_name=whitened_covariance_ref_name,
+        _matrix_input_names=("matrix_ref_0", "matrix_ref_1", "matrix_ref_2"),
+        _output_shape=(bands, bands),
+        _output_dtype=np.dtype(np.float32),
+        default_executor="process",
+        input_binding=DataBinding(input_covariance_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=bands,
+            spectrum_length=bands,
+            dtype=np.dtype(np.float32),
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={
+            "matrix_ref_0": DataBinding(noise_whitening_matrix_ref_name),
+            "matrix_ref_1": DataBinding(input_covariance_ref_name),
+            "matrix_ref_2": DataBinding(noise_whitening_matrix_ref_name),
+        },
     )
 
     apply_whitening_stage = ApplyMatrixToDatasetStage(
@@ -255,17 +281,17 @@ def get_mnf_pipeline(
         broadcast_input={"matrix_ref": DataBinding(noise_whitening_matrix_ref_name)},
     )
 
-    whitened_ipca_stage = AdaptivePcaFitStage(
-        _num_components=max_internal_components,
+    whitened_eigendecomposition_stage = EigendecompositionStage(
         _output_ref_name=whitened_eigen_ref_name,
         _vectors_ref_name=f"{whitened_eigen_ref_name}_vectors",
         _values_ref_name=f"{whitened_eigen_ref_name}_values",
-        _covariance_ref_name=f"{whitened_eigen_ref_name}_covariance",
-        _mean_ref_name=f"{whitened_eigen_ref_name}_mean",
-        _dataset_plan_meta=whitened_plan_meta,
         default_executor="process",
-        input_binding=DataBinding(whitened_dataset_ref_name),
-        input_plan_meta=whitened_plan_meta,
+        input_binding=DataBinding(whitened_covariance_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=bands,
+            spectrum_length=bands,
+            dtype=np.dtype(np.float32),
+        ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
             bytes_per_scalar_in=1,
@@ -315,8 +341,9 @@ def get_mnf_pipeline(
             noise_whitening_stage,
             input_mean_stage,
             input_covariance_stage,
+            whitened_covariance_stage,
             apply_whitening_stage,
-            whitened_ipca_stage,
+            whitened_eigendecomposition_stage,
             whitened_mean_stage,
             project_stage,
         ]
