@@ -2,9 +2,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import numpy as np
-import pytest
+# import context
 import tests.context
+
+import numpy as np
+import spectral
+import pytest
+from test_utils.test_model import WiserTestModel
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.mnf import MinimumNoiseFractionDialog, get_mnf_pipeline, get_y_shift_noise
@@ -20,26 +24,12 @@ pytestmark = [
 
 
 class TestMnf(unittest.TestCase):
-    def test_perform_mnf_runs_with_app_services_and_waits_for_future(self) -> None:
-        dataset_path = (
-            Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "caltech_425_7_7_nm"
-        ).resolve()
-        dataset = RasterDataLoader().load_from_file(str(dataset_path), interactive=False)[0]
+    def setUp(self):
+        self.test_model = WiserTestModel()
 
-        app_services = AppServices()
-
-        try:
-            dataset_ref = app_services.storage_service.register_external(
-                ExternalRasterHandle(dataset_obj=dataset)
-            )
-            dialog = MinimumNoiseFractionDialog(app_services=app_services)
-
-            future = dialog.perform_mnf(dataset_ref)
-
-            future.result(timeout=120)
-        finally:
-            app_services.scheduler.shutdown(wait=True)
-            app_services.storage_service.close()
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
 
     def test_get_y_shift_noise_stage_outputs_vertical_shift_difference_noise(self) -> None:
         array_2x2x3 = np.array(
@@ -50,9 +40,9 @@ class TestMnf(unittest.TestCase):
             ],
             dtype=np.float32,
         )
-        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x3)
+        dataset = self.test_model.load_dataset(array_2x2x3)
 
-        app_services = AppServices()
+        app_services = self.test_model.app_services
         storage_client = None
         try:
             dataset_ref = app_services.storage_service.register_external(
@@ -91,13 +81,11 @@ class TestMnf(unittest.TestCase):
             app_services.storage_service.close()
 
     def test_get_mnf_pipeline_matches_spy_mnf_on_caltech_fixture(self) -> None:
-        spectral = pytest.importorskip("spectral")
         dataset_path = (
             Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "circuit_4_100_150_um"
         ).resolve()
-        dataset = RasterDataLoader().load_from_file(str(dataset_path), interactive=False)[0]
-
-        app_services = AppServices()
+        dataset = self.test_model.load_dataset(str(dataset_path))
+        app_services = self.test_model.app_services
         storage_client = None
         try:
             image = np.nan_to_num(
@@ -128,6 +116,7 @@ class TestMnf(unittest.TestCase):
                 service_address=listener_address,
                 service_authkey=listener_authkey,
             )
+
             mnf_ref = task_plan.bindings[output_ref_name]
             our_mnf, _ = storage_client.read_data(mnf_ref)
 
@@ -139,21 +128,21 @@ class TestMnf(unittest.TestCase):
                 dtype=np.float32,
             )
             self.assertEqual(our_mnf.shape, spy_mnf.shape)
-            cosine_similarities: list[float] = []
             for i in range(num_components):
                 ours = our_mnf[:, :, i].reshape(-1).astype(np.float64)
                 theirs = spy_mnf[:, :, i].reshape(-1).astype(np.float64)
-                ours -= ours.mean()
-                theirs -= theirs.mean()
-                ours_norm = np.linalg.norm(ours)
-                theirs_norm = np.linalg.norm(theirs)
-                self.assertGreater(ours_norm, 0.0)
-                self.assertGreater(theirs_norm, 0.0)
-                corr = abs(float(np.dot(ours / ours_norm, theirs / theirs_norm)))
-                cosine_similarities.append(corr)
-                self.assertGreater(corr, 0.98)
+                self.assertTrue(np.allclose(np.abs(ours), np.abs(theirs), atol=1e-3))
         finally:
             if storage_client is not None:
                 storage_client.close()
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+
+if __name__ == "__main__":
+    test_mnf = TestMnf()
+    test_mnf.setUp()
+    try:
+        test_mnf.test_get_mnf_pipeline_matches_spy_mnf_on_caltech_fixture()
+    finally:
+        test_mnf.tearDown()

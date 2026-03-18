@@ -1,17 +1,22 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 import pytest
+
 import tests.context
+# import context
 
 from wiser.gui.app_services import AppServices
 from wiser.utils.task_stage_utils import (
     CalcCovMatrixStage,
     EigendecompositionStage,
     EigenVectorsAndValues,
+    get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
-    get_incremental_pca_partial_fit_stage,
+    get_adaptive_pca_partial_fit_stage,
+    get_matrix_multiplication_stage,
     get_noise_covariance_pipeline,
     get_project_onto_eigenvectors_stage,
     get_spectral_mean_stage,
@@ -19,7 +24,13 @@ from wiser.utils.task_stage_utils import (
     get_eigendecomposition_pipeline,
 )
 from wiser.raster.loader import RasterDataLoader
-from wiser.utils.primitives import AllocationRequest, DataBinding, PriorityClass, SpectraListPlanMeta
+from wiser.utils.primitives import (
+    AllocationRequest,
+    DataBinding,
+    NoChunkingScheme,
+    PriorityClass,
+    SpectraListPlanMeta,
+)
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
@@ -28,6 +39,7 @@ from wiser.utils.task_system import (
     ResourceModel,
     SemanticTask,
 )
+from test_utils.test_model import WiserTestModel
 
 pytestmark = [
     pytest.mark.integration,
@@ -35,6 +47,13 @@ pytestmark = [
 
 
 class TestTaskStageFuncs(unittest.TestCase):
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
     def test_spectral_mean_stage_pipeline_execution(self) -> None:
         # RasterDataLoader expects [band][y][x]. Each pixel has a constant spectrum value.
         array_2x2x4 = np.array(
@@ -289,8 +308,8 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             expected = np.array(
                 [
-                    [0.2, 0.26666668],
-                    [-0.4, 0.3],
+                    [0.44, -0.08],
+                    [-0.08, 0.3933333],
                 ],
                 dtype=np.float32,
             )
@@ -383,6 +402,228 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_apply_matrix_to_dataset_stage_supports_left_and_right_matrix_chains(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            dataset = np.array(
+                [
+                    [[1.0, 2.0], [3.0, 4.0]],
+                    [[5.0, 6.0], [7.0, 8.0]],
+                ],
+                dtype=np.float32,
+            )
+            left_matrix = np.array(
+                [
+                    [2.0, 0.0],
+                    [0.0, 0.5],
+                    [1.0, -1.0],
+                ],
+                dtype=np.float32,
+            )
+            right_matrix = np.array(
+                [
+                    [1.0, 2.0],
+                    [0.0, 1.0],
+                    [1.0, 0.0],
+                ],
+                dtype=np.float32,
+            )
+
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="apply_chain_input_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            left_matrix_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="apply_chain_left_matrix",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=left_matrix.size * left_matrix.dtype.itemsize,
+                    shape=left_matrix.shape,
+                    dtype=left_matrix.dtype,
+                )
+            )
+            right_matrix_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="apply_chain_right_matrix",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=right_matrix.size * right_matrix.dtype.itemsize,
+                    shape=right_matrix.shape,
+                    dtype=right_matrix.dtype,
+                )
+            )
+            process_storage_client.write_data(dataset_ref, dataset)
+            process_storage_client.write_data(left_matrix_ref, left_matrix)
+            process_storage_client.write_data(right_matrix_ref, right_matrix)
+
+            output_ref_name = "matrix_chain_dataset"
+            stage = get_apply_matrices_to_dataset_stage(
+                dataset_ref=dataset_ref,
+                left_multiply_matrices=(left_matrix_ref,),
+                right_multiply_matrices=(right_matrix_ref,),
+                output_ref_name=output_ref_name,
+            )
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10051
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            transformed_dataset, _ = storage_client.read_data(output_ref)
+
+            flattened = dataset.reshape(-1, dataset.shape[2])
+            expected = (flattened @ left_matrix.T) @ right_matrix
+            expected = expected.reshape(dataset.shape[0], dataset.shape[1], right_matrix.shape[1])
+
+            self.assertEqual(transformed_dataset.shape, expected.shape)
+            self.assertTrue(np.allclose(transformed_dataset, expected, atol=1e-6))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_matrix_multiplication_stage_multiplies_matrix_chain_in_order(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            matrix_a = np.array(
+                [
+                    [1.0, 2.0, 0.0],
+                    [0.0, 1.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+            matrix_b = np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                    [1.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+            matrix_c = np.array(
+                [
+                    [2.0, 1.0],
+                    [0.0, 3.0],
+                ],
+                dtype=np.float32,
+            )
+
+            matrix_refs = []
+            for name, matrix in (
+                ("matrix_mult_a", matrix_a),
+                ("matrix_mult_b", matrix_b),
+                ("matrix_mult_c", matrix_c),
+            ):
+                matrix_ref = app_services.storage_service.allocate_data(
+                    AllocationRequest(
+                        name=name,
+                        kind="array",
+                        residency="ram_cacheable",
+                        size_est=matrix.size * matrix.dtype.itemsize,
+                        shape=matrix.shape,
+                        dtype=matrix.dtype,
+                    )
+                )
+                process_storage_client.write_data(matrix_ref, matrix)
+                matrix_refs.append(matrix_ref)
+
+            output_ref_name = "matrix_chain_product"
+            stage = get_matrix_multiplication_stage(matrix_refs, output_ref_name)
+            self.assertIs(stage.chunking_scheme_type, NoChunkingScheme)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=matrix_refs[0],
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1012
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            product, _ = storage_client.read_data(output_ref)
+
+            expected = matrix_a @ matrix_b @ matrix_c
+            self.assertEqual(product.shape, expected.shape)
+            self.assertTrue(np.allclose(product, expected, atol=1e-6))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_matrix_multiplication_stage_rejects_incompatible_chain(self) -> None:
+        app_services = AppServices()
+        try:
+            process_storage_client = get_process_storage_client()
+            matrix_a = np.array(
+                [
+                    [1.0, 2.0],
+                    [3.0, 4.0],
+                ],
+                dtype=np.float32,
+            )
+            matrix_b = np.array(
+                [
+                    [1.0, 2.0, 3.0],
+                ],
+                dtype=np.float32,
+            )
+
+            matrix_refs = []
+            for name, matrix in (("bad_matrix_a", matrix_a), ("bad_matrix_b", matrix_b)):
+                matrix_ref = app_services.storage_service.allocate_data(
+                    AllocationRequest(
+                        name=name,
+                        kind="array",
+                        residency="ram_cacheable",
+                        size_est=matrix.size * matrix.dtype.itemsize,
+                        shape=matrix.shape,
+                        dtype=matrix.dtype,
+                    )
+                )
+                process_storage_client.write_data(matrix_ref, matrix)
+                matrix_refs.append(matrix_ref)
+
+            with self.assertRaisesRegex(ValueError, "Matrix chain shape mismatch"):
+                get_matrix_multiplication_stage(matrix_refs, "bad_matrix_chain")
+        finally:
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -523,7 +764,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             process_storage_client.write_data(dataset_ref, dataset)
 
             output_ref_name = "ipca_known_descriptor"
-            stage = get_incremental_pca_partial_fit_stage(
+            stage = get_adaptive_pca_partial_fit_stage(
                 dataset_ref=dataset_ref,
                 num_components=2,
                 output_ref_name=output_ref_name,
@@ -575,13 +816,8 @@ class TestTaskStageFuncs(unittest.TestCase):
         storage_client = None
         try:
             process_storage_client = get_process_storage_client()
-            dataset = np.array(
-                [
-                    [[2.0, 0.0], [0.0, 1.0]],
-                    [[-2.0, 0.0], [0.0, -1.0]],
-                ],
-                dtype=np.float32,
-            )
+            rng = np.random.default_rng(1)
+            dataset = rng.standard_normal((5, 7, 3), dtype=np.float32)
             dataset_ref = app_services.storage_service.allocate_data(
                 AllocationRequest(
                     name="ipca_vs_eig_dataset",
@@ -595,9 +831,9 @@ class TestTaskStageFuncs(unittest.TestCase):
             process_storage_client.write_data(dataset_ref, dataset)
 
             ipca_output_name = "ipca_vs_eig_descriptor"
-            ipca_stage = get_incremental_pca_partial_fit_stage(
+            ipca_stage = get_adaptive_pca_partial_fit_stage(
                 dataset_ref=dataset_ref,
-                num_components=2,
+                num_components=3,
                 output_ref_name=ipca_output_name,
             )
             ipca_task = SemanticTask(
@@ -678,7 +914,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             self.assertTrue(np.allclose(ipca_eigen_values, eig_eigen_values, atol=1e-4))
 
-            for i in range(2):
+            for i in range(dataset.shape[2]):
                 ipca_vec = np.asarray(ipca_descriptor.get_eigen_vector(i), dtype=np.float32)
                 eig_vec = np.asarray(eig_descriptor.get_eigen_vector(i), dtype=np.float32)
                 ipca_norm = np.linalg.norm(ipca_vec)
@@ -692,3 +928,112 @@ class TestTaskStageFuncs(unittest.TestCase):
                 storage_client.close()
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+    def test_incremental_pca_partial_fit_full_pca_matches_incremental_path(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            dataset_path = (
+                Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+            )
+            dataset = RasterDataLoader().load_from_file(str(dataset_path))[0]
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            full_output_name = "ipca_full_pca_descriptor"
+            full_stage = get_adaptive_pca_partial_fit_stage(
+                dataset_ref=dataset_ref,
+                num_components=4,
+                output_ref_name=full_output_name,
+            )
+            full_stage.test_full_pca = True
+            full_task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[full_stage]),
+            )
+            full_task.id = 1010
+            full_plan = app_services.task_planner.plan_semantic_task(full_task)
+            full_future = app_services.scheduler.run_task_plan(full_plan)
+            full_future.result(timeout=20)
+
+            incremental_output_name = "ipca_incremental_descriptor"
+            incremental_stage = get_adaptive_pca_partial_fit_stage(
+                dataset_ref=dataset_ref,
+                num_components=4,
+                output_ref_name=incremental_output_name,
+            )
+            incremental_stage.test_full_pca = False
+            incremental_task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[incremental_stage]),
+            )
+            incremental_task.id = 1011
+            incremental_plan = app_services.task_planner.plan_semantic_task(incremental_task)
+            incremental_future = app_services.scheduler.run_task_plan(incremental_plan)
+            incremental_future.result(timeout=20)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+
+            full_descriptor_ref = full_plan.bindings[full_output_name]
+            full_descriptor: EigenVectorsAndValues = storage_client.read_json_value(full_descriptor_ref)[
+                "eigen"
+            ]
+            incremental_descriptor_ref = incremental_plan.bindings[incremental_output_name]
+            incremental_descriptor: EigenVectorsAndValues = storage_client.read_json_value(
+                incremental_descriptor_ref
+            )["eigen"]
+
+            self.assertEqual(full_descriptor.num_vectors, incremental_descriptor.num_vectors)
+            self.assertEqual(full_descriptor.vector_dimension, incremental_descriptor.vector_dimension)
+
+            full_values, _ = storage_client.read_data(full_descriptor.eigen_values_ref)
+            incremental_values, _ = storage_client.read_data(incremental_descriptor.eigen_values_ref)
+            self.assertTrue(
+                np.allclose(
+                    np.asarray(full_values, dtype=np.float32),
+                    np.asarray(incremental_values, dtype=np.float32),
+                    atol=1e-3,
+                )
+            )
+
+            full_mean, _ = storage_client.read_data(full_descriptor.mean_ref)
+            incremental_mean, _ = storage_client.read_data(incremental_descriptor.mean_ref)
+            self.assertTrue(
+                np.allclose(
+                    np.asarray(full_mean, dtype=np.float32),
+                    np.asarray(incremental_mean, dtype=np.float32),
+                    atol=1e-4,
+                )
+            )
+
+            full_vectors, _ = storage_client.read_data(full_descriptor.eigen_vectors_ref)
+            incremental_vectors, _ = storage_client.read_data(incremental_descriptor.eigen_vectors_ref)
+            full_vectors_array = np.asarray(full_vectors, dtype=np.float32)
+            incremental_vectors_array = np.asarray(incremental_vectors, dtype=np.float32)
+            self.assertEqual(full_vectors_array.shape, incremental_vectors_array.shape)
+
+            for i in range(full_vectors_array.shape[0]):
+                full_vec = full_vectors_array[i]
+                incremental_vec = incremental_vectors_array[i]
+                alignment = abs(float(np.dot(full_vec, incremental_vec)))
+                self.assertTrue(np.isclose(alignment, 1.0, atol=1e-4))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+
+if __name__ == "__main__":
+    test_stage_funcs = TestTaskStageFuncs()
+    test_stage_funcs.setUp()
+    test_stage_funcs.test_whitening_matrix_stage_computes_lambda_inverse_sqrt_times_e_transpose()
+    test_stage_funcs.tearDown()

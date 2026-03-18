@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
+from PySide2.QtCore import QObject, Signal, Slot
 
 from .primitives import (
     AllocationRequest,
@@ -29,7 +31,8 @@ from .primitives import (
 from .storage_service import StorageService
 
 if TYPE_CHECKING:
-    from wiser.utils.work_scheduler import SchedulerConfig
+    from wiser.gui.activity_monitor import ActivityMonitorDialog
+    from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 
 Number = Union[int, float]
 
@@ -190,6 +193,17 @@ class TaskPlan:
     stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
     fail_fast: bool = True
+    completion_callback: Optional[Callable[[Dict[str, DataRef]], None]] = None
+    # The below entries are for displaying to the user. They don't affect the internals
+    # of how a task plan is schedule or how data is transferred
+    task_title: str = "Generic Task Title"
+    task_input_variables: Optional[Dict[str, str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ProgressUpdate:
+    current_iteration: int
+    total_iterations: int
 
 
 class ChunkingPolicy(Protocol):
@@ -328,11 +342,14 @@ class TaskPlanner:
         # TODO: give plan id a uuid4
         plan_id = f"plan:{semantic_task.id}"
         plan = TaskPlan(plan_id=plan_id, semantic_task_id=str(semantic_task.id))
+        plan.task_title = semantic_task.task_title
+        plan.task_input_variables = semantic_task.task_variables
 
         # 1) init bindings
         bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
 
         plan.bindings.update(bindings)
+        plan.completion_callback = semantic_task.completion_callback
 
         # A simple policy: all units in stage i depend on completion of *all* units in stage i-1.
         prev_stage_unit_ids: List[str] = []
@@ -453,12 +470,116 @@ class TaskPlanner:
         )
 
 
+class TaskManager(QObject):
+    task_finished = Signal(str)
+    task_progressed = Signal(object)
+    # Emitted when a work unit raises an exception so the UI can append error
+    # text for the plan without treating it as a user/system cancellation.
+    task_errored = Signal(object)
+    # Emitted when a plan is cancelled by scheduler control flow so the UI can
+    # move the activity row into the finished section as cancelled.
+    task_cancelled = Signal(str)
+
+    def __init__(self, activity_monitor: "ActivityMonitorDialog"):
+        super().__init__()
+        self._activity_monitor = activity_monitor
+        self._activity_ids_by_plan_id: Dict[str, int] = {}
+        self._plan_ids_by_activity_id: Dict[int, str] = {}
+        self.task_cancelled.connect(self._on_task_cancelled)
+        self.task_finished.connect(self._on_task_finished)
+        self.task_progressed.connect(self._on_task_progressed)
+        self.task_errored.connect(self._on_task_errored)
+
+    def emit_progress_update(self, activity_id: int, numerator: int, denominator: int) -> None:
+        if activity_id not in self._plan_ids_by_activity_id:
+            raise KeyError(f"Unknown activity monitor activity id: {activity_id}")
+
+        self._activity_monitor.progress_update.emit(
+            (
+                activity_id,
+                ProgressUpdate(
+                    current_iteration=max(0, int(numerator)),
+                    total_iterations=max(1, int(denominator)),
+                ),
+            )
+        )
+
+    @Slot(object)
+    def _on_task_progressed(self, payload: object) -> None:
+        if not isinstance(payload, tuple) or len(payload) != 3:
+            return
+
+        task_plan_id, numerator, denominator = payload
+        if (
+            not isinstance(task_plan_id, str)
+            or not isinstance(numerator, int)
+            or not isinstance(denominator, int)
+        ):
+            return
+
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self.emit_progress_update(activity_id, numerator, denominator)
+
+    @Slot(str)
+    def _on_task_cancelled(self, task_plan_id: str) -> None:
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.set_task_cancelled(activity_id)
+
+    @Slot(object)
+    def _on_task_errored(self, payload: object) -> None:
+        if not isinstance(payload, tuple) or len(payload) != 2:
+            return
+
+        task_plan_id, error_message = payload
+        if not isinstance(task_plan_id, str) or not isinstance(error_message, str):
+            return
+
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.append_task_error(activity_id, error_message)
+
+    @Slot(str)
+    def _on_task_finished(self, task_plan_id: str) -> None:
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.set_task_finished(activity_id)
+
+    def register_and_submit_task_plan(self, scheduler: "WorkScheduler", task_plan: TaskPlan) -> Future[None]:
+        """
+        Registers the task plan to the task gui (the real name will be ActivityMonitorDialog
+        (found in [activity_monitor.py](src/wiser/gui/activity_monitor.py))), then submits it?
+        """
+        task_meta = task_plan.task_input_variables or {
+            "plan_id": task_plan.plan_id,
+            "semantic_task_id": task_plan.semantic_task_id,
+            "stages": str(len(task_plan.stage_work_units)),
+            "work_units": str(len(task_plan.work_units)),
+        }
+        activity_id = self._activity_monitor.register_task(
+            title=task_plan.task_title,
+            meta=task_meta,
+            cancel_callback=lambda: scheduler.cancel_plan(task_plan.plan_id),
+        )
+        self._activity_ids_by_plan_id[task_plan.plan_id] = activity_id
+        self._plan_ids_by_activity_id[activity_id] = task_plan.plan_id
+        future = scheduler.run_task_plan(task_plan)
+        return future
+
+
 class SemanticTask:
     def __init__(
         self,
         priority_class: PriorityClass,
         input_ref: DataRef,
         algorithm_pipeline: AlgorithmPipeline,
+        task_title: str = "Generic Task Title",
+        task_variables: Optional[Dict[str, str]] = None,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
@@ -467,6 +588,17 @@ class SemanticTask:
         self._priority_class: PriorityClass = priority_class
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
+
+        self._task_title = task_title
+        self._task_variables = task_variables or dict()
+
+    @property
+    def task_title(self) -> str:
+        return self._task_title
+
+    @property
+    def task_variables(self) -> Dict[str, str]:
+        return self._task_variables
 
     @property
     def input_ref(self) -> DataRef:
@@ -478,3 +610,13 @@ class SemanticTask:
 
     def get_priority_class(self) -> PriorityClass:
         return self._priority_class
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        """
+        Hook invoked after the task plan's final work unit completes successfully.
+
+        Implement this in user code to consume the task plan's final `bindings`
+        mapping, which contains the `DataRef` objects produced and tracked during
+        planning/execution.
+        """
+        pass

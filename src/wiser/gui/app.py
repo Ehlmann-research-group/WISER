@@ -39,6 +39,8 @@ from .image_coords_widget import ImageCoordsWidget
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
+from .activity_monitor import ActivityMonitorDialog
+from .activity_monitor_button import ActivityMonitorButton
 
 from .util import *
 
@@ -101,9 +103,14 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
-        self._app_services: AppServices = AppServices()
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
+
+        self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
+        self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
+            self._activity_monitor,
+            parent=self,
+        )
 
         # Application Toolbars
 
@@ -118,6 +125,8 @@ class DataVisualizerApp(QMainWindow):
         self._init_plugins()
 
         # Status bar
+
+        self.statusBar().addPermanentWidget(self._activity_monitor_button)
 
         self._image_coords = ImageCoordsWidget(self)
         self.statusBar().addPermanentWidget(self._image_coords)
@@ -198,6 +207,10 @@ class DataVisualizerApp(QMainWindow):
             area=Qt.LeftDockWidgetArea,
         )
         dockable.hide()
+
+        # App Services
+
+        self._app_services: AppServices = AppServices(self._activity_monitor, parent=self)
 
         # Hook up widget events to their corresponding control functions.
 

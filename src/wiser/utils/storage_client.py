@@ -134,7 +134,7 @@ class StorageClient:
         self,
         ref: DataRef,
         *,
-        filter_data_ignore_value: bool = True,
+        filter_data: bool = True,
     ) -> tuple[np.ndarray | np.ma.MaskedArray, RegionMeta]:
         """
         Read the whole object for `ref`.
@@ -160,32 +160,57 @@ class StorageClient:
             arr = self._read_ram_array_view(desc.ref.uri)
             arr_region = self._read_region_from_array(arr, whole_region)
             data = np.asarray(arr_region)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, ExternalRamAccessDescriptor):
             arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
             arr_region = self._read_region_from_array(arr, whole_region)
             data = np.asarray(arr_region)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, ExternalDiskAccessDescriptor):
             arr = self._read_external_region(desc.ref, whole_region)
             # TODO: Don't copy for GDAL-backed datasets.
             data = np.array(arr, copy=True)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, MemmapAccessDescriptor):
             mm = np.load(str(desc.path), mmap_mode="r")
             arr = self._read_region_from_array(mm, whole_region)
             data = np.array(arr, copy=True)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, ZarrAccessDescriptor):
             store = zarr.DirectoryStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
             arr = self._read_region_from_array(grp[desc.array_name], whole_region)
             data = np.array(arr, copy=True)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
@@ -194,7 +219,7 @@ class StorageClient:
         ref: DataRef,
         region: DataRegion,
         *,
-        filter_data_ignore_value: bool = True,
+        filter_data: bool = True,
     ) -> tuple[np.ndarray | np.ma.MaskedArray, RegionMeta]:
         """
         Read the specified region for `ref`.
@@ -217,10 +242,10 @@ class StorageClient:
             arr = self._read_region_from_array(arr, region)
             data = np.asarray(arr)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -230,10 +255,10 @@ class StorageClient:
             # TODO: Don't copy for GDAL-backed datasets.
             data = np.array(arr, copy=True)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -243,10 +268,10 @@ class StorageClient:
             arr = self._read_region_from_array(arr, region)
             data = np.asarray(arr)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -256,10 +281,10 @@ class StorageClient:
             arr = self._read_region_from_array(mm, region)
             data = np.array(arr, copy=True)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -270,10 +295,10 @@ class StorageClient:
             arr = self._read_region_from_array(grp[desc.array_name], region)
             data = np.array(arr, copy=True)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -372,6 +397,9 @@ class StorageClient:
                     f"External dataset read requires DatasetRegionRef, "
                     f"got {type(region)} for ref_id={ref.ref_id}"
                 )
+            # We set data ignore value to false because we want accessing
+            # from a dataset and accessing from a shared memory array to
+            # return an np.ndarray
             arr_by_band = dataset.get_image_data_subset(
                 x=region.x0,
                 y=region.y0,
@@ -527,24 +555,50 @@ class StorageClient:
             f"\nIt does not support {type(desc)} descriptors."
         )
 
-    def _mask_data_ignore_value(
+    def _mask_data_ignore_and_bad_bands(
         self,
         data: np.ndarray | np.ma.MaskedArray,
         region_meta: RegionMeta,
-        filter_data_ignore_value: bool,
+        filter_data_ignore_and_bad_bands: bool,
     ) -> np.ndarray | np.ma.MaskedArray:
-        if not filter_data_ignore_value:
-            return data
-        if region_meta.nodata is None:
+        """
+        Mask `nodata` values and bad bands for region reads.
+
+        Dataset-region inputs are expected to have shape `[y][x][b]`, with the
+        last axis representing bands.
+        """
+        if not filter_data_ignore_and_bad_bands:
             return data
 
         arr = np.ma.array(data, copy=False)
         raw = np.ma.getdata(arr)
-        if np.isnan(region_meta.nodata):
-            nodata_mask = np.isnan(raw)
-        else:
-            nodata_mask = raw == region_meta.nodata
-        combined_mask = np.ma.mask_or(np.ma.getmaskarray(arr), nodata_mask)
+        combined_mask = np.ma.getmaskarray(arr)
+
+        if region_meta.nodata is not None:
+            if np.isnan(region_meta.nodata):
+                nodata_mask = np.isnan(raw)
+            else:
+                nodata_mask = raw == region_meta.nodata
+            combined_mask = np.ma.mask_or(combined_mask, nodata_mask)
+
+        if region_meta.bad_bands is not None and isinstance(region_meta.region, DatasetRegionRef):
+            assert raw.ndim == 3, f"Expected dataset region data to be 3D, got ndim={raw.ndim}"
+
+            band_axis = raw.ndim - 1
+            band_count = region_meta.region.b1 - region_meta.region.b0
+            assert raw.shape[band_axis] == band_count, (
+                f"DatasetRegionRef band count {band_count} does not match "
+                f"array axis size {raw.shape[band_axis]}"
+            )
+
+            bad_band_mask = np.asarray(region_meta.bad_bands) == 0
+            assert bad_band_mask.shape == (
+                band_count,
+            ), f"Expected bad_bands shape {(band_count,)}, got {bad_band_mask.shape}"
+
+            bad_band_mask = bad_band_mask.reshape((1, 1, band_count))
+            combined_mask = np.ma.mask_or(combined_mask, np.broadcast_to(bad_band_mask, raw.shape))
+
         return np.ma.array(raw, mask=combined_mask, copy=False)
 
     def get_meta(self, ref: DataRef) -> DataMeta:

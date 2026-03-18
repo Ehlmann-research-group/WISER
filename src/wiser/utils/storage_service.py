@@ -367,6 +367,7 @@ class StorageService:
         materialization_loc: Literal["none", "ram", "disk"] = (
             "disk" if external_params is not None else "none"
         )
+
         ref = DataRef(
             kind=meta.kind,
             ref_id=ref_id,

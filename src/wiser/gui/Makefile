@@ -10,6 +10,7 @@ TARGET_DIR = ./generated
 
 FILENAMES=\
 	about_dialog_ui.py \
+	activity_monitor_ui.py \
 	app_config_ui.py \
 	band_chooser_ui.py \
 	band_math_ui.py \
@@ -29,6 +30,7 @@ FILENAMES=\
 	import_spectra_text_ui.py \
 	import_wavelengths_ui.py \
 	interactive_scatter_plot_ui.py \
+	mnf_dialog_ui.py \
 	pca_dialog_ui.py \
 	reference_system_creator_ui.py \
 	roi_info_editor_ui.py \

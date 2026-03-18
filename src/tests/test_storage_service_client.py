@@ -238,7 +238,17 @@ class TestStorageServiceClient(unittest.TestCase):
                     dataset.get_image_data(filter_data_ignore_value=True),
                     copy=False,
                 ).transpose(1, 2, 0)
-                got_image, _ = client.read_data(ref, filter_data_ignore_value=True)
+                bad_bands = dataset.get_bad_bands()
+                if bad_bands is not None:
+                    bad_band_mask = np.asarray(bad_bands, dtype=np.int8) == 0
+                    expected_mask = np.ma.getmaskarray(expected_image).copy()
+                    expected_mask[:, :, bad_band_mask] = True
+                    expected_image = np.ma.array(
+                        np.ma.getdata(expected_image),
+                        mask=expected_mask,
+                        copy=False,
+                    )
+                got_image, _ = client.read_data(ref, filter_data=True)
                 self._assert_array_and_mask_equal(got_image, expected_image)
 
                 # Compare subset read.
@@ -260,7 +270,7 @@ class TestStorageServiceClient(unittest.TestCase):
                 got_subset, _ = client.read_region(
                     ref,
                     subset_region,
-                    filter_data_ignore_value=True,
+                    filter_data=True,
                 )
                 self._assert_array_and_mask_equal(got_subset, expected_subset)
 
@@ -275,7 +285,7 @@ class TestStorageServiceClient(unittest.TestCase):
                 got_band_3d, _ = client.read_region(
                     ref,
                     band_region,
-                    filter_data_ignore_value=True,
+                    filter_data=True,
                 )
                 got_band = np.ma.array(got_band_3d, copy=False)[:, :, 0]
                 self._assert_array_and_mask_equal(got_band, expected_band)

@@ -1,7 +1,9 @@
 import tempfile
 import time
 import unittest
+from io import StringIO
 from functools import partial
+from unittest.mock import patch
 
 import numpy as np
 import tests.context
@@ -80,6 +82,30 @@ def _make_work_unit(
 
 
 class TestWorkScheduler(unittest.TestCase):
+    def test_recording_work_scheduler_prints_timing_summary(self) -> None:
+        clock_times = iter([0.0, 1.0, 2.0, 5.5, 6.0, 7.5, 8.0])
+        recorder = RecordingWorkScheduler(clock=lambda: next(clock_times))
+
+        recorder.on_plan_submitted("plan-1")
+        recorder.on_stage_enqueued("plan-1", "s00")
+        recorder.on_unit_submitted("plan-1", "s00", "u1", "process", PriorityClass.INTERACTIVE)
+        recorder.on_unit_done("plan-1", "s00", "u1", success=True)
+        recorder.on_unit_submitted("plan-1", "s00", "u2", "thread", PriorityClass.BACKGROUND)
+        recorder.on_unit_done("plan-1", "s00", "u2", success=True)
+        recorder.on_plan_completed("plan-1", success=True)
+
+        stdout = StringIO()
+        with patch("sys.stdout", stdout):
+            recorder.print_timing_summary()
+
+        self.assertEqual(
+            stdout.getvalue(),
+            "Plan plan-1 (8.000000s)\n"
+            "  Stage s00 (6.500000s)\n"
+            "    Unit u1: 3.500000s\n"
+            "    Unit u2: 1.500000s\n",
+        )
+
     def test_stage_steps_enforce_barrier_between_stage_steps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
@@ -352,6 +378,7 @@ class TestWorkScheduler(unittest.TestCase):
 
                 self.assertEqual(events[0].kind, "plan_submitted")
                 self.assertEqual(events[0].plan_id, plan.plan_id)
+                self.assertIsInstance(events[0].time, float)
 
                 s00_enqueue_idxs = [
                     idx
