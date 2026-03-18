@@ -26,6 +26,7 @@ from wiser.utils.primitives import (
 from wiser.utils.task_stage_utils import (
     ApplyMatrixToDatasetStage,
     AdaptivePcaFitStage,
+    CalcCovMatrixStage,
     ProjectOntoEigenVectorsStage,
     SpectralMeanStage,
     WhiteningMatrixStage,
@@ -155,6 +156,8 @@ def get_mnf_pipeline(
     noise_ref_name = "mnf_shift_y_noise"
     noise_eigen_ref_name = "mnf_noise_eigen"
     noise_whitening_matrix_ref_name = "mnf_noise_whitening_matrix"
+    input_mean_ref_name = "mnf_input_spectral_mean"
+    input_covariance_ref_name = "mnf_input_covariance"
     whitened_dataset_ref_name = "mnf_noise_whitened_dataset"
     whitened_eigen_ref_name = "mnf_whitened_eigen"
     whitened_mean_ref_name = "mnf_whitened_spectral_mean"
@@ -205,6 +208,35 @@ def get_mnf_pipeline(
             bytes_per_scalar_out=1,
             scratch_bytes_per_scalar_in=0,
         ),
+    )
+
+    input_mean_stage = SpectralMeanStage(
+        _output_ref_name=input_mean_ref_name,
+        default_executor="process",
+        input_binding=DataBinding("input"),
+        input_plan_meta=dataset_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={"total": data_pixels},
+    )
+
+    input_covariance_stage = CalcCovMatrixStage(
+        _total_spectra=data_pixels,
+        _output_ref_name=input_covariance_ref_name,
+        default_executor="process",
+        input_binding=DataBinding("input"),
+        input_plan_meta=dataset_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={"mean": DataBinding(input_mean_ref_name)},
     )
 
     apply_whitening_stage = ApplyMatrixToDatasetStage(
@@ -281,6 +313,8 @@ def get_mnf_pipeline(
             noise_stage,
             noise_ipca_stage,
             noise_whitening_stage,
+            input_mean_stage,
+            input_covariance_stage,
             apply_whitening_stage,
             whitened_ipca_stage,
             whitened_mean_stage,
