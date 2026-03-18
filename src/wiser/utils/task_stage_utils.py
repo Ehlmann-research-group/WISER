@@ -814,45 +814,84 @@ def _apply_matrix_to_dataset(
     input_ref: DataRef,
     input_region: DataRegion,
     output_write: "WriteSpec",
-    matrix_ref: DataRef,
+    left_multiply_matrices: Sequence[DataRef],
+    right_multiply_matrices: Sequence[DataRef],
 ) -> None:
     client = get_process_storage_client()
-    # Expected shape: (y, x, b)
     data_tile, _ = client.read_region(input_ref, input_region)
-    # Expected shape: (k, b)
-    matrix, _ = client.read_data(matrix_ref)
-
     data_tile_array = np.asarray(np.ma.getdata(data_tile))
-    matrix_array = np.asarray(np.ma.getdata(matrix))
 
     if data_tile_array.ndim != 3:
         raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_array.shape}")
-    if matrix_array.ndim != 2:
-        raise ValueError(f"Expected matrix shape [k][b], got {matrix_array.shape}")
 
-    bands = data_tile_array.shape[2]
-    if matrix_array.shape[1] != bands:
-        raise ValueError(
-            f"Band mismatch between dataset tile and matrix: "
-            f"tile_bands={bands}, matrix_width={matrix_array.shape[1]}"
-        )
+    flattened = data_tile_array.reshape(-1, data_tile_array.shape[2]).astype(np.float32, copy=False)
+    current_bands = flattened.shape[1]
 
-    flattened = data_tile_array.reshape(-1, bands)
-    transformed_flattened = flattened @ matrix_array.T
-    transformed_tile = transformed_flattened.reshape(
-        data_tile_array.shape[0], data_tile_array.shape[1], matrix_array.shape[0]
-    )
+    # Left matrices act on each spectrum as a column vector. With flattened rows, that is:
+    #   x_col -> L @ x_col  ===  x_row -> x_row @ L.T
+    for i, matrix_ref in enumerate(left_multiply_matrices):
+        matrix, _ = client.read_data(matrix_ref)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        if matrix_array.ndim == 3:
+            if matrix_array.shape[-1] != 1:
+                raise ValueError(
+                    f"Expected left matrix at index {i} to have shape [out][in] or [out][in][1], "
+                    f"got {matrix_array.shape}"
+                )
+            matrix_array = np.squeeze(matrix_array, axis=2)
+        if matrix_array.ndim != 2:
+            raise ValueError(f"Expected left matrix at index {i} to be 2D, got {matrix_array.shape}")
+        if matrix_array.shape[1] != current_bands:
+            raise ValueError(
+                f"Left matrix dimension mismatch at index {i}: "
+                f"current_bands={current_bands}, matrix shape={matrix_array.shape}"
+            )
+        flattened = flattened @ matrix_array.T
+        current_bands = matrix_array.shape[0]
+
+    # Right matrices act directly on the flattened row representation:
+    #   x_row -> x_row @ R
+    for i, matrix_ref in enumerate(right_multiply_matrices):
+        matrix, _ = client.read_data(matrix_ref)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        if matrix_array.ndim == 3:
+            if matrix_array.shape[-1] != 1:
+                raise ValueError(
+                    f"Expected right matrix at index {i} to have shape [in][out] or [in][out][1], "
+                    f"got {matrix_array.shape}"
+                )
+            matrix_array = np.squeeze(matrix_array, axis=2)
+        if matrix_array.ndim != 2:
+            raise ValueError(f"Expected right matrix at index {i} to be 2D, got {matrix_array.shape}")
+        if matrix_array.shape[0] != current_bands:
+            raise ValueError(
+                f"Right matrix dimension mismatch at index {i}: "
+                f"current_bands={current_bands}, matrix shape={matrix_array.shape}"
+            )
+        flattened = flattened @ matrix_array
+        current_bands = matrix_array.shape[1]
+
+    transformed_tile = flattened.reshape(data_tile_array.shape[0], data_tile_array.shape[1], current_bands)
     client.write_spec(output_write, transformed_tile.astype(data_tile_array.dtype, copy=False))
 
 
 @dataclass
 class ApplyMatrixToDatasetStage(MapStage):
     """
-    Apply a [b][b] matrix to each spectrum in a [y][x][b] dataset.
+    Apply matrix chains to a [y][x][b] dataset tile-by-tile.
+
+    The tile is flattened to [num_pixels, bands].
+    - left_multiply_matrices are applied to each spectrum as column-vector transforms,
+      which is implemented as flattened @ left_matrix.T
+    - right_multiply_matrices are applied directly to the flattened row representation,
+      which is implemented as flattened @ right_matrix
     """
 
     _output_ref_name: str = "matrix_applied_dataset"
-    _matrix_ref: Optional[DataRef] = None
+    _left_multiply_matrices: Sequence[DataRef] = ()
+    _right_multiply_matrices: Sequence[DataRef] = ()
+    _left_multiply_matrix_names: Sequence[str] = ()
+    _right_multiply_matrix_names: Sequence[str] = ()
     _output_bands: Optional[int] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
@@ -865,8 +904,27 @@ class ApplyMatrixToDatasetStage(MapStage):
     chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     def __post_init__(self):
-        if "matrix_ref" not in self.broadcast_input:
-            self.broadcast_input |= {"matrix_ref": self._matrix_ref}
+        if len(self._left_multiply_matrix_names) == 0:
+            self._left_multiply_matrix_names = tuple(
+                f"left_matrix_ref_{i}" for i in range(len(self._left_multiply_matrices))
+            )
+        if len(self._right_multiply_matrix_names) == 0:
+            self._right_multiply_matrix_names = tuple(
+                f"right_matrix_ref_{i}" for i in range(len(self._right_multiply_matrices))
+            )
+
+        if len(self._left_multiply_matrix_names) != len(self._left_multiply_matrices):
+            raise ValueError("left matrix names must match left matrix refs count")
+        if len(self._right_multiply_matrix_names) != len(self._right_multiply_matrices):
+            raise ValueError("right matrix names must match right matrix refs count")
+
+        for name, matrix_ref in zip(self._left_multiply_matrix_names, self._left_multiply_matrices):
+            if name not in self.broadcast_input:
+                self.broadcast_input |= {name: matrix_ref}
+        for name, matrix_ref in zip(self._right_multiply_matrix_names, self._right_multiply_matrices):
+            if name not in self.broadcast_input:
+                self.broadcast_input |= {name: matrix_ref}
+
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -913,13 +971,15 @@ class ApplyMatrixToDatasetStage(MapStage):
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
         output_write = output_writes[self._output_ref_name]
-        matrix_ref: DataRef = broadcast_inputs["matrix_ref"]
+        left_multiply_matrices = [broadcast_inputs[name] for name in self._left_multiply_matrix_names]
+        right_multiply_matrices = [broadcast_inputs[name] for name in self._right_multiply_matrix_names]
         return partial(
             _apply_matrix_to_dataset,
             input_ref,
             input_region,
             output_write,
-            matrix_ref,
+            left_multiply_matrices,
+            right_multiply_matrices,
         )
 
 
@@ -928,24 +988,64 @@ def get_apply_matrix_to_dataset_stage(
     matrix_ref: DataRef,
     output_ref_name: str,
 ) -> ApplyMatrixToDatasetStage:
+    return get_apply_matrices_to_dataset_stage(
+        dataset_ref=dataset_ref,
+        left_multiply_matrices=(matrix_ref,),
+        right_multiply_matrices=(),
+        output_ref_name=output_ref_name,
+    )
+
+
+def get_apply_matrices_to_dataset_stage(
+    dataset_ref: DataRef,
+    left_multiply_matrices: Sequence[DataRef],
+    right_multiply_matrices: Sequence[DataRef],
+    output_ref_name: str,
+) -> ApplyMatrixToDatasetStage:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
-    matrix_meta = storage_client.get_meta(matrix_ref)
 
     if len(data_meta.shape) != 3:
         raise ValueError(f"Expected input dataset shape [y][x][b], got {data_meta.shape}")
-    if len(matrix_meta.shape) != 2:
-        raise ValueError(f"Expected matrix shape [k][b], got {matrix_meta.shape}")
-    if data_meta.shape[2] != matrix_meta.shape[1]:
-        raise ValueError(
-            f"Band mismatch: dataset bands={data_meta.shape[2]}, " f"matrix width={matrix_meta.shape[1]}"
+
+    current_bands = int(data_meta.shape[2])
+    for i, matrix_ref in enumerate(left_multiply_matrices):
+        matrix_meta = storage_client.get_meta(matrix_ref)
+        shape = (
+            matrix_meta.shape[:2]
+            if len(matrix_meta.shape) == 3 and matrix_meta.shape[-1] == 1
+            else matrix_meta.shape
         )
+        if len(shape) != 2:
+            raise ValueError(f"Expected left matrix shape [out][in], got {matrix_meta.shape}")
+        if int(shape[1]) != current_bands:
+            raise ValueError(
+                f"Left matrix band mismatch at index {i}: current_bands={current_bands}, matrix shape={shape}"
+            )
+        current_bands = int(shape[0])
+
+    for i, matrix_ref in enumerate(right_multiply_matrices):
+        matrix_meta = storage_client.get_meta(matrix_ref)
+        shape = (
+            matrix_meta.shape[:2]
+            if len(matrix_meta.shape) == 3 and matrix_meta.shape[-1] == 1
+            else matrix_meta.shape
+        )
+        if len(shape) != 2:
+            raise ValueError(f"Expected right matrix shape [in][out], got {matrix_meta.shape}")
+        if int(shape[0]) != current_bands:
+            raise ValueError(
+                f"Right matrix band mismatch at index {i}: current_bands={current_bands}, "
+                f"matrix shape={shape}"
+            )
+        current_bands = int(shape[1])
 
     input_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
     return ApplyMatrixToDatasetStage(
         _output_ref_name=output_ref_name,
-        _matrix_ref=matrix_ref,
-        _output_bands=matrix_meta.shape[0],
+        _left_multiply_matrices=tuple(left_multiply_matrices),
+        _right_multiply_matrices=tuple(right_multiply_matrices),
+        _output_bands=current_bands,
         default_executor="process",
         input_plan_meta=input_meta,
         resource_model=ResourceModel(

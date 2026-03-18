@@ -267,7 +267,7 @@ def get_mnf_pipeline(
 
     apply_whitening_stage = ApplyMatrixToDatasetStage(
         _output_ref_name=whitened_dataset_ref_name,
-        _matrix_ref=None,
+        _left_multiply_matrix_names=("left_matrix_ref_0",),
         _output_bands=max_internal_components,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
@@ -278,7 +278,7 @@ def get_mnf_pipeline(
             scratch_bytes_per_scalar_in=0,
         ),
         chunking_scheme_type=SpatialTileScheme,
-        broadcast_input={"matrix_ref": DataBinding(noise_whitening_matrix_ref_name)},
+        broadcast_input={"left_matrix_ref_0": DataBinding(noise_whitening_matrix_ref_name)},
     )
 
     whitened_eigendecomposition_stage = EigendecompositionStage(

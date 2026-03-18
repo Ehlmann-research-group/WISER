@@ -13,6 +13,7 @@ from wiser.utils.task_stage_utils import (
     CalcCovMatrixStage,
     EigendecompositionStage,
     EigenVectorsAndValues,
+    get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
     get_adaptive_pca_partial_fit_stage,
     get_matrix_multiplication_stage,
@@ -398,6 +399,109 @@ class TestTaskStageFuncs(unittest.TestCase):
             )
             self.assertEqual(whitened_dataset.shape, dataset.shape)
             self.assertTrue(np.allclose(whitened_dataset, expected, atol=1e-6))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_apply_matrix_to_dataset_stage_supports_left_and_right_matrix_chains(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            dataset = np.array(
+                [
+                    [[1.0, 2.0], [3.0, 4.0]],
+                    [[5.0, 6.0], [7.0, 8.0]],
+                ],
+                dtype=np.float32,
+            )
+            left_matrix = np.array(
+                [
+                    [2.0, 0.0],
+                    [0.0, 0.5],
+                    [1.0, -1.0],
+                ],
+                dtype=np.float32,
+            )
+            right_matrix = np.array(
+                [
+                    [1.0, 2.0],
+                    [0.0, 1.0],
+                    [1.0, 0.0],
+                ],
+                dtype=np.float32,
+            )
+
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="apply_chain_input_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            left_matrix_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="apply_chain_left_matrix",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=left_matrix.size * left_matrix.dtype.itemsize,
+                    shape=left_matrix.shape,
+                    dtype=left_matrix.dtype,
+                )
+            )
+            right_matrix_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="apply_chain_right_matrix",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=right_matrix.size * right_matrix.dtype.itemsize,
+                    shape=right_matrix.shape,
+                    dtype=right_matrix.dtype,
+                )
+            )
+            process_storage_client.write_data(dataset_ref, dataset)
+            process_storage_client.write_data(left_matrix_ref, left_matrix)
+            process_storage_client.write_data(right_matrix_ref, right_matrix)
+
+            output_ref_name = "matrix_chain_dataset"
+            stage = get_apply_matrices_to_dataset_stage(
+                dataset_ref=dataset_ref,
+                left_multiply_matrices=(left_matrix_ref,),
+                right_multiply_matrices=(right_matrix_ref,),
+                output_ref_name=output_ref_name,
+            )
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10051
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            transformed_dataset, _ = storage_client.read_data(output_ref)
+
+            flattened = dataset.reshape(-1, dataset.shape[2])
+            expected = (flattened @ left_matrix.T) @ right_matrix
+            expected = expected.reshape(dataset.shape[0], dataset.shape[1], right_matrix.shape[1])
+
+            self.assertEqual(transformed_dataset.shape, expected.shape)
+            self.assertTrue(np.allclose(transformed_dataset, expected, atol=1e-6))
         finally:
             if storage_client is not None:
                 storage_client.close()
