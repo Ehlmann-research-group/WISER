@@ -15,6 +15,7 @@ from wiser.utils.task_stage_utils import (
     EigenVectorsAndValues,
     get_apply_matrix_to_dataset_stage,
     get_adaptive_pca_partial_fit_stage,
+    get_matrix_multiplication_stage,
     get_noise_covariance_pipeline,
     get_project_onto_eigenvectors_stage,
     get_spectral_mean_stage,
@@ -22,7 +23,13 @@ from wiser.utils.task_stage_utils import (
     get_eigendecomposition_pipeline,
 )
 from wiser.raster.loader import RasterDataLoader
-from wiser.utils.primitives import AllocationRequest, DataBinding, PriorityClass, SpectraListPlanMeta
+from wiser.utils.primitives import (
+    AllocationRequest,
+    DataBinding,
+    NoChunkingScheme,
+    PriorityClass,
+    SpectraListPlanMeta,
+)
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
@@ -394,6 +401,125 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_matrix_multiplication_stage_multiplies_matrix_chain_in_order(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            matrix_a = np.array(
+                [
+                    [1.0, 2.0, 0.0],
+                    [0.0, 1.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+            matrix_b = np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                    [1.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+            matrix_c = np.array(
+                [
+                    [2.0, 1.0],
+                    [0.0, 3.0],
+                ],
+                dtype=np.float32,
+            )
+
+            matrix_refs = []
+            for name, matrix in (
+                ("matrix_mult_a", matrix_a),
+                ("matrix_mult_b", matrix_b),
+                ("matrix_mult_c", matrix_c),
+            ):
+                matrix_ref = app_services.storage_service.allocate_data(
+                    AllocationRequest(
+                        name=name,
+                        kind="array",
+                        residency="ram_cacheable",
+                        size_est=matrix.size * matrix.dtype.itemsize,
+                        shape=matrix.shape,
+                        dtype=matrix.dtype,
+                    )
+                )
+                process_storage_client.write_data(matrix_ref, matrix)
+                matrix_refs.append(matrix_ref)
+
+            output_ref_name = "matrix_chain_product"
+            stage = get_matrix_multiplication_stage(matrix_refs, output_ref_name)
+            self.assertIs(stage.chunking_scheme_type, NoChunkingScheme)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=matrix_refs[0],
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1012
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            product, _ = storage_client.read_data(output_ref)
+
+            expected = matrix_a @ matrix_b @ matrix_c
+            self.assertEqual(product.shape, expected.shape)
+            self.assertTrue(np.allclose(product, expected, atol=1e-6))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_matrix_multiplication_stage_rejects_incompatible_chain(self) -> None:
+        app_services = AppServices()
+        try:
+            process_storage_client = get_process_storage_client()
+            matrix_a = np.array(
+                [
+                    [1.0, 2.0],
+                    [3.0, 4.0],
+                ],
+                dtype=np.float32,
+            )
+            matrix_b = np.array(
+                [
+                    [1.0, 2.0, 3.0],
+                ],
+                dtype=np.float32,
+            )
+
+            matrix_refs = []
+            for name, matrix in (("bad_matrix_a", matrix_a), ("bad_matrix_b", matrix_b)):
+                matrix_ref = app_services.storage_service.allocate_data(
+                    AllocationRequest(
+                        name=name,
+                        kind="array",
+                        residency="ram_cacheable",
+                        size_est=matrix.size * matrix.dtype.itemsize,
+                        shape=matrix.shape,
+                        dtype=matrix.dtype,
+                    )
+                )
+                process_storage_client.write_data(matrix_ref, matrix)
+                matrix_refs.append(matrix_ref)
+
+            with self.assertRaisesRegex(ValueError, "Matrix chain shape mismatch"):
+                get_matrix_multiplication_stage(matrix_refs, "bad_matrix_chain")
+        finally:
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 

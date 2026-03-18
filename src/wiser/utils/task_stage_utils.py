@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Sequence
 import numpy as np
 from sklearn.decomposition import IncrementalPCA, PCA
 from PySide2.QtCore import *
@@ -619,6 +619,195 @@ def get_whitening_matrix_pipeline(
     output_ref_name: str,
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline([get_whitening_matrix_stage(eigen_descriptor_ref, output_ref_name)])
+
+
+def _multiply_matrix_refs(
+    output_ref: DataRef,
+    matrix_refs: Sequence[DataRef],
+) -> None:
+    client = get_process_storage_client()
+    if len(matrix_refs) == 0:
+        raise ValueError("MatrixMultiplicationStage requires at least one matrix ref")
+
+    product: Optional[np.ndarray] = None
+    for i, matrix_ref in enumerate(matrix_refs):
+        matrix, _ = client.read_data(matrix_ref)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        if matrix_array.ndim == 3:
+            if matrix_array.shape[-1] != 1:
+                raise ValueError(
+                    f"Expected matrix ref at index {i} to have shape [m][n] or [m][n][1], "
+                    f"got {matrix_array.shape}"
+                )
+            matrix_array = np.squeeze(matrix_array, axis=2)
+        if matrix_array.ndim != 2:
+            raise ValueError(f"Expected matrix ref at index {i} to be 2D, got {matrix_array.shape}")
+
+        if product is None:
+            product = matrix_array
+            continue
+
+        if product.shape[1] != matrix_array.shape[0]:
+            raise ValueError(
+                f"Matrix chain shape mismatch at index {i}: "
+                f"left shape={product.shape}, right shape={matrix_array.shape}"
+            )
+        product = product @ matrix_array
+
+    assert product is not None, "product must not be None after validating matrix_refs"
+    client.write_data(output_ref, product.astype(np.float32, copy=False))
+
+
+@dataclass
+class MatrixMultiplicationStage(SequentialStage):
+    """
+    Multiply a list of matrices in order: [A, B, C] -> A @ B @ C.
+    """
+
+    _output_ref_name: str = "matrix_product"
+    _matrix_refs: Optional[Sequence[DataRef]] = None
+    _matrix_input_names: Sequence[str] = ()
+    _output_shape: Optional[tuple[int, int]] = None
+    _output_dtype: np.dtype = np.dtype(np.float32)
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        if len(self._matrix_input_names) == 0:
+            if self._matrix_refs is None or len(self._matrix_refs) == 0:
+                raise ValueError("MatrixMultiplicationStage requires matrix refs or matrix input names")
+            generated_names = tuple(f"matrix_ref_{i}" for i in range(len(self._matrix_refs)))
+            self._matrix_input_names = generated_names
+            for name, matrix_ref in zip(generated_names, self._matrix_refs):
+                if name not in self.broadcast_input:
+                    self.broadcast_input |= {name: matrix_ref}
+        else:
+            for name in self._matrix_input_names:
+                if name not in self.broadcast_input:
+                    raise ValueError(
+                        f"MatrixMultiplicationStage missing broadcast input for matrix name '{name}'"
+                    )
+
+        if self._output_shape is None:
+            raise ValueError("MatrixMultiplicationStage requires an explicit output shape")
+
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, SpectraBatchRef
+        ), "Input region for MatrixMultiplicationStage must be SpectraBatchRef"
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        assert isinstance(
+            input_meta, SpectraListPlanMeta
+        ), "input_meta must be of type SpectraListPlanMeta for MatrixMultiplicationStage"
+        _ = chosen_scheme
+        output_rows, output_cols = self._output_shape
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=output_rows * output_cols * np.dtype(self._output_dtype).itemsize,
+                shape=(output_rows, output_cols),
+                dtype=np.dtype(self._output_dtype),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = input_ref
+        _ = input_region
+        output_write = output_writes[self._output_ref_name]
+        matrix_refs = [broadcast_inputs[name] for name in self._matrix_input_names]
+        return partial(
+            _multiply_matrix_refs,
+            output_write.ref,
+            matrix_refs,
+        )
+
+
+def get_matrix_multiplication_stage(
+    matrix_refs: Sequence[DataRef],
+    output_ref_name: str,
+) -> MatrixMultiplicationStage:
+    storage_client = get_process_storage_client()
+    if len(matrix_refs) == 0:
+        raise ValueError("matrix_refs must contain at least one matrix ref")
+
+    matrix_shapes: list[tuple[int, int]] = []
+    output_dtype = None
+    for i, matrix_ref in enumerate(matrix_refs):
+        matrix_meta = storage_client.get_meta(matrix_ref)
+        if output_dtype is None:
+            output_dtype = matrix_meta.elem_type
+        shape = matrix_meta.shape
+        if len(shape) == 3 and shape[-1] == 1:
+            shape = shape[:2]
+        if len(shape) != 2:
+            raise ValueError(
+                f"Expected matrix ref at index {i} to have shape [m][n], got {matrix_meta.shape}"
+            )
+        matrix_shapes.append((int(shape[0]), int(shape[1])))
+
+    for i in range(1, len(matrix_shapes)):
+        left_shape = matrix_shapes[i - 1]
+        right_shape = matrix_shapes[i]
+        if left_shape[1] != right_shape[0]:
+            raise ValueError(
+                f"Matrix chain shape mismatch between indices {i - 1} and {i}: "
+                f"{left_shape} cannot be multiplied with {right_shape}"
+            )
+
+    input_rows, input_cols = matrix_shapes[0]
+    output_shape = (matrix_shapes[0][0], matrix_shapes[-1][1])
+    input_meta = SpectraListPlanMeta(
+        num_spectra=input_rows,
+        spectrum_length=input_cols,
+        dtype=output_dtype,
+    )
+
+    return MatrixMultiplicationStage(
+        _output_ref_name=output_ref_name,
+        _matrix_refs=matrix_refs,
+        _output_shape=output_shape,
+        _output_dtype=np.dtype(np.float32),
+        default_executor="process",
+        input_plan_meta=input_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
+
+def get_matrix_multiplication_pipeline(
+    matrix_refs: Sequence[DataRef],
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    return AlgorithmPipeline([get_matrix_multiplication_stage(matrix_refs, output_ref_name)])
 
 
 def _apply_matrix_to_dataset(
