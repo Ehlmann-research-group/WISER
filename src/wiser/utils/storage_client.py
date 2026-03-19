@@ -604,6 +604,9 @@ class StorageClient:
     def get_meta(self, ref: DataRef) -> DataMeta:
         return self._rpc_call("get_meta", ref=ref)
 
+    def write_meta(self, ref: DataRef, meta: DataMeta) -> None:
+        self._rpc_call("write_meta", ref=ref, meta=meta)
+
     def get_region_meta(self, ref: DataRef, region: DataRegion) -> RegionMeta:
         return self._rpc_call("get_region_meta", ref=ref, region=region)
 

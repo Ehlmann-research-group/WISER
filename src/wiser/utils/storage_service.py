@@ -269,6 +269,7 @@ class StorageService:
             "read_data_ref": self.read_data_ref,
             "get_access": self.get_access,
             "get_meta": self.get_meta,
+            "write_meta": self.set_meta,
             "get_region_meta": self.get_region_meta,
             "read_json_value": self.read_json_value,
             "write_json_value": self.write_json_value,

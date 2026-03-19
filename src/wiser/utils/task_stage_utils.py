@@ -1176,7 +1176,6 @@ def _fit_dataset_pca_adaptive(
                 f"PCA cannot fit num_components={num_components} with only "
                 f"{flattened.shape[1]} usable bands after filtering"
             )
-
         pca.fit(flattened)
         eigen_values = np.asarray(pca.explained_variance_, dtype=np.float32)
         eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(

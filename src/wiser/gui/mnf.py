@@ -1,5 +1,6 @@
 import datetime
 from dataclasses import dataclass
+from dataclasses import replace
 from functools import partial
 from typing import Callable, Dict, Optional, TYPE_CHECKING
 
@@ -15,6 +16,7 @@ from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
     DataBinding,
+    DataMeta,
     DataRef,
     DataRegion,
     DatasetRegionRef,
@@ -51,8 +53,13 @@ if TYPE_CHECKING:
 
 def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write: "WriteSpec") -> None:
     storage_client = get_process_storage_client()
-    array, _ = storage_client.read_region(input_ref, input_region)
+    array, array_meta = storage_client.read_region(input_ref, input_region)
     noise = array[:-1, :, :] - array[1:, :, :]
+    if np.ma.isMaskedArray(noise) and array_meta.nodata is not None:
+        # If the nodata value is none but the array is still masked, we assume the mask
+        # comes from the bad bands. Then we can still mask the bad bands when the next function
+        # uses the noise array.
+        noise = np.ma.filled(noise, fill_value=array_meta.nodata)
     assert output_write.region is not None, "output_write's region can not be none in _run_shift_y_diff"
     output_write.region.validate_array_shape(noise)
     storage_client.write_spec(output_write, noise)
