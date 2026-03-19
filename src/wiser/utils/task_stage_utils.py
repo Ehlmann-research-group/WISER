@@ -319,7 +319,6 @@ def _write_eigendecomposition(
         raise ValueError(f"Expected 2D square matrix, got shape={matrix_array.shape}")
     if matrix_array.shape[0] != matrix_array.shape[1]:
         raise ValueError(f"Expected square matrix, got shape={matrix_array.shape}")
-
     # np.linalg.eig returns eigenvectors as columns. We transpose to [N][d] rows.
     eigen_values, eigen_vectors = np.linalg.eig(matrix_array)
     eigen_values = np.real_if_close(eigen_values)
@@ -509,7 +508,13 @@ def _write_whitening_matrix(
 
     if np.any(eigen_values_array < 0):
         raise ValueError("Whitening matrix cannot be computed: one or more eigen values are negative")
-    inverse_sqrt_eigen_values = np.diag(1.0 / np.sqrt(eigen_values_array))
+
+    # Zero eigen values correspond to non-invertible directions, so keep their
+    # whitening scale at 0 instead of dividing by 0.
+    inverse_sqrt_values = np.zeros_like(eigen_values_array, dtype=np.float32)
+    nonzero_mask = eigen_values_array > 0
+    inverse_sqrt_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
+    inverse_sqrt_eigen_values = np.diag(inverse_sqrt_values)
     whitening_matrix = eigen_vectors_array.T @ inverse_sqrt_eigen_values @ eigen_vectors_array
     client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
 
