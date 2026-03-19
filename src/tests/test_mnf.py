@@ -138,11 +138,43 @@ class TestMnf(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_get_mnf_pipeline_runs_on_data_ignore_fixture_without_error(self) -> None:
+        dataset_path = (
+            Path(__file__).resolve().parent
+            / ".."
+            / "test_utils"
+            / "test_datasets"
+            / "caltech_425_6_6_data_ignore.hdr"
+        ).resolve()
+        dataset = self.test_model.load_dataset(str(dataset_path))
+        app_services = self.test_model.app_services
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            output_ref_name = "mnf_data_ignore_output"
+            mnf_pipeline = get_mnf_pipeline(dataset_ref, 3, output_ref_name)
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=mnf_pipeline,
+            )
+            task.id = 2003
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=180)
+
+            self.assertIn(output_ref_name, task_plan.bindings)
+        finally:
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
 
 if __name__ == "__main__":
     test_mnf = TestMnf()
     test_mnf.setUp()
     try:
-        test_mnf.test_get_mnf_pipeline_matches_spy_mnf_on_caltech_fixture()
+        test_mnf.test_get_mnf_pipeline_runs_on_data_ignore_fixture_without_error()
     finally:
         test_mnf.tearDown()

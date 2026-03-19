@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 import numpy as np
 from sklearn.decomposition import IncrementalPCA, PCA
 from PySide2.QtCore import *
@@ -509,7 +509,6 @@ def _write_whitening_matrix(
 
     if np.any(eigen_values_array < 0):
         raise ValueError("Whitening matrix cannot be computed: one or more eigen values are negative")
-
     inverse_sqrt_eigen_values = np.diag(1.0 / np.sqrt(eigen_values_array))
     whitening_matrix = eigen_vectors_array.T @ inverse_sqrt_eigen_values @ eigen_vectors_array
     client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
@@ -1077,6 +1076,55 @@ def get_apply_matrix_to_dataset_pipeline(
     return AlgorithmPipeline([get_apply_matrix_to_dataset_stage(dataset_ref, matrix_ref, output_ref_name)])
 
 
+def _prepare_dataset_rows_for_pca(
+    dataset_block: Union[np.ndarray, np.ma.MaskedArray],
+    bad_bands: Optional[np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
+    arr = np.ma.array(dataset_block, copy=False)
+    raw = np.asarray(np.ma.getdata(arr), dtype=np.float32)
+    if raw.ndim != 3:
+        raise ValueError(f"Expected dataset block shape [y][x][b], got {raw.shape}")
+
+    band_count = raw.shape[2]
+    good_band_mask = np.ones((band_count,), dtype=bool)
+    if bad_bands is not None:
+        bad_bands_array = np.asarray(bad_bands)
+        if bad_bands_array.shape != (band_count,):
+            raise ValueError(
+                f"Bad bands shape must match dataset band count: "
+                f"bad_bands shape={bad_bands_array.shape}, bands={band_count}"
+            )
+        good_band_mask = bad_bands_array != 0
+
+    flattened = raw.reshape(-1, band_count)[:, good_band_mask]
+    if flattened.shape[1] == 0:
+        raise ValueError("PCA cannot run because all bands are marked bad")
+
+    flattened_mask = np.ma.getmaskarray(arr).reshape(-1, band_count)[:, good_band_mask]
+    valid_rows = np.all(~flattened_mask, axis=1) & np.all(np.isfinite(flattened), axis=1)
+    cleaned_rows = flattened[valid_rows, :]
+    return cleaned_rows, good_band_mask
+
+
+def _expand_pca_outputs_to_full_bands(
+    *,
+    eigen_vectors_good: np.ndarray,
+    covariance_good: np.ndarray,
+    mean_good: np.ndarray,
+    good_band_mask: np.ndarray,
+    full_band_count: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    eigen_vectors = np.zeros((eigen_vectors_good.shape[0], full_band_count), dtype=np.float32)
+    eigen_vectors[:, good_band_mask] = eigen_vectors_good
+
+    covariance = np.zeros((full_band_count, full_band_count), dtype=np.float32)
+    covariance[np.ix_(good_band_mask, good_band_mask)] = covariance_good
+
+    mean = np.zeros((full_band_count,), dtype=np.float32)
+    mean[good_band_mask] = mean_good
+    return eigen_vectors, covariance, mean
+
+
 def _fit_dataset_pca_adaptive(
     input_ref: DataRef,
     input_region: DataRegion,
@@ -1093,6 +1141,8 @@ def _fit_dataset_pca_adaptive(
     _ = input_region
     client = get_process_storage_client()
     bands = dataset_plan_meta.bands
+    dataset_meta = client.get_meta(input_ref)
+    bad_bands = dataset_meta.bad_bands
     dataset_size_bytes = (
         dataset_plan_meta.height
         * dataset_plan_meta.width
@@ -1112,16 +1162,25 @@ def _fit_dataset_pca_adaptive(
                 f"Band mismatch in dataset for PCA: dataset_bands={dataset_array.shape[2]}, expected={bands}"
             )
 
-        flattened = dataset_array.reshape(-1, bands)
+        flattened, good_band_mask = _prepare_dataset_rows_for_pca(dataset, bad_bands)
         total_rows = flattened.shape[0]
         if total_rows <= 1:
             raise ValueError("PCA requires at least 2 samples to derive eigen values")
+        if num_components > flattened.shape[1]:
+            raise ValueError(
+                f"PCA cannot fit num_components={num_components} with only "
+                f"{flattened.shape[1]} usable bands after filtering"
+            )
 
         pca.fit(flattened)
         eigen_values = np.asarray(pca.explained_variance_, dtype=np.float32)
-        eigen_vectors = np.asarray(pca.components_, dtype=np.float32)
-        covariance = np.asarray(pca.get_covariance(), dtype=np.float32)
-        mean = np.asarray(pca.mean_, dtype=np.float32)
+        eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
+            eigen_vectors_good=np.asarray(pca.components_, dtype=np.float32),
+            covariance_good=np.asarray(pca.get_covariance(), dtype=np.float32),
+            mean_good=np.asarray(pca.mean_, dtype=np.float32),
+            good_band_mask=good_band_mask,
+            full_band_count=bands,
+        )
     else:
         ipca = IncrementalPCA(n_components=num_components)
 
@@ -1138,6 +1197,7 @@ def _fit_dataset_pca_adaptive(
         buffered_rows = 0
         first_fit_done = False
         total_rows = 0
+        good_band_mask: Optional[np.ndarray] = None
         for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
             tile, _ = client.read_region(input_ref, tile_region)
             tile_array = np.asarray(np.ma.getdata(tile), dtype=np.float32)
@@ -1149,7 +1209,20 @@ def _fit_dataset_pca_adaptive(
                     f"tile_bands={tile_array.shape[2]}, expected={bands}"
                 )
 
-            flattened = tile_array.reshape(-1, bands)
+            flattened, tile_good_band_mask = _prepare_dataset_rows_for_pca(tile, bad_bands)
+            if good_band_mask is None:
+                good_band_mask = tile_good_band_mask
+                if num_components > flattened.shape[1]:
+                    raise ValueError(
+                        f"IncrementalPCA cannot fit num_components={num_components} with only "
+                        f"{flattened.shape[1]} usable bands after filtering"
+                    )
+            else:
+                if not np.array_equal(good_band_mask, tile_good_band_mask):
+                    raise ValueError("Bad-band mask changed between PCA tiles")
+
+            if flattened.shape[0] == 0:
+                continue
             total_rows += flattened.shape[0]
 
             batch_buffer.append(flattened)
@@ -1181,12 +1254,18 @@ def _fit_dataset_pca_adaptive(
 
         if total_rows <= 1:
             raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
+        if good_band_mask is None:
+            raise ValueError("IncrementalPCA did not find any usable rows after filtering")
 
         singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
         eigen_values = (singular_values**2) / (total_rows - 1)
-        eigen_vectors = np.asarray(ipca.components_, dtype=np.float32)
-        covariance = np.asarray(ipca.get_covariance(), dtype=np.float32)
-        mean = np.asarray(ipca.mean_, dtype=np.float32)
+        eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
+            eigen_vectors_good=np.asarray(ipca.components_, dtype=np.float32),
+            covariance_good=np.asarray(ipca.get_covariance(), dtype=np.float32),
+            mean_good=np.asarray(ipca.mean_, dtype=np.float32),
+            good_band_mask=good_band_mask,
+            full_band_count=bands,
+        )
 
     sort_desc = np.argsort(eigen_values)[::-1]
     eigen_values = eigen_values[sort_desc]

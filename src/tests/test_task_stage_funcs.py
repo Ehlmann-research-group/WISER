@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from sklearn.decomposition import PCA
 
 import tests.context
 # import context
@@ -1024,6 +1025,103 @@ class TestTaskStageFuncs(unittest.TestCase):
                 full_vec = full_vectors_array[i]
                 incremental_vec = incremental_vectors_array[i]
                 alignment = abs(float(np.dot(full_vec, incremental_vec)))
+                self.assertTrue(np.isclose(alignment, 1.0, atol=1e-4))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_adaptive_pca_stage_matches_sklearn_pca_on_data_ignore_fixture(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            dataset_path = (
+                Path(__file__).resolve().parent
+                / ".."
+                / "test_utils"
+                / "test_datasets"
+                / "caltech_425_6_6_data_ignore.hdr"
+            )
+            dataset = RasterDataLoader().load_from_file(str(dataset_path))[0]
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            output_ref_name = "pca_data_ignore_descriptor"
+            stage = get_adaptive_pca_partial_fit_stage(
+                dataset_ref=dataset_ref,
+                num_components=4,
+                output_ref_name=output_ref_name,
+            )
+            stage.test_full_pca = True
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1013
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            image_arr = dataset.get_image_data(filter_data_ignore_value=True)
+            nbands = image_arr.shape[0]
+            sklearn_rows = image_arr.transpose(1, 2, 0).reshape(-1, nbands)
+            bad_bands = dataset.get_bad_bands()
+            if bad_bands is not None:
+                good_band_mask = np.asarray(bad_bands, dtype=bool)
+                sklearn_rows = sklearn_rows[:, good_band_mask]
+            else:
+                good_band_mask = np.ones((nbands,), dtype=bool)
+
+            sklearn_mask = np.ma.getmaskarray(sklearn_rows)
+            if sklearn_mask is not np.ma.nomask:
+                valid_rows = np.all(~sklearn_mask, axis=1)
+                sklearn_rows = sklearn_rows.data[valid_rows, :]
+            sklearn_rows = np.asarray(sklearn_rows, dtype=np.float32)
+            if not np.isfinite(sklearn_rows).all():
+                raise ValueError("Cleaned sklearn PCA rows still contain non-finite values")
+
+            sklearn_pca = PCA(n_components=4)
+            sklearn_pca.fit(sklearn_rows)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+
+            descriptor_ref = task_plan.bindings[output_ref_name]
+            descriptor: EigenVectorsAndValues = storage_client.read_json_value(descriptor_ref)["eigen"]
+
+            stage_values, _ = storage_client.read_data(descriptor.eigen_values_ref)
+            stage_vectors, _ = storage_client.read_data(descriptor.eigen_vectors_ref)
+            stage_mean, _ = storage_client.read_data(descriptor.mean_ref)
+
+            stage_values = np.asarray(stage_values, dtype=np.float32)
+            stage_vectors = np.asarray(stage_vectors, dtype=np.float32)
+            stage_mean = np.asarray(stage_mean, dtype=np.float32)
+
+            expected_mean = np.zeros((nbands,), dtype=np.float32)
+            expected_mean[good_band_mask] = np.asarray(sklearn_pca.mean_, dtype=np.float32)
+            self.assertTrue(np.allclose(stage_values, sklearn_pca.explained_variance_, atol=1e-4))
+            self.assertTrue(np.allclose(stage_mean, expected_mean, atol=1e-4))
+
+            expected_vectors = np.zeros((4, nbands), dtype=np.float32)
+            expected_vectors[:, good_band_mask] = np.asarray(sklearn_pca.components_, dtype=np.float32)
+            self.assertEqual(stage_vectors.shape, expected_vectors.shape)
+            for i in range(expected_vectors.shape[0]):
+                stage_vec = stage_vectors[i]
+                expected_vec = expected_vectors[i]
+                stage_norm = np.linalg.norm(stage_vec)
+                expected_norm = np.linalg.norm(expected_vec)
+                self.assertGreater(stage_norm, 0.0)
+                self.assertGreater(expected_norm, 0.0)
+                alignment = abs(float(np.dot(stage_vec / stage_norm, expected_vec / expected_norm)))
                 self.assertTrue(np.isclose(alignment, 1.0, atol=1e-4))
         finally:
             if storage_client is not None:

@@ -194,7 +194,7 @@ def get_mnf_pipeline(
         default_executor="process",
         input_binding=DataBinding(noise_eigen_ref_name),
         input_plan_meta=SpectraListPlanMeta(
-            num_spectra=max_internal_components,
+            num_spectra=bands,
             spectrum_length=bands,
             dtype=np.dtype(np.float32),
         ),
