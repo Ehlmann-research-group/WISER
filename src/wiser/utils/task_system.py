@@ -14,6 +14,7 @@ from .primitives import (
     DataBinding,
     DataRef,
     DataRegion,
+    DatasetRegionRef,
     ExecutorType,
     InputKind,
     NoChunkingScheme,
@@ -21,7 +22,9 @@ from .primitives import (
     SingleSpectrumScheme,
     SpatialTileScheme,
     SpectraBatchScheme,
+    SpectraBatchRef,
     SpectralBatchDatasetScheme,
+    SpectrumRef,
     WorkUnitDependency,
     BasePlanMeta,
     DatasetPlanMeta,
@@ -35,6 +38,11 @@ if TYPE_CHECKING:
     from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 
 Number = Union[int, float]
+
+
+def _noop_post_task() -> None:
+    """Default no-op post-task hook for stages that do not need post processing."""
+    return None
 
 
 @dataclass(frozen=True)
@@ -118,6 +126,25 @@ class TaskStage:
         the time this class is made because it may be the output of another stage.
         """
         raise NotImplementedError("Subclasses must implement task_fn")
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        """
+        Return a small post-processing callable to run once after all work units in
+        this stage have completed.
+
+        This hook is intended for lightweight cleanup, metadata updates, or other
+        small follow-up work that needs the stage's full input region context. It
+        should not be used to load or process large amounts of data, since that
+        work belongs in normal chunked stage work units.
+        """
+        _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
+        return _noop_post_task
 
 
 @dataclass
@@ -327,6 +354,15 @@ class TaskPlanner:
         self._unit_counter += 1
         return f"{plan_id}:u{self._unit_counter:06d}"
 
+    def _full_input_region_from_meta(self, input_meta: BasePlanMeta) -> DataRegion:
+        if isinstance(input_meta, DatasetPlanMeta):
+            return DatasetRegionRef(0, input_meta.height, 0, input_meta.width, 0, input_meta.bands)
+        if isinstance(input_meta, SpectrumPlanMeta):
+            return SpectrumRef(length=input_meta.length)
+        if isinstance(input_meta, SpectraListPlanMeta):
+            return SpectraBatchRef(i0=0, i1=input_meta.num_spectra, length=input_meta.spectrum_length)
+        raise TypeError(f"Unsupported plan meta type for full region construction: {type(input_meta)}")
+
     def plan_semantic_task(self, semantic_task: SemanticTask) -> TaskPlan:
         """
         Rough flow (map-only draft):
@@ -439,14 +475,55 @@ class TaskPlanner:
                 if stage.work_unit_dependency == "sequential":
                     stage_step_unit_ids.append([unit_id])
 
+            full_input_region = self._full_input_region_from_meta(input_meta)
+            post_output_writes: Dict[str, WriteSpec] = {}
+            for ob in stage.output_bindings:
+                out_ref = plan.bindings[ob.name]
+                out_region = stage.output_region_for(full_input_region)
+                post_output_writes[ob.name] = WriteSpec(name=ob.name, ref=out_ref, region=out_region)
+
+            post_unit_id = self._new_unit_id(plan_id)
+            post_unit_meta = WorkUnitMeta(
+                input_ref=input_ref,
+                input_region=full_input_region,
+                output_writes=post_output_writes,
+                broadcast_inputs=dict[str, Any](stage_broadcast_inputs),
+            )
+            post_unit = WorkUnit(
+                unit_id=post_unit_id,
+                stage_id=stage_id,
+                priority_class=semantic_task.get_priority_class(),
+                executor_kind=stage.default_executor,
+                fn=stage.post_task_fn(
+                    input_ref=post_unit_meta.input_ref,
+                    full_input_region=post_unit_meta.input_region,
+                    output_writes=post_unit_meta.output_writes,
+                    broadcast_inputs=post_unit_meta.broadcast_inputs,
+                ),
+                ram_peak_est_bytes=self._estimate_ram(
+                    stage.resource_model,
+                    full_input_region,
+                    post_output_writes,
+                    input_meta,
+                ),
+                deps=tuple(unit_ids_for_stage),
+            )
+
+            plan.work_units[post_unit_id] = post_unit
+            plan.work_units_meta[post_unit_id] = post_unit_meta
+            unit_ids_for_stage.append(post_unit_id)
+
             plan.stage_work_units[stage_id] = unit_ids_for_stage
             if stage.work_unit_dependency == "independent":
-                plan.stage_steps[stage_id] = [list(unit_ids_for_stage)]
+                # [:-1] to remove the last item, which is post_unit_id, so it doesn't
+                # run in parallel with previous work
+                plan.stage_steps[stage_id] = [list(unit_ids_for_stage[:-1]), [post_unit_id]]
             elif stage.work_unit_dependency == "sequential":
+                stage_step_unit_ids.append([post_unit_id])
                 plan.stage_steps[stage_id] = stage_step_unit_ids
             else:
                 raise ValueError(f"Unknown WorkUnitDependency: {stage.work_unit_dependency!r}")
-            prev_stage_unit_ids = unit_ids_for_stage
+            prev_stage_unit_ids = [post_unit_id]
 
         return plan
 

@@ -2,6 +2,7 @@
 in the task management and execution system.
 """
 import unittest
+from functools import partial
 
 import numpy as np
 
@@ -103,7 +104,42 @@ class _IdentitySequentialStage(SequentialStage):
         return None
 
 
+_RECORDED_POST_TASK_CALLS = []
+
+
+def _record_post_task_call(
+    calls,
+    input_ref,
+    full_input_region,
+    output_writes,
+    broadcast_inputs,
+):
+    calls.append(
+        {
+            "input_ref": input_ref,
+            "full_input_region": full_input_region,
+            "output_writes": output_writes,
+            "broadcast_inputs": broadcast_inputs,
+        }
+    )
+
+
+class _PostTaskRecordingStage(_IdentityMapStage):
+    def post_task_fn(self, input_ref, full_input_region, output_writes, broadcast_inputs=None):
+        return partial(
+            _record_post_task_call,
+            _RECORDED_POST_TASK_CALLS,
+            input_ref,
+            full_input_region,
+            output_writes,
+            broadcast_inputs,
+        )
+
+
 class TestTaskPlanner(unittest.TestCase):
+    def setUp(self):
+        _RECORDED_POST_TASK_CALLS.clear()
+
     def test_plan_semantic_task(self):
         input_ref = DataRef(
             kind="dataset",
@@ -153,12 +189,15 @@ class TestTaskPlanner(unittest.TestCase):
         task_planner = TaskPlanner(ctx)
         task_plan = task_planner.plan_semantic_task(semantic_task)
 
-        # SpatialTileScheme should use height/3 and width/3 -> 2x3 tiles over 6x9 => 9 units.
-        self.assertEqual(len(task_plan.work_units), 9)
+        # SpatialTileScheme should use height/3 and width/3 -> 2x3 tiles over 6x9 => 9 units,
+        # plus one post-task unit.
+        self.assertEqual(len(task_plan.work_units), 10)
         self.assertIn("s00", task_plan.stage_work_units)
-        self.assertEqual(len(task_plan.stage_work_units["s00"]), 9)
+        self.assertEqual(len(task_plan.stage_work_units["s00"]), 10)
         self.assertIn("s00", task_plan.stage_steps)
-        self.assertEqual(task_plan.stage_steps["s00"], [task_plan.stage_work_units["s00"]])
+        self.assertEqual(len(task_plan.stage_steps["s00"]), 2)
+        self.assertEqual(task_plan.stage_steps["s00"][0], task_plan.stage_work_units["s00"][:-1])
+        self.assertEqual(task_plan.stage_steps["s00"][1], [task_plan.stage_work_units["s00"][-1]])
 
         # Verify one output allocation was requested and shape matches full dataset.
         self.assertEqual(len(storage.requests), 1)
@@ -166,13 +205,18 @@ class TestTaskPlanner(unittest.TestCase):
         self.assertEqual(alloc.name, "stage_out")
         self.assertEqual(alloc.shape, (6, 9, 3))
 
-        # Verify each work unit's metadata writes to the same region as its input region.
-        for unit_id in task_plan.work_units:
+        # Verify chunk work units' metadata writes to the same region as their input region.
+        for unit_id in task_plan.stage_work_units["s00"][:-1]:
             unit_meta = task_plan.work_units_meta[unit_id]
             self.assertIsInstance(unit_meta.input_region, DatasetRegionRef)
             self.assertEqual(len(unit_meta.output_writes), 1)
             write = unit_meta.output_writes["stage_out"]
             self.assertEqual(write.region, unit_meta.input_region)
+
+        post_unit_id = task_plan.stage_work_units["s00"][-1]
+        post_unit_meta = task_plan.work_units_meta[post_unit_id]
+        self.assertEqual(post_unit_meta.input_region, DatasetRegionRef(0, 6, 0, 9, 0, 3))
+        self.assertEqual(post_unit_meta.output_writes["stage_out"].region, DatasetRegionRef(0, 6, 0, 9, 0, 3))
 
     def test_plan_semantic_task_with_sequential_stage_creates_singleton_steps(self):
         input_ref = DataRef(
@@ -229,3 +273,74 @@ class TestTaskPlanner(unittest.TestCase):
         self.assertEqual(len(stage_steps), len(task_plan.stage_work_units["s00"]))
         for step in stage_steps:
             self.assertEqual(len(step), 1)
+
+    def test_plan_semantic_task_adds_post_task_work_unit_with_full_input_region(self):
+        input_ref = DataRef(
+            kind="dataset",
+            ref_id="input-post-1",
+            uri="mem://input-post-1",
+            disk_format=None,
+            shape=(6, 9, 3),
+            dtype=np.dtype(np.float32),
+            chunks=None,
+            residency="ram_cacheable",
+            materialization_loc="ram",
+            source="allocated",
+            readonly=False,
+        )
+        input_meta = DatasetPlanMeta(
+            kind="dataset",
+            dtype=np.dtype(np.float32),
+            shape=input_ref.shape,
+        )
+
+        stage = _PostTaskRecordingStage(
+            default_executor="thread",
+            input_plan_meta=input_meta,
+            resource_model=ResourceModel(
+                fixed_overhead_bytes=0,
+                bytes_per_scalar_in=1,
+                bytes_per_scalar_out=1,
+                scratch_bytes_per_scalar_in=0,
+            ),
+            chunking_scheme_type=SpatialTileScheme,
+            output_bindings=(DataBinding("stage_out"),),
+            broadcast_input={"constant": 7},
+        )
+
+        semantic_task = SemanticTask(
+            priority_class="interactive",
+            input_ref=input_ref,
+            algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+        )
+        semantic_task.id = 44
+
+        storage = _RecordingStorage()
+        ctx = PlanningContext(
+            sched_cfg=_NoopSchedulerConfig(),
+            storage=storage,
+            chunking_policy=SimpleChunkingPolicy(),
+        )
+        task_plan = TaskPlanner(ctx).plan_semantic_task(semantic_task)
+
+        post_unit_id = task_plan.stage_work_units["s00"][-1]
+        post_unit = task_plan.work_units[post_unit_id]
+        post_meta = task_plan.work_units_meta[post_unit_id]
+
+        self.assertEqual(post_meta.input_ref, input_ref)
+        self.assertEqual(post_meta.input_region, DatasetRegionRef(0, 6, 0, 9, 0, 3))
+        self.assertEqual(post_meta.broadcast_inputs, {"constant": 7})
+        self.assertEqual(post_meta.output_writes["stage_out"].region, DatasetRegionRef(0, 6, 0, 9, 0, 3))
+        self.assertEqual(post_unit.deps, tuple(task_plan.stage_work_units["s00"][:-1]))
+
+        post_unit.fn()
+
+        self.assertEqual(len(_RECORDED_POST_TASK_CALLS), 1)
+        recorded = _RECORDED_POST_TASK_CALLS[0]
+        self.assertEqual(recorded["input_ref"], input_ref)
+        self.assertEqual(recorded["full_input_region"], DatasetRegionRef(0, 6, 0, 9, 0, 3))
+        self.assertEqual(recorded["broadcast_inputs"], {"constant": 7})
+        self.assertEqual(
+            recorded["output_writes"]["stage_out"].region,
+            DatasetRegionRef(0, 6, 0, 9, 0, 3),
+        )
