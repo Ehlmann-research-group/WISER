@@ -1,6 +1,5 @@
 import datetime
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Callable, Dict, Optional, TYPE_CHECKING
 
@@ -16,7 +15,6 @@ from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
     DataBinding,
-    DataMeta,
     DataRef,
     DataRegion,
     DatasetRegionRef,
@@ -63,6 +61,24 @@ def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write
     assert output_write.region is not None, "output_write's region can not be none in _run_shift_y_diff"
     output_write.region.validate_array_shape(noise)
     storage_client.write_spec(output_write, noise)
+
+
+def _write_shift_y_diff_noise_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    _ = full_input_region
+    storage_client = get_process_storage_client()
+    array_meta = storage_client.get_meta(input_ref)
+    output_meta = storage_client.get_meta(output_write.ref)
+    noise_meta = replace(
+        output_meta,
+        elem_type=array_meta.elem_type,
+        nodata=array_meta.nodata,
+        bad_bands=array_meta.bad_bands,
+    )
+    storage_client.write_meta(output_write.ref, noise_meta)
 
 
 @dataclass
@@ -122,6 +138,17 @@ class CalculateShiftYDiffNoise(MapStage):
         _ = broadcast_inputs
         output_write = output_writes[self._output_ref_name]
         return partial(_run_shift_y_diff, input_ref, input_region, output_write)
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, DataRef] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_shift_y_diff_noise_meta, input_ref, full_input_region, output_write)
 
 
 def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateShiftYDiffNoise:

@@ -8,6 +8,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from wiser.utils.primitives import (
+    DEFAULT_FLOAT_TYPE,
     AllocationRequest,
     ChunkingScheme,
     DataBinding,
@@ -646,7 +647,6 @@ def _multiply_matrix_refs(
             matrix_array = np.squeeze(matrix_array, axis=2)
         if matrix_array.ndim != 2:
             raise ValueError(f"Expected matrix ref at index {i} to be 2D, got {matrix_array.shape}")
-
         if product is None:
             product = matrix_array
             continue
@@ -657,7 +657,6 @@ def _multiply_matrix_refs(
                 f"left shape={product.shape}, right shape={matrix_array.shape}"
             )
         product = product @ matrix_array
-
     assert product is not None, "product must not be None after validating matrix_refs"
     client.write_data(output_ref, product.astype(np.float32, copy=False))
 
@@ -1130,6 +1129,62 @@ def _expand_pca_outputs_to_full_bands(
     return eigen_vectors, covariance, mean
 
 
+def _pad_pca_eigen_outputs(
+    *,
+    eigen_vectors: np.ndarray,
+    eigen_values: np.ndarray,
+    num_components: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    if eigen_vectors.shape[0] != eigen_values.shape[0]:
+        raise ValueError(
+            f"Eigen vector/value count mismatch during PCA padding: "
+            f"n_vectors={eigen_vectors.shape[0]}, n_values={eigen_values.shape[0]}"
+        )
+    if eigen_vectors.shape[0] > num_components:
+        raise ValueError(
+            f"Cannot pad PCA outputs when actual components exceed requested components: "
+            f"actual={eigen_vectors.shape[0]}, requested={num_components}"
+        )
+    if eigen_vectors.shape[0] == num_components:
+        return eigen_vectors, eigen_values
+
+    padded_vectors = np.zeros((num_components, eigen_vectors.shape[1]), dtype=np.float32)
+    padded_values = np.zeros((num_components,), dtype=np.float32)
+    padded_vectors[: eigen_vectors.shape[0], :] = eigen_vectors
+    padded_values[: eigen_values.shape[0]] = eigen_values
+    return padded_vectors, padded_values
+
+
+def _zero_small_pca_eigen_components(
+    *,
+    eigen_vectors: np.ndarray,
+    eigen_values: np.ndarray,
+    relative_cutoff: float = 1e-16,
+) -> tuple[np.ndarray, np.ndarray]:
+    if eigen_vectors.shape[0] != eigen_values.shape[0]:
+        raise ValueError(
+            f"Eigen vector/value count mismatch during PCA cutoff: "
+            f"n_vectors={eigen_vectors.shape[0]}, n_values={eigen_values.shape[0]}"
+        )
+    if eigen_values.size == 0:
+        return eigen_vectors, eigen_values
+
+    largest_eigen_value = float(np.max(eigen_values))
+    if largest_eigen_value <= 0.0:
+        zero_mask = np.ones_like(eigen_values, dtype=bool)
+    else:
+        zero_mask = eigen_values <= (largest_eigen_value * relative_cutoff)
+
+    if not np.any(zero_mask):
+        return eigen_vectors, eigen_values
+
+    filtered_vectors = np.array(eigen_vectors, copy=True, dtype=np.float32)
+    filtered_values = np.array(eigen_values, copy=True, dtype=np.float32)
+    filtered_vectors[zero_mask, :] = 0.0
+    filtered_values[zero_mask] = 0.0
+    return filtered_vectors, filtered_values
+
+
 def _fit_dataset_pca_adaptive(
     input_ref: DataRef,
     input_region: DataRegion,
@@ -1157,7 +1212,6 @@ def _fit_dataset_pca_adaptive(
     full_region = DatasetRegionRef(0, dataset_plan_meta.height, 0, dataset_plan_meta.width, 0, bands)
 
     if dataset_size_bytes <= PCA_MEMORY_CUTOFF_BYTES and test_full_pca:
-        pca = PCA(n_components=num_components)
         dataset, _ = client.read_region(input_ref, full_region)
         dataset_array = np.asarray(np.ma.getdata(dataset), dtype=np.float32)
         if dataset_array.ndim != 3:
@@ -1171,11 +1225,9 @@ def _fit_dataset_pca_adaptive(
         total_rows = flattened.shape[0]
         if total_rows <= 1:
             raise ValueError("PCA requires at least 2 samples to derive eigen values")
-        if num_components > flattened.shape[1]:
-            raise ValueError(
-                f"PCA cannot fit num_components={num_components} with only "
-                f"{flattened.shape[1]} usable bands after filtering"
-            )
+
+        actual_components = min(num_components, flattened.shape[0], flattened.shape[1])
+        pca = PCA(n_components=actual_components)
         pca.fit(flattened)
         eigen_values = np.asarray(pca.explained_variance_, dtype=np.float32)
         eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
@@ -1185,9 +1237,12 @@ def _fit_dataset_pca_adaptive(
             good_band_mask=good_band_mask,
             full_band_count=bands,
         )
+        eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
+            eigen_vectors=eigen_vectors,
+            eigen_values=eigen_values,
+            num_components=num_components,
+        )
     else:
-        ipca = IncrementalPCA(n_components=num_components)
-
         # This stage manages its own spatial reads instead of relying on the task system's
         # chunking policy, so the tile iteration stays next to the IPCA buffering logic.
         # The tile size is only chosen to guarantee at least num_components samples per
@@ -1197,9 +1252,6 @@ def _fit_dataset_pca_adaptive(
         tile_w = max(1, min(dataset_plan_meta.width, int(np.ceil(target_pixels / tile_h))))
         tile_scheme = SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
 
-        batch_buffer: list[np.ndarray] = []
-        buffered_rows = 0
-        first_fit_done = False
         total_rows = 0
         good_band_mask: Optional[np.ndarray] = None
         for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
@@ -1216,26 +1268,37 @@ def _fit_dataset_pca_adaptive(
             flattened, tile_good_band_mask = _prepare_dataset_rows_for_pca(tile, bad_bands)
             if good_band_mask is None:
                 good_band_mask = tile_good_band_mask
-                if num_components > flattened.shape[1]:
-                    raise ValueError(
-                        f"IncrementalPCA cannot fit num_components={num_components} with only "
-                        f"{flattened.shape[1]} usable bands after filtering"
-                    )
-            else:
-                if not np.array_equal(good_band_mask, tile_good_band_mask):
-                    raise ValueError("Bad-band mask changed between PCA tiles")
+            elif not np.array_equal(good_band_mask, tile_good_band_mask):
+                raise ValueError("Bad-band mask changed between PCA tiles")
 
+            total_rows += flattened.shape[0]
+
+        if total_rows <= 1:
+            raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
+        if good_band_mask is None:
+            raise ValueError("IncrementalPCA did not find any usable rows after filtering")
+
+        actual_components = min(num_components, total_rows, int(np.count_nonzero(good_band_mask)))
+        ipca = IncrementalPCA(n_components=actual_components)
+
+        batch_buffer: list[np.ndarray] = []
+        buffered_rows = 0
+        first_fit_done = False
+        for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
+            tile, _ = client.read_region(input_ref, tile_region)
+            flattened, tile_good_band_mask = _prepare_dataset_rows_for_pca(tile, bad_bands)
+            if not np.array_equal(good_band_mask, tile_good_band_mask):
+                raise ValueError("Bad-band mask changed between PCA tiles")
             if flattened.shape[0] == 0:
                 continue
-            total_rows += flattened.shape[0]
 
             batch_buffer.append(flattened)
             buffered_rows += flattened.shape[0]
 
-            while buffered_rows >= num_components:
+            while buffered_rows >= actual_components:
                 merged = np.concatenate(batch_buffer, axis=0)
-                fit_batch = merged[:num_components, :]
-                remainder = merged[num_components:, :]
+                fit_batch = merged[:actual_components, :]
+                remainder = merged[actual_components:, :]
                 ipca.partial_fit(fit_batch)
                 first_fit_done = True
                 batch_buffer = [remainder] if remainder.size > 0 else []
@@ -1245,7 +1308,7 @@ def _fit_dataset_pca_adaptive(
             if not first_fit_done:
                 raise ValueError(
                     f"Not enough samples to fit IncrementalPCA: "
-                    f"samples={total_rows}, num_components={num_components}"
+                    f"samples={total_rows}, num_components={actual_components}"
                 )
             merged = np.concatenate(batch_buffer, axis=0)
             ipca.partial_fit(merged)
@@ -1253,13 +1316,8 @@ def _fit_dataset_pca_adaptive(
         if not first_fit_done:
             raise ValueError(
                 f"Not enough samples to fit IncrementalPCA: "
-                f"samples={total_rows}, num_components={num_components}"
+                f"samples={total_rows}, num_components={actual_components}"
             )
-
-        if total_rows <= 1:
-            raise ValueError("IncrementalPCA requires at least 2 samples to derive eigen values")
-        if good_band_mask is None:
-            raise ValueError("IncrementalPCA did not find any usable rows after filtering")
 
         singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
         eigen_values = (singular_values**2) / (total_rows - 1)
@@ -1270,10 +1328,19 @@ def _fit_dataset_pca_adaptive(
             good_band_mask=good_band_mask,
             full_band_count=bands,
         )
+        eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
+            eigen_vectors=eigen_vectors,
+            eigen_values=eigen_values,
+            num_components=num_components,
+        )
 
     sort_desc = np.argsort(eigen_values)[::-1]
     eigen_values = eigen_values[sort_desc]
     eigen_vectors = eigen_vectors[sort_desc]
+    eigen_vectors, eigen_values = _zero_small_pca_eigen_components(
+        eigen_vectors=eigen_vectors,
+        eigen_values=eigen_values,
+    )
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values / data_variance_factor)
