@@ -2,8 +2,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import context
-# import tests.context
+# import context
+import tests.context
 
 import numpy as np
 import spectral

@@ -809,8 +809,163 @@ class TestTaskStageFuncs(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_project_onto_eigenvectors_stage_shrinks_bad_bands_and_applies_nodata_mask(self) -> None:
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            nodata = np.float32(-9999.0)
+            dataset = np.array(
+                [
+                    [[2.0, 100.0, 20.0], [3.0, 100.0, 30.0]],
+                    [[nodata, 100.0, 40.0], [5.0, 100.0, 50.0]],
+                ],
+                dtype=np.float32,
+            )
+            bad_bands = np.array([1, 0, 1], dtype=np.int32)
+            spectral_mean = np.array([1.0, 1000.0, 10.0], dtype=np.float32)
+            eigen_vectors = np.array(
+                [
+                    [1.0, 0.0],
+                    [0.0, 1.0],
+                ],
+                dtype=np.float32,
+            )
+            eigen_values = np.array([3.0, 1.0], dtype=np.float32)
+
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_bad_bands_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            mean_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_bad_bands_mean",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=spectral_mean.size * spectral_mean.dtype.itemsize,
+                    shape=spectral_mean.shape,
+                    dtype=spectral_mean.dtype,
+                )
+            )
+            vectors_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_bad_bands_vectors",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=eigen_vectors.size * eigen_vectors.dtype.itemsize,
+                    shape=eigen_vectors.shape,
+                    dtype=eigen_vectors.dtype,
+                )
+            )
+            values_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_bad_bands_values",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=eigen_values.size * eigen_values.dtype.itemsize,
+                    shape=eigen_values.shape,
+                    dtype=eigen_values.dtype,
+                )
+            )
+            descriptor_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="project_bad_bands_descriptor",
+                    kind="json",
+                    residency="ram_cacheable",
+                    size_est=1024,
+                )
+            )
+
+            process_storage_client.write_data(dataset_ref, dataset)
+            process_storage_client.write_meta(
+                dataset_ref,
+                DataMeta(
+                    kind="dataset",
+                    shape=dataset.shape,
+                    elem_type=np.dtype(np.float32),
+                    nodata=nodata,
+                    bad_bands=bad_bands,
+                ),
+            )
+            process_storage_client.write_data(mean_ref, spectral_mean)
+            process_storage_client.write_data(vectors_ref, eigen_vectors)
+            process_storage_client.write_data(values_ref, eigen_values)
+            process_storage_client.write_json_value(
+                descriptor_ref,
+                {
+                    "eigen": EigenVectorsAndValues(
+                        eigen_vectors_ref=vectors_ref,
+                        eigen_values_ref=values_ref,
+                        num_vectors=2,
+                        vector_dimension=2,
+                    )
+                },
+            )
+
+            stage = ProjectOntoEigenVectorsStage(
+                _num_components=2,
+                _output_ref_name="project_bad_bands_output",
+                _eigen_descriptor_ref=descriptor_ref,
+                _spectral_mean_ref=mean_ref,
+                default_executor="process",
+                input_plan_meta=get_project_onto_eigenvectors_stage(
+                    dataset_ref=dataset_ref,
+                    eigen_descriptor_ref=descriptor_ref,
+                    num_components=2,
+                    output_ref_name="project_bad_bands_output_template",
+                ).input_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+            )
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10061
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings["project_bad_bands_output"]
+            projected_dataset, projected_meta = storage_client.read_data(output_ref, filter_data=False)
+
+            expected = np.array(
+                [
+                    [[1.0, 10.0], [2.0, 20.0]],
+                    [[nodata, nodata], [4.0, 40.0]],
+                ],
+                dtype=np.float32,
+            )
+            self.assertEqual(projected_dataset.shape, (2, 2, 2))
+            self.assertTrue(np.allclose(projected_dataset, expected, atol=1e-6))
+            self.assertEqual(projected_meta.nodata, nodata)
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_incremental_pca_partial_fit_stage_known_answer(self) -> None:
-        app_services = AppServices()
+        app_services = self.test_model.app_services
         storage_client = None
         try:
             process_storage_client = get_process_storage_client()

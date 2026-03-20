@@ -1702,43 +1702,36 @@ def _project_dataset_onto_eigenvectors(
         raise ValueError(f"num_components must be positive, got {num_components}")
 
     bands = data_tile_raw.shape[2]
-    good_band_mask = np.ones((bands,), dtype=bool)
-    if descriptor.good_band_mask_ref is not None:
-        stored_good_band_mask, _ = client.read_data(descriptor.good_band_mask_ref)
-        good_band_mask = np.asarray(np.ma.getdata(stored_good_band_mask), dtype=np.bool_)
-        if good_band_mask.shape != (bands,):
+    good_band_mask = np.ones((bands,), dtype=np.bool_)
+    if data_tile_meta.bad_bands is not None:
+        bad_bands_array = np.asarray(data_tile_meta.bad_bands)
+        if bad_bands_array.shape != (bands,):
             raise ValueError(
-                f"Stored good-band mask shape must match dataset tile bands: "
-                f"mask_shape={good_band_mask.shape}, tile_bands={bands}"
+                f"Bad bands shape must match dataset tile bands: "
+                f"bad_bands shape={bad_bands_array.shape}, tile_bands={bands}"
             )
+        good_band_mask = bad_bands_array != 0
+        if not np.any(good_band_mask):
+            raise ValueError("Projection cannot run because all input bands are marked bad")
 
-    filtered_feature_count = int(np.count_nonzero(good_band_mask))
-    use_filtered_feature_space = descriptor.vector_dimension == filtered_feature_count and not np.all(
-        good_band_mask
-    )
-    if descriptor.vector_dimension not in (bands, filtered_feature_count):
+    filtered_data_tile = data_tile_raw[:, :, good_band_mask]
+    filtered_data_tile_mask = data_tile_mask[:, :, good_band_mask]
+    filtered_band_count = filtered_data_tile.shape[2]
+    if eigen_vectors_array.shape[1] != filtered_band_count:
         raise ValueError(
-            f"Band mismatch between dataset tile and eigen vectors: "
-            f"tile_bands={bands}, filtered_features={filtered_feature_count}, "
-            f"eigen_vector_dimension={descriptor.vector_dimension}"
+            f"Band mismatch between filtered dataset tile and eigen vectors: "
+            f"filtered_bands={filtered_band_count}, eigen_vector_dimension={eigen_vectors_array.shape[1]}"
+        )
+    if descriptor.vector_dimension != filtered_band_count:
+        raise ValueError(
+            f"Descriptor width must match filtered dataset tile bands: "
+            f"descriptor_width={descriptor.vector_dimension}, filtered_bands={filtered_band_count}"
         )
     if num_components > eigen_vectors_array.shape[0]:
         raise ValueError(
             f"num_components exceeds available eigen vectors: "
             f"num_components={num_components}, available={eigen_vectors_array.shape[0]}"
         )
-    if eigen_vectors_array.shape[1] != descriptor.vector_dimension:
-        raise ValueError(
-            f"Eigen vector payload width does not match descriptor: "
-            f"payload_width={eigen_vectors_array.shape[1]}, descriptor_width={descriptor.vector_dimension}"
-        )
-
-    if use_filtered_feature_space:
-        filtered_data_tile = data_tile_raw[:, :, good_band_mask]
-        filtered_data_tile_mask = data_tile_mask[:, :, good_band_mask]
-    else:
-        filtered_data_tile = data_tile_raw
-        filtered_data_tile_mask = data_tile_mask
 
     projection_matrix = np.asarray(eigen_vectors_array[:num_components, :], dtype=np.float32)
     for i, matrix_ref in enumerate(eigenvector_multiply_matrices):
@@ -1769,18 +1762,12 @@ def _project_dataset_onto_eigenvectors(
         spectral_mean_array = np.asarray(np.ma.getdata(spectral_mean), dtype=np.float32)
         if spectral_mean_array.ndim != 1:
             raise ValueError(f"Expected spectral mean shape [b], got {spectral_mean_array.shape}")
-        if use_filtered_feature_space and spectral_mean_array.shape[0] == bands:
+        if spectral_mean_array.shape[0] == bands:
             spectral_mean_array = spectral_mean_array[good_band_mask]
-        elif use_filtered_feature_space and spectral_mean_array.shape[0] != filtered_feature_count:
+        elif spectral_mean_array.shape[0] != filtered_band_count:
             raise ValueError(
                 f"Band mismatch between filtered dataset tile and spectral mean: "
-                f"filtered_features={filtered_feature_count}, "
-                f"spectral_mean_bands={spectral_mean_array.shape[0]}"
-            )
-        elif not use_filtered_feature_space and spectral_mean_array.shape[0] != bands:
-            raise ValueError(
-                f"Band mismatch between dataset tile and spectral mean: "
-                f"tile_bands={bands}, filtered_features={filtered_feature_count}, "
+                f"filtered_bands={filtered_band_count}, "
                 f"spectral_mean_bands={spectral_mean_array.shape[0]}"
             )
         flattened = flattened - spectral_mean_array[np.newaxis, :]
@@ -1973,25 +1960,20 @@ def get_project_onto_eigenvectors_stage(
             f"num_components exceeds available eigen vectors: "
             f"num_components={num_components}, available={descriptor.num_vectors}"
         )
-    if descriptor.vector_dimension != dataset_meta.shape[2]:
-        if descriptor.good_band_mask_ref is None:
+    expected_input_width = dataset_meta.shape[2]
+    if dataset_meta.bad_bands is not None:
+        bad_bands_array = np.asarray(dataset_meta.bad_bands)
+        if bad_bands_array.shape != (dataset_meta.shape[2],):
             raise ValueError(
-                f"Eigen vector dimension must match input bands when no good-band mask is stored: "
-                f"vector_dimension={descriptor.vector_dimension}, bands={dataset_meta.shape[2]}"
+                f"Dataset bad bands shape must match input bands: "
+                f"bad_bands shape={bad_bands_array.shape}, bands={dataset_meta.shape[2]}"
             )
-        good_band_mask, _ = storage_client.read_data(descriptor.good_band_mask_ref)
-        good_band_mask_array = np.asarray(np.ma.getdata(good_band_mask), dtype=np.bool_)
-        if good_band_mask_array.shape != (dataset_meta.shape[2],):
-            raise ValueError(
-                f"Stored good-band mask shape must match input bands: "
-                f"mask_shape={good_band_mask_array.shape}, bands={dataset_meta.shape[2]}"
-            )
-        if int(np.count_nonzero(good_band_mask_array)) != descriptor.vector_dimension:
-            raise ValueError(
-                f"Eigen vector dimension must match the number of stored good bands: "
-                f"vector_dimension={descriptor.vector_dimension}, "
-                f"good_band_count={int(np.count_nonzero(good_band_mask_array))}"
-            )
+        expected_input_width = int(np.count_nonzero(bad_bands_array != 0))
+    if descriptor.vector_dimension != expected_input_width:
+        raise ValueError(
+            f"Eigen vector dimension must match filtered input bands: "
+            f"vector_dimension={descriptor.vector_dimension}, expected={expected_input_width}"
+        )
 
     input_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
     return ProjectOntoEigenVectorsStage(
