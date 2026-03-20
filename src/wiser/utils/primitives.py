@@ -187,7 +187,7 @@ class DataMeta:
     wavelengths: Optional[np.ndarray] = None
     wavelength_units: Optional[u.Unit] = None
     nodata: Optional[float | int] = None
-    bad_bands: Optional[np.ndarray] = None
+    bad_bands: Optional[np.ndarray] = None  # 0's are bad bands, 1's are good bands
     crs_wkt: Optional[str] = None
     geotransform: Optional[Tuple[float, ...]] = None
 

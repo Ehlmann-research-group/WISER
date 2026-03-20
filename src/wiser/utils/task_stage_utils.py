@@ -43,20 +43,45 @@ def _running_covariance(
     output_write: "WriteSpec",
     mean_ref: DataRef,
     total: int,
+    num_features: int = -1,
 ) -> None:
     client = get_process_storage_client()
     output_ref = output_write.ref
     running_cov, _ = client.read_data(output_ref)
-    np.set_printoptions(threshold=np.inf)
     noise, _ = client.read_region(input_ref, input_region)
-    mean_arr, mean_arr_meta = client.read_data(mean_ref)
+    mean_arr, _ = client.read_data(mean_ref)
+    input_region_meta = client.get_region_meta(input_ref, input_region)
     # We do the below because masked arrays have trouble with matrix multiplications
     if np.ma.isMaskedArray(noise):
+        # Essentiall removes all the nodata and bad bands affects
         noise_raw = np.ma.getdata(noise.filled(0))
+    else:
+        noise_raw = np.asarray(noise)
     if np.ma.isMaskedArray(mean_arr):
         mean_arr_raw = np.ma.getdata(mean_arr)
+    else:
+        mean_arr_raw = np.asarray(mean_arr)
     assert noise_raw.ndim == 3, "noise_raw should have 3 dimensions"
     assert mean_arr_raw.ndim == 1, "mean_arr_raw should have 1 dimension"
+    band_count = noise_raw.shape[2]
+    good_band_mask = np.ones((band_count,), dtype=bool)
+    if input_region_meta.bad_bands is not None:
+        bad_bands_array = np.asarray(input_region_meta.bad_bands)
+        if bad_bands_array.shape != (band_count,):
+            raise ValueError(
+                f"Bad bands shape must match dataset band count: "
+                f"bad_bands shape={bad_bands_array.shape}, bands={band_count}"
+            )
+        good_band_mask = bad_bands_array != 0
+
+    noise_raw = noise_raw[:, :, good_band_mask]
+    mean_arr_raw = mean_arr_raw[good_band_mask]
+    if num_features != -1 and noise_raw.shape[2] != num_features:
+        raise ValueError(
+            f"Filtered covariance feature count does not match requested num_features: "
+            f"filtered_features={noise_raw.shape[2]}, requested={num_features}"
+        )
+
     mean_arr_raw = mean_arr_raw[np.newaxis, np.newaxis, :]
     mean_centered_noise = noise_raw - mean_arr_raw
     flattened_noise = mean_centered_noise.reshape(-1, mean_centered_noise.shape[2])
@@ -80,6 +105,7 @@ class CalcCovMatrixStage(SequentialStage):
     _total_spectra: int = 0
     # You must define this
     _output_ref_name: str = "cov_running"
+    _num_features: int = -1
     # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
     resource_model: ResourceModel = field(
@@ -123,14 +149,18 @@ class CalcCovMatrixStage(SequentialStage):
         assert isinstance(
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for CalculateCovarianceMatrix"
+        feature_count = self._num_features if self._num_features != -1 else input_meta.bands
 
-        size_est = input_meta.bands * input_meta.bands * input_meta.dtype.itemsize
+        if feature_count <= 0:
+            raise ValueError(f"num_features must be positive when provided, got {self._num_features}")
+
+        size_est = feature_count * feature_count * input_meta.dtype.itemsize
         alloc_request = AllocationRequest(
             name=self._output_ref_name,
             kind="array",
             residency="ram_cacheable",
             size_est=size_est,
-            shape=(input_meta.bands, input_meta.bands, 1),
+            shape=(feature_count, feature_count, 1),
             dtype=input_meta.dtype,
         )
         return [alloc_request]
@@ -152,6 +182,7 @@ class CalcCovMatrixStage(SequentialStage):
             output_write,
             mean,
             total,
+            self._num_features,
         )
 
 
@@ -310,6 +341,7 @@ class EigenVectorsAndValues:
     vector_dimension: int
     covariance_ref: Optional[DataRef] = None
     mean_ref: Optional[DataRef] = None
+    good_band_mask_ref: Optional[DataRef] = None
 
     def count(self) -> int:
         return self.num_vectors
@@ -373,7 +405,7 @@ def _write_eigendecomposition(
 
 
 @dataclass
-class EigendecompositionStage(SequentialStage):
+class EigenDecompositionStage(SequentialStage):
     """
     Compute eigendecomposition for a square [N][N] matrix and persist:
       - eigen vectors in an array [N][N],
@@ -412,10 +444,10 @@ class EigendecompositionStage(SequentialStage):
     ) -> list[AllocationRequest]:
         assert isinstance(
             input_meta, SpectraListPlanMeta
-        ), "input_meta must be of type SpectraListPlanMeta for EigendecompositionStage"
+        ), "input_meta must be of type SpectraListPlanMeta for EigenDecompositionStage"
         if input_meta.num_spectra != input_meta.spectrum_length:
             raise ValueError(
-                f"EigendecompositionStage expects a square matrix, got shape="
+                f"EigenDecompositionStage expects a square matrix, got shape="
                 f"({input_meta.num_spectra}, {input_meta.spectrum_length})"
             )
 
@@ -473,7 +505,7 @@ class EigendecompositionStage(SequentialStage):
 def get_eigendecomposition_stage(
     matrix_ref: DataRef,
     output_ref_name: str,
-) -> EigendecompositionStage:
+) -> EigenDecompositionStage:
     storage_client = get_process_storage_client()
     matrix_meta = storage_client.get_meta(matrix_ref)
     if len(matrix_meta.shape) != 2:
@@ -487,7 +519,7 @@ def get_eigendecomposition_stage(
         spectrum_length=n,
         dtype=matrix_meta.elem_type,
     )
-    return EigendecompositionStage(
+    return EigenDecompositionStage(
         _output_ref_name=output_ref_name,
         _vectors_ref_name=f"{output_ref_name}_vectors",
         _values_ref_name=f"{output_ref_name}_values",
@@ -1140,6 +1172,20 @@ def _prepare_dataset_rows_for_pca(
     return cleaned_rows, good_band_mask
 
 
+def _validate_prepared_pca_feature_count(
+    *,
+    flattened: np.ndarray,
+    num_features: int,
+) -> None:
+    if flattened.ndim != 2:
+        raise ValueError(f"Expected flattened PCA rows to be 2D, got {flattened.shape}")
+    if flattened.shape[1] != num_features:
+        raise ValueError(
+            f"Prepared PCA feature count does not match requested num_features: "
+            f"prepared_features={flattened.shape[1]}, requested={num_features}"
+        )
+
+
 def _expand_pca_outputs_to_full_bands(
     *,
     eigen_vectors_good: np.ndarray,
@@ -1223,7 +1269,9 @@ def _fit_dataset_pca_adaptive(
     output_values_ref: DataRef,
     output_covariance_ref: DataRef,
     output_mean_ref: DataRef,
+    output_good_band_mask_ref: DataRef,
     num_components: int,
+    num_features: int,
     dataset_plan_meta: DatasetPlanMeta,
     test_full_pca: bool = True,
     data_variance_factor: int = 1,
@@ -1252,6 +1300,8 @@ def _fit_dataset_pca_adaptive(
             )
 
         flattened, good_band_mask = _prepare_dataset_rows_for_pca(dataset, bad_bands)
+        if num_features != -1:
+            _validate_prepared_pca_feature_count(flattened=flattened, num_features=num_features)
         total_rows = flattened.shape[0]
         if total_rows <= 1:
             raise ValueError("PCA requires at least 2 samples to derive eigen values")
@@ -1260,13 +1310,18 @@ def _fit_dataset_pca_adaptive(
         pca = PCA(n_components=actual_components)
         pca.fit(flattened)
         eigen_values = np.asarray(pca.explained_variance_, dtype=np.float32)
-        eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
-            eigen_vectors_good=np.asarray(pca.components_, dtype=np.float32),
-            covariance_good=np.asarray(pca.get_covariance(), dtype=np.float32),
-            mean_good=np.asarray(pca.mean_, dtype=np.float32),
-            good_band_mask=good_band_mask,
-            full_band_count=bands,
-        )
+        if num_features != -1:
+            eigen_vectors = np.asarray(pca.components_, dtype=np.float32)
+            covariance = np.asarray(pca.get_covariance(), dtype=np.float32)
+            mean = np.asarray(pca.mean_, dtype=np.float32)
+        else:
+            eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
+                eigen_vectors_good=np.asarray(pca.components_, dtype=np.float32),
+                covariance_good=np.asarray(pca.get_covariance(), dtype=np.float32),
+                mean_good=np.asarray(pca.mean_, dtype=np.float32),
+                good_band_mask=good_band_mask,
+                full_band_count=bands,
+            )
         eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
             eigen_vectors=eigen_vectors,
             eigen_values=eigen_values,
@@ -1296,6 +1351,8 @@ def _fit_dataset_pca_adaptive(
                 )
 
             flattened, tile_good_band_mask = _prepare_dataset_rows_for_pca(tile, bad_bands)
+            if num_features != -1:
+                _validate_prepared_pca_feature_count(flattened=flattened, num_features=num_features)
             if good_band_mask is None:
                 good_band_mask = tile_good_band_mask
             elif not np.array_equal(good_band_mask, tile_good_band_mask):
@@ -1317,6 +1374,8 @@ def _fit_dataset_pca_adaptive(
         for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
             tile, _ = client.read_region(input_ref, tile_region)
             flattened, tile_good_band_mask = _prepare_dataset_rows_for_pca(tile, bad_bands)
+            if num_features != -1:
+                _validate_prepared_pca_feature_count(flattened=flattened, num_features=num_features)
             if not np.array_equal(good_band_mask, tile_good_band_mask):
                 raise ValueError("Bad-band mask changed between PCA tiles")
             if flattened.shape[0] == 0:
@@ -1351,13 +1410,18 @@ def _fit_dataset_pca_adaptive(
 
         singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
         eigen_values = (singular_values**2) / (total_rows - 1)
-        eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
-            eigen_vectors_good=np.asarray(ipca.components_, dtype=np.float32),
-            covariance_good=np.asarray(ipca.get_covariance(), dtype=np.float32),
-            mean_good=np.asarray(ipca.mean_, dtype=np.float32),
-            good_band_mask=good_band_mask,
-            full_band_count=bands,
-        )
+        if num_features != -1:
+            eigen_vectors = np.asarray(ipca.components_, dtype=np.float32)
+            covariance = np.asarray(ipca.get_covariance(), dtype=np.float32)
+            mean = np.asarray(ipca.mean_, dtype=np.float32)
+        else:
+            eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
+                eigen_vectors_good=np.asarray(ipca.components_, dtype=np.float32),
+                covariance_good=np.asarray(ipca.get_covariance(), dtype=np.float32),
+                mean_good=np.asarray(ipca.mean_, dtype=np.float32),
+                good_band_mask=good_band_mask,
+                full_band_count=bands,
+            )
         eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
             eigen_vectors=eigen_vectors,
             eigen_values=eigen_values,
@@ -1376,6 +1440,7 @@ def _fit_dataset_pca_adaptive(
     client.write_data(output_values_ref, eigen_values / data_variance_factor)
     client.write_data(output_covariance_ref, covariance / data_variance_factor)
     client.write_data(output_mean_ref, mean)
+    client.write_data(output_good_band_mask_ref, np.asarray(good_band_mask, dtype=np.bool_))
     descriptor = EigenVectorsAndValues(
         eigen_vectors_ref=output_vectors_ref,
         eigen_values_ref=output_values_ref,
@@ -1383,6 +1448,7 @@ def _fit_dataset_pca_adaptive(
         vector_dimension=eigen_vectors.shape[1],
         covariance_ref=output_covariance_ref,
         mean_ref=output_mean_ref,
+        good_band_mask_ref=output_good_band_mask_ref,
     )
     client.write_json_value(output_info_ref, {"eigen": descriptor})
 
@@ -1406,7 +1472,9 @@ class AdaptivePcaFitStage(SequentialStage):
     _values_ref_name: str = "ipca_eigen_values"
     _covariance_ref_name: str = "ipca_covariance"
     _mean_ref_name: str = "ipca_mean"
+    _good_band_mask_ref_name: str = "ipca_good_band_mask"
     _dataset_plan_meta: Optional[DatasetPlanMeta] = None
+    _num_features: int = -1
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -1419,12 +1487,16 @@ class AdaptivePcaFitStage(SequentialStage):
     test_full_pca: bool = True
 
     def __post_init__(self):
-        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
+        self.output_bindings = self.output_bindings + [
+            DataBinding(self._output_ref_name, kind="json"),
+            DataBinding(self._good_band_mask_ref_name, kind="array"),
+        ]
         self.broadcast_input |= {
             "ipca_vectors_ref": DataBinding(self._vectors_ref_name),
             "ipca_values_ref": DataBinding(self._values_ref_name),
             "ipca_covariance_ref": DataBinding(self._covariance_ref_name),
             "ipca_mean_ref": DataBinding(self._mean_ref_name),
+            "ipca_good_band_mask_ref": DataBinding(self._good_band_mask_ref_name),
             "dataset_plan_meta": self._dataset_plan_meta,
         }
 
@@ -1441,22 +1513,27 @@ class AdaptivePcaFitStage(SequentialStage):
         assert isinstance(
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for AdaptivePcaFitStage"
+        feature_count = self._num_features if self._num_features != -1 else input_meta.bands
         if self._num_components <= 0:
             raise ValueError(f"num_components must be positive, got {self._num_components}")
-        if self._num_components > input_meta.bands:
+        if feature_count <= 0:
+            raise ValueError(f"num_features must be positive when provided, got {self._num_features}")
+        if self._num_components > feature_count:
             raise ValueError(
-                f"num_components must be <= input bands, got num_components={self._num_components}, "
-                f"bands={input_meta.bands}"
+                f"num_components must be <= available features, got num_components={self._num_components}, "
+                f"features={feature_count}"
             )
 
         vectors_dtype = np.float32
         values_dtype = np.float32
         covariance_dtype = np.float32
         mean_dtype = np.float32
-        vectors_size_est = self._num_components * input_meta.bands * np.dtype(vectors_dtype).itemsize
+        mask_dtype = np.bool_
+        vectors_size_est = self._num_components * feature_count * np.dtype(vectors_dtype).itemsize
         values_size_est = self._num_components * np.dtype(values_dtype).itemsize
-        covariance_size_est = input_meta.bands * input_meta.bands * np.dtype(covariance_dtype).itemsize
-        mean_size_est = input_meta.bands * np.dtype(mean_dtype).itemsize
+        covariance_size_est = feature_count * feature_count * np.dtype(covariance_dtype).itemsize
+        mean_size_est = feature_count * np.dtype(mean_dtype).itemsize
+        good_band_mask_size_est = input_meta.bands * np.dtype(mask_dtype).itemsize
 
         return [
             AllocationRequest(
@@ -1464,7 +1541,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 kind="array",
                 residency="ram_cacheable",
                 size_est=vectors_size_est,
-                shape=(self._num_components, input_meta.bands),
+                shape=(self._num_components, feature_count),
                 dtype=vectors_dtype,
             ),
             AllocationRequest(
@@ -1480,7 +1557,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 kind="array",
                 residency="ram_cacheable",
                 size_est=covariance_size_est,
-                shape=(input_meta.bands, input_meta.bands),
+                shape=(feature_count, feature_count),
                 dtype=covariance_dtype,
             ),
             AllocationRequest(
@@ -1488,8 +1565,16 @@ class AdaptivePcaFitStage(SequentialStage):
                 kind="array",
                 residency="ram_cacheable",
                 size_est=mean_size_est,
-                shape=(input_meta.bands,),
+                shape=(feature_count,),
                 dtype=mean_dtype,
+            ),
+            AllocationRequest(
+                name=self._good_band_mask_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=good_band_mask_size_est,
+                shape=(input_meta.bands,),
+                dtype=mask_dtype,
             ),
             AllocationRequest(
                 name=self._output_ref_name,
@@ -1511,6 +1596,7 @@ class AdaptivePcaFitStage(SequentialStage):
         output_values_ref: DataRef = broadcast_inputs["ipca_values_ref"]
         output_covariance_ref: DataRef = broadcast_inputs["ipca_covariance_ref"]
         output_mean_ref: DataRef = broadcast_inputs["ipca_mean_ref"]
+        output_good_band_mask_ref: DataRef = broadcast_inputs["ipca_good_band_mask_ref"]
         dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
         return partial(
             _fit_dataset_pca_adaptive,
@@ -1521,7 +1607,9 @@ class AdaptivePcaFitStage(SequentialStage):
             output_values_ref,
             output_covariance_ref,
             output_mean_ref,
+            output_good_band_mask_ref,
             self._num_components,
+            self._num_features,
             dataset_plan_meta,
             self.test_full_pca,
             self._data_variance_factor,
@@ -1532,6 +1620,7 @@ def get_adaptive_pca_partial_fit_stage(
     dataset_ref: DataRef,
     num_components: int,
     output_ref_name: str,
+    num_features: int = -1,
 ) -> AdaptivePcaFitStage:
     storage_client = get_process_storage_client()
     dataset_meta = storage_client.get_meta(dataset_ref)
@@ -1554,7 +1643,9 @@ def get_adaptive_pca_partial_fit_stage(
         _values_ref_name=f"{output_ref_name}_values",
         _covariance_ref_name=f"{output_ref_name}_covariance",
         _mean_ref_name=f"{output_ref_name}_mean",
+        _good_band_mask_ref_name=f"{output_ref_name}_good_band_mask",
         _dataset_plan_meta=dataset_plan_meta,
+        _num_features=num_features,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
@@ -1571,9 +1662,10 @@ def get_adaptive_pca_partial_fit_pipeline(
     dataset_ref: DataRef,
     num_components: int,
     output_ref_name: str,
+    num_features: int = -1,
 ) -> AlgorithmPipeline:
     return AlgorithmPipeline(
-        [get_adaptive_pca_partial_fit_stage(dataset_ref, num_components, output_ref_name)]
+        [get_adaptive_pca_partial_fit_stage(dataset_ref, num_components, output_ref_name, num_features)]
     )
 
 
@@ -1587,7 +1679,7 @@ def _project_dataset_onto_eigenvectors(
     num_components: int,
 ) -> None:
     client = get_process_storage_client()
-    data_tile, _ = client.read_region(input_ref, input_region)
+    data_tile, data_tile_meta = client.read_region(input_ref, input_region)
     envelope_payload = client.read_json_value(eigen_descriptor_ref)
     if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
         raise ValueError("Expected JSON payload with key 'eigen' for projection stage input")
@@ -1597,27 +1689,56 @@ def _project_dataset_onto_eigenvectors(
         raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
 
     eigen_vectors, _ = client.read_data(descriptor.eigen_vectors_ref)
-    data_tile_array = np.asarray(np.ma.getdata(data_tile))
+    data_tile_array = np.ma.array(data_tile, copy=False)
+    data_tile_raw = np.asarray(np.ma.getdata(data_tile_array), dtype=np.float32)
+    data_tile_mask = np.ma.getmaskarray(data_tile_array)
     eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float32)
 
-    if data_tile_array.ndim != 3:
-        raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_array.shape}")
+    if data_tile_raw.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_raw.shape}")
     if eigen_vectors_array.ndim != 2:
         raise ValueError(f"Expected eigen vectors shape [b][b], got {eigen_vectors_array.shape}")
     if num_components <= 0:
         raise ValueError(f"num_components must be positive, got {num_components}")
 
-    bands = data_tile_array.shape[2]
-    if eigen_vectors_array.shape[1] != bands:
+    bands = data_tile_raw.shape[2]
+    good_band_mask = np.ones((bands,), dtype=bool)
+    if descriptor.good_band_mask_ref is not None:
+        stored_good_band_mask, _ = client.read_data(descriptor.good_band_mask_ref)
+        good_band_mask = np.asarray(np.ma.getdata(stored_good_band_mask), dtype=np.bool_)
+        if good_band_mask.shape != (bands,):
+            raise ValueError(
+                f"Stored good-band mask shape must match dataset tile bands: "
+                f"mask_shape={good_band_mask.shape}, tile_bands={bands}"
+            )
+
+    filtered_feature_count = int(np.count_nonzero(good_band_mask))
+    use_filtered_feature_space = descriptor.vector_dimension == filtered_feature_count and not np.all(
+        good_band_mask
+    )
+    if descriptor.vector_dimension not in (bands, filtered_feature_count):
         raise ValueError(
             f"Band mismatch between dataset tile and eigen vectors: "
-            f"tile_bands={bands}, eigen_vector_dimension={eigen_vectors_array.shape[1]}"
+            f"tile_bands={bands}, filtered_features={filtered_feature_count}, "
+            f"eigen_vector_dimension={descriptor.vector_dimension}"
         )
     if num_components > eigen_vectors_array.shape[0]:
         raise ValueError(
             f"num_components exceeds available eigen vectors: "
             f"num_components={num_components}, available={eigen_vectors_array.shape[0]}"
         )
+    if eigen_vectors_array.shape[1] != descriptor.vector_dimension:
+        raise ValueError(
+            f"Eigen vector payload width does not match descriptor: "
+            f"payload_width={eigen_vectors_array.shape[1]}, descriptor_width={descriptor.vector_dimension}"
+        )
+
+    if use_filtered_feature_space:
+        filtered_data_tile = data_tile_raw[:, :, good_band_mask]
+        filtered_data_tile_mask = data_tile_mask[:, :, good_band_mask]
+    else:
+        filtered_data_tile = data_tile_raw
+        filtered_data_tile_mask = data_tile_mask
 
     projection_matrix = np.asarray(eigen_vectors_array[:num_components, :], dtype=np.float32)
     for i, matrix_ref in enumerate(eigenvector_multiply_matrices):
@@ -1639,16 +1760,28 @@ def _project_dataset_onto_eigenvectors(
             )
         projection_matrix = projection_matrix @ matrix_array
 
-    flattened = data_tile_array.reshape(-1, bands)
+    flattened = filtered_data_tile.reshape(-1, filtered_data_tile.shape[2])
+    invalid_pixels = np.any(filtered_data_tile_mask, axis=2) | np.any(
+        ~np.isfinite(filtered_data_tile), axis=2
+    )
     if spectral_mean_ref is not None:
         spectral_mean, _ = client.read_data(spectral_mean_ref)
         spectral_mean_array = np.asarray(np.ma.getdata(spectral_mean), dtype=np.float32)
         if spectral_mean_array.ndim != 1:
             raise ValueError(f"Expected spectral mean shape [b], got {spectral_mean_array.shape}")
-        if spectral_mean_array.shape[0] != bands:
+        if use_filtered_feature_space and spectral_mean_array.shape[0] == bands:
+            spectral_mean_array = spectral_mean_array[good_band_mask]
+        elif use_filtered_feature_space and spectral_mean_array.shape[0] != filtered_feature_count:
+            raise ValueError(
+                f"Band mismatch between filtered dataset tile and spectral mean: "
+                f"filtered_features={filtered_feature_count}, "
+                f"spectral_mean_bands={spectral_mean_array.shape[0]}"
+            )
+        elif not use_filtered_feature_space and spectral_mean_array.shape[0] != bands:
             raise ValueError(
                 f"Band mismatch between dataset tile and spectral mean: "
-                f"tile_bands={bands}, spectral_mean_bands={spectral_mean_array.shape[0]}"
+                f"tile_bands={bands}, filtered_features={filtered_feature_count}, "
+                f"spectral_mean_bands={spectral_mean_array.shape[0]}"
             )
         flattened = flattened - spectral_mean_array[np.newaxis, :]
     if flattened.shape[1] != projection_matrix.shape[1]:
@@ -1658,9 +1791,32 @@ def _project_dataset_onto_eigenvectors(
         )
     projected_flattened = flattened @ projection_matrix.T
     projected_tile = projected_flattened.reshape(
-        data_tile_array.shape[0], data_tile_array.shape[1], num_components
+        data_tile_raw.shape[0], data_tile_raw.shape[1], num_components
     )
-    client.write_spec(output_write, projected_tile.astype(data_tile_array.dtype, copy=False))
+    if data_tile_meta.nodata is not None and np.any(invalid_pixels):
+        projected_tile[invalid_pixels, :] = data_tile_meta.nodata
+    client.write_spec(output_write, projected_tile.astype(data_tile_raw.dtype, copy=False))
+
+
+def _write_projected_dataset_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    client = get_process_storage_client()
+    input_region_meta = client.get_region_meta(input_ref, full_input_region)
+    output_meta = client.get_meta(output_write.ref)
+    projected_meta = replace(
+        output_meta,
+        elem_type=input_region_meta.elem_type,
+        nodata=input_region_meta.nodata,
+        bad_bands=None,
+        wavelengths=None,
+        wavelength_units=None,
+        crs_wkt=input_region_meta.crs_wkt,
+        geotransform=input_region_meta.geotransform,
+    )
+    client.write_meta(output_write.ref, projected_meta)
 
 
 @dataclass
@@ -1775,6 +1931,17 @@ class ProjectOntoEigenVectorsStage(MapStage):
             self._num_components,
         )
 
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_projected_dataset_meta, input_ref, full_input_region, output_write)
+
 
 def get_project_onto_eigenvectors_stage(
     dataset_ref: DataRef,
@@ -1807,10 +1974,24 @@ def get_project_onto_eigenvectors_stage(
             f"num_components={num_components}, available={descriptor.num_vectors}"
         )
     if descriptor.vector_dimension != dataset_meta.shape[2]:
-        raise ValueError(
-            f"Eigen vector dimension must match input bands: "
-            f"vector_dimension={descriptor.vector_dimension}, bands={dataset_meta.shape[2]}"
-        )
+        if descriptor.good_band_mask_ref is None:
+            raise ValueError(
+                f"Eigen vector dimension must match input bands when no good-band mask is stored: "
+                f"vector_dimension={descriptor.vector_dimension}, bands={dataset_meta.shape[2]}"
+            )
+        good_band_mask, _ = storage_client.read_data(descriptor.good_band_mask_ref)
+        good_band_mask_array = np.asarray(np.ma.getdata(good_band_mask), dtype=np.bool_)
+        if good_band_mask_array.shape != (dataset_meta.shape[2],):
+            raise ValueError(
+                f"Stored good-band mask shape must match input bands: "
+                f"mask_shape={good_band_mask_array.shape}, bands={dataset_meta.shape[2]}"
+            )
+        if int(np.count_nonzero(good_band_mask_array)) != descriptor.vector_dimension:
+            raise ValueError(
+                f"Eigen vector dimension must match the number of stored good bands: "
+                f"vector_dimension={descriptor.vector_dimension}, "
+                f"good_band_count={int(np.count_nonzero(good_band_mask_array))}"
+            )
 
     input_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
     return ProjectOntoEigenVectorsStage(

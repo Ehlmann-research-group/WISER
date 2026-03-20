@@ -26,7 +26,7 @@ from wiser.utils.primitives import (
 from wiser.utils.task_stage_utils import (
     AdaptivePcaFitStage,
     CalcCovMatrixStage,
-    EigendecompositionStage,
+    EigenDecompositionStage,
     MatrixMultiplicationStage,
     ProjectOntoEigenVectorsStage,
     SpectralMeanStage,
@@ -203,8 +203,14 @@ def get_mnf_pipeline(
 
     noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
 
+    if data_meta.bad_bands is not None:
+        num_features = np.sum(data_meta.bad_bands)
+    else:
+        num_features = dataset_plan_meta.bands
+
     noise_ipca_stage = AdaptivePcaFitStage(
         _num_components=max_internal_components,
+        _num_features=num_features,
         _data_variance_factor=2,
         _output_ref_name=noise_eigen_ref_name,
         _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
@@ -228,8 +234,8 @@ def get_mnf_pipeline(
         default_executor="process",
         input_binding=DataBinding(noise_eigen_ref_name),
         input_plan_meta=SpectraListPlanMeta(
-            num_spectra=bands,
-            spectrum_length=bands,
+            num_spectra=num_features,
+            spectrum_length=num_features,
             dtype=np.dtype(np.float32),
         ),
         resource_model=ResourceModel(
@@ -255,6 +261,7 @@ def get_mnf_pipeline(
 
     input_covariance_stage = CalcCovMatrixStage(
         _total_spectra=data_pixels,
+        _num_features=num_features,
         _output_ref_name=input_covariance_ref_name,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
@@ -270,13 +277,13 @@ def get_mnf_pipeline(
     whitened_covariance_stage = MatrixMultiplicationStage(
         _output_ref_name=whitened_covariance_ref_name,
         _matrix_input_names=("matrix_ref_0", "matrix_ref_1", "matrix_ref_2"),
-        _output_shape=(bands, bands),
+        _output_shape=(num_features, num_features),
         _output_dtype=np.dtype(np.float32),
         default_executor="process",
         input_binding=DataBinding(input_covariance_ref_name),
         input_plan_meta=SpectraListPlanMeta(
-            num_spectra=bands,
-            spectrum_length=bands,
+            num_spectra=num_features,
+            spectrum_length=num_features,
             dtype=np.dtype(np.float32),
         ),
         resource_model=ResourceModel(
@@ -292,15 +299,15 @@ def get_mnf_pipeline(
         },
     )
 
-    whitened_eigendecomposition_stage = EigendecompositionStage(
+    whitened_eigendecomposition_stage = EigenDecompositionStage(
         _output_ref_name=whitened_eigen_ref_name,
         _vectors_ref_name=f"{whitened_eigen_ref_name}_vectors",
         _values_ref_name=f"{whitened_eigen_ref_name}_values",
         default_executor="process",
         input_binding=DataBinding(whitened_covariance_ref_name),
         input_plan_meta=SpectraListPlanMeta(
-            num_spectra=bands,
-            spectrum_length=bands,
+            num_spectra=num_features,
+            spectrum_length=num_features,
             dtype=np.dtype(np.float32),
         ),
         resource_model=ResourceModel(

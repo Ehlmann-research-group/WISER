@@ -12,8 +12,9 @@ import tests.context
 from wiser.gui.app_services import AppServices
 from wiser.utils.task_stage_utils import (
     CalcCovMatrixStage,
-    EigendecompositionStage,
+    EigenDecompositionStage,
     EigenVectorsAndValues,
+    ProjectOntoEigenVectorsStage,
     get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
     get_adaptive_pca_partial_fit_stage,
@@ -28,6 +29,7 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import (
     AllocationRequest,
     DataBinding,
+    DataMeta,
     NoChunkingScheme,
     PriorityClass,
     SpectraListPlanMeta,
@@ -157,6 +159,73 @@ class TestTaskStageFuncs(unittest.TestCase):
             flattened_noise = noise_yxb.reshape(-1, noise_yxb.shape[2])
             # rowvar=False because we are getting the noise in a channel
             expected_cov = np.cov(flattened_noise, rowvar=False).astype(np.float32)[..., None]
+            self.assertTrue(np.allclose(output_cov, expected_cov, atol=1e-5))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_covariance_stage_filters_bad_bands_and_uses_num_features(self) -> None:
+        array_2x2x3 = np.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[100.0, 100.0], [100.0, 100.0]],
+                [[10.0, 20.0], [30.0, 40.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x3)
+        dataset.set_bad_bands([1, 0, 1])
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            mean_output_ref_name = "cov_filtered_mean"
+            cov_output_ref_name = "cov_filtered_covariance"
+            num_pixels = 4
+
+            mean_stage = get_spectral_mean_stage(input_ref, mean_output_ref_name)
+            cov_stage = CalcCovMatrixStage(
+                _total_spectra=num_pixels,
+                _output_ref_name=cov_output_ref_name,
+                _num_features=2,
+                default_executor="process",
+                input_plan_meta=mean_stage.input_plan_meta,
+                broadcast_input={"mean": DataBinding(mean_output_ref_name)},
+            )
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage, cov_stage]),
+            )
+            task.id = 10021
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            output_ref = task_plan.bindings[cov_output_ref_name]
+            self.assertEqual(output_ref.shape, (2, 2, 1))
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_cov, _ = storage_client.read_data(output_ref)
+
+            dataset_yxb = array_2x2x3.transpose(1, 2, 0)
+            flattened = dataset_yxb.reshape(-1, dataset_yxb.shape[2])[:, [0, 2]]
+            expected_cov = np.cov(flattened, rowvar=False).astype(np.float32)[..., None]
+
+            self.assertEqual(output_cov.shape, (2, 2, 1))
             self.assertTrue(np.allclose(output_cov, expected_cov, atol=1e-5))
         finally:
             if storage_client is not None:
@@ -860,7 +929,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 input_plan_meta=mean_stage.input_plan_meta,
                 broadcast_input={"mean": DataBinding(mean_output_ref_name)},
             )
-            eig_stage = EigendecompositionStage(
+            eig_stage = EigenDecompositionStage(
                 _output_ref_name=eig_output_name,
                 _vectors_ref_name=f"{eig_output_name}_vectors",
                 _values_ref_name=f"{eig_output_name}_values",
