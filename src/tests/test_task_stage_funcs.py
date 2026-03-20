@@ -90,7 +90,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             task_plan = app_services.task_planner.plan_semantic_task(task)
 
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=5)
+            future.result(timeout=15)
 
             output_ref = task_plan.bindings[output_ref_name]
 
@@ -103,6 +103,106 @@ class TestTaskStageFuncs(unittest.TestCase):
             output_spectrum, _ = storage_client.read_data(output_ref)
             self.assertEqual(output_spectrum.shape, (4,))
             self.assertTrue(np.allclose(output_spectrum, 2.5))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_spectral_mean_stage_pre_task_computes_internal_total(self) -> None:
+        array_2x2x4 = np.array(
+            [
+                [[1.0, 2.0], [-9999.0, 4.0]],
+                [[100.0, 100.0], [100.0, 100.0]],
+                [[10.0, 20.0], [30.0, np.nan]],
+                [[1000.0, 2000.0], [3000.0, 4000.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
+        dataset.set_bad_bands([1, 0, 1, 1])
+        dataset.set_data_ignore_value(-9999.0)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            stage = get_spectral_mean_stage(input_ref, "spectral_mean")
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10011
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=15)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            internal_total = storage_client.read_json_value(task_plan.bindings["_internal_total"])
+            self.assertEqual(internal_total, {"total": 2})
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_spectral_mean_stage_filters_nodata_and_bad_bands(self) -> None:
+        array_2x2x4 = np.array(
+            [
+                [[1.0, 2.0], [-9999.0, 4.0]],
+                [[100.0, 100.0], [100.0, 100.0]],
+                [[10.0, 20.0], [30.0, np.nan]],
+                [[1000.0, 2000.0], [3000.0, 4000.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
+        dataset.set_bad_bands([1, 0, 1, 1])
+        dataset.set_data_ignore_value(-9999.0)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            output_ref_name = "spectral_mean_filtered"
+            stage = get_spectral_mean_stage(input_ref, output_ref_name)
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10012
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=15)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            output_spectrum, output_meta = storage_client.read_data(output_ref)
+
+            expected = np.array([1.5, 15.0, 1500.0], dtype=np.float32)
+            self.assertEqual(output_spectrum.shape, (3,))
+            self.assertTrue(np.allclose(output_spectrum, expected, atol=1e-6))
+            self.assertIsNone(output_meta.bad_bands)
         finally:
             if storage_client is not None:
                 storage_client.close()

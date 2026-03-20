@@ -45,6 +45,11 @@ def _noop_post_task() -> None:
     return None
 
 
+def _noop_pre_task() -> None:
+    """Default no-op pre-task hook for stages that do not need setup work."""
+    return None
+
+
 @dataclass(frozen=True)
 class ResourceModel:
     fixed_overhead_bytes: Number
@@ -145,6 +150,23 @@ class TaskStage:
         """
         _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
         return _noop_post_task
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        """
+        Return a small setup callable to run once before any work units in this
+        stage execute.
+
+        This hook is intended for lightweight stage initialization or staged
+        metadata preparation that needs access to the full input region.
+        """
+        _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
+        return _noop_pre_task
 
 
 @dataclass
@@ -416,7 +438,6 @@ class TaskPlanner:
             # 5) allocate outputs up front
             alloc_reqs = stage.generate_allocation_requests(
                 input_meta=input_meta,
-                # params=semantic_task.params(),
                 chosen_scheme=scheme,
             )
             for req in alloc_reqs:
@@ -436,6 +457,48 @@ class TaskPlanner:
             # 6) expand regions -> WorkUnits
             unit_ids_for_stage: List[str] = []
             stage_step_unit_ids: List[List[str]] = []
+
+            full_input_region = self._full_input_region_from_meta(input_meta)
+            pre_output_writes: Dict[str, WriteSpec] = {}
+            for ob in stage.output_bindings:
+                out_ref = plan.bindings[ob.name]
+                out_region = stage.output_region_for(full_input_region)
+                pre_output_writes[ob.name] = WriteSpec(name=ob.name, ref=out_ref, region=out_region)
+
+            pre_unit_id = self._new_unit_id(plan_id)
+            pre_unit_meta = WorkUnitMeta(
+                input_ref=input_ref,
+                input_region=full_input_region,
+                output_writes=pre_output_writes,
+                broadcast_inputs=dict[str, Any](stage_broadcast_inputs),
+            )
+            pre_unit = WorkUnit(
+                unit_id=pre_unit_id,
+                stage_id=stage_id,
+                priority_class=semantic_task.get_priority_class(),
+                executor_kind=stage.default_executor,
+                fn=stage.pre_task_fn(
+                    input_ref=pre_unit_meta.input_ref,
+                    full_input_region=pre_unit_meta.input_region,
+                    output_writes=pre_unit_meta.output_writes,
+                    broadcast_inputs=pre_unit_meta.broadcast_inputs,
+                ),
+                ram_peak_est_bytes=self._estimate_ram(
+                    stage.resource_model,
+                    full_input_region,
+                    pre_output_writes,
+                    input_meta,
+                ),
+                deps=tuple(prev_stage_unit_ids),
+            )
+
+            plan.work_units[pre_unit_id] = pre_unit
+            plan.work_units_meta[pre_unit_id] = pre_unit_meta
+            unit_ids_for_stage.append(pre_unit_id)
+            if stage.work_unit_dependency == "sequential":
+                stage_step_unit_ids.append([pre_unit_id])
+
+            chunk_unit_ids: List[str] = []
 
             for input_region in scheme.iter_chunks(input_meta):
                 out_writes: Dict[str, WriteSpec] = {}
@@ -466,16 +529,16 @@ class TaskPlanner:
                         broadcast_inputs=unit_meta.broadcast_inputs,
                     ),
                     ram_peak_est_bytes=ram_est,
-                    deps=tuple(prev_stage_unit_ids),
+                    deps=tuple([*prev_stage_unit_ids, pre_unit_id]),
                 )
 
                 plan.work_units[unit_id] = unit
                 plan.work_units_meta[unit_id] = unit_meta
                 unit_ids_for_stage.append(unit_id)
+                chunk_unit_ids.append(unit_id)
                 if stage.work_unit_dependency == "sequential":
                     stage_step_unit_ids.append([unit_id])
 
-            full_input_region = self._full_input_region_from_meta(input_meta)
             post_output_writes: Dict[str, WriteSpec] = {}
             for ob in stage.output_bindings:
                 out_ref = plan.bindings[ob.name]
@@ -506,7 +569,7 @@ class TaskPlanner:
                     post_output_writes,
                     input_meta,
                 ),
-                deps=tuple(unit_ids_for_stage),
+                deps=tuple(chunk_unit_ids if len(chunk_unit_ids) > 0 else [pre_unit_id]),
             )
 
             plan.work_units[post_unit_id] = post_unit
@@ -515,9 +578,11 @@ class TaskPlanner:
 
             plan.stage_work_units[stage_id] = unit_ids_for_stage
             if stage.work_unit_dependency == "independent":
-                # [:-1] to remove the last item, which is post_unit_id, so it doesn't
-                # run in parallel with previous work
-                plan.stage_steps[stage_id] = [list(unit_ids_for_stage[:-1]), [post_unit_id]]
+                stage_steps: List[List[str]] = [[pre_unit_id]]
+                if len(chunk_unit_ids) > 0:
+                    stage_steps.append(chunk_unit_ids)
+                stage_steps.append([post_unit_id])
+                plan.stage_steps[stage_id] = stage_steps
             elif stage.work_unit_dependency == "sequential":
                 stage_step_unit_ids.append([post_unit_id])
                 plan.stage_steps[stage_id] = stage_step_unit_ids

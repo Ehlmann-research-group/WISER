@@ -75,7 +75,13 @@ def _running_covariance(
         good_band_mask = bad_bands_array != 0
 
     noise_raw = noise_raw[:, :, good_band_mask]
-    mean_arr_raw = mean_arr_raw[good_band_mask]
+    if mean_arr_raw.shape[0] == band_count:
+        mean_arr_raw = mean_arr_raw[good_band_mask]
+    elif mean_arr_raw.shape[0] != noise_raw.shape[2]:
+        raise ValueError(
+            f"Filtered covariance mean width does not match filtered band count: "
+            f"mean_width={mean_arr_raw.shape[0]}, filtered_bands={noise_raw.shape[2]}"
+        )
     if num_features != -1 and noise_raw.shape[2] != num_features:
         raise ValueError(
             f"Filtered covariance feature count does not match requested num_features: "
@@ -207,10 +213,90 @@ def _running_mean(input_ref: DataRef, input_region: DataRegion, output_write: "W
     client = get_process_storage_client()
     output_ref = output_write.ref
     running_mean, _ = client.read_data(output_ref)
-    data, _ = client.read_region(input_ref, input_region)
-    spectra_sum: np.ndarray = data.sum(axis=(0, 1)) / total
+    if isinstance(total, DataRef):
+        total_payload = client.read_json_value(total)
+        total = int(total_payload["total"])
+    if total <= 0:
+        raise ValueError(f"Spectral mean requires a positive total, got {total}")
+
+    data, data_meta = client.read_region(input_ref, input_region)
+    flattened = _flatten_valid_dataset_rows(data, data_meta)
+    if flattened.size == 0:
+        return
+
+    spectra_sum: np.ndarray = flattened.sum(axis=0, dtype=np.float32) / total
     running_mean += spectra_sum
     client.write_data(output_ref, running_mean)
+
+
+def _good_band_mask_for_region_meta(region_meta, band_count: int) -> np.ndarray:
+    good_band_mask = np.ones((band_count,), dtype=np.bool_)
+    if region_meta.bad_bands is None:
+        return good_band_mask
+
+    bad_bands_array = np.asarray(region_meta.bad_bands)
+    if bad_bands_array.shape != (band_count,):
+        raise ValueError(
+            f"Bad bands shape must match dataset band count: "
+            f"bad_bands shape={bad_bands_array.shape}, bands={band_count}"
+        )
+    return bad_bands_array != 0
+
+
+def _flatten_valid_dataset_rows(
+    data: Union[np.ndarray, np.ma.MaskedArray],
+    data_meta,
+) -> np.ndarray:
+    data_array = np.ma.array(data, copy=False)
+    data_raw = np.asarray(np.ma.getdata(data_array), dtype=np.float32)
+    data_mask = np.ma.getmaskarray(data_array)
+
+    if data_raw.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [y][x][b], got {data_raw.shape}")
+
+    good_band_mask = _good_band_mask_for_region_meta(data_meta, data_raw.shape[2])
+    filtered_data = data_raw[:, :, good_band_mask]
+    filtered_mask = data_mask[:, :, good_band_mask]
+    flattened = filtered_data.reshape(-1, filtered_data.shape[2])
+    # Drop any pixel whose surviving bands still contain masked, NaN, or Inf values.
+    invalid_rows = np.any(filtered_mask.reshape(-1, filtered_mask.shape[2]), axis=1)
+    invalid_rows |= np.any(~np.isfinite(flattened), axis=1)
+    return flattened[~invalid_rows]
+
+
+def _compute_valid_spectral_mean_total(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    total_ref: DataRef,
+) -> None:
+    if not isinstance(full_input_region, DatasetRegionRef):
+        raise TypeError("Spectral mean total pre-task requires a DatasetRegionRef full_input_region")
+
+    client = get_process_storage_client()
+    region_meta = client.get_region_meta(input_ref, full_input_region)
+    dataset_plan_meta = DatasetPlanMeta(
+        shape=(
+            full_input_region.y1 - full_input_region.y0,
+            full_input_region.x1 - full_input_region.x0,
+            full_input_region.b1 - full_input_region.b0,
+        ),
+        dtype=np.dtype(region_meta.elem_type),
+    )
+
+    total = 0
+    for tile_region in SpatialTileScheme(tile_h=32, tile_w=32).iter_chunks(dataset_plan_meta):
+        tile_region = DatasetRegionRef(
+            y0=full_input_region.y0 + tile_region.y0,
+            y1=full_input_region.y0 + tile_region.y1,
+            x0=full_input_region.x0 + tile_region.x0,
+            x1=full_input_region.x0 + tile_region.x1,
+            b0=full_input_region.b0 + tile_region.b0,
+            b1=full_input_region.b0 + tile_region.b1,
+        )
+        data_tile, data_tile_meta = client.read_region(input_ref, tile_region)
+        total += _flatten_valid_dataset_rows(data_tile, data_tile_meta).shape[0]
+
+    client.write_json_value(total_ref, {"total": int(total)})
 
 
 def _write_spectral_mean_meta(
@@ -218,14 +304,27 @@ def _write_spectral_mean_meta(
     full_input_region: DataRegion,
     output_write: "WriteSpec",
 ) -> None:
+    if not isinstance(full_input_region, DatasetRegionRef):
+        raise TypeError("Spectral mean metadata write requires a DatasetRegionRef full_input_region")
+
     client = get_process_storage_client()
     input_region_meta = client.get_region_meta(input_ref, full_input_region)
     output_meta = client.get_meta(output_write.ref)
+    output_bands = output_meta.shape[0]
+    good_band_mask = _good_band_mask_for_region_meta(
+        input_region_meta, full_input_region.b1 - full_input_region.b0
+    )
+    wavelengths = input_region_meta.wavelengths
+    if wavelengths is not None and len(wavelengths) == len(good_band_mask):
+        wavelengths = np.asarray(wavelengths)[good_band_mask]
+    bad_bands = None
+    if output_bands == len(good_band_mask):
+        bad_bands = input_region_meta.bad_bands
     mean_meta = replace(
         output_meta,
-        wavelengths=input_region_meta.wavelengths,
+        wavelengths=wavelengths,
         wavelength_units=input_region_meta.wavelength_units,
-        bad_bands=input_region_meta.bad_bands,
+        bad_bands=bad_bands,
     )
     client.write_meta(output_write.ref, mean_meta)
 
@@ -233,13 +332,17 @@ def _write_spectral_mean_meta(
 @dataclass
 class SpectralMeanStage(SequentialStage):
     """
-    Expects the variable 'total' to be in broadcast inputs with its type
+    Computes a spectral mean after a pre-stage pass counts valid spectra rows.
     """
 
     # You should override this
     _output_ref_name: str = "spectral_mean_1"
+    _internal_total_ref_name: str = "_internal_total"
+    _dataset_ref: Optional[DataRef] = None
 
     def __post_init__(self):
+        if "internal_total_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"internal_total_ref": DataBinding(self._internal_total_ref_name)}
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -267,17 +370,28 @@ class SpectralMeanStage(SequentialStage):
         ), "input_meta must be of type DatasetPlanMeta for SpectralMeanStage"
 
         np_type = np.float32
+        feature_count = input_meta.bands
+        if self._dataset_ref is not None:
+            meta = get_process_storage_client().get_meta(self._dataset_ref)
+            if meta.bad_bands is not None:
+                feature_count = int(np.count_nonzero(np.asarray(meta.bad_bands) != 0))
 
-        size_est = input_meta.bands * np.dtype(np_type).itemsize
-        alloc_request = AllocationRequest(
-            name=self._output_ref_name,
-            kind="spectrum",
-            residency="ram_cacheable",
-            size_est=size_est,
-            shape=(input_meta.bands,),
-            dtype=np.dtype(np_type),
-        )
-        return [alloc_request]
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="spectrum",
+                residency="ram_cacheable",
+                size_est=feature_count * np.dtype(np_type).itemsize,
+                shape=(feature_count,),
+                dtype=np.dtype(np_type),
+            ),
+            AllocationRequest(
+                name=self._internal_total_ref_name,
+                kind="json",
+                residency="ram_cacheable",
+                size_est=64,
+            ),
+        ]
 
     def task_fn(
         self,
@@ -287,8 +401,19 @@ class SpectralMeanStage(SequentialStage):
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
         output_write = output_writes[self._output_ref_name]
-        total = broadcast_inputs["total"]
+        total = broadcast_inputs["internal_total_ref"]
         return partial(_running_mean, input_ref, input_region, output_write, total)
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = output_writes
+        total_ref: DataRef = broadcast_inputs["internal_total_ref"]
+        return partial(_compute_valid_spectral_mean_total, input_ref, full_input_region, total_ref)
 
     def post_task_fn(
         self,
@@ -317,7 +442,7 @@ def get_spectral_mean_stage(dataset_ref: DataRef, output_ref_name: str) -> Spect
             scratch_bytes_per_scalar_in=0,
         ),
         chunking_scheme_type=SpatialTileScheme,
-        broadcast_input={"total": plan_meta.height * plan_meta.width},
+        _dataset_ref=dataset_ref,
         output_bindings=[DataBinding(output_ref_name)],
     )
     return stage
