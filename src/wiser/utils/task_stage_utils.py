@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Sequence, Union
 import numpy as np
@@ -47,16 +47,18 @@ def _running_covariance(
     client = get_process_storage_client()
     output_ref = output_write.ref
     running_cov, _ = client.read_data(output_ref)
+    np.set_printoptions(threshold=np.inf)
     noise, _ = client.read_region(input_ref, input_region)
-    mean_arr, _ = client.read_data(mean_ref)
+    mean_arr, mean_arr_meta = client.read_data(mean_ref)
+    # We do the below because masked arrays have trouble with matrix multiplications
     if np.ma.isMaskedArray(noise):
-        noise = np.ma.getdata(noise)
+        noise_raw = np.ma.getdata(noise.filled(0))
     if np.ma.isMaskedArray(mean_arr):
-        mean_arr = np.ma.getdata(mean_arr)
-    assert noise.ndim == 3, "noise should have 3 dimensions"
-    assert mean_arr.ndim == 1, "mean_arr should have 1 dimension"
-    mean_arr = mean_arr[np.newaxis, np.newaxis, :]
-    mean_centered_noise = noise - mean_arr
+        mean_arr_raw = np.ma.getdata(mean_arr)
+    assert noise_raw.ndim == 3, "noise_raw should have 3 dimensions"
+    assert mean_arr_raw.ndim == 1, "mean_arr_raw should have 1 dimension"
+    mean_arr_raw = mean_arr_raw[np.newaxis, np.newaxis, :]
+    mean_centered_noise = noise_raw - mean_arr_raw
     flattened_noise = mean_centered_noise.reshape(-1, mean_centered_noise.shape[2])
     sum_outer_product = flattened_noise.T @ flattened_noise
     partial_cov_matrix = sum_outer_product / (total - 1)
@@ -180,6 +182,23 @@ def _running_mean(input_ref: DataRef, input_region: DataRegion, output_write: "W
     client.write_data(output_ref, running_mean)
 
 
+def _write_spectral_mean_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    client = get_process_storage_client()
+    input_region_meta = client.get_region_meta(input_ref, full_input_region)
+    output_meta = client.get_meta(output_write.ref)
+    mean_meta = replace(
+        output_meta,
+        wavelengths=input_region_meta.wavelengths,
+        wavelength_units=input_region_meta.wavelength_units,
+        bad_bands=input_region_meta.bad_bands,
+    )
+    client.write_meta(output_write.ref, mean_meta)
+
+
 @dataclass
 class SpectralMeanStage(SequentialStage):
     """
@@ -239,6 +258,17 @@ class SpectralMeanStage(SequentialStage):
         output_write = output_writes[self._output_ref_name]
         total = broadcast_inputs["total"]
         return partial(_running_mean, input_ref, input_region, output_write, total)
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_spectral_mean_meta, input_ref, full_input_region, output_write)
 
 
 def get_spectral_mean_stage(dataset_ref: DataRef, output_ref_name: str) -> SpectralMeanStage:

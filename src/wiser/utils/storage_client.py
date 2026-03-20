@@ -564,8 +564,11 @@ class StorageClient:
         """
         Mask `nodata` values and bad bands for region reads.
 
-        Dataset-region inputs are expected to have shape `[y][x][b]`, with the
-        last axis representing bands.
+        Bad-band metadata is treated as describing the spectral axis, which is
+        expected to be the last axis for all supported region shapes:
+        - dataset: [y][x][b]
+        - spectrum: [b]
+        - spectra_list: [i][b]
         """
         if not filter_data_ignore_and_bad_bands:
             return data
@@ -581,22 +584,24 @@ class StorageClient:
                 nodata_mask = raw == region_meta.nodata
             combined_mask = np.ma.mask_or(combined_mask, nodata_mask)
 
-        if region_meta.bad_bands is not None and isinstance(region_meta.region, DatasetRegionRef):
-            assert raw.ndim == 3, f"Expected dataset region data to be 3D, got ndim={raw.ndim}"
+        if region_meta.bad_bands is not None:
+            if raw.ndim == 0:
+                raise ValueError("bad_bands metadata requires array data with at least one dimension")
 
-            band_axis = raw.ndim - 1
-            band_count = region_meta.region.b1 - region_meta.region.b0
-            assert raw.shape[band_axis] == band_count, (
-                f"DatasetRegionRef band count {band_count} does not match "
-                f"array axis size {raw.shape[band_axis]}"
-            )
-
+            band_count = raw.shape[-1]
             bad_band_mask = np.asarray(region_meta.bad_bands) == 0
-            assert bad_band_mask.shape == (
-                band_count,
-            ), f"Expected bad_bands shape {(band_count,)}, got {bad_band_mask.shape}"
+            if bad_band_mask.shape != (band_count,):
+                raise ValueError(
+                    f"Expected bad_bands shape {(band_count,)} "
+                    f" for region {type(region_meta.region).__name__}, "
+                    f"got {bad_band_mask.shape}"
+                )
 
-            bad_band_mask = bad_band_mask.reshape((1, 1, band_count))
+            # Build a mask shape that spans only the spectral axis and uses
+            # singleton dimensions for every leading axis, so NumPy can
+            # broadcast the 1D bad-band mask across the whole region.
+            broadcast_shape = (1,) * (raw.ndim - 1) + (band_count,)
+            bad_band_mask = bad_band_mask.reshape(broadcast_shape)
             combined_mask = np.ma.mask_or(combined_mask, np.broadcast_to(bad_band_mask, raw.shape))
 
         return np.ma.array(raw, mask=combined_mask, copy=False)
