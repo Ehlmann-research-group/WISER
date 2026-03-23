@@ -412,6 +412,7 @@ class MNFSemanticTask(QObject, SemanticTask):
         reduced_dataset.set_name(self._app_state.unique_dataset_name(f"MNF, Img: {source_name}"))
         reduced_dataset.set_description(f"MNF reduced image-cube: {source_name} ({timestamp})")
         reduced_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+        reduced_dataset.set_data_ignore_value(self._source_dataset.get_data_ignore_value())
         self._app_state.add_dataset(reduced_dataset, view_dataset=False)
 
 
