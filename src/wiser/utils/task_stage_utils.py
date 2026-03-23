@@ -32,6 +32,7 @@ from wiser.utils.task_system import (
 )
 from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.raster.utils import compute_PCA_on_image
+from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
 PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
 
@@ -220,6 +221,358 @@ def get_pca_pipeline(
                     scratch_bytes_per_scalar_in=0,
                 ),
                 chunking_scheme_type=NoChunkingScheme,
+            )
+        ]
+    )
+
+
+def _prepare_continuum_removal_inputs(
+    input_ref: DataRef,
+    subset_image_ref: DataRef,
+    x_axis_ref: DataRef,
+    bad_bands_ref: DataRef,
+    min_cols: int,
+    min_rows: int,
+    max_cols: int,
+    max_rows: int,
+    min_band: int,
+    max_band: int,
+) -> None:
+    client = get_process_storage_client()
+    subset_region = DatasetRegionRef(
+        y0=min_rows,
+        y1=max_rows,
+        x0=min_cols,
+        x1=max_cols,
+        b0=min_band,
+        b1=max_band,
+    )
+    image_data, region_meta = client.read_region(input_ref, subset_region, filter_data=False)
+    image_data = np.ma.array(image_data, copy=False)
+    if region_meta.nodata is not None:
+        image_data = np.ma.masked_values(image_data, region_meta.nodata)
+
+    image_data = image_data.transpose(1, 2, 0)
+    (image_data,) = convert_to_float32_if_needed(image_data)
+    image_data = np.asarray(image_data)
+    if not image_data.flags.c_contiguous:
+        image_data = np.ascontiguousarray(image_data)
+    if np.ma.isMaskedArray(image_data):
+        mask = np.ma.getmaskarray(image_data)
+        image_data = np.asarray(np.ma.getdata(image_data), dtype=np.float32)
+        image_data[mask] = np.nan
+    else:
+        image_data = np.asarray(image_data, dtype=np.float32)
+
+    full_meta = client.get_meta(input_ref)
+    if full_meta.wavelengths is not None:
+        x_axis = np.asarray(full_meta.wavelengths[min_band:max_band], dtype=np.float32)
+    else:
+        x_axis = np.arange(min_band, max_band, dtype=np.float32)
+
+    if full_meta.bad_bands is not None:
+        bad_bands_arr = np.logical_not(np.asarray(full_meta.bad_bands, dtype=np.bool_))
+    else:
+        bad_bands_arr = np.zeros((full_meta.shape[2],), dtype=np.bool_)
+    bad_bands_arr = np.asarray(bad_bands_arr[min_band:max_band], dtype=np.bool_)
+
+    client.write_data(subset_image_ref, image_data)
+    client.write_data(x_axis_ref, x_axis)
+    client.write_data(bad_bands_ref, bad_bands_arr)
+
+
+def _run_continuum_removal_tile(
+    subset_image_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    x_axis_ref: DataRef,
+    bad_bands_ref: DataRef,
+) -> None:
+    if not isinstance(input_region, DatasetRegionRef):
+        raise TypeError("Continuum removal tile stage requires DatasetRegionRef input_region")
+
+    from wiser.gui.permanent_plugins.continuum_removal_plugin import continuum_removal_image_numba
+
+    client = get_process_storage_client()
+    image_tile, _ = client.read_region(subset_image_ref, input_region, filter_data=False)
+    x_axis, _ = client.read_data(x_axis_ref, filter_data=False)
+    bad_bands_arr, _ = client.read_data(bad_bands_ref, filter_data=False)
+
+    image_tile_array = np.asarray(np.ma.getdata(np.ma.array(image_tile, copy=False)), dtype=np.float32)
+    if not image_tile_array.flags.c_contiguous:
+        image_tile_array = np.ascontiguousarray(image_tile_array)
+
+    rows = image_tile_array.shape[0]
+    cols = image_tile_array.shape[1]
+    bands = image_tile_array.shape[2]
+    reduced_by_band = continuum_removal_image_numba(
+        image_tile_array,
+        np.asarray(bad_bands_arr, dtype=np.bool_),
+        np.asarray(np.ma.getdata(x_axis), dtype=np.float32),
+        rows,
+        cols,
+        bands,
+    )
+    reduced_tile = np.asarray(reduced_by_band, dtype=np.float32).transpose(1, 2, 0)
+    assert output_write.region is not None, "Continuum removal output_write.region cannot be None"
+    output_write.region.validate_array_shape(reduced_tile)
+    client.write_spec(output_write, reduced_tile)
+
+
+def _subset_geotransform(
+    geotransform: Optional[tuple[float, ...]],
+    min_cols: int,
+    min_rows: int,
+) -> Optional[tuple[float, ...]]:
+    if geotransform is None:
+        return None
+    gt0, gt1, gt2, gt3, gt4, gt5 = geotransform
+    return (
+        float(gt0 + min_cols * gt1 + min_rows * gt2),
+        float(gt1),
+        float(gt2),
+        float(gt3 + min_cols * gt4 + min_rows * gt5),
+        float(gt4),
+        float(gt5),
+    )
+
+
+def _write_continuum_removal_output_meta(
+    input_ref: DataRef,
+    output_write: "WriteSpec",
+    min_cols: int,
+    min_rows: int,
+    max_cols: int,
+    max_rows: int,
+    min_band: int,
+    max_band: int,
+) -> None:
+    _ = (max_cols, max_rows)
+    client = get_process_storage_client()
+    subset_region = DatasetRegionRef(
+        y0=min_rows,
+        y1=max_rows,
+        x0=min_cols,
+        x1=max_cols,
+        b0=min_band,
+        b1=max_band,
+    )
+    input_region_meta = client.get_region_meta(input_ref, subset_region)
+    output_meta = client.get_meta(output_write.ref)
+    continuum_meta = replace(
+        output_meta,
+        elem_type=np.dtype(np.float32),
+        wavelengths=input_region_meta.wavelengths,
+        wavelength_units=input_region_meta.wavelength_units,
+        nodata=input_region_meta.nodata,
+        bad_bands=input_region_meta.bad_bands,
+        crs_wkt=input_region_meta.crs_wkt,
+        geotransform=_subset_geotransform(input_region_meta.geotransform, min_cols, min_rows),
+    )
+    client.write_meta(output_write.ref, continuum_meta)
+
+
+@dataclass
+class ContinuumRemovalImageStage(MapStage):
+    _output_ref_name: str = "continuum_removed_image"
+    _prepared_subset_ref_name: str = "_continuum_subset_image"
+    _x_axis_ref_name: str = "_continuum_x_axis"
+    _bad_bands_ref_name: str = "_continuum_bad_bands"
+    _min_cols: int = 0
+    _min_rows: int = 0
+    _max_cols: int = 0
+    _max_rows: int = 0
+    _min_band: int = 0
+    _max_band: int = 0
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+        self.broadcast_input |= {
+            "subset_image_ref": DataBinding(self._prepared_subset_ref_name),
+            "x_axis_ref": DataBinding(self._x_axis_ref_name),
+            "bad_bands_ref": DataBinding(self._bad_bands_ref_name),
+        }
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, DatasetRegionRef
+        ), "Continuum removal stage requires DatasetRegionRef input"
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=input_region.b0,
+            b1=input_region.b1,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "Continuum removal stage input_meta must be DatasetPlanMeta"
+        bands = input_meta.bands
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float32).itemsize,
+                shape=input_meta.shape,
+                dtype=np.dtype(np.float32),
+            ),
+            AllocationRequest(
+                name=self._prepared_subset_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float32).itemsize,
+                shape=input_meta.shape,
+                dtype=np.dtype(np.float32),
+            ),
+            AllocationRequest(
+                name=self._x_axis_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=bands * np.dtype(np.float32).itemsize,
+                shape=(bands,),
+                dtype=np.dtype(np.float32),
+            ),
+            AllocationRequest(
+                name=self._bad_bands_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=bands * np.dtype(np.bool_).itemsize,
+                shape=(bands,),
+                dtype=np.dtype(np.bool_),
+            ),
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = input_ref
+        output_write = output_writes[self._output_ref_name]
+        subset_image_ref: DataRef = broadcast_inputs["subset_image_ref"]
+        x_axis_ref: DataRef = broadcast_inputs["x_axis_ref"]
+        bad_bands_ref: DataRef = broadcast_inputs["bad_bands_ref"]
+        return partial(
+            _run_continuum_removal_tile,
+            subset_image_ref,
+            input_region,
+            output_write,
+            x_axis_ref,
+            bad_bands_ref,
+        )
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (full_input_region, output_writes)
+        subset_image_ref: DataRef = broadcast_inputs["subset_image_ref"]
+        x_axis_ref: DataRef = broadcast_inputs["x_axis_ref"]
+        bad_bands_ref: DataRef = broadcast_inputs["bad_bands_ref"]
+        return partial(
+            _prepare_continuum_removal_inputs,
+            input_ref,
+            subset_image_ref,
+            x_axis_ref,
+            bad_bands_ref,
+            self._min_cols,
+            self._min_rows,
+            self._max_cols,
+            self._max_rows,
+            self._min_band,
+            self._max_band,
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (full_input_region, broadcast_inputs)
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _write_continuum_removal_output_meta,
+            input_ref,
+            output_write,
+            self._min_cols,
+            self._min_rows,
+            self._max_cols,
+            self._max_rows,
+            self._min_band,
+            self._max_band,
+        )
+
+
+def get_continuum_removal_image_pipeline(
+    dataset_ref: DataRef,
+    min_cols: int,
+    min_rows: int,
+    max_cols: int,
+    max_rows: int,
+    min_band: int,
+    max_band: int,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    total_rows, total_cols, total_bands = dataset_meta.shape
+    if not (0 <= min_cols <= max_cols <= total_cols):
+        raise ValueError(f"Invalid column subset: ({min_cols}, {max_cols}) for total_cols={total_cols}")
+    if not (0 <= min_rows <= max_rows <= total_rows):
+        raise ValueError(f"Invalid row subset: ({min_rows}, {max_rows}) for total_rows={total_rows}")
+    if not (0 <= min_band <= max_band <= total_bands):
+        raise ValueError(f"Invalid band subset: ({min_band}, {max_band}) for total_bands={total_bands}")
+
+    subset_shape = (max_rows - min_rows, max_cols - min_cols, max_band - min_band)
+    dataset_plan_meta = DatasetPlanMeta(shape=subset_shape, dtype=np.dtype(np.float32))
+    return AlgorithmPipeline(
+        [
+            ContinuumRemovalImageStage(
+                _output_ref_name=output_ref_name,
+                _min_cols=min_cols,
+                _min_rows=min_rows,
+                _max_cols=max_cols,
+                _max_rows=max_rows,
+                _min_band=min_band,
+                _max_band=max_band,
+                default_executor="process",
+                input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=SpatialTileScheme,
             )
         ]
     )
