@@ -31,10 +31,198 @@ from wiser.utils.task_system import (
     WriteSpec,
 )
 from wiser.utils.worker_runtime import get_process_storage_client
+from wiser.raster.utils import compute_PCA_on_image
 
 PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
 
 # region Task Stage utilities
+
+
+def _run_compute_pca(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    pca_json_ref: DataRef,
+    num_components: int,
+) -> None:
+    if not isinstance(input_region, DatasetRegionRef):
+        raise TypeError("PCA stage requires DatasetRegionRef input_region")
+
+    client = get_process_storage_client()
+    image_data, image_meta = client.read_region(input_ref, input_region)
+    image_cube = np.ma.array(image_data, copy=False).transpose(2, 0, 1)
+
+    bad_bands = None
+    if image_meta.bad_bands is not None:
+        bad_bands = np.asarray(image_meta.bad_bands).astype(int).tolist()
+
+    reduced_image, pca = compute_PCA_on_image(
+        image_arr=image_cube,
+        num_components=num_components,
+        bad_bands=bad_bands,
+        data_ignore=image_meta.nodata,
+    )
+
+    output_array = np.asarray(np.ma.getdata(reduced_image), dtype=np.float32)
+    assert output_write.region is not None, "output_write.region cannot be None for PCA dataset output"
+    output_write.region.validate_array_shape(output_array)
+    client.write_spec(output_write, output_array)
+    client.write_json_value(pca_json_ref, {"pca": pca})
+
+
+def _write_pca_output_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    if not isinstance(full_input_region, DatasetRegionRef):
+        raise TypeError("PCA metadata write requires DatasetRegionRef full_input_region")
+
+    client = get_process_storage_client()
+    input_region_meta = client.get_region_meta(input_ref, full_input_region)
+    output_meta = client.get_meta(output_write.ref)
+    nodata = input_region_meta.nodata if input_region_meta.nodata is not None else np.nan
+    pca_meta = replace(
+        output_meta,
+        elem_type=np.dtype(np.float32),
+        nodata=nodata,
+        bad_bands=None,
+        wavelengths=None,
+        wavelength_units=None,
+        crs_wkt=input_region_meta.crs_wkt,
+        geotransform=input_region_meta.geotransform,
+    )
+    client.write_meta(output_write.ref, pca_meta)
+
+
+@dataclass
+class ComputePcaStage(MapStage):
+    _num_components: int = 1
+    _output_ref_name: str = "pca_image"
+    _pca_json_ref_name: str = "pca_model"
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [
+            DataBinding(self._output_ref_name),
+            DataBinding(self._pca_json_ref_name, kind="json", residency="ram_cacheable"),
+        ]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(input_region, DatasetRegionRef), "PCA stage requires DatasetRegionRef input"
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=self._num_components,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(input_meta, DatasetPlanMeta), "PCA stage input_meta must be DatasetPlanMeta"
+        if self._num_components <= 0:
+            raise ValueError(f"num_components must be positive, got {self._num_components}")
+
+        dataset_request = AllocationRequest(
+            name=self._output_ref_name,
+            kind="dataset",
+            residency="ram_cacheable",
+            size_est=input_meta.height
+            * input_meta.width
+            * self._num_components
+            * np.dtype(np.float32).itemsize,
+            shape=(input_meta.height, input_meta.width, self._num_components),
+            dtype=np.dtype(np.float32),
+        )
+        json_request = AllocationRequest(
+            name=self._pca_json_ref_name,
+            kind="json",
+            residency="ram_cacheable",
+            size_est=4096,
+        )
+        return [dataset_request, json_request]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        pca_json_ref = output_writes[self._pca_json_ref_name].ref
+        return partial(
+            _run_compute_pca, input_ref, input_region, output_write, pca_json_ref, self._num_components
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_pca_output_meta, input_ref, full_input_region, output_write)
+
+
+def get_pca_pipeline(
+    dataset_ref: DataRef,
+    num_components: int,
+    output_ref_name: str,
+    pca_json_ref_name: str,
+) -> AlgorithmPipeline:
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    dataset_plan_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
+    if dataset_meta.bad_bands is not None:
+        valid_bands = int(np.count_nonzero(np.asarray(dataset_meta.bad_bands) != 0))
+    else:
+        valid_bands = dataset_plan_meta.bands
+    if num_components > valid_bands:
+        raise ValueError(
+            f"num_components must be <= valid input bands, got num_components={num_components}, "
+            f"valid_bands={valid_bands}"
+        )
+
+    return AlgorithmPipeline(
+        [
+            ComputePcaStage(
+                _num_components=num_components,
+                _output_ref_name=output_ref_name,
+                _pca_json_ref_name=pca_json_ref_name,
+                default_executor="process",
+                input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=NoChunkingScheme,
+            )
+        ]
+    )
 
 
 def _running_covariance(
