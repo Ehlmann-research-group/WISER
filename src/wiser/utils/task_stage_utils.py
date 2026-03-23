@@ -57,6 +57,9 @@ def _running_covariance(
         noise_raw = np.ma.getdata(noise.filled(0))
     else:
         noise_raw = np.asarray(noise)
+    noise_raw = np.asarray(noise_raw)
+    invalid_pixels = np.any(~np.isfinite(noise_raw), axis=2)
+    noise_raw[invalid_pixels, :] = 0
     if np.ma.isMaskedArray(mean_arr):
         mean_arr_raw = np.ma.getdata(mean_arr)
     else:
@@ -87,7 +90,6 @@ def _running_covariance(
             f"Filtered covariance feature count does not match requested num_features: "
             f"filtered_features={noise_raw.shape[2]}, requested={num_features}"
         )
-
     mean_arr_raw = mean_arr_raw[np.newaxis, np.newaxis, :]
     mean_centered_noise = noise_raw - mean_arr_raw
     flattened_noise = mean_centered_noise.reshape(-1, mean_centered_noise.shape[2])
@@ -262,6 +264,12 @@ def _flatten_valid_dataset_rows(
     invalid_rows = np.any(filtered_mask.reshape(-1, filtered_mask.shape[2]), axis=1)
     invalid_rows |= np.any(~np.isfinite(flattened), axis=1)
     return flattened[~invalid_rows]
+
+
+def count_valid_dataset_pixels(dataset_ref: DataRef) -> int:
+    client = get_process_storage_client()
+    data, data_meta = client.read_data(dataset_ref)
+    return int(_flatten_valid_dataset_rows(data, data_meta).shape[0])
 
 
 def _compute_valid_spectral_mean_total(

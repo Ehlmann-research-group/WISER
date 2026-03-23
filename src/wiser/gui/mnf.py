@@ -31,6 +31,7 @@ from wiser.utils.task_stage_utils import (
     ProjectOntoEigenVectorsStage,
     SpectralMeanStage,
     WhiteningMatrixStage,
+    count_valid_dataset_pixels,
 )
 from wiser.utils.task_system import (
     AlgorithmPipeline,
@@ -176,10 +177,17 @@ def get_mnf_pipeline(
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
     dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
+    if data_meta.bad_bands is not None:
+        num_features = np.sum(data_meta.bad_bands)
+    else:
+        num_features = dataset_plan_meta.bands
     bands = dataset_plan_meta.bands
-    data_pixels = dataset_plan_meta.height * dataset_plan_meta.width
-    noise_pixels = max(0, dataset_plan_meta.height - 1) * dataset_plan_meta.width
-    max_internal_components = min(bands, max(0, noise_pixels - 1))
+    data_pixels = count_valid_dataset_pixels(dataset_ref)
+    noise_pixels = max(0, data_pixels - dataset_plan_meta.width)
+    max_internal_components = min(
+        num_features,
+        max(0, noise_pixels - 1),
+    )
     if max_internal_components <= 0:
         raise ValueError(
             f"MNF requires at least 2 samples in both data/noise domains; got "
@@ -202,11 +210,6 @@ def get_mnf_pipeline(
     )
 
     noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
-
-    if data_meta.bad_bands is not None:
-        num_features = np.sum(data_meta.bad_bands)
-    else:
-        num_features = dataset_plan_meta.bands
 
     noise_ipca_stage = AdaptivePcaFitStage(
         _num_components=max_internal_components,
@@ -248,6 +251,7 @@ def get_mnf_pipeline(
 
     input_mean_stage = SpectralMeanStage(
         _output_ref_name=input_mean_ref_name,
+        _dataset_ref=dataset_ref,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(

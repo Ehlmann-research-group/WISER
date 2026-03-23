@@ -15,6 +15,7 @@ from wiser.utils.task_stage_utils import (
     EigenDecompositionStage,
     EigenVectorsAndValues,
     ProjectOntoEigenVectorsStage,
+    count_valid_dataset_pixels,
     get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
     get_adaptive_pca_partial_fit_stage,
@@ -206,6 +207,30 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_count_valid_dataset_pixels_filters_nodata_bad_bands_and_nonfinite(self) -> None:
+        array_2x2x4 = np.array(
+            [
+                [[1.0, 2.0], [-9999.0, 4.0]],
+                [[100.0, 100.0], [100.0, 100.0]],
+                [[10.0, 20.0], [30.0, np.nan]],
+                [[1000.0, 2000.0], [3000.0, 4000.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x4)
+        dataset.set_bad_bands([1, 0, 1, 1])
+        dataset.set_data_ignore_value(-9999.0)
+
+        app_services = AppServices()
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            self.assertEqual(count_valid_dataset_pixels(input_ref), 2)
+        finally:
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
