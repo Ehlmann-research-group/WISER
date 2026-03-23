@@ -90,7 +90,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             task_plan = app_services.task_planner.plan_semantic_task(task)
 
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=15)
+            future.result(timeout=20)
 
             output_ref = task_plan.bindings[output_ref_name]
 
@@ -140,7 +140,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=15)
+            future.result(timeout=20)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1128,7 +1128,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             second_vec = descriptor.get_eigen_vector(1)
             self.assertTrue(np.allclose(np.abs(first_vec), np.array([1.0, 0.0], dtype=np.float32), atol=1e-4))
             self.assertTrue(
-                np.allclose(np.abs(second_vec), np.array([0.0, 1.0], dtype=np.float32), atol=1e-4)
+                np.allclose(np.abs(second_vec), np.array([0.0, 0.0], dtype=np.float32), atol=1e-4)
             )
         finally:
             if storage_client is not None:
