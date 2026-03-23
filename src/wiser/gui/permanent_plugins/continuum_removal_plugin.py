@@ -792,7 +792,17 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         for spectrum in collectedSpectra:
             collected_cr.append(self.plot_continuum_removal(spectrum, context))
 
-    def image(self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context):
+    def image(
+        self,
+        min_cols,
+        min_rows,
+        max_cols,
+        max_rows,
+        min_band,
+        max_band,
+        context,
+        in_test_mode: bool = False,
+    ):
         """Displays on WISER the continuum removed spectra of an image or a subset of the image
 
         Parameters
@@ -820,7 +830,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             app = getattr(app_state, "_app", None)
             app_services = getattr(app, "_app_services", None)
 
-        if app_services is None:
+        if app_services is None or in_test_mode:
             new_data = _compute_continuum_removal_image_direct(
                 dataset, min_cols, min_rows, max_cols, max_rows, min_band, max_band, app_state
             )

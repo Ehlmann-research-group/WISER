@@ -252,7 +252,6 @@ def _prepare_continuum_removal_inputs(
     if region_meta.nodata is not None:
         image_data = np.ma.masked_values(image_data, region_meta.nodata)
 
-    image_data = image_data.transpose(1, 2, 0)
     (image_data,) = convert_to_float32_if_needed(image_data)
     image_data = np.asarray(image_data)
     if not image_data.flags.c_contiguous:
