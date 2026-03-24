@@ -1,7 +1,7 @@
 import unittest
 
-import context
-# import tests.context
+# import context
+import tests.context
 
 import numpy as np
 
