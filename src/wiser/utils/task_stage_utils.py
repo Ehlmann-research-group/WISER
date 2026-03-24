@@ -2,6 +2,7 @@ from dataclasses import dataclass, field, replace
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Sequence, Union
 import numpy as np
+from scipy.signal import savgol_filter
 from sklearn.decomposition import IncrementalPCA, PCA
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -567,6 +568,346 @@ def get_continuum_removal_image_pipeline(
                 _max_band=max_band,
                 default_executor="process",
                 input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=SpatialTileScheme,
+            )
+        ]
+    )
+
+
+def get_good_band_runs(bad_bands: np.ndarray) -> list[tuple[int, int]]:
+    bad_bands_array = np.asarray(bad_bands)
+    if bad_bands_array.ndim != 1:
+        raise ValueError(f"Expected 1D bad_bands array, got shape={bad_bands_array.shape}")
+
+    runs: list[tuple[int, int]] = []
+    start: Optional[int] = None
+    for idx, is_good in enumerate(bad_bands_array != 0):
+        if is_good:
+            if start is None:
+                start = idx
+        elif start is not None:
+            runs.append((start, idx))
+            start = None
+    if start is not None:
+        runs.append((start, bad_bands_array.shape[0]))
+    return runs
+
+
+def get_longest_good_band_run_length(bad_bands: np.ndarray) -> int:
+    runs = get_good_band_runs(bad_bands)
+    if not runs:
+        return 0
+    return max(end - start for start, end in runs)
+
+
+def split_dataset_tile_by_good_band_runs(
+    tile_yxb: np.ndarray | np.ma.MaskedArray,
+    good_band_runs: list[tuple[int, int]],
+) -> list[np.ndarray]:
+    tile_array = np.asarray(np.ma.getdata(np.ma.array(tile_yxb, copy=False)))
+    if tile_array.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [y][x][b], got {tile_array.shape}")
+    return [tile_array[:, :, start:end] for start, end in good_band_runs]
+
+
+def recombine_dataset_tile_from_good_band_runs(
+    original_shape: tuple[int, int, int],
+    good_band_runs: list[tuple[int, int]],
+    filtered_chunks: list[np.ndarray],
+    base_array: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    if len(good_band_runs) != len(filtered_chunks):
+        raise ValueError(
+            f"Chunk count mismatch while recombining Savitzky-Golay output: "
+            f"runs={len(good_band_runs)}, chunks={len(filtered_chunks)}"
+        )
+
+    if base_array is None:
+        combined = np.zeros(original_shape, dtype=np.float32)
+    else:
+        combined = np.array(base_array, copy=True)
+        if combined.shape != original_shape:
+            raise ValueError(
+                f"base_array shape must match original_shape: "
+                f"base_array.shape={combined.shape}, original_shape={original_shape}"
+            )
+
+    for (start, end), chunk in zip(good_band_runs, filtered_chunks):
+        expected_shape = (original_shape[0], original_shape[1], end - start)
+        if chunk.shape != expected_shape:
+            raise ValueError(
+                f"Filtered chunk shape mismatch while recombining Savitzky-Golay output: "
+                f"chunk.shape={chunk.shape}, expected={expected_shape}"
+            )
+        combined[:, :, start:end] = chunk
+    return combined
+
+
+def validate_no_unmasked_nonfinite_values(tile: np.ndarray | np.ma.MaskedArray) -> None:
+    tile_array = np.ma.array(tile, copy=False)
+    raw = np.asarray(np.ma.getdata(tile_array), dtype=np.float32)
+    mask = np.ma.getmaskarray(tile_array)
+    nonfinite_mask = ~np.isfinite(raw)
+    if np.any(nonfinite_mask & ~mask):
+        raise ValueError("Savitzky-Golay filter input contains unmasked NaN or Inf values")
+
+
+def _resolve_good_band_runs_from_region_meta(region_meta, band_count: int) -> list[tuple[int, int]]:
+    if region_meta.bad_bands is None:
+        return [(0, band_count)]
+
+    bad_bands_array = np.asarray(region_meta.bad_bands)
+    if bad_bands_array.shape != (band_count,):
+        raise ValueError(
+            f"Bad bands shape must match dataset band count: "
+            f"bad_bands shape={bad_bands_array.shape}, bands={band_count}"
+        )
+    return get_good_band_runs(bad_bands_array)
+
+
+def _validate_savgol_parameters_against_runs(
+    *,
+    good_band_runs: list[tuple[int, int]],
+    window_length: int,
+    polyorder: int,
+) -> None:
+    if window_length <= 0:
+        raise ValueError(f"window_length must be positive, got {window_length}")
+    if window_length % 2 == 0:
+        raise ValueError(f"window_length must be odd for mode='interp', got {window_length}")
+    if polyorder < 0:
+        raise ValueError(f"polyorder must be non-negative, got {polyorder}")
+    if window_length <= polyorder:
+        raise ValueError(
+            f"window_length must be greater than polyorder, got window_length={window_length}, "
+            f"polyorder={polyorder}"
+        )
+    if len(good_band_runs) == 0:
+        raise ValueError("Savitzky-Golay filter requires at least one contiguous good-band run")
+
+    min_run_length = min(end - start for start, end in good_band_runs)
+    if window_length > min_run_length:
+        raise ValueError(
+            f"window_length must be <= every contiguous good-band run length, got "
+            f"window_length={window_length}, shortest_good_run={min_run_length}"
+        )
+
+
+def _run_savgol_filter_dataset_tile(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    window_length: int,
+    polyorder: int,
+) -> None:
+    if not isinstance(input_region, DatasetRegionRef):
+        raise TypeError("Savitzky-Golay dataset stage requires DatasetRegionRef input_region")
+
+    client = get_process_storage_client()
+    input_tile, input_region_meta = client.read_region(input_ref, input_region, filter_data=False)
+    input_tile_raw = np.asarray(input_tile, dtype=np.float32)
+
+    if input_tile_raw.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [y][x][b], got {input_tile_raw.shape}")
+
+    good_band_runs = _resolve_good_band_runs_from_region_meta(input_region_meta, input_tile_raw.shape[2])
+    _validate_savgol_parameters_against_runs(
+        good_band_runs=good_band_runs,
+        window_length=window_length,
+        polyorder=polyorder,
+    )
+
+    exclusion_mask = np.zeros_like(input_tile_raw, dtype=np.bool_)
+    if input_region_meta.nodata is not None:
+        if np.isnan(input_region_meta.nodata):
+            exclusion_mask |= np.isnan(input_tile_raw)
+        else:
+            exclusion_mask |= input_tile_raw == input_region_meta.nodata
+    if input_region_meta.bad_bands is not None:
+        bad_band_mask = (np.asarray(input_region_meta.bad_bands) == 0).reshape(1, 1, input_tile_raw.shape[2])
+        exclusion_mask |= np.broadcast_to(bad_band_mask, input_tile_raw.shape)
+    validate_no_unmasked_nonfinite_values(np.ma.array(input_tile_raw, mask=exclusion_mask, copy=False))
+
+    chunks = split_dataset_tile_by_good_band_runs(input_tile_raw, good_band_runs)
+    filtered_chunks = []
+    for chunk in chunks:
+        filtered_chunk = savgol_filter(
+            chunk,
+            window_length=window_length,
+            polyorder=polyorder,
+            deriv=0,
+            axis=2,
+            mode="interp",
+        )
+        filtered_chunks.append(np.asarray(filtered_chunk, dtype=np.float32))
+
+    output_tile = recombine_dataset_tile_from_good_band_runs(
+        original_shape=input_tile_raw.shape,
+        good_band_runs=good_band_runs,
+        filtered_chunks=filtered_chunks,
+        base_array=input_tile_raw,
+    )
+
+    if input_region_meta.nodata is not None:
+        nodata_mask = exclusion_mask.copy()
+        if input_region_meta.bad_bands is not None:
+            bad_band_mask = (np.asarray(input_region_meta.bad_bands) == 0).reshape(
+                1, 1, input_tile_raw.shape[2]
+            )
+            nodata_mask &= ~np.broadcast_to(bad_band_mask, input_tile_raw.shape)
+        if np.any(nodata_mask):
+            output_tile[nodata_mask] = input_region_meta.nodata
+
+    assert output_write.region is not None, "output_write.region cannot be None for Savitzky-Golay output"
+    output_write.region.validate_array_shape(output_tile)
+    client.write_spec(output_write, output_tile.astype(np.float32, copy=False))
+
+
+def _write_savgol_output_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    if not isinstance(full_input_region, DatasetRegionRef):
+        raise TypeError("Savitzky-Golay metadata write requires DatasetRegionRef full_input_region")
+
+    client = get_process_storage_client()
+    input_region_meta = client.get_region_meta(input_ref, full_input_region)
+    output_meta = client.get_meta(output_write.ref)
+    savgol_meta = replace(
+        output_meta,
+        elem_type=np.dtype(np.float32),
+        nodata=input_region_meta.nodata,
+        wavelengths=input_region_meta.wavelengths,
+        wavelength_units=input_region_meta.wavelength_units,
+        bad_bands=input_region_meta.bad_bands,
+        crs_wkt=input_region_meta.crs_wkt,
+        geotransform=input_region_meta.geotransform,
+    )
+    client.write_meta(output_write.ref, savgol_meta)
+
+
+@dataclass
+class SavGolayFilterStage(MapStage):
+    _window_length: int = 3
+    _polyorder: int = 1
+    _output_ref_name: str = "savgol_filtered_dataset"
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def map_output_region(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("Savitzky-Golay stage expects DatasetRegionRef input")
+        return input_region
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "Savitzky-Golay stage input_meta must be DatasetPlanMeta"
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height
+                * input_meta.width
+                * input_meta.bands
+                * np.dtype(np.float32).itemsize,
+                shape=(input_meta.height, input_meta.width, input_meta.bands),
+                dtype=np.dtype(np.float32),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _run_savgol_filter_dataset_tile,
+            input_ref,
+            input_region,
+            output_write,
+            self._window_length,
+            self._polyorder,
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_savgol_output_meta, input_ref, full_input_region, output_write)
+
+
+def get_savgol_filter_pipeline(
+    dataset_ref: DataRef,
+    window_length: int,
+    polyorder: int,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    band_count = int(dataset_meta.shape[2])
+    if dataset_meta.bad_bands is None:
+        good_band_runs = [(0, band_count)]
+    else:
+        bad_bands_array = np.asarray(dataset_meta.bad_bands)
+        if bad_bands_array.shape != (band_count,):
+            raise ValueError(
+                f"Dataset bad bands shape must match input bands: "
+                f"bad_bands shape={bad_bands_array.shape}, bands={band_count}"
+            )
+        good_band_runs = get_good_band_runs(bad_bands_array)
+
+    _validate_savgol_parameters_against_runs(
+        good_band_runs=good_band_runs,
+        window_length=window_length,
+        polyorder=polyorder,
+    )
+
+    input_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
+    return AlgorithmPipeline(
+        [
+            SavGolayFilterStage(
+                _window_length=window_length,
+                _polyorder=polyorder,
+                _output_ref_name=output_ref_name,
+                default_executor="process",
+                input_plan_meta=input_meta,
                 resource_model=ResourceModel(
                     fixed_overhead_bytes=0,
                     bytes_per_scalar_in=1,
