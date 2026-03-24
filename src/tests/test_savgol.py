@@ -8,7 +8,10 @@ from scipy.signal import savgol_filter
 import tests.context
 
 from test_utils.test_model import WiserTestModel
+from wiser.bandmath.types import VariableType
+from wiser.gui.sav_golay import SavGolayDialog, savgol_filter_spectrum
 from wiser.raster.loader import RasterDataLoader
+from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 from wiser.utils.primitives import PriorityClass
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
@@ -111,6 +114,38 @@ class TestSavGolay(unittest.TestCase):
                 app_services.scheduler.shutdown(wait=True)
                 app_services.storage_service.close()
 
+    def test_savgol_dialog_populates_dataset_choices(self) -> None:
+        dataset_path = (
+            Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+        ).resolve()
+        self.test_model.load_dataset(str(dataset_path))
+
+        dialog = SavGolayDialog(
+            app_state=self.test_model.app_state,
+            app_services=self.test_model.app_services,
+            target_type=VariableType.IMAGE_CUBE_DATASET,
+        )
+        try:
+            self.assertEqual(dialog._ui.lbl_choose_ds_spec.text(), "Choose Dataset")
+            self.assertGreaterEqual(dialog._ui.cbox_choice.count(), 1)
+        finally:
+            dialog.close()
+
+    def test_savgol_dialog_populates_spectrum_choices(self) -> None:
+        spectrum = NumPyArraySpectrum(np.array([1.0, 2.0, 3.0], dtype=np.float32), name="spec")
+        self.test_model.app_state.collect_spectrum(spectrum)
+
+        dialog = SavGolayDialog(
+            app_state=self.test_model.app_state,
+            app_services=self.test_model.app_services,
+            target_type=VariableType.SPECTRUM,
+        )
+        try:
+            self.assertEqual(dialog._ui.lbl_choose_ds_spec.text(), "Choose Spectrum")
+            self.assertGreaterEqual(dialog._ui.cbox_choice.count(), 1)
+        finally:
+            dialog.close()
+
     def test_savgol_pipeline_matches_scipy_on_jpl_fixture(self) -> None:
         dataset_path = (
             Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
@@ -144,6 +179,47 @@ class TestSavGolay(unittest.TestCase):
                     np.array_equal(np.asarray(actual_meta.bad_bands), np.asarray(dataset.get_bad_bands()))
                 )
             self.assertEqual(actual_meta.nodata, dataset.get_data_ignore_value())
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            if app_services is not None:
+                app_services.scheduler.shutdown(wait=True)
+                app_services.storage_service.close()
+
+    def test_savgol_single_spectrum_matches_dataset_result_on_jpl_fixture(self) -> None:
+        dataset_path = (
+            Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+        ).resolve()
+        dataset = self.test_model.load_dataset(str(dataset_path))
+        point = (3, 3)
+
+        storage_client = None
+        app_services = None
+        try:
+            actual, _, storage_client, app_services = self._run_pipeline(
+                dataset,
+                window_length=5,
+                polyorder=2,
+                output_ref_name="savgol_jpl_spectrum_match",
+            )
+
+            point_spectrum = SpectrumAtPoint(dataset, point)
+            filtered_spectrum = savgol_filter_spectrum(
+                point_spectrum,
+                window_length=5,
+                polyorder=2,
+            )
+
+            self.assertTrue(
+                np.allclose(filtered_spectrum.get_spectrum(), actual[point[1], point[0], :], atol=1e-5)
+            )
+            self.assertEqual(filtered_spectrum.get_wavelengths(), point_spectrum.get_wavelengths())
+            self.assertTrue(
+                np.array_equal(
+                    np.asarray(filtered_spectrum.get_bad_bands()),
+                    np.asarray(point_spectrum.get_bad_bands()),
+                )
+            )
         finally:
             if storage_client is not None:
                 storage_client.close()
@@ -219,7 +295,10 @@ if __name__ == "__main__":
     test_savgol.setUp()
     try:
         test_savgol.test_savgol_pipeline_matches_scipy_on_circuit_fixture()
+        test_savgol.test_savgol_dialog_populates_dataset_choices()
+        test_savgol.test_savgol_dialog_populates_spectrum_choices()
         test_savgol.test_savgol_pipeline_matches_scipy_on_jpl_fixture()
+        test_savgol.test_savgol_single_spectrum_matches_dataset_result_on_jpl_fixture()
         test_savgol.test_savgol_pipeline_matches_manual_split_filter_recombine_with_bad_bands_and_nodata()
     finally:
         test_savgol.tearDown()
