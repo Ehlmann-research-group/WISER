@@ -170,6 +170,32 @@ class TestMnf(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_get_mnf_pipeline_does_not_count_valid_pixels_during_planning(self) -> None:
+        dataset_path = (
+            Path(__file__).resolve().parent
+            / ".."
+            / "test_utils"
+            / "test_datasets"
+            / "caltech_425_6_6_data_ignore.hdr"
+        ).resolve()
+        dataset = self.test_model.load_dataset(str(dataset_path))
+        app_services = self.test_model.app_services
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            with patch(
+                "wiser.utils.task_stage_utils.count_valid_dataset_pixels",
+                side_effect=AssertionError(
+                    "count_valid_dataset_pixels should not run during get_mnf_pipeline"
+                ),
+            ):
+                mnf_pipeline = get_mnf_pipeline(dataset_ref, 3, "mnf_planning_only")
+                self.assertIsNotNone(mnf_pipeline)
+        finally:
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_get_mnf_pipeline_matches_spy_mnf_with_bad_bands_and_invalid_pixels(self) -> None:
         dataset_path = (
             Path(__file__).resolve().parent

@@ -15,6 +15,7 @@ from wiser.utils.task_stage_utils import (
     EigenDecompositionStage,
     EigenVectorsAndValues,
     ProjectOntoEigenVectorsStage,
+    SpectralMeanStage,
     count_valid_dataset_pixels,
     get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
@@ -40,6 +41,7 @@ from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.utils.task_system import (
     AlgorithmPipeline,
+    DatasetPlanMeta,
     ResourceModel,
     SemanticTask,
 )
@@ -210,6 +212,64 @@ class TestTaskStageFuncs(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_spectral_mean_stage_copies_provided_total_into_internal_total_ref(self) -> None:
+        array_2x2x2 = np.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[10.0, 20.0], [30.0, 40.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x2)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            stage = SpectralMeanStage(
+                _output_ref_name="spectral_mean_with_total",
+                _internal_total_ref_name="spectral_mean_with_total_ref",
+                _dataset_ref=input_ref,
+                default_executor="process",
+                input_plan_meta=DatasetPlanMeta(shape=(2, 2, 2), dtype=np.dtype(np.float32)),
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                broadcast_input={"total": 4},
+            )
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10013
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            internal_total = storage_client.read_json_value(
+                task_plan.bindings["spectral_mean_with_total_ref"]
+            )
+            self.assertEqual(internal_total, {"total": 4})
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_count_valid_dataset_pixels_filters_nodata_bad_bands_and_nonfinite(self) -> None:
         array_2x2x4 = np.array(
             [
@@ -352,6 +412,126 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             self.assertEqual(output_cov.shape, (2, 2, 1))
             self.assertTrue(np.allclose(output_cov, expected_cov, atol=1e-5))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_covariance_stage_computes_internal_total_when_not_provided(self) -> None:
+        array_2x2x3 = np.array(
+            [
+                [[1.0, -9999.0], [3.0, 4.0]],
+                [[10.0, 20.0], [30.0, 40.0]],
+                [[100.0, 200.0], [300.0, np.nan]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x3)
+        dataset.set_data_ignore_value(-9999.0)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            mean_stage = get_spectral_mean_stage(input_ref, "cov_total_mean")
+            cov_stage = CalcCovMatrixStage(
+                _total_spectra=0,
+                _output_ref_name="cov_total_covariance",
+                _internal_total_ref_name="cov_total_ref",
+                default_executor="process",
+                input_plan_meta=mean_stage.input_plan_meta,
+                broadcast_input={"mean": DataBinding("cov_total_mean")},
+            )
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage, cov_stage]),
+            )
+            task.id = 10022
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            internal_total = storage_client.read_json_value(task_plan.bindings["cov_total_ref"])
+            self.assertEqual(internal_total, {"total": 2})
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_covariance_stage_reuses_provided_total_ref(self) -> None:
+        array_2x2x3 = np.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[10.0, 20.0], [30.0, 40.0]],
+                [[100.0, 200.0], [300.0, 400.0]],
+            ],
+            dtype=np.float32,
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_2x2x3)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            mean_stage = SpectralMeanStage(
+                _output_ref_name="cov_reuse_mean",
+                _internal_total_ref_name="shared_total_ref",
+                _dataset_ref=input_ref,
+                default_executor="process",
+                input_plan_meta=DatasetPlanMeta(shape=(2, 2, 3), dtype=np.dtype(np.float32)),
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+            )
+            cov_stage = CalcCovMatrixStage(
+                _total_spectra=0,
+                _output_ref_name="cov_reuse_covariance",
+                _internal_total_ref_name="cov_reuse_total_ref",
+                default_executor="process",
+                input_plan_meta=mean_stage.input_plan_meta,
+                broadcast_input={
+                    "mean": DataBinding("cov_reuse_mean"),
+                    "total": DataBinding("shared_total_ref"),
+                },
+            )
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage, cov_stage]),
+            )
+            task.id = 10023
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            internal_total = storage_client.read_json_value(task_plan.bindings["cov_reuse_total_ref"])
+            self.assertEqual(internal_total, {"total": 4})
         finally:
             if storage_client is not None:
                 storage_client.close()
@@ -1155,6 +1335,69 @@ class TestTaskStageFuncs(unittest.TestCase):
             self.assertTrue(
                 np.allclose(np.abs(second_vec), np.array([0.0, 0.0], dtype=np.float32), atol=1e-4)
             )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_adaptive_pca_stage_resolves_num_components_in_pre_task_when_unset(self) -> None:
+        app_services = AppServices()
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+            dataset = np.array(
+                [
+                    [[1.0, -9999.0], [2.0, 3.0]],
+                    [[10.0, 10.0], [10.0, 10.0]],
+                    [[100.0, 200.0], [np.nan, 400.0]],
+                    [[1000.0, 2000.0], [3000.0, 4000.0]],
+                ],
+                dtype=np.float32,
+            )
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="ipca_resolve_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            process_storage_client.write_data(dataset_ref, dataset)
+            app_services.storage_service.update_meta(
+                dataset_ref,
+                bad_bands=np.asarray([1, 0, 1, 1], dtype=np.int32),
+                nodata=-9999.0,
+            )
+
+            stage = get_adaptive_pca_partial_fit_stage(
+                dataset_ref=dataset_ref,
+                num_components=None,
+                output_ref_name="ipca_resolve_descriptor",
+            )
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 10071
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            resolved_payload = storage_client.read_json_value(
+                task_plan.bindings["ipca_resolve_descriptor_resolved_num_components"]
+            )
+            self.assertEqual(resolved_payload, {"num_components": 1})
         finally:
             if storage_client is not None:
                 storage_client.close()

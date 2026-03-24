@@ -31,7 +31,6 @@ from wiser.utils.task_stage_utils import (
     ProjectOntoEigenVectorsStage,
     SpectralMeanStage,
     WhiteningMatrixStage,
-    count_valid_dataset_pixels,
 )
 from wiser.utils.task_system import (
     AlgorithmPipeline,
@@ -182,24 +181,14 @@ def get_mnf_pipeline(
     else:
         num_features = dataset_plan_meta.bands
     bands = dataset_plan_meta.bands
-    data_pixels = count_valid_dataset_pixels(dataset_ref)
-    noise_pixels = max(0, data_pixels - dataset_plan_meta.width)
-    max_internal_components = min(
-        num_features,
-        max(0, noise_pixels - 1),
-    )
-    if max_internal_components <= 0:
-        raise ValueError(
-            f"MNF requires at least 2 samples in both data/noise domains; got "
-            f"data_pixels={data_pixels}, noise_pixels={noise_pixels}"
-        )
-    if num_components <= 0 or num_components > max_internal_components:
-        raise ValueError(f"num_components must be in [1, {max_internal_components}], got {num_components}")
+    if num_components <= 0 or num_components > num_features:
+        raise ValueError(f"num_components must be in [1, {num_features}], got {num_components}")
 
     noise_ref_name = "mnf_shift_y_noise"
     noise_eigen_ref_name = "mnf_noise_eigen"
     noise_whitening_matrix_ref_name = "mnf_noise_whitening_matrix"
     input_mean_ref_name = "mnf_input_spectral_mean"
+    input_total_ref_name = "mnf_input_valid_pixel_total"
     input_covariance_ref_name = "mnf_input_covariance"
     whitened_covariance_ref_name = "mnf_whitened_covariance"
     whitened_eigen_ref_name = "mnf_whitened_eigen"
@@ -212,7 +201,7 @@ def get_mnf_pipeline(
     noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
 
     noise_ipca_stage = AdaptivePcaFitStage(
-        _num_components=max_internal_components,
+        _num_components=None,
         _num_features=num_features,
         _data_variance_factor=2,
         _output_ref_name=noise_eigen_ref_name,
@@ -221,6 +210,7 @@ def get_mnf_pipeline(
         _covariance_ref_name=f"{noise_eigen_ref_name}_covariance",
         _mean_ref_name=f"{noise_eigen_ref_name}_mean",
         _dataset_plan_meta=noise_plan_meta,
+        _resolved_num_components_ref_name=f"{noise_eigen_ref_name}_resolved_num_components",
         default_executor="process",
         input_binding=DataBinding(noise_ref_name),
         input_plan_meta=noise_plan_meta,
@@ -251,6 +241,7 @@ def get_mnf_pipeline(
 
     input_mean_stage = SpectralMeanStage(
         _output_ref_name=input_mean_ref_name,
+        _internal_total_ref_name=input_total_ref_name,
         _dataset_ref=dataset_ref,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
@@ -260,13 +251,13 @@ def get_mnf_pipeline(
             bytes_per_scalar_out=1,
             scratch_bytes_per_scalar_in=0,
         ),
-        broadcast_input={"total": data_pixels},
     )
 
     input_covariance_stage = CalcCovMatrixStage(
-        _total_spectra=data_pixels,
+        _total_spectra=0,
         _num_features=num_features,
         _output_ref_name=input_covariance_ref_name,
+        _internal_total_ref_name=f"{input_covariance_ref_name}_total",
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
@@ -275,7 +266,10 @@ def get_mnf_pipeline(
             bytes_per_scalar_out=1,
             scratch_bytes_per_scalar_in=0,
         ),
-        broadcast_input={"mean": DataBinding(input_mean_ref_name)},
+        broadcast_input={
+            "mean": DataBinding(input_mean_ref_name),
+            "total": DataBinding(input_total_ref_name),
+        },
     )
 
     whitened_covariance_stage = MatrixMultiplicationStage(

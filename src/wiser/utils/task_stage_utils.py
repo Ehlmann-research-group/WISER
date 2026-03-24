@@ -35,6 +35,8 @@ from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
 PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
+TotalLike = Union[int, DataRef]
+NumComponentsLike = Union[int, DataRef]
 
 # region Task Stage utilities
 
@@ -582,10 +584,12 @@ def _running_covariance(
     input_region: DataRegion,
     output_write: "WriteSpec",
     mean_ref: DataRef,
-    total: int,
+    total: TotalLike,
     num_features: int = -1,
 ) -> None:
     client = get_process_storage_client()
+    if isinstance(total, DataRef):
+        total = _resolve_total_payload(total)
     output_ref = output_write.ref
     running_cov, _ = client.read_data(output_ref)
     noise, _ = client.read_region(input_ref, input_region)
@@ -654,6 +658,7 @@ class CalcCovMatrixStage(SequentialStage):
     # You must define this
     _output_ref_name: str = "cov_running"
     _num_features: int = -1
+    _internal_total_ref_name: str = "_calc_cov_total"
     # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
     resource_model: ResourceModel = field(
@@ -669,7 +674,13 @@ class CalcCovMatrixStage(SequentialStage):
     def __post_init__(self):
         if "mean" not in self.broadcast_input:
             self.broadcast_input |= {"mean": self._mean_ref}
-        self.broadcast_input |= {"total": self._total_spectra}
+        if "internal_total_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"internal_total_ref": DataBinding(self._internal_total_ref_name)}
+        if "total" not in self.broadcast_input:
+            if self._total_spectra > 0:
+                self.broadcast_input |= {"total": self._total_spectra}
+            else:
+                self.broadcast_input |= {"total": DataBinding(self._internal_total_ref_name)}
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -703,15 +714,22 @@ class CalcCovMatrixStage(SequentialStage):
             raise ValueError(f"num_features must be positive when provided, got {self._num_features}")
 
         size_est = feature_count * feature_count * input_meta.dtype.itemsize
-        alloc_request = AllocationRequest(
-            name=self._output_ref_name,
-            kind="array",
-            residency="ram_cacheable",
-            size_est=size_est,
-            shape=(feature_count, feature_count, 1),
-            dtype=input_meta.dtype,
-        )
-        return [alloc_request]
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=size_est,
+                shape=(feature_count, feature_count, 1),
+                dtype=input_meta.dtype,
+            ),
+            AllocationRequest(
+                name=self._internal_total_ref_name,
+                kind="json",
+                residency="ram_cacheable",
+                size_est=64,
+            ),
+        ]
 
     def task_fn(
         self,
@@ -721,7 +739,7 @@ class CalcCovMatrixStage(SequentialStage):
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
         output_write = output_writes[self._output_ref_name]
-        total = broadcast_inputs["total"]
+        total = broadcast_inputs["internal_total_ref"]
         mean: DataRef = broadcast_inputs["mean"]
         return partial(
             _running_covariance,
@@ -731,6 +749,26 @@ class CalcCovMatrixStage(SequentialStage):
             mean,
             total,
             self._num_features,
+        )
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = output_writes
+        total_ref: DataRef = broadcast_inputs["internal_total_ref"]
+        provided_total = broadcast_inputs.get("total")
+        if isinstance(provided_total, DataRef) and provided_total.ref_id == total_ref.ref_id:
+            provided_total = None
+        return partial(
+            _copy_or_compute_valid_dataset_total,
+            input_ref,
+            full_input_region,
+            total_ref,
+            provided_total,
         )
 
 
@@ -751,13 +789,17 @@ def get_noise_covariance_pipeline(noise_ref: DataRef, output_ref_name: str) -> A
     return AlgorithmPipeline([noise_mean_stage, noise_cov_stage])
 
 
-def _running_mean(input_ref: DataRef, input_region: DataRegion, output_write: "WriteSpec", total) -> None:
+def _running_mean(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    total: TotalLike,
+) -> None:
     client = get_process_storage_client()
     output_ref = output_write.ref
     running_mean, _ = client.read_data(output_ref)
     if isinstance(total, DataRef):
-        total_payload = client.read_json_value(total)
-        total = int(total_payload["total"])
+        total = _resolve_total_payload(total)
     if total <= 0:
         raise ValueError(f"Spectral mean requires a positive total, got {total}")
 
@@ -812,13 +854,23 @@ def count_valid_dataset_pixels(dataset_ref: DataRef) -> int:
     return int(_flatten_valid_dataset_rows(data, data_meta).shape[0])
 
 
-def _compute_valid_spectral_mean_total(
+def _resolve_total_payload(total_like: TotalLike) -> int:
+    client = get_process_storage_client()
+    if isinstance(total_like, DataRef):
+        total_payload = client.read_json_value(total_like)
+        if not isinstance(total_payload, dict) or "total" not in total_payload:
+            raise ValueError("Expected JSON total payload with key 'total'")
+        return int(total_payload["total"])
+    return int(total_like)
+
+
+def _write_valid_dataset_total(
     input_ref: DataRef,
     full_input_region: DataRegion,
     total_ref: DataRef,
 ) -> None:
     if not isinstance(full_input_region, DatasetRegionRef):
-        raise TypeError("Spectral mean total pre-task requires a DatasetRegionRef full_input_region")
+        raise TypeError("Valid dataset total pre-task requires a DatasetRegionRef full_input_region")
 
     client = get_process_storage_client()
     region_meta = client.get_region_meta(input_ref, full_input_region)
@@ -845,6 +897,24 @@ def _compute_valid_spectral_mean_total(
         total += _flatten_valid_dataset_rows(data_tile, data_tile_meta).shape[0]
 
     client.write_json_value(total_ref, {"total": int(total)})
+
+
+def _copy_or_compute_valid_dataset_total(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    total_ref: DataRef,
+    provided_total: Optional[TotalLike] = None,
+) -> None:
+    if provided_total is None:
+        _write_valid_dataset_total(input_ref, full_input_region, total_ref)
+        return
+
+    resolved_total = _resolve_total_payload(provided_total)
+    if resolved_total <= 0:
+        _write_valid_dataset_total(input_ref, full_input_region, total_ref)
+        return
+    client = get_process_storage_client()
+    client.write_json_value(total_ref, {"total": int(resolved_total)})
 
 
 def _write_spectral_mean_meta(
@@ -891,6 +961,8 @@ class SpectralMeanStage(SequentialStage):
     def __post_init__(self):
         if "internal_total_ref" not in self.broadcast_input:
             self.broadcast_input |= {"internal_total_ref": DataBinding(self._internal_total_ref_name)}
+        if "total" not in self.broadcast_input:
+            self.broadcast_input |= {"total": DataBinding(self._internal_total_ref_name)}
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -961,7 +1033,16 @@ class SpectralMeanStage(SequentialStage):
     ) -> Callable:
         _ = output_writes
         total_ref: DataRef = broadcast_inputs["internal_total_ref"]
-        return partial(_compute_valid_spectral_mean_total, input_ref, full_input_region, total_ref)
+        provided_total = broadcast_inputs.get("total")
+        if isinstance(provided_total, DataRef) and provided_total.ref_id == total_ref.ref_id:
+            provided_total = None
+        return partial(
+            _copy_or_compute_valid_dataset_total,
+            input_ref,
+            full_input_region,
+            total_ref,
+            provided_total,
+        )
 
     def post_task_fn(
         self,
@@ -1934,6 +2015,48 @@ def _zero_small_pca_eigen_components(
     return filtered_vectors, filtered_values
 
 
+def _resolve_num_components_payload(num_components_like: NumComponentsLike) -> int:
+    client = get_process_storage_client()
+    if isinstance(num_components_like, DataRef):
+        payload = client.read_json_value(num_components_like)
+        if not isinstance(payload, dict) or "num_components" not in payload:
+            raise ValueError("Expected JSON num_components payload with key 'num_components'")
+        return int(payload["num_components"])
+    return int(num_components_like)
+
+
+def _write_resolved_pca_num_components(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    resolved_num_components_ref: DataRef,
+    requested_num_components: Optional[int],
+    num_features: int,
+) -> None:
+    _ = full_input_region
+    valid_pixels = count_valid_dataset_pixels(input_ref)
+    max_components = min(num_features, max(0, valid_pixels - 1))
+    if max_components <= 0:
+        raise ValueError(
+            f"PCA requires at least 2 valid samples and 1 valid feature; got "
+            f"valid_pixels={valid_pixels}, num_features={num_features}"
+        )
+
+    if requested_num_components is None:
+        resolved_num_components = max_components
+    else:
+        resolved_num_components = int(requested_num_components)
+        if resolved_num_components <= 0 or resolved_num_components > max_components:
+            raise ValueError(
+                f"num_components must be in [1, {max_components}], got {resolved_num_components}"
+            )
+
+    client = get_process_storage_client()
+    client.write_json_value(
+        resolved_num_components_ref,
+        {"num_components": int(resolved_num_components)},
+    )
+
+
 def _fit_dataset_pca_adaptive(
     input_ref: DataRef,
     input_region: DataRegion,
@@ -1943,7 +2066,8 @@ def _fit_dataset_pca_adaptive(
     output_covariance_ref: DataRef,
     output_mean_ref: DataRef,
     output_good_band_mask_ref: DataRef,
-    num_components: int,
+    num_components: NumComponentsLike,
+    allocated_num_components: int,
     num_features: int,
     dataset_plan_meta: DatasetPlanMeta,
     test_full_pca: bool = True,
@@ -1951,6 +2075,7 @@ def _fit_dataset_pca_adaptive(
 ) -> None:
     _ = input_region
     client = get_process_storage_client()
+    num_components = _resolve_num_components_payload(num_components)
     bands = dataset_plan_meta.bands
     dataset_meta = client.get_meta(input_ref)
     bad_bands = dataset_meta.bad_bands
@@ -1998,7 +2123,7 @@ def _fit_dataset_pca_adaptive(
         eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
             eigen_vectors=eigen_vectors,
             eigen_values=eigen_values,
-            num_components=num_components,
+            num_components=allocated_num_components,
         )
     else:
         # This stage manages its own spatial reads instead of relying on the task system's
@@ -2098,7 +2223,7 @@ def _fit_dataset_pca_adaptive(
         eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
             eigen_vectors=eigen_vectors,
             eigen_values=eigen_values,
-            num_components=num_components,
+            num_components=allocated_num_components,
         )
 
     sort_desc = np.argsort(eigen_values)[::-1]
@@ -2138,7 +2263,7 @@ class AdaptivePcaFitStage(SequentialStage):
     where k = num_components.
     """
 
-    _num_components: int = 1
+    _num_components: Optional[int] = 1
     _data_variance_factor: int = 1
     _output_ref_name: str = "ipca_eigenvectors_and_values"
     _vectors_ref_name: str = "ipca_eigen_vectors"
@@ -2146,6 +2271,7 @@ class AdaptivePcaFitStage(SequentialStage):
     _covariance_ref_name: str = "ipca_covariance"
     _mean_ref_name: str = "ipca_mean"
     _good_band_mask_ref_name: str = "ipca_good_band_mask"
+    _resolved_num_components_ref_name: str = "ipca_resolved_num_components"
     _dataset_plan_meta: Optional[DatasetPlanMeta] = None
     _num_features: int = -1
     resource_model: ResourceModel = field(
@@ -2170,6 +2296,7 @@ class AdaptivePcaFitStage(SequentialStage):
             "ipca_covariance_ref": DataBinding(self._covariance_ref_name),
             "ipca_mean_ref": DataBinding(self._mean_ref_name),
             "ipca_good_band_mask_ref": DataBinding(self._good_band_mask_ref_name),
+            "resolved_num_components_ref": DataBinding(self._resolved_num_components_ref_name),
             "dataset_plan_meta": self._dataset_plan_meta,
         }
 
@@ -2187,13 +2314,14 @@ class AdaptivePcaFitStage(SequentialStage):
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for AdaptivePcaFitStage"
         feature_count = self._num_features if self._num_features != -1 else input_meta.bands
-        if self._num_components <= 0:
-            raise ValueError(f"num_components must be positive, got {self._num_components}")
         if feature_count <= 0:
             raise ValueError(f"num_features must be positive when provided, got {self._num_features}")
-        if self._num_components > feature_count:
+        allocated_components = self._num_components if self._num_components is not None else feature_count
+        if allocated_components <= 0:
+            raise ValueError(f"num_components must be positive when provided, got {self._num_components}")
+        if allocated_components > feature_count:
             raise ValueError(
-                f"num_components must be <= available features, got num_components={self._num_components}, "
+                f"num_components must be <= available features, got num_components={allocated_components}, "
                 f"features={feature_count}"
             )
 
@@ -2202,8 +2330,8 @@ class AdaptivePcaFitStage(SequentialStage):
         covariance_dtype = np.float32
         mean_dtype = np.float32
         mask_dtype = np.bool_
-        vectors_size_est = self._num_components * feature_count * np.dtype(vectors_dtype).itemsize
-        values_size_est = self._num_components * np.dtype(values_dtype).itemsize
+        vectors_size_est = allocated_components * feature_count * np.dtype(vectors_dtype).itemsize
+        values_size_est = allocated_components * np.dtype(values_dtype).itemsize
         covariance_size_est = feature_count * feature_count * np.dtype(covariance_dtype).itemsize
         mean_size_est = feature_count * np.dtype(mean_dtype).itemsize
         good_band_mask_size_est = input_meta.bands * np.dtype(mask_dtype).itemsize
@@ -2214,7 +2342,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 kind="array",
                 residency="ram_cacheable",
                 size_est=vectors_size_est,
-                shape=(self._num_components, feature_count),
+                shape=(allocated_components, feature_count),
                 dtype=vectors_dtype,
             ),
             AllocationRequest(
@@ -2222,7 +2350,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 kind="array",
                 residency="ram_cacheable",
                 size_est=values_size_est,
-                shape=(self._num_components,),
+                shape=(allocated_components,),
                 dtype=values_dtype,
             ),
             AllocationRequest(
@@ -2250,6 +2378,12 @@ class AdaptivePcaFitStage(SequentialStage):
                 dtype=mask_dtype,
             ),
             AllocationRequest(
+                name=self._resolved_num_components_ref_name,
+                kind="json",
+                residency="ram_cacheable",
+                size_est=64,
+            ),
+            AllocationRequest(
                 name=self._output_ref_name,
                 kind="json",
                 residency="ram_cacheable",
@@ -2270,7 +2404,13 @@ class AdaptivePcaFitStage(SequentialStage):
         output_covariance_ref: DataRef = broadcast_inputs["ipca_covariance_ref"]
         output_mean_ref: DataRef = broadcast_inputs["ipca_mean_ref"]
         output_good_band_mask_ref: DataRef = broadcast_inputs["ipca_good_band_mask_ref"]
+        resolved_num_components_ref: DataRef = broadcast_inputs["resolved_num_components_ref"]
         dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
+        allocated_num_components = (
+            self._num_components
+            if self._num_components is not None
+            else (self._num_features if self._num_features != -1 else dataset_plan_meta.bands)
+        )
         return partial(
             _fit_dataset_pca_adaptive,
             input_ref,
@@ -2281,17 +2421,40 @@ class AdaptivePcaFitStage(SequentialStage):
             output_covariance_ref,
             output_mean_ref,
             output_good_band_mask_ref,
-            self._num_components,
+            resolved_num_components_ref,
+            int(allocated_num_components),
             self._num_features,
             dataset_plan_meta,
             self.test_full_pca,
             self._data_variance_factor,
         )
 
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = output_writes
+        resolved_num_components_ref: DataRef = broadcast_inputs["resolved_num_components_ref"]
+        feature_count = self._num_features
+        if feature_count == -1:
+            dataset_plan_meta: DatasetPlanMeta = broadcast_inputs["dataset_plan_meta"]
+            feature_count = dataset_plan_meta.bands
+        return partial(
+            _write_resolved_pca_num_components,
+            input_ref,
+            full_input_region,
+            resolved_num_components_ref,
+            self._num_components,
+            int(feature_count),
+        )
+
 
 def get_adaptive_pca_partial_fit_stage(
     dataset_ref: DataRef,
-    num_components: int,
+    num_components: Optional[int],
     output_ref_name: str,
     num_features: int = -1,
 ) -> AdaptivePcaFitStage:
@@ -2303,7 +2466,7 @@ def get_adaptive_pca_partial_fit_stage(
     dataset_plan_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
     num_samples = dataset_plan_meta.height * dataset_plan_meta.width
     max_components = min(dataset_plan_meta.bands, max(0, num_samples - 1))
-    if num_components > max_components:
+    if num_components is not None and num_components > max_components:
         raise ValueError(
             f"num_components={num_components} exceeds max supported={max_components} "
             f"for shape={dataset_plan_meta.shape}"
@@ -2317,6 +2480,7 @@ def get_adaptive_pca_partial_fit_stage(
         _covariance_ref_name=f"{output_ref_name}_covariance",
         _mean_ref_name=f"{output_ref_name}_mean",
         _good_band_mask_ref_name=f"{output_ref_name}_good_band_mask",
+        _resolved_num_components_ref_name=f"{output_ref_name}_resolved_num_components",
         _dataset_plan_meta=dataset_plan_meta,
         _num_features=num_features,
         default_executor="process",
@@ -2333,7 +2497,7 @@ def get_adaptive_pca_partial_fit_stage(
 
 def get_adaptive_pca_partial_fit_pipeline(
     dataset_ref: DataRef,
-    num_components: int,
+    num_components: Optional[int],
     output_ref_name: str,
     num_features: int = -1,
 ) -> AlgorithmPipeline:
