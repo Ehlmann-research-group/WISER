@@ -1368,7 +1368,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             process_storage_client.write_data(dataset_ref, dataset)
             app_services.storage_service.update_meta(
                 dataset_ref,
-                bad_bands=np.asarray([1, 0, 1, 1], dtype=np.int32),
+                bad_bands=np.asarray([1, 1], dtype=np.int32),
                 nodata=-9999.0,
             )
 
@@ -1397,7 +1397,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             resolved_payload = storage_client.read_json_value(
                 task_plan.bindings["ipca_resolve_descriptor_resolved_num_components"]
             )
-            self.assertEqual(resolved_payload, {"num_components": 1})
+            self.assertEqual(resolved_payload, {"num_components": 2})
         finally:
             if storage_client is not None:
                 storage_client.close()
