@@ -34,6 +34,7 @@ FILENAMES=\
 	pca_dialog_ui.py \
 	reference_system_creator_ui.py \
 	roi_info_editor_ui.py \
+	sav_golay_filter_dialog_ui.py \
 	save_dataset_advanced_details_ui.py \
 	save_dataset_basic_details_ui.py \
 	save_dataset_ui.py \

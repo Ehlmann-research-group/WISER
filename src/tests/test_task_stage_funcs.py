@@ -15,15 +15,21 @@ from wiser.utils.task_stage_utils import (
     EigenDecompositionStage,
     EigenVectorsAndValues,
     ProjectOntoEigenVectorsStage,
+    SavGolayFilterStage,
     SpectralMeanStage,
     count_valid_dataset_pixels,
     get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
     get_adaptive_pca_partial_fit_stage,
+    get_good_band_runs,
     get_matrix_multiplication_stage,
     get_noise_covariance_pipeline,
     get_project_onto_eigenvectors_stage,
+    get_savgol_filter_pipeline,
+    recombine_dataset_tile_from_good_band_runs,
     get_spectral_mean_stage,
+    split_dataset_tile_by_good_band_runs,
+    validate_no_unmasked_nonfinite_values,
     get_whitening_matrix_stage,
     get_eigendecomposition_pipeline,
 )
@@ -59,6 +65,77 @@ class TestTaskStageFuncs(unittest.TestCase):
     def tearDown(self):
         self.test_model.close_app()
         del self.test_model
+
+    def test_get_good_band_runs_handles_edge_cases(self) -> None:
+        self.assertEqual(
+            get_good_band_runs(np.array([1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1])),
+            [(0, 5), (8, 11), (12, 14)],
+        )
+        self.assertEqual(get_good_band_runs(np.array([0, 0, 0])), [])
+        self.assertEqual(get_good_band_runs(np.array([1, 0, 1, 0, 1, 0])), [(0, 1), (2, 3), (4, 5)])
+        self.assertEqual(get_good_band_runs(np.array([0, 0, 1, 1, 0, 1])), [(2, 4), (5, 6)])
+        self.assertEqual(get_good_band_runs(np.array([1, 1, 0, 1, 0, 0])), [(0, 2), (3, 4)])
+        self.assertEqual(get_good_band_runs(np.array([0, 1, 1, 0])), [(1, 3)])
+
+    def test_split_and_recombine_dataset_tile_by_good_band_runs_round_trips(self) -> None:
+        tile = np.arange(2 * 3 * 6, dtype=np.float32).reshape(2, 3, 6)
+        runs = [(0, 2), (3, 5), (5, 6)]
+
+        chunks = split_dataset_tile_by_good_band_runs(tile, runs)
+
+        self.assertEqual([chunk.shape for chunk in chunks], [(2, 3, 2), (2, 3, 2), (2, 3, 1)])
+
+        base = np.full(tile.shape, -1.0, dtype=np.float32)
+        recombined = recombine_dataset_tile_from_good_band_runs(tile.shape, runs, chunks, base_array=base)
+
+        self.assertTrue(np.allclose(recombined[:, :, 0:2], tile[:, :, 0:2]))
+        self.assertTrue(np.allclose(recombined[:, :, 3:5], tile[:, :, 3:5]))
+        self.assertTrue(np.allclose(recombined[:, :, 5:6], tile[:, :, 5:6]))
+        self.assertTrue(np.all(recombined[:, :, 2] == -1.0))
+
+    def test_validate_no_unmasked_nonfinite_values_allows_masked_nonfinite(self) -> None:
+        masked = np.ma.array(
+            [[[1.0, np.nan], [2.0, np.inf]]],
+            mask=[[[False, True], [False, True]]],
+            dtype=np.float32,
+        )
+        validate_no_unmasked_nonfinite_values(masked)
+
+    def test_validate_no_unmasked_nonfinite_values_rejects_unmasked_nonfinite(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unmasked NaN or Inf"):
+            validate_no_unmasked_nonfinite_values(np.array([[[1.0, np.nan], [2.0, 3.0]]], dtype=np.float32))
+
+    def test_get_savgol_filter_pipeline_rejects_window_longer_than_shortest_good_run(self) -> None:
+        app_services = AppServices()
+        try:
+            dataset = np.zeros((2, 2, 6), dtype=np.float32)
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="savgol_validation_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            process_storage_client = get_process_storage_client()
+            process_storage_client.write_data(dataset_ref, dataset)
+            app_services.storage_service.update_meta(
+                dataset_ref,
+                bad_bands=np.asarray([1, 1, 0, 1, 1, 1], dtype=np.int32),
+            )
+
+            with self.assertRaisesRegex(ValueError, "shortest_good_run=2"):
+                get_savgol_filter_pipeline(
+                    dataset_ref=dataset_ref,
+                    window_length=3,
+                    polyorder=1,
+                    output_ref_name="savgol_invalid",
+                )
+        finally:
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
     def test_spectral_mean_stage_pipeline_execution(self) -> None:
         # RasterDataLoader expects [band][y][x]. Each pixel has a constant spectrum value.
