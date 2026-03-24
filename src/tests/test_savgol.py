@@ -118,12 +118,13 @@ class TestSavGolay(unittest.TestCase):
         dataset_path = (
             Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
         ).resolve()
-        self.test_model.load_dataset(str(dataset_path))
+        ds = self.test_model.load_dataset(str(dataset_path))
 
         dialog = SavGolayDialog(
             app_state=self.test_model.app_state,
             app_services=self.test_model.app_services,
             target_type=VariableType.IMAGE_CUBE_DATASET,
+            target_id=ds.get_id(),
         )
         try:
             self.assertEqual(dialog._ui.lbl_choose_ds_spec.text(), "Choose Dataset")
@@ -134,11 +135,13 @@ class TestSavGolay(unittest.TestCase):
     def test_savgol_dialog_populates_spectrum_choices(self) -> None:
         spectrum = NumPyArraySpectrum(np.array([1.0, 2.0, 3.0], dtype=np.float32), name="spec")
         self.test_model.app_state.collect_spectrum(spectrum)
-
+        if spectrum.get_id() is None:
+            spectrum.set_id(self.test_model.app_state.take_next_id())
         dialog = SavGolayDialog(
             app_state=self.test_model.app_state,
             app_services=self.test_model.app_services,
             target_type=VariableType.SPECTRUM,
+            target_id=spectrum.get_id(),
         )
         try:
             self.assertEqual(dialog._ui.lbl_choose_ds_spec.text(), "Choose Spectrum")
