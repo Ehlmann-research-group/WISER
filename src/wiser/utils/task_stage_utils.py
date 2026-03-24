@@ -599,15 +599,8 @@ def get_good_band_runs(bad_bands: np.ndarray) -> list[tuple[int, int]]:
     return runs
 
 
-def get_longest_good_band_run_length(bad_bands: np.ndarray) -> int:
-    runs = get_good_band_runs(bad_bands)
-    if not runs:
-        return 0
-    return max(end - start for start, end in runs)
-
-
 def split_dataset_tile_by_good_band_runs(
-    tile_yxb: np.ndarray | np.ma.MaskedArray,
+    tile_yxb: Union[np.ndarray, np.ma.MaskedArray],
     good_band_runs: list[tuple[int, int]],
 ) -> list[np.ndarray]:
     tile_array = np.asarray(np.ma.getdata(np.ma.array(tile_yxb, copy=False)))
@@ -649,7 +642,7 @@ def recombine_dataset_tile_from_good_band_runs(
     return combined
 
 
-def validate_no_unmasked_nonfinite_values(tile: np.ndarray | np.ma.MaskedArray) -> None:
+def validate_no_unmasked_nonfinite_values(tile: Union[np.ndarray, np.ma.MaskedArray]) -> None:
     tile_array = np.ma.array(tile, copy=False)
     raw = np.asarray(np.ma.getdata(tile_array), dtype=np.float32)
     mask = np.ma.getmaskarray(tile_array)
@@ -811,7 +804,7 @@ class SavGolayFilterStage(MapStage):
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
 
-    def map_output_region(self, input_region: DataRegion) -> DataRegion:
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
         if not isinstance(input_region, DatasetRegionRef):
             raise TypeError("Savitzky-Golay stage expects DatasetRegionRef input")
         return input_region
