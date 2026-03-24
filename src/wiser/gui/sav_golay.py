@@ -183,7 +183,7 @@ class SavGolayDialog(QDialog):
 
         if self._is_spectrum_mode():
             self._ui.lbl_choose_ds_spec.setText("Choose Spectrum")
-            objects = self._app_state.get_collected_spectra()
+            objects = list(self._app_state.get_all_spectra().values())
         elif self._is_dataset_mode():
             self._ui.lbl_choose_ds_spec.setText("Choose Dataset")
             objects = self._app_state.get_datasets()
