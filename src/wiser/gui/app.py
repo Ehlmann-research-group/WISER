@@ -69,6 +69,7 @@ from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
+from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 
@@ -399,7 +400,11 @@ class DataVisualizerApp(QMainWindow):
 
         # Permanent plugins (we keep them as plugins so future users can see how
         # cool plugins are made)
-        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin()), ("PCAPlugin", PCAPlugin())]
+        permanent_plugins = [
+            ("ContinuumRemovalPlugin", ContinuumRemovalPlugin()),
+            ("PCAPlugin", PCAPlugin()),
+            ("SavGolayPlugin", SavGolayPlugin()),
+        ]
         for pc_name, plugin_class in permanent_plugins:
             logger.debug(f'Instantiating plugin class "{pc_name}"')
             if not plugins.utils.is_plugin(plugin_class):

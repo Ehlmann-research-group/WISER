@@ -5,6 +5,7 @@ from PySide2.QtCore import QObject, Signal, Slot
 from PySide2.QtWidgets import QDialog, QMessageBox, QDialogButtonBox
 from scipy.signal import savgol_filter
 
+from wiser import plugins
 from wiser.bandmath.types import VariableType
 from wiser.gui.app_services import AppServices
 from wiser.gui.generated.sav_golay_filter_dialog_ui import Ui_SavGolayFilter
@@ -326,3 +327,51 @@ class SavGolayDialog(QDialog):
             return
 
         super().accept()
+
+
+class SavGolayPlugin(plugins.ContextMenuPlugin):
+    def add_context_menu_items(self, context_type: plugins.ContextMenuType, context_menu, context):
+        if context_type == plugins.ContextMenuType.DATASET_PICK:
+            act = context_menu.addAction(context_menu.tr("Savitzky-Golay Filter"))
+            act.triggered.connect(
+                lambda checked=False: self._show_dialog(context, VariableType.IMAGE_CUBE_DATASET)
+            )
+
+        if context_type == plugins.ContextMenuType.SPECTRUM_PICK:
+            act = context_menu.addAction(context_menu.tr("Savitzky-Golay Filter"))
+            act.triggered.connect(lambda checked=False: self._show_dialog(context, VariableType.SPECTRUM))
+
+    def _show_dialog(self, context: Dict[str, Any], target_type: VariableType) -> None:
+        app_state = context["wiser"]
+        app_services = context.get("app_services")
+        if app_services is None:
+            app = getattr(app_state, "_app", None)
+            app_services = getattr(app, "_app_services", None)
+        if app_services is None:
+            raise RuntimeError("Savitzky-Golay dialog requires app services")
+
+        if target_type == VariableType.SPECTRUM:
+            spectrum = context.get("spectrum")
+            if spectrum is None:
+                raise ValueError("Missing spectrum in Savitzky-Golay spectrum context")
+            target_id = spectrum.get_id()
+            if target_id is None:
+                target_id = app_state.take_next_id()
+                spectrum.set_id(target_id)
+                app_state.get_all_spectra()[target_id] = spectrum
+        else:
+            dataset = context.get("dataset")
+            if dataset is None:
+                raise ValueError("Missing dataset in Savitzky-Golay dataset context")
+            target_id = dataset.get_id()
+            if target_id is None:
+                target_id = app_state.take_next_id()
+                dataset.set_id(target_id)
+
+        dialog = SavGolayDialog(
+            app_state=app_state,
+            app_services=app_services,
+            target_type=target_type,
+            target_id=int(target_id),
+        )
+        dialog.exec_()
