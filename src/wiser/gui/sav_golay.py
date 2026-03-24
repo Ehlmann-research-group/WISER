@@ -152,12 +152,14 @@ class SavGolayDialog(QDialog):
         app_state: "ApplicationState",
         app_services: AppServices,
         target_type: VariableType,
+        target_id: int,
         parent=None,
     ):
         super().__init__(parent=parent)
         self._app_state = app_state
         self._app_services = app_services
         self._target_type = target_type
+        self._target_id = target_id
         self._last_savgol_task = None
 
         self._ui = Ui_SavGolayFilter()
@@ -201,8 +203,11 @@ class SavGolayDialog(QDialog):
         self._ui.cbox_choice.setEnabled(has_choices)
         self._ui.buttonBox.button(QDialogButtonBox.Ok).setEnabled(has_choices)
         if has_choices:
-            self._ui.cbox_choice.setCurrentIndex(0)
-            self._on_selection_changed(0)
+            target_index = self._ui.cbox_choice.findData(self._target_id)
+            if target_index < 0:
+                target_index = 0
+            self._ui.cbox_choice.setCurrentIndex(target_index)
+            self._on_selection_changed(target_index)
         else:
             self._ui.cbox_choice.addItem("<none available>")
 
