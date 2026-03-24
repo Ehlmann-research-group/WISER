@@ -5,7 +5,7 @@ from PySide2.QtCore import QObject
 from wiser.gui.activity_monitor import ActivityMonitorDialog
 from wiser.utils.storage_service import StorageService
 from wiser.utils.task_system import PlanningContext, SimpleChunkingPolicy, TaskManager, TaskPlanner
-from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
+from wiser.utils.work_scheduler import RecordingWorkScheduler, SchedulerConfig, WorkScheduler
 from wiser.utils.worker_runtime import initialize_process_storage_client
 
 if TYPE_CHECKING:
@@ -31,10 +31,12 @@ class AppServices(QObject):
             self._task_manager = TaskManager(activity_monitor)
 
         scheduler_config = SchedulerConfig()
+        # recorder = RecordingWorkScheduler()
         self._scheduler = WorkScheduler(
             config=scheduler_config,
             storage_service=self._storage_service,
             task_manager=self._task_manager,
+            # recorder=recorder,
         )
 
         self._task_planner = TaskPlanner(

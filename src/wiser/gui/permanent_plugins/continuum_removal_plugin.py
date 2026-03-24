@@ -32,6 +32,11 @@ from scipy.interpolate import interp1d
 
 from wiser import plugins, raster
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
+from wiser.utils.primitives import DataRef, DatasetRegionRef, PriorityClass
+from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.task_stage_utils import get_continuum_removal_image_pipeline
+from wiser.utils.task_system import SemanticTask
+from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.dataset import RasterDataSet, SpatialMetadata, SpectralMetadata
@@ -39,6 +44,7 @@ from wiser.raster.dataset import RasterDataSet, SpatialMetadata, SpectralMetadat
 from wiser.gui.generated.continuum_removal_dimensions_bands_ui import Ui_ContinuumRemoval
 
 if TYPE_CHECKING:
+    from wiser.gui.app_services import AppServices
     from wiser.gui.app_state import ApplicationState
 
 
@@ -343,6 +349,184 @@ def continuum_removal_image_numba(
     return results
 
 
+def _continuum_x_axis(dataset: RasterDataSet, min_band: int, max_band: int) -> np.ndarray:
+    band_description = dataset.band_list()
+    if "wavelength_str" in band_description[0]:
+        x_axis = np.array([float(i["wavelength_str"]) for i in band_description])
+    else:
+        assert "index" in band_description[0], "No key named index in return value of dataset.band_list()"
+        x_axis = np.array([float(i["index"]) for i in band_description])
+    return x_axis[min_band:max_band]
+
+
+def _continuum_default_bands(dataset: RasterDataSet, max_band: int):
+    default_bands = dataset.default_display_bands()
+    if default_bands is None:
+        default_bands = [0, 1, 2]
+    if max_band < max(default_bands):
+        default_bands = [0, 1, 2]
+    return default_bands
+
+
+def _apply_continuum_removed_metadata(
+    new_data: RasterDataSet,
+    dataset: RasterDataSet,
+    min_cols: int,
+    min_rows: int,
+    max_cols: int,
+    max_rows: int,
+    min_band: int,
+    max_band: int,
+) -> None:
+    new_data.set_name(f"Continuum Removal on {dataset.get_name()}")
+    new_data.set_description(dataset.get_description())
+    new_data.set_default_display_bands(_continuum_default_bands(dataset, max_band))
+    new_data.set_data_ignore_value(dataset.get_data_ignore_value())
+
+    spatial_metadata = dataset.get_spatial_metadata()
+    if spatial_metadata.get_spatial_ref():
+        new_spatial_metadata = SpatialMetadata.subset_to_window(
+            spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols
+        )
+        new_data.copy_spatial_metadata(new_spatial_metadata)
+
+    if dataset.has_wavelengths():
+        min_band_wvl = dataset.band_list()[min_band]["wavelength"]
+        max_band_wvl = dataset.band_list()[max_band - 1]["wavelength"]
+        source_spectral_metadata = dataset.get_spectral_metadata()
+        new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(
+            source_spectral_metadata, min_band_wvl, max_band_wvl
+        )
+        new_data.copy_spectral_metadata(new_spectral_metadata)
+
+
+def _compute_continuum_removal_image_direct(
+    dataset: RasterDataSet,
+    min_cols: int,
+    min_rows: int,
+    max_cols: int,
+    max_rows: int,
+    min_band: int,
+    max_band: int,
+    app_state: "ApplicationState",
+) -> RasterDataSet:
+    dband = max_band - min_band
+    dcols = max_cols - min_cols
+    drows = max_rows - min_rows
+    image_data = dataset.get_image_data_subset(min_cols, min_rows, min_band, dcols, drows, dband)
+    x_axis = _continuum_x_axis(dataset, min_band, max_band)
+
+    cols = np.int32(max_cols - min_cols)
+    rows = np.int32(max_rows - min_rows)
+    bands = np.int32(max_band - min_band)
+    image_data, x_axis = convert_to_float32_if_needed(image_data, x_axis)
+    image_data = image_data.transpose(1, 2, 0)
+    if not image_data.flags.c_contiguous:
+        image_data = np.ascontiguousarray(image_data)
+    if isinstance(image_data, np.ma.MaskedArray):
+        mask = image_data.mask
+        image_data = image_data.data
+        image_data[mask] = np.nan
+    if image_data.dtype != np.float32:
+        image_data = image_data.astype(np.float32)
+    if dataset.get_bad_bands() is not None:
+        bad_bands_arr = np.array(dataset.get_bad_bands())
+        bad_bands_arr = np.logical_not(bad_bands_arr)
+    else:
+        bad_bands_arr = np.array([0] * dataset.num_bands(), dtype=np.bool_)
+    bad_bands_arr = bad_bands_arr[min_band:max_band]
+    new_image_data = continuum_removal_image_numba(image_data, bad_bands_arr, x_axis, rows, cols, bands)
+
+    raster_data = raster.RasterDataLoader()
+    new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
+    _apply_continuum_removed_metadata(
+        new_data, dataset, min_cols, min_rows, max_cols, max_rows, min_band, max_band
+    )
+    return new_data
+
+
+class ContinuumRemovalImageTask(QObject, SemanticTask):
+    result_ready = Signal(object)
+
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        source_dataset: RasterDataSet,
+        input_ref: DataRef,
+        min_cols: int,
+        min_rows: int,
+        max_cols: int,
+        max_rows: int,
+        min_band: int,
+        max_band: int,
+        output_ref_name: str = "continuum_removed_image",
+    ):
+        QObject.__init__(self)
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=input_ref,
+            algorithm_pipeline=get_continuum_removal_image_pipeline(
+                dataset_ref=input_ref,
+                min_cols=min_cols,
+                min_rows=min_rows,
+                max_cols=max_cols,
+                max_rows=max_rows,
+                min_band=min_band,
+                max_band=max_band,
+                output_ref_name=output_ref_name,
+            ),
+            task_title="Continuum Removal",
+            task_variables={
+                "Dataset": source_dataset.get_name(),
+                "Rows": f"{min_rows}:{max_rows}",
+                "Cols": f"{min_cols}:{max_cols}",
+                "Bands": f"{min_band}:{max_band}",
+            },
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._source_dataset = source_dataset
+        self._min_cols = min_cols
+        self._min_rows = min_rows
+        self._max_cols = max_cols
+        self._max_rows = max_rows
+        self._min_band = min_band
+        self._max_band = max_band
+        self._output_ref_name = output_ref_name
+        self.result_ready.connect(self._load_result_into_wiser)
+
+    def completion_callback(self, bindings: dict[str, DataRef]) -> None:
+        output_ref = bindings.get(self._output_ref_name)
+        if output_ref is None:
+            raise KeyError(f"Missing continuum removal output binding: {self._output_ref_name}")
+
+        storage_client = get_process_storage_client()
+        data_meta = storage_client.get_meta(output_ref)
+        height, width, bands = data_meta.shape
+        output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
+        reduced_data, _ = storage_client.read_region(output_ref, output_region, filter_data=False)
+        self.result_ready.emit(np.asarray(reduced_data))
+
+    @Slot(object)
+    def _load_result_into_wiser(self, reduced_data: object) -> None:
+        reduced_array = np.asarray(reduced_data).transpose(2, 0, 1)
+        loader = self._app_state.get_loader()
+        cache = self._app_state.get_cache()
+        reduced_dataset = loader.dataset_from_numpy_array(reduced_array, cache)
+        _apply_continuum_removed_metadata(
+            reduced_dataset,
+            self._source_dataset,
+            self._min_cols,
+            self._min_rows,
+            self._max_cols,
+            self._max_rows,
+            self._min_band,
+            self._max_band,
+        )
+        self._app_state.add_dataset(reduced_dataset)
+
+
 class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     """
     A Class to represents the continuum removal plugin. Can do continuum removal on a single spectrum
@@ -608,7 +792,17 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         for spectrum in collectedSpectra:
             collected_cr.append(self.plot_continuum_removal(spectrum, context))
 
-    def image(self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context):
+    def image(
+        self,
+        min_cols,
+        min_rows,
+        max_cols,
+        max_rows,
+        min_band,
+        max_band,
+        context,
+        in_test_mode: bool = False,
+    ):
         """Displays on WISER the continuum removed spectra of an image or a subset of the image
 
         Parameters
@@ -628,84 +822,35 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         context: dict
             Available WISER classes
         """
-
         app_state: ApplicationState = context["wiser"]
         dataset: RasterDataSet = context["dataset"]
-        dband = max_band - min_band
-        dcols = max_cols - min_cols
-        drows = max_rows - min_rows
-        image_data = dataset.get_image_data_subset(
-            min_cols, min_rows, min_band, dcols, drows, dband
-        )  # [b][rows=y=height][cols=x=width]
-        has_wavelengths = dataset.has_wavelengths()
-        # A numpy array such that the pixel (x, y) values (spectrum value)
-        # of band b are at element array[b][y][x]
-        filename = dataset.get_name()
-        description = dataset.get_description()
-        band_description = dataset.band_list()
-        if "wavelength_str" in band_description[0]:
-            x_axis = np.array([float(i["wavelength_str"]) for i in band_description])
-        else:
-            assert "index" in band_description[0], "No key named index in return value of dataset.band_list()"
-            x_axis = np.array([float(i["index"]) for i in band_description])
-        x_axis = x_axis[min_band:max_band]
-        default_bands = dataset.default_display_bands()
-        if default_bands is None:
-            default_bands = [0, 1, 2]
+        app_services: "AppServices" = context.get("app_services")
 
-        max_default = max(default_bands)
+        if app_services is None:
+            app = getattr(app_state, "_app", None)
+            app_services = getattr(app, "_app_services", None)
 
-        if max_band < max_default:
-            default_bands = [0, 1, 2]
-
-        # Get all of the metadata information we need to perform continuum removal
-        cols = np.int32(max_cols - min_cols)
-        rows = np.int32(max_rows - min_rows)
-        bands = np.int32(max_band - min_band)
-        image_data, x_axis = convert_to_float32_if_needed(image_data, x_axis)
-        image_data: np.ndarray = image_data.transpose(1, 2, 0)  # Changes to [rows=y=height][cols=x=width][b]
-        if not image_data.flags.c_contiguous:
-            image_data = np.ascontiguousarray(image_data)
-        if isinstance(image_data, np.ma.MaskedArray):
-            mask = image_data.mask
-            image_data = image_data.data
-            image_data[mask] = np.nan
-        if image_data.dtype != np.float32:
-            image_data = image_data.astype(np.float32)
-        if dataset.get_bad_bands() is not None:
-            bad_bands_arr = np.array(dataset.get_bad_bands())
-            bad_bands_arr = np.logical_not(bad_bands_arr)
-        else:
-            bad_bands_arr = np.array([0] * dataset.num_bands(), dtype=np.bool_)
-        bad_bands_arr = bad_bands_arr[min_band:max_band]
-        new_image_data = continuum_removal_image_numba(image_data, bad_bands_arr, x_axis, rows, cols, bands)
-
-        # Make the new continuum removed np array into a dataset
-        raster_data = raster.RasterDataLoader()
-        new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
-        new_data.set_name(f"Continuum Removal on {filename}")
-        new_data.set_description(description)
-        new_data.set_default_display_bands(default_bands)
-
-        # Copy the metadata over
-        spatial_metadata = dataset.get_spatial_metadata()
-        if spatial_metadata.get_spatial_ref():
-            new_spatial_metadata = SpatialMetadata.subset_to_window(
-                spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols
+        if app_services is None or in_test_mode:
+            new_data = _compute_continuum_removal_image_direct(
+                dataset, min_cols, min_rows, max_cols, max_rows, min_band, max_band, app_state
             )
-            new_data.copy_spatial_metadata(new_spatial_metadata)
+            context["wiser"].add_dataset(new_data)
+            return new_data
 
-        if has_wavelengths:
-            min_band_wvl = dataset.band_list()[min_band]["wavelength"]
-            # We have to do -1 here because calling this function, max_band was
-            # increased by 1 to include the max band (since getting band data is exclusive)
-            max_band_wvl = dataset.band_list()[max_band - 1]["wavelength"]
-            source_spectral_metadata = dataset.get_spectral_metadata()
-            new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(
-                source_spectral_metadata, min_band_wvl, max_band_wvl
-            )
-            new_data.copy_spectral_metadata(new_spectral_metadata)
-
-        # Add the dataset to WISER
-        context["wiser"].add_dataset(new_data)
-        return new_data
+        dataset_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=dataset)
+        )
+        cr_task = ContinuumRemovalImageTask(
+            app_state=app_state,
+            source_dataset=dataset,
+            input_ref=dataset_ref,
+            min_cols=min_cols,
+            min_rows=min_rows,
+            max_cols=max_cols,
+            max_rows=max_rows,
+            min_band=min_band,
+            max_band=max_band,
+        )
+        self._last_continuum_removal_task = cr_task
+        task_plan = app_services.task_planner.plan_semantic_task(cr_task)
+        return app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)

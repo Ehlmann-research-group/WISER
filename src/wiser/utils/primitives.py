@@ -58,6 +58,8 @@ ExternalParamsDriver = Literal[
 if TYPE_CHECKING:
     from wiser.utils.task_system import BasePlanMeta
 
+DEFAULT_FLOAT_TYPE = np.float64
+
 
 def temp_dir() -> Path:
     return Path(tempfile.gettempdir()) / "wiser"
@@ -68,7 +70,7 @@ class BasePlanMeta:
     """Minimal, cheap-to-compute planning metadata needed to chunk data"""
 
     kind: InputKind
-    dtype: np.dtype = np.dtype("float32")
+    dtype: np.dtype = np.dtype(DEFAULT_FLOAT_TYPE)
 
     @property
     def dtype_bytes(self) -> int:
@@ -185,7 +187,7 @@ class DataMeta:
     wavelengths: Optional[np.ndarray] = None
     wavelength_units: Optional[u.Unit] = None
     nodata: Optional[float | int] = None
-    bad_bands: Optional[np.ndarray] = None
+    bad_bands: Optional[np.ndarray] = None  # 0's are bad bands, 1's are good bands
     crs_wkt: Optional[str] = None
     geotransform: Optional[Tuple[float, ...]] = None
 

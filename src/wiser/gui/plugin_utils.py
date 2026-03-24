@@ -38,6 +38,8 @@ def add_plugin_context_menu_items(
             # mutate the context without affecting each other.
             context = kwargs.copy()
             context["wiser"] = app_state
+            app = getattr(app_state, "_app", None)
+            context["app_services"] = getattr(app, "_app_services", None)
 
             try:
                 # Call the plugin!
