@@ -166,6 +166,7 @@ class SavGolayDialog(QDialog):
         self._ui.setupUi(self)
 
         self._ui.sbox_window_len.setMinimum(1)
+        self._ui.sbox_window_len.setSingleStep(2)
         self._ui.sbox_poly_order.setMinimum(1)
         self._ui.cbox_choice.currentIndexChanged.connect(self._on_selection_changed)
         self._ui.sbox_window_len.valueChanged.connect(self._on_window_length_changed)
