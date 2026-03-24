@@ -1590,6 +1590,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
         # Initialize widget's internal state
 
         self._app = app
+        self._app_services = app._app_services
 
         # What dataset are we showing spectra from on new mouse-clicks?
         self._dataset: "RasterDataSet" = None
@@ -1682,7 +1683,12 @@ class SpectrumPlot(SpectrumPlotGeneric):
         act.triggered.connect(self._on_export_plot_to_image)
 
         # Add plugin menu items
-        add_plugin_context_menu_items(self._app_state, plugins.ContextMenuType.SPECTRUM_PLOT, menu)
+        add_plugin_context_menu_items(
+            self._app_state,
+            self._app_services,
+            plugins.ContextMenuType.SPECTRUM_PLOT,
+            menu,
+        )
 
         if self._click is not None:
             menu.addSeparator()
@@ -1914,6 +1920,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             # Add plugin menu items
             add_plugin_context_menu_items(
                 self._app_state,
+                self._app_services,
                 plugins.ContextMenuType.SPECTRUM_PICK,
                 menu,
                 spectrum=treeitem.data(0, Qt.UserRole),
@@ -1982,6 +1989,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             # Add plugin menu items
             add_plugin_context_menu_items(
                 self._app_state,
+                self._app_services,
                 plugins.ContextMenuType.SPECTRUM_PICK,
                 menu,
                 spectrum=spectrum,

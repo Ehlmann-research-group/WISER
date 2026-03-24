@@ -52,7 +52,6 @@ class MainViewWidget(RasterPane):
             zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1,
         )
-
         self._stretch_builder = StretchBuilderDialog(parent=self, app_state=app_state)
         self._export_image = ExportImageDialog(parent=self)
         self._link_view_scrolling = False
@@ -211,6 +210,7 @@ class MainViewWidget(RasterPane):
         # Plugin context-menus
         add_plugin_context_menu_items(
             self._app_state,
+            self._app_services,
             plugins.ContextMenuType.RASTER_VIEW,
             menu,
             dataset=rasterview.get_raster_data(),
@@ -387,8 +387,7 @@ class MainViewWidget(RasterPane):
     def _open_mnf_dialog(self, rasterview):
         dataset = rasterview.get_raster_data()
         dataset_id = None if dataset is None else dataset.get_id()
-        parent = self.parent()
-        app_services = parent._app_services if parent is not None else None
+        app_services = self._app_services
         dlg = MinimumNoiseFractionDialog(self._app_state, app_services, parent=self)
         dlg.select_dataset(dataset_id)
         if dlg.exec_() == QDialog.Accepted:
