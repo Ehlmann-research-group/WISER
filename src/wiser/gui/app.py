@@ -113,6 +113,10 @@ class DataVisualizerApp(QMainWindow):
             parent=self,
         )
 
+        # App Services
+
+        self._app_services: AppServices = AppServices(self._activity_monitor, parent=self)
+
         # Application Toolbars
 
         self._init_menus()
@@ -208,10 +212,6 @@ class DataVisualizerApp(QMainWindow):
             area=Qt.LeftDockWidgetArea,
         )
         dockable.hide()
-
-        # App Services
-
-        self._app_services: AppServices = AppServices(self._activity_monitor, parent=self)
 
         # Hook up widget events to their corresponding control functions.
 

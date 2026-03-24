@@ -14,7 +14,6 @@ from wiser.utils.primitives import DataMeta, DataRef, DatasetRegionRef, Priority
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.task_stage_utils import (
     get_good_band_runs,
-    get_longest_good_band_run_length,
     get_savgol_filter_pipeline,
 )
 from wiser.utils.task_system import SemanticTask
