@@ -66,7 +66,6 @@ class TaskStage:
     resource_model: ResourceModel
     chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
     work_unit_dependency: WorkUnitDependency = "independent"
-    fn_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     # Where this stage reads from. It is a key in the task plan's table
     # __task_input__ is the first input to the semantic task
@@ -339,7 +338,6 @@ class SimpleChunkingPolicy:
             assert isinstance(
                 meta, DatasetPlanMeta
             ), f"The argument meta should be of type DatasetPlanMeta, instead it's of type {type(meta)}"
-            # tile_h/tile_w = 1/3 of height/width
             tile_h = max(1, int(meta.height // 3))  # type: ignore[attr-defined]
             tile_w = max(1, int(meta.width // 3))  # type: ignore[attr-defined]
             return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
