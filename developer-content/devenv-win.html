@@ -352,7 +352,7 @@
                   
   <section id="developing-and-building-wiser-on-windows-10">
 <h1>Developing and Building WISER on Windows 10<a class="headerlink" href="#developing-and-building-wiser-on-windows-10" title="Link to this heading">#</a></h1>
-<p>You will need conda and python installed. You will need to do <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code> and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. I suggest you do this inside of a conda-environment. You will also need to have <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have all of this installed you are ready to go into the /etc folder and run the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
+<p>You will need conda and python installed. You will need to do <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code> and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. I suggest you do this inside of a conda-environment. You will also need to have <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have all of this installed you are ready to go into the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder and run the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
 <section id="how-to-install-conda">
 <h2>How to Install Conda<a class="headerlink" href="#how-to-install-conda" title="Link to this heading">#</a></h2>
 <p><a class="reference external" href="https://www.anaconda.com/">Anaconda</a> is a widely used Python package
@@ -380,6 +380,9 @@ needs to be downloaded and installed so that the <code class="docutils literal n
 <li><p>Open an Anaconda terminal window.</p>
 <p>Start -&gt; “Anaconda3 (64-bit)” -&gt; “Anaconda Prompt (Miniconda3)”</p>
 </li>
+<li><p>Ensure you are in the <em>wiser-prod</em> conda environment. You first make this environment
+my going to the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder and typing <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span></code>. Then do
+<code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">activate</span> <span class="pre">wiser-prod</span></code>.</p></li>
 <li><p>Figure out how to run <code class="docutils literal notranslate"><span class="pre">make</span></code> from the Anaconda terminal.</p>
 <p>I use GNU Make, so I run it like this:</p>
 <p><code class="docutils literal notranslate"><span class="pre">c:\Program</span> <span class="pre">Files</span> <span class="pre">(x86)\GnuWin32\bin\make.exe</span></code></p>

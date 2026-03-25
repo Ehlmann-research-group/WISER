@@ -369,7 +369,14 @@ simple and reliable tool for this kind of work.</p>
 <span class="o">./</span><span class="n">wiser</span> <span class="p">[</span><span class="n">file1</span> <span class="n">file2</span> <span class="o">...</span><span class="p">]</span>
 </pre></div>
 </div>
-<p>To build a distributable <code class="docutils literal notranslate"><span class="pre">.dmg</span></code> file, go back to the top level directory of the
+<p>To build a distributable <code class="docutils literal notranslate"><span class="pre">.dmg</span></code> file, first make sure you are in the wiser-prod
+conda environment. You create this environment by going into the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder
+and typing either <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span> <span class="pre">ENV=intel</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span> <span class="pre">ENV=arm</span></code> (depending on your CPU architecture).</p>
+<p>Then you will activate the conda environment
+by doing either <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">activate</span> <span class="pre">wiser-prod-arm</span></code>
+(MacOS ARM), or <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">activate</span> <span class="pre">wiser-prod-intel</span></code> (MacOS Intel).</p>
+<p>Then, go back to the top level directory of the
 WISER project, and build this <code class="docutils literal notranslate"><span class="pre">make</span></code> target:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">dist</span><span class="o">-</span><span class="n">mac</span>
 </pre></div>
