@@ -53,7 +53,7 @@ from .storage_layer import ExternalHandle
 logger = logging.getLogger(__name__)
 
 
-def shared_mem_exists(self, shared_mem_name: str) -> bool:
+def shared_mem_exists(shared_mem_name: str) -> bool:
     try:
         shm = SharedMemory(name=shared_mem_name, create=False)
     except FileNotFoundError:

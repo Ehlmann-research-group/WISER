@@ -1234,6 +1234,8 @@ class WorkScheduler:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                     else:
                         completion_callback = plan_state.task_plan.completion_callback
+                        # We call the completion callback BEFORE we delete outputs in
+                        # self._finalize_plan_outputs
                         if completion_callback is not None:
                             completion_callback(plan_state.task_plan.bindings)
                         self._finalize_plan_outputs(plan_state, success=True)
