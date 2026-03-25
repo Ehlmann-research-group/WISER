@@ -23,3 +23,7 @@ adding to WISER.
     developer-content/branching-strategy.md
 
     developer-content/testing-standards.md
+
+    developer-content/system-design/task_system.md
+
+    developer-content/system-design/storage_memory_management.md
