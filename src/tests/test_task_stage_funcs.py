@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from multiprocessing.shared_memory import SharedMemory
 from unittest.mock import patch
 
 import numpy as np
@@ -38,11 +39,14 @@ from wiser.utils.primitives import (
     AllocationRequest,
     DataBinding,
     DataMeta,
+    DeletionState,
+    DeletePolicy,
     NoChunkingScheme,
     PriorityClass,
     SpectraListPlanMeta,
 )
 from wiser.utils.storage_client import StorageClient
+from wiser.utils.storage_service import shared_mem_exists
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.utils.task_system import (
@@ -65,6 +69,23 @@ class TestTaskStageFuncs(unittest.TestCase):
     def tearDown(self):
         self.test_model.close_app()
         del self.test_model
+
+    def _keep_outputs(self, stage, *output_names: str) -> None:
+        for output_name in output_names:
+            stage.set_output_delete_policy(output_name, DeletePolicy.KEEP)
+
+    def _keep_adaptive_pca_outputs(self, stage, *, keep_resolved: bool = False) -> None:
+        self._keep_outputs(
+            stage,
+            stage._output_ref_name,
+            stage._vectors_ref_name,
+            stage._values_ref_name,
+            stage._mean_ref_name,
+            stage._covariance_ref_name,
+            stage._good_band_mask_ref_name,
+        )
+        if keep_resolved:
+            self._keep_outputs(stage, stage._resolved_num_components_ref_name)
 
     def test_get_good_band_runs_handles_edge_cases(self) -> None:
         self.assertEqual(
@@ -159,6 +180,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             output_ref_name = "spectral_mean"
             stage = get_spectral_mean_stage(input_ref, output_ref_name)
+            self._keep_outputs(stage, output_ref_name)
 
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -211,6 +233,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             )
 
             stage = get_spectral_mean_stage(input_ref, "spectral_mean")
+            self._keep_outputs(stage, "_internal_total")
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=input_ref,
@@ -259,6 +282,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             output_ref_name = "spectral_mean_filtered"
             stage = get_spectral_mean_stage(input_ref, output_ref_name)
+            self._keep_outputs(stage, output_ref_name)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=input_ref,
@@ -320,6 +344,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 ),
                 broadcast_input={"total": 4},
             )
+            self._keep_outputs(stage, "spectral_mean_with_total_ref")
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=input_ref,
@@ -394,6 +419,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             output_ref_name = "noise_covariance"
             noise_cov_pipeline = get_noise_covariance_pipeline(input_ref, output_ref_name)
+            noise_cov_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
 
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -460,6 +486,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 input_plan_meta=mean_stage.input_plan_meta,
                 broadcast_input={"mean": DataBinding(mean_output_ref_name)},
             )
+            self._keep_outputs(cov_stage, cov_output_ref_name)
 
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -523,6 +550,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 input_plan_meta=mean_stage.input_plan_meta,
                 broadcast_input={"mean": DataBinding("cov_total_mean")},
             )
+            self._keep_outputs(cov_stage, "cov_total_ref")
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=input_ref,
@@ -590,6 +618,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                     "total": DataBinding("shared_total_ref"),
                 },
             )
+            self._keep_outputs(cov_stage, "cov_reuse_total_ref")
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=input_ref,
@@ -641,6 +670,12 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             output_ref_name = "eigen_descriptor"
             eigen_pipeline = get_eigendecomposition_pipeline(input_ref, output_ref_name)
+            self._keep_outputs(
+                eigen_pipeline.stages[-1],
+                output_ref_name,
+                f"{output_ref_name}_vectors",
+                f"{output_ref_name}_values",
+            )
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=input_ref,
@@ -738,6 +773,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             output_ref_name = "whitening_matrix"
             stage = get_whitening_matrix_stage(descriptor_ref, output_ref_name)
+            self._keep_outputs(stage, output_ref_name)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=descriptor_ref,
@@ -822,6 +858,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 whitening_matrix_ref,
                 output_ref_name,
             )
+            self._keep_outputs(stage, output_ref_name)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -927,6 +964,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 right_multiply_matrices=(right_matrix_ref,),
                 output_ref_name=output_ref_name,
             )
+            self._keep_outputs(stage, output_ref_name)
 
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -1009,6 +1047,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             output_ref_name = "matrix_chain_product"
             stage = get_matrix_multiplication_stage(matrix_refs, output_ref_name)
+            self._keep_outputs(stage, output_ref_name)
             self.assertIs(stage.chunking_scheme_type, NoChunkingScheme)
 
             task = SemanticTask(
@@ -1162,6 +1201,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=2,
                 output_ref_name=output_ref_name,
             )
+            self._keep_outputs(stage, output_ref_name)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -1309,6 +1349,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                     scratch_bytes_per_scalar_in=0,
                 ),
             )
+            self._keep_outputs(stage, "project_bad_bands_output")
 
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -1376,6 +1417,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=2,
                 output_ref_name=output_ref_name,
             )
+            self._keep_adaptive_pca_outputs(stage)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -1418,6 +1460,73 @@ class TestTaskStageFuncs(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_adaptive_pca_stage_default_outputs_are_reclaimed(self) -> None:
+        app_services = AppServices()
+        try:
+            process_storage_client = get_process_storage_client()
+            rng = np.random.default_rng(7)
+            dataset = rng.standard_normal((4, 4, 3), dtype=np.float32)
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="ipca_reclaim_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            process_storage_client.write_data(dataset_ref, dataset)
+
+            output_ref_name = "ipca_reclaim_descriptor"
+            stage = get_adaptive_pca_partial_fit_stage(
+                dataset_ref=dataset_ref,
+                num_components=3,
+                output_ref_name=output_ref_name,
+            )
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1014
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+
+            output_names = [
+                stage._output_ref_name,
+                stage._vectors_ref_name,
+                stage._values_ref_name,
+                stage._mean_ref_name,
+                stage._covariance_ref_name,
+                stage._good_band_mask_ref_name,
+            ]
+            planned_outputs = {name: task_plan.bindings[name] for name in output_names}
+            shared_mem_names = {
+                ref.ref_id: app_services.storage_service._shared_mem_handles_names.get(ref.uri)
+                for ref in planned_outputs.values()
+                if ref.materialization_loc == "ram" and ref.kind != "json"
+            }
+
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            for name, ref in planned_outputs.items():
+                record = app_services.storage_service.get_lease_record(ref.ref_id)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertNotIn(ref.ref_id, app_services.storage_service.data_refs)
+                self.assertNotIn(ref.ref_id, app_services.storage_service.meta_by_ref)
+                self.assertNotIn(ref.uri, app_services.storage_service.ram_objects)
+                self.assertNotIn(ref.uri, app_services.storage_service.ram_est_bytes)
+
+                shared_mem_name = shared_mem_names.get(ref.ref_id)
+                # Output ref name is the only name that's not saved as a SharedMemoryAray
+                if name is not output_ref_name:
+                    self.assertFalse(shared_mem_exists(shared_mem_name))
+        finally:
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_adaptive_pca_stage_resolves_num_components_in_pre_task_when_unset(self) -> None:
         app_services = AppServices()
         storage_client = None
@@ -1454,6 +1563,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=None,
                 output_ref_name="ipca_resolve_descriptor",
             )
+            self._keep_adaptive_pca_outputs(stage, keep_resolved=True)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -1506,6 +1616,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=3,
                 output_ref_name=ipca_output_name,
             )
+            self._keep_adaptive_pca_outputs(ipca_stage)
             ipca_task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -1546,6 +1657,12 @@ class TestTaskStageFuncs(unittest.TestCase):
                     bytes_per_scalar_out=1,
                     scratch_bytes_per_scalar_in=0,
                 ),
+            )
+            self._keep_outputs(
+                eig_stage,
+                eig_output_name,
+                f"{eig_output_name}_vectors",
+                f"{eig_output_name}_values",
             )
             eig_task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -1617,6 +1734,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=4,
                 output_ref_name=full_output_name,
             )
+            self._keep_adaptive_pca_outputs(full_stage)
             full_stage.test_full_pca = True
             full_task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -1634,6 +1752,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=4,
                 output_ref_name=incremental_output_name,
             )
+            self._keep_adaptive_pca_outputs(incremental_stage)
             incremental_stage.test_full_pca = False
             incremental_task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -1723,6 +1842,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 num_components=4,
                 output_ref_name=output_ref_name,
             )
+            self._keep_adaptive_pca_outputs(stage)
             stage.test_full_pca = True
 
             task = SemanticTask(

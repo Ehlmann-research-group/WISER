@@ -6,6 +6,7 @@ from collections import Counter, deque
 from threading import Lock, Semaphore
 from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
+from multiprocessing.managers import dispatch
 
 from .primitives import PriorityClass
 from .task_system import TaskPlan, WorkUnit
@@ -577,6 +578,14 @@ def _normalize_explicit_priority_tokens(
     return normalized_tokens
 
 
+def list_tracked_segments(smm):
+    conn = smm._Client(smm._address, authkey=smm._authkey)
+    try:
+        return dispatch(conn, None, "list_segments")
+    finally:
+        conn.close()
+
+
 class WorkScheduler:
     def __init__(
         self,
@@ -600,6 +609,7 @@ class WorkScheduler:
             raise ValueError(f"WorkScheduler requires thread budget >= 3, got {self._thread_budget}")
         if storage_service is None:
             raise ValueError("WorkScheduler requires a storage_service")
+        self._storage_service = storage_service
 
         service_address, service_authkey = storage_service.get_connection_bootstrap()
 
@@ -738,6 +748,8 @@ class WorkScheduler:
         with self._state_lock:
             self._purge_plan_from_queues_locked(plan_id)
             plan_state = self._plan_states.pop(plan_id, None)
+            if plan_state is not None:
+                self._finalize_plan_outputs(plan_state, success=False, aborted=True)
             if plan_state is not None and not plan_state.completion_future.done():
                 plan_state.completion_future.cancel()
             self._drain_queues_locked()
@@ -1180,6 +1192,7 @@ class WorkScheduler:
                             f"to work unit {unit_id}: {exc}\n\n"
                             f"Traceback:\n{exc.__traceback__}"
                         )
+                        self._finalize_plan_outputs(plan_state, success=False)
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
@@ -1215,13 +1228,17 @@ class WorkScheduler:
                             f"TaskPlan {plan_id} completed with failures; "
                             f"first failure unit={first_unit_id}: {first_exc}"
                         )
+                        self._finalize_plan_outputs(plan_state, success=False)
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                     else:
                         completion_callback = plan_state.task_plan.completion_callback
+                        # We call the completion callback BEFORE we delete outputs in
+                        # self._finalize_plan_outputs
                         if completion_callback is not None:
                             completion_callback(plan_state.task_plan.bindings)
+                        self._finalize_plan_outputs(plan_state, success=True)
                         if self._task_manager is not None:
                             self._task_manager.task_finished.emit(plan_id)
                         plan_state.completion_future.set_result(None)
@@ -1240,6 +1257,29 @@ class WorkScheduler:
             # _on_unit_done can enqueue more work under lock; flush registrations
             # now so newly submitted futures get callbacks attached lock-free.
             self._flush_pending_done_callbacks()
+
+    def _finalize_plan_outputs(
+        self,
+        plan_state: PlanExecutionState,
+        *,
+        success: bool,
+        aborted: bool = False,
+    ) -> None:
+        """
+        Move plan-produced refs into a terminal producer state and release the plan's
+        own planned-consumer hold on them.
+        """
+
+        if success:
+            producer_update = self._storage_service.mark_producer_completed
+        elif aborted:
+            producer_update = self._storage_service.mark_producer_aborted
+        else:
+            producer_update = self._storage_service.mark_producer_failed
+
+        for ref_id in plan_state.task_plan.produced_ref_ids:
+            producer_update(ref_id)
+            self._storage_service.release_plan_consumer(ref_id, plan_state.task_plan.plan_id)
 
     def _flush_pending_done_callbacks(self) -> None:
         """

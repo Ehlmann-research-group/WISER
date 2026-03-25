@@ -8,7 +8,7 @@ from pathlib import Path
 import secrets
 import threading
 import traceback
-from typing import Any, Callable, Dict, Literal, Optional, Tuple
+from typing import Any, Callable, Dict, Literal, Optional, Tuple, Union
 import json
 import logging
 import uuid
@@ -33,13 +33,17 @@ from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from .primitives import (
     AllocationRequest,
     DataMeta,
+    DeletePolicy,
+    DeletionState,
     ExternalParams,
     DataRef,
     DataRegion,
     DatasetRegionRef,
     DiskFormat,
+    ProducerState,
     RefKind,
     RegionMeta,
+    StorageLeaseRecord,
     SpectraBatchRef,
     SpectrumRef,
     temp_dir,
@@ -47,6 +51,18 @@ from .primitives import (
 from .storage_layer import ExternalHandle
 
 logger = logging.getLogger(__name__)
+
+
+def shared_mem_exists(shared_mem_name: str) -> bool:
+    try:
+        shm = SharedMemory(name=shared_mem_name, create=False)
+    except FileNotFoundError:
+        return False
+
+    try:
+        return True
+    finally:
+        shm.close()
 
 
 def _safe_np_dtype(value: Any) -> np.dtype:
@@ -126,6 +142,14 @@ class SharedMemArrayDescriptor:
 
 @dataclass
 class StorageService:
+    """
+    Central authority for storage-backed data and its service-side lifetime state.
+
+    `DataRef` identifies how data is accessed. `StorageLeaseRecord` tracks whether
+    an internally managed backing object is still live, pending deletion, or has
+    already been reclaimed.
+    """
+
     root_dir: Path = temp_dir()
     listener_host: str = "127.0.0.1"
     ram_byte_limit: Optional[int] = None
@@ -136,7 +160,15 @@ class StorageService:
     ram_est_bytes: Dict[str, int] = field(default_factory=dict)
     meta_by_ref: Dict[str, DataMeta] = field(default_factory=dict)
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
+    lease_records: Dict[str, StorageLeaseRecord] = field(default_factory=dict)
+    # Keep one service-owned handle open per live shared-memory allocation.
+    # This is intentional: on Windows a named mapping disappears once the last
+    # handle closes, so workers/clients can attach transiently while the service
+    # retains the owning handle until explicit deletion.
     _shared_mem_handles: Dict[str, SharedMemory] = field(default_factory=dict, init=False, repr=False)
+    # Historical mapping for debugging: once a RAM ref has been backed by a named
+    # shared-memory segment, keep the name here even after the live handle is gone.
+    _shared_mem_handles_names: Dict[str, str] = field(default_factory=dict, init=False, repr=False)
     _shared_memory_manager: SharedMemoryManager = field(init=False, repr=False)
     _listener: Optional[Listener] = field(default=None, init=False, repr=False)
     _listener_address: Optional[Tuple[str, int]] = field(default=None, init=False)
@@ -192,6 +224,7 @@ class StorageService:
         self._shared_mem_handles.clear()
         self.ram_objects.clear()
         self.ram_est_bytes.clear()
+        self.lease_records.clear()
         try:
             self._shared_memory_manager.shutdown()
         except Exception:
@@ -215,6 +248,20 @@ class StorageService:
 
     def get_connection_bootstrap(self) -> tuple[Tuple[str, int], bytes]:
         return self.listener_address, self.listener_authkey
+
+    def get_shared_mem_name_for_ref(self, ref_id: str) -> Optional[str]:
+        """
+        Return the named shared-memory segment historically associated with `ref_id`.
+
+        This is intentionally debug-oriented: the returned name may outlive the
+        live service-owned handle so callers can probe whether the OS-level segment
+        still exists after normal service bookkeeping has released it.
+        """
+
+        ref = self.data_refs.get(ref_id)
+        if ref is None:
+            return None
+        return self._shared_mem_handles_names.get(ref.uri)
 
     def _start_listener(self) -> None:
         self._listener = Listener((self.listener_host, 0), authkey=self._listener_authkey)
@@ -477,10 +524,13 @@ class StorageService:
         *,
         preferred_storage: Optional[DiskFormat] = None,
         ttl_seconds: Optional[int] = None,
+        owner_plan_id: Optional[str] = None,
+        planned_consumer_plan_ids: Optional[set[str]] = None,
     ) -> DataRef:
         _ = ttl_seconds
         ref_id = self._new_ref_id()
         kind: RefKind = desc.kind
+        effective_delete_policy = desc.delete_policy if desc.delete_policy is not None else DeletePolicy.KEEP
 
         can_allocate_shared = desc.kind != "json" and desc.shape is not None and desc.dtype is not None
         want_ram = desc.residency == "ram_cacheable"
@@ -501,6 +551,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
+            self._create_lease_record(
+                ref,
+                backend_kind="json",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -531,6 +588,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
+            self._create_lease_record(
+                ref,
+                backend_kind="ram_shm",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -556,6 +620,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
+            self._create_lease_record(
+                ref,
+                backend_kind="json",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -593,6 +664,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
+            self._create_lease_record(
+                ref,
+                backend_kind="memmap",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             return ref
 
         if disk_kind == "zarr":
@@ -624,6 +702,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
+            self._create_lease_record(
+                ref,
+                backend_kind="zarr",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -814,6 +899,73 @@ class StorageService:
         self.meta_by_ref[canonical.ref_id] = updated
         return updated
 
+    def get_lease_record(self, ref: Union[DataRef, str]) -> StorageLeaseRecord:
+        """Return the service-owned lifetime record for an internally managed ref."""
+
+        ref_id = ref if isinstance(ref, str) else self.read_data_ref(ref).ref_id
+        if ref_id not in self.lease_records:
+            raise KeyError(f"No storage lease record for ref_id={ref_id}")
+        return self.lease_records[ref_id]
+
+    def set_delete_policy(self, ref: Union[DataRef, str], policy: DeletePolicy) -> StorageLeaseRecord:
+        """Update retention policy and immediately re-evaluate reclaimability."""
+
+        ref_id = ref if isinstance(ref, str) else self.read_data_ref(ref).ref_id
+        record = self.get_lease_record(ref_id)
+        record.delete_policy = policy
+        return self.try_reclaim(ref_id)
+
+    def register_plan_consumer(self, ref: Union[DataRef, str], plan_id: str) -> StorageLeaseRecord:
+        """Record that a task plan still depends on this managed ref."""
+
+        record = self.get_lease_record(ref)
+        record.planned_consumer_plan_ids.add(plan_id)
+        return self.try_reclaim(record.ref_id)
+
+    def release_plan_consumer(self, ref: Union[DataRef, str], plan_id: str) -> StorageLeaseRecord:
+        """Release one plan-level dependency and re-run the reclaim decision."""
+
+        record = self.get_lease_record(ref)
+        record.planned_consumer_plan_ids.discard(plan_id)
+        return self.try_reclaim(record.ref_id)
+
+    def mark_producer_completed(self, ref: Union[DataRef, str]) -> StorageLeaseRecord:
+        """Mark an output as successfully produced and re-run the reclaim decision."""
+
+        return self._mark_producer_state(ref, ProducerState.COMPLETED)
+
+    def mark_producer_failed(self, ref: Union[DataRef, str]) -> StorageLeaseRecord:
+        """Mark an output as failed so cleanup can proceed through the same reclaim path."""
+
+        return self._mark_producer_state(ref, ProducerState.FAILED)
+
+    def mark_producer_aborted(self, ref: Union[DataRef, str]) -> StorageLeaseRecord:
+        """Mark an output as aborted so cleanup can proceed through the same reclaim path."""
+
+        return self._mark_producer_state(ref, ProducerState.ABORTED)
+
+    def try_reclaim(self, ref: Union[DataRef, str]) -> StorageLeaseRecord:
+        """
+        Re-evaluate whether a managed ref should remain live, become pending delete,
+        or be reclaimed immediately.
+
+        The policy/state split matters here:
+        - `delete_policy` says whether reclamation is desired.
+        - `deletion_state` records what is currently true at runtime.
+        """
+        record = self.get_lease_record(ref)
+        if record.deletion_state == DeletionState.DELETED:
+            return record
+        if self._should_reclaim(record):
+            self._delete_managed_ref(record.ref_id)
+            record.deletion_state = DeletionState.DELETED
+            return record
+        if self._is_pending_delete(record):
+            record.deletion_state = DeletionState.PENDING_DELETE
+        else:
+            record.deletion_state = DeletionState.LIVE
+        return record
+
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
@@ -910,6 +1062,123 @@ class StorageService:
             return int(obj.nbytes)
         return fallback_est
 
+    def _create_lease_record(
+        self,
+        ref: DataRef,
+        *,
+        backend_kind: str,
+        delete_policy: DeletePolicy,
+        owner_plan_id: Optional[str] = None,
+        planned_consumer_plan_ids: Optional[set[str]] = None,
+        external_owned: bool = False,
+    ) -> StorageLeaseRecord:
+        """Create the initial lifetime record for a newly allocated managed ref."""
+
+        record = StorageLeaseRecord(
+            ref_id=ref.ref_id,
+            backend_kind=backend_kind,
+            owner_plan_id=owner_plan_id,
+            planned_consumer_plan_ids=set(planned_consumer_plan_ids or ()),
+            delete_policy=delete_policy,
+            producer_state=ProducerState.WRITING,
+            deletion_state=DeletionState.LIVE,
+            external_owned=external_owned,
+        )
+        self.lease_records[ref.ref_id] = record
+        return record
+
+    def _mark_producer_state(self, ref: Union[DataRef, str], state: ProducerState) -> StorageLeaseRecord:
+        """Transition producer lifecycle state and immediately re-check reclamation."""
+
+        record = self.get_lease_record(ref)
+        record.producer_state = state
+        return self.try_reclaim(record.ref_id)
+
+    def _is_terminal_producer_state(self, state: ProducerState) -> bool:
+        return state in {ProducerState.COMPLETED, ProducerState.FAILED, ProducerState.ABORTED}
+
+    def _is_pending_delete(self, record: StorageLeaseRecord) -> bool:
+        """
+        True when policy says the object should be reclaimed, but some live dependency
+        still blocks deletion.
+        """
+
+        return (
+            record.delete_policy == DeletePolicy.DELETE_WHEN_RELEASABLE
+            and self._is_terminal_producer_state(record.producer_state)
+            and not record.external_owned
+            and (bool(record.planned_consumer_plan_ids) or bool(record.borrowers) or bool(record.pins))
+        )
+
+    def _should_reclaim(self, record: StorageLeaseRecord) -> bool:
+        """Return True only when the record is fully reclaimable under service rules."""
+
+        return (
+            record.delete_policy == DeletePolicy.DELETE_WHEN_RELEASABLE
+            and self._is_terminal_producer_state(record.producer_state)
+            and not record.planned_consumer_plan_ids
+            and not record.borrowers
+            and not record.pins
+            and not record.external_owned
+        )
+
+    def _delete_managed_ref(self, ref_id: str) -> None:
+        """
+        Remove service-owned backing storage for an internal ref.
+
+        External refs are intentionally excluded from this path; the service may
+        track them for access, but it does not own their underlying source object.
+        """
+
+        ref = self.data_refs.get(ref_id)
+        if ref is None:
+            return
+
+        self.meta_by_ref.pop(ref_id, None)
+        self.data_refs.pop(ref_id, None)
+
+        if ref.materialization_loc == "ram":
+            descriptor = self.ram_objects.pop(ref.uri, None)
+            est = self.ram_est_bytes.pop(ref.uri, 0)
+            self._ram_used_bytes = max(0, self._ram_used_bytes - est)
+            owner_handle = self._shared_mem_handles.pop(ref.uri, None)
+            if descriptor is not None and isinstance(descriptor, SharedMemArrayDescriptor):
+                try:
+                    # Unlink while the service-owned handle is still open so the
+                    # shared-memory name remains resolvable on Windows. After the
+                    # name is removed, closing the final owner handle releases the
+                    # backing storage.
+                    backing = SharedMemory(name=descriptor.name, create=False)
+                    try:
+                        backing.unlink()
+                    finally:
+                        backing.close()
+                except FileNotFoundError:
+                    pass
+                except Exception:
+                    logger.debug("SharedMemory unlink failed during ref deletion", exc_info=True)
+            if owner_handle is not None:
+                try:
+                    owner_handle.close()
+                except Exception:
+                    logger.debug("SharedMemory owner-handle close failed during ref deletion", exc_info=True)
+            return
+
+        if ref.materialization_loc != "disk":
+            return
+
+        try:
+            if ref.disk_format in {"memmap", "json"}:
+                self._file_uri_to_path(ref.uri).unlink(missing_ok=True)
+            elif ref.disk_format == "zarr":
+                store_path = self._zarr_uri_to_path(ref.uri)
+                if store_path.exists():
+                    import shutil
+
+                    shutil.rmtree(store_path, ignore_errors=True)
+        except Exception:
+            logger.debug("Managed ref deletion failed for ref_id=%s", ref_id, exc_info=True)
+
     def _ensure_writable(self, ref: DataRef, op_name: str = "write") -> None:
         if ref.readonly or ref.source == "external":
             raise PermissionError(f"{op_name} is not allowed for external/read-only refs: {ref.ref_id}")
@@ -936,6 +1205,7 @@ class StorageService:
             nbytes=nbytes,
         )
         self._shared_mem_handles[uri] = shm
+        self._shared_mem_handles_names[uri] = shm.name
         self.ram_objects[uri] = shm_desc
         self._with_shared_mem_array(shm_desc, lambda arr: arr.fill(0))
         return shm_desc
@@ -990,6 +1260,7 @@ class StorageService:
             nbytes=nbytes,
         )
         self._shared_mem_handles[ref.uri] = shm
+        self._shared_mem_handles_names[ref.uri] = shm.name
         self.ram_objects[ref.uri] = shm_desc
         self._with_shared_mem_array(shm_desc, lambda target: np.copyto(target, arr))
         return shm_desc

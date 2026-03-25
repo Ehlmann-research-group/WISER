@@ -12,7 +12,7 @@ from wiser.bandmath.types import VariableType
 from wiser.gui.sav_golay import SavGolayDialog, savgol_filter_spectrum
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
-from wiser.utils.primitives import PriorityClass
+from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.task_stage_utils import (
@@ -47,6 +47,7 @@ class TestSavGolay(unittest.TestCase):
             polyorder=polyorder,
             output_ref_name=output_ref_name,
         )
+        pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
         task = SemanticTask(
             priority_class=PriorityClass.BACKGROUND,
             input_ref=dataset_ref,
