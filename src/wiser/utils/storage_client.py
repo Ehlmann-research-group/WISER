@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Tuple
 import uuid
 
 import numpy as np
@@ -134,13 +134,14 @@ class StorageClient:
         self,
         ref: DataRef,
         *,
-        filter_data_ignore_value: bool = True,
+        filter_data: bool = True,
     ) -> tuple[np.ndarray | np.ma.MaskedArray, RegionMeta]:
         """
         Read the whole object for `ref`.
 
-        For `RamAccessDescriptor`, the returned array is a shared-memory view
-        (not a copy), backed by an attached `SharedMemory` segment.
+        For RAM-backed refs, this returns a copied NumPy array. The client
+        attaches to shared memory only for the duration of the read so worker
+        functions do not leak attached shared-memory handles.
 
         Dimension conventions:
         - dataset refs return arrays shaped as [y][x][b]
@@ -157,35 +158,56 @@ class StorageClient:
         region_meta: RegionMeta = self._rpc_call("get_region_meta", ref=desc.ref, region=whole_region)
 
         if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            arr_region = self._read_region_from_array(arr, whole_region)
-            data = np.asarray(arr_region)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            data = self._read_ram_array_copy(desc.ref.uri, whole_region)
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, ExternalRamAccessDescriptor):
-            arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
-            arr_region = self._read_region_from_array(arr, whole_region)
-            data = np.asarray(arr_region)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            data = self._read_shared_mem_descriptor_copy(desc.shared_mem, whole_region)
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, ExternalDiskAccessDescriptor):
             arr = self._read_external_region(desc.ref, whole_region)
             # TODO: Don't copy for GDAL-backed datasets.
             data = np.array(arr, copy=True)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, MemmapAccessDescriptor):
             mm = np.load(str(desc.path), mmap_mode="r")
             arr = self._read_region_from_array(mm, whole_region)
             data = np.array(arr, copy=True)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         if isinstance(desc, ZarrAccessDescriptor):
             store = zarr.DirectoryStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
             arr = self._read_region_from_array(grp[desc.array_name], whole_region)
             data = np.array(arr, copy=True)
-            return self._mask_data_ignore_value(data, region_meta, filter_data_ignore_value), region_meta
+            return (
+                self._mask_data_ignore_and_bad_bands(
+                    data, region_meta, filter_data_ignore_and_bad_bands=filter_data
+                ),
+                region_meta,
+            )
 
         raise ValueError(f"Unknown access descriptor: {type(desc)}")
 
@@ -194,7 +216,7 @@ class StorageClient:
         ref: DataRef,
         region: DataRegion,
         *,
-        filter_data_ignore_value: bool = True,
+        filter_data: bool = True,
     ) -> tuple[np.ndarray | np.ma.MaskedArray, RegionMeta]:
         """
         Read the specified region for `ref`.
@@ -213,14 +235,12 @@ class StorageClient:
             raise TypeError("read_region not supported for JSON; use read_json_value")
 
         if isinstance(desc, ExternalRamAccessDescriptor):
-            arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
-            arr = self._read_region_from_array(arr, region)
-            data = np.asarray(arr)
+            data = self._read_shared_mem_descriptor_copy(desc.shared_mem, region)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -230,23 +250,21 @@ class StorageClient:
             # TODO: Don't copy for GDAL-backed datasets.
             data = np.array(arr, copy=True)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
 
         if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            arr = self._read_region_from_array(arr, region)
-            data = np.asarray(arr)
+            data = self._read_ram_array_copy(desc.ref.uri, region)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -256,10 +274,10 @@ class StorageClient:
             arr = self._read_region_from_array(mm, region)
             data = np.array(arr, copy=True)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -270,10 +288,10 @@ class StorageClient:
             arr = self._read_region_from_array(grp[desc.array_name], region)
             data = np.array(arr, copy=True)
             return (
-                self._mask_data_ignore_value(
+                self._mask_data_ignore_and_bad_bands(
                     data,
                     desc.region_meta,
-                    filter_data_ignore_value,
+                    filter_data_ignore_and_bad_bands=filter_data,
                 ),
                 desc.region_meta,
             )
@@ -321,21 +339,39 @@ class StorageClient:
             raise TypeError("write_json_value requires a JSON ref")
         self._rpc_call("write_json_value", ref=desc.ref, value=value)
 
-    def _read_ram_array_view(self, uri: str) -> np.ndarray:
+    def _read_ram_array_copy(self, uri: str, region: DataRegion) -> np.ndarray:
         descriptor = self._get_ram_descriptor(uri)
-        return self._read_shared_mem_descriptor_view(descriptor)
+        return self._read_shared_mem_descriptor_copy(descriptor, region)
 
-    def _read_shared_mem_descriptor_view(self, descriptor: SharedMemArrayDescriptor) -> np.ndarray:
-        shm = self._get_or_attach_shm(descriptor)
-        return np.ndarray(
-            shape=descriptor.shape,
-            dtype=np.dtype(descriptor.dtype_str),
-            buffer=shm.buf,
-            strides=descriptor.strides,
+    def _read_shared_mem_descriptor_copy(
+        self,
+        descriptor: SharedMemArrayDescriptor,
+        region: DataRegion,
+    ) -> np.ndarray:
+        return self._with_shared_mem_array(
+            descriptor,
+            lambda arr: np.array(self._read_region_from_array(arr, region), copy=True),
         )
 
     def _get_ram_descriptor(self, uri: str) -> SharedMemArrayDescriptor:
         return self._rpc_call("get_ram_descriptor", uri=uri)
+
+    def _with_shared_mem_array(
+        self,
+        descriptor: SharedMemArrayDescriptor,
+        fn: Callable[[np.ndarray], Any],
+    ) -> Any:
+        shm = SharedMemory(name=descriptor.name, create=False)
+        try:
+            arr = np.ndarray(
+                shape=descriptor.shape,
+                dtype=np.dtype(descriptor.dtype_str),
+                buffer=shm.buf,
+                strides=descriptor.strides,
+            )
+            return fn(arr)
+        finally:
+            shm.close()
 
     def _get_or_attach_shm(self, descriptor: SharedMemArrayDescriptor) -> SharedMemory:
         shm = self._shared_mem_handles.get(descriptor.name)
@@ -372,6 +408,9 @@ class StorageClient:
                     f"External dataset read requires DatasetRegionRef, "
                     f"got {type(region)} for ref_id={ref.ref_id}"
                 )
+            # We set data ignore value to false because we want accessing
+            # from a dataset and accessing from a shared memory array to
+            # return an np.ndarray
             arr_by_band = dataset.get_image_data_subset(
                 x=region.x0,
                 y=region.y0,
@@ -496,11 +535,15 @@ class StorageClient:
         op_name: str,
     ) -> None:
         if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            if region is None:
-                arr[...] = value
-            else:
-                self._write_region_into_array(arr, region, value)
+            descriptor = self._get_ram_descriptor(desc.ref.uri)
+            self._with_shared_mem_array(
+                descriptor,
+                # Lambdas cannot contain `arr[...] = value`, so use the underlying
+                # item-assignment method when writing the full shared-memory array.
+                lambda arr: arr.__setitem__(Ellipsis, value)
+                if region is None
+                else self._write_region_into_array(arr, region, value),
+            )
             return
 
         if isinstance(desc, MemmapAccessDescriptor):
@@ -527,28 +570,62 @@ class StorageClient:
             f"\nIt does not support {type(desc)} descriptors."
         )
 
-    def _mask_data_ignore_value(
+    def _mask_data_ignore_and_bad_bands(
         self,
         data: np.ndarray | np.ma.MaskedArray,
         region_meta: RegionMeta,
-        filter_data_ignore_value: bool,
+        filter_data_ignore_and_bad_bands: bool,
     ) -> np.ndarray | np.ma.MaskedArray:
-        if not filter_data_ignore_value:
-            return data
-        if region_meta.nodata is None:
+        """
+        Mask `nodata` values and bad bands for region reads.
+
+        Bad-band metadata is treated as describing the spectral axis, which is
+        expected to be the last axis for all supported region shapes:
+        - dataset: [y][x][b]
+        - spectrum: [b]
+        - spectra_list: [i][b]
+        """
+        if not filter_data_ignore_and_bad_bands:
             return data
 
         arr = np.ma.array(data, copy=False)
         raw = np.ma.getdata(arr)
-        if np.isnan(region_meta.nodata):
-            nodata_mask = np.isnan(raw)
-        else:
-            nodata_mask = raw == region_meta.nodata
-        combined_mask = np.ma.mask_or(np.ma.getmaskarray(arr), nodata_mask)
+        combined_mask = np.ma.getmaskarray(arr)
+
+        if region_meta.nodata is not None:
+            if np.isnan(region_meta.nodata):
+                nodata_mask = np.isnan(raw)
+            else:
+                nodata_mask = raw == region_meta.nodata
+            combined_mask = np.ma.mask_or(combined_mask, nodata_mask)
+
+        if region_meta.bad_bands is not None:
+            if raw.ndim == 0:
+                raise ValueError("bad_bands metadata requires array data with at least one dimension")
+
+            band_count = raw.shape[-1]
+            bad_band_mask = np.asarray(region_meta.bad_bands) == 0
+            if bad_band_mask.shape != (band_count,):
+                raise ValueError(
+                    f"Expected bad_bands shape {(band_count,)} "
+                    f" for region {type(region_meta.region).__name__}, "
+                    f"got {bad_band_mask.shape}"
+                )
+
+            # Build a mask shape that spans only the spectral axis and uses
+            # singleton dimensions for every leading axis, so NumPy can
+            # broadcast the 1D bad-band mask across the whole region.
+            broadcast_shape = (1,) * (raw.ndim - 1) + (band_count,)
+            bad_band_mask = bad_band_mask.reshape(broadcast_shape)
+            combined_mask = np.ma.mask_or(combined_mask, np.broadcast_to(bad_band_mask, raw.shape))
+
         return np.ma.array(raw, mask=combined_mask, copy=False)
 
     def get_meta(self, ref: DataRef) -> DataMeta:
         return self._rpc_call("get_meta", ref=ref)
+
+    def write_meta(self, ref: DataRef, meta: DataMeta) -> None:
+        self._rpc_call("write_meta", ref=ref, meta=meta)
 
     def get_region_meta(self, ref: DataRef, region: DataRegion) -> RegionMeta:
         return self._rpc_call("get_region_meta", ref=ref, region=region)

@@ -10,6 +10,7 @@ from wiser import plugins
 
 if TYPE_CHECKING:
     from .app_state import ApplicationState
+    from .app_services import AppServices
 
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 def add_plugin_context_menu_items(
     app_state: "ApplicationState",
+    app_services: "AppServices",
     context_type: plugins.ContextMenuType,
     menu: QMenu,
     **kwargs,
@@ -38,6 +40,7 @@ def add_plugin_context_menu_items(
             # mutate the context without affecting each other.
             context = kwargs.copy()
             context["wiser"] = app_state
+            context["app_services"] = app_services
 
             try:
                 # Call the plugin!

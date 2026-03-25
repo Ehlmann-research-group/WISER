@@ -86,6 +86,22 @@ class TestContinuumRemoval(unittest.TestCase):
 
         return header, data
 
+    def _run_continuum_removal_image(self, plugin: ContinuumRemovalPlugin, **kwargs):
+        dataset_count_before = len(self.test_model.app_state.get_datasets())
+        result = plugin.image(**kwargs)
+
+        if hasattr(result, "get_image_data"):
+            return result
+
+        if hasattr(result, "result"):
+            result.result(timeout=180)
+            self.test_model.app.processEvents()
+            datasets = self.test_model.app_state.get_datasets()
+            self.assertGreater(len(datasets), dataset_count_before)
+            return datasets[-1]
+
+        self.fail(f"Unexpected return type from ContinuumRemovalPlugin.image: {type(result)!r}")
+
     def test_continuum_removal_image_4_bands(self):
         """Tests image-based continuum removal against a ground-truth output.
 
@@ -124,7 +140,17 @@ class TestContinuumRemoval(unittest.TestCase):
 
         context = {"wiser": self.test_model.app_state, "dataset": dataset}
 
-        cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
+        cr_dataset = self._run_continuum_removal_image(
+            plugin,
+            min_cols=min_cols,
+            min_rows=min_rows,
+            max_cols=max_cols,
+            max_rows=max_rows,
+            min_band=min_band,
+            max_band=max_band,
+            context=context,
+            in_test_mode=True,
+        )
 
         cr_dataset_arr = cr_dataset.get_image_data()
         gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
@@ -363,7 +389,17 @@ class TestContinuumRemoval(unittest.TestCase):
 
         context = {"wiser": self.test_model.app_state, "dataset": dataset}
 
-        cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
+        cr_dataset = self._run_continuum_removal_image(
+            plugin,
+            min_cols=min_cols,
+            min_rows=min_rows,
+            max_cols=max_cols,
+            max_rows=max_rows,
+            min_band=min_band,
+            max_band=max_band,
+            context=context,
+            in_test_mode=True,
+        )
 
         cr_dataset_arr = cr_dataset.get_image_data()
         gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
@@ -473,7 +509,8 @@ class TestContinuumRemoval(unittest.TestCase):
             "dataset": ds,
         }
 
-        out_ds = plugin.image(
+        out_ds = self._run_continuum_removal_image(
+            plugin,
             min_rows=0,
             max_rows=6,
             min_cols=0,
@@ -481,6 +518,7 @@ class TestContinuumRemoval(unittest.TestCase):
             min_band=0,
             max_band=7,
             context=context,
+            in_test_mode=True,
         )
 
         # Basic sanity checks

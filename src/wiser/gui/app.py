@@ -39,6 +39,8 @@ from .image_coords_widget import ImageCoordsWidget
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
+from .activity_monitor import ActivityMonitorDialog
+from .activity_monitor_button import ActivityMonitorButton
 
 from .util import *
 
@@ -67,6 +69,7 @@ from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
+from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 
@@ -101,9 +104,18 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
-        self._app_services: AppServices = AppServices()
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
+
+        self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
+        self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
+            self._activity_monitor,
+            parent=self,
+        )
+
+        # App Services
+
+        self._app_services: AppServices = AppServices(self._activity_monitor, parent=self)
 
         # Application Toolbars
 
@@ -118,6 +130,8 @@ class DataVisualizerApp(QMainWindow):
         self._init_plugins()
 
         # Status bar
+
+        self.statusBar().addPermanentWidget(self._activity_monitor_button)
 
         self._image_coords = ImageCoordsWidget(self)
         self.statusBar().addPermanentWidget(self._image_coords)
@@ -386,7 +400,11 @@ class DataVisualizerApp(QMainWindow):
 
         # Permanent plugins (we keep them as plugins so future users can see how
         # cool plugins are made)
-        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin()), ("PCAPlugin", PCAPlugin())]
+        permanent_plugins = [
+            ("ContinuumRemovalPlugin", ContinuumRemovalPlugin()),
+            ("PCAPlugin", PCAPlugin()),
+            ("SavGolayPlugin", SavGolayPlugin()),
+        ]
         for pc_name, plugin_class in permanent_plugins:
             logger.debug(f'Instantiating plugin class "{pc_name}"')
             if not plugins.utils.is_plugin(plugin_class):

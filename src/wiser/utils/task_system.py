@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
+from PySide2.QtCore import QObject, Signal, Slot
 
 from .primitives import (
     AllocationRequest,
@@ -12,6 +14,7 @@ from .primitives import (
     DataBinding,
     DataRef,
     DataRegion,
+    DatasetRegionRef,
     ExecutorType,
     InputKind,
     NoChunkingScheme,
@@ -19,19 +22,33 @@ from .primitives import (
     SingleSpectrumScheme,
     SpatialTileScheme,
     SpectraBatchScheme,
+    SpectraBatchRef,
     SpectralBatchDatasetScheme,
+    SpectrumRef,
     WorkUnitDependency,
     BasePlanMeta,
     DatasetPlanMeta,
+    DeletePolicy,
     SpectrumPlanMeta,
     SpectraListPlanMeta,
 )
 from .storage_service import StorageService
 
 if TYPE_CHECKING:
-    from wiser.utils.work_scheduler import SchedulerConfig
+    from wiser.gui.activity_monitor import ActivityMonitorDialog
+    from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 
 Number = Union[int, float]
+
+
+def _noop_post_task() -> None:
+    """Default no-op post-task hook for stages that do not need post processing."""
+    return None
+
+
+def _noop_pre_task() -> None:
+    """Default no-op pre-task hook for stages that do not need setup work."""
+    return None
 
 
 @dataclass(frozen=True)
@@ -59,6 +76,23 @@ class TaskStage:
 
     # If the value is a DataBinding it will be substituted for a DataRef at runtime
     broadcast_input: Dict[str, Any] = field(default_factory=dict)
+    _output_delete_policies: Dict[str, DeletePolicy] = field(default_factory=dict, init=False, repr=False)
+    _default_output_delete_policy: Optional[DeletePolicy] = field(default=None, init=False, repr=False)
+
+    def set_output_delete_policy(self, output_name: str, policy: DeletePolicy) -> None:
+        """Override the retention policy for one named output on this stage instance."""
+
+        self._output_delete_policies[output_name] = policy
+
+    def get_output_delete_policy(self, output_name: str) -> Optional[DeletePolicy]:
+        """Return the explicit per-output policy, or the planner default for this stage."""
+
+        return self._output_delete_policies.get(output_name, self._default_output_delete_policy)
+
+    def _set_default_output_delete_policy(self, policy: DeletePolicy) -> None:
+        """Set the planner-resolved default for outputs without an explicit override."""
+
+        self._default_output_delete_policy = policy
 
     @abstractmethod
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -115,6 +149,42 @@ class TaskStage:
         the time this class is made because it may be the output of another stage.
         """
         raise NotImplementedError("Subclasses must implement task_fn")
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        """
+        Return a small post-processing callable to run once after all work units in
+        this stage have completed.
+
+        This hook is intended for lightweight cleanup, metadata updates, or other
+        small follow-up work that needs the stage's full input region context. It
+        should not be used to load or process large amounts of data, since that
+        work belongs in normal chunked stage work units.
+        """
+        _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
+        return _noop_post_task
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        """
+        Return a small setup callable to run once before any work units in this
+        stage execute.
+
+        This hook is intended for lightweight stage initialization or staged
+        metadata preparation that needs access to the full input region.
+        """
+        _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
+        return _noop_pre_task
 
 
 @dataclass
@@ -189,7 +259,19 @@ class TaskPlan:
     #   - mixed: [[u1, u2], [u3], [u4, u5]]
     stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
+    produced_ref_ids: set[str] = field(default_factory=set)
     fail_fast: bool = True
+    completion_callback: Optional[Callable[[Dict[str, DataRef]], None]] = None
+    # The below entries are for displaying to the user. They don't affect the internals
+    # of how a task plan is schedule or how data is transferred
+    task_title: str = "Generic Task Title"
+    task_input_variables: Optional[Dict[str, str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ProgressUpdate:
+    current_iteration: int
+    total_iterations: int
 
 
 class ChunkingPolicy(Protocol):
@@ -313,6 +395,15 @@ class TaskPlanner:
         self._unit_counter += 1
         return f"{plan_id}:u{self._unit_counter:06d}"
 
+    def _full_input_region_from_meta(self, input_meta: BasePlanMeta) -> DataRegion:
+        if isinstance(input_meta, DatasetPlanMeta):
+            return DatasetRegionRef(0, input_meta.height, 0, input_meta.width, 0, input_meta.bands)
+        if isinstance(input_meta, SpectrumPlanMeta):
+            return SpectrumRef(length=input_meta.length)
+        if isinstance(input_meta, SpectraListPlanMeta):
+            return SpectraBatchRef(i0=0, i1=input_meta.num_spectra, length=input_meta.spectrum_length)
+        raise TypeError(f"Unsupported plan meta type for full region construction: {type(input_meta)}")
+
     def plan_semantic_task(self, semantic_task: SemanticTask) -> TaskPlan:
         """
         Rough flow (map-only draft):
@@ -328,11 +419,14 @@ class TaskPlanner:
         # TODO: give plan id a uuid4
         plan_id = f"plan:{semantic_task.id}"
         plan = TaskPlan(plan_id=plan_id, semantic_task_id=str(semantic_task.id))
+        plan.task_title = semantic_task.task_title
+        plan.task_input_variables = semantic_task.task_variables
 
         # 1) init bindings
         bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
 
         plan.bindings.update(bindings)
+        plan.completion_callback = semantic_task.completion_callback
 
         # A simple policy: all units in stage i depend on completion of *all* units in stage i-1.
         prev_stage_unit_ids: List[str] = []
@@ -359,16 +453,21 @@ class TaskPlanner:
                 scheme_type=stage.chunking_scheme_type,
                 constraints={},
             )
+            stage._set_default_output_delete_policy(DeletePolicy.DELETE_WHEN_RELEASABLE)
 
             # 5) allocate outputs up front
             alloc_reqs = stage.generate_allocation_requests(
                 input_meta=input_meta,
-                # params=semantic_task.params(),
                 chosen_scheme=scheme,
             )
             for req in alloc_reqs:
-                out_ref = self._ctx.storage.allocate_data(req)
+                out_ref = self._ctx.storage.allocate_data(
+                    self._resolved_allocation_request(req),
+                    owner_plan_id=plan_id,
+                    planned_consumer_plan_ids={plan_id},
+                )
                 plan.bindings[req.name] = out_ref
+                plan.produced_ref_ids.add(out_ref.ref_id)
 
             # 5.5) Substitute out data bindings for data refs
             # Note, data bindings should refer to data refs from
@@ -383,6 +482,48 @@ class TaskPlanner:
             # 6) expand regions -> WorkUnits
             unit_ids_for_stage: List[str] = []
             stage_step_unit_ids: List[List[str]] = []
+
+            full_input_region = self._full_input_region_from_meta(input_meta)
+            pre_output_writes: Dict[str, WriteSpec] = {}
+            for ob in stage.output_bindings:
+                out_ref = plan.bindings[ob.name]
+                out_region = stage.output_region_for(full_input_region)
+                pre_output_writes[ob.name] = WriteSpec(name=ob.name, ref=out_ref, region=out_region)
+
+            pre_unit_id = self._new_unit_id(plan_id)
+            pre_unit_meta = WorkUnitMeta(
+                input_ref=input_ref,
+                input_region=full_input_region,
+                output_writes=pre_output_writes,
+                broadcast_inputs=dict[str, Any](stage_broadcast_inputs),
+            )
+            pre_unit = WorkUnit(
+                unit_id=pre_unit_id,
+                stage_id=stage_id,
+                priority_class=semantic_task.get_priority_class(),
+                executor_kind=stage.default_executor,
+                fn=stage.pre_task_fn(
+                    input_ref=pre_unit_meta.input_ref,
+                    full_input_region=pre_unit_meta.input_region,
+                    output_writes=pre_unit_meta.output_writes,
+                    broadcast_inputs=pre_unit_meta.broadcast_inputs,
+                ),
+                ram_peak_est_bytes=self._estimate_ram(
+                    stage.resource_model,
+                    full_input_region,
+                    pre_output_writes,
+                    input_meta,
+                ),
+                deps=tuple(prev_stage_unit_ids),
+            )
+
+            plan.work_units[pre_unit_id] = pre_unit
+            plan.work_units_meta[pre_unit_id] = pre_unit_meta
+            unit_ids_for_stage.append(pre_unit_id)
+            if stage.work_unit_dependency == "sequential":
+                stage_step_unit_ids.append([pre_unit_id])
+
+            chunk_unit_ids: List[str] = []
 
             for input_region in scheme.iter_chunks(input_meta):
                 out_writes: Dict[str, WriteSpec] = {}
@@ -413,25 +554,92 @@ class TaskPlanner:
                         broadcast_inputs=unit_meta.broadcast_inputs,
                     ),
                     ram_peak_est_bytes=ram_est,
-                    deps=tuple(prev_stage_unit_ids),
+                    deps=tuple([*prev_stage_unit_ids, pre_unit_id]),
                 )
 
                 plan.work_units[unit_id] = unit
                 plan.work_units_meta[unit_id] = unit_meta
                 unit_ids_for_stage.append(unit_id)
+                chunk_unit_ids.append(unit_id)
                 if stage.work_unit_dependency == "sequential":
                     stage_step_unit_ids.append([unit_id])
 
+            post_output_writes: Dict[str, WriteSpec] = {}
+            for ob in stage.output_bindings:
+                out_ref = plan.bindings[ob.name]
+                out_region = stage.output_region_for(full_input_region)
+                post_output_writes[ob.name] = WriteSpec(name=ob.name, ref=out_ref, region=out_region)
+
+            post_unit_id = self._new_unit_id(plan_id)
+            post_unit_meta = WorkUnitMeta(
+                input_ref=input_ref,
+                input_region=full_input_region,
+                output_writes=post_output_writes,
+                broadcast_inputs=dict[str, Any](stage_broadcast_inputs),
+            )
+            post_unit = WorkUnit(
+                unit_id=post_unit_id,
+                stage_id=stage_id,
+                priority_class=semantic_task.get_priority_class(),
+                executor_kind=stage.default_executor,
+                fn=stage.post_task_fn(
+                    input_ref=post_unit_meta.input_ref,
+                    full_input_region=post_unit_meta.input_region,
+                    output_writes=post_unit_meta.output_writes,
+                    broadcast_inputs=post_unit_meta.broadcast_inputs,
+                ),
+                ram_peak_est_bytes=self._estimate_ram(
+                    stage.resource_model,
+                    full_input_region,
+                    post_output_writes,
+                    input_meta,
+                ),
+                deps=tuple(chunk_unit_ids if len(chunk_unit_ids) > 0 else [pre_unit_id]),
+            )
+
+            plan.work_units[post_unit_id] = post_unit
+            plan.work_units_meta[post_unit_id] = post_unit_meta
+            unit_ids_for_stage.append(post_unit_id)
+
             plan.stage_work_units[stage_id] = unit_ids_for_stage
             if stage.work_unit_dependency == "independent":
-                plan.stage_steps[stage_id] = [list(unit_ids_for_stage)]
+                stage_steps: List[List[str]] = [[pre_unit_id]]
+                if len(chunk_unit_ids) > 0:
+                    stage_steps.append(chunk_unit_ids)
+                stage_steps.append([post_unit_id])
+                plan.stage_steps[stage_id] = stage_steps
             elif stage.work_unit_dependency == "sequential":
+                stage_step_unit_ids.append([post_unit_id])
                 plan.stage_steps[stage_id] = stage_step_unit_ids
             else:
                 raise ValueError(f"Unknown WorkUnitDependency: {stage.work_unit_dependency!r}")
-            prev_stage_unit_ids = unit_ids_for_stage
+            prev_stage_unit_ids = [post_unit_id]
 
         return plan
+
+    def _resolved_allocation_request(self, req: AllocationRequest) -> AllocationRequest:
+        """
+        Ensure every planner-owned output carries a concrete retention policy.
+
+        Stages are expected to provide the effective policy via
+        `TaskStage.get_output_delete_policy(...)`. This fallback keeps older stage
+        implementations on the same default: delete when releasable unless an
+        explicit policy was already attached.
+        """
+
+        if req.delete_policy is not None:
+            return req
+        return AllocationRequest(
+            name=req.name,
+            kind=req.kind,
+            residency=req.residency,
+            size_est=req.size_est,
+            shape=req.shape,
+            dtype=req.dtype,
+            chunks=req.chunks,
+            tags=req.tags,
+            delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+        )
 
     def _estimate_ram(
         self,
@@ -453,12 +661,116 @@ class TaskPlanner:
         )
 
 
+class TaskManager(QObject):
+    task_finished = Signal(str)
+    task_progressed = Signal(object)
+    # Emitted when a work unit raises an exception so the UI can append error
+    # text for the plan without treating it as a user/system cancellation.
+    task_errored = Signal(object)
+    # Emitted when a plan is cancelled by scheduler control flow so the UI can
+    # move the activity row into the finished section as cancelled.
+    task_cancelled = Signal(str)
+
+    def __init__(self, activity_monitor: "ActivityMonitorDialog"):
+        super().__init__()
+        self._activity_monitor = activity_monitor
+        self._activity_ids_by_plan_id: Dict[str, int] = {}
+        self._plan_ids_by_activity_id: Dict[int, str] = {}
+        self.task_cancelled.connect(self._on_task_cancelled)
+        self.task_finished.connect(self._on_task_finished)
+        self.task_progressed.connect(self._on_task_progressed)
+        self.task_errored.connect(self._on_task_errored)
+
+    def emit_progress_update(self, activity_id: int, numerator: int, denominator: int) -> None:
+        if activity_id not in self._plan_ids_by_activity_id:
+            raise KeyError(f"Unknown activity monitor activity id: {activity_id}")
+
+        self._activity_monitor.progress_update.emit(
+            (
+                activity_id,
+                ProgressUpdate(
+                    current_iteration=max(0, int(numerator)),
+                    total_iterations=max(1, int(denominator)),
+                ),
+            )
+        )
+
+    @Slot(object)
+    def _on_task_progressed(self, payload: object) -> None:
+        if not isinstance(payload, tuple) or len(payload) != 3:
+            return
+
+        task_plan_id, numerator, denominator = payload
+        if (
+            not isinstance(task_plan_id, str)
+            or not isinstance(numerator, int)
+            or not isinstance(denominator, int)
+        ):
+            return
+
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self.emit_progress_update(activity_id, numerator, denominator)
+
+    @Slot(str)
+    def _on_task_cancelled(self, task_plan_id: str) -> None:
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.set_task_cancelled(activity_id)
+
+    @Slot(object)
+    def _on_task_errored(self, payload: object) -> None:
+        if not isinstance(payload, tuple) or len(payload) != 2:
+            return
+
+        task_plan_id, error_message = payload
+        if not isinstance(task_plan_id, str) or not isinstance(error_message, str):
+            return
+
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.append_task_error(activity_id, error_message)
+
+    @Slot(str)
+    def _on_task_finished(self, task_plan_id: str) -> None:
+        activity_id = self._activity_ids_by_plan_id.get(task_plan_id)
+        if activity_id is None:
+            return
+        self._activity_monitor.set_task_finished(activity_id)
+
+    def register_and_submit_task_plan(self, scheduler: "WorkScheduler", task_plan: TaskPlan) -> Future[None]:
+        """
+        Registers the task plan to the task gui (the real name will be ActivityMonitorDialog
+        (found in [activity_monitor.py](src/wiser/gui/activity_monitor.py))), then submits it?
+        """
+        task_meta = task_plan.task_input_variables or {
+            "plan_id": task_plan.plan_id,
+            "semantic_task_id": task_plan.semantic_task_id,
+            "stages": str(len(task_plan.stage_work_units)),
+            "work_units": str(len(task_plan.work_units)),
+        }
+        activity_id = self._activity_monitor.register_task(
+            title=task_plan.task_title,
+            meta=task_meta,
+            cancel_callback=lambda: scheduler.cancel_plan(task_plan.plan_id),
+        )
+        self._activity_ids_by_plan_id[task_plan.plan_id] = activity_id
+        self._plan_ids_by_activity_id[activity_id] = task_plan.plan_id
+        future = scheduler.run_task_plan(task_plan)
+        return future
+
+
 class SemanticTask:
     def __init__(
         self,
         priority_class: PriorityClass,
         input_ref: DataRef,
         algorithm_pipeline: AlgorithmPipeline,
+        task_title: str = "Generic Task Title",
+        task_variables: Optional[Dict[str, str]] = None,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
@@ -467,6 +779,17 @@ class SemanticTask:
         self._priority_class: PriorityClass = priority_class
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
+
+        self._task_title = task_title
+        self._task_variables = task_variables or dict()
+
+    @property
+    def task_title(self) -> str:
+        return self._task_title
+
+    @property
+    def task_variables(self) -> Dict[str, str]:
+        return self._task_variables
 
     @property
     def input_ref(self) -> DataRef:
@@ -478,3 +801,13 @@ class SemanticTask:
 
     def get_priority_class(self) -> PriorityClass:
         return self._priority_class
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        """
+        Hook invoked after the task plan's final work unit completes successfully.
+
+        Implement this in user code to consume the task plan's final `bindings`
+        mapping, which contains the `DataRef` objects produced and tracked during
+        planning/execution.
+        """
+        pass

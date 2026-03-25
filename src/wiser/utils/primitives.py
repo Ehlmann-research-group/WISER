@@ -1,19 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from abc import ABC
 from enum import Enum
-from typing import (
-    Any,
-    Dict,
-    Literal,
-    Optional,
-    Tuple,
-    Iterable,
-    Protocol,
-    TYPE_CHECKING,
-    ClassVar,
-)
+from typing import Any, Dict, Literal, Optional, Tuple, Iterable, Protocol, TYPE_CHECKING, ClassVar
 import tempfile
 from pathlib import Path
 
@@ -25,6 +15,30 @@ class PriorityClass(Enum):
     INTERACTIVE = "interactive"
     RENDER = "render"
     BACKGROUND = "background"
+
+
+class DeletePolicy(Enum):
+    """Retention policy for a managed storage object once it becomes reclaimable."""
+
+    KEEP = "keep"
+    DELETE_WHEN_RELEASABLE = "delete_when_releasable"
+
+
+class DeletionState(Enum):
+    """Observed runtime position in the deletion lifecycle for a managed storage object."""
+
+    LIVE = "live"
+    PENDING_DELETE = "pending_delete"
+    DELETED = "deleted"
+
+
+class ProducerState(Enum):
+    """Lifecycle state for the task or plan that is producing a managed output."""
+
+    WRITING = "writing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ABORTED = "aborted"
 
 
 OutputKind = Literal["dataset", "spectrum", "spectra_list", "array", "json"]
@@ -58,6 +72,8 @@ ExternalParamsDriver = Literal[
 if TYPE_CHECKING:
     from wiser.utils.task_system import BasePlanMeta
 
+DEFAULT_FLOAT_TYPE = np.float64
+
 
 def temp_dir() -> Path:
     return Path(tempfile.gettempdir()) / "wiser"
@@ -68,7 +84,7 @@ class BasePlanMeta:
     """Minimal, cheap-to-compute planning metadata needed to chunk data"""
 
     kind: InputKind
-    dtype: np.dtype = np.dtype("float32")
+    dtype: np.dtype = np.dtype(DEFAULT_FLOAT_TYPE)
 
     @property
     def dtype_bytes(self) -> int:
@@ -185,7 +201,7 @@ class DataMeta:
     wavelengths: Optional[np.ndarray] = None
     wavelength_units: Optional[u.Unit] = None
     nodata: Optional[float | int] = None
-    bad_bands: Optional[np.ndarray] = None
+    bad_bands: Optional[np.ndarray] = None  # 0's are bad bands, 1's are good bands
     crs_wkt: Optional[str] = None
     geotransform: Optional[Tuple[float, ...]] = None
 
@@ -205,10 +221,10 @@ class RegionMeta:
 @dataclass(frozen=True)
 class AllocationRequest:
     """
-    To reserve the right amount of space on the disk, different
-    from DataRef which is the actual handle to access the data.
+    Describes storage that should be allocated for a future output.
 
-    The name for AllocationRequest is used to get the underlying data ref.
+    This is a planning-time object. The storage service turns it into a
+    `DataRef` plus its service-owned lifetime record.
     """
 
     # Unique name to be used as the binding to the DataRef
@@ -225,6 +241,32 @@ class AllocationRequest:
 
     # Optional metadata tags (task_id, stage_id, output_name)
     tags: Optional[Dict[str, str]] = None
+    # When omitted, the stage/planner decides the policy for this output.
+    delete_policy: Optional[DeletePolicy] = None
+
+
+@dataclass
+class StorageLeaseRecord:
+    """
+    Service-owned lifetime state for a managed storage object.
+
+    `delete_policy` is the retention rule we want to enforce eventually.
+    `deletion_state` is the current runtime status while the object moves
+    through that lifecycle.
+    """
+
+    ref_id: str
+    backend_kind: str
+    owner_plan_id: Optional[str] = None
+    planned_consumer_plan_ids: set[str] = dataclass_field(default_factory=set)
+    borrowers: Dict[str, int] = dataclass_field(default_factory=dict)
+    pins: Dict[str, int] = dataclass_field(default_factory=dict)
+    producer_state: ProducerState = ProducerState.WRITING
+    # Policy answers "should we reclaim this when it becomes safe?"
+    delete_policy: DeletePolicy = DeletePolicy.KEEP
+    # State answers "what has happened so far in the deletion lifecycle?"
+    deletion_state: DeletionState = DeletionState.LIVE
+    external_owned: bool = False
 
 
 @dataclass(frozen=True)

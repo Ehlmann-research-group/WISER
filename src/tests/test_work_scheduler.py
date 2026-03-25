@@ -1,14 +1,25 @@
 import tempfile
 import time
 import unittest
+from io import StringIO
 from functools import partial
+from multiprocessing.shared_memory import SharedMemory
+from unittest.mock import patch
 
 import numpy as np
 import tests.context
 # import context
 
-from wiser.utils.primitives import DataRef, DatasetRegionRef, PriorityClass
-from wiser.utils.storage_service import StorageService
+from wiser.utils.primitives import (
+    AllocationRequest,
+    DataRef,
+    DatasetRegionRef,
+    DeletePolicy,
+    DeletionState,
+    PriorityClass,
+    ProducerState,
+)
+from wiser.utils.storage_service import StorageService, shared_mem_exists
 from wiser.utils.task_system import TaskPlan, WorkUnit
 from wiser.utils.work_scheduler import RecordingWorkScheduler, SchedulerConfig, WorkScheduler
 
@@ -80,6 +91,82 @@ def _make_work_unit(
 
 
 class TestWorkScheduler(unittest.TestCase):
+    def test_recording_work_scheduler_prints_timing_summary(self) -> None:
+        clock_times = iter([0.0, 1.0, 2.0, 5.5, 6.0, 7.5, 8.0])
+        recorder = RecordingWorkScheduler(clock=lambda: next(clock_times))
+
+        recorder.on_plan_submitted("plan-1")
+        recorder.on_stage_enqueued("plan-1", "s00")
+        recorder.on_unit_submitted("plan-1", "s00", "u1", "process", PriorityClass.INTERACTIVE)
+        recorder.on_unit_done("plan-1", "s00", "u1", success=True)
+        recorder.on_unit_submitted("plan-1", "s00", "u2", "thread", PriorityClass.BACKGROUND)
+        recorder.on_unit_done("plan-1", "s00", "u2", success=True)
+        recorder.on_plan_completed("plan-1", success=True)
+
+        stdout = StringIO()
+        with patch("sys.stdout", stdout):
+            recorder.print_timing_summary()
+
+        self.assertEqual(
+            stdout.getvalue(),
+            "Plan plan-1 (8.000000s)\n"
+            "  Stage s00 (6.500000s)\n"
+            "    Unit u1: 3.500000s\n"
+            "    Unit u2: 1.500000s\n",
+        )
+
+    def test_run_task_plan_reclaims_delete_when_releasable_outputs_on_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
+            try:
+                produced_ref = service.allocate_data(
+                    AllocationRequest(
+                        name="temporary_output",
+                        kind="dataset",
+                        residency="ram_cacheable",
+                        size_est=np.dtype(np.float32).itemsize,
+                        shape=(1, 1, 1),
+                        dtype=np.dtype(np.float32),
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    ),
+                    owner_plan_id="plan-reclaim-success",
+                    planned_consumer_plan_ids={"plan-reclaim-success"},
+                )
+                shared_mem_name = service._shared_mem_handles_names.get(produced_ref.uri)
+
+                unit = _make_work_unit(
+                    unit_id="s1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-reclaim-success",
+                    semantic_task_id="semantic-reclaim-success",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    produced_ref_ids={produced_ref.ref_id},
+                )
+
+                scheduler.run_task_plan(plan).result(timeout=5)
+
+                record = service.get_lease_record(produced_ref.ref_id)
+                self.assertEqual(record.producer_state, ProducerState.COMPLETED)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertEqual(record.planned_consumer_plan_ids, set())
+                self.assertNotIn(produced_ref.ref_id, service.data_refs)
+                self.assertNotIn(produced_ref.ref_id, service.meta_by_ref)
+                self.assertNotIn(produced_ref.ref_id, service.external_handles)
+                self.assertNotIn(produced_ref.uri, service.ram_objects)
+                self.assertNotIn(produced_ref.uri, service.ram_est_bytes)
+                self.assertIsNotNone(shared_mem_name)
+                self.assertFalse(shared_mem_exists(shared_mem_name))
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
     def test_stage_steps_enforce_barrier_between_stage_steps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
@@ -352,6 +439,7 @@ class TestWorkScheduler(unittest.TestCase):
 
                 self.assertEqual(events[0].kind, "plan_submitted")
                 self.assertEqual(events[0].plan_id, plan.plan_id)
+                self.assertIsInstance(events[0].time, float)
 
                 s00_enqueue_idxs = [
                     idx
@@ -411,6 +499,20 @@ class TestWorkScheduler(unittest.TestCase):
                 recorder=recorder,
             )
             try:
+                produced_ref = service.allocate_data(
+                    AllocationRequest(
+                        name="failed_temporary_output",
+                        kind="dataset",
+                        residency="ram_cacheable",
+                        size_est=np.dtype(np.float32).itemsize,
+                        shape=(1, 1, 1),
+                        dtype=np.dtype(np.float32),
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    ),
+                    owner_plan_id="plan-fail-fast",
+                    planned_consumer_plan_ids={"plan-fail-fast"},
+                )
+                shared_mem_name = service._shared_mem_handles_names.get(produced_ref.uri)
                 failing = _make_work_unit(
                     unit_id="s1_fail",
                     stage_id="s00",
@@ -453,6 +555,7 @@ class TestWorkScheduler(unittest.TestCase):
                         "s00": [failing.unit_id, queued.unit_id],
                         "s01": [s2_process.unit_id, s2_thread.unit_id],
                     },
+                    produced_ref_ids={produced_ref.ref_id},
                     fail_fast=True,
                 )
 
@@ -480,6 +583,199 @@ class TestWorkScheduler(unittest.TestCase):
                 ]
                 self.assertEqual(len(plan_completed_events), 1)
                 self.assertFalse(plan_completed_events[0].success)
+
+                record = service.get_lease_record(produced_ref.ref_id)
+                self.assertEqual(record.producer_state, ProducerState.FAILED)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertEqual(record.planned_consumer_plan_ids, set())
+                self.assertNotIn(produced_ref.ref_id, service.data_refs)
+                self.assertNotIn(produced_ref.ref_id, service.meta_by_ref)
+                self.assertNotIn(produced_ref.ref_id, service.external_handles)
+                self.assertNotIn(produced_ref.uri, service.ram_objects)
+                self.assertNotIn(produced_ref.uri, service.ram_est_bytes)
+                self.assertIsNotNone(shared_mem_name)
+                self.assertFalse(shared_mem_exists(shared_mem_name))
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_run_task_plan_reclaims_delete_when_releasable_memmap_output_on_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
+            try:
+                produced_ref = service.allocate_data(
+                    AllocationRequest(
+                        name="temporary_memmap_output",
+                        kind="dataset",
+                        residency="spill_required",
+                        size_est=np.dtype(np.float32).itemsize,
+                        shape=(1, 1, 1),
+                        dtype=np.dtype(np.float32),
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    ),
+                    preferred_storage="memmap",
+                    owner_plan_id="plan-reclaim-memmap",
+                    planned_consumer_plan_ids={"plan-reclaim-memmap"},
+                )
+                output_path = service._file_uri_to_path(produced_ref.uri)
+
+                unit = _make_work_unit(
+                    unit_id="s1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-reclaim-memmap",
+                    semantic_task_id="semantic-reclaim-memmap",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    produced_ref_ids={produced_ref.ref_id},
+                )
+
+                scheduler.run_task_plan(plan).result(timeout=5)
+
+                record = service.get_lease_record(produced_ref.ref_id)
+                self.assertEqual(record.producer_state, ProducerState.COMPLETED)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertFalse(output_path.exists())
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_run_task_plan_reclaims_delete_when_releasable_zarr_output_on_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
+            try:
+                produced_ref = service.allocate_data(
+                    AllocationRequest(
+                        name="temporary_zarr_output",
+                        kind="dataset",
+                        residency="spill_required",
+                        size_est=np.dtype(np.float32).itemsize,
+                        shape=(1, 1, 1),
+                        dtype=np.dtype(np.float32),
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    ),
+                    preferred_storage="zarr",
+                    owner_plan_id="plan-reclaim-zarr",
+                    planned_consumer_plan_ids={"plan-reclaim-zarr"},
+                )
+                store_path = service._zarr_uri_to_path(produced_ref.uri)
+
+                unit = _make_work_unit(
+                    unit_id="s1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-reclaim-zarr",
+                    semantic_task_id="semantic-reclaim-zarr",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    produced_ref_ids={produced_ref.ref_id},
+                )
+
+                scheduler.run_task_plan(plan).result(timeout=5)
+
+                record = service.get_lease_record(produced_ref.ref_id)
+                self.assertEqual(record.producer_state, ProducerState.COMPLETED)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertFalse(store_path.exists())
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_run_task_plan_reclaims_delete_when_releasable_disk_json_output_on_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
+            try:
+                produced_ref = service.allocate_data(
+                    AllocationRequest(
+                        name="temporary_disk_json_output",
+                        kind="json",
+                        residency="spill_required",
+                        size_est=1024,
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    ),
+                    preferred_storage="json",
+                    owner_plan_id="plan-reclaim-disk-json",
+                    planned_consumer_plan_ids={"plan-reclaim-disk-json"},
+                )
+                output_path = service._file_uri_to_path(produced_ref.uri)
+
+                unit = _make_work_unit(
+                    unit_id="s1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-reclaim-disk-json",
+                    semantic_task_id="semantic-reclaim-disk-json",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    produced_ref_ids={produced_ref.ref_id},
+                )
+
+                scheduler.run_task_plan(plan).result(timeout=5)
+
+                record = service.get_lease_record(produced_ref.ref_id)
+                self.assertEqual(record.producer_state, ProducerState.COMPLETED)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertFalse(output_path.exists())
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_run_task_plan_reclaims_delete_when_releasable_ram_json_output_on_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
+            try:
+                produced_ref = service.allocate_data(
+                    AllocationRequest(
+                        name="temporary_ram_json_output",
+                        kind="json",
+                        residency="ram_cacheable",
+                        size_est=1024,
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    ),
+                    owner_plan_id="plan-reclaim-ram-json",
+                    planned_consumer_plan_ids={"plan-reclaim-ram-json"},
+                )
+
+                unit = _make_work_unit(
+                    unit_id="s1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-reclaim-ram-json",
+                    semantic_task_id="semantic-reclaim-ram-json",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    produced_ref_ids={produced_ref.ref_id},
+                )
+
+                scheduler.run_task_plan(plan).result(timeout=5)
+
+                record = service.get_lease_record(produced_ref.ref_id)
+                self.assertEqual(record.producer_state, ProducerState.COMPLETED)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertNotIn(produced_ref.ref_id, service.data_refs)
+                self.assertNotIn(produced_ref.ref_id, service.meta_by_ref)
+                self.assertNotIn(produced_ref.uri, service.ram_objects)
+                self.assertNotIn(produced_ref.uri, service.ram_est_bytes)
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()

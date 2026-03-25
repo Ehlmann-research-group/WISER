@@ -4,7 +4,9 @@ from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from collections import Counter, deque
 from threading import Lock, Semaphore
+from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
+from multiprocessing.managers import dispatch
 
 from .primitives import PriorityClass
 from .task_system import TaskPlan, WorkUnit
@@ -12,8 +14,9 @@ from .worker_runtime import initialize_process_storage_client, initialize_thread
 
 if TYPE_CHECKING:
     from wiser.utils.storage_service import StorageService
+    from wiser.utils.task_system import TaskManager
 
-SCHEDULER_PROCESS_BUDGET = 6
+SCHEDULER_PROCESS_BUDGET = 12
 SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
@@ -320,6 +323,7 @@ class PlanExecutionState:
 class SchedulerEvent:
     kind: str
     plan_id: str
+    time: float
     stage_id: Optional[str] = None
     unit_id: Optional[str] = None
     executor_kind: Optional[str] = None
@@ -345,12 +349,39 @@ class RecordingWorkScheduler:
     """In-memory event recorder for asserting scheduler behavior in tests."""
 
     events: list[SchedulerEvent] = field(default_factory=list)
+    clock: Callable[[], float] = perf_counter
+
+    def _record_event(
+        self,
+        *,
+        kind: str,
+        plan_id: str,
+        stage_id: Optional[str] = None,
+        unit_id: Optional[str] = None,
+        executor_kind: Optional[str] = None,
+        priority_class: Optional[PriorityClass] = None,
+        success: Optional[bool] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        self.events.append(
+            SchedulerEvent(
+                kind=kind,
+                plan_id=plan_id,
+                time=self.clock(),
+                stage_id=stage_id,
+                unit_id=unit_id,
+                executor_kind=executor_kind,
+                priority_class=priority_class,
+                success=success,
+                error=error,
+            )
+        )
 
     def on_plan_submitted(self, plan_id: str) -> None:
-        self.events.append(SchedulerEvent(kind="plan_submitted", plan_id=plan_id))
+        self._record_event(kind="plan_submitted", plan_id=plan_id)
 
     def on_stage_enqueued(self, plan_id: str, stage_id: str) -> None:
-        self.events.append(SchedulerEvent(kind="stage_enqueued", plan_id=plan_id, stage_id=stage_id))
+        self._record_event(kind="stage_enqueued", plan_id=plan_id, stage_id=stage_id)
 
     def on_unit_submitted(
         self,
@@ -360,15 +391,13 @@ class RecordingWorkScheduler:
         executor_kind: str,
         priority_class: PriorityClass,
     ) -> None:
-        self.events.append(
-            SchedulerEvent(
-                kind="unit_submitted",
-                plan_id=plan_id,
-                stage_id=stage_id,
-                unit_id=unit_id,
-                executor_kind=executor_kind,
-                priority_class=priority_class,
-            )
+        self._record_event(
+            kind="unit_submitted",
+            plan_id=plan_id,
+            stage_id=stage_id,
+            unit_id=unit_id,
+            executor_kind=executor_kind,
+            priority_class=priority_class,
         )
 
     def on_unit_done(
@@ -379,21 +408,97 @@ class RecordingWorkScheduler:
         success: bool,
         error: Optional[str] = None,
     ) -> None:
-        self.events.append(
-            SchedulerEvent(
-                kind="unit_done",
-                plan_id=plan_id,
-                stage_id=stage_id,
-                unit_id=unit_id,
-                success=success,
-                error=error,
-            )
+        self._record_event(
+            kind="unit_done",
+            plan_id=plan_id,
+            stage_id=stage_id,
+            unit_id=unit_id,
+            success=success,
+            error=error,
         )
 
     def on_plan_completed(self, plan_id: str, success: bool, error: Optional[str] = None) -> None:
-        self.events.append(
-            SchedulerEvent(kind="plan_completed", plan_id=plan_id, success=success, error=error)
-        )
+        self._record_event(kind="plan_completed", plan_id=plan_id, success=success, error=error)
+
+    def print_timing_summary(self) -> None:
+        """Print plan, stage, and unit completion timings derived from recorder events."""
+
+        plan_ids_in_order = []
+        seen_plan_ids: set[str] = set()
+        for event in self.events:
+            if event.plan_id not in seen_plan_ids:
+                plan_ids_in_order.append(event.plan_id)
+                seen_plan_ids.add(event.plan_id)
+
+        for plan_id in plan_ids_in_order:
+            plan_events = [event for event in self.events if event.plan_id == plan_id]
+            plan_start = next((event.time for event in plan_events if event.kind == "plan_submitted"), None)
+            plan_end = next(
+                (event.time for event in reversed(plan_events) if event.kind == "plan_completed"), None
+            )
+            plan_duration = (
+                f"{plan_end - plan_start:.6f}s" if plan_start is not None and plan_end is not None else "n/a"
+            )
+            print(f"Plan {plan_id} ({plan_duration})")
+
+            stage_ids_in_order = []
+            seen_stage_ids: set[str] = set()
+            for event in plan_events:
+                if event.stage_id is None or event.stage_id in seen_stage_ids:
+                    continue
+                stage_ids_in_order.append(event.stage_id)
+                seen_stage_ids.add(event.stage_id)
+
+            for stage_id in stage_ids_in_order:
+                stage_events = [event for event in plan_events if event.stage_id == stage_id]
+                stage_start = next(
+                    (event.time for event in stage_events if event.kind == "stage_enqueued"),
+                    None,
+                )
+                stage_done_times = [
+                    event.time
+                    for event in stage_events
+                    if event.kind == "unit_done" and event.unit_id is not None
+                ]
+                stage_end = max(stage_done_times) if stage_done_times else None
+                stage_duration = (
+                    f"{stage_end - stage_start:.6f}s"
+                    if stage_start is not None and stage_end is not None
+                    else "n/a"
+                )
+                print(f"  Stage {stage_id} ({stage_duration})")
+
+                unit_ids_in_order = []
+                seen_unit_ids: set[str] = set()
+                for event in stage_events:
+                    if event.unit_id is None or event.unit_id in seen_unit_ids:
+                        continue
+                    unit_ids_in_order.append(event.unit_id)
+                    seen_unit_ids.add(event.unit_id)
+
+                for unit_id in unit_ids_in_order:
+                    unit_submit = next(
+                        (
+                            event.time
+                            for event in stage_events
+                            if event.kind == "unit_submitted" and event.unit_id == unit_id
+                        ),
+                        None,
+                    )
+                    unit_done = next(
+                        (
+                            event.time
+                            for event in stage_events
+                            if event.kind == "unit_done" and event.unit_id == unit_id
+                        ),
+                        None,
+                    )
+                    unit_duration = (
+                        f"{unit_done - unit_submit:.6f}s"
+                        if unit_submit is not None and unit_done is not None
+                        else "n/a"
+                    )
+                    print(f"    Unit {unit_id}: {unit_duration}")
 
 
 def _priority_weight(priority: PriorityClass) -> float:
@@ -473,12 +578,21 @@ def _normalize_explicit_priority_tokens(
     return normalized_tokens
 
 
+def list_tracked_segments(smm):
+    conn = smm._Client(smm._address, authkey=smm._authkey)
+    try:
+        return dispatch(conn, None, "list_segments")
+    finally:
+        conn.close()
+
+
 class WorkScheduler:
     def __init__(
         self,
         config: SchedulerConfig,
         storage_service: "StorageService",
         recorder: Optional[RecordingWorkScheduler] = None,
+        task_manager: Optional["TaskManager"] = None,
     ):
         self._config = config
         self._process_budget = int(self._config._process_budget)
@@ -487,6 +601,7 @@ class WorkScheduler:
         self._in_flight_ram_bytes = 0
         self._defer_to_reserved_threshold = int(self._config._defer_to_reserved_threshold)
         self._recorder = recorder
+        self._task_manager = task_manager
 
         if self._process_budget < 3:
             raise ValueError(f"WorkScheduler requires process budget >= 3, got {self._process_budget}")
@@ -494,6 +609,7 @@ class WorkScheduler:
             raise ValueError(f"WorkScheduler requires thread budget >= 3, got {self._thread_budget}")
         if storage_service is None:
             raise ValueError("WorkScheduler requires a storage_service")
+        self._storage_service = storage_service
 
         service_address, service_authkey = storage_service.get_connection_bootstrap()
 
@@ -626,6 +742,17 @@ class WorkScheduler:
         # immediate callback re-entry while lock is still held.
         self._flush_pending_done_callbacks()
         return plan_state.completion_future
+
+    def cancel_plan(self, plan_id: str) -> None:
+        """Remove queued work for a plan from scheduler-managed queues."""
+        with self._state_lock:
+            self._purge_plan_from_queues_locked(plan_id)
+            plan_state = self._plan_states.pop(plan_id, None)
+            if plan_state is not None:
+                self._finalize_plan_outputs(plan_state, success=False, aborted=True)
+            if plan_state is not None and not plan_state.completion_future.done():
+                plan_state.completion_future.cancel()
+            self._drain_queues_locked()
 
     def _validate_task_plan(self, task_plan: TaskPlan) -> None:
         """Ensure stage/unit mappings are internally consistent before scheduling."""
@@ -1054,6 +1181,8 @@ class WorkScheduler:
                         self._recorder.on_unit_done(
                             plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
                         )
+                    if self._task_manager is not None:
+                        self._task_manager.task_errored.emit((plan_id, f"{type(exc).__name__}: {exc}"))
 
                     if plan_state.task_plan.fail_fast:
                         # Cancel queued-but-not-submitted work and fail immediately.
@@ -1063,12 +1192,21 @@ class WorkScheduler:
                             f"to work unit {unit_id}: {exc}\n\n"
                             f"Traceback:\n{exc.__traceback__}"
                         )
+                        self._finalize_plan_outputs(plan_state, success=False)
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                         self._plan_states.pop(plan_id, None)
                         self._drain_queues_locked()
                         return
+
+                if self._task_manager is not None:
+                    completed_units = sum(
+                        len(stage_state.succeeded_unit_ids) + len(stage_state.failed_unit_ids)
+                        for stage_state in plan_state.stage_states.values()
+                    )
+                    total_units = len(plan_state.task_plan.work_units)
+                    self._task_manager.task_progressed.emit((plan_id, completed_units, total_units))
 
                 if not stage_state.is_current_step_terminal():
                     # Current step still has in-flight work; only attempt to fill open slots.
@@ -1090,10 +1228,19 @@ class WorkScheduler:
                             f"TaskPlan {plan_id} completed with failures; "
                             f"first failure unit={first_unit_id}: {first_exc}"
                         )
+                        self._finalize_plan_outputs(plan_state, success=False)
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
                     else:
+                        completion_callback = plan_state.task_plan.completion_callback
+                        # We call the completion callback BEFORE we delete outputs in
+                        # self._finalize_plan_outputs
+                        if completion_callback is not None:
+                            completion_callback(plan_state.task_plan.bindings)
+                        self._finalize_plan_outputs(plan_state, success=True)
+                        if self._task_manager is not None:
+                            self._task_manager.task_finished.emit(plan_id)
                         plan_state.completion_future.set_result(None)
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=True)
@@ -1110,6 +1257,29 @@ class WorkScheduler:
             # _on_unit_done can enqueue more work under lock; flush registrations
             # now so newly submitted futures get callbacks attached lock-free.
             self._flush_pending_done_callbacks()
+
+    def _finalize_plan_outputs(
+        self,
+        plan_state: PlanExecutionState,
+        *,
+        success: bool,
+        aborted: bool = False,
+    ) -> None:
+        """
+        Move plan-produced refs into a terminal producer state and release the plan's
+        own planned-consumer hold on them.
+        """
+
+        if success:
+            producer_update = self._storage_service.mark_producer_completed
+        elif aborted:
+            producer_update = self._storage_service.mark_producer_aborted
+        else:
+            producer_update = self._storage_service.mark_producer_failed
+
+        for ref_id in plan_state.task_plan.produced_ref_ids:
+            producer_update(ref_id)
+            self._storage_service.release_plan_consumer(ref_id, plan_state.task_plan.plan_id)
 
     def _flush_pending_done_callbacks(self) -> None:
         """
@@ -1145,6 +1315,8 @@ class WorkScheduler:
                 retained = deque(item for item in queue_map[priority] if item.plan_id != plan_id)
                 queue_map[priority] = retained
         self._reserved_tracker.remove_units_for_plan(plan_id)
+        if self._task_manager is not None:
+            self._task_manager.task_cancelled.emit(plan_id)
 
     @staticmethod
     def _execute_work_unit(work_unit: WorkUnit) -> Any:
