@@ -1,6 +1,6 @@
 # Developing and Building WISER on Windows 10
 
-You will need conda and python installed. You will need to do `pip install conda-lock` and `pip install pyyaml`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`.
+You will need conda and python installed. You will need to do `pip install conda-lock` and `pip install pyyaml`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the `/etc` folder and run the command `make install-dev-env`.
 
 ## How to Install Conda
 
@@ -29,17 +29,22 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
     Start -> "Anaconda3 (64-bit)" -> "Anaconda Prompt (Miniconda3)"
 
-2.  Figure out how to run `make` from the Anaconda terminal.
+2.  Ensure you are in the _wiser-prod_ conda environment. You first make this environment
+    my going to the `/etc` folder and typing `make install-prod-env`. Then do
+    `conda activate wiser-prod`.
+
+
+3.  Figure out how to run `make` from the Anaconda terminal.
 
     I use GNU Make, so I run it like this:
 
     ```c:\Program Files (x86)\GnuWin32\bin\make.exe```
 
-3.  Go to the project directory for WISER.
+4.  Go to the project directory for WISER.
 
     On my computer this is:  `C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER`
 
-4.  Clean up any existing build artifacts.
+5.  Clean up any existing build artifacts.
 
     **This is currently a manual process, because the `clean` target doesn't
     work on Windows yet.**
@@ -53,7 +58,7 @@ needs to be downloaded and installed so that the `SignTool` utility is available
     src\gui\generated\*.py
     ```
 
-5.  Build the project:
+6.  Build the project:
 
     ```
     "c:\Program Files (x86)\GnuWin32\bin\make.exe" dist-win

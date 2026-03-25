@@ -301,6 +301,8 @@ class RasterPane(QWidget):
         # Initialize widget's internal state
 
         self._app_state = app_state
+        app = getattr(app_state, "_app", None)
+        self._app_services = getattr(app, "_app_services", None)
 
         # The numeric ID of the data-set being displayed
         # TODO(donnie):  Since panes can show multiple raster data sets at once,
@@ -841,6 +843,7 @@ class RasterPane(QWidget):
         # Add plugin menu items
         add_plugin_context_menu_items(
             self._app_state,
+            self._app_services,
             plugins.ContextMenuType.DATASET_PICK,
             menu,
             dataset=rasterview.get_raster_data(),
@@ -897,6 +900,7 @@ class RasterPane(QWidget):
                 # Add plugin menu items
                 add_plugin_context_menu_items(
                     self._app_state,
+                    self._app_services,
                     plugins.ContextMenuType.ROI_PICK,
                     menu,
                     dataset=rasterview.get_raster_data(),

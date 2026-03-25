@@ -9,7 +9,7 @@ Usage:
     Instead of:
         import multiprocessing as mp
         pool = mp.Pool()
-    
+
     Use:
         from wiser.utils.multiprocessing_context import CTX
         pool = CTX.Pool()

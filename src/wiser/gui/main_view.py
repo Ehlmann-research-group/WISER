@@ -20,6 +20,7 @@ from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action, get_painter
 from .plugin_utils import add_plugin_context_menu_items
 from .scatter_plot_2D import ScatterPlot2DDialog
+from .mnf import MinimumNoiseFractionDialog
 
 # from .spectral_angle_mapper import SAMTool
 # from .spectral_feature_fitting import SFFTool
@@ -51,7 +52,6 @@ class MainViewWidget(RasterPane):
             zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1,
         )
-
         self._stretch_builder = StretchBuilderDialog(parent=self, app_state=app_state)
         self._export_image = ExportImageDialog(parent=self)
         self._link_view_scrolling = False
@@ -194,21 +194,23 @@ class MainViewWidget(RasterPane):
         act = submenu.addAction(self.tr("Interactive Scatter Plot"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self.on_scatter_plot_2D(rv))
 
-        if FLAGS.sam:
-            act = submenu.addAction(self.tr("Spectral Angle Mapper"))
-            act.triggered.connect(
-                lambda checked=False, rv=rasterview, **kwargs: self._on_open_spectral_angle_mapper(rv)
-            )
+        act = submenu.addAction(self.tr("Spectral Angle Mapper"))
+        act.triggered.connect(
+            lambda checked=False, rv=rasterview, **kwargs: self._on_open_spectral_angle_mapper(rv)
+        )
 
-        if FLAGS.sff:
-            act = submenu.addAction(self.tr("Spectral Feature Fitting"))
-            act.triggered.connect(
-                lambda checked=False, rv=rasterview, **kwargs: self._open_spectral_feature_fitting(rv)
-            )
+        act = submenu.addAction(self.tr("Spectral Feature Fitting"))
+        act.triggered.connect(
+            lambda checked=False, rv=rasterview, **kwargs: self._open_spectral_feature_fitting(rv)
+        )
+
+        act = submenu.addAction(self.tr("Minimum Noise Fraction"))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mnf_dialog(rv))
 
         # Plugin context-menus
         add_plugin_context_menu_items(
             self._app_state,
+            self._app_services,
             plugins.ContextMenuType.RASTER_VIEW,
             menu,
             dataset=rasterview.get_raster_data(),
@@ -381,6 +383,15 @@ class MainViewWidget(RasterPane):
         dlg = SFFTool(self._app_state, parent=self)
         dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.show()
+
+    def _open_mnf_dialog(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        dataset_id = None if dataset is None else dataset.get_id()
+        app_services = self._app_services
+        dlg = MinimumNoiseFractionDialog(self._app_state, app_services, parent=self)
+        dlg.select_dataset(dataset_id)
+        if dlg.exec_() == QDialog.Accepted:
+            pass
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
         # If dialog exists and is already visible, just bring it to front

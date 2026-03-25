@@ -5,9 +5,17 @@ import tempfile
 import unittest
 
 import numpy as np
-
+from astropy import units as u
 import tests.context
-from wiser.utils.primitives import AllocationRequest, DatasetRegionRef
+from wiser.utils.primitives import (
+    AllocationRequest,
+    DataMeta,
+    DatasetRegionRef,
+    SpectraBatchRef,
+    SpectraBatchScheme,
+    SpectrumRef,
+)
+from wiser.utils.task_system import SpectraListPlanMeta
 from wiser.utils.storage_layer import StorageLayer
 
 
@@ -21,7 +29,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -49,7 +57,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=request_size_est,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -79,7 +87,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -106,7 +114,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -130,7 +138,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=288,
                 shape=(3, 4, 6),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
 
@@ -153,7 +161,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request)
@@ -175,7 +183,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request, preferred_storage="zarr")
@@ -198,7 +206,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="ram_cacheable",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request)
@@ -232,7 +240,7 @@ class TestStorageLayer(unittest.TestCase):
                 residency="spill_required",
                 size_est=560,  # 4*5*7 float32 values
                 shape=(4, 5, 7),
-                dtype=np.float32,
+                dtype=np.dtype(np.float32),
                 chunks=None,
             )
             ref = storage.allocate_data(request, preferred_storage="zarr")
@@ -257,3 +265,113 @@ class TestStorageLayer(unittest.TestCase):
             expected = np.full((4, 5, 7), 3, dtype=np.float32)
             expected[0:1, :, :] = 2
             np.testing.assert_array_equal(got_whole, expected)
+
+    def test_register_external_dataset_read_and_meta(self):
+        class _FakeDataset:
+            def __init__(self):
+                self._arr = np.arange(2 * 4 * 5, dtype=np.float32).reshape(2, 4, 5)
+
+            def get_shape(self):
+                return self._arr.shape
+
+            def get_elem_type(self):
+                return self._arr.dtype
+
+            def get_wavelengths(self):
+                return [500.0, 700.0]
+
+            def get_band_unit(self) -> u.Unit:
+                return u.nm
+
+            def get_data_ignore_value(self):
+                return -9999.0
+
+            def get_bad_bands(self):
+                return [1, 0]
+
+            def get_wkt_spatial_reference(self):
+                return "EPSG:4326"
+
+            def get_geo_transform(self):
+                return (0.0, 1.0, 0.0, 0.0, 0.0, -1.0)
+
+            def get_image_data_subset(self, x, y, band, dx, dy, dband, filter_data_ignore_value=False):
+                _ = filter_data_ignore_value
+                return self._arr[band : band + dband, y : y + dy, x : x + dx]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage = StorageLayer(root_dir=tmp_dir)
+            ref = storage.register_external_dataset(_FakeDataset())
+
+            self.assertEqual(ref.source, "external")
+            self.assertTrue(ref.readonly)
+            self.assertEqual(ref.materialization_loc, "none")
+
+            region = DatasetRegionRef(y0=1, y1=3, x0=1, x1=4, b0=0, b1=2)
+            got = storage.read_region(ref.ref_id, region)
+            self.assertEqual(got.shape, (2, 3, 2))
+
+            meta = storage.get_meta(ref.ref_id)
+            self.assertEqual(meta.kind, "dataset")
+            self.assertEqual(meta.shape, (4, 5, 2))
+            self.assertEqual(meta.elem_type, np.float32)
+            self.assertEqual(meta.wavelength_units, u.nm)
+            self.assertTrue(np.array_equal(meta.bad_bands, np.array([1, 0])))
+            self.assertEqual(meta.crs_wkt, "EPSG:4326")
+            self.assertEqual(meta.geotransform, (0.0, 1.0, 0.0, 0.0, 0.0, -1.0))
+
+            region_meta = storage.get_region_meta(ref.ref_id, DatasetRegionRef(0, 2, 0, 2, 0, 1))
+            self.assertTrue(np.array_equal(region_meta.wavelengths, np.array([500.0])))
+
+    def test_external_refs_refuse_writes_and_meta_updates(self):
+        class _FakeSpectrum:
+            def __init__(self):
+                self._arr = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+
+            def get_spectrum(self):
+                return self._arr
+
+            def num_bands(self):
+                return self._arr.shape[0]
+
+            def get_elem_type(self):
+                return self._arr.dtype
+
+            def get_wavelengths(self):
+                return [0.5, 1.0, 2.0]
+
+            def get_wavelength_units(self):
+                return None
+
+            def get_bad_bands(self):
+                return np.array([1, 1, 1], dtype=np.bool_)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage = StorageLayer(root_dir=tmp_dir)
+            ref = storage.register_external_spectrum(_FakeSpectrum())
+
+            with self.assertRaises(PermissionError):
+                storage.write_data(ref, np.array([9.0, 9.0, 9.0], dtype=np.float32))
+            with self.assertRaises(PermissionError):
+                storage.write_region(ref, SpectrumRef(length=3), np.array([9.0, 9.0, 9.0], dtype=np.float32))
+            with self.assertRaises(PermissionError):
+                storage.set_meta(
+                    ref.ref_id, DataMeta(kind="spectrum", shape=(3,), elem_type=np.dtype(np.float32))
+                )
+            with self.assertRaises(PermissionError):
+                storage.update_meta(ref.ref_id, nodata=-1)
+
+    def test_spectra_batch_scheme_sets_length_and_exclusive_bounds(self):
+        meta = SpectraListPlanMeta(
+            kind="spectra_list",
+            dtype=np.dtype(np.float32),
+            num_spectra=10,
+            spectrum_length=4,
+        )
+        scheme = SpectraBatchScheme(batch_size=6)
+        chunks = list(scheme.iter_chunks(meta))
+
+        self.assertEqual(
+            chunks, [SpectraBatchRef(i0=0, i1=6, length=4), SpectraBatchRef(i0=6, i1=10, length=4)]
+        )
+        self.assertEqual(chunks[0].scalar_count(), 24)

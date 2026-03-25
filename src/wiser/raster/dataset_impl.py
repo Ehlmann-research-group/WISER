@@ -2254,6 +2254,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
 class NumPyRasterDataImpl(RasterDataImpl):
     def __init__(self, arr: np.ndarray):
+        # Expects array in shape [b][y][x]
         self._arr = arr
 
     def get_format(self) -> str:

@@ -1,5 +1,6 @@
 import unittest
 
+# import context
 import tests.context
 
 import numpy as np
@@ -146,3 +147,12 @@ class TestPCA(unittest.TestCase):
         )
 
         self.assertTrue(np.allclose(pca_gt, pca_test_arr))
+
+
+if __name__ == "__main__":
+    tester = TestPCA()
+    tester.setUp()
+    try:
+        tester.test_dataset_bad_bands_data_ignore()
+    finally:
+        tester.tearDown()

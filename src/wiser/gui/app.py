@@ -1,26 +1,17 @@
-import datetime
 import json
 import logging
 import os
-import pathlib
 import platform
 import pprint
 import sys
 import traceback
 import webbrowser
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-
-from osgeo import gdal, osr
-
-from wiser.bandmath.types import VariableType, BandMathExprInfo
-from wiser.raster.serializable import SerializedForm
-
-from .app_config import PixelReticleType
 
 from wiser.bandmath.utils import (
     TEMP_FOLDER_PATH,
@@ -28,6 +19,7 @@ from wiser.bandmath.utils import (
     bandmath_progress_callback,
     bandmath_error_callback,
 )
+from wiser.gui.app_services import AppServices
 
 from .about_dialog import AboutDialog
 
@@ -47,6 +39,8 @@ from .image_coords_widget import ImageCoordsWidget
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
+from .activity_monitor import ActivityMonitorDialog
+from .activity_monitor_button import ActivityMonitorButton
 
 from .util import *
 
@@ -58,7 +52,6 @@ from . import bug_reporting
 from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
-from .fits_loading_dialog import FitsSpectraLoadingDialog
 from .geo_reference_dialog import GeoReferencerDialog
 from .reference_creator_dialog import ReferenceCreatorDialog
 from wiser import bandmath
@@ -67,7 +60,6 @@ from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (
     SpectrumAtPoint,
     SpectrumAverageMode,
-    NumPyArraySpectrum,
 )
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
@@ -77,7 +69,7 @@ from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
-from wiser.gui.parallel_task import ParallelTaskProcess
+from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 
@@ -115,6 +107,16 @@ class DataVisualizerApp(QMainWindow):
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
 
+        self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
+        self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
+            self._activity_monitor,
+            parent=self,
+        )
+
+        # App Services
+
+        self._app_services: AppServices = AppServices(self._activity_monitor, parent=self)
+
         # Application Toolbars
 
         self._init_menus()
@@ -128,6 +130,8 @@ class DataVisualizerApp(QMainWindow):
         self._init_plugins()
 
         # Status bar
+
+        self.statusBar().addPermanentWidget(self._activity_monitor_button)
 
         self._image_coords = ImageCoordsWidget(self)
         self.statusBar().addPermanentWidget(self._image_coords)
@@ -396,7 +400,11 @@ class DataVisualizerApp(QMainWindow):
 
         # Permanent plugins (we keep them as plugins so future users can see how
         # cool plugins are made)
-        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin()), ("PCAPlugin", PCAPlugin())]
+        permanent_plugins = [
+            ("ContinuumRemovalPlugin", ContinuumRemovalPlugin()),
+            ("PCAPlugin", PCAPlugin()),
+            ("SavGolayPlugin", SavGolayPlugin()),
+        ]
         for pc_name, plugin_class in permanent_plugins:
             logger.debug(f'Instantiating plugin class "{pc_name}"')
             if not plugins.utils.is_plugin(plugin_class):
