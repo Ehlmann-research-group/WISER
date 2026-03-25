@@ -11,7 +11,13 @@ import tests.context
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl, NumPyRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
-from wiser.utils.primitives import AllocationRequest, DatasetRegionRef
+from wiser.utils.primitives import (
+    AllocationRequest,
+    DatasetRegionRef,
+    DeletePolicy,
+    DeletionState,
+    ProducerState,
+)
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.multiprocessing_context import CTX
@@ -87,6 +93,84 @@ class TestStorageServiceClient(unittest.TestCase):
             np.asarray(expected_ma.data)[valid],
             equal_nan=True,
         )
+
+    def test_internal_allocation_creates_storage_lease_record(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            try:
+                ref = service.allocate_data(
+                    AllocationRequest(
+                        name="lease_record_dataset",
+                        kind="dataset",
+                        residency="ram_cacheable",
+                        size_est=2 * 3 * 4 * np.dtype(np.float32).itemsize,
+                        shape=(2, 3, 4),
+                        dtype=np.dtype(np.float32),
+                    )
+                )
+
+                record = service.get_lease_record(ref)
+                self.assertEqual(record.ref_id, ref.ref_id)
+                self.assertEqual(record.backend_kind, "ram_shm")
+                self.assertEqual(record.delete_policy, DeletePolicy.KEEP)
+                self.assertEqual(record.producer_state, ProducerState.WRITING)
+                self.assertEqual(record.deletion_state, DeletionState.LIVE)
+                self.assertEqual(record.borrowers, {})
+                self.assertEqual(record.pins, {})
+                self.assertEqual(record.planned_consumer_plan_ids, set())
+                self.assertFalse(record.external_owned)
+            finally:
+                service.close()
+
+    def test_delete_when_releasable_allocation_reclaims_when_producer_completes(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            try:
+                ref = service.allocate_data(
+                    AllocationRequest(
+                        name="delete_when_done_dataset",
+                        kind="dataset",
+                        residency="spill_required",
+                        size_est=2 * 3 * 4 * np.dtype(np.float32).itemsize,
+                        shape=(2, 3, 4),
+                        dtype=np.dtype(np.float32),
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    )
+                )
+
+                record = service.mark_producer_completed(ref)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertEqual(record.producer_state, ProducerState.COMPLETED)
+                self.assertNotIn(ref.ref_id, service.data_refs)
+                with self.assertRaises(KeyError):
+                    service.read_data_ref(ref)
+            finally:
+                service.close()
+
+    def test_delete_when_releasable_allocation_becomes_pending_delete_when_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            try:
+                ref = service.allocate_data(
+                    AllocationRequest(
+                        name="pending_delete_dataset",
+                        kind="dataset",
+                        residency="spill_required",
+                        size_est=2 * 3 * 4 * np.dtype(np.float32).itemsize,
+                        shape=(2, 3, 4),
+                        dtype=np.dtype(np.float32),
+                        delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+                    )
+                )
+
+                record = service.get_lease_record(ref)
+                record.planned_consumer_plan_ids.add("plan:child")
+
+                record = service.mark_producer_completed(ref)
+                self.assertEqual(record.deletion_state, DeletionState.PENDING_DELETE)
+                self.assertIn(ref.ref_id, service.data_refs)
+            finally:
+                service.close()
 
     def test_external_disk_backed_dataset_read_data_and_meta(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
