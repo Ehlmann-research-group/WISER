@@ -333,9 +333,15 @@
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-concepts">Core Concepts</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#semantictask">SemanticTask</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithmpipeline-and-taskstage">AlgorithmPipeline and TaskStage</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithmpipeline-and-taskstage">AlgorithmPipeline and TaskStage</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#taskstage-allocations">TaskStage Allocations</a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#taskplan-workunit-workunitmeta">TaskPlan, WorkUnit, WorkUnitMeta</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageservice-authoritative-storage-registry">StorageService (Authoritative Storage Registry)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageservice-authoritative-storage-registry">StorageService (Authoritative Storage Registry)</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#data-lifetime-and-deletion">Data Lifetime and Deletion</a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageclient-worker-side-data-access">StorageClient (Worker-Side Data Access)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler">WorkScheduler</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#queue-model-high-level">Queue model (high level)</a></li>
@@ -383,10 +389,13 @@
 <li><p>an <code class="docutils literal notranslate"><span class="pre">AlgorithmPipeline</span></code>.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">SemanticTask</span></code> does not allocate storage, choose chunking, or schedule compute.</p>
+<p>It also carries meta data that is displayed in the activity monitor. This metadata is
+contains the task title and variables used in the task.</p>
 </section>
 <section id="algorithmpipeline-and-taskstage">
 <h3>AlgorithmPipeline and TaskStage<a class="headerlink" href="#algorithmpipeline-and-taskstage" title="Link to this heading">#</a></h3>
-<p>An <code class="docutils literal notranslate"><span class="pre">AlgorithmPipeline</span></code> is an ordered list of <code class="docutils literal notranslate"><span class="pre">TaskStage</span></code> objects.</p>
+<p>An <code class="docutils literal notranslate"><span class="pre">AlgorithmPipeline</span></code> is an ordered list of <code class="docutils literal notranslate"><span class="pre">TaskStage</span></code> objects. These <code class="docutils literal notranslate"><span class="pre">TaskStage</span></code> objects
+run sequentially.</p>
 <p>Each stage defines:</p>
 <ul class="simple">
 <li><p>input binding name (<code class="docutils literal notranslate"><span class="pre">input_binding</span></code>),</p></li>
@@ -394,10 +403,16 @@
 <li><p>chunking scheme type,</p></li>
 <li><p>work-unit dependency mode (<code class="docutils literal notranslate"><span class="pre">work_unit_dependency</span></code>: <code class="docutils literal notranslate"><span class="pre">independent</span></code> or <code class="docutils literal notranslate"><span class="pre">sequential</span></code>),</p></li>
 <li><p>allocation requests for stage outputs,</p></li>
-<li><p>a top-level callable producer (<code class="docutils literal notranslate"><span class="pre">task_fn</span></code> / <code class="docutils literal notranslate"><span class="pre">reduce_fn</span></code>),</p></li>
+<li><p>a top-level callable producer (<code class="docutils literal notranslate"><span class="pre">task_fn</span></code> / <code class="docutils literal notranslate"><span class="pre">pre_task_fn</span></code> (optional) / <code class="docutils literal notranslate"><span class="pre">post_task_fn</span></code> (optional)),</p></li>
 <li><p>optional broadcast refs (e.g. spectrum refs needed by every chunk).</p></li>
 </ul>
 <p>Important: stage input refs are resolved by binding name during planning. Stages should not assume direct ownership of concrete <code class="docutils literal notranslate"><span class="pre">DataRef</span></code>s.</p>
+<section id="taskstage-allocations">
+<h4>TaskStage Allocations<a class="headerlink" href="#taskstage-allocations" title="Link to this heading">#</a></h4>
+<p>Stages allocate outputs with <code class="docutils literal notranslate"><span class="pre">AllocationRequest</span></code>.</p>
+<p>For retention and deletion details, refer to
+<a class="reference internal" href="storage_memory_management.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">storage_memory_management.md</span></code></span></a>.</p>
+</section>
 </section>
 <section id="taskplan-workunit-workunitmeta">
 <h3>TaskPlan, WorkUnit, WorkUnitMeta<a class="headerlink" href="#taskplan-workunit-workunitmeta" title="Link to this heading">#</a></h3>
@@ -427,6 +442,12 @@
 <li><p>access descriptors for reads/writes (<code class="docutils literal notranslate"><span class="pre">RamAccessDescriptor</span></code>, <code class="docutils literal notranslate"><span class="pre">MemmapAccessDescriptor</span></code>, <code class="docutils literal notranslate"><span class="pre">ZarrAccessDescriptor</span></code>, external descriptors, JSON descriptors).</p></li>
 </ul>
 <p>Internally it exposes an RPC listener used by worker-side clients.</p>
+<section id="data-lifetime-and-deletion">
+<h4>Data Lifetime and Deletion<a class="headerlink" href="#data-lifetime-and-deletion" title="Link to this heading">#</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">StorageService</span></code> owns ref lifetime and reclamation.</p>
+<p>For creation, read/write, and deletion behavior, refer to
+<a class="reference internal" href="storage_memory_management.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">storage_memory_management.md</span></code></span></a>.</p>
+</section>
 </section>
 <section id="storageclient-worker-side-data-access">
 <h3>StorageClient (Worker-Side Data Access)<a class="headerlink" href="#storageclient-worker-side-data-access" title="Link to this heading">#</a></h3>
@@ -610,9 +631,15 @@ For reserved units, admission uses full cap (<code class="docutils literal notra
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-concepts">Core Concepts</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#semantictask">SemanticTask</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithmpipeline-and-taskstage">AlgorithmPipeline and TaskStage</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithmpipeline-and-taskstage">AlgorithmPipeline and TaskStage</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#taskstage-allocations">TaskStage Allocations</a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#taskplan-workunit-workunitmeta">TaskPlan, WorkUnit, WorkUnitMeta</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageservice-authoritative-storage-registry">StorageService (Authoritative Storage Registry)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageservice-authoritative-storage-registry">StorageService (Authoritative Storage Registry)</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#data-lifetime-and-deletion">Data Lifetime and Deletion</a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#storageclient-worker-side-data-access">StorageClient (Worker-Side Data Access)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler">WorkScheduler</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#queue-model-high-level">Queue model (high level)</a></li>

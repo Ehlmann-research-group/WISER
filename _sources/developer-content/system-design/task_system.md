@@ -22,9 +22,13 @@ It carries:
 
 `SemanticTask` does not allocate storage, choose chunking, or schedule compute.
 
+It also carries meta data that is displayed in the activity monitor. This metadata is
+contains the task title and variables used in the task.
+
 ### AlgorithmPipeline and TaskStage
 
-An `AlgorithmPipeline` is an ordered list of `TaskStage` objects.
+An `AlgorithmPipeline` is an ordered list of `TaskStage` objects. These `TaskStage` objects
+run sequentially.
 
 Each stage defines:
 - input binding name (`input_binding`),
@@ -32,10 +36,17 @@ Each stage defines:
 - chunking scheme type,
 - work-unit dependency mode (`work_unit_dependency`: `independent` or `sequential`),
 - allocation requests for stage outputs,
-- a top-level callable producer (`task_fn` / `reduce_fn`),
+- a top-level callable producer (`task_fn` / `pre_task_fn` (optional) / `post_task_fn` (optional)),
 - optional broadcast refs (e.g. spectrum refs needed by every chunk).
 
 Important: stage input refs are resolved by binding name during planning. Stages should not assume direct ownership of concrete `DataRef`s.
+
+#### TaskStage Allocations
+
+Stages allocate outputs with `AllocationRequest`.
+
+For retention and deletion details, refer to
+[`storage_memory_management.md`](./storage_memory_management.md).
 
 ### TaskPlan, WorkUnit, WorkUnitMeta
 
@@ -63,6 +74,13 @@ By default:
 - access descriptors for reads/writes (`RamAccessDescriptor`, `MemmapAccessDescriptor`, `ZarrAccessDescriptor`, external descriptors, JSON descriptors).
 
 Internally it exposes an RPC listener used by worker-side clients.
+
+#### Data Lifetime and Deletion
+
+`StorageService` owns ref lifetime and reclamation.
+
+For creation, read/write, and deletion behavior, refer to
+[`storage_memory_management.md`](./storage_memory_management.md).
 
 ### StorageClient (Worker-Side Data Access)
 
