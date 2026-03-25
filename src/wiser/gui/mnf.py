@@ -125,6 +125,7 @@ class CalculateShiftYDiffNoise(MapStage):
             size_est=size_est,
             shape=(y, x, b),
             dtype=input_meta.dtype,
+            delete_policy=self.get_output_delete_policy(self._output_ref_name),
         )
         return [alloc_request]
 

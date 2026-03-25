@@ -73,6 +73,7 @@ class _DivideBySpectrumStage(MapStage):
                 shape=input_meta.shape,
                 dtype=input_meta.dtype,
                 chunks=None,
+                delete_policy=self.get_output_delete_policy("stage_out"),
             )
         ]
 
@@ -98,6 +99,7 @@ class _MultiplyBySpectrumStage(MapStage):
                 shape=input_meta.shape,
                 dtype=input_meta.dtype,
                 chunks=None,
+                delete_policy=self.get_output_delete_policy("stage_out_2"),
             )
         ]
 

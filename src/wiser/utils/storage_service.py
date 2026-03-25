@@ -491,10 +491,13 @@ class StorageService:
         *,
         preferred_storage: Optional[DiskFormat] = None,
         ttl_seconds: Optional[int] = None,
+        owner_plan_id: Optional[str] = None,
+        planned_consumer_plan_ids: Optional[set[str]] = None,
     ) -> DataRef:
         _ = ttl_seconds
         ref_id = self._new_ref_id()
         kind: RefKind = desc.kind
+        effective_delete_policy = desc.delete_policy if desc.delete_policy is not None else DeletePolicy.KEEP
 
         can_allocate_shared = desc.kind != "json" and desc.shape is not None and desc.dtype is not None
         want_ram = desc.residency == "ram_cacheable"
@@ -515,7 +518,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
-            self._create_lease_record(ref, backend_kind="json", delete_policy=desc.delete_policy)
+            self._create_lease_record(
+                ref,
+                backend_kind="json",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -546,7 +555,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
-            self._create_lease_record(ref, backend_kind="ram_shm", delete_policy=desc.delete_policy)
+            self._create_lease_record(
+                ref,
+                backend_kind="ram_shm",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -572,7 +587,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
-            self._create_lease_record(ref, backend_kind="json", delete_policy=desc.delete_policy)
+            self._create_lease_record(
+                ref,
+                backend_kind="json",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -610,7 +631,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
-            self._create_lease_record(ref, backend_kind="memmap", delete_policy=desc.delete_policy)
+            self._create_lease_record(
+                ref,
+                backend_kind="memmap",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             return ref
 
         if disk_kind == "zarr":
@@ -642,7 +669,13 @@ class StorageService:
             )
             self.data_refs[ref_id] = ref
             self.meta_by_ref[ref_id] = self._meta_from_ref(ref)
-            self._create_lease_record(ref, backend_kind="zarr", delete_policy=desc.delete_policy)
+            self._create_lease_record(
+                ref,
+                backend_kind="zarr",
+                delete_policy=effective_delete_policy,
+                owner_plan_id=owner_plan_id,
+                planned_consumer_plan_ids=planned_consumer_plan_ids,
+            )
             logger.info(
                 "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
                 ref.ref_id,
@@ -849,6 +882,20 @@ class StorageService:
         record.delete_policy = policy
         return self.try_reclaim(ref_id)
 
+    def register_plan_consumer(self, ref: Union[DataRef, str], plan_id: str) -> StorageLeaseRecord:
+        """Record that a task plan still depends on this managed ref."""
+
+        record = self.get_lease_record(ref)
+        record.planned_consumer_plan_ids.add(plan_id)
+        return self.try_reclaim(record.ref_id)
+
+    def release_plan_consumer(self, ref: Union[DataRef, str], plan_id: str) -> StorageLeaseRecord:
+        """Release one plan-level dependency and re-run the reclaim decision."""
+
+        record = self.get_lease_record(ref)
+        record.planned_consumer_plan_ids.discard(plan_id)
+        return self.try_reclaim(record.ref_id)
+
     def mark_producer_completed(self, ref: Union[DataRef, str]) -> StorageLeaseRecord:
         """Mark an output as successfully produced and re-run the reclaim decision."""
 
@@ -990,6 +1037,7 @@ class StorageService:
         backend_kind: str,
         delete_policy: DeletePolicy,
         owner_plan_id: Optional[str] = None,
+        planned_consumer_plan_ids: Optional[set[str]] = None,
         external_owned: bool = False,
     ) -> StorageLeaseRecord:
         """Create the initial lifetime record for a newly allocated managed ref."""
@@ -998,6 +1046,7 @@ class StorageService:
             ref_id=ref.ref_id,
             backend_kind=backend_kind,
             owner_plan_id=owner_plan_id,
+            planned_consumer_plan_ids=set(planned_consumer_plan_ids or ()),
             delete_policy=delete_policy,
             producer_state=ProducerState.WRITING,
             deletion_state=DeletionState.LIVE,

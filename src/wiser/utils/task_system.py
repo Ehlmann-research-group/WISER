@@ -28,6 +28,7 @@ from .primitives import (
     WorkUnitDependency,
     BasePlanMeta,
     DatasetPlanMeta,
+    DeletePolicy,
     SpectrumPlanMeta,
     SpectraListPlanMeta,
 )
@@ -75,6 +76,23 @@ class TaskStage:
 
     # If the value is a DataBinding it will be substituted for a DataRef at runtime
     broadcast_input: Dict[str, Any] = field(default_factory=dict)
+    _output_delete_policies: Dict[str, DeletePolicy] = field(default_factory=dict, init=False, repr=False)
+    _default_output_delete_policy: Optional[DeletePolicy] = field(default=None, init=False, repr=False)
+
+    def set_output_delete_policy(self, output_name: str, policy: DeletePolicy) -> None:
+        """Override the retention policy for one named output on this stage instance."""
+
+        self._output_delete_policies[output_name] = policy
+
+    def get_output_delete_policy(self, output_name: str) -> Optional[DeletePolicy]:
+        """Return the explicit per-output policy, or the planner default for this stage."""
+
+        return self._output_delete_policies.get(output_name, self._default_output_delete_policy)
+
+    def _set_default_output_delete_policy(self, policy: DeletePolicy) -> None:
+        """Set the planner-resolved default for outputs without an explicit override."""
+
+        self._default_output_delete_policy = policy
 
     @abstractmethod
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -241,6 +259,7 @@ class TaskPlan:
     #   - mixed: [[u1, u2], [u3], [u4, u5]]
     stage_steps: Dict[str, List[List[str]]] = field(default_factory=dict)
     bindings: Dict[str, DataRef] = field(default_factory=dict)
+    produced_ref_ids: set[str] = field(default_factory=set)
     fail_fast: bool = True
     completion_callback: Optional[Callable[[Dict[str, DataRef]], None]] = None
     # The below entries are for displaying to the user. They don't affect the internals
@@ -434,6 +453,7 @@ class TaskPlanner:
                 scheme_type=stage.chunking_scheme_type,
                 constraints={},
             )
+            stage._set_default_output_delete_policy(DeletePolicy.DELETE_WHEN_RELEASABLE)
 
             # 5) allocate outputs up front
             alloc_reqs = stage.generate_allocation_requests(
@@ -441,8 +461,13 @@ class TaskPlanner:
                 chosen_scheme=scheme,
             )
             for req in alloc_reqs:
-                out_ref = self._ctx.storage.allocate_data(req)
+                out_ref = self._ctx.storage.allocate_data(
+                    self._resolved_allocation_request(req),
+                    owner_plan_id=plan_id,
+                    planned_consumer_plan_ids={plan_id},
+                )
                 plan.bindings[req.name] = out_ref
+                plan.produced_ref_ids.add(out_ref.ref_id)
 
             # 5.5) Substitute out data bindings for data refs
             # Note, data bindings should refer to data refs from
@@ -591,6 +616,30 @@ class TaskPlanner:
             prev_stage_unit_ids = [post_unit_id]
 
         return plan
+
+    def _resolved_allocation_request(self, req: AllocationRequest) -> AllocationRequest:
+        """
+        Ensure every planner-owned output carries a concrete retention policy.
+
+        Stages are expected to provide the effective policy via
+        `TaskStage.get_output_delete_policy(...)`. This fallback keeps older stage
+        implementations on the same default: delete when releasable unless an
+        explicit policy was already attached.
+        """
+
+        if req.delete_policy is not None:
+            return req
+        return AllocationRequest(
+            name=req.name,
+            kind=req.kind,
+            residency=req.residency,
+            size_est=req.size_est,
+            shape=req.shape,
+            dtype=req.dtype,
+            chunks=req.chunks,
+            tags=req.tags,
+            delete_policy=DeletePolicy.DELETE_WHEN_RELEASABLE,
+        )
 
     def _estimate_ram(
         self,

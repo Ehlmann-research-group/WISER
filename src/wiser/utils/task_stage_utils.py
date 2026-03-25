@@ -152,12 +152,14 @@ class ComputePcaStage(MapStage):
             * np.dtype(np.float32).itemsize,
             shape=(input_meta.height, input_meta.width, self._num_components),
             dtype=np.dtype(np.float32),
+            delete_policy=self.get_output_delete_policy(self._output_ref_name),
         )
         json_request = AllocationRequest(
             name=self._pca_json_ref_name,
             kind="json",
             residency="ram_cacheable",
             size_est=4096,
+            delete_policy=self.get_output_delete_policy(self._pca_json_ref_name),
         )
         return [dataset_request, json_request]
 
@@ -436,6 +438,7 @@ class ContinuumRemovalImageStage(MapStage):
                 size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float32).itemsize,
                 shape=input_meta.shape,
                 dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             ),
             AllocationRequest(
                 name=self._prepared_subset_ref_name,
@@ -444,6 +447,7 @@ class ContinuumRemovalImageStage(MapStage):
                 size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float32).itemsize,
                 shape=input_meta.shape,
                 dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._prepared_subset_ref_name),
             ),
             AllocationRequest(
                 name=self._x_axis_ref_name,
@@ -452,6 +456,7 @@ class ContinuumRemovalImageStage(MapStage):
                 size_est=bands * np.dtype(np.float32).itemsize,
                 shape=(bands,),
                 dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._x_axis_ref_name),
             ),
             AllocationRequest(
                 name=self._bad_bands_ref_name,
@@ -460,6 +465,7 @@ class ContinuumRemovalImageStage(MapStage):
                 size_est=bands * np.dtype(np.bool_).itemsize,
                 shape=(bands,),
                 dtype=np.dtype(np.bool_),
+                delete_policy=self.get_output_delete_policy(self._bad_bands_ref_name),
             ),
         ]
 
@@ -830,6 +836,7 @@ class SavGolayFilterStage(MapStage):
                 * np.dtype(np.float32).itemsize,
                 shape=(input_meta.height, input_meta.width, input_meta.bands),
                 dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             )
         ]
 
@@ -1056,12 +1063,14 @@ class CalcCovMatrixStage(SequentialStage):
                 size_est=size_est,
                 shape=(feature_count, feature_count, 1),
                 dtype=input_meta.dtype,
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             ),
             AllocationRequest(
                 name=self._internal_total_ref_name,
                 kind="json",
                 residency="ram_cacheable",
                 size_est=64,
+                delete_policy=self.get_output_delete_policy(self._internal_total_ref_name),
             ),
         ]
 
@@ -1338,12 +1347,14 @@ class SpectralMeanStage(SequentialStage):
                 size_est=feature_count * np.dtype(np_type).itemsize,
                 shape=(feature_count,),
                 dtype=np.dtype(np_type),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             ),
             AllocationRequest(
                 name=self._internal_total_ref_name,
                 kind="json",
                 residency="ram_cacheable",
                 size_est=64,
+                delete_policy=self.get_output_delete_policy(self._internal_total_ref_name),
             ),
         ]
 
@@ -1553,6 +1564,7 @@ class EigenDecompositionStage(SequentialStage):
                 size_est=vectors_size_est,
                 shape=(n, n),
                 dtype=vectors_dtype,
+                delete_policy=self.get_output_delete_policy(self._vectors_ref_name),
             ),
             AllocationRequest(
                 name=self._values_ref_name,
@@ -1561,12 +1573,14 @@ class EigenDecompositionStage(SequentialStage):
                 size_est=values_size_est,
                 shape=(n,),
                 dtype=values_dtype,
+                delete_policy=self.get_output_delete_policy(self._values_ref_name),
             ),
             AllocationRequest(
                 name=self._output_ref_name,
                 kind="json",
                 residency="ram_cacheable",
                 size_est=1024,
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             ),
         ]
 
@@ -1718,6 +1732,7 @@ class WhiteningMatrixStage(SequentialStage):
             size_est=size_est,
             shape=(input_meta.num_spectra, input_meta.spectrum_length),
             dtype=dtype,
+            delete_policy=self.get_output_delete_policy(self._output_ref_name),
         )
         return [alloc_request]
 
@@ -1878,6 +1893,7 @@ class MatrixMultiplicationStage(SequentialStage):
                 size_est=output_rows * output_cols * np.dtype(self._output_dtype).itemsize,
                 shape=(output_rows, output_cols),
                 dtype=np.dtype(self._output_dtype),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             )
         ]
 
@@ -2124,6 +2140,7 @@ class ApplyMatrixToDatasetStage(MapStage):
             size_est=size_est,
             shape=(input_meta.height, input_meta.width, out_bands),
             dtype=input_meta.dtype,
+            delete_policy=self.get_output_delete_policy(self._output_ref_name),
         )
         return [alloc_request]
 
@@ -2678,6 +2695,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 size_est=vectors_size_est,
                 shape=(allocated_components, feature_count),
                 dtype=vectors_dtype,
+                delete_policy=self.get_output_delete_policy(self._vectors_ref_name),
             ),
             AllocationRequest(
                 name=self._values_ref_name,
@@ -2686,6 +2704,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 size_est=values_size_est,
                 shape=(allocated_components,),
                 dtype=values_dtype,
+                delete_policy=self.get_output_delete_policy(self._values_ref_name),
             ),
             AllocationRequest(
                 name=self._covariance_ref_name,
@@ -2694,6 +2713,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 size_est=covariance_size_est,
                 shape=(feature_count, feature_count),
                 dtype=covariance_dtype,
+                delete_policy=self.get_output_delete_policy(self._covariance_ref_name),
             ),
             AllocationRequest(
                 name=self._mean_ref_name,
@@ -2702,6 +2722,7 @@ class AdaptivePcaFitStage(SequentialStage):
                 size_est=mean_size_est,
                 shape=(feature_count,),
                 dtype=mean_dtype,
+                delete_policy=self.get_output_delete_policy(self._mean_ref_name),
             ),
             AllocationRequest(
                 name=self._good_band_mask_ref_name,
@@ -2710,18 +2731,21 @@ class AdaptivePcaFitStage(SequentialStage):
                 size_est=good_band_mask_size_est,
                 shape=(input_meta.bands,),
                 dtype=mask_dtype,
+                delete_policy=self.get_output_delete_policy(self._good_band_mask_ref_name),
             ),
             AllocationRequest(
                 name=self._resolved_num_components_ref_name,
                 kind="json",
                 residency="ram_cacheable",
                 size_est=64,
+                delete_policy=self.get_output_delete_policy(self._resolved_num_components_ref_name),
             ),
             AllocationRequest(
                 name=self._output_ref_name,
                 kind="json",
                 residency="ram_cacheable",
                 size_est=1024,
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
             ),
         ]
 
@@ -3062,6 +3086,7 @@ class ProjectOntoEigenVectorsStage(MapStage):
             size_est=size_est,
             shape=(input_meta.height, input_meta.width, self._num_components),
             dtype=input_meta.dtype,
+            delete_policy=self.get_output_delete_policy(self._output_ref_name),
         )
         return [alloc_request]
 

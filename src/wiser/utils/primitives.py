@@ -3,17 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field as dataclass_field
 from abc import ABC
 from enum import Enum
-from typing import (
-    Any,
-    Dict,
-    Literal,
-    Optional,
-    Tuple,
-    Iterable,
-    Protocol,
-    TYPE_CHECKING,
-    ClassVar,
-)
+from typing import Any, Dict, Literal, Optional, Tuple, Iterable, Protocol, TYPE_CHECKING, ClassVar
 import tempfile
 from pathlib import Path
 
@@ -251,9 +241,8 @@ class AllocationRequest:
 
     # Optional metadata tags (task_id, stage_id, output_name)
     tags: Optional[Dict[str, str]] = None
-    # `delete_policy` is intent: keep the output, or reclaim it once it is
-    # no longer in use. It does not say whether deletion has already happened.
-    delete_policy: DeletePolicy = DeletePolicy.KEEP
+    # When omitted, the stage/planner decides the policy for this output.
+    delete_policy: Optional[DeletePolicy] = None
 
 
 @dataclass
