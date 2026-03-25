@@ -53,6 +53,18 @@ from .storage_layer import ExternalHandle
 logger = logging.getLogger(__name__)
 
 
+def shared_mem_exists(self, shared_mem_name: str) -> bool:
+    try:
+        shm = SharedMemory(name=shared_mem_name, create=False)
+    except FileNotFoundError:
+        return False
+
+    try:
+        return True
+    finally:
+        shm.close()
+
+
 def _safe_np_dtype(value: Any) -> np.dtype:
     if value is None:
         return np.dtype("object")
@@ -149,7 +161,14 @@ class StorageService:
     meta_by_ref: Dict[str, DataMeta] = field(default_factory=dict)
     external_handles: Dict[str, ExternalHandle] = field(default_factory=dict)
     lease_records: Dict[str, StorageLeaseRecord] = field(default_factory=dict)
+    # Keep one service-owned handle open per live shared-memory allocation.
+    # This is intentional: on Windows a named mapping disappears once the last
+    # handle closes, so workers/clients can attach transiently while the service
+    # retains the owning handle until explicit deletion.
     _shared_mem_handles: Dict[str, SharedMemory] = field(default_factory=dict, init=False, repr=False)
+    # Historical mapping for debugging: once a RAM ref has been backed by a named
+    # shared-memory segment, keep the name here even after the live handle is gone.
+    _shared_mem_handles_names: Dict[str, str] = field(default_factory=dict, init=False, repr=False)
     _shared_memory_manager: SharedMemoryManager = field(init=False, repr=False)
     _listener: Optional[Listener] = field(default=None, init=False, repr=False)
     _listener_address: Optional[Tuple[str, int]] = field(default=None, init=False)
@@ -229,6 +248,20 @@ class StorageService:
 
     def get_connection_bootstrap(self) -> tuple[Tuple[str, int], bytes]:
         return self.listener_address, self.listener_authkey
+
+    def get_shared_mem_name_for_ref(self, ref_id: str) -> Optional[str]:
+        """
+        Return the named shared-memory segment historically associated with `ref_id`.
+
+        This is intentionally debug-oriented: the returned name may outlive the
+        live service-owned handle so callers can probe whether the OS-level segment
+        still exists after normal service bookkeeping has released it.
+        """
+
+        ref = self.data_refs.get(ref_id)
+        if ref is None:
+            return None
+        return self._shared_mem_handles_names.get(ref.uri)
 
     def _start_listener(self) -> None:
         self._listener = Listener((self.listener_host, 0), authkey=self._listener_authkey)
@@ -920,7 +953,6 @@ class StorageService:
         - `delete_policy` says whether reclamation is desired.
         - `deletion_state` records what is currently true at runtime.
         """
-
         record = self.get_lease_record(ref)
         if record.deletion_state == DeletionState.DELETED:
             return record
@@ -1109,14 +1141,13 @@ class StorageService:
             descriptor = self.ram_objects.pop(ref.uri, None)
             est = self.ram_est_bytes.pop(ref.uri, 0)
             self._ram_used_bytes = max(0, self._ram_used_bytes - est)
-            shm = self._shared_mem_handles.pop(ref.uri, None)
-            if shm is not None:
-                try:
-                    shm.close()
-                except Exception:
-                    logger.debug("SharedMemory close failed during ref deletion", exc_info=True)
+            owner_handle = self._shared_mem_handles.pop(ref.uri, None)
             if descriptor is not None and isinstance(descriptor, SharedMemArrayDescriptor):
                 try:
+                    # Unlink while the service-owned handle is still open so the
+                    # shared-memory name remains resolvable on Windows. After the
+                    # name is removed, closing the final owner handle releases the
+                    # backing storage.
                     backing = SharedMemory(name=descriptor.name, create=False)
                     try:
                         backing.unlink()
@@ -1126,6 +1157,11 @@ class StorageService:
                     pass
                 except Exception:
                     logger.debug("SharedMemory unlink failed during ref deletion", exc_info=True)
+            if owner_handle is not None:
+                try:
+                    owner_handle.close()
+                except Exception:
+                    logger.debug("SharedMemory owner-handle close failed during ref deletion", exc_info=True)
             return
 
         if ref.materialization_loc != "disk":
@@ -1169,6 +1205,7 @@ class StorageService:
             nbytes=nbytes,
         )
         self._shared_mem_handles[uri] = shm
+        self._shared_mem_handles_names[uri] = shm.name
         self.ram_objects[uri] = shm_desc
         self._with_shared_mem_array(shm_desc, lambda arr: arr.fill(0))
         return shm_desc
@@ -1223,6 +1260,7 @@ class StorageService:
             nbytes=nbytes,
         )
         self._shared_mem_handles[ref.uri] = shm
+        self._shared_mem_handles_names[ref.uri] = shm.name
         self.ram_objects[ref.uri] = shm_desc
         self._with_shared_mem_array(shm_desc, lambda target: np.copyto(target, arr))
         return shm_desc

@@ -6,6 +6,7 @@ from collections import Counter, deque
 from threading import Lock, Semaphore
 from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
+from multiprocessing.managers import dispatch
 
 from .primitives import PriorityClass
 from .task_system import TaskPlan, WorkUnit
@@ -575,6 +576,14 @@ def _normalize_explicit_priority_tokens(
             f"{executor_kind} budget ({executor_budget})"
         )
     return normalized_tokens
+
+
+def list_tracked_segments(smm):
+    conn = smm._Client(smm._address, authkey=smm._authkey)
+    try:
+        return dispatch(conn, None, "list_segments")
+    finally:
+        conn.close()
 
 
 class WorkScheduler:

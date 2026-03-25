@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Tuple
 import uuid
 
 import numpy as np
@@ -139,8 +139,9 @@ class StorageClient:
         """
         Read the whole object for `ref`.
 
-        For `RamAccessDescriptor`, the returned array is a shared-memory view
-        (not a copy), backed by an attached `SharedMemory` segment.
+        For RAM-backed refs, this returns a copied NumPy array. The client
+        attaches to shared memory only for the duration of the read so worker
+        functions do not leak attached shared-memory handles.
 
         Dimension conventions:
         - dataset refs return arrays shaped as [y][x][b]
@@ -157,9 +158,7 @@ class StorageClient:
         region_meta: RegionMeta = self._rpc_call("get_region_meta", ref=desc.ref, region=whole_region)
 
         if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            arr_region = self._read_region_from_array(arr, whole_region)
-            data = np.asarray(arr_region)
+            data = self._read_ram_array_copy(desc.ref.uri, whole_region)
             return (
                 self._mask_data_ignore_and_bad_bands(
                     data, region_meta, filter_data_ignore_and_bad_bands=filter_data
@@ -168,9 +167,7 @@ class StorageClient:
             )
 
         if isinstance(desc, ExternalRamAccessDescriptor):
-            arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
-            arr_region = self._read_region_from_array(arr, whole_region)
-            data = np.asarray(arr_region)
+            data = self._read_shared_mem_descriptor_copy(desc.shared_mem, whole_region)
             return (
                 self._mask_data_ignore_and_bad_bands(
                     data, region_meta, filter_data_ignore_and_bad_bands=filter_data
@@ -238,9 +235,7 @@ class StorageClient:
             raise TypeError("read_region not supported for JSON; use read_json_value")
 
         if isinstance(desc, ExternalRamAccessDescriptor):
-            arr = self._read_shared_mem_descriptor_view(desc.shared_mem)
-            arr = self._read_region_from_array(arr, region)
-            data = np.asarray(arr)
+            data = self._read_shared_mem_descriptor_copy(desc.shared_mem, region)
             return (
                 self._mask_data_ignore_and_bad_bands(
                     data,
@@ -264,9 +259,7 @@ class StorageClient:
             )
 
         if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            arr = self._read_region_from_array(arr, region)
-            data = np.asarray(arr)
+            data = self._read_ram_array_copy(desc.ref.uri, region)
             return (
                 self._mask_data_ignore_and_bad_bands(
                     data,
@@ -346,21 +339,39 @@ class StorageClient:
             raise TypeError("write_json_value requires a JSON ref")
         self._rpc_call("write_json_value", ref=desc.ref, value=value)
 
-    def _read_ram_array_view(self, uri: str) -> np.ndarray:
+    def _read_ram_array_copy(self, uri: str, region: DataRegion) -> np.ndarray:
         descriptor = self._get_ram_descriptor(uri)
-        return self._read_shared_mem_descriptor_view(descriptor)
+        return self._read_shared_mem_descriptor_copy(descriptor, region)
 
-    def _read_shared_mem_descriptor_view(self, descriptor: SharedMemArrayDescriptor) -> np.ndarray:
-        shm = self._get_or_attach_shm(descriptor)
-        return np.ndarray(
-            shape=descriptor.shape,
-            dtype=np.dtype(descriptor.dtype_str),
-            buffer=shm.buf,
-            strides=descriptor.strides,
+    def _read_shared_mem_descriptor_copy(
+        self,
+        descriptor: SharedMemArrayDescriptor,
+        region: DataRegion,
+    ) -> np.ndarray:
+        return self._with_shared_mem_array(
+            descriptor,
+            lambda arr: np.array(self._read_region_from_array(arr, region), copy=True),
         )
 
     def _get_ram_descriptor(self, uri: str) -> SharedMemArrayDescriptor:
         return self._rpc_call("get_ram_descriptor", uri=uri)
+
+    def _with_shared_mem_array(
+        self,
+        descriptor: SharedMemArrayDescriptor,
+        fn: Callable[[np.ndarray], Any],
+    ) -> Any:
+        shm = SharedMemory(name=descriptor.name, create=False)
+        try:
+            arr = np.ndarray(
+                shape=descriptor.shape,
+                dtype=np.dtype(descriptor.dtype_str),
+                buffer=shm.buf,
+                strides=descriptor.strides,
+            )
+            return fn(arr)
+        finally:
+            shm.close()
 
     def _get_or_attach_shm(self, descriptor: SharedMemArrayDescriptor) -> SharedMemory:
         shm = self._shared_mem_handles.get(descriptor.name)
@@ -524,11 +535,15 @@ class StorageClient:
         op_name: str,
     ) -> None:
         if isinstance(desc, RamAccessDescriptor):
-            arr = self._read_ram_array_view(desc.ref.uri)
-            if region is None:
-                arr[...] = value
-            else:
-                self._write_region_into_array(arr, region, value)
+            descriptor = self._get_ram_descriptor(desc.ref.uri)
+            self._with_shared_mem_array(
+                descriptor,
+                # Lambdas cannot contain `arr[...] = value`, so use the underlying
+                # item-assignment method when writing the full shared-memory array.
+                lambda arr: arr.__setitem__(Ellipsis, value)
+                if region is None
+                else self._write_region_into_array(arr, region, value),
+            )
             return
 
         if isinstance(desc, MemmapAccessDescriptor):

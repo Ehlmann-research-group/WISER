@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from multiprocessing.shared_memory import SharedMemory
 from unittest.mock import patch
 
 import numpy as np
@@ -38,12 +39,14 @@ from wiser.utils.primitives import (
     AllocationRequest,
     DataBinding,
     DataMeta,
+    DeletionState,
     DeletePolicy,
     NoChunkingScheme,
     PriorityClass,
     SpectraListPlanMeta,
 )
 from wiser.utils.storage_client import StorageClient
+from wiser.utils.storage_service import shared_mem_exists
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.utils.task_system import (
@@ -1454,6 +1457,73 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_adaptive_pca_stage_default_outputs_are_reclaimed(self) -> None:
+        app_services = AppServices()
+        try:
+            process_storage_client = get_process_storage_client()
+            rng = np.random.default_rng(7)
+            dataset = rng.standard_normal((4, 4, 3), dtype=np.float32)
+            dataset_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="ipca_reclaim_dataset",
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=dataset.size * dataset.dtype.itemsize,
+                    shape=dataset.shape,
+                    dtype=dataset.dtype,
+                )
+            )
+            process_storage_client.write_data(dataset_ref, dataset)
+
+            output_ref_name = "ipca_reclaim_descriptor"
+            stage = get_adaptive_pca_partial_fit_stage(
+                dataset_ref=dataset_ref,
+                num_components=3,
+                output_ref_name=output_ref_name,
+            )
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = 1014
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+
+            output_names = [
+                stage._output_ref_name,
+                stage._vectors_ref_name,
+                stage._values_ref_name,
+                stage._mean_ref_name,
+                stage._covariance_ref_name,
+                stage._good_band_mask_ref_name,
+            ]
+            planned_outputs = {name: task_plan.bindings[name] for name in output_names}
+            shared_mem_names = {
+                ref.ref_id: app_services.storage_service._shared_mem_handles_names.get(ref.uri)
+                for ref in planned_outputs.values()
+                if ref.materialization_loc == "ram" and ref.kind != "json"
+            }
+
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=20)
+
+            for name, ref in planned_outputs.items():
+                record = app_services.storage_service.get_lease_record(ref.ref_id)
+                self.assertEqual(record.deletion_state, DeletionState.DELETED)
+                self.assertNotIn(ref.ref_id, app_services.storage_service.data_refs)
+                self.assertNotIn(ref.ref_id, app_services.storage_service.meta_by_ref)
+                self.assertNotIn(ref.uri, app_services.storage_service.ram_objects)
+                self.assertNotIn(ref.uri, app_services.storage_service.ram_est_bytes)
+
+                shared_mem_name = shared_mem_names.get(ref.ref_id)
+                # Output ref name is the only name that's not saved as a SharedMemoryAray
+                if name is not output_ref_name:
+                    self.assertFalse(shared_mem_exists(shared_mem_name))
+        finally:
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
