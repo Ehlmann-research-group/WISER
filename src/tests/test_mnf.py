@@ -13,7 +13,7 @@ from test_utils.test_model import WiserTestModel
 from wiser.gui.app_services import AppServices
 from wiser.gui.mnf import MinimumNoiseFractionDialog, get_mnf_pipeline, get_y_shift_noise
 from wiser.raster.loader import RasterDataLoader
-from wiser.utils.primitives import PriorityClass
+from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.task_system import AlgorithmPipeline, SemanticTask
@@ -50,6 +50,7 @@ class TestMnf(unittest.TestCase):
             )
             output_ref_name = "shift_y_noise_test"
             stage = get_y_shift_noise(dataset_ref, output_ref_name)
+            stage.set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -99,6 +100,7 @@ class TestMnf(unittest.TestCase):
             num_components = 3
             output_ref_name = "mnf_data"
             mnf_pipeline = get_mnf_pipeline(dataset_ref, num_components, output_ref_name)
+            mnf_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -230,6 +232,7 @@ class TestMnf(unittest.TestCase):
             num_components = 2
             output_ref_name = "mnf_bad_bands_invalid_pixels"
             mnf_pipeline = get_mnf_pipeline(dataset_ref, num_components, output_ref_name)
+            mnf_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,

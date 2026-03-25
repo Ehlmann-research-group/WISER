@@ -10,7 +10,7 @@ from test_utils.test_model import WiserTestModel
 
 from wiser.gui.permanent_plugins.pca_plugin import ESTIMATOR_TYPES, PCAPlugin, PCAPluginTask
 from wiser.raster.utils import compute_PCA_on_image
-from wiser.utils.primitives import PriorityClass
+from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_pca_pipeline
@@ -80,6 +80,8 @@ class TestPcaTask(unittest.TestCase):
                 output_ref_name=output_ref_name,
                 pca_json_ref_name=pca_json_ref_name,
             )
+            pca_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
+            pca_pipeline.stages[-1].set_output_delete_policy(pca_json_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,

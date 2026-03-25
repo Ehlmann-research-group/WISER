@@ -9,7 +9,7 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     ContinuumRemovalPlugin,
 )
 from wiser.raster.dataset import dict_list_equal
-from wiser.utils.primitives import PriorityClass
+from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_continuum_removal_image_pipeline
@@ -79,6 +79,7 @@ class TestContinuumRemovalTask(unittest.TestCase):
                 max_band=max_band,
                 output_ref_name=output_ref_name,
             )
+            pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
