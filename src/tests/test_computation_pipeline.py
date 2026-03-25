@@ -8,7 +8,14 @@ import tests.context
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import NumPyArraySpectrum
-from wiser.utils.primitives import AllocationRequest, DataBinding, DataRef, DatasetRegionRef, PriorityClass
+from wiser.utils.primitives import (
+    AllocationRequest,
+    DataBinding,
+    DataRef,
+    DatasetRegionRef,
+    DeletePolicy,
+    PriorityClass,
+)
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_layer import ExternalRasterHandle, ExternalSpectrumHandle
 from wiser.utils.storage_service import StorageService
@@ -155,6 +162,7 @@ class TestComputationPipeline(unittest.TestCase):
                     output_bindings=(DataBinding("stage_out"),),
                     broadcast_input={"spectrum_ref": spectrum_ref},
                 )
+                stage.set_output_delete_policy("stage_out", DeletePolicy.KEEP)
                 semantic_task = SemanticTask(
                     priority_class=PriorityClass.INTERACTIVE,
                     input_ref=dataset_ref,
@@ -243,6 +251,7 @@ class TestComputationPipeline(unittest.TestCase):
                     output_bindings=(DataBinding("stage_out_2"),),
                     broadcast_input={"spectrum_ref": spectrum_ref},
                 )
+                multiply_stage.set_output_delete_policy("stage_out_2", DeletePolicy.KEEP)
                 semantic_task = SemanticTask(
                     priority_class=PriorityClass.INTERACTIVE,
                     input_ref=dataset_ref,
