@@ -222,12 +222,14 @@ Function ValidateInstallDir
     Call LaunchElevatedAllUsers
   ${EndIf}
 
+  ClearErrors
   CreateDirectory "$INSTDIR"
   ${If} ${Errors}
     MessageBox MB_ICONSTOP|MB_TOPMOST "Unable to create install directory:$\r$\n$INSTDIR"
     Abort
   ${EndIf}
 
+  ClearErrors
   FileOpen $1 "$INSTDIR\.wiser_write_test.tmp" w
   ${If} ${Errors}
     MessageBox MB_ICONSTOP|MB_TOPMOST "The selected folder is not writable:$\r$\n$INSTDIR"
