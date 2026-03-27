@@ -7,6 +7,7 @@ from scipy.signal import savgol_filter
 
 import tests.context
 
+from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 from wiser.bandmath.types import VariableType
 from wiser.gui.sav_golay import SavGolayDialog, savgol_filter_spectrum
@@ -112,6 +113,7 @@ class TestSavGolay(unittest.TestCase):
             if storage_client is not None:
                 storage_client.close()
             if app_services is not None:
+                release_kept_refs(app_services)
                 app_services.scheduler.shutdown(wait=True)
                 app_services.storage_service.close()
 
@@ -187,6 +189,7 @@ class TestSavGolay(unittest.TestCase):
             if storage_client is not None:
                 storage_client.close()
             if app_services is not None:
+                release_kept_refs(app_services)
                 app_services.scheduler.shutdown(wait=True)
                 app_services.storage_service.close()
 
@@ -228,6 +231,7 @@ class TestSavGolay(unittest.TestCase):
             if storage_client is not None:
                 storage_client.close()
             if app_services is not None:
+                release_kept_refs(app_services)
                 app_services.scheduler.shutdown(wait=True)
                 app_services.storage_service.close()
 
@@ -290,6 +294,7 @@ class TestSavGolay(unittest.TestCase):
             if storage_client is not None:
                 storage_client.close()
             if app_services is not None:
+                release_kept_refs(app_services)
                 app_services.scheduler.shutdown(wait=True)
                 app_services.storage_service.close()
 

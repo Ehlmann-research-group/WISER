@@ -4,6 +4,7 @@ import unittest
 import tests.context
 import numpy as np
 
+from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     ContinuumRemovalPlugin,
@@ -118,6 +119,7 @@ class TestContinuumRemovalTask(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -157,6 +159,7 @@ class TestContinuumRemovalTask(unittest.TestCase):
 
             self._compare_datasets(actual_dataset, expected_dataset)
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -202,5 +205,6 @@ class TestContinuumRemovalTask(unittest.TestCase):
 
             self._compare_datasets(actual_dataset, expected_dataset)
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()

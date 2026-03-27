@@ -10,6 +10,7 @@ from sklearn.decomposition import PCA
 import tests.context
 # import context
 
+from test_utils.memory_cleanup import release_kept_refs
 from wiser.gui.app_services import AppServices
 from wiser.utils.task_stage_utils import (
     CalcCovMatrixStage,
@@ -155,6 +156,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                     output_ref_name="savgol_invalid",
                 )
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -208,6 +210,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -256,6 +259,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -310,6 +314,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -369,6 +374,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -393,6 +399,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             )
             self.assertEqual(count_valid_dataset_pixels(input_ref), 2)
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -451,6 +458,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -519,6 +527,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -573,6 +582,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -641,6 +651,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -711,6 +722,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -806,6 +818,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -891,6 +904,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -995,6 +1009,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1076,6 +1091,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1115,6 +1131,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Matrix chain shape mismatch"):
                 get_matrix_multiplication_stage(matrix_refs, "bad_matrix_chain")
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1228,6 +1245,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1384,6 +1402,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1457,6 +1476,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1524,6 +1544,7 @@ class TestTaskStageFuncs(unittest.TestCase):
                 if name is not output_ref_name:
                     self.assertFalse(shared_mem_exists(shared_mem_name))
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1588,6 +1609,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1713,6 +1735,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1817,6 +1840,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -1915,6 +1939,7 @@ class TestTaskStageFuncs(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 

@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import tests.context
 
+from test_utils.memory_cleanup import release_kept_refs
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.utils.primitives import (
@@ -189,6 +190,7 @@ class TestComputationPipeline(unittest.TestCase):
 
                 np.testing.assert_allclose(output_arr, expected, equal_nan=True)
             finally:
+                release_kept_refs(service)
                 scheduler.shutdown(wait=True)
                 client.close()
                 service.close()
@@ -281,6 +283,7 @@ class TestComputationPipeline(unittest.TestCase):
                 expected_arr = input_arr * valid_spectrum_mask
                 np.testing.assert_allclose(output_arr, expected_arr, rtol=1e-5, atol=1e-8, equal_nan=True)
             finally:
+                release_kept_refs(service)
                 scheduler.shutdown(wait=True)
                 client.close()
                 service.close()
