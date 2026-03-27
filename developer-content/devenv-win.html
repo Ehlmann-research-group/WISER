@@ -336,6 +336,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda">How to Install Conda</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ide">IDE</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installer-nsis">Installer - NSIS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-on-windows">Installing on Windows</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing">Code-Signing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-project">Building the Project</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-revisited">Code Signing Revisited</a></li>
@@ -367,6 +368,33 @@ libraries, probably because of library/DLL versioning issues. However, between W
 <h2>Installer - NSIS<a class="headerlink" href="#installer-nsis" title="Link to this heading">#</a></h2>
 <p>The <a class="reference external" href="https://nsis.sourceforge.io/Main_Page">Nullsoft Scriptable Install System (NSIS)</a>
 is used to build the WISER installer. The installer installs on the user level.</p>
+</section>
+<section id="installing-on-windows">
+<h2>Installing on Windows<a class="headerlink" href="#installing-on-windows" title="Link to this heading">#</a></h2>
+<p>As of release 2.0b1, WISER effectively assumed that only one version of WISER would be installed on a
+computer at a time. The installer and uninstaller logic used a single uninstall registry key for WISER,
+and the install flow would look up that key and run the previous uninstaller before proceeding with a
+new install. In practice, this meant that WISER behaved like a single-install application rather than
+a side-by-side application.</p>
+<p>As of release 2.1b1, WISER is meant to be installed into any location that the installer considers safe.
+This includes places like Program Files, AppData, or another writable folder chosen by the user. The
+installer still uses registry keys, but those keys are now versioned using the WISER version number. The
+install directory, Start Menu folder, and uninstaller name are also versioned.</p>
+<p>This versioned approach means that multiple different versions of WISER can coexist on the same computer without
+overwriting each other’s uninstall registration. If one version of WISER is uninstalled, that uninstall
+removes only the files, shortcuts, and uninstall registry key associated with that specific version.
+Other installed versions should remain visible to the system because they keep their own separate uninstall
+registry keys.</p>
+<p>One subtle point is that the uninstaller does not decide what to delete by scanning the registry for all
+WISER installs. Instead, it primarily removes the install directory it is associated with, and then deletes
+that version’s own uninstall registry key. So if the same version of WISER is installed twice and one version
+is uninstalled, the registry key for that version (which there is only one of even though there are two WISERs
+installed for that version) will be deleted. The registry is used to register and discover a particular
+installed version, not as the master source for removing every WISER installation on the machine. Additionally,
+WISER writes app data like config files, log files, and numba cache to a location that is independent of WISER’s
+install location and is dependent on the WISER version. For example on windows this is %LOCALAPPDATA%/WISER-{version}.
+This means that if there are two of the same version of WISER installed onto a computer, they will be writing to
+the same directory.</p>
 </section>
 <section id="code-signing">
 <h2>Code-Signing<a class="headerlink" href="#code-signing" title="Link to this heading">#</a></h2>
@@ -478,6 +506,7 @@ environment has this, be warned.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda">How to Install Conda</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ide">IDE</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installer-nsis">Installer - NSIS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-on-windows">Installing on Windows</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing">Code-Signing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-project">Building the Project</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-revisited">Code Signing Revisited</a></li>
