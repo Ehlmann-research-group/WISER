@@ -41,7 +41,11 @@ WISER installs. Instead, it primarily removes the install directory it is associ
 that version's own uninstall registry key. So if the same version of WISER is installed twice and one version
 is uninstalled, the registry key for that version (which there is only one of even though there are two WISERs
 installed for that version) will be deleted. The registry is used to register and discover a particular
-installed version, not as the master source for removing every WISER installation on the machine.
+installed version, not as the master source for removing every WISER installation on the machine. Additionally,
+WISER writes app data like config files, log files, and numba cache to a location that is independent of WISER's
+install location and is dependent on the WISER version. For example on windows this is %LOCALAPPDATA%/WISER-{version}.
+This means that if there are two of the same version of WISER installed onto a computer, they will be writing to
+the same directory.
 
 ## Code-Signing
 
