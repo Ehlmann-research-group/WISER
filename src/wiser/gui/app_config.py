@@ -78,15 +78,15 @@ def get_app_data_dir() -> str:
     """
     sys_name = platform.system()
     if sys_name == "Windows":
-        return os.path.join(os.path.expandvars(r"%LOCALAPPDATA%\WISER"), version.VERSION)
+        return os.path.expandvars(rf"%LOCALAPPDATA%\WISER-{version.VERSION}")
 
     if sys_name == "Darwin":
-        return os.path.expanduser(f"~/Library/WISER/{version.VERSION}")
+        return os.path.expanduser(f"~/Library/WISER-{version.VERSION}")
 
     if sys_name != "Linux":
         warnings.warn(f'Unrecognized platform name "{sys_name}"')
 
-    return os.path.expanduser(f"~/.wiser/{version.VERSION}")
+    return os.path.expanduser(f"~/.wiser-{version.VERSION}")
 
 
 def get_wiser_config_dir() -> str:
