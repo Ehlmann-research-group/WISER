@@ -17,6 +17,36 @@ The ID that WISER is currently (10/7/2025) developed on is Visual Studio Code. A
 The [Nullsoft Scriptable Install System (NSIS)](https://nsis.sourceforge.io/Main_Page)
 is used to build the WISER installer. The installer installs on the user level.
 
+## Installing on Windows
+
+As of release 2.0b1, WISER effectively assumed that only one version of WISER would be installed on a
+computer at a time. The installer and uninstaller logic used a single uninstall registry key for WISER,
+and the install flow would look up that key and run the previous uninstaller before proceeding with a
+new install. In practice, this meant that WISER behaved like a single-install application rather than
+a side-by-side application.
+
+As of release 2.1b1, WISER is meant to be installed into any location that the installer considers safe.
+This includes places like Program Files, AppData, or another writable folder chosen by the user. The
+installer still uses registry keys, but those keys are now versioned using the WISER version number. The
+install directory, Start Menu folder, and uninstaller name are also versioned.
+
+This versioned approach means that multiple different versions of WISER can coexist on the same computer without
+overwriting each other's uninstall registration. If one version of WISER is uninstalled, that uninstall
+removes only the files, shortcuts, and uninstall registry key associated with that specific version.
+Other installed versions should remain visible to the system because they keep their own separate uninstall
+registry keys.
+
+One subtle point is that the uninstaller does not decide what to delete by scanning the registry for all
+WISER installs. Instead, it primarily removes the install directory it is associated with, and then deletes
+that version's own uninstall registry key. So if the same version of WISER is installed twice and one version
+is uninstalled, the registry key for that version (which there is only one of even though there are two WISERs
+installed for that version) will be deleted. The registry is used to register and discover a particular
+installed version, not as the master source for removing every WISER installation on the machine. Additionally,
+WISER writes app data like config files, log files, and numba cache to a location that is independent of WISER's
+install location and is dependent on the WISER version. For example on windows this is %LOCALAPPDATA%/WISER-{version}.
+This means that if there are two of the same version of WISER installed onto a computer, they will be writing to
+the same directory.
+
 ## Code-Signing
 
 To code-sign the WISER installer, the

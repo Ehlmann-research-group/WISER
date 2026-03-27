@@ -6,7 +6,6 @@ from unittest.mock import patch
 import tests.context
 
 import numpy as np
-import spectral
 import pytest
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
@@ -84,6 +83,11 @@ class TestMnf(unittest.TestCase):
             app_services.storage_service.close()
 
     def test_get_mnf_pipeline_matches_spy_mnf_on_caltech_fixture(self) -> None:
+        # We do pytest importorskip here so that when we are build and smoke testing for prod
+        # (which uses the prod-conda-lock.yml that doesn't have spectral). This is fine
+        # because these are accuracy tests that had to have run for this code to be merged
+        # into main
+        spectral = pytest.importorskip("spectral")
         dataset_path = (
             Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "circuit_4_100_150_um"
         ).resolve()
@@ -204,6 +208,7 @@ class TestMnf(unittest.TestCase):
             app_services.storage_service.close()
 
     def test_get_mnf_pipeline_matches_spy_mnf_with_bad_bands_and_invalid_pixels(self) -> None:
+        spectral = pytest.importorskip("spectral")
         dataset_path = (
             Path(__file__).resolve().parent
             / ".."

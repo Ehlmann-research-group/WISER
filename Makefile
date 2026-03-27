@@ -76,6 +76,9 @@ build-linux : generated
 dist-win : build-win
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
+quick-sign-win:
+	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
+
 # Note that these tests don't catch all issues that would occur on a new machine.
 # To be more certain we catch problems, running with the github runner deployment
 # pipeline is necessary
