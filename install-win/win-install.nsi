@@ -258,6 +258,22 @@ Section "Install"
     SetShellVarContext current
   ${EndIf}
 
+  ; Warn before continuing if this exact WISER version is already registered.
+  ${If} $InstallScope == "all"
+    ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "DisplayName"
+    ReadRegStr $1 HKLM "${REGKEY_UNINSTALL}" "Publisher"
+  ${Else}
+    ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "DisplayName"
+    ReadRegStr $1 HKCU "${REGKEY_UNINSTALL}" "Publisher"
+  ${EndIf}
+  ${If} "$0" == "${APP_DIRNAME}"
+    ${AndIf} "$1" == "California Institute of Technology"
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON2 \
+      "${APP_DIRNAME} is already installed. Installing without first uninstalling will mess with application registry keys.$\r$\n$\r$\nPress OK to continue with this installation or Cancel to stop." \
+      IDOK +2 IDCANCEL 0
+    Quit
+  ${EndIf}
+
   ; If the current target directory already contains a WISER uninstaller, run it first.
   DetailPrint "Checking this instdir: ( $INSTDIR ) for this $INSTDIR\${UNINSTALL_EXE_NAME}"
   IfFileExists "$INSTDIR\${UNINSTALL_EXE_NAME}" 0 finish_uninstall_jump
