@@ -117,7 +117,15 @@ FunctionEnd
 ; Installer
 
 !define MUI_LICENSEPAGE_CHECKBOX
+!ifndef INNER
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipLicensePageIfElevated
 !insertmacro MUI_PAGE_LICENSE "install-win\license.rtf"
+  !ifdef MUI_PAGE_CUSTOMFUNCTION_PRE
+    !undef MUI_PAGE_CUSTOMFUNCTION_PRE
+  !endif
+!else
+!insertmacro MUI_PAGE_LICENSE "install-win\license.rtf"
+!endif
 !ifndef INNER
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipDirectoryPageIfElevated
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE ValidateInstallDir
@@ -207,12 +215,19 @@ FunctionEnd
 
 Function LaunchElevatedAllUsers
   StrCpy $RelaunchArgs '/ALLUSERS=1 /INSTALLDIR="$INSTDIR"'
+  ClearErrors
   ExecShell "runas" "$EXEPATH" $RelaunchArgs SW_SHOWNORMAL $0
   ${If} ${Errors}
     MessageBox MB_ICONSTOP|MB_TOPMOST "Unable to relaunch installer as administrator. Exec Shell Code: $0"
-    Abort
+    Quit
   ${EndIf}
   Quit
+FunctionEnd
+
+Function SkipLicensePageIfElevated
+  ${If} $SkipDirectoryPage == 1
+    Abort
+  ${EndIf}
 FunctionEnd
 
 Function SkipDirectoryPageIfElevated
