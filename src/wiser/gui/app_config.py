@@ -72,6 +72,19 @@ def resource_path(*parts: str) -> str:
     return str(base.joinpath(*parts))
 
 
+def get_wiser_app_dir() -> str:
+    """
+    Return the directory containing the running WISER application.
+
+    In a frozen PyInstaller build, this is the directory containing WISER.exe.
+    In development, this resolves to the ``src`` directory.
+    """
+    if getattr(sys, "frozen", False):
+        return str(Path(sys.executable).resolve().parent)
+
+    return str(Path(__file__).resolve().parents[2])
+
+
 def get_wiser_config_dir() -> str:
     """
     Determine the WISER config directory based on the platform/OS.  The config
@@ -88,9 +101,9 @@ def get_wiser_config_dir() -> str:
         # If our app is built, we need to put WISER's config into wherever the
         # user decided to place WISER into
         if getattr(sys, "frozen", False):
-            wiser_dir = os.path.dirname(sys.executable)
+            wiser_dir = str(Path(sys.executable).resolve().parent)
         else:
-            wiser_dir = Path(__file__).resolve().parents[2]
+            wiser_dir = os.path.join(Path(__file__).resolve().parents[3], "dev_config_dir_windows")
 
     elif sys_name == "Darwin":
         # Put WISER config in the user's Library directory

@@ -23,3 +23,5 @@ Secret.sh
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*
+
+dev_config_dir_windows/

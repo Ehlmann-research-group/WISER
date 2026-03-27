@@ -3,3 +3,5 @@ wiser.log
 wiser/Cache
 
 !data/
+
+numba_wiser_cache
