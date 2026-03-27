@@ -275,9 +275,7 @@ Section "Install"
   ${EndIf}
 
   ; If the current target directory already contains a WISER uninstaller, run it first.
-  DetailPrint "Checking this instdir: ( $INSTDIR ) for this $INSTDIR\${UNINSTALL_EXE_NAME}"
   IfFileExists "$INSTDIR\${UNINSTALL_EXE_NAME}" 0 finish_uninstall_jump
-    DetailPrint "!@# About to uninstall previous"
     ClearErrors
     ExecWait '"$INSTDIR\${UNINSTALL_EXE_NAME}" /S' $1
 
@@ -288,36 +286,9 @@ Section "Install"
 
   finish_uninstall_jump:
 
-  ; ; Check to see if the application already exists
-  ; ; If so, we run the uninstaller in the selected scope only.
-  ; ${If} $InstallScope == "all"
-  ;   ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString"
-  ; ${Else}
-  ;   ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString"
-  ; ${EndIf}
-  ; ; DetailPrint "In Install, RegStr is: $0"
-  ; StrCmp $0 "" done_uninstall_check
-  ; ; ClearErrors
-  ; ExecWait $0 $1
-  ; ${If} ${Errors}
-  ; MessageBox MB_ICONSTOP|MB_TOPMOST "Failed to launch previous uninstaller."
-  ; Abort
-  ; ${EndIf}
-
-  ; DetailPrint "Previous uninstaller exit code: $1"
-
-  ; ${If} $1 != 0
-  ;   MessageBox MB_ICONSTOP|MB_TOPMOST "Previous uninstaller failed with exit code $1."
-  ;   Abort
-  ; ${EndIf}
-
-  ; done_uninstall_check:
-
   ; Delete previous install tree only when install marker exists.
   ; Never recursively delete arbitrary user-selected directories.
-  DetailPrint "!@#@ Does old file exist? Instdir: $INSTDIR"
   IfFileExists "$INSTDIR\WISER.exe" 0 +3
-    DetailPrint "!@#@ Old file does exist still"
     RMDIR /r "$INSTDIR"
     Goto +1
 
@@ -342,7 +313,6 @@ Section "Install"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   ${If} $InstallScope == "all"
-    DetailPrint "Writing HKLM"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "${APP_DIRNAME}"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
@@ -352,7 +322,6 @@ Section "Install"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\${UNINSTALL_EXE_NAME}$\" /S"
     WriteRegDWORD HKLM "${REGKEY_UNINSTALL}" "EstimatedSize" "$0"
   ${Else}
-    DetailPrint "Writing HKCU"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayName" "${APP_DIRNAME}"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
@@ -382,9 +351,7 @@ Section "Uninstall"
   ; Clean up the installed files.
 
   ; NOT NECESSARY? Delete "$INSTDIR\Uninstall WISER.exe"
-  DetailPrint "Install Dir is: $INSTDIR"
   IfFileExists "$INSTDIR\WISER.exe" 0 +2
-    DetailPrint "Removing old version in: $INSTDIR"
     RMDir /r "$INSTDIR"
 
   ; Clean up start-menu entries
@@ -397,10 +364,8 @@ Section "Uninstall"
 
   ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
   ${If} $0 != ""
-    DetailPrint "Deleting HKLM REGKEY: ${REGKEY_UNINSTALL}"
     DeleteRegKey HKLM "${REGKEY_UNINSTALL}"
   ${Else}
-    DetailPrint "Deleting HKCU REGKEY: ${REGKEY_UNINSTALL}"
     DeleteRegKey HKCU "${REGKEY_UNINSTALL}"
   ${EndIf}
 
