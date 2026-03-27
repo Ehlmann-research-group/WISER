@@ -45,6 +45,7 @@ InstallDir "$LOCALAPPDATA"
 
 Var InstallScope
 Var RelaunchArgs
+Var SkipDirectoryPage
 
 
 !ifdef INNER
@@ -89,14 +90,15 @@ Var RelaunchArgs
 !endif
 
   StrCpy $InstallScope "current"
+  StrCpy $SkipDirectoryPage 0
   SetShellVarContext current
 
   ${GetParameters} $0
   ${GetOptions} $0 "/ALLUSERS=" $1
   ${If} $1 == "1"
     StrCpy $InstallScope "all"
+    StrCpy $SkipDirectoryPage 1
     SetShellVarContext all
-    SetSilent silent
   ${EndIf}
 
   ${GetOptions} $0 "/INSTALLDIR=" $2
@@ -117,8 +119,12 @@ FunctionEnd
 !define MUI_LICENSEPAGE_CHECKBOX
 !insertmacro MUI_PAGE_LICENSE "install-win\license.rtf"
 !ifndef INNER
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipDirectoryPageIfElevated
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE ValidateInstallDir
 !insertmacro MUI_PAGE_DIRECTORY
+  !ifdef MUI_PAGE_CUSTOMFUNCTION_PRE
+    !undef MUI_PAGE_CUSTOMFUNCTION_PRE
+  !endif
   !ifdef MUI_PAGE_CUSTOMFUNCTION_LEAVE
     !undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
   !endif
@@ -200,13 +206,19 @@ Function NormalizeInstallDir
 FunctionEnd
 
 Function LaunchElevatedAllUsers
-  StrCpy $RelaunchArgs '/ALLUSERS=1 /INSTALLDIR="$INSTDIR" /S'
-  ExecShell "runas" "$EXEPATH" $RelaunchArgs
+  StrCpy $RelaunchArgs '/ALLUSERS=1 /INSTALLDIR="$INSTDIR"'
+  ExecShell "runas" "$EXEPATH" $RelaunchArgs SW_SHOWNORMAL $0
   ${If} ${Errors}
-    MessageBox MB_ICONSTOP|MB_TOPMOST "Unable to relaunch installer as administrator."
+    MessageBox MB_ICONSTOP|MB_TOPMOST "Unable to relaunch installer as administrator. Exec Shell Code: $0"
     Abort
   ${EndIf}
   Quit
+FunctionEnd
+
+Function SkipDirectoryPageIfElevated
+  ${If} $SkipDirectoryPage == 1
+    Abort
+  ${EndIf}
 FunctionEnd
 
 Function ValidateInstallDir
