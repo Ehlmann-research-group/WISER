@@ -33,7 +33,7 @@ from scipy.interpolate import interp1d
 from wiser import plugins, raster
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.utils.primitives import DataRef, DatasetRegionRef, PriorityClass
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_continuum_removal_image_pipeline
 from wiser.utils.task_system import SemanticTask
 from wiser.utils.worker_runtime import get_process_storage_client

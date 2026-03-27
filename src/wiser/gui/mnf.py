@@ -40,7 +40,7 @@ from wiser.utils.task_system import (
     SemanticTask,
     WriteSpec,
 )
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 
 if TYPE_CHECKING:

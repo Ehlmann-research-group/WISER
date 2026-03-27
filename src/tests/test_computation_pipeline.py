@@ -17,7 +17,7 @@ from wiser.utils.primitives import (
     PriorityClass,
 )
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle, ExternalSpectrumHandle
+from wiser.utils.primitives import ExternalRasterHandle, ExternalSpectrumHandle
 from wiser.utils.storage_service import StorageService
 from wiser.utils.task_system import (
     AlgorithmPipeline,

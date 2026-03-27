@@ -13,7 +13,7 @@ from wiser.gui.app_services import AppServices
 from wiser.gui.generated.sav_golay_filter_dialog_ui import Ui_SavGolayFilter
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.utils.primitives import DataMeta, DataRef, DatasetRegionRef, PriorityClass
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import (
     get_good_band_runs,
     get_savgol_filter_pipeline,

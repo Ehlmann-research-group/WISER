@@ -10,6 +10,11 @@ from pathlib import Path
 import numpy as np
 from astropy import units as u
 
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
+    from wiser.raster.spectral_library import SpectralLibrary
+    from wiser.raster.spectrum import Spectrum
+
 
 class PriorityClass(Enum):
     INTERACTIVE = "interactive"
@@ -77,6 +82,171 @@ DEFAULT_FLOAT_TYPE = np.float64
 
 def temp_dir() -> Path:
     return Path(tempfile.gettempdir()) / "wiser"
+
+
+def _safe_np_dtype(value: Any) -> np.dtype:
+    if value is None:
+        return np.dtype("object")
+    return np.dtype(value)
+
+
+def _to_wavelength_array_and_unit(values: Any) -> tuple[Optional[np.ndarray], Any]:
+    if values is None:
+        return None, None
+    if len(values) == 0:
+        return np.array([], dtype=np.float64), None
+    first = values[0]
+    if hasattr(first, "value") and hasattr(first, "unit"):
+        arr = np.asarray([v.value for v in values], dtype=np.float64)
+        return arr, first.unit
+    return np.asarray(values), None
+
+
+def _derive_region_meta(meta: DataMeta, region: DataRegion) -> RegionMeta:
+    wavelengths = meta.wavelengths
+    bad_bands = meta.bad_bands
+    if isinstance(region, DatasetRegionRef):
+        if wavelengths is not None:
+            wavelengths = wavelengths[region.b0 : region.b1]
+        if bad_bands is not None:
+            bad_bands = bad_bands[region.b0 : region.b1]
+    return RegionMeta(
+        region=region,
+        elem_type=meta.elem_type,
+        wavelengths=wavelengths,
+        wavelength_units=meta.wavelength_units,
+        nodata=meta.nodata,
+        bad_bands=bad_bands,
+        crs_wkt=meta.crs_wkt,
+        geotransform=meta.geotransform,
+    )
+
+
+class ExternalHandle(Protocol):
+    """Read-only adapter for externally loaded data objects."""
+
+    kind: InputKind
+
+    def read_region(self, region: DataRegion) -> np.ndarray:
+        ...
+
+    def get_meta(self) -> DataMeta:
+        ...
+
+    def get_region_meta(self, region: DataRegion) -> RegionMeta:
+        ...
+
+
+@dataclass
+class ExternalRasterHandle:
+    dataset_obj: "RasterDataSet"
+    kind: InputKind = "dataset"
+
+    def read_region(self, region: DataRegion) -> np.ndarray:
+        if not isinstance(region, DatasetRegionRef):
+            raise TypeError(f"Dataset external read requires DatasetRegionRef, got {type(region)}")
+        arr_by_band = self.dataset_obj.get_image_data_subset(
+            x=region.x0,
+            y=region.y0,
+            band=region.b0,
+            dx=region.x1 - region.x0,
+            dy=region.y1 - region.y0,
+            dband=region.b1 - region.b0,
+            filter_data_ignore_value=False,
+        )
+        # RasterDataSet uses [band][y][x]; StorageLayer dataset regions use [y][x][band].
+        return np.asarray(arr_by_band).transpose(1, 2, 0)
+
+    def get_meta(self) -> DataMeta:
+        bands, height, width = self.dataset_obj.get_shape()
+        wavelengths, wavelength_units = _to_wavelength_array_and_unit(self.dataset_obj.get_wavelengths())
+        bad_bands = self.dataset_obj.get_bad_bands()
+        return DataMeta(
+            kind="dataset",
+            shape=(height, width, bands),
+            elem_type=_safe_np_dtype(self.dataset_obj.get_elem_type()),
+            wavelengths=wavelengths,
+            wavelength_units=wavelength_units or self.dataset_obj.get_band_unit(),
+            nodata=self.dataset_obj.get_data_ignore_value(),
+            bad_bands=np.asarray(bad_bands) if bad_bands is not None else None,
+            crs_wkt=self.dataset_obj.get_wkt_spatial_reference(),
+            geotransform=tuple(self.dataset_obj.get_geo_transform()),
+        )
+
+    def get_region_meta(self, region: DataRegion) -> RegionMeta:
+        return _derive_region_meta(self.get_meta(), region)
+
+
+@dataclass
+class ExternalSpectrumHandle:
+    spectrum_obj: "Spectrum"
+    kind: InputKind = "spectrum"
+
+    def read_region(self, region: DataRegion) -> np.ndarray:
+        if not isinstance(region, SpectrumRef):
+            raise TypeError(f"Spectrum external read requires SpectrumRef, got {type(region)}")
+        spectrum = np.asarray(self.spectrum_obj.get_spectrum())
+        return spectrum[: region.length]
+
+    def get_meta(self) -> DataMeta:
+        wavelengths, wavelength_units = _to_wavelength_array_and_unit(self.spectrum_obj.get_wavelengths())
+        bad_bands = self.spectrum_obj.get_bad_bands()
+        return DataMeta(
+            kind="spectrum",
+            shape=(self.spectrum_obj.num_bands(),),
+            elem_type=_safe_np_dtype(self.spectrum_obj.get_elem_type()),
+            wavelengths=wavelengths,
+            wavelength_units=wavelength_units or self.spectrum_obj.get_wavelength_units(),
+            bad_bands=np.asarray(bad_bands) if bad_bands is not None else None,
+        )
+
+    def get_region_meta(self, region: DataRegion) -> RegionMeta:
+        return _derive_region_meta(self.get_meta(), region)
+
+
+@dataclass
+class ExternalSpectralLibraryHandle:
+    lib_obj: "SpectralLibrary"
+    kind: InputKind = "spectra_list"
+
+    def read_region(self, region: DataRegion) -> np.ndarray:
+        if not isinstance(region, SpectraBatchRef):
+            raise TypeError(f"Spectral library external read requires SpectraBatchRef, got {type(region)}")
+        rows: list[np.ndarray] = []
+        for i in range(region.i0, region.i1):
+            rows.append(np.asarray(self.lib_obj.get_spectrum(i).get_spectrum()))
+        if not rows:
+            first_dtype = self.get_meta().elem_type
+            return np.empty((0, region.length), dtype=first_dtype)
+        stacked = np.stack(rows, axis=0)
+        if stacked.shape[1] != region.length:
+            raise ValueError(
+                f"Spectral library chunk length mismatch: expected={region.length}, got={stacked.shape[1]}"
+            )
+        return stacked
+
+    def get_meta(self) -> DataMeta:
+        num_spectra = int(self.lib_obj.num_spectra())
+        if num_spectra == 0:
+            return DataMeta(
+                kind="spectra_list",
+                shape=(0, 0),
+                elem_type=np.dtype("float32"),
+            )
+        first = self.lib_obj.get_spectrum(0)
+        wavelengths, wavelength_units = _to_wavelength_array_and_unit(first.get_wavelengths())
+        bad_bands = first.get_bad_bands()
+        return DataMeta(
+            kind="spectra_list",
+            shape=(num_spectra, first.num_bands()),
+            elem_type=_safe_np_dtype(first.get_elem_type()),
+            wavelengths=wavelengths,
+            wavelength_units=wavelength_units or first.get_wavelength_units(),
+            bad_bands=np.asarray(bad_bands) if bad_bands is not None else None,
+        )
+
+    def get_region_meta(self, region: DataRegion) -> RegionMeta:
+        return _derive_region_meta(self.get_meta(), region)
 
 
 @dataclass(frozen=True)

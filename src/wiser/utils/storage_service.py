@@ -8,7 +8,7 @@ from pathlib import Path
 import secrets
 import threading
 import traceback
-from typing import Any, Callable, Dict, Literal, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Literal, Optional, Tuple, Union, TYPE_CHECKING
 import json
 import logging
 import uuid
@@ -31,15 +31,18 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 
 from .primitives import (
+    _safe_np_dtype,
     AllocationRequest,
     DataMeta,
     DeletePolicy,
     DeletionState,
+    ExternalHandle,
     ExternalParams,
     DataRef,
     DataRegion,
     DatasetRegionRef,
     DiskFormat,
+    InputKind,
     ProducerState,
     RefKind,
     RegionMeta,
@@ -48,7 +51,9 @@ from .primitives import (
     SpectrumRef,
     temp_dir,
 )
-from .storage_layer import ExternalHandle
+
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +68,6 @@ def shared_mem_exists(shared_mem_name: str) -> bool:
         return True
     finally:
         shm.close()
-
-
-def _safe_np_dtype(value: Any) -> np.dtype:
-    if value is None:
-        return np.dtype("object")
-    return np.dtype(value)
 
 
 @dataclass(frozen=True)

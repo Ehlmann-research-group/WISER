@@ -15,7 +15,7 @@ from wiser.gui.mnf import MinimumNoiseFractionDialog, get_mnf_pipeline, get_y_sh
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_system import AlgorithmPipeline, SemanticTask
 
 pytestmark = [

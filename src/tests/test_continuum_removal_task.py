@@ -11,7 +11,7 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import (
 from wiser.raster.dataset import dict_list_equal
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_continuum_removal_image_pipeline
 from wiser.utils.task_system import SemanticTask
 

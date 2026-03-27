@@ -14,7 +14,7 @@ from wiser.gui.generated.pca_dialog_ui import Ui_PCA_Dialog
 from wiser.raster import RasterDataLoader, RasterDataSet
 from wiser.raster.utils import compute_PCA_on_image, create_pca_metadata_widget
 from wiser.utils.primitives import DataRef, DatasetRegionRef, PriorityClass
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_pca_pipeline
 from wiser.utils.task_system import SemanticTask
 from wiser.utils.worker_runtime import get_process_storage_client

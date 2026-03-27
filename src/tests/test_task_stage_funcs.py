@@ -47,7 +47,7 @@ from wiser.utils.primitives import (
 )
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.storage_service import shared_mem_exists
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.utils.task_system import (
     AlgorithmPipeline,

@@ -12,7 +12,7 @@ from wiser.gui.permanent_plugins.pca_plugin import ESTIMATOR_TYPES, PCAPlugin, P
 from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_pca_pipeline
 from wiser.utils.task_system import SemanticTask
 
