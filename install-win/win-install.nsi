@@ -258,34 +258,50 @@ Section "Install"
     SetShellVarContext current
   ${EndIf}
 
-  ; Check to see if the application already exists
-  ; If so, we run the uninstaller in the selected scope only.
-  ${If} $InstallScope == "all"
-    ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString"
-  ${Else}
-    ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString"
-  ${EndIf}
-  DetailPrint "In Install, RegStr is: $0"
-  StrCmp $0 "" done_uninstall_check
-  ClearErrors
-  ExecWait $0 $1
-  ${If} ${Errors}
-  MessageBox MB_ICONSTOP|MB_TOPMOST "Failed to launch previous uninstaller."
-  Abort
-  ${EndIf}
+  ; If the current target directory already contains a WISER uninstaller, run it first.
+  DetailPrint "Checking this instdir: ( $INSTDIR ) for this $INSTDIR\${UNINSTALL_EXE_NAME}"
+  IfFileExists "$INSTDIR\${UNINSTALL_EXE_NAME}" 0 finish_uninstall_jump
+    DetailPrint "!@# About to uninstall previous"
+    ClearErrors
+    ExecWait '"$INSTDIR\${UNINSTALL_EXE_NAME}" /S' $1
 
-  DetailPrint "Previous uninstaller exit code: $1"
+    ${If} $1 != 0
+      MessageBox MB_ICONSTOP|MB_TOPMOST "Previous/current dir uninstaller failed with exit code $1."
+      Abort
+    ${EndIf}
 
-  ${If} $1 != 0
-    MessageBox MB_ICONSTOP|MB_TOPMOST "Previous uninstaller failed with exit code $1."
-    Abort
-  ${EndIf}
+  finish_uninstall_jump:
 
-  done_uninstall_check:
+  ; ; Check to see if the application already exists
+  ; ; If so, we run the uninstaller in the selected scope only.
+  ; ${If} $InstallScope == "all"
+  ;   ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString"
+  ; ${Else}
+  ;   ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString"
+  ; ${EndIf}
+  ; ; DetailPrint "In Install, RegStr is: $0"
+  ; StrCmp $0 "" done_uninstall_check
+  ; ; ClearErrors
+  ; ExecWait $0 $1
+  ; ${If} ${Errors}
+  ; MessageBox MB_ICONSTOP|MB_TOPMOST "Failed to launch previous uninstaller."
+  ; Abort
+  ; ${EndIf}
+
+  ; DetailPrint "Previous uninstaller exit code: $1"
+
+  ; ${If} $1 != 0
+  ;   MessageBox MB_ICONSTOP|MB_TOPMOST "Previous uninstaller failed with exit code $1."
+  ;   Abort
+  ; ${EndIf}
+
+  ; done_uninstall_check:
 
   ; Delete previous install tree only when install marker exists.
   ; Never recursively delete arbitrary user-selected directories.
+  DetailPrint "!@#@ Does old file exist? Instdir: $INSTDIR"
   IfFileExists "$INSTDIR\WISER.exe" 0 +3
+    DetailPrint "!@#@ Old file does exist still"
     RMDIR /r "$INSTDIR"
     Goto +1
 
