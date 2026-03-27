@@ -77,15 +77,20 @@ def get_wiser_config_dir() -> str:
     Determine the WISER config directory based on the platform/OS.  The config
     directory is as follows:
 
-    *   On Windows, the user's `AppData\Local\WISER` directory is used.
+    *   On Windows, whichever directory the user decided to install this wiser
+        build into.
     *   On macOS, the user's `~/Library/WISER` directory is used.
     *   All other platforms are assumed to be Linux/*NIX, and `~/.wiser` is
         used.  Note that a warning is output if the platform is not Linux.
     """
     sys_name = platform.system()
     if sys_name == "Windows":
-        # Put WISER config in the user's local application data directory
-        wiser_dir = os.path.expandvars(r"%LOCALAPPDATA%\WISER")
+        # If our app is built, we need to put WISER's config into wherever the
+        # user decided to place WISER into
+        if getattr(sys, "frozen", False):
+            wiser_dir = os.path.dirname(sys.executable)
+        else:
+            wiser_dir = Path(__file__).resolve().parents[2]
 
     elif sys_name == "Darwin":
         # Put WISER config in the user's Library directory
