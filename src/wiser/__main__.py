@@ -30,13 +30,13 @@ LOG_CONF_FILE = "logging.conf"
 faulthandler.enable()
 
 from wiser.gui.app_config import (
-    get_wiser_app_dir,
+    get_numba_cache_dir,
     get_wiser_config_dir,
     check_create_wiser_config_dir,
     ApplicationConfig,
 )
 
-numba_cache_dir = os.path.join(get_wiser_app_dir(), "numba_wiser_cache")
+numba_cache_dir = get_numba_cache_dir()
 os.makedirs(numba_cache_dir, exist_ok=True)
 
 os.environ["NUMBA_CACHE_DIR"] = numba_cache_dir

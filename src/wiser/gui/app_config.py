@@ -85,6 +85,30 @@ def get_wiser_app_dir() -> str:
     return str(Path(__file__).resolve().parents[2])
 
 
+def get_app_data_dir() -> str:
+    """
+    Return the per-version directory WISER should use for writable app data.
+    """
+    sys_name = platform.system()
+    if sys_name == "Windows":
+        return os.path.join(os.path.expandvars(r"%LOCALAPPDATA%\WISER"), version.VERSION)
+
+    if sys_name == "Darwin":
+        return os.path.expanduser(f"~/Library/WISER/{version.VERSION}")
+
+    if sys_name != "Linux":
+        warnings.warn(f'Unrecognized platform name "{sys_name}"')
+
+    return os.path.expanduser(f"~/.wiser/{version.VERSION}")
+
+
+def get_numba_cache_dir() -> str:
+    """
+    Return the directory to use for WISER's numba cache.
+    """
+    return os.path.join(get_app_data_dir(), "numba_wiser_cache")
+
+
 def get_wiser_config_dir() -> str:
     """
     Determine the WISER config directory based on the platform/OS.  The config
@@ -96,28 +120,7 @@ def get_wiser_config_dir() -> str:
     *   All other platforms are assumed to be Linux/*NIX, and `~/.wiser` is
         used.  Note that a warning is output if the platform is not Linux.
     """
-    sys_name = platform.system()
-    if sys_name == "Windows":
-        # If our app is built, we need to put WISER's config into wherever the
-        # user decided to place WISER into
-        if getattr(sys, "frozen", False):
-            wiser_dir = str(Path(sys.executable).resolve().parent)
-        else:
-            wiser_dir = os.path.join(Path(__file__).resolve().parents[3], "dev_config_dir_windows")
-
-    elif sys_name == "Darwin":
-        # Put WISER config in the user's Library directory
-        wiser_dir = os.path.expanduser("~/Library/WISER")
-
-    else:
-        # Use the standard UNIX/Linux approach of a dot-filename in the user's
-        # home directory.
-        if sys_name != "Linux":
-            warnings.warn(f'Unrecognized platform name "{sys_name}"')
-
-        wiser_dir = os.path.expanduser("~/.wiser")
-
-    return wiser_dir
+    return get_app_data_dir()
 
 
 def check_create_wiser_config_dir():
