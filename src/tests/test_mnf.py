@@ -8,6 +8,7 @@ import tests.context
 import numpy as np
 import spectral
 import pytest
+from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.app_services import AppServices
@@ -15,7 +16,7 @@ from wiser.gui.mnf import MinimumNoiseFractionDialog, get_mnf_pipeline, get_y_sh
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_system import AlgorithmPipeline, SemanticTask
 
 pytestmark = [
@@ -78,6 +79,7 @@ class TestMnf(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -137,6 +139,7 @@ class TestMnf(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -169,6 +172,7 @@ class TestMnf(unittest.TestCase):
 
             self.assertIn(output_ref_name, task_plan.bindings)
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -195,6 +199,7 @@ class TestMnf(unittest.TestCase):
                 mnf_pipeline = get_mnf_pipeline(dataset_ref, 3, "mnf_planning_only")
                 self.assertIsNotNone(mnf_pipeline)
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -279,6 +284,7 @@ class TestMnf(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 

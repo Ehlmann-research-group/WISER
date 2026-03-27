@@ -19,7 +19,7 @@ from wiser.utils.primitives import (
     ProducerState,
 )
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.multiprocessing_context import CTX
 from wiser.utils.storage_service import StorageService
 

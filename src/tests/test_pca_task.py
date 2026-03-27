@@ -6,13 +6,14 @@ import tests.context
 
 import numpy as np
 
+from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.permanent_plugins.pca_plugin import ESTIMATOR_TYPES, PCAPlugin, PCAPluginTask
 from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
-from wiser.utils.storage_layer import ExternalRasterHandle
+from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_pca_pipeline
 from wiser.utils.task_system import SemanticTask
 
@@ -127,6 +128,7 @@ class TestPcaTask(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -165,6 +167,7 @@ class TestPcaTask(unittest.TestCase):
             self.assertTrue(hasattr(task, "_pca_widget"))
             self.assertIn("PCA Metadata", task._pca_widget._text_edit.toPlainText())
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
@@ -193,5 +196,6 @@ class TestPcaTask(unittest.TestCase):
             self.assertTrue(hasattr(plugin, "_last_pca_task"))
             self.assertTrue(hasattr(plugin._last_pca_task, "_pca_widget"))
         finally:
+            release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
