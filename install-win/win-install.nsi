@@ -28,12 +28,20 @@ ManifestDPIAware True
   !error "ERROR:  SHA1_THUMBPRINT must be defined on NSIS command-line with /D option"
 !endif
 
+!define APP_BASENAME "WISER"
+!define APP_DIRNAME "${APP_BASENAME}-${WISER_VERSION}"
+!define APP_DIRNAME_LOWER "wiser-${WISER_VERSION}"
+!define UNINSTALL_EXE_NAME "Uninstall ${APP_DIRNAME}.exe"
+!define STARTMENU_DIRNAME "${APP_DIRNAME}"
+!define STARTMENU_APP_LINK "${APP_DIRNAME}.lnk"
+!define STARTMENU_UNINSTALL_LINK "Uninstall ${APP_DIRNAME}.lnk"
+
 ; --- Per-user defaults (no admin) ---
 RequestExecutionLevel user
 
 InstallDir "$LOCALAPPDATA"
 
-!define REGKEY_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\WISER"
+!define REGKEY_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_DIRNAME}"
 
 Var InstallScope
 Var RelaunchArgs
@@ -60,11 +68,11 @@ Var RelaunchArgs
   ; That will have written an uninstaller binary for us.  Now we sign it with your
   ; favorite code signing tool.
 
-  !system '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%TEMP%\Uninstall WISER.exe"' = 0
+  !system '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%TEMP%\${UNINSTALL_EXE_NAME}"' = 0
 
   ; Good.  Now we can carry on writing the real installer.
 
-  OutFile "Install-WISER-${WISER_VERSION}.exe"
+  OutFile "Install-${APP_DIRNAME}.exe"
   ; SetCompressor /SOLID lzma
 !endif
 
@@ -76,7 +84,7 @@ Var RelaunchArgs
   ; the uninstaller.  This is better than processing a command line option as it means
   ; this entire code path is not present in the final (real) installer.
   SetSilent silent
-  WriteUninstaller "$%TEMP%\Uninstall WISER.exe"
+  WriteUninstaller "$%TEMP%\${UNINSTALL_EXE_NAME}"
   Quit  ; just bail out quickly when running the "inner" installer
 !endif
 
@@ -185,9 +193,9 @@ FunctionEnd
 
 Function NormalizeInstallDir
   ${GetFileName} "$INSTDIR" $0
-  ${If} "$0" != "WISER"
-    ${AndIf} "$0" != "wiser"
-    StrCpy $INSTDIR "$INSTDIR\WISER"
+  ${If} "$0" != "${APP_DIRNAME}"
+    ${AndIf} "$0" != "${APP_DIRNAME_LOWER}"
+    StrCpy $INSTDIR "$INSTDIR\${APP_DIRNAME}"
   ${EndIf}
 FunctionEnd
 
@@ -253,12 +261,27 @@ Section "Install"
   ; Check to see if the application already exists
   ; If so, we run the uninstaller in the selected scope only.
   ${If} $InstallScope == "all"
-    ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
+    ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString"
   ${Else}
-    ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "UninstallString"
+    ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString"
   ${EndIf}
-  StrCmp $0 "" +1
-  ExecWait '"$0"'
+  DetailPrint "In Install, RegStr is: $0"
+  StrCmp $0 "" done_uninstall_check
+  ClearErrors
+  ExecWait $0 $1
+  ${If} ${Errors}
+  MessageBox MB_ICONSTOP|MB_TOPMOST "Failed to launch previous uninstaller."
+  Abort
+  ${EndIf}
+
+  DetailPrint "Previous uninstaller exit code: $1"
+
+  ${If} $1 != 0
+    MessageBox MB_ICONSTOP|MB_TOPMOST "Previous uninstaller failed with exit code $1."
+    Abort
+  ${EndIf}
+
+  done_uninstall_check:
 
   ; Delete previous install tree only when install marker exists.
   ; Never recursively delete arbitrary user-selected directories.
@@ -274,35 +297,37 @@ Section "Install"
   ; Create uninstaller
   ; WriteUninstaller "$INSTDIR\Uninstall WISER.exe"
   !ifndef INNER
-  File "$%TEMP%\Uninstall WISER.exe"
+  File "$%TEMP%\${UNINSTALL_EXE_NAME}"
   !endif
 
   ; Create shortcuts to run and uninstall application
-  CreateDirectory "$SMPROGRAMS\WISER"
-  CreateShortcut "$SMPROGRAMS\WISER\WISER.lnk" "$INSTDIR\WISER.exe"
-  CreateShortcut "$SMPROGRAMS\WISER\Uninstall WISER.lnk" "$INSTDIR\Uninstall WISER.exe"
+  CreateDirectory "$SMPROGRAMS\${STARTMENU_DIRNAME}"
+  CreateShortcut "$SMPROGRAMS\${STARTMENU_DIRNAME}\${STARTMENU_APP_LINK}" "$INSTDIR\WISER.exe"
+  CreateShortcut "$SMPROGRAMS\${STARTMENU_DIRNAME}\${STARTMENU_UNINSTALL_LINK}" "$INSTDIR\${UNINSTALL_EXE_NAME}"
 
   ; Write registry keys to uninstall app through Windows system console
 
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   ${If} $InstallScope == "all"
-    WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "WISER"
+    DetailPrint "Writing HKLM"
+    WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "${APP_DIRNAME}"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayVersion" "${WISER_VERSION}"
     WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayIcon" "$\"$INSTDIR\wiser.ico$\""
-    WriteRegStr HKLM "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\""
-    WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\" /S"
+    WriteRegStr HKLM "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\${UNINSTALL_EXE_NAME}$\""
+    WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\${UNINSTALL_EXE_NAME}$\" /S"
     WriteRegDWORD HKLM "${REGKEY_UNINSTALL}" "EstimatedSize" "$0"
   ${Else}
-    WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayName" "WISER"
+    DetailPrint "Writing HKCU"
+    WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayName" "${APP_DIRNAME}"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayVersion" "${WISER_VERSION}"
     WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayIcon" "$\"$INSTDIR\wiser.ico$\""
-    WriteRegStr HKCU "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\""
-    WriteRegStr HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\" /S"
+    WriteRegStr HKCU "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\${UNINSTALL_EXE_NAME}$\""
+    WriteRegStr HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\${UNINSTALL_EXE_NAME}$\" /S"
     WriteRegDWORD HKCU "${REGKEY_UNINSTALL}" "EstimatedSize" "$0"
   ${EndIf}
 
@@ -315,7 +340,7 @@ SectionEnd
 Function un.onInit
   SetShellVarContext current
   ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
-  ${If} "$0" == "$\"$INSTDIR\Uninstall WISER.exe$\""
+  ${If} "$0" == "$\"$INSTDIR\${UNINSTALL_EXE_NAME}$\""
     SetShellVarContext all
   ${EndIf}
 FunctionEnd
@@ -325,21 +350,25 @@ Section "Uninstall"
   ; Clean up the installed files.
 
   ; NOT NECESSARY? Delete "$INSTDIR\Uninstall WISER.exe"
+  DetailPrint "Install Dir is: $INSTDIR"
   IfFileExists "$INSTDIR\WISER.exe" 0 +2
+    DetailPrint "Removing old version in: $INSTDIR"
     RMDir /r "$INSTDIR"
 
   ; Clean up start-menu entries
 
-  Delete "$SMPROGRAMS\WISER\WISER.lnk"
-  Delete "$SMPROGRAMS\WISER\Uninstall WISER.lnk"
-  RMDir /r "$SMPROGRAMS\WISER"
+  Delete "$SMPROGRAMS\${STARTMENU_DIRNAME}\${STARTMENU_APP_LINK}"
+  Delete "$SMPROGRAMS\${STARTMENU_DIRNAME}\${STARTMENU_UNINSTALL_LINK}"
+  RMDir /r "$SMPROGRAMS\${STARTMENU_DIRNAME}"
 
   ; Clean up registry keys
 
   ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
   ${If} $0 != ""
+    DetailPrint "Deleting HKLM REGKEY: ${REGKEY_UNINSTALL}"
     DeleteRegKey HKLM "${REGKEY_UNINSTALL}"
   ${Else}
+    DetailPrint "Deleting HKCU REGKEY: ${REGKEY_UNINSTALL}"
     DeleteRegKey HKCU "${REGKEY_UNINSTALL}"
   ${EndIf}
 
