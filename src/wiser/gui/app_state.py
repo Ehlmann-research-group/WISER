@@ -190,6 +190,7 @@ class ApplicationState(QObject):
     def cancel_all_running_processes(self):
         for process_manager in self._running_processes.values():
             process_manager.get_task().cancel()
+        self._process_pool_manager.close()
 
     def get_running_processes(self) -> Dict[int, ProcessManager]:
         return self._running_processes

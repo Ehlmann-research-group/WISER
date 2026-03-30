@@ -138,6 +138,7 @@ def qt_debug_callback(*args, **kwargs):
 def run_tests(tests: list[str]) -> int:
     import pytest
 
+    os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "1"
     enabled_plugins = []  # e.g., ["-p", "pytester"] if you truly need a plugin
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # If we are in a frozen build _MEIPASS will be set so that's where our tests will be
@@ -251,6 +252,7 @@ def main():
         code = run_tests(tests)
         sys.exit(code)
     else:
+        os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "0"
         # TODO(donnie):  Pass Qt arguments
         app = QApplication([])
         icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")

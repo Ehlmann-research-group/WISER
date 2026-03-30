@@ -10,6 +10,8 @@ from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
 from multiprocessing.managers import dispatch
 
+from matplotlib.pylab import Enum
+
 from .primitives import PriorityClass
 from .task_system import TaskPlan, WorkUnit
 from .worker_runtime import initialize_process_storage_client, initialize_thread_worker
@@ -23,6 +25,7 @@ SCHEDULER_PROCESS_BUDGET = min(12, available_cpus)
 SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
+PRIORITY_LANE_COUNT = 3
 
 
 @dataclass
@@ -46,6 +49,11 @@ class QueuedWorkUnit:
     work_unit: WorkUnit
     # Number of times this unit hit queue-head admission and failed RAM gating.
     defer_count: int = 0
+
+
+class SchedulerConcurrencyMode(Enum):
+    LOW = "1"
+    HIGH = "0"
 
 
 class ReservedTracker:
@@ -515,8 +523,10 @@ def _priority_weight(priority: PriorityClass) -> float:
 def _allocate_priority_tokens(budget: int) -> Dict[PriorityClass, int]:
     """Split executor slots across priorities while guaranteeing at least one each."""
 
-    if budget < 3:
-        raise ValueError(f"Budget must be >= 3 to guarantee non-zero per priority, got {budget}")
+    if budget < PRIORITY_LANE_COUNT:
+        raise ValueError(
+            f"Budget must be >= {PRIORITY_LANE_COUNT} to guarantee non-zero per priority, got {budget}"
+        )
 
     priorities = [PriorityClass.INTERACTIVE, PriorityClass.RENDER, PriorityClass.BACKGROUND]
     allocation: Dict[PriorityClass, int] = {p: 1 for p in priorities}
@@ -606,10 +616,16 @@ class WorkScheduler:
         self._recorder = recorder
         self._task_manager = task_manager
 
-        if self._process_budget < 3:
-            raise ValueError(f"WorkScheduler requires process budget >= 3, got {self._process_budget}")
-        if self._thread_budget < 3:
-            raise ValueError(f"WorkScheduler requires thread budget >= 3, got {self._thread_budget}")
+        if self._process_budget < PRIORITY_LANE_COUNT:
+            raise ValueError(
+                f"WorkScheduler requires process budget >= {PRIORITY_LANE_COUNT}, \
+                              got {self._process_budget}"
+            )
+        if self._thread_budget < PRIORITY_LANE_COUNT:
+            raise ValueError(
+                f"WorkScheduler requires thread budget >= {PRIORITY_LANE_COUNT}, \
+                             got {self._thread_budget}"
+            )
         if storage_service is None:
             raise ValueError("WorkScheduler requires a storage_service")
         self._storage_service = storage_service

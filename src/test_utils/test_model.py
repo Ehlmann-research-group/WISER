@@ -15,6 +15,7 @@ This module is intended to be used for integration and GUI-level testing.
 # ruff: noqa: E402
 import sys
 import os
+import gc
 
 # Make sure we have the directory for WISER in our system path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -161,11 +162,13 @@ class WiserTestModel:
 
         This should be called at the end of every test using this class to avoid leaks.
         """
+        self.main_window.close()
         self._tear_down_windows()
         if hasattr(self, "app"):
             self.app.quit()
 
             del self.app
+        gc.collect()
 
     def quit_app(self):
         """

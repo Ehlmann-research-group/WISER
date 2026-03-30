@@ -138,3 +138,6 @@ class MultiprocessingManager(QObject):
         task = ParallelTaskProcessPool(self._process_pool_executor, operation, kwargs)
         self._tasks.append(task)
         return task
+
+    def close(self):
+        self._process_pool_executor.shutdown()

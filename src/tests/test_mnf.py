@@ -1,4 +1,5 @@
 import unittest
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,8 +11,7 @@ import pytest
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.app_services import AppServices
-from wiser.gui.mnf import MinimumNoiseFractionDialog, get_mnf_pipeline, get_y_shift_noise
+from wiser.gui.mnf import get_mnf_pipeline, get_y_shift_noise
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient

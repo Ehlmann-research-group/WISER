@@ -549,6 +549,7 @@ class DataVisualizerApp(QMainWindow):
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
         self._app_state.cancel_all_running_processes()
+        self._app_services.close()
         super().closeEvent(event)
 
     def show_about_dialog(self, evt):
