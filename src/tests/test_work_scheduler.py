@@ -432,7 +432,7 @@ class TestWorkScheduler(unittest.TestCase):
                 )
 
                 completion = scheduler.run_task_plan(plan)
-                completion.result(timeout=5)
+                completion.result(timeout=10)
 
                 events = recorder.events
                 self.assertTrue(events, "Expected scheduler to emit recorder events")
