@@ -86,13 +86,18 @@ def _write_runtime_debug(root: Path, cv2_python_folder: str | None) -> None:
 
     try:
         debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    except Exception:
-        pass
+    except Exception as exc:
+        try:
+            sys.stderr.write(f"[pyi_rth_cv2] Failed to write runtime debug log to {debug_path}: {exc}\n")
+        except Exception:
+            pass
 
 
 meipass = getattr(sys, "_MEIPASS", None)
 root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)).resolve()
 cv2_python_folder = _find_cv2_python_folder(meipass)
+print(f"cv2_python_folder: {cv2_python_folder}")
+print(f"root: {root}")
 _write_runtime_debug(root, cv2_python_folder)
 
 if cv2_python_folder:

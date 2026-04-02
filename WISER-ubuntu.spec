@@ -13,7 +13,7 @@ import subprocess
 sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
 # Make spec portable: derive project root from SPECPATH. :contentReference[oaicite:2]{index=2}
-spec_dir = os.path.abspath(os.path.dirname(SPECPATH))
+spec_dir = os.path.abspath(SPECPATH)
 project_root = spec_dir  # assumes the spec file sits at repo root; adjust if needed
 
 # If your repo layout is different (e.g., spec in docker/), you can do:
