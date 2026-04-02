@@ -69,6 +69,9 @@ dist-mac : build-mac
 build-win : generated
 	@set WISER_ENV=prod && pyinstaller WISER.spec
 
+# This should only be used for testing locally as it does not have some necessary edits to
+# the final libraries that occurs in install-linux\multistage\Dockerfile and in
+# install-linux\multistage_fedora\Dockerfile
 build-linux : generated
 	export WISER_ENV=prod
 	pyinstaller WISER-ubuntu.spec

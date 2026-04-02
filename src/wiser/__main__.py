@@ -136,6 +136,7 @@ def qt_debug_callback(*args, **kwargs):
 
 
 def run_tests(tests: list[str]) -> int:
+    import cv2  # This import may fix the opencv recursion error thats happening in test_mode
     import pytest
 
     os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "1"
