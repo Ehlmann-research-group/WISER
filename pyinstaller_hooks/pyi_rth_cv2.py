@@ -89,6 +89,7 @@ def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> Non
         debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception as exc:
         try:
+            print("\n".join(lines))
             sys.stderr.write(f"[pyi_rth_cv2] Failed to write runtime debug log to {debug_path}: {exc}\n")
         except Exception:
             pass
