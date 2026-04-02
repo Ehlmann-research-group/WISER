@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from typing import Union
 
 
 def _read_text(path: Path) -> str:
@@ -12,7 +13,7 @@ def _read_text(path: Path) -> str:
         return f"<failed to read: {exc}>"
 
 
-def _find_cv2_python_folder(meipass: str | None) -> str | None:
+def _find_cv2_python_folder(meipass: Union[str, None]) -> Union[str, None]:
     if not (meipass and getattr(sys, "frozen", False)):
         return None
 
@@ -28,7 +29,7 @@ def _find_cv2_python_folder(meipass: str | None) -> str | None:
     return None
 
 
-def _write_runtime_debug(root: Path, cv2_python_folder: str | None) -> None:
+def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> None:
     debug_path = root / "cv2_runtime_debug.txt"
     try:
         root.mkdir(parents=True, exist_ok=True)
