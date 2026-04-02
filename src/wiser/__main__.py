@@ -184,9 +184,7 @@ def main():
         are specified, tests will be run on the full test directory."
         ),
     )
-    # TODO(donnie):  Provide a way to specify Qt arguments
-
-    args = parser.parse_args()
+    args, qt_args = parser.parse_known_args()
 
     # Load the WISER configuration file.  If the user specifies a config file,
     # load it and exit if we can't load it.  Otherwise, if we see a WISER-config
@@ -254,8 +252,7 @@ def main():
         sys.exit(code)
     else:
         os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "0"
-        # TODO(donnie):  Pass Qt arguments
-        app = QApplication([])
+        app = QApplication([sys.argv[0], *qt_args])
         icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
         icon = QIcon(icon_path)
         pixmap = icon.pixmap(256, 256)
