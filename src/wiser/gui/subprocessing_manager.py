@@ -98,6 +98,19 @@ class ProcessManager(QObject):
         if blocking:
             self._task.wait()
 
+    def close(self, wait: bool = True, cancel_running: bool = False):
+        task = self._task
+        if task is None:
+            return
+
+        if cancel_running and task.isRunning():
+            task.cancel()
+
+        if wait and task.isRunning():
+            task.wait()
+
+        task.close()
+
     def get_pid(self) -> Union[int, None]:
         return self._task.get_process_id()
 
