@@ -125,6 +125,53 @@ class ParallelTaskProcess(ParallelTask):
 
         self._resources_closed: bool = False
 
+    @staticmethod
+    def _safe_call(fn: Callable[[], Any]) -> Any:
+        try:
+            return fn()
+        except Exception as exc:
+            return f"<error:{type(exc).__name__}:{exc}>"
+
+    def _resource_snapshot(self) -> Dict[str, Any]:
+        process = self._process
+        parent_conn = self._parent_conn
+        child_conn = self._child_conn
+        return_queue = self._return_queue
+
+        snapshot = {
+            "process_is_none": process is None,
+            "process_pid": self._safe_call(lambda: None if process is None else process.pid),
+            "process_alive": self._safe_call(lambda: None if process is None else process.is_alive()),
+            "process_exitcode": self._safe_call(lambda: None if process is None else process.exitcode),
+            "parent_conn_is_none": parent_conn is None,
+            "parent_conn_closed": self._safe_call(
+                lambda: None if parent_conn is None else parent_conn.closed
+            ),
+            "child_conn_is_none": child_conn is None,
+            "child_conn_closed": self._safe_call(lambda: None if child_conn is None else child_conn.closed),
+            "queue_is_none": return_queue is None,
+            "queue_reader_closed": self._safe_call(
+                lambda: None if return_queue is None else return_queue._reader.closed
+            ),
+            "queue_writer_closed": self._safe_call(
+                lambda: None if return_queue is None else return_queue._writer.closed
+            ),
+            "queue_thread_alive": self._safe_call(
+                lambda: None
+                if return_queue is None or return_queue._thread is None
+                else return_queue._thread.is_alive()
+            ),
+        }
+        return snapshot
+
+    def _debug_print_snapshot(self, phase: str) -> None:
+        snapshot = self._resource_snapshot()
+        print(
+            f"[ParallelTaskProcess cleanup] phase={phase} process_id={self._process_id} "
+            f"snapshot={snapshot}",
+            flush=True,
+        )
+
     def cancel(self, **kwargs):
         try:
             self._process.terminate()
@@ -137,6 +184,7 @@ class ParallelTaskProcess(ParallelTask):
         if self._resources_closed:
             return
 
+        self._debug_print_snapshot("before_close")
         self._resources_closed = True
 
         try:
@@ -174,6 +222,8 @@ class ParallelTaskProcess(ParallelTask):
             pass
         finally:
             self._process = None
+
+        self._debug_print_snapshot("after_close")
 
     def run(self):
         self.started.emit(self)
