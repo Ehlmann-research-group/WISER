@@ -87,6 +87,7 @@ def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> Non
 
     try:
         debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print("\n".join(lines))
     except Exception as exc:
         try:
             print("\n".join(lines))
@@ -103,13 +104,14 @@ print(f"root: {root}")
 _write_runtime_debug(root, cv2_python_folder)
 
 if cv2_python_folder:
-    try:
-        meipass_index = sys.path.index(meipass)
-    except ValueError:
-        meipass_index = None
+    # try:
+    #     meipass_index = sys.path.index(meipass)
+    # except ValueError:
+    #     meipass_index = None
 
-    if cv2_python_folder not in sys.path:
-        if meipass_index is not None:
-            sys.path.insert(meipass_index, cv2_python_folder)
-        else:
-            sys.path.insert(0, cv2_python_folder)
+    # if cv2_python_folder not in sys.path:
+    #     if meipass_index is not None:
+    #         sys.path.insert(meipass_index, cv2_python_folder)
+    #     else:
+    #         sys.path.insert(0, cv2_python_folder)
+    sys.path.insert(0, cv2_python_folder)
