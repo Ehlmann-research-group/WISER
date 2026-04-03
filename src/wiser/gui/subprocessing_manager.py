@@ -37,6 +37,11 @@ def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue:
             child_conn.close()
         except Exception:
             pass
+        try:
+            return_queue.close()
+            return_queue.join_thread()
+        except Exception:
+            pass
 
 
 class ProcessManager(QObject):
