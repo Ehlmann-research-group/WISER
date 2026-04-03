@@ -184,7 +184,9 @@ def main():
         are specified, tests will be run on the full test directory."
         ),
     )
-    args, qt_args = parser.parse_known_args()
+    # TODO(donnie):  Provide a way to specify Qt arguments
+
+    args = parser.parse_args()
 
     # Load the WISER configuration file.  If the user specifies a config file,
     # load it and exit if we can't load it.  Otherwise, if we see a WISER-config
@@ -252,40 +254,84 @@ def main():
         sys.exit(code)
     else:
         os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "0"
-        app = QApplication([sys.argv[0], *qt_args])
-        icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
-        icon = QIcon(icon_path)
-        pixmap = icon.pixmap(256, 256)
-        flags = Qt.WindowDoesNotAcceptFocus | Qt.FramelessWindowHint
-        splash = QSplashScreen(pixmap, flags)
-        splash.show()
-        splash.showMessage(
-            "WISER may take longer to load the\nfirst time after a fresh install.",
-            Qt.AlignHCenter | Qt.AlignBottom,
-            QColor("black"),
-        )
-        app.processEvents()
+        # # TODO(donnie):  Pass Qt arguments
+        # app = QApplication([])
+        # icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
+        # icon = QIcon(icon_path)
+        # pixmap = icon.pixmap(256, 256)
+        # flags = Qt.WindowDoesNotAcceptFocus | Qt.FramelessWindowHint
+        # splash = QSplashScreen(pixmap, flags)
+        # splash.show()
+        # splash.showMessage(
+        #     "WISER may take longer to load the\nfirst time after a fresh install.",
+        #     Qt.AlignHCenter | Qt.AlignBottom,
+        #     QColor("black"),
+        # )
+        # app.processEvents()
 
-        def load_app() -> QMainWindow:
-            # Use absolute imports in __main__.py so that we can pass the file to
-            # pyinstaller. Also this has heavy imports
-            # heavy imports
-            from wiser.gui.app import DataVisualizerApp
+        # def load_app() -> QMainWindow:
+        #     # Use absolute imports in __main__.py so that we can pass the file to
+        #     # pyinstaller. Also this has heavy imports
+        #     # heavy imports
+        #     from wiser.gui.app import DataVisualizerApp
 
-            wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
-            # Set the initial window size to be 70% of the screen size.
-            screen_size = app.screens()[0].size()
-            wiser_ui.resize(screen_size * 0.7)
-            splash.finish(wiser_ui)
-            wiser_ui.show()
+        #     wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
+        #     # Set the initial window size to be 70% of the screen size.
+        #     screen_size = app.screens()[0].size()
+        #     wiser_ui.resize(screen_size * 0.7)
+        #     splash.finish(wiser_ui)
+        #     wiser_ui.show()
 
-            return wiser_ui
+        #     return wiser_ui
 
-        # Run load_app when event loop starts
-        QTimer.singleShot(0, load_app)
+        # # Run load_app when event loop starts
+        # QTimer.singleShot(0, load_app)
+
+        # # ========================================================================
+        # # WISER Application Initialization
+
+        # # If the WISER config file was created for the first time, ask the user if
+        # # they would like to opt in to online bug reporting.
+        # if not loaded_config:
+        #     logger.debug("WISER config not loaded.  Asking user to opt-in for " + "online bug reporting.")
+        #     dialog = bug_reporting.BugReportingDialog()
+        #     dialog.exec()
+
+        #     auto_notify = dialog.user_wants_bug_reporting()
+        #     config.set("general.online_bug_reporting", auto_notify)
+        #     bug_reporting.set_enabled(auto_notify)
+
+        #     try:
+        #         # Try to save the WISER configuration file
+        #         logger.debug(f'Saving initial WISER config:  "{wiser_conf_path}"')
+        #         config.save(wiser_conf_path)
+        #     except OSError:
+        #         logger.exception(f"Couldn't save WISER config file at {config_path}")
+
+        # # If any data files are specified on the command-line, open them now
+        # data_files = []
+        # if args.data_files is not None:
+        #     data_files = args.data_files
+        # if data_files:
+        #     for file_path in sys.argv[1:]:
+        #         logger.info(f'Opening file "{file_path}" specified on command-line')
+        #         wiser_ui._app_state.open_file(file_path)
+
+        # sys.exit(app.exec_())
+        from wiser.gui.app import DataVisualizerApp
+
+        # TODO(donnie):  Pass Qt arguments
+        app = QApplication([])
 
         # ========================================================================
         # WISER Application Initialization
+
+        wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
+
+        # Set the initial window size to be 70% of the screen size.
+        screen_size = app.screens()[0].size()
+        wiser_ui.resize(screen_size * 0.7)
+        wiser_ui.show()
 
         # If the WISER config file was created for the first time, ask the user if
         # they would like to opt in to online bug reporting.
