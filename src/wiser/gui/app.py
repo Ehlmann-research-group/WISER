@@ -557,22 +557,29 @@ class DataVisualizerApp(QMainWindow):
             logger.debug(f"Save-Dataset Config:\n{pprint.pformat(config)}")
 
             dataset = self._app_state.get_dataset(ds_id)
-            dataset_ref = self._app_services.storage_service.register_external(
-                ExternalRasterHandle(dataset_obj=dataset)
-            )
-            save_task = SaveDatasetSemanticTask(
-                app_state=self._app_state,
-                dataset=dataset,
-                input_ref=dataset_ref,
-                path=path,
-                format=format,
-                config=config,
-            )
-            task_plan = self._app_services.task_planner.plan_semantic_task(save_task)
-            self._app_services.task_manager.register_and_submit_task_plan(
-                self._app_services.scheduler,
-                task_plan,
-            )
+            self._save_dataset_helper(dataset, path, format, config)
+
+    def _save_dataset_helper(self, dataset, path, format, config):
+        """
+        We use the dataset helper to consolidate the actual saving functionality
+        into one function. This way we can more easily test the saving functionality.
+        """
+        dataset_ref = self._app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=dataset)
+        )
+        save_task = SaveDatasetSemanticTask(
+            app_state=self._app_state,
+            dataset=dataset,
+            input_ref=dataset_ref,
+            path=path,
+            format=format,
+            config=config,
+        )
+        task_plan = self._app_services.task_planner.plan_semantic_task(save_task)
+        return self._app_services.task_manager.register_and_submit_task_plan(
+            self._app_services.scheduler,
+            task_plan,
+        )
 
     def _on_close_dataset(self, ds_id: int):
         # If dataset is modified, ask user if they want to save it.
