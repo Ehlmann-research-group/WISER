@@ -45,6 +45,14 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         self.test_model.close_app()
         del self.test_model
 
+    def _wait_for_added_datasets(self, future, expected_count: int):
+        self.assertIsNotNone(future)
+        future.result(timeout=180)
+        self.test_model.app.processEvents()
+        datasets = self.test_model.app_state.get_datasets()
+        self.assertGreaterEqual(len(datasets), expected_count)
+        return datasets[-expected_count:]
+
     def test_sff_same_spectra(self):
         sff_tool = SFFTool(self.test_model.app_state)
         test_target_arr = np.array([300, 200, 100, 400, 500])
@@ -290,11 +298,8 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        ds_ids = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
-
-        cls_ds = self.test_model.app_state.get_dataset(ds_ids[0])
-        rmse_ds = self.test_model.app_state.get_dataset(ds_ids[1])
-        scale_ds = self.test_model.app_state.get_dataset(ds_ids[2])
+        future = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        cls_ds, rmse_ds, scale_ds = self._wait_for_added_datasets(future, 3)
 
         self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds.get_image_data(), gt_rmse, atol=1e-5))
@@ -604,22 +609,17 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        ds_ids_numba = generic_spectral_comp.find_matches(
+        future_numba = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=False,
         )
-        ds_ids_py = generic_spectral_comp.find_matches(
+        cls_ds_numba, rmse_ds_numba, scale_ds_numba = self._wait_for_added_datasets(future_numba, 3)
+
+        future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
         )
-
-        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
-        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
-        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
-
-        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
-        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
-        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+        cls_ds_py, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
 
         self.assertTrue(
             np.allclose(
@@ -840,19 +840,14 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        ds_ids_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
-        ds_ids_py = generic_spectral_comp.find_matches(
+        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        cls_ds_numba, rmse_ds_numba, scale_ds_numba = self._wait_for_added_datasets(future_numba, 3)
+
+        future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
         )
-
-        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
-        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
-        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
-
-        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
-        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
-        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+        cls_ds_py, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
 
         gt_cls = np.array(
             [
@@ -948,19 +943,14 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        ds_ids_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
-        ds_ids_py = generic_spectral_comp.find_matches(
+        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        cls_ds_numba, rmse_ds_numba, scale_ds_numba = self._wait_for_added_datasets(future_numba, 3)
+
+        future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
         )
-
-        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
-        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
-        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
-
-        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
-        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
-        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+        cls_ds_py, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
 
         gt_cls = np.array(
             [
@@ -1057,19 +1047,14 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        ds_ids_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
-        ds_ids_py = generic_spectral_comp.find_matches(
+        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        cls_ds_numba, rmse_ds_numba, scale_ds_numba = self._wait_for_added_datasets(future_numba, 3)
+
+        future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
         )
-
-        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
-        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
-        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
-
-        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
-        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
-        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+        cls_ds_py, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
 
         self.assertTrue(
             np.allclose(
@@ -1170,27 +1155,18 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         )
 
         # Run NUMBA path
-        ds_ids_numba = sff_tool.find_matches(
+        future_numba = sff_tool.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=False,
         )
 
-        # Run PYTHON path
-        ds_ids_py = sff_tool.find_matches(
+        future_py = sff_tool.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
         )
 
-        self.assertIsNotNone(ds_ids_numba)
-        self.assertIsNotNone(ds_ids_py)
-        self.assertEqual(len(ds_ids_numba), 3)
-        self.assertEqual(len(ds_ids_py), 3)
-
-        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
-        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
-
-        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
-        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+        _, rmse_ds_numba, scale_ds_numba = self._wait_for_added_datasets(future_numba, 3)
+        _, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
 
         rmse_numba = rmse_ds_numba.get_image_data()
         scale_numba = scale_ds_numba.get_image_data()

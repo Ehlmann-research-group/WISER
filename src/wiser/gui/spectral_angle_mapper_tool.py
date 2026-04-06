@@ -442,7 +442,7 @@ class SpectralAngleMapperTask(QObject, SemanticTask):
     Semantic task that runs image-mode Spectral Angle Mapper through the work scheduler.
     """
 
-    result_ready = Signal(object)
+    result_ready = Signal(object, object)
 
     def __init__(
         self,
@@ -493,13 +493,6 @@ class SpectralAngleMapperTask(QObject, SemanticTask):
         self.result_ready.connect(self._load_results_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
-        self.result_ready.emit(bindings)
-
-    @Slot(object)
-    def _load_results_into_wiser(self, bindings: object) -> None:
-        if not isinstance(bindings, dict):
-            raise TypeError(f"Expected bindings dict, got {type(bindings)}")
-
         classification_ref = bindings.get(self._classification_ref_name)
         angle_ref = bindings.get(self._angle_ref_name)
         if classification_ref is None:
@@ -510,6 +503,10 @@ class SpectralAngleMapperTask(QObject, SemanticTask):
         storage_client = get_process_storage_client()
         out_classification, _ = storage_client.read_data(classification_ref, filter_data=False)
         out_angle, _ = storage_client.read_data(angle_ref, filter_data=False)
+        self.result_ready.emit(np.asarray(out_classification), np.asarray(out_angle))
+
+    @Slot(object, object)
+    def _load_results_into_wiser(self, out_classification: object, out_angle: object) -> None:
         loader = self._app_state.get_loader()
         cache = self._app_state.get_cache()
         target_image_name = self._target.get_name()

@@ -479,7 +479,7 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
     Semantic task that runs image-mode Spectral Feature Fitting through the work scheduler.
     """
 
-    result_ready = Signal(object)
+    result_ready = Signal(object, object, object)
 
     def __init__(
         self,
@@ -533,16 +533,6 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
         self.result_ready.connect(self._load_results_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
-        self.result_ready.emit(bindings)
-
-    @Slot(object)
-    def _load_results_into_wiser(
-        self,
-        bindings: object,
-    ) -> None:
-        if not isinstance(bindings, dict):
-            raise TypeError(f"Expected bindings dict, got {type(bindings)}")
-
         classification_ref = bindings.get(self._classification_ref_name)
         rmse_ref = bindings.get(self._rmse_ref_name)
         scale_ref = bindings.get(self._scale_ref_name)
@@ -557,6 +547,15 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
         out_classification, _ = storage_client.read_data(classification_ref, filter_data=False)
         out_rmse, _ = storage_client.read_data(rmse_ref, filter_data=False)
         out_scale, _ = storage_client.read_data(scale_ref, filter_data=False)
+        self.result_ready.emit(np.asarray(out_classification), np.asarray(out_rmse), np.asarray(out_scale))
+
+    @Slot(object, object, object)
+    def _load_results_into_wiser(
+        self,
+        out_classification: object,
+        out_rmse: object,
+        out_scale: object,
+    ) -> None:
         loader = RasterDataLoader()
         cache = self._app_state.get_cache()
         target_image_name = self._target.get_name()
