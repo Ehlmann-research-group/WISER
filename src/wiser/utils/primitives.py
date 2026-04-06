@@ -136,6 +136,9 @@ class ExternalHandle(Protocol):
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         ...
 
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        ...
+
 
 @dataclass
 class ExternalRasterHandle:
@@ -154,7 +157,7 @@ class ExternalRasterHandle:
             dband=region.b1 - region.b0,
             filter_data_ignore_value=False,
         )
-        # RasterDataSet uses [band][y][x]; StorageLayer dataset regions use [y][x][band].
+        # RasterDataSet uses [band][y][x]; StorageService dataset regions use [y][x][band].
         return np.asarray(arr_by_band).transpose(1, 2, 0)
 
     def get_meta(self) -> DataMeta:
@@ -175,6 +178,17 @@ class ExternalRasterHandle:
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalRasterHandle):
+            return False
+
+        dataset_id = self.dataset_obj.get_id()
+        other_dataset_id = other.dataset_obj.get_id()
+        if dataset_id is None or other_dataset_id is None:
+            return False
+
+        return dataset_id == other_dataset_id
 
 
 @dataclass
@@ -202,6 +216,17 @@ class ExternalSpectrumHandle:
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalSpectrumHandle):
+            return False
+
+        spectrum_id = self.spectrum_obj.get_id()
+        other_spectrum_id = other.spectrum_obj.get_id()
+        if spectrum_id is None or other_spectrum_id is None:
+            return False
+
+        return spectrum_id == other_spectrum_id
 
 
 @dataclass
@@ -247,6 +272,17 @@ class ExternalSpectralLibraryHandle:
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalSpectralLibraryHandle):
+            return False
+
+        lib_id = self.lib_obj.get_id()
+        other_lib_id = other.lib_obj.get_id()
+        if lib_id is None or other_lib_id is None:
+            return False
+
+        return lib_id == other_lib_id
 
 
 @dataclass(frozen=True)

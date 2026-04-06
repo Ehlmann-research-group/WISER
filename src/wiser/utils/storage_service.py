@@ -404,6 +404,15 @@ class StorageService:
     # External registration
     # -------------------------------------------------------------------------
     def register_external(self, handle: ExternalHandle) -> DataRef:
+        for existing_ref_id, existing_handle in self.external_handles.items():
+            if handle.is_same_external_handle(existing_handle):
+                existing_ref = self.data_refs.get(existing_ref_id)
+                if existing_ref is None:
+                    raise KeyError(
+                        f"External handle registry out of sync for existing ref_id={existing_ref_id}"
+                    )
+                return existing_ref
+
         ref_id = self._new_ref_id()
         meta = handle.get_meta()
         external_params = self._build_external_params(handle)
