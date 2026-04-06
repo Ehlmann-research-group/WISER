@@ -10,10 +10,12 @@ from pathlib import Path
 import numpy as np
 from astropy import units as u
 
+
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
     from wiser.raster.spectral_library import SpectralLibrary
     from wiser.raster.spectrum import Spectrum
+    from wiser.raster.serializable import SerializedForm
 
 
 class PriorityClass(Enum):
@@ -139,6 +141,15 @@ class ExternalHandle(Protocol):
     def is_same_external_handle(self, other: "ExternalHandle") -> bool:
         ...
 
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Return a SerializedForm for reconstructing the underlying external object.
+
+        Implementations may raise NotImplementedError when full object transfer
+        is intentionally unsupported for that handle type.
+        """
+        ...
+
 
 @dataclass
 class ExternalRasterHandle:
@@ -190,6 +201,12 @@ class ExternalRasterHandle:
 
         return dataset_id == other_dataset_id
 
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Return a SerializedForm that can reconstruct the underlying RasterDataSet.
+        """
+        return self.dataset_obj.get_serialized_form()
+
 
 @dataclass
 class ExternalSpectrumHandle:
@@ -227,6 +244,12 @@ class ExternalSpectrumHandle:
             return False
 
         return spectrum_id == other_spectrum_id
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Return a SerializedForm that can reconstruct the underlying Spectrum.
+        """
+        return self.spectrum_obj.get_serialized_form()
 
 
 @dataclass
@@ -283,6 +306,14 @@ class ExternalSpectralLibraryHandle:
             return False
 
         return lib_id == other_lib_id
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Spectral-library object transfer is not yet supported.
+        """
+        raise NotImplementedError(
+            "ExternalSpectralLibraryHandle does not support serialized object transfer yet"
+        )
 
 
 @dataclass(frozen=True)

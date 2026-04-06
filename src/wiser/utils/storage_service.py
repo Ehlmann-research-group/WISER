@@ -29,6 +29,7 @@ from wiser.raster.dataset_impl import (
 )
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
+from wiser.raster.serializable import SerializedForm
 
 from .primitives import (
     _safe_np_dtype,
@@ -321,6 +322,7 @@ class StorageService:
             "write_json_value": self.write_json_value,
             "write_json_ram_value": self.write_json_ram_value,
             "get_ram_descriptor": self.get_ram_descriptor,
+            "get_external_object_serialized_form": self.get_external_object_serialized_form,
         }
 
     def _dispatch_rpc_request(self, request: Any) -> dict[str, Any]:
@@ -522,6 +524,27 @@ class StorageService:
 
         # External spectrum refs are currently RAM/no-disk reconstruction only.
         return None
+
+    def get_external_object_serialized_form(self, ref: Union[DataRef, str]) -> SerializedForm:
+        """
+        Return the SerializedForm for a registered external object.
+
+        This is intended for worker processes that need to reconstruct a full
+        object corresponding to an external ref that was registered in the main
+        process. Currently this supports external raster and external spectrum
+        handles only.
+        """
+        canonical_ref = self.read_data_ref(ref)
+        if canonical_ref.source != "external":
+            raise ValueError(
+                f"Serialized object transfer is only supported for external refs: {canonical_ref.ref_id}"
+            )
+
+        handle = self.external_handles.get(canonical_ref.ref_id)
+        if handle is None:
+            raise KeyError(f"No external handle registered for ref_id={canonical_ref.ref_id}")
+
+        return handle.get_serialized_object_form()
 
     # -------------------------------------------------------------------------
     # Allocation
