@@ -3,12 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Tuple, Union
 import uuid
 
 import numpy as np
 import zarr
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.serializable import SerializedForm
+from wiser.raster.spectrum import Spectrum
 from wiser.raster.dataset_impl import (
     ASC_GDALRasterDataImpl,
     ENVI_GDALRasterDataImpl,
@@ -355,6 +357,36 @@ class StorageClient:
 
     def _get_ram_descriptor(self, uri: str) -> SharedMemArrayDescriptor:
         return self._rpc_call("get_ram_descriptor", uri=uri)
+
+    def get_external_object_serialized_form(self, ref: DataRef) -> SerializedForm:
+        """
+        Fetch the SerializedForm for a registered external object.
+
+        This lower-level helper is used when a worker needs the serialized
+        description of an external raster or spectrum object held by the
+        StorageService.
+        """
+        return self._rpc_call("get_external_object_serialized_form", ref=ref)
+
+    def reconstruct_external_object(self, ref: DataRef) -> Union[RasterDataSet, Spectrum]:
+        """
+        Reconstruct an external raster or spectrum object inside the caller's process.
+
+        The object is recreated from the SerializedForm returned by the
+        StorageService for an external handle associated with `ref`.
+        """
+        serialized_form = self.get_external_object_serialized_form(ref)
+        serializable_class = serialized_form.get_serializable_class()
+        reconstructed = serializable_class.deserialize_into_class(serialized_form)
+
+        if isinstance(reconstructed, RasterDataSet):
+            return reconstructed
+        if isinstance(reconstructed, Spectrum):
+            return reconstructed
+
+        raise TypeError(
+            "External object reconstruction returned unsupported type: " f"{type(reconstructed).__name__}"
+        )
 
     def _with_shared_mem_array(
         self,

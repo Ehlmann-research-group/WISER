@@ -8,6 +8,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset import RasterDataSet
 from wiser.utils.primitives import (
     DEFAULT_FLOAT_TYPE,
     AllocationRequest,
@@ -40,6 +42,117 @@ TotalLike = Union[int, DataRef]
 NumComponentsLike = Union[int, DataRef]
 
 # region Task Stage utilities
+
+
+def _run_save_external_dataset(
+    input_ref: DataRef,
+    save_params: Sequence[Any],
+) -> None:
+    """
+    Reconstruct an external dataset in a worker process and save it to disk.
+
+    Args:
+        input_ref: External dataset ref previously registered with the storage service.
+        save_params: Three-item sequence containing `(path, format, config)`.
+    """
+    if len(save_params) != 3:
+        raise ValueError(f"save_params must contain [path, format, config], got {save_params!r}")
+
+    path, format, config = save_params
+    if not isinstance(path, str):
+        raise TypeError(f"save path must be a string, got {type(path)}")
+    if not isinstance(format, str):
+        raise TypeError(f"save format must be a string, got {type(format)}")
+    if not isinstance(config, dict):
+        raise TypeError(f"save config must be a dict, got {type(config)}")
+
+    client = get_process_storage_client()
+    dataset = client.reconstruct_external_object(input_ref)
+    if not isinstance(dataset, RasterDataSet):
+        raise TypeError(f"Expected reconstruct_external_object to return RasterDataSet, got {type(dataset)}")
+
+    loader = RasterDataLoader()
+    loader.save_dataset_as(dataset, path, format, config)
+
+
+@dataclass
+class SaveExternalDatasetStage(SequentialStage):
+    _save_params: Sequence[Any] = ()
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=0,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        self.broadcast_input |= {
+            "save_params": list(self._save_params),
+        }
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        return input_region
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = (input_meta, chosen_scheme)
+        return []
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (input_region, output_writes)
+        return partial(_run_save_external_dataset, input_ref, broadcast_inputs["save_params"])
+
+
+def get_save_external_dataset_pipeline(
+    dataset_ref: DataRef,
+    path: str,
+    format: str,
+    config: Dict[str, Any],
+) -> AlgorithmPipeline:
+    """
+    Build a no-chunking pipeline that reconstructs and saves an external dataset.
+
+    Args:
+        dataset_ref: External dataset ref to reconstruct inside the worker.
+        path: Output path passed to `RasterDataLoader.save_dataset_as`.
+        format: Output format passed to `RasterDataLoader.save_dataset_as`.
+        config: Save configuration dictionary passed to `RasterDataLoader.save_dataset_as`.
+    """
+    if dataset_ref.shape is None:
+        raise ValueError("dataset_ref.shape must be populated for save pipeline planning")
+    if dataset_ref.dtype is None:
+        raise ValueError("dataset_ref.dtype must be populated for save pipeline planning")
+
+    dataset_plan_meta = DatasetPlanMeta(shape=dataset_ref.shape, dtype=np.dtype(dataset_ref.dtype))
+    return AlgorithmPipeline(
+        [
+            SaveExternalDatasetStage(
+                _save_params=[path, format, config],
+                default_executor="process",
+                input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=0,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=NoChunkingScheme,
+            )
+        ]
+    )
 
 
 def _run_compute_pca(

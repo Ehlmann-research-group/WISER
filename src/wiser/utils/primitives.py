@@ -10,10 +10,12 @@ from pathlib import Path
 import numpy as np
 from astropy import units as u
 
+
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
     from wiser.raster.spectral_library import SpectralLibrary
     from wiser.raster.spectrum import Spectrum
+    from wiser.raster.serializable import SerializedForm
 
 
 class PriorityClass(Enum):
@@ -136,6 +138,18 @@ class ExternalHandle(Protocol):
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         ...
 
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        ...
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Return a SerializedForm for reconstructing the underlying external object.
+
+        Implementations may raise NotImplementedError when full object transfer
+        is intentionally unsupported for that handle type.
+        """
+        ...
+
 
 @dataclass
 class ExternalRasterHandle:
@@ -154,7 +168,7 @@ class ExternalRasterHandle:
             dband=region.b1 - region.b0,
             filter_data_ignore_value=False,
         )
-        # RasterDataSet uses [band][y][x]; StorageLayer dataset regions use [y][x][band].
+        # RasterDataSet uses [band][y][x]; StorageService dataset regions use [y][x][band].
         return np.asarray(arr_by_band).transpose(1, 2, 0)
 
     def get_meta(self) -> DataMeta:
@@ -175,6 +189,23 @@ class ExternalRasterHandle:
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalRasterHandle):
+            return False
+
+        dataset_id = self.dataset_obj.get_id()
+        other_dataset_id = other.dataset_obj.get_id()
+        if dataset_id is None or other_dataset_id is None:
+            return False
+
+        return dataset_id == other_dataset_id
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Return a SerializedForm that can reconstruct the underlying RasterDataSet.
+        """
+        return self.dataset_obj.get_serialized_form()
 
 
 @dataclass
@@ -202,6 +233,23 @@ class ExternalSpectrumHandle:
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalSpectrumHandle):
+            return False
+
+        spectrum_id = self.spectrum_obj.get_id()
+        other_spectrum_id = other.spectrum_obj.get_id()
+        if spectrum_id is None or other_spectrum_id is None:
+            return False
+
+        return spectrum_id == other_spectrum_id
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Return a SerializedForm that can reconstruct the underlying Spectrum.
+        """
+        return self.spectrum_obj.get_serialized_form()
 
 
 @dataclass
@@ -247,6 +295,25 @@ class ExternalSpectralLibraryHandle:
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
         return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalSpectralLibraryHandle):
+            return False
+
+        lib_id = self.lib_obj.get_id()
+        other_lib_id = other.lib_obj.get_id()
+        if lib_id is None or other_lib_id is None:
+            return False
+
+        return lib_id == other_lib_id
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        """
+        Spectral-library object transfer is not yet supported.
+        """
+        raise NotImplementedError(
+            "ExternalSpectralLibraryHandle does not support serialized object transfer yet"
+        )
 
 
 @dataclass(frozen=True)
