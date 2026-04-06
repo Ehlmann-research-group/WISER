@@ -175,6 +175,83 @@ def dict_list_equal(
     return True
 
 
+def _try_float_equal(left: Any, right: Any) -> bool:
+    try:
+        left_float = float(left)
+        right_float = float(right)
+    except (TypeError, ValueError):
+        return False
+    return math.isclose(left_float, right_float, rel_tol=1e-9, abs_tol=1e-9)
+
+
+def _spectral_units_equal(left: Any, right: Any) -> bool:
+    left_unit = get_spectral_unit_from_any(left)
+    right_unit = get_spectral_unit_from_any(right)
+    if left_unit is None or right_unit is None:
+        return left == right
+    return left_unit == right_unit
+
+
+def _band_info_values_equal(key: str, left: Any, right: Any) -> bool:
+    if key == "wavelength_units":
+        return _spectral_units_equal(left, right)
+
+    if key == "wavelength_str":
+        return _try_float_equal(left, right)
+
+    if key == "wavelength":
+        if isinstance(left, u.Quantity) and isinstance(right, u.Quantity):
+            return left.unit == right.unit and math.isclose(
+                left.value, right.value, rel_tol=1e-9, abs_tol=1e-9
+            )
+        return _try_float_equal(left, right)
+
+    return left == right
+
+
+def band_info_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
+    """
+    Compare two dataset band-info lists using domain-specific wavelength rules.
+
+    This comparison is stricter than a shallow equality check on the overall
+    structure, but more permissive for values that can differ in formatting
+    while still representing the same spectral information. In particular:
+
+    - `wavelength_units` values are normalized through `KNOWN_SPECTRAL_UNITS`
+      so short and long spellings such as `nm` and `Nanometers` compare equal.
+    - `wavelength_str` values are compared numerically so formatting differences
+      like `451.98999` vs `451.989990` compare equal.
+    - `wavelength` quantity values are compared using their numeric value and
+      unit rather than object identity.
+    """
+    if len(a) != len(b):
+        print(f"band_info_list_equal length mismatch left={len(a)} right={len(b)}")
+        return False
+
+    for index, (left_band_info, right_band_info) in enumerate(zip(a, b)):
+        left_keys = set(left_band_info.keys())
+        right_keys = set(right_band_info.keys())
+        if left_keys != right_keys:
+            print(
+                "band_info_list_equal key mismatch "
+                f"index={index} left_only={sorted(left_keys - right_keys)} "
+                f"right_only={sorted(right_keys - left_keys)}"
+            )
+            return False
+
+        for key in sorted(left_keys):
+            left_value = left_band_info[key]
+            right_value = right_band_info[key]
+            if not _band_info_values_equal(key, left_value, right_value):
+                print(
+                    "band_info_list_equal mismatch "
+                    f"index={index} key={key!r} left={left_value!r} right={right_value!r}"
+                )
+                return False
+
+    return True
+
+
 class SpatialMetadata:
     def __init__(
         self,
