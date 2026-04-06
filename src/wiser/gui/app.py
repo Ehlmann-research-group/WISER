@@ -64,6 +64,9 @@ from wiser.raster.spectrum import (
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
+from wiser.utils.primitives import ExternalRasterHandle, PriorityClass
+from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
+from wiser.utils.task_system import SemanticTask
 
 from test_utils.test_event_loop_functions import TestingWidget
 
@@ -81,6 +84,52 @@ logger = logging.getLogger(__name__)
 # TODO(donnie):  We also need an "offline/local" location for the manual,
 #     for when it's downloaded to the local system.
 ONLINE_WISER_MANUAL_URL = "https://ehlmann-research-group.github.io/WISER-UserManual/"
+
+
+class SaveDatasetSemanticTask(QObject, SemanticTask):
+    save_completed = Signal(int)
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        dataset: RasterDataSet,
+        input_ref,
+        path: str,
+        format: str,
+        config: dict,
+    ):
+        QObject.__init__(self)
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=input_ref,
+            algorithm_pipeline=get_save_external_dataset_pipeline(
+                dataset_ref=input_ref,
+                path=path,
+                format=format,
+                config=config,
+            ),
+            task_title="Save Dataset",
+            task_variables={
+                "Dataset": dataset.get_name(),
+                "Path": path,
+                "Format": format,
+            },
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._dataset_id = dataset.get_id()
+        self.save_completed.connect(self._mark_dataset_clean)
+
+    def completion_callback(self, bindings) -> None:
+        _ = bindings
+        if self._dataset_id is not None:
+            self.save_completed.emit(int(self._dataset_id))
+
+    @Slot(int)
+    def _mark_dataset_clean(self, dataset_id: int) -> None:
+        if self._app_state.has_dataset(dataset_id):
+            self._app_state.get_dataset(dataset_id).set_dirty(False)
 
 
 class DataVisualizerApp(QMainWindow):
@@ -496,8 +545,6 @@ class DataVisualizerApp(QMainWindow):
         if result == QDialog.Accepted:
             # Save the dataset to the specified file.
 
-            loader = self._app_state.get_loader()
-
             # The chosen format may create multiple files; this path is expected
             # to be the one that GDAL needs for the specified format.
 
@@ -510,10 +557,22 @@ class DataVisualizerApp(QMainWindow):
             logger.debug(f"Save-Dataset Config:\n{pprint.pformat(config)}")
 
             dataset = self._app_state.get_dataset(ds_id)
-            loader.save_dataset_as(dataset, path, format, config)
-
-            # Mark dataset as unmodified.
-            dataset.set_dirty(False)
+            dataset_ref = self._app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            save_task = SaveDatasetSemanticTask(
+                app_state=self._app_state,
+                dataset=dataset,
+                input_ref=dataset_ref,
+                path=path,
+                format=format,
+                config=config,
+            )
+            task_plan = self._app_services.task_planner.plan_semantic_task(save_task)
+            self._app_services.task_manager.register_and_submit_task_plan(
+                self._app_services.scheduler,
+                task_plan,
+            )
 
     def _on_close_dataset(self, ds_id: int):
         # If dataset is modified, ask user if they want to save it.
