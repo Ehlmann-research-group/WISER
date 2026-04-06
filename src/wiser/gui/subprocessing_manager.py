@@ -17,35 +17,6 @@ SENTINEL_RESULT = "__RESULT__"
 SENTINEL_ERROR = "__ERROR__"
 
 
-def _safe_child_call(fn: Callable[[], object]) -> object:
-    try:
-        return fn()
-    except Exception as exc:
-        return f"<error:{type(exc).__name__}:{exc}>"
-
-
-def _child_resource_snapshot(
-    child_conn: mp_conn.Connection | None,
-    return_queue: mp.Queue | None,
-) -> Dict[str, object]:
-    return {
-        "child_conn_is_none": child_conn is None,
-        "child_conn_closed": _safe_child_call(lambda: None if child_conn is None else child_conn.closed),
-        "queue_is_none": return_queue is None,
-        "queue_reader_closed": _safe_child_call(
-            lambda: None if return_queue is None else return_queue._reader.closed
-        ),
-        "queue_writer_closed": _safe_child_call(
-            lambda: None if return_queue is None else return_queue._writer.closed
-        ),
-        "queue_thread_alive": _safe_child_call(
-            lambda: None
-            if return_queue is None or return_queue._thread is None
-            else return_queue._thread.is_alive()
-        ),
-    }
-
-
 def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs):
     try:
         op(child_conn=child_conn, return_queue=return_queue, **kwargs)
@@ -63,11 +34,6 @@ def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue:
         # re-raise so exitcode is nonzero
         raise
     finally:
-        print(
-            f"[child_trampoline cleanup] phase=before_close pid={os.getpid()} "
-            f"snapshot={_child_resource_snapshot(child_conn, return_queue)}",
-            flush=True,
-        )
         try:
             child_conn.close()
         except Exception:
@@ -77,11 +43,6 @@ def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue:
             return_queue.join_thread()
         except Exception:
             pass
-        print(
-            f"[child_trampoline cleanup] phase=after_close pid={os.getpid()} "
-            f"snapshot={_child_resource_snapshot(child_conn, return_queue)}",
-            flush=True,
-        )
 
 
 class ProcessManager(QObject):
