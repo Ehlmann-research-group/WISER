@@ -7,6 +7,7 @@ import tests.context
 
 from test_utils.test_model import WiserTestModel
 from wiser.raster.dataset import RasterDataSet, band_info_list_equal
+from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import spectral_unit_to_string
 
@@ -34,27 +35,9 @@ class TestSaveDataset(unittest.TestCase):
             equal_nan=True,
         )
 
-    def test_save_dataset_helper_preserves_full_caltech_data_ignore_dataset(self):
+    def _run_save_roundtrip_test(self, dataset: RasterDataSet, save_path: Path) -> None:
         loader = RasterDataLoader()
-        fixture_path = (
-            Path(__file__).resolve().parent
-            / ".."
-            / "test_utils"
-            / "test_datasets"
-            / "caltech_425_6_6_data_ignore.hdr"
-        )
-        dataset = loader.load_from_file(str(fixture_path), interactive=False)[0]
-        self.assertIsInstance(dataset, RasterDataSet)
-
         band_info = dataset.band_list()
-        save_path = (
-            Path(__file__).resolve().parent
-            / ".."
-            / "test_utils"
-            / "test_datasets"
-            / "artifacts"
-            / "caltech_425_6_6_data_ignore_saved.img"
-        ).resolve()
         saved_hdr_path = save_path.with_suffix(".hdr")
 
         for output_path in [save_path, saved_hdr_path]:
@@ -68,13 +51,14 @@ class TestSaveDataset(unittest.TestCase):
             "top": 0,
             "width": dataset.get_width(),
             "height": dataset.get_height(),
-            "wavelength_units": spectral_unit_to_string(dataset.get_band_unit()),
-            "wavelengths": [float(b["wavelength_str"]) for b in band_info],
             "bad_bands": dataset.get_bad_bands(),
             "default_display_bands": dataset.default_display_bands(),
         }
+        if dataset.get_band_unit() is not None:
+            config["wavelength_units"] = spectral_unit_to_string(dataset.get_band_unit())
+            config["wavelengths"] = [float(b["wavelength_str"]) for b in band_info]
 
-        future = None
+        reopened = None
         try:
             future = self.test_model.main_window._save_dataset_helper(
                 dataset=dataset,
@@ -121,9 +105,50 @@ class TestSaveDataset(unittest.TestCase):
                 copy=False,
             ).transpose(1, 2, 0)
             self._assert_array_and_mask_equal(actual_masked, expected_masked)
+        finally:
             reopened = None
             gc.collect()
-        finally:
             for output_path in [save_path, saved_hdr_path]:
                 if output_path.exists():
                     output_path.unlink()
+
+    def test_save_dataset_helper_preserves_full_caltech_data_ignore_dataset(self):
+        loader = RasterDataLoader()
+        fixture_path = (
+            Path(__file__).resolve().parent
+            / ".."
+            / "test_utils"
+            / "test_datasets"
+            / "caltech_425_6_6_data_ignore.hdr"
+        )
+        dataset = loader.load_from_file(str(fixture_path), interactive=False)[0]
+        self.assertIsInstance(dataset, RasterDataSet)
+
+        save_path = (
+            Path(__file__).resolve().parent
+            / ".."
+            / "test_utils"
+            / "test_datasets"
+            / "artifacts"
+            / "caltech_425_6_6_data_ignore_saved.img"
+        ).resolve()
+        self._run_save_roundtrip_test(dataset, save_path)
+
+    def test_save_dataset_helper_preserves_netcdf_reflectance_dataset(self):
+        fixture_path = Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "netcdf.nc"
+        netcdf_impl = NetCDF_GDALRasterDataImpl.try_load_file(
+            str(fixture_path),
+            subdataset_name="reflectance",
+            interactive=False,
+        )[0]
+        dataset = RasterDataSet(netcdf_impl)
+
+        save_path = (
+            Path(__file__).resolve().parent
+            / ".."
+            / "test_utils"
+            / "test_datasets"
+            / "artifacts"
+            / "netcdf_reflectance_saved.img"
+        ).resolve()
+        self._run_save_roundtrip_test(dataset, save_path)
