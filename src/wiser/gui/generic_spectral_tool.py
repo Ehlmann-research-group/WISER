@@ -1,6 +1,7 @@
 # Generic shared logic for spectral computations (parent class)
 from __future__ import annotations
 
+from concurrent.futures import Future
 from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING, Union
 import os
 import warnings
@@ -568,28 +569,33 @@ class GenericSpectralComputationTool(QDialog):
 
     def compute_score_image(
         self,
-        target_image_name: str,
-        target_image_arr: np.ndarray,
-        target_wavelengths: np.ndarray,
-        target_bad_bands: np.ndarray,
-        min_wvl: np.float32,
-        max_wvl: np.float32,
+        target: RasterDataSet,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
         reference_spectra: List[Spectrum],
-        reference_spectra_arr: np.ndarray,
-        reference_spectra_wvls: np.ndarray,
-        reference_spectra_bad_bands: np.ndarray,
-        reference_spectra_indices: np.ndarray,
-        thresholds: np.ndarray,
+        thresholds: List[float],
         python_mode: bool = False,
-    ) -> List[int]:
-        """Child must implement. Return Nothing. Load dataset into app instead."""
+    ) -> Future[None]:
+        """Child must implement. Submit image-mode work and return its future."""
         raise NotImplementedError
+
+    def _resolve_app_services(self):
+        candidates = [self.parent(), self.window(), QApplication.activeWindow()] + list(
+            QApplication.topLevelWidgets()
+        )
+        for candidate in candidates:
+            if candidate is None:
+                continue
+            app_services = getattr(candidate, "_app_services", None)
+            if app_services is not None:
+                return app_services
+        raise RuntimeError("Could not resolve AppServices for spectral computation tool")
 
     def find_matches(
         self,
         spectral_inputs: SpectralComputationInputs,
         python_mode: bool = False,
-    ) -> Optional[Union[List[Dict[str, Any]], List[int]]]:
+    ) -> Optional[Union[List[Dict[str, Any]], Future[None]]]:
         """Find spectral matches for a single spectrum or an image cube.
 
         This method operates in two modes, driven by ``spectral_inputs.mode``:
@@ -599,10 +605,8 @@ class GenericSpectralComputationTool(QDialog):
         (one per passing reference), including metadata and any extra fields
         from ``compute_score``.
         * ``"Image Cube"``: Treat the target as a raster
-        dataset, compute per-pixel scores against all reference spectra
-        (via ``compute_score_image``), and attach the resulting products to
-        the application. In this mode, the method returns ``None`` and all
-        side effects are handled by the callee.
+        dataset, submit per-pixel scores against all reference spectra
+        (via ``compute_score_image``), and return the scheduled future.
         * Any other mode: Error
 
         Matching uses a shared convention where **lower scores are better**,
@@ -642,10 +646,7 @@ class GenericSpectralComputationTool(QDialog):
                 * Any additional key/value pairs returned in ``extras`` from
                 :meth:`compute_score`.
 
-                In image mode (non-``"Spectrum"``), returns ``None``. In that
-                case, the concrete subclass is responsible for consuming the
-                output of :meth:`compute_score_image` and attaching datasets
-                to the application state.
+                In image mode, returns the scheduler future for the submitted task.
 
         Raises:
             AssertionError: If ``spectral_inputs.mode == "Spectrum"`` but
@@ -694,76 +695,15 @@ class GenericSpectralComputationTool(QDialog):
                     )
             return matches
         elif mode == "Image Cube":
-            # Image mode: run per-pixel scoring against all reference spectra.
             assert isinstance(target, RasterDataSet)
-            target_unit = target.get_band_unit()
-            target_image_cube = target.get_image_data()  # [b][y][x]
-
-            # Convert dataset bad-band flags → boolean mask (True = keep).
-            target_wavelengths = [b["wavelength"].to(target_unit).value for b in target.get_band_info()]
-            target_wavelengths = np.array(target_wavelengths, dtype=np.float32)
-            target_bad_bands = np.array(target.get_bad_bands()).astype(
-                np.bool_
-            )  # 1's correspond for bands we keep, 0's don't
-
-            # Normalize user wavelength bounds to dataset units.
-            new_min_wvl = min_wvl.to(target_unit)
-            new_min_wvl = np.float32(new_min_wvl.value)
-            new_max_wvl = max_wvl.to(target_unit)
-            new_max_wvl = np.float32(new_max_wvl.value)
-
-            # Build packed reference buffers (values + wavelengths).
-            length_all_references = 0
-            ref_offsets = [0]
-            for ref in references:
-                length_of_ref = ref.get_shape()[0]
-                length_all_references += length_of_ref
-                ref_offsets.append(ref_offsets[-1] + length_of_ref)
-
-            new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
-            new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
-            new_refs_bad_bands = np.ones((length_all_references,), dtype=np.bool_)
-
-            # Copy reference spectra into packed buffers.
-            i = 0
-            for ref in references:
-                ref_unit = ref.get_wavelength_units()
-                if ref_unit is None:
-                    continue
-                new_refs_arr[ref_offsets[i] : ref_offsets[i + 1]] = ref.get_spectrum()
-                wvls = [wvl.to(target_unit).value for wvl in ref.get_wavelengths()]
-                new_refs_wvl[ref_offsets[i] : ref_offsets[i + 1]] = wvls
-                bad_bands = ref.get_bad_bands()
-                new_refs_bad_bands[ref_offsets[i] : ref_offsets[i + 1]] = bad_bands
-                i += 1
-
-            # Per-reference thresholds
-            thresholds = np.array(spectral_inputs.thresholds, dtype=np.float32)
-            ref_offsets = np.array(ref_offsets, dtype=np.uint32)
-            assert thresholds.shape[0] == len(references)
-
-            if isinstance(target_image_cube, np.ma.MaskedArray):
-                target_image_arr = target_image_cube.data
-            else:
-                target_image_arr = target_image_cube
-
-            # It's the child class's job to add the output to WISER
-            ds_ids = self.compute_score_image(
-                target_image_name=target.get_name(),
-                target_image_arr=target_image_arr,
-                target_wavelengths=target_wavelengths,
-                target_bad_bands=target_bad_bands,
-                min_wvl=new_min_wvl,
-                max_wvl=new_max_wvl,
+            return self.compute_score_image(
+                target=target,
+                min_wvl=min_wvl,
+                max_wvl=max_wvl,
                 reference_spectra=references,
-                reference_spectra_arr=new_refs_arr,
-                reference_spectra_wvls=new_refs_wvl,
-                reference_spectra_bad_bands=new_refs_bad_bands,
-                reference_spectra_indices=ref_offsets,
-                thresholds=thresholds,
+                thresholds=spectral_inputs.thresholds,
                 python_mode=python_mode,
             )
-            return ds_ids
         else:
             raise ValueError("Spectral computation mode must be 'Spectrum' or 'Image Cube'.")
 

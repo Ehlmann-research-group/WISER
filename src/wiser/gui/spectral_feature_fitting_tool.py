@@ -2,17 +2,23 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, TYPE_CHECKING
 import numpy as np
 from numba import types, prange
 from scipy.interpolate import interp1d
 
 from astropy import units as u
+from PySide2.QtCore import QObject, Signal, Slot
 from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
 from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.primitives import DataRef, ExternalRasterHandle, ExternalSpectrumHandle, PriorityClass
+from wiser.utils.task_stage_utils import get_general_spectral_image_pipeline
+from wiser.utils.task_system import SemanticTask
+from wiser.utils.worker_runtime import get_process_storage_client
 from .util import (
     interp1d_monotonic,
     interp1d_monotonic_numba,
@@ -31,6 +37,9 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     continuum_removal,
     continuum_removal_numba,
 )
+
+if TYPE_CHECKING:
+    from wiser.gui.app_services import AppServices
 
 SFF_NEUTRAL_FILL_VALUE = 1.0
 
@@ -465,6 +474,118 @@ def compute_sff_image_numba(
     return out_classification, out_rmse, out_scale
 
 
+class SpectralFeatureFittingTask(QObject, SemanticTask):
+    """
+    Semantic task that runs image-mode Spectral Feature Fitting through the work scheduler.
+    """
+
+    result_ready = Signal(object)
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        target: RasterDataSet,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+        references: List[Spectrum],
+        thresholds: List[float],
+        python_mode: bool,
+        input_ref: DataRef,
+        reference_refs: List[DataRef],
+        classification_ref_name: str = "sff_classification",
+        rmse_ref_name: str = "sff_rmse",
+        scale_ref_name: str = "sff_scale",
+    ):
+        QObject.__init__(self)
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=input_ref,
+            algorithm_pipeline=get_general_spectral_image_pipeline(
+                dataset_ref=input_ref,
+                reference_refs=reference_refs,
+                min_wvl=min_wvl,
+                max_wvl=max_wvl,
+                thresholds=thresholds,
+                python_mode=python_mode,
+                output_specs=[
+                    (classification_ref_name, np.dtype(np.bool_)),
+                    (rmse_ref_name, np.dtype(np.float32)),
+                    (scale_ref_name, np.dtype(np.float32)),
+                ],
+                python_func=compute_sff_image,
+                numba_func=compute_sff_image_numba,
+            ),
+            task_title="Spectral Feature Fitting",
+            task_variables={
+                "Dataset": target.get_name(),
+                "References": len(references),
+                "Python Mode": str(bool(python_mode)),
+            },
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._target = target
+        self._references = references
+        self._classification_ref_name = classification_ref_name
+        self._rmse_ref_name = rmse_ref_name
+        self._scale_ref_name = scale_ref_name
+        self.result_ready.connect(self._load_results_into_wiser)
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        self.result_ready.emit(bindings)
+
+    @Slot(object)
+    def _load_results_into_wiser(
+        self,
+        bindings: object,
+    ) -> None:
+        if not isinstance(bindings, dict):
+            raise TypeError(f"Expected bindings dict, got {type(bindings)}")
+
+        classification_ref = bindings.get(self._classification_ref_name)
+        rmse_ref = bindings.get(self._rmse_ref_name)
+        scale_ref = bindings.get(self._scale_ref_name)
+        if classification_ref is None:
+            raise KeyError(f"Missing SFF classification output binding: {self._classification_ref_name}")
+        if rmse_ref is None:
+            raise KeyError(f"Missing SFF RMSE output binding: {self._rmse_ref_name}")
+        if scale_ref is None:
+            raise KeyError(f"Missing SFF scale output binding: {self._scale_ref_name}")
+
+        storage_client = get_process_storage_client()
+        out_classification, _ = storage_client.read_data(classification_ref, filter_data=False)
+        out_rmse, _ = storage_client.read_data(rmse_ref, filter_data=False)
+        out_scale, _ = storage_client.read_data(scale_ref, filter_data=False)
+        loader = RasterDataLoader()
+        cache = self._app_state.get_cache()
+        target_image_name = self._target.get_name()
+        band_descriptions = [f"Spec: {spectrum.get_name()}" for spectrum in self._references]
+
+        out_cls_dataset = loader.dataset_from_numpy_array(
+            np.asarray(out_classification).transpose(2, 0, 1), cache
+        )
+        out_cls_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SFF CLS, Img: {target_image_name}"),
+        )
+        out_cls_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_cls_dataset)
+
+        out_rmse_dataset = loader.dataset_from_numpy_array(np.asarray(out_rmse).transpose(2, 0, 1), cache)
+        out_rmse_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SFF RMSE, Img: {target_image_name}"),
+        )
+        out_rmse_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_rmse_dataset)
+
+        out_scale_dataset = loader.dataset_from_numpy_array(np.asarray(out_scale).transpose(2, 0, 1), cache)
+        out_scale_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SFF SCALE, Img: {target_image_name}"),
+        )
+        out_scale_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_scale_dataset)
+
+
 class SFFTool(GenericSpectralComputationTool):
     SETTINGS_NAMESPACE = "Wiser/SFFPlugin"
     RUN_BUTTON_TEXT = "Run SFF"
@@ -631,92 +752,30 @@ class SFFTool(GenericSpectralComputationTool):
 
     def compute_score_image(
         self,
-        target_image_name: str,
-        target_image_arr: np.ndarray,
-        target_wavelengths: np.ndarray,
-        target_bad_bands: np.ndarray,
-        min_wvl: np.float32,
-        max_wvl: np.float32,
-        reference_spectra: List[NumPyArraySpectrum],
-        reference_spectra_arr: np.ndarray,
-        reference_spectra_wvls: np.ndarray,
-        reference_spectra_bad_bands: np.ndarray,
-        reference_spectra_indices: np.ndarray,
-        thresholds: np.ndarray,
+        target: RasterDataSet,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+        reference_spectra: List[Spectrum],
+        thresholds: List[float],
         python_mode: bool = False,
-    ) -> List[int]:
-        if not python_mode:
-            out_cls, out_rmse, out_scale = compute_sff_image_numba(
-                target_image_arr,
-                target_wavelengths,
-                target_bad_bands,
-                min_wvl,
-                max_wvl,
-                reference_spectra_arr,
-                reference_spectra_wvls,
-                reference_spectra_bad_bands,
-                reference_spectra_indices,
-                thresholds,
-            )
-        else:
-            out_cls, out_rmse, out_scale = compute_sff_image(
-                target_image_arr,
-                target_wavelengths,
-                target_bad_bands,
-                min_wvl,
-                max_wvl,
-                reference_spectra_arr,
-                reference_spectra_wvls,
-                reference_spectra_bad_bands,
-                reference_spectra_indices,
-                thresholds,
-            )
-        loader = RasterDataLoader()
-
-        # Load in out_cls dataset
-        out_cls_dataset = loader.dataset_from_numpy_array(out_cls)
-        out_cls_dataset.set_name(
-            self._app_state.unique_dataset_name(f"SFF CLS, Img: {target_image_name}"),
-        )
-        band_descriptions = []
-
-        for i in range(0, len(reference_spectra)):
-            spectrum_name = reference_spectra[i].get_name()
-            band_descriptions.append(f"Spec: {spectrum_name}")
-
-        out_cls_dataset.set_band_descriptions(band_descriptions)
-        self._app_state.add_dataset(out_cls_dataset)
-
-        # Load in out_rmse dataset
-        out_rmse_dataset = loader.dataset_from_numpy_array(out_rmse)
-        out_rmse_dataset.set_name(
-            self._app_state.unique_dataset_name(f"SFF RMSE, Img: {target_image_name}"),
-        )
-        band_descriptions = []
-
-        for i in range(0, len(reference_spectra)):
-            spectrum_name = reference_spectra[i].get_name()
-            band_descriptions.append(f"Spec: {spectrum_name}")
-
-        out_rmse_dataset.set_band_descriptions(band_descriptions)
-        self._app_state.add_dataset(out_rmse_dataset)
-
-        # Load in out_scale dataset
-        out_scale_dataset = loader.dataset_from_numpy_array(out_scale)
-        out_scale_dataset.set_name(
-            self._app_state.unique_dataset_name(f"SFF SCALE, Img: {target_image_name}"),
-        )
-        band_descriptions = []
-
-        for i in range(0, len(reference_spectra)):
-            spectrum_name = reference_spectra[i].get_name()
-            band_descriptions.append(f"Spec: {spectrum_name}")
-
-        out_scale_dataset.set_band_descriptions(band_descriptions)
-        self._app_state.add_dataset(out_scale_dataset)
-
-        return [
-            out_cls_dataset.get_id(),
-            out_rmse_dataset.get_id(),
-            out_scale_dataset.get_id(),
+    ):
+        app_services: "AppServices" = self._resolve_app_services()
+        target_ref = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=target))
+        reference_refs = [
+            app_services.storage_service.register_external(ExternalSpectrumHandle(spectrum_obj=reference))
+            for reference in reference_spectra
         ]
+        sff_task = SpectralFeatureFittingTask(
+            app_state=self._app_state,
+            target=target,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+            references=reference_spectra,
+            thresholds=thresholds,
+            python_mode=python_mode,
+            input_ref=target_ref,
+            reference_refs=reference_refs,
+        )
+        self._last_sff_task = sff_task
+        task_plan = app_services.task_planner.plan_semantic_task(sff_task)
+        return app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
