@@ -1618,7 +1618,6 @@ class RasterDataSet(Serializable):
                 dataset = RasterDataSet(impl, None)
             else:
                 raise ValueError(f"Unsupported serialize_value type: {type(serialize_value)}")
-
             dataset.copy_serialized_metadata_from(metadata)
             return dataset
         except Exception as e:
@@ -1640,6 +1639,7 @@ class RasterDataSet(Serializable):
         serial_geo_transform = metadata.get("geo_transform", None)
         serial_wavelengths: List[u.Quantity] = metadata.get("wavelengths", None)
         serial_wavelength_units = metadata.get("wavelength_units", None)
+        serial_band_info = metadata.get("band_info", None)
         if serial_save_state:
             self.set_save_state(serial_save_state)
         # We don't set the elem type because it is built into the underlying
@@ -1656,8 +1656,11 @@ class RasterDataSet(Serializable):
             self._spatial_ref = spatial_ref
         if serial_geo_transform:
             self._geo_transform = serial_geo_transform
-        if serial_wavelengths:
-            self._band_info = build_band_info_from_wavelengths(serial_wavelengths)
+        if serial_wavelengths or serial_band_info:
+            if serial_band_info:
+                self._band_info = serial_band_info
+            else:
+                self._band_info = build_band_info_from_wavelengths(serial_wavelengths)
         if serial_wavelength_units:
             self._band_unit = serial_wavelength_units
         self._has_wavelengths = self._compute_has_wavelengths()
@@ -1709,6 +1712,7 @@ class RasterDataSet(Serializable):
         metadata["wkt_spatial_ref"] = self.get_wkt_spatial_reference()
         metadata["geo_transform"] = self.get_geo_transform()
         metadata["subdataset_name"] = self.get_subdataset_name()
+        metadata["band_info"] = self.get_band_info()
         if self._compute_has_wavelengths():
             metadata["wavelengths"] = [band["wavelength"] for band in self._band_info]
             metadata["wavelength_units"] = self.get_band_unit()

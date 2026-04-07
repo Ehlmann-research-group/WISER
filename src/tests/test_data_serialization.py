@@ -160,12 +160,25 @@ class TestDataSerialization(unittest.TestCase):
         assert reconstructed_dataset.is_metadata_same(
             ds
         ), "The reconstructed dataset has different metadata from the original dataset"
+        assert reconstructed_dataset.get_bad_bands() == ds.get_bad_bands()
         assert reconstructed_dataset.get_bad_bands() == expected_bad_bands
+
+        assert reconstructed_dataset.get_data_ignore_value() == ds.get_data_ignore_value()
         assert reconstructed_dataset.get_data_ignore_value() == 65536
+
+        assert reconstructed_dataset.get_wavelengths() == ds.get_wavelengths()
         assert reconstructed_dataset.get_wavelengths() == expected_wavelengths
+
+        assert reconstructed_dataset.get_band_unit() == ds.get_band_unit()
         assert reconstructed_dataset.get_band_unit() == u.um
+
+        assert reconstructed_dataset.get_geo_transform() == ds.get_geo_transform()
         assert reconstructed_dataset.get_geo_transform() == expected_geo_transform
+
+        assert reconstructed_dataset.get_wkt_spatial_reference() == ds.get_wkt_spatial_reference()
         assert reconstructed_dataset.get_wkt_spatial_reference() == expected_wkt
+
+        assert reconstructed_dataset.get_spatial_ref().IsSame(ds.get_spatial_ref()) == 1
         assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
 
     def test_raster_data_band(self):
