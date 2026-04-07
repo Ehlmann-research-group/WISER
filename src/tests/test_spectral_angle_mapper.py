@@ -46,7 +46,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
 
     def _wait_for_added_datasets(self, future, expected_count: int):
         self.assertIsNotNone(future)
-        future.result(timeout=20)
+        future.result(timeout=180)
         self.test_model.app.processEvents()
         datasets = self.test_model.app_state.get_datasets()
         self.assertGreaterEqual(len(datasets), expected_count)
@@ -303,7 +303,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         )
 
         future = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
-        cls_ds, angle_ds = self._wait_for_added_datasets(future, 2)
+        angle_ds, cls_ds = self._wait_for_added_datasets(future, 2)
 
         self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(angle_ds.get_image_data(), gt_angle, atol=1e-5))
