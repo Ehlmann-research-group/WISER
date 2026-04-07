@@ -120,6 +120,54 @@ class TestDataSerialization(unittest.TestCase):
         assert reconstructed_dataset.get_wkt_spatial_reference() == expected_wkt
         assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
 
+    def test_file_backed_dataset_serialization_preserves_full_metadata(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "caltech_425_6_6_data_ignore.hdr",
+            )
+        )
+
+        ds = self.test_model.load_dataset(target_path)
+        expected_bad_bands = [1] * ds.num_bands()
+        expected_bad_bands[-1] = 0
+        expected_wavelengths = [(i + 1) * u.um for i in range(ds.num_bands())]
+
+        ds.set_bad_bands(expected_bad_bands)
+        ds.set_data_ignore_value(65536)
+        ds.update_band_info(expected_wavelengths)
+
+        spatial_ref = osr.SpatialReference()
+        spatial_ref.ImportFromEPSG(4326)
+        expected_wkt = spatial_ref.ExportToWkt()
+        expected_geo_transform = (10.0, 2.0, 0.0, 20.0, 0.0, -2.0)
+
+        ds._set_spatial_reference(spatial_ref)
+        ds._set_wkt(expected_wkt)
+        ds._set_geo_transform(expected_geo_transform)
+
+        serialized_ds_form = ds.get_serialized_form()
+        reconstructed_dataset: RasterDataSet = (
+            serialized_ds_form.get_serializable_class().deserialize_into_class(
+                serializedForm=serialized_ds_form,
+            )
+        )
+
+        assert reconstructed_dataset.is_metadata_same(
+            ds
+        ), "The reconstructed dataset has different metadata from the original dataset"
+        assert reconstructed_dataset.get_bad_bands() == expected_bad_bands
+        assert reconstructed_dataset.get_data_ignore_value() == 65536
+        assert reconstructed_dataset.get_wavelengths() == expected_wavelengths
+        assert reconstructed_dataset.get_band_unit() == u.um
+        assert reconstructed_dataset.get_geo_transform() == expected_geo_transform
+        assert reconstructed_dataset.get_wkt_spatial_reference() == expected_wkt
+        assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
+
     def test_raster_data_band(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         target_path = os.path.normpath(
