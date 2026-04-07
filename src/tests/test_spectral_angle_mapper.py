@@ -46,7 +46,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
 
     def _wait_for_added_datasets(self, future, expected_count: int):
         self.assertIsNotNone(future)
-        future.result(timeout=180)
+        future.result(timeout=20)
         self.test_model.app.processEvents()
         datasets = self.test_model.app_state.get_datasets()
         self.assertGreaterEqual(len(datasets), expected_count)
@@ -302,7 +302,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        future = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        future = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
         cls_ds, angle_ds = self._wait_for_added_datasets(future, 2)
 
         self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
@@ -541,10 +541,14 @@ class TestSpectralAngleMapper(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, python_mode=False)
+        future_numba = generic_spectral_comp.find_matches(
+            spectral_inputs=spectral_inputs, python_mode=False, test_mode=True
+        )
         cls_ds_numba, angle_ds_numba = self._wait_for_added_datasets(future_numba, 2)
 
-        future_py = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, python_mode=True)
+        future_py = generic_spectral_comp.find_matches(
+            spectral_inputs=spectral_inputs, python_mode=True, test_mode=True
+        )
         cls_ds_py, angle_ds_py = self._wait_for_added_datasets(future_py, 2)
 
         self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), gt_cls, atol=1e-5))
@@ -648,12 +652,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
         cls_ds, angle_ds = self._wait_for_added_datasets(future_numba, 2)
 
         future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
+            test_mode=True,
         )
         cls_ds_py, angle_ds_py = self._wait_for_added_datasets(future_py, 2)
 
@@ -734,12 +739,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
         cls_ds, angle_ds = self._wait_for_added_datasets(future_numba, 2)
 
         future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
+            test_mode=True,
         )
         cls_ds_py, angle_ds_py = self._wait_for_added_datasets(future_py, 2)
 
@@ -825,12 +831,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
         cls_ds_numba, angle_ds_numba = self._wait_for_added_datasets(future_numba, 2)
 
         future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
+            test_mode=True,
         )
         cls_ds_py, angle_ds_py = self._wait_for_added_datasets(future_py, 2)
 
@@ -882,7 +889,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             lib_name_by_spec_id=None,
         )
 
-        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
 
         self.assertIsNone(result)
 
@@ -922,7 +929,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             lib_name_by_spec_id=None,
         )
 
-        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
 
         self.assertIsNone(result)
 
@@ -986,7 +993,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             lib_name_by_spec_id=None,
         )
 
-        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
 
         self.assertIsNone(result)
 
@@ -1064,11 +1071,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
         future_numba = sam_tool.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=False,
+            test_mode=True,
         )
 
         future_py = sam_tool.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
+            test_mode=True,
         )
 
         _, angle_ds_numba = self._wait_for_added_datasets(future_numba, 2)
@@ -1157,11 +1166,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
         future_numba = sff_tool.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=False,
+            test_mode=True,
         )
 
         future_py = sff_tool.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
+            test_mode=True,
         )
 
         _, angle_ds_numba = self._wait_for_added_datasets(future_numba, 2)

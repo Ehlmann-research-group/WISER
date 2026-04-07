@@ -595,6 +595,7 @@ class GenericSpectralComputationTool(QDialog):
         self,
         spectral_inputs: SpectralComputationInputs,
         python_mode: bool = False,
+        test_mode=False,
     ) -> Optional[Union[List[Dict[str, Any]], Future[None]]]:
         """Find spectral matches for a single spectrum or an image cube.
 
@@ -669,7 +670,7 @@ class GenericSpectralComputationTool(QDialog):
         mode = spectral_inputs.mode
 
         # Ensure all inputs have wavelengths
-        all_have_wvls = self.ensure_wavelengths(target, references)
+        all_have_wvls = self.ensure_wavelengths(target, references, test_mode=test_mode)
         if not all_have_wvls:
             return None
 
@@ -707,7 +708,12 @@ class GenericSpectralComputationTool(QDialog):
         else:
             raise ValueError("Spectral computation mode must be 'Spectrum' or 'Image Cube'.")
 
-    def ensure_wavelengths(self, target: Union[RasterDataSet, Spectrum], references: List[Spectrum]) -> bool:
+    def ensure_wavelengths(
+        self,
+        target: Union[RasterDataSet, Spectrum],
+        references: List[Spectrum],
+        test_mode=False,
+    ) -> bool:
         """
         Check to make sure that the target and the references have wavelengths.
         Returns True if they do. False if they don't
@@ -735,11 +741,12 @@ class GenericSpectralComputationTool(QDialog):
                     f"The following reference spectra do not have wavelength information:\n{names}"
                 )
 
-            QMessageBox.warning(
-                self,
-                "Missing Wavelength Information",
-                "\n\n".join(messages),
-            )
+            if not test_mode:
+                QMessageBox.warning(
+                    self,
+                    "Missing Wavelength Information",
+                    "\n\n".join(messages),
+                )
             return False
         return True
 
