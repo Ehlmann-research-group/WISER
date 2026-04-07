@@ -6,9 +6,14 @@ import tests.context  # This is needed for when we run the file with pytest <fil
 
 import numpy as np
 import astropy.units as u
+from osgeo import osr
 
 from test_utils.test_model import WiserTestModel
-from test_utils.test_arrays import sam_sff_arr_reg
+from test_utils.test_arrays import (
+    sam_sff_arr_reg,
+    spec_bbl_caltech_425_7_7,
+    spec_wvl_caltech_425_7_7,
+)
 
 from wiser.raster.dataset import (
     RasterDataSet,
@@ -69,6 +74,49 @@ class TestDataSerialization(unittest.TestCase):
         assert reconstructed_dataset.is_metadata_same(
             ds
         ), "The reconstructed dataset has different metadata from the original dataset"
+
+    def test_numpy_dataset_serialization_preserves_full_metadata(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "caltech_425_7_7_nm.hdr",
+            )
+        )
+
+        source_ds = self.test_model.load_dataset(target_path)
+        ds = self.test_model.load_dataset(source_ds.get_image_data())
+        ds.set_bad_bands(spec_bbl_caltech_425_7_7)
+        ds.set_data_ignore_value(-9999)
+        ds.update_band_info(spec_wvl_caltech_425_7_7)
+
+        spatial_ref = osr.SpatialReference()
+        spatial_ref.ImportFromEPSG(4326)
+        expected_wkt = spatial_ref.ExportToWkt()
+        expected_geo_transform = (100.0, 1.0, 0.0, 200.0, 0.0, -1.0)
+
+        ds._set_spatial_reference(spatial_ref)
+        ds._set_wkt(expected_wkt)
+        ds._set_geo_transform(expected_geo_transform)
+
+        serialized_ds = ds.get_serialized_form()
+        reconstructed_dataset: RasterDataSet = serialized_ds.get_serializable_class().deserialize_into_class(
+            serializedForm=serialized_ds,
+        )
+
+        assert reconstructed_dataset.is_metadata_same(
+            ds
+        ), "The reconstructed dataset has different metadata from the original dataset"
+        assert reconstructed_dataset.get_bad_bands() == spec_bbl_caltech_425_7_7
+        assert reconstructed_dataset.get_data_ignore_value() == -9999
+        assert reconstructed_dataset.get_wavelengths() == spec_wvl_caltech_425_7_7
+        assert reconstructed_dataset.get_band_unit() == u.nm
+        assert reconstructed_dataset.get_geo_transform() == expected_geo_transform
+        assert reconstructed_dataset.get_wkt_spatial_reference() == expected_wkt
+        assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
 
     def test_raster_data_band(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))

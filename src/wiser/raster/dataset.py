@@ -819,6 +819,41 @@ class RasterDataSet(Serializable):
         """
         self._band_unit = unit
 
+    def _set_wkt(self, wkt_spatial_reference: Optional[str]) -> None:
+        """
+        Test-only helper for setting the dataset WKT spatial reference.
+        This should only be used in tests.
+        """
+        self._wkt_spatial_reference = wkt_spatial_reference
+        if wkt_spatial_reference is None:
+            self._spatial_ref = None
+        else:
+            spatial_ref = osr.SpatialReference()
+            spatial_ref.ImportFromWkt(wkt_spatial_reference)
+            self._spatial_ref = spatial_ref
+        self.set_dirty()
+
+    def _set_geo_transform(self, geo_transform: Tuple) -> None:
+        """
+        Test-only helper for setting the dataset geo transform.
+        This should only be used in tests.
+        """
+        self._geo_transform = geo_transform
+        self.set_dirty()
+
+    def _set_spatial_reference(self, spatial_ref: Optional[osr.SpatialReference]) -> None:
+        """
+        Test-only helper for setting the dataset spatial reference.
+        This should only be used in tests.
+        """
+        if spatial_ref is None:
+            self._spatial_ref = None
+            self._wkt_spatial_reference = None
+        else:
+            self._spatial_ref = spatial_ref.Clone()
+            self._wkt_spatial_reference = self._spatial_ref.ExportToWkt()
+        self.set_dirty()
+
     def has_wavelengths(self):
         """
         Returns ``True`` if all bands specify a wavelength (or some other unit
@@ -1623,6 +1658,7 @@ class RasterDataSet(Serializable):
             self._band_info = build_band_info_from_wavelengths(serial_wavelengths)
         if serial_wavelength_units:
             self._band_unit = serial_wavelength_units
+        self._has_wavelengths = self._compute_has_wavelengths()
 
     def get_serialized_form(self) -> SerializedForm:
         """
