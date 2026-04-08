@@ -99,7 +99,8 @@ def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> Non
 meipass = getattr(sys, "_MEIPASS", None)
 root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)).resolve()
 cv2_python_folder = _find_cv2_python_folder(meipass)
-_write_runtime_debug(root, cv2_python_folder)
+# Uncomment below to print out cv2 debug logging if/when it breaks again
+# _write_runtime_debug(root, cv2_python_folder)
 
 if cv2_python_folder:
     sys.path.insert(0, cv2_python_folder)
