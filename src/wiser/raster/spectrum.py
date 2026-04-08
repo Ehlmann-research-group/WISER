@@ -409,6 +409,7 @@ class Spectrum(abc.ABC, Serializable):
             "wavelength_units": self.get_wavelength_units(),
             "editable": self.is_editable(),
             "discardable": self.is_discardable(),
+            "bad_bands": self.get_bad_bands(),
         }
         return SerializedForm(self.__class__, spectrum_arr, metadata)
 
@@ -439,7 +440,9 @@ class Spectrum(abc.ABC, Serializable):
         wavelengths = metadata["wavelengths"]
         editable = metadata["editable"]
         discardable = metadata["discardable"]
+        bad_bands = metadata["bad_bands"]
         spectrum = NumPyArraySpectrum(spectrum_arr, name, source_name, wavelengths, editable, discardable)
+        spectrum.set_bad_bands(bad_bands)
         if spectrum.get_id() is None:
             spectrum.set_id(id)
         return spectrum
