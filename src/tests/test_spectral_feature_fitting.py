@@ -903,23 +903,6 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             dtype=np.float32,
         )
 
-        print("NUMBA")
-        print(f"cls_ds_numba.get_image_data().shape: {cls_ds_numba.get_image_data().shape}")
-        print(f"cls_ds_numba.get_image_data(): {cls_ds_numba.get_image_data()}")
-        print(f"rmse_ds_numba.get_image_data().shape: {rmse_ds_numba.get_image_data().shape}")
-        print(f"rmse_ds_numba.get_image_data(): {rmse_ds_numba.get_image_data()}")
-        print(f"scale_ds_numba.get_image_data().shape: {scale_ds_numba.get_image_data().shape}")
-        print(f"scale_ds_numba.get_image_data(): {scale_ds_numba.get_image_data()}")
-        print("===========================================")
-        print("PYTHON")
-        print(f"cls_ds_py.get_image_data().shape: {cls_ds_py.get_image_data().shape}")
-        print(f"cls_ds_py.get_image_data(): {cls_ds_py.get_image_data()}")
-        print(f"rmse_ds_py.get_image_data().shape: {rmse_ds_py.get_image_data().shape}")
-        print(f"rmse_ds_py.get_image_data(): {rmse_ds_py.get_image_data()}")
-        print(f"scale_ds_py.get_image_data().shape: {scale_ds_py.get_image_data().shape}")
-        print(f"scale_ds_py.get_image_data(): {scale_ds_py.get_image_data()}")
-        print("===========================================")
-
         self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))
         self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), scale_ds_py.get_image_data(), atol=1e-5))

@@ -37,12 +37,6 @@ class AppServices(QObject):
 
         # Initialize the storage client for the main process
         listener_address, listener_authkey = self._storage_service.get_connection_bootstrap()
-        print(
-            "AppServices init "
-            f"uuid={self._debug_uuid} "
-            f"storage_service_id={id(self._storage_service)} "
-            f"listener_address={listener_address}"
-        )
         initialize_process_storage_client(listener_address, listener_authkey)
 
         if activity_monitor is not None:
@@ -98,9 +92,6 @@ class AppServices(QObject):
             return
 
         self._closed = True
-        print(
-            "AppServices close " f"uuid={self._debug_uuid} " f"storage_service_id={id(self._storage_service)}"
-        )
 
         try:
             self._scheduler.shutdown(wait=True)

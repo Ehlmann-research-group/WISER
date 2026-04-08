@@ -902,7 +902,6 @@ class StorageService:
     # Metadata
     # -------------------------------------------------------------------------
     def get_meta(self, ref: DataRef) -> DataMeta:
-        print(f"StorageService.get_meta uuid={self._debug_uuid} ref_id={ref.ref_id}")
         canonical = self.read_data_ref(ref)
         if canonical.ref_id in self.meta_by_ref:
             return self.meta_by_ref[canonical.ref_id]

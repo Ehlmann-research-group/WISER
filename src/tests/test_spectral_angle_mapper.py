@@ -652,7 +652,6 @@ class TestSpectralAngleMapper(unittest.TestCase):
             app_state=self.test_model.app_state,
         )
 
-        print(f"!@# id of app services in test: {id(self.test_model.app_services)}")
         future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
         angle_ds, cls_ds = self._wait_for_added_datasets(future_numba, 2)
 
