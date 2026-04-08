@@ -75,25 +75,30 @@ class MathOperations(Enum):
 
 
 def bandmath_progress_callback(activity_monitor: "ActivityMonitorDialog", activity_id: "int", msg: Any):
-    progress_dict: Dict = msg[1]
-    num = progress_dict.get("Numerator", 1)
-    den = progress_dict.get("Denominator", 1)
-    status = progress_dict.get("Status", "Running")
-    if status != "Finished":
-        if num == den:
-            num -= 1
-    activity_monitor.progress_update.emit(
-        (activity_id, ProgressUpdate(current_iteration=num, total_iterations=den))
-    )
+    if msg[0] == "progress":
+        progress_dict: Dict = msg[1]
+        num = progress_dict.get("Numerator", 1)
+        den = progress_dict.get("Denominator", 1)
+        status = progress_dict.get("Status", "Running")
+        if status != "Finished":
+            if num == den:
+                num -= 1
+        activity_monitor.progress_update.emit(
+            (activity_id, ProgressUpdate(current_iteration=num, total_iterations=den))
+        )
+    elif msg[0] == "process_error":
+        error_dict: Dict = msg[1]
+        trace_back = error_dict.get("traceback", "Unable to retrieve error message")
+        activity_monitor.append_task_error(
+            activity_id=activity_id,
+            error_message=str(trace_back),
+        )
 
 
 def bandmath_error_callback(
     activity_monitor: "ActivityMonitorDialog", activity_id: "int", task: ParallelTaskProcess
 ):
-    activity_monitor.append_task_error(
-        activity_id=activity_id,
-        error_message=str(task.get_error()),
-    )
+    activity_monitor.set_task_cancelled(activity_id=activity_id)
 
 
 def load_image_from_bandmath_result(
