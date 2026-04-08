@@ -47,7 +47,7 @@ typecheck:
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
 	MACOSX_DEPLOYMENT_TARGET=11.0 WISER_ENV=prod pyinstaller --clean --log-level=DEBUG --noconfirm WISER-macOS.spec
-
+	python src/devtools/patch_cv2_config_for_bundle.py dist/WISER/_internal/cv2
 	./check_arch.sh
 
 
@@ -68,6 +68,7 @@ dist-mac : build-mac
 
 build-win : generated
 	@set WISER_ENV=prod && pyinstaller WISER.spec
+	python src/devtools/patch_cv2_config_for_bundle.py dist/WISER/_internal/cv2
 
 # This should only be used for testing locally as it does not have some necessary edits to
 # the final libraries that occurs in install-linux\multistage\Dockerfile and in
@@ -75,6 +76,7 @@ build-win : generated
 build-linux : generated
 	export WISER_ENV=prod
 	pyinstaller WISER-ubuntu.spec
+	python src/devtools/patch_cv2_config_for_bundle.py dist/WISER/_internal/cv2
 
 dist-win : build-win
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
