@@ -767,6 +767,11 @@ class GenericSpectralComputationTool(QDialog):
             try:
                 matches = self.find_matches(spectral_inputs)
                 if matches is None or spectral_inputs.mode == "Image Cube":
+                    self._show_message(
+                        "info",
+                        "Running in Background",
+                        "The task is running in the background.\nView progress in activity monitor.",
+                    )
                     return
                 sorted_matches = self.sort_matches(matches)
             except Exception as e:
