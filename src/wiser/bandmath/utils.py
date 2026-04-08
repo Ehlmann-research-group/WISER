@@ -82,7 +82,7 @@ def bandmath_progress_callback(activity_monitor: "ActivityMonitorDialog", activi
         status = progress_dict.get("Status", "Running")
         if status != "Finished":
             if num == den:
-                num -= 1
+                den += 1
         activity_monitor.progress_update.emit(
             (activity_id, ProgressUpdate(current_iteration=num, total_iterations=den))
         )
