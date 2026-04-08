@@ -807,5 +807,12 @@ class SemanticTask:
         Implement this in user code to consume the task plan's final `bindings`
         mapping, which contains the `DataRef` objects produced and tracked during
         planning/execution.
+
+        Important: if the task needs the contents of an output `DataRef`, prefer
+        reading that data here inside `completion_callback(...)` and then emitting
+        or passing along plain Python/NumPy values. Do not defer the `DataRef`
+        read to a later Qt slot unless you are certain the ref will still be live;
+        output refs may become eligible for reclamation after task completion, so
+        delaying the read can create a race with deletion.
         """
         pass

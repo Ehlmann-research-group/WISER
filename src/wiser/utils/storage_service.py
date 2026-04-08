@@ -178,6 +178,7 @@ class StorageService:
     _active_connections: Dict[int, Connection] = field(default_factory=dict, init=False, repr=False)
     _connection_threads: Dict[int, threading.Thread] = field(default_factory=dict, init=False, repr=False)
     _rpc_allowlist: Dict[str, Callable[..., Any]] = field(default_factory=dict, init=False, repr=False)
+    _debug_uuid: str = field(default_factory=lambda: uuid.uuid4().hex, init=False)
 
     _ram_used_bytes: int = 0
 

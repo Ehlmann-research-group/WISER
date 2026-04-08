@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from PySide2.QtCore import QObject
 
 import os
+import uuid
 
 from wiser.gui.activity_monitor import ActivityMonitorDialog
 from wiser.utils.storage_service import StorageService
@@ -13,7 +14,7 @@ from wiser.utils.work_scheduler import (
     SchedulerConcurrencyMode,
     PRIORITY_LANE_COUNT,
 )
-from wiser.utils.worker_runtime import initialize_process_storage_client
+from wiser.utils.worker_runtime import initialize_process_storage_client, reset_process_storage_client
 
 if TYPE_CHECKING:
     from wiser.gui.activity_monitor import ActivityMonitorDialog
@@ -25,7 +26,9 @@ class AppServices(QObject):
         activity_monitor: "ActivityMonitorDialog" = None,
         parent=None,
     ):
+        super().__init__()
         self._closed = False
+        self._debug_uuid = uuid.uuid4().hex
         self._storage_service = StorageService(
             ram_byte_limit=2_000_000_000,
             # TODO (Joshua G-K): Change this to be based on remaining data at app start up time
@@ -96,5 +99,8 @@ class AppServices(QObject):
             try:
                 self._storage_service.close()
             finally:
-                if self._owns_activity_monitor and self._activity_monitor is not None:
-                    self._activity_monitor.close()
+                try:
+                    reset_process_storage_client()
+                finally:
+                    if self._owns_activity_monitor and self._activity_monitor is not None:
+                        self._activity_monitor.close()

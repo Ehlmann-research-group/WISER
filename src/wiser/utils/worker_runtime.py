@@ -12,8 +12,20 @@ def initialize_thread_worker() -> None:
     return
 
 
+def reset_process_storage_client() -> None:
+    global _PROCESS_STORAGE_CLIENT
+    if _PROCESS_STORAGE_CLIENT is not None:
+        try:
+            _PROCESS_STORAGE_CLIENT.close()
+        except Exception:
+            pass
+        finally:
+            _PROCESS_STORAGE_CLIENT = None
+
+
 def initialize_process_storage_client(service_address: tuple[str, int], service_authkey: bytes) -> None:
     global _PROCESS_STORAGE_CLIENT
+    reset_process_storage_client()
     _PROCESS_STORAGE_CLIENT = StorageClient(
         service=None,  # type: ignore[arg-type]
         service_address=service_address,

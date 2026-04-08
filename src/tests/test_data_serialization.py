@@ -265,6 +265,12 @@ class TestDataSerialization(unittest.TestCase):
         assert np.allclose(
             reconstructed_spectrum.get_spectrum(), spectrum.get_spectrum()
         ), "The reconstructed spectrum has different metadata from the original spectrum"
+        assert reconstructed_spectrum.get_name() == spectrum.get_name()
+        assert reconstructed_spectrum.get_source_name() == spectrum.get_source_name()
+        assert reconstructed_spectrum.get_elem_type() == spectrum.get_elem_type()
+        assert reconstructed_spectrum.get_wavelengths() == spectrum.get_wavelengths()
+        assert reconstructed_spectrum.get_wavelength_units() == spectrum.get_wavelength_units()
+        assert np.array_equal(reconstructed_spectrum.get_bad_bands(), spectrum.get_bad_bands())
 
     def test_spectrum_at_point(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -289,6 +295,12 @@ class TestDataSerialization(unittest.TestCase):
         assert np.allclose(
             reconstructed_spectrum.get_spectrum(), spectrum.get_spectrum()
         ), "The reconstructed spectrum has different metadata from the original spectrum"
+        assert reconstructed_spectrum.get_name() == spectrum.get_name()
+        assert reconstructed_spectrum.get_source_name() == spectrum.get_source_name()
+        assert reconstructed_spectrum.get_elem_type() == spectrum.get_elem_type()
+        assert reconstructed_spectrum.get_wavelengths() == spectrum.get_wavelengths()
+        assert reconstructed_spectrum.get_wavelength_units() == spectrum.get_wavelength_units()
+        assert np.array_equal(reconstructed_spectrum.get_bad_bands(), spectrum.get_bad_bands())
 
     # def test_netcdf_serialization(self):
     # current_dir = os.path.dirname(os.path.abspath(__file__))
