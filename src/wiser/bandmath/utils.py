@@ -33,6 +33,7 @@ from wiser.raster.dataset import (
     RasterDataDynamicBand,
 )
 from wiser.raster.spectrum import Spectrum
+from wiser.utils.task_system import ProgressUpdate
 from .builtins.constants import (
     RATIO_OF_MEM_TO_USE,
     DEFAULT_IGNORE_VALUE,
@@ -46,6 +47,7 @@ import logging
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
+    from wiser.gui.activity_monitor import ActivityMonitorDialog
     from wiser.raster.loader import RasterDataLoader
     from .types import BandMathExprInfo, BandMathValue
 
@@ -72,12 +74,26 @@ class MathOperations(Enum):
     GENERAL = "general"
 
 
-def bandmath_progress_callback(msg: str):
-    print(f"Bandmath progress:\n{msg}")
+def bandmath_progress_callback(activity_monitor: "ActivityMonitorDialog", activity_id: "int", msg: Any):
+    progress_dict: Dict = msg[1]
+    num = progress_dict.get("Numerator", 1)
+    den = progress_dict.get("Denominator", 1)
+    status = progress_dict.get("Status", "Running")
+    if status != "Finished":
+        if num == den:
+            num -= 1
+    activity_monitor.progress_update.emit(
+        (activity_id, ProgressUpdate(current_iteration=num, total_iterations=den))
+    )
 
 
-def bandmath_error_callback(task: ParallelTaskProcess):
-    print(f"Task error:\n{task.get_error()}")
+def bandmath_error_callback(
+    activity_monitor: "ActivityMonitorDialog", activity_id: "int", task: ParallelTaskProcess
+):
+    activity_monitor.append_task_error(
+        activity_id=activity_id,
+        error_message=str(task.get_error()),
+    )
 
 
 def load_image_from_bandmath_result(

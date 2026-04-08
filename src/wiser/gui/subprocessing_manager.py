@@ -4,7 +4,7 @@ import traceback
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
 
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union, TYPE_CHECKING
 
 from concurrent.futures import ProcessPoolExecutor
 

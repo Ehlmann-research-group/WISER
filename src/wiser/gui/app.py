@@ -6,6 +6,7 @@ import pprint
 import sys
 import traceback
 import webbrowser
+from functools import partial
 
 from typing import List, Optional, Tuple
 
@@ -932,7 +933,19 @@ class DataVisualizerApp(QMainWindow):
                 if not result_name:
                     result_name = self.tr("Computed")
 
+                activity_monitor = self._activity_monitor
+                activity_monitor_meta = {
+                    "Expression": expression,
+                    "Result Name": result_name,
+                }
+                activity_id = activity_monitor.register_task(
+                    "Bandmath Evaluation",
+                    meta=activity_monitor_meta,
+                    cancel_callback=None,
+                )
+
                 def success_callback(results):
+                    self._activity_monitor.set_task_finished(activity_id=activity_id)
                     bandmath_success_callback(
                         parent=self,
                         app_state=self._app_state,
@@ -944,8 +957,16 @@ class DataVisualizerApp(QMainWindow):
 
                 bandmath.start_bandmath_evaluation(
                     succeeded_callback=success_callback,
-                    status_callback=bandmath_progress_callback,
-                    error_callback=bandmath_error_callback,
+                    status_callback=partial(
+                        bandmath_progress_callback,
+                        self._activity_monitor,
+                        activity_id,
+                    ),
+                    error_callback=partial(
+                        bandmath_error_callback,
+                        self._activity_monitor,
+                        activity_id,
+                    ),
                     bandmath_expr=expression,
                     expr_info=expr_info,
                     app_state=self._app_state,
