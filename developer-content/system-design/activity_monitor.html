@@ -1,0 +1,876 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Activity Monitor Update Flow &#8212; WISER Docs</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../../_static/style.css?v=613452eb" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=a11d3fb1"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/system-design/activity_monitor';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="WISER Storage and Memory Management" href="storage_memory_management.html" />
+    <link rel="prev" title="WISER Task, Storage, and Scheduler System Overview" href="task_system.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
+    <img src="../../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Docs - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../get-started.html">Getting started</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../user-content/overview.html">WISER Overview</a></li>
+
+
+
+<li class="toctree-l2"><a class="reference internal" href="../../user-content/contrast-stretch.html">Contrast Stretch</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../developer.html">Developing WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../environment-setup.html">Environment setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../devenv-win.html">Developing and Building WISER on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../devenv-linux.html">Developing and Building WISER on Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../CI-CD-Releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../branching-strategy.html">Branching Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../testing-standards.html">Testing Standards</a></li>
+<li class="toctree-l2"><a class="reference internal" href="task_system.html">WISER Task, Storage, and Scheduler System Overview</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Activity Monitor Update Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="storage_memory_management.html">WISER Storage and Memory Management</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/developer-content/system-design/activity_monitor.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Activity Monitor Update Flow</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#responsibilities-by-layer">Responsibilities by Layer</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler"><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#taskmanager"><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activitymonitordialog"><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-flow">Registration Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-update-flow">Progress Update Flow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#when-progress-is-emitted">When progress is emitted</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-progress-is-computed">How progress is computed</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-taskmanager-forwards-progress">How <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> forwards progress</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-dialog-applies-progress">How the dialog applies progress</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#error-flow">Error Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#completion-flow">Completion Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#failure-flow">Failure Flow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#normal-non-fail-fast-failures">Normal non-fail-fast failures</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fail-fast-failures">Fail-fast failures</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cancellation-flow">Cancellation Flow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-side-initiation">UI-side initiation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scheduler-side-cancellation">Scheduler-side cancellation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#activitymonitordialog-update-api"><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code> Update API</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration">Registration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress">Progress</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#errors">Errors</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#terminal-state-transitions">Terminal state transitions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cleanup">Cleanup</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-taskmanager-uses-the-dialog">How <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> Uses the Dialog</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#submission-time-use">Submission-time use</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-update-use">Runtime update use</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-other-systems-can-integrate">How Other Systems Can Integrate</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#preferred-integrate-through-taskmanager">Preferred: integrate through <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#direct-integration-with-activitymonitordialog">Direct integration with <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#practical-guidance">Practical Guidance</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="activity-monitor-update-flow">
+<h1>Activity Monitor Update Flow<a class="headerlink" href="#activity-monitor-update-flow" title="Link to this heading">#</a></h1>
+<p>This page describes how task execution state moves through the scheduler stack and ends up in the activity monitor UI. The important design point is that the activity monitor does not derive progress on its own. It is a presentation layer driven by scheduler and task-manager events.</p>
+<section id="responsibilities-by-layer">
+<h2>Responsibilities by Layer<a class="headerlink" href="#responsibilities-by-layer" title="Link to this heading">#</a></h2>
+<section id="workscheduler">
+<h3><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code><a class="headerlink" href="#workscheduler" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code> owns runtime execution. It decides when a work unit has:</p>
+<ul class="simple">
+<li><p>succeeded,</p></li>
+<li><p>failed,</p></li>
+<li><p>caused a fail-fast termination,</p></li>
+<li><p>completed a stage,</p></li>
+<li><p>completed a plan,</p></li>
+<li><p>or been cancelled.</p></li>
+</ul>
+<p>It does not update widgets directly. Instead, it emits lifecycle signals through <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code>.</p>
+</section>
+<section id="taskmanager">
+<h3><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code><a class="headerlink" href="#taskmanager" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> is the adapter between plan execution and the activity monitor. Its main jobs are:</p>
+<ul class="simple">
+<li><p>register a task row when a <code class="docutils literal notranslate"><span class="pre">TaskPlan</span></code> is submitted,</p></li>
+<li><p>maintain the mapping between <code class="docutils literal notranslate"><span class="pre">plan_id</span></code> and <code class="docutils literal notranslate"><span class="pre">activity_id</span></code>,</p></li>
+<li><p>convert scheduler lifecycle events into activity-monitor API calls.</p></li>
+</ul>
+<p>If the scheduler speaks in plan IDs and the dialog speaks in activity-row IDs, <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> is the translation layer.</p>
+</section>
+<section id="activitymonitordialog">
+<h3><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code><a class="headerlink" href="#activitymonitordialog" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code> owns the visible state:</p>
+<ul class="simple">
+<li><p>active rows,</p></li>
+<li><p>finished rows,</p></li>
+<li><p>progress bars,</p></li>
+<li><p>cancel buttons,</p></li>
+<li><p>error lists,</p></li>
+<li><p>view-errors buttons,</p></li>
+<li><p>and terminal row transitions.</p></li>
+</ul>
+<p>It should be treated as a small task-state UI API, not as a scheduler.</p>
+</section>
+</section>
+<section id="registration-flow">
+<h2>Registration Flow<a class="headerlink" href="#registration-flow" title="Link to this heading">#</a></h2>
+<p>Task registration starts in <code class="docutils literal notranslate"><span class="pre">TaskManager.register_and_submit_task_plan(...)</span></code>.</p>
+<p>That method:</p>
+<ol class="arabic simple">
+<li><p>builds task metadata from the <code class="docutils literal notranslate"><span class="pre">TaskPlan</span></code>,</p></li>
+<li><p>calls <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog.register_task(...)</span></code>,</p></li>
+<li><p>stores:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">plan_id</span> <span class="pre">-&gt;</span> <span class="pre">activity_id</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">activity_id</span> <span class="pre">-&gt;</span> <span class="pre">plan_id</span></code></p></li>
+</ul>
+</li>
+<li><p>submits the plan to <code class="docutils literal notranslate"><span class="pre">WorkScheduler.run_task_plan(...)</span></code>.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog.register_task(...)</span></code> creates the active-task row and returns the integer <code class="docutils literal notranslate"><span class="pre">activity_id</span></code> that will be used for all later updates.</p>
+<p>The row starts in the <code class="docutils literal notranslate"><span class="pre">idle</span></code> state and includes:</p>
+<ul class="simple">
+<li><p>title and metadata display,</p></li>
+<li><p>progress bar,</p></li>
+<li><p>cancel button,</p></li>
+<li><p>disabled “View Errors” button.</p></li>
+</ul>
+<p>The cancel button does not cancel the task by itself. It calls the callback that <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> provided, which in the normal scheduler-backed path is <code class="docutils literal notranslate"><span class="pre">scheduler.cancel_plan(task_plan.plan_id)</span></code>.</p>
+</section>
+<section id="progress-update-flow">
+<h2>Progress Update Flow<a class="headerlink" href="#progress-update-flow" title="Link to this heading">#</a></h2>
+<p>Progress is work-unit-based, not time-based and not stage-percentage-based.</p>
+<section id="when-progress-is-emitted">
+<h3>When progress is emitted<a class="headerlink" href="#when-progress-is-emitted" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code> emits a progress update after a work unit reaches a terminal state inside <code class="docutils literal notranslate"><span class="pre">_on_unit_done(...)</span></code>.</p>
+<p>That happens for both:</p>
+<ul class="simple">
+<li><p>successful work units,</p></li>
+<li><p>failed work units.</p></li>
+</ul>
+<p>This is intentional. A failed work unit is still finished from the scheduler’s point of view, so it contributes to completed work.</p>
+</section>
+<section id="how-progress-is-computed">
+<h3>How progress is computed<a class="headerlink" href="#how-progress-is-computed" title="Link to this heading">#</a></h3>
+<p>After a unit finishes, the scheduler computes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">completed_units</span> <span class="pre">=</span> <span class="pre">succeeded</span> <span class="pre">units</span> <span class="pre">+</span> <span class="pre">failed</span> <span class="pre">units</span></code> across all stages,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_units</span> <span class="pre">=</span> <span class="pre">len(task_plan.work_units)</span></code>.</p></li>
+</ul>
+<p>It then emits:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">task_progressed.emit((plan_id,</span> <span class="pre">completed_units,</span> <span class="pre">total_units))</span></code></p></li>
+</ul>
+<p>through the attached <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code>.</p>
+</section>
+<section id="how-taskmanager-forwards-progress">
+<h3>How <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> forwards progress<a class="headerlink" href="#how-taskmanager-forwards-progress" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">TaskManager._on_task_progressed(...)</span></code> receives the tuple:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">(task_plan_id,</span> <span class="pre">numerator,</span> <span class="pre">denominator)</span></code></p></li>
+</ul>
+<p>It looks up the corresponding <code class="docutils literal notranslate"><span class="pre">activity_id</span></code>, then calls <code class="docutils literal notranslate"><span class="pre">emit_progress_update(...)</span></code>, which emits:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">(activity_id,</span> <span class="pre">ProgressUpdate(current_iteration,</span> <span class="pre">total_iterations))</span></code></p></li>
+</ul>
+<p>to <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog.progress_update</span></code>.</p>
+<p>This is the point where scheduler-facing progress is converted into UI-facing progress.</p>
+</section>
+<section id="how-the-dialog-applies-progress">
+<h3>How the dialog applies progress<a class="headerlink" href="#how-the-dialog-applies-progress" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog._on_progress_update(...)</span></code> validates the payload and calls:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_progress_update(activity_id,</span> <span class="pre">progress)</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">set_task_progress_update(...)</span></code> then:</p>
+<ul class="simple">
+<li><p>clamps the numerator and denominator,</p></li>
+<li><p>sets the progress bar range to <code class="docutils literal notranslate"><span class="pre">0..total_iterations</span></code>,</p></li>
+<li><p>sets the current value to <code class="docutils literal notranslate"><span class="pre">current_iteration</span></code>,</p></li>
+<li><p>computes the displayed percentage text,</p></li>
+<li><p>transitions the row from <code class="docutils literal notranslate"><span class="pre">idle</span></code> to <code class="docutils literal notranslate"><span class="pre">running</span></code> if needed.</p></li>
+</ul>
+<p>The monitor also exposes <code class="docutils literal notranslate"><span class="pre">set_task_progress(activity_id,</span> <span class="pre">value)</span></code> for simpler percentage-style updates, but the scheduler-backed flow uses <code class="docutils literal notranslate"><span class="pre">set_task_progress_update(...)</span></code>.</p>
+</section>
+</section>
+<section id="error-flow">
+<h2>Error Flow<a class="headerlink" href="#error-flow" title="Link to this heading">#</a></h2>
+<p>Errors are reported separately from terminal failure state.</p>
+<p>When a work unit raises an exception in <code class="docutils literal notranslate"><span class="pre">WorkScheduler._on_unit_done(...)</span></code>, the scheduler emits:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">task_errored.emit((plan_id,</span> <span class="pre">f&quot;{type(exc).__name__}:</span> <span class="pre">{exc}&quot;))</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">TaskManager._on_task_errored(...)</span></code> receives that payload, resolves the <code class="docutils literal notranslate"><span class="pre">activity_id</span></code>, and calls:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog.append_task_error(activity_id,</span> <span class="pre">error_message)</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">append_task_error(...)</span></code>:</p>
+<ul class="simple">
+<li><p>appends the message to the row’s stored error list,</p></li>
+<li><p>enables the row’s “View Errors” button.</p></li>
+</ul>
+<p>This means the UI can accumulate one or more error messages before the task reaches a terminal state.</p>
+</section>
+<section id="completion-flow">
+<h2>Completion Flow<a class="headerlink" href="#completion-flow" title="Link to this heading">#</a></h2>
+<p>When the scheduler reaches the end of the final stage and the plan has no recorded failures, the success path is:</p>
+<ol class="arabic simple">
+<li><p>run <code class="docutils literal notranslate"><span class="pre">completion_callback(...)</span></code> if one exists,</p></li>
+<li><p>finalize plan outputs,</p></li>
+<li><p>emit <code class="docutils literal notranslate"><span class="pre">task_finished.emit(plan_id)</span></code>,</p></li>
+<li><p>complete the plan’s future successfully.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">TaskManager._on_task_finished(...)</span></code> maps <code class="docutils literal notranslate"><span class="pre">plan_id</span></code> to <code class="docutils literal notranslate"><span class="pre">activity_id</span></code> and calls:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog.set_task_finished(activity_id)</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">set_task_finished(...)</span></code>:</p>
+<ul class="simple">
+<li><p>fills the progress bar to its maximum,</p></li>
+<li><p>marks the row as <code class="docutils literal notranslate"><span class="pre">finished</span></code>,</p></li>
+<li><p>schedules the row to move from the active table to the finished table.</p></li>
+</ul>
+<p>The move is deferred through a short timer so the user briefly sees the terminal state before the row is relocated.</p>
+</section>
+<section id="failure-flow">
+<h2>Failure Flow<a class="headerlink" href="#failure-flow" title="Link to this heading">#</a></h2>
+<p>There are two related but different failure behaviors.</p>
+<section id="normal-non-fail-fast-failures">
+<h3>Normal non-fail-fast failures<a class="headerlink" href="#normal-non-fail-fast-failures" title="Link to this heading">#</a></h3>
+<p>If a work unit fails and the plan is not being failed immediately, the scheduler:</p>
+<ul class="simple">
+<li><p>records the exception,</p></li>
+<li><p>emits <code class="docutils literal notranslate"><span class="pre">task_errored</span></code>,</p></li>
+<li><p>still emits <code class="docutils literal notranslate"><span class="pre">task_progressed</span></code>,</p></li>
+<li><p>continues evaluating whether the current step, stage, or plan can proceed.</p></li>
+</ul>
+<p>If the plan eventually ends with recorded failures, the scheduler completes the plan future with an exception. In that path, error text has already been surfaced via <code class="docutils literal notranslate"><span class="pre">append_task_error(...)</span></code>.</p>
+</section>
+<section id="fail-fast-failures">
+<h3>Fail-fast failures<a class="headerlink" href="#fail-fast-failures" title="Link to this heading">#</a></h3>
+<p>If <code class="docutils literal notranslate"><span class="pre">task_plan.fail_fast</span></code> is enabled, a work-unit failure causes the scheduler to:</p>
+<ul class="simple">
+<li><p>purge queued work for the plan,</p></li>
+<li><p>finalize outputs as failed,</p></li>
+<li><p>set the plan future to an exception,</p></li>
+<li><p>remove the plan from scheduler state.</p></li>
+</ul>
+<p>The key point for the activity monitor is the same: error text is sent as soon as the failing work unit is observed.</p>
+</section>
+</section>
+<section id="cancellation-flow">
+<h2>Cancellation Flow<a class="headerlink" href="#cancellation-flow" title="Link to this heading">#</a></h2>
+<p>Cancellation begins from the UI but is owned by the scheduler.</p>
+<section id="ui-side-initiation">
+<h3>UI-side initiation<a class="headerlink" href="#ui-side-initiation" title="Link to this heading">#</a></h3>
+<p>Each registered task row stores a cancel callback. In the scheduler-backed path, that callback is:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">scheduler.cancel_plan(task_plan.plan_id)</span></code></p></li>
+</ul>
+<p>When the user clicks the row’s Cancel button, <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog._cancel_task(...)</span></code> invokes that callback. If the callback itself raises, the row is marked failed immediately through:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_failed(activity_id,</span> <span class="pre">str(exc))</span></code></p></li>
+</ul>
+<p>If the callback returns normally, the dialog marks the row cancelled locally with:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_cancelled(activity_id)</span></code></p></li>
+</ul>
+<p>Separately, the scheduler’s own cancellation path emits <code class="docutils literal notranslate"><span class="pre">task_cancelled</span></code>, and <code class="docutils literal notranslate"><span class="pre">TaskManager._on_task_cancelled(...)</span></code> also forwards that into:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog.set_task_cancelled(activity_id)</span></code></p></li>
+</ul>
+<p>In practice this means the UI can reflect cancellation immediately from the button path while still remaining compatible with scheduler-driven cancellation events.</p>
+</section>
+<section id="scheduler-side-cancellation">
+<h3>Scheduler-side cancellation<a class="headerlink" href="#scheduler-side-cancellation" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">WorkScheduler.cancel_plan(...)</span></code> removes queued work for the plan and emits:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">task_cancelled.emit(plan_id)</span></code></p></li>
+</ul>
+<p>This ensures cancellation can still be surfaced correctly even if it originated outside the dialog.</p>
+</section>
+</section>
+<section id="activitymonitordialog-update-api">
+<h2><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code> Update API<a class="headerlink" href="#activitymonitordialog-update-api" title="Link to this heading">#</a></h2>
+<p>The dialog exposes a small API that other systems can drive directly.</p>
+<section id="registration">
+<h3>Registration<a class="headerlink" href="#registration" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">register_task(title,</span> <span class="pre">meta,</span> <span class="pre">cancel_callback)</span> <span class="pre">-&gt;</span> <span class="pre">int</span></code></p></li>
+</ul>
+<p>Creates a new active row and returns its <code class="docutils literal notranslate"><span class="pre">activity_id</span></code>.</p>
+</section>
+<section id="progress">
+<h3>Progress<a class="headerlink" href="#progress" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>progress_update.emit</p></li>
+</ul>
+<p>Use <code class="docutils literal notranslate"><span class="pre">progress_update.emit(activity_id,</span> <span class="pre">ProgressUpdate)</span></code> to update progress. Activity monitor handles the rest.</p>
+</section>
+<section id="errors">
+<h3>Errors<a class="headerlink" href="#errors" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">append_task_error(activity_id,</span> <span class="pre">error_message)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_failed(activity_id,</span> <span class="pre">error_message=None)</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">append_task_error(...)</span></code> records error detail without forcing terminal state. <code class="docutils literal notranslate"><span class="pre">set_task_failed(...)</span></code> transitions the row into the failed state and schedules it to move into the finished section.</p>
+</section>
+<section id="terminal-state-transitions">
+<h3>Terminal state transitions<a class="headerlink" href="#terminal-state-transitions" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">complete_task(activity_id)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_finished(activity_id)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_cancelled(activity_id)</span></code></p></li>
+</ul>
+<p>These methods drive the visible terminal state of the row.</p>
+</section>
+<section id="cleanup">
+<h3>Cleanup<a class="headerlink" href="#cleanup" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">remove_task(activity_id)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_active_task_count()</span></code></p></li>
+</ul>
+<p>These are UI-management helpers rather than execution-state methods.</p>
+</section>
+</section>
+<section id="how-taskmanager-uses-the-dialog">
+<h2>How <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> Uses the Dialog<a class="headerlink" href="#how-taskmanager-uses-the-dialog" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> uses the activity monitor in two phases.</p>
+<section id="submission-time-use">
+<h3>Submission-time use<a class="headerlink" href="#submission-time-use" title="Link to this heading">#</a></h3>
+<p>At submission time it calls:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">register_task(...)</span></code></p></li>
+</ul>
+<p>and stores the returned <code class="docutils literal notranslate"><span class="pre">activity_id</span></code>.</p>
+</section>
+<section id="runtime-update-use">
+<h3>Runtime update use<a class="headerlink" href="#runtime-update-use" title="Link to this heading">#</a></h3>
+<p>During execution it forwards scheduler state into:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_progress_update(...)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">append_task_error(...)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_finished(...)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">set_task_cancelled(...)</span></code></p></li>
+</ul>
+<p>That design keeps widget state changes in one place and avoids making the scheduler aware of Qt widgets.</p>
+</section>
+</section>
+<section id="how-other-systems-can-integrate">
+<h2>How Other Systems Can Integrate<a class="headerlink" href="#how-other-systems-can-integrate" title="Link to this heading">#</a></h2>
+<p>Any subsystem can use the activity monitor as long as it respects the dialog API and keeps its state transitions honest.</p>
+<p>There are two reasonable integration styles.</p>
+<section id="preferred-integrate-through-taskmanager">
+<h3>Preferred: integrate through <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code><a class="headerlink" href="#preferred-integrate-through-taskmanager" title="Link to this heading">#</a></h3>
+<p>If your subsystem already models work as <code class="docutils literal notranslate"><span class="pre">TaskPlan</span></code> execution, integrate through <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code>. This gives you:</p>
+<ul class="simple">
+<li><p>plan-to-activity ID mapping,</p></li>
+<li><p>consistent progress forwarding,</p></li>
+<li><p>shared cancellation wiring,</p></li>
+<li><p>a clean separation between execution and UI.</p></li>
+</ul>
+</section>
+<section id="direct-integration-with-activitymonitordialog">
+<h3>Direct integration with <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code><a class="headerlink" href="#direct-integration-with-activitymonitordialog" title="Link to this heading">#</a></h3>
+<p>If your subsystem does not use <code class="docutils literal notranslate"><span class="pre">TaskPlan</span></code> or <code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code>, you can still drive the dialog directly.</p>
+<p>To do that correctly:</p>
+<ol class="arabic simple">
+<li><p>call <code class="docutils literal notranslate"><span class="pre">register_task(...)</span></code>,</p></li>
+<li><p>store the returned <code class="docutils literal notranslate"><span class="pre">activity_id</span></code>,</p></li>
+<li><p>call progress, error, and terminal-state methods with that ID,</p></li>
+<li><p>provide a cancel callback that actually affects the underlying work.</p></li>
+</ol>
+<p>If you take this path, your subsystem becomes responsible for ensuring that:</p>
+<ul class="simple">
+<li><p>progress updates are meaningful,</p></li>
+<li><p>errors are appended as soon as they are known,</p></li>
+<li><p>terminal states are only reported once the underlying work is truly terminal.</p></li>
+</ul>
+</section>
+</section>
+<section id="practical-guidance">
+<h2>Practical Guidance<a class="headerlink" href="#practical-guidance" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Treat progress as completed work units out of total work units unless your subsystem has a better discrete execution model.</p></li>
+<li><p>Send progress when work becomes terminal, not while it is merely in flight.</p></li>
+<li><p>Append errors immediately; do not wait until the entire plan has failed.</p></li>
+<li><p>Let the execution layer decide whether a task is truly finished, failed, or cancelled.</p></li>
+<li><p>Keep the dialog as a sink for state, not a source of execution truth.</p></li>
+</ul>
+</section>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+<p>The scheduler owns execution truth, <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> owns translation and routing, and <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code> owns presentation. That split keeps execution policy out of the UI and gives other systems a small, usable API for reporting progress, errors, cancellation, and completion in a consistent way.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="task_system.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">WISER Task, Storage, and Scheduler System Overview</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="storage_memory_management.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">WISER Storage and Memory Management</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#responsibilities-by-layer">Responsibilities by Layer</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workscheduler"><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#taskmanager"><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#activitymonitordialog"><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-flow">Registration Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-update-flow">Progress Update Flow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#when-progress-is-emitted">When progress is emitted</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-progress-is-computed">How progress is computed</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-taskmanager-forwards-progress">How <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> forwards progress</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-dialog-applies-progress">How the dialog applies progress</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#error-flow">Error Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#completion-flow">Completion Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#failure-flow">Failure Flow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#normal-non-fail-fast-failures">Normal non-fail-fast failures</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fail-fast-failures">Fail-fast failures</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cancellation-flow">Cancellation Flow</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-side-initiation">UI-side initiation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scheduler-side-cancellation">Scheduler-side cancellation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#activitymonitordialog-update-api"><code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code> Update API</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration">Registration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress">Progress</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#errors">Errors</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#terminal-state-transitions">Terminal state transitions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cleanup">Cleanup</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-taskmanager-uses-the-dialog">How <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code> Uses the Dialog</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#submission-time-use">Submission-time use</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-update-use">Runtime update use</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-other-systems-can-integrate">How Other Systems Can Integrate</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#preferred-integrate-through-taskmanager">Preferred: integrate through <code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#direct-integration-with-activitymonitordialog">Direct integration with <code class="docutils literal notranslate"><span class="pre">ActivityMonitorDialog</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#practical-guidance">Practical Guidance</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Joshua Garcia-Kimble
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Joshua Garcia-Kimble.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
