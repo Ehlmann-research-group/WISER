@@ -123,6 +123,8 @@ class ParallelTaskProcess(ParallelTask):
 
         self._cancelled: bool = False
 
+        self._resources_closed: bool = False
+
     def cancel(self, **kwargs):
         try:
             self._process.terminate()
@@ -131,14 +133,60 @@ class ParallelTaskProcess(ParallelTask):
             # or hasn't started.
             pass
 
+    def close(self):
+        if self._resources_closed:
+            return
+
+        self._resources_closed = True
+
+        try:
+            if self._parent_conn is not None:
+                self._parent_conn.close()
+        except Exception:
+            pass
+        finally:
+            self._parent_conn = None
+
+        try:
+            if self._child_conn is not None:
+                self._child_conn.close()
+        except Exception:
+            pass
+        finally:
+            self._child_conn = None
+
+        try:
+            if self._return_queue is not None:
+                self._return_queue.close()
+                self._return_queue.join_thread()
+        except Exception:
+            pass
+        finally:
+            self._return_queue = None
+
+        try:
+            if self._process is not None:
+                if self._process.pid is not None:
+                    self._process.join(timeout=1.0)
+                    self._exit_code = self._process.exitcode
+                self._process.close()
+        except Exception:
+            pass
+        finally:
+            self._process = None
+
     def run(self):
-        # Include the queue's reader in the wait set so we can drain results
-        queue_reader = self._return_queue._reader  # Connection (private)
         self.started.emit(self)
         try:
+            if self._return_queue is None or self._parent_conn is None or self._process is None:
+                raise RuntimeError("ParallelTaskProcess resources were closed before start")
+
+            # Include the queue's reader in the wait set so we can drain results.
+            queue_reader = self._return_queue._reader  # Connection (private)
             self._process.start()
             self._process_id = self._process.pid
             self._child_conn.close()
+            self._child_conn = None
             while True:
                 ready = mp_conn.wait([self._process.sentinel, queue_reader, self._parent_conn])
                 # If there is a message available we read it.
@@ -178,7 +226,6 @@ class ParallelTaskProcess(ParallelTask):
                     finally:
                         self._process.join()
                         self._exit_code = self._process.exitcode
-                        self._process.close()
                     break
             # Once we reach here, the process has finished, so we get the stuff
             # on the return queue.
@@ -195,15 +242,16 @@ class ParallelTaskProcess(ParallelTask):
             logger.exception(f"Error starting process {self._process_id}: {e}")
             self._error = e
             self.error.emit(self)
-            return
+        finally:
+            self.close()
 
-        self._parent_conn.close()
-        self._return_queue.close()
         if self._exit_code == 0:
             self.succeeded.emit(self)
         elif self._exit_code is not None and self._exit_code < 0:
             self._cancelled = True
             self.cancelled.emit(self)
+        elif self._error is not None:
+            pass
         else:
             self.error.emit(self)
 

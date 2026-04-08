@@ -6,9 +6,14 @@ import tests.context  # This is needed for when we run the file with pytest <fil
 
 import numpy as np
 import astropy.units as u
+from osgeo import osr
 
 from test_utils.test_model import WiserTestModel
-from test_utils.test_arrays import sam_sff_arr_reg
+from test_utils.test_arrays import (
+    sam_sff_arr_reg,
+    spec_bbl_caltech_425_7_7,
+    spec_wvl_caltech_425_7_7,
+)
 
 from wiser.raster.dataset import (
     RasterDataSet,
@@ -69,6 +74,112 @@ class TestDataSerialization(unittest.TestCase):
         assert reconstructed_dataset.is_metadata_same(
             ds
         ), "The reconstructed dataset has different metadata from the original dataset"
+
+    def test_numpy_dataset_serialization_preserves_full_metadata(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "caltech_425_7_7_nm.hdr",
+            )
+        )
+
+        source_ds = self.test_model.load_dataset(target_path)
+        ds = self.test_model.load_dataset(source_ds.get_image_data())
+        ds.set_bad_bands(spec_bbl_caltech_425_7_7)
+        ds.set_data_ignore_value(-9999)
+        ds.update_band_info(spec_wvl_caltech_425_7_7)
+
+        spatial_ref = osr.SpatialReference()
+        spatial_ref.ImportFromEPSG(4326)
+        expected_wkt = spatial_ref.ExportToWkt()
+        expected_geo_transform = (100.0, 1.0, 0.0, 200.0, 0.0, -1.0)
+
+        ds._set_spatial_reference(spatial_ref)
+        ds._set_wkt(expected_wkt)
+        ds._set_geo_transform(expected_geo_transform)
+
+        serialized_ds_form = ds.get_serialized_form()
+        reconstructed_dataset: RasterDataSet = (
+            serialized_ds_form.get_serializable_class().deserialize_into_class(
+                serializedForm=serialized_ds_form,
+            )
+        )
+
+        assert reconstructed_dataset.is_metadata_same(
+            ds
+        ), "The reconstructed dataset has different metadata from the original dataset"
+        assert reconstructed_dataset.get_bad_bands() == spec_bbl_caltech_425_7_7
+        assert reconstructed_dataset.get_data_ignore_value() == -9999
+        assert reconstructed_dataset.get_wavelengths() == spec_wvl_caltech_425_7_7
+        assert reconstructed_dataset.get_band_unit() == u.nm
+        assert reconstructed_dataset.get_geo_transform() == expected_geo_transform
+        assert reconstructed_dataset.get_wkt_spatial_reference() == expected_wkt
+        assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
+
+    def test_file_backed_dataset_serialization_preserves_full_metadata(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "caltech_425_6_6_data_ignore.hdr",
+            )
+        )
+
+        ds = self.test_model.load_dataset(target_path)
+        expected_bad_bands = [1] * ds.num_bands()
+        expected_bad_bands[-1] = 0
+        expected_wavelengths = [(i + 1) * u.um for i in range(ds.num_bands())]
+
+        ds.set_bad_bands(expected_bad_bands)
+        ds.set_data_ignore_value(65536)
+        ds.update_band_info(expected_wavelengths)
+
+        spatial_ref = osr.SpatialReference()
+        spatial_ref.ImportFromEPSG(4326)
+        expected_wkt = spatial_ref.ExportToWkt()
+        expected_geo_transform = (10.0, 2.0, 0.0, 20.0, 0.0, -2.0)
+
+        ds._set_spatial_reference(spatial_ref)
+        ds._set_wkt(expected_wkt)
+        ds._set_geo_transform(expected_geo_transform)
+
+        serialized_ds_form = ds.get_serialized_form()
+        reconstructed_dataset: RasterDataSet = (
+            serialized_ds_form.get_serializable_class().deserialize_into_class(
+                serializedForm=serialized_ds_form,
+            )
+        )
+
+        assert reconstructed_dataset.is_metadata_same(
+            ds
+        ), "The reconstructed dataset has different metadata from the original dataset"
+        assert reconstructed_dataset.get_bad_bands() == ds.get_bad_bands()
+        assert reconstructed_dataset.get_bad_bands() == expected_bad_bands
+
+        assert reconstructed_dataset.get_data_ignore_value() == ds.get_data_ignore_value()
+        assert reconstructed_dataset.get_data_ignore_value() == 65536
+
+        assert reconstructed_dataset.get_wavelengths() == ds.get_wavelengths()
+        assert reconstructed_dataset.get_wavelengths() == expected_wavelengths
+
+        assert reconstructed_dataset.get_band_unit() == ds.get_band_unit()
+        assert reconstructed_dataset.get_band_unit() == u.um
+
+        assert reconstructed_dataset.get_geo_transform() == ds.get_geo_transform()
+        assert reconstructed_dataset.get_geo_transform() == expected_geo_transform
+
+        assert reconstructed_dataset.get_wkt_spatial_reference() == ds.get_wkt_spatial_reference()
+        assert reconstructed_dataset.get_wkt_spatial_reference() == expected_wkt
+
+        assert reconstructed_dataset.get_spatial_ref().IsSame(ds.get_spatial_ref()) == 1
+        assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
 
     def test_raster_data_band(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -154,6 +265,12 @@ class TestDataSerialization(unittest.TestCase):
         assert np.allclose(
             reconstructed_spectrum.get_spectrum(), spectrum.get_spectrum()
         ), "The reconstructed spectrum has different metadata from the original spectrum"
+        assert reconstructed_spectrum.get_name() == spectrum.get_name()
+        assert reconstructed_spectrum.get_source_name() == spectrum.get_source_name()
+        assert reconstructed_spectrum.get_elem_type() == spectrum.get_elem_type()
+        assert reconstructed_spectrum.get_wavelengths() == spectrum.get_wavelengths()
+        assert reconstructed_spectrum.get_wavelength_units() == spectrum.get_wavelength_units()
+        assert np.array_equal(reconstructed_spectrum.get_bad_bands(), spectrum.get_bad_bands())
 
     def test_spectrum_at_point(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -178,6 +295,12 @@ class TestDataSerialization(unittest.TestCase):
         assert np.allclose(
             reconstructed_spectrum.get_spectrum(), spectrum.get_spectrum()
         ), "The reconstructed spectrum has different metadata from the original spectrum"
+        assert reconstructed_spectrum.get_name() == spectrum.get_name()
+        assert reconstructed_spectrum.get_source_name() == spectrum.get_source_name()
+        assert reconstructed_spectrum.get_elem_type() == spectrum.get_elem_type()
+        assert reconstructed_spectrum.get_wavelengths() == spectrum.get_wavelengths()
+        assert reconstructed_spectrum.get_wavelength_units() == spectrum.get_wavelength_units()
+        assert np.array_equal(reconstructed_spectrum.get_bad_bands(), spectrum.get_bad_bands())
 
     # def test_netcdf_serialization(self):
     # current_dir = os.path.dirname(os.path.abspath(__file__))

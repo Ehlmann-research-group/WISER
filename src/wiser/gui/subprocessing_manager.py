@@ -1,9 +1,10 @@
+import os
 import traceback
 
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
 
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union, TYPE_CHECKING
 
 from concurrent.futures import ProcessPoolExecutor
 
@@ -35,6 +36,11 @@ def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue:
     finally:
         try:
             child_conn.close()
+        except Exception:
+            pass
+        try:
+            return_queue.close()
+            return_queue.join_thread()
         except Exception:
             pass
 
@@ -97,6 +103,19 @@ class ProcessManager(QObject):
         self._task.start()
         if blocking:
             self._task.wait()
+
+    def close(self, wait: bool = True, cancel_running: bool = False):
+        task = self._task
+        if task is None:
+            return
+
+        if cancel_running and task.isRunning():
+            task.cancel()
+
+        if wait and task.isRunning():
+            task.wait()
+
+        task.close()
 
     def get_pid(self) -> Union[int, None]:
         return self._task.get_process_id()

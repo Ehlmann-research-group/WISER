@@ -9,6 +9,7 @@ import numpy as np
 import tests.context
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import band_info_list_equal
 from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl, NumPyRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import (
@@ -498,6 +499,62 @@ class TestStorageServiceClient(unittest.TestCase):
                 )
                 got_band = np.ma.array(got_band_3d, copy=False)[:, :, 0]
                 self._assert_array_and_mask_equal(got_band, expected_band)
+            finally:
+                client.close()
+                service.close()
+
+    def test_client_can_reconstruct_external_dataset_with_matching_metadata_and_masked_data(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            address, authkey = service.get_connection_bootstrap()
+            client = StorageClient(service=service, service_address=address, service_authkey=authkey)
+            try:
+                loader = RasterDataLoader()
+                fixture_path = (
+                    Path(__file__).resolve().parent
+                    / ".."
+                    / "test_utils"
+                    / "test_datasets"
+                    / "caltech_425_6_6_data_ignore.hdr"
+                )
+                dataset = loader.load_from_file(str(fixture_path), interactive=False)[0]
+                ref = service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+
+                reconstructed = client.reconstruct_external_object(ref)
+                self.assertIsInstance(reconstructed, RasterDataSet)
+
+                self.assertEqual(reconstructed.get_bad_bands(), dataset.get_bad_bands())
+                self.assertEqual(reconstructed.get_data_ignore_value(), dataset.get_data_ignore_value())
+                self.assertEqual(
+                    reconstructed.get_wkt_spatial_reference(),
+                    dataset.get_wkt_spatial_reference(),
+                )
+                self.assertEqual(reconstructed.get_geo_transform(), dataset.get_geo_transform())
+                self.assertEqual(reconstructed.get_width(), dataset.get_width())
+                self.assertEqual(reconstructed.get_height(), dataset.get_height())
+                self.assertEqual(reconstructed.num_bands(), dataset.num_bands())
+                self.assertEqual(reconstructed.get_band_unit(), dataset.get_band_unit())
+                self.assertTrue(band_info_list_equal(reconstructed._band_info, dataset._band_info))
+
+                expected_raw = np.ma.array(
+                    dataset.get_image_data(filter_data_ignore_value=False),
+                    copy=False,
+                ).transpose(1, 2, 0)
+                actual_raw = np.ma.array(
+                    reconstructed.get_image_data(filter_data_ignore_value=False),
+                    copy=False,
+                ).transpose(1, 2, 0)
+                self._assert_array_and_mask_equal(actual_raw, expected_raw)
+
+                expected_masked = np.ma.array(
+                    dataset.get_image_data(filter_data_ignore_value=True),
+                    copy=False,
+                ).transpose(1, 2, 0)
+                actual_masked = np.ma.array(
+                    reconstructed.get_image_data(filter_data_ignore_value=True),
+                    copy=False,
+                ).transpose(1, 2, 0)
+                self._assert_array_and_mask_equal(actual_masked, expected_masked)
             finally:
                 client.close()
                 service.close()

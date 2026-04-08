@@ -182,14 +182,26 @@ class ApplicationState(QObject):
         self._matplotlib_display_widgets: set[MatplotlibDisplayWidget] = set()
 
     def add_running_process(self, process_manager: ProcessManager):
-        self._running_processes[process_manager.get_process_manager_id()] = process_manager
+        process_manager_id = process_manager.get_process_manager_id()
+        self._running_processes[process_manager_id] = process_manager
+        process_manager.get_task().finished.connect(
+            lambda process_manager_id=process_manager_id: self._retire_process_manager(process_manager_id)
+        )
 
     def remove_running_process(self, process_manager_id: int):
-        del self._running_processes[process_manager_id]
+        self._running_processes.pop(process_manager_id, None)
+
+    def _retire_process_manager(self, process_manager_id: int):
+        process_manager = self._running_processes.pop(process_manager_id, None)
+        if process_manager is None:
+            return
+        process_manager.close(wait=False, cancel_running=False)
 
     def cancel_all_running_processes(self):
-        for process_manager in self._running_processes.values():
-            process_manager.get_task().cancel()
+        process_managers = list(self._running_processes.values())
+        for process_manager in process_managers:
+            process_manager.close(wait=True, cancel_running=True)
+        self._running_processes.clear()
         self._process_pool_manager.close()
 
     def get_running_processes(self) -> Dict[int, ProcessManager]:

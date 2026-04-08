@@ -29,6 +29,7 @@ from wiser.raster.dataset_impl import (
 )
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
+from wiser.raster.serializable import SerializedForm
 
 from .primitives import (
     _safe_np_dtype,
@@ -177,6 +178,7 @@ class StorageService:
     _active_connections: Dict[int, Connection] = field(default_factory=dict, init=False, repr=False)
     _connection_threads: Dict[int, threading.Thread] = field(default_factory=dict, init=False, repr=False)
     _rpc_allowlist: Dict[str, Callable[..., Any]] = field(default_factory=dict, init=False, repr=False)
+    _debug_uuid: str = field(default_factory=lambda: uuid.uuid4().hex, init=False)
 
     _ram_used_bytes: int = 0
 
@@ -321,6 +323,7 @@ class StorageService:
             "write_json_value": self.write_json_value,
             "write_json_ram_value": self.write_json_ram_value,
             "get_ram_descriptor": self.get_ram_descriptor,
+            "get_external_object_serialized_form": self.get_external_object_serialized_form,
         }
 
     def _dispatch_rpc_request(self, request: Any) -> dict[str, Any]:
@@ -404,6 +407,15 @@ class StorageService:
     # External registration
     # -------------------------------------------------------------------------
     def register_external(self, handle: ExternalHandle) -> DataRef:
+        for existing_ref_id, existing_handle in self.external_handles.items():
+            if handle.is_same_external_handle(existing_handle):
+                existing_ref = self.data_refs.get(existing_ref_id)
+                if existing_ref is None:
+                    raise KeyError(
+                        f"External handle registry out of sync for existing ref_id={existing_ref_id}"
+                    )
+                return existing_ref
+
         ref_id = self._new_ref_id()
         meta = handle.get_meta()
         external_params = self._build_external_params(handle)
@@ -513,6 +525,27 @@ class StorageService:
 
         # External spectrum refs are currently RAM/no-disk reconstruction only.
         return None
+
+    def get_external_object_serialized_form(self, ref: Union[DataRef, str]) -> SerializedForm:
+        """
+        Return the SerializedForm for a registered external object.
+
+        This is intended for worker processes that need to reconstruct a full
+        object corresponding to an external ref that was registered in the main
+        process. Currently this supports external raster and external spectrum
+        handles only.
+        """
+        canonical_ref = self.read_data_ref(ref)
+        if canonical_ref.source != "external":
+            raise ValueError(
+                f"Serialized object transfer is only supported for external refs: {canonical_ref.ref_id}"
+            )
+
+        handle = self.external_handles.get(canonical_ref.ref_id)
+        if handle is None:
+            raise KeyError(f"No external handle registered for ref_id={canonical_ref.ref_id}")
+
+        return handle.get_serialized_object_form()
 
     # -------------------------------------------------------------------------
     # Allocation

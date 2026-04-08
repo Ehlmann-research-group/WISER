@@ -2,17 +2,23 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, TYPE_CHECKING
 import numpy as np
 from numba import types, prange
 from scipy.interpolate import interp1d
 from astropy import units as u
+from PySide2.QtCore import QObject, Signal, Slot
 
 from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
 from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.primitives import DataRef, ExternalRasterHandle, ExternalSpectrumHandle, PriorityClass
+from wiser.utils.task_stage_utils import get_general_spectral_image_pipeline
+from wiser.utils.task_system import SemanticTask
+from wiser.utils.worker_runtime import get_process_storage_client
 from .util import (
     interp1d_monotonic,
     interp1d_monotonic_numba,
@@ -25,6 +31,9 @@ from .util import (
     compute_image_norm,
     compute_image_norm_numba,
 )
+
+if TYPE_CHECKING:
+    from wiser.gui.app_services import AppServices
 
 
 def compute_sam_image(
@@ -428,6 +437,96 @@ def compute_sam_image_numba(
     return out_classification, out_angle
 
 
+class SpectralAngleMapperTask(QObject, SemanticTask):
+    """
+    Semantic task that runs image-mode Spectral Angle Mapper through the work scheduler.
+    """
+
+    result_ready = Signal(object, object)
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        target: RasterDataSet,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+        references: List[Spectrum],
+        thresholds: List[float],
+        python_mode: bool,
+        input_ref: DataRef,
+        reference_refs: List[DataRef],
+        classification_ref_name: str = "sam_classification",
+        angle_ref_name: str = "sam_angle",
+    ):
+        QObject.__init__(self)
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=input_ref,
+            algorithm_pipeline=get_general_spectral_image_pipeline(
+                dataset_ref=input_ref,
+                reference_refs=reference_refs,
+                min_wvl=min_wvl,
+                max_wvl=max_wvl,
+                thresholds=thresholds,
+                python_mode=python_mode,
+                output_specs=[
+                    (classification_ref_name, np.dtype(np.bool_)),
+                    (angle_ref_name, np.dtype(np.float32)),
+                ],
+                python_func=compute_sam_image,
+                numba_func=compute_sam_image_numba,
+            ),
+            task_title="Spectral Angle Mapper",
+            task_variables={
+                "Dataset": target.get_name(),
+                "References": len(references),
+                "Python Mode": str(bool(python_mode)),
+            },
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._target = target
+        self._references = references
+        self._classification_ref_name = classification_ref_name
+        self._angle_ref_name = angle_ref_name
+        self.result_ready.connect(self._load_results_into_wiser)
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        classification_ref = bindings.get(self._classification_ref_name)
+        angle_ref = bindings.get(self._angle_ref_name)
+        if classification_ref is None:
+            raise KeyError(f"Missing SAM classification output binding: {self._classification_ref_name}")
+        if angle_ref is None:
+            raise KeyError(f"Missing SAM angle output binding: {self._angle_ref_name}")
+
+        storage_client = get_process_storage_client()
+        out_classification, _ = storage_client.read_data(classification_ref, filter_data=False)
+        out_angle, _ = storage_client.read_data(angle_ref, filter_data=False)
+        self.result_ready.emit(np.asarray(out_classification), np.asarray(out_angle))
+
+    @Slot(object, object)
+    def _load_results_into_wiser(self, out_classification: object, out_angle: object) -> None:
+        loader = self._app_state.get_loader()
+        cache = self._app_state.get_cache()
+        target_image_name = self._target.get_name()
+        band_descriptions = [f"Spec: {spectrum.get_name()}" for spectrum in self._references]
+
+        out_angle_array = np.asarray(out_angle).transpose(2, 0, 1)
+        out_angle_dataset = loader.dataset_from_numpy_array(out_angle_array, cache)
+        out_angle_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SAM Angle, Img: {target_image_name}"),
+        )
+        out_angle_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_angle_dataset)
+
+        out_cls_array = np.asarray(out_classification).transpose(2, 0, 1)
+        out_cls_dataset = loader.dataset_from_numpy_array(out_cls_array, cache)
+        out_cls_dataset.set_name(self._app_state.unique_dataset_name(f"SAM CLS, Img: {target_image_name}"))
+        out_cls_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_cls_dataset)
+
+
 class SAMTool(GenericSpectralComputationTool):
     SETTINGS_NAMESPACE = "Wiser/SAMPlugin"
     RUN_BUTTON_TEXT = "Run SAM"
@@ -544,72 +643,30 @@ class SAMTool(GenericSpectralComputationTool):
 
     def compute_score_image(
         self,
-        target_image_name: str,
-        target_image_arr: np.ndarray,
-        target_wavelengths: np.ndarray,
-        target_bad_bands: np.ndarray,
-        min_wvl: np.float32,
-        max_wvl: np.float32,
+        target: RasterDataSet,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
         reference_spectra: List[Spectrum],
-        reference_spectra_arr: np.ndarray,
-        reference_spectra_wvls: np.ndarray,
-        reference_spectra_bad_bands: np.ndarray,
-        reference_spectra_indices: np.ndarray,
-        thresholds: np.ndarray,
+        thresholds: List[float],
         python_mode: bool = False,
-    ) -> List[int]:
-        if not python_mode:
-            out_classification, out_angle = compute_sam_image_numba(
-                target_image_arr,
-                target_wavelengths,
-                target_bad_bands,
-                min_wvl,
-                max_wvl,
-                reference_spectra_arr,
-                reference_spectra_wvls,
-                reference_spectra_bad_bands,
-                reference_spectra_indices,
-                thresholds,
-            )
-        else:
-            out_classification, out_angle = compute_sam_image(
-                target_image_arr,
-                target_wavelengths,
-                target_bad_bands,
-                min_wvl,
-                max_wvl,
-                reference_spectra_arr,
-                reference_spectra_wvls,
-                reference_spectra_bad_bands,
-                reference_spectra_indices,
-                thresholds,
-            )
-        loader = RasterDataLoader()
-
-        # Load in out_angle dataset
-        out_angle_dataset = loader.dataset_from_numpy_array(out_angle)
-        out_angle_dataset.set_name(
-            self._app_state.unique_dataset_name(f"SAM Angle, Img: {target_image_name}"),
+    ):
+        app_services: "AppServices" = self._resolve_app_services()
+        target_ref = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=target))
+        reference_refs = [
+            app_services.storage_service.register_external(ExternalSpectrumHandle(spectrum_obj=reference))
+            for reference in reference_spectra
+        ]
+        sam_task = SpectralAngleMapperTask(
+            app_state=self._app_state,
+            target=target,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+            references=reference_spectra,
+            thresholds=thresholds,
+            python_mode=python_mode,
+            input_ref=target_ref,
+            reference_refs=reference_refs,
         )
-        band_descriptions = []
-
-        for i in range(0, len(reference_spectra)):
-            spectrum_name = reference_spectra[i].get_name()
-            band_descriptions.append(f"Spec: {spectrum_name}")
-
-        out_angle_dataset.set_band_descriptions(band_descriptions)
-        self._app_state.add_dataset(out_angle_dataset)
-
-        # Load in out_classification_dataset
-        out_cls_dataset = loader.dataset_from_numpy_array(out_classification)
-        out_cls_dataset.set_name(self._app_state.unique_dataset_name(f"SAM CLS, Img: {target_image_name}"))
-
-        band_descriptions = []
-        for i in range(0, len(reference_spectra)):
-            spectrum_name = reference_spectra[i].get_name()
-            band_descriptions.append(f"Spec: {spectrum_name}")
-
-        out_cls_dataset.set_band_descriptions(band_descriptions)
-        self._app_state.add_dataset(out_cls_dataset)
-
-        return [out_cls_dataset.get_id(), out_angle_dataset.get_id()]
+        self._last_sam_task = sam_task
+        task_plan = app_services.task_planner.plan_semantic_task(sam_task)
+        return app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)

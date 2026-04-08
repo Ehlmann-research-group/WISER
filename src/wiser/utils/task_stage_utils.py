@@ -1,13 +1,17 @@
 from dataclasses import dataclass, field, replace
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, Union
 import numpy as np
 from scipy.signal import savgol_filter
 from sklearn.decomposition import IncrementalPCA, PCA
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from astropy import units as u
 
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset import RasterDataSet
+from wiser.raster.spectrum import Spectrum
 from wiser.utils.primitives import (
     DEFAULT_FLOAT_TYPE,
     AllocationRequest,
@@ -39,7 +43,429 @@ PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
 TotalLike = Union[int, DataRef]
 NumComponentsLike = Union[int, DataRef]
 
+
+class SpectralImageComputeFunction(Protocol):
+    def __call__(
+        self,
+        target_image_arr: np.ndarray,
+        target_wavelengths: np.ndarray,
+        target_bad_bands: np.ndarray,
+        min_wvl: np.float32,
+        max_wvl: np.float32,
+        reference_spectra: np.ndarray,
+        reference_spectra_wvls: np.ndarray,
+        reference_spectra_bad_bands: np.ndarray,
+        reference_spectra_indices: np.ndarray,
+        thresholds: np.ndarray,
+    ) -> Tuple[np.ndarray, ...]:
+        ...
+
+
 # region Task Stage utilities
+
+
+def _run_save_external_dataset(
+    input_ref: DataRef,
+    save_params: Sequence[Any],
+) -> None:
+    """
+    Reconstruct an external dataset in a worker process and save it to disk.
+
+    Args:
+        input_ref: External dataset ref previously registered with the storage service.
+        save_params: Three-item sequence containing `(path, format, config)`.
+    """
+    if len(save_params) != 3:
+        raise ValueError(f"save_params must contain [path, format, config], got {save_params!r}")
+
+    path, format, config = save_params
+    if not isinstance(path, str):
+        raise TypeError(f"save path must be a string, got {type(path)}")
+    if not isinstance(format, str):
+        raise TypeError(f"save format must be a string, got {type(format)}")
+    if not isinstance(config, dict):
+        raise TypeError(f"save config must be a dict, got {type(config)}")
+
+    client = get_process_storage_client()
+    dataset = client.reconstruct_external_object(input_ref)
+    if not isinstance(dataset, RasterDataSet):
+        raise TypeError(f"Expected reconstruct_external_object to return RasterDataSet, got {type(dataset)}")
+
+    loader = RasterDataLoader()
+    loader.save_dataset_as(dataset, path, format, config)
+
+
+def _prepare_general_spectral_image_inputs(
+    input_ref: DataRef,
+    reference_refs: Sequence[DataRef],
+    min_wvl: u.Quantity,
+    max_wvl: u.Quantity,
+    thresholds: Sequence[float],
+) -> Dict[str, Any]:
+    """
+    Reconstruct a target dataset and reference spectra, then pack their values
+    into NumPy arrays suitable for SAM/SFF image-mode kernels.
+    """
+    client = get_process_storage_client()
+    target = client.reconstruct_external_object(input_ref)
+    if not isinstance(target, RasterDataSet):
+        raise TypeError(f"Expected RasterDataSet input, got {type(target)}")
+
+    references: List[Spectrum] = []
+    for reference_ref in reference_refs:
+        reference = client.reconstruct_external_object(reference_ref)
+        if not isinstance(reference, Spectrum):
+            raise TypeError(f"Expected Spectrum reference, got {type(reference)}")
+        references.append(reference)
+
+    target_unit = target.get_band_unit()
+    if target_unit is None:
+        raise ValueError("Target dataset must have wavelength units for spectral image computation")
+
+    target_image_cube = target.get_image_data()
+    if isinstance(target_image_cube, np.ma.MaskedArray):
+        target_image_arr = np.asarray(target_image_cube.data, dtype=np.float32)
+    else:
+        target_image_arr = np.asarray(target_image_cube, dtype=np.float32)
+    if not target_image_arr.flags.c_contiguous:
+        target_image_arr = np.ascontiguousarray(target_image_arr)
+
+    target_wavelengths = np.array(
+        [band_info["wavelength"].to(target_unit).value for band_info in target.get_band_info()],
+        dtype=np.float32,
+    )
+    target_bad_bands_raw = target.get_bad_bands()
+    if target_bad_bands_raw is None:
+        target_bad_bands = np.ones((target.num_bands(),), dtype=np.bool_)
+    else:
+        target_bad_bands = np.asarray(target_bad_bands_raw, dtype=np.bool_)
+
+    new_min_wvl = np.float32(min_wvl.to(target_unit).value)
+    new_max_wvl = np.float32(max_wvl.to(target_unit).value)
+
+    length_all_references = 0
+    ref_offsets = [0]
+    for reference in references:
+        length_of_ref = reference.get_shape()[0]
+        length_all_references += length_of_ref
+        ref_offsets.append(ref_offsets[-1] + length_of_ref)
+
+    new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+    new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+    new_refs_bad_bands = np.ones((length_all_references,), dtype=np.bool_)
+
+    for index, reference in enumerate(references):
+        ref_unit = reference.get_wavelength_units()
+        if ref_unit is None:
+            raise ValueError(f"Reference spectrum '{reference.get_name()}' is missing wavelength units")
+
+        start = ref_offsets[index]
+        end = ref_offsets[index + 1]
+        new_refs_arr[start:end] = np.asarray(reference.get_spectrum(), dtype=np.float32)
+        new_refs_wvl[start:end] = np.asarray(
+            [wavelength.to(target_unit).value for wavelength in reference.get_wavelengths()],
+            dtype=np.float32,
+        )
+        reference_bad_bands = reference.get_bad_bands()
+        if reference_bad_bands is None:
+            new_refs_bad_bands[start:end] = True
+        else:
+            new_refs_bad_bands[start:end] = np.asarray(reference_bad_bands, dtype=np.bool_)
+
+    threshold_arr = np.asarray(thresholds, dtype=np.float32)
+    ref_offsets_arr = np.asarray(ref_offsets, dtype=np.uint32)
+    if threshold_arr.shape[0] != len(references):
+        raise ValueError(
+            f"Number of thresholds ({threshold_arr.shape[0]})"
+            f" must match number of references ({len(references)})"
+        )
+
+    return {
+        "target_image_arr": target_image_arr,
+        "target_wavelengths": target_wavelengths,
+        "target_bad_bands": target_bad_bands,
+        "min_wvl": new_min_wvl,
+        "max_wvl": new_max_wvl,
+        "reference_spectra_arr": new_refs_arr,
+        "reference_spectra_wvls": new_refs_wvl,
+        "reference_spectra_bad_bands": new_refs_bad_bands,
+        "reference_spectra_indices": ref_offsets_arr,
+        "thresholds": threshold_arr,
+    }
+
+
+def general_spectral_image_compute(
+    input_ref: DataRef,
+    output_refs: Sequence[DataRef],
+    reference_refs: Sequence[DataRef],
+    min_wvl: u.Quantity,
+    max_wvl: u.Quantity,
+    thresholds: Sequence[float],
+    python_mode: bool,
+    python_func: SpectralImageComputeFunction,
+    numba_func: SpectralImageComputeFunction,
+) -> None:
+    """
+    Shared worker entrypoint for image-mode spectral algorithms such as SAM and SFF.
+    """
+    packed_inputs = _prepare_general_spectral_image_inputs(
+        input_ref=input_ref,
+        reference_refs=reference_refs,
+        min_wvl=min_wvl,
+        max_wvl=max_wvl,
+        thresholds=thresholds,
+    )
+
+    compute_func = python_func if python_mode else numba_func
+    outputs = compute_func(
+        packed_inputs["target_image_arr"],
+        packed_inputs["target_wavelengths"],
+        packed_inputs["target_bad_bands"],
+        packed_inputs["min_wvl"],
+        packed_inputs["max_wvl"],
+        packed_inputs["reference_spectra_arr"],
+        packed_inputs["reference_spectra_wvls"],
+        packed_inputs["reference_spectra_bad_bands"],
+        packed_inputs["reference_spectra_indices"],
+        packed_inputs["thresholds"],
+    )
+
+    if len(outputs) != len(output_refs):
+        raise ValueError(f"Expected {len(output_refs)} outputs, got {len(outputs)}")
+
+    client = get_process_storage_client()
+    for output_ref, output_value in zip(output_refs, outputs):
+        output_arr = np.asarray(output_value)
+        if output_arr.ndim != 3:
+            raise ValueError(f"Expected 3D spectral image output, got shape {output_arr.shape}")
+        client.write_data(output_ref, output_arr.transpose(1, 2, 0))
+
+
+@dataclass
+class SaveExternalDatasetStage(SequentialStage):
+    _save_params: Sequence[Any] = ()
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=0,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        self.broadcast_input |= {
+            "save_params": list(self._save_params),
+        }
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        return input_region
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = (input_meta, chosen_scheme)
+        return []
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (input_region, output_writes)
+        return partial(_run_save_external_dataset, input_ref, broadcast_inputs["save_params"])
+
+
+@dataclass
+class GeneralSpectralImageComputeStage(SequentialStage):
+    _reference_refs: Sequence[DataRef] = ()
+    _min_wvl: Optional[u.Quantity] = None
+    _max_wvl: Optional[u.Quantity] = None
+    _thresholds: Sequence[float] = ()
+    _python_mode: bool = False
+    _python_func: Optional[SpectralImageComputeFunction] = None
+    _numba_func: Optional[SpectralImageComputeFunction] = None
+    _output_specs: Sequence[Tuple[str, np.dtype]] = ()
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(name) for name, _ in self._output_specs]
+        self.broadcast_input |= {
+            "reference_refs": list(self._reference_refs),
+            "thresholds": list(self._thresholds),
+            "python_mode": bool(self._python_mode),
+            "min_wvl": self._min_wvl,
+            "max_wvl": self._max_wvl,
+        }
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("General spectral image compute stage requires DatasetRegionRef input")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=len(self._reference_refs),
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        if not isinstance(input_meta, DatasetPlanMeta):
+            raise TypeError("General spectral image compute stage requires DatasetPlanMeta input")
+
+        requests: List[AllocationRequest] = []
+        for output_name, output_dtype in self._output_specs:
+            requests.append(
+                AllocationRequest(
+                    name=output_name,
+                    kind="dataset",
+                    residency="ram_cacheable",
+                    size_est=input_meta.height
+                    * input_meta.width
+                    * len(self._reference_refs)
+                    * np.dtype(output_dtype).itemsize,
+                    shape=(input_meta.height, input_meta.width, len(self._reference_refs)),
+                    dtype=np.dtype(output_dtype),
+                    delete_policy=self.get_output_delete_policy(output_name),
+                )
+            )
+        return requests
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = input_region
+        if self._python_func is None or self._numba_func is None:
+            raise ValueError("General spectral image compute stage requires both python and numba functions")
+
+        output_refs = [output_writes[output_name].ref for output_name, _ in self._output_specs]
+        min_wvl = broadcast_inputs["min_wvl"]
+        max_wvl = broadcast_inputs["max_wvl"]
+        if min_wvl is None or max_wvl is None:
+            raise ValueError("General spectral image compute stage requires min_wvl and max_wvl")
+
+        return partial(
+            general_spectral_image_compute,
+            input_ref,
+            output_refs,
+            broadcast_inputs["reference_refs"],
+            min_wvl,
+            max_wvl,
+            broadcast_inputs["thresholds"],
+            broadcast_inputs["python_mode"],
+            self._python_func,
+            self._numba_func,
+        )
+
+
+def get_save_external_dataset_pipeline(
+    dataset_ref: DataRef,
+    path: str,
+    format: str,
+    config: Dict[str, Any],
+) -> AlgorithmPipeline:
+    """
+    Build a no-chunking pipeline that reconstructs and saves an external dataset.
+
+    Args:
+        dataset_ref: External dataset ref to reconstruct inside the worker.
+        path: Output path passed to `RasterDataLoader.save_dataset_as`.
+        format: Output format passed to `RasterDataLoader.save_dataset_as`.
+        config: Save configuration dictionary passed to `RasterDataLoader.save_dataset_as`.
+    """
+    if dataset_ref.shape is None:
+        raise ValueError("dataset_ref.shape must be populated for save pipeline planning")
+    if dataset_ref.dtype is None:
+        raise ValueError("dataset_ref.dtype must be populated for save pipeline planning")
+
+    dataset_plan_meta = DatasetPlanMeta(shape=dataset_ref.shape, dtype=np.dtype(dataset_ref.dtype))
+    return AlgorithmPipeline(
+        [
+            SaveExternalDatasetStage(
+                _save_params=[path, format, config],
+                default_executor="process",
+                input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=0,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=NoChunkingScheme,
+            )
+        ]
+    )
+
+
+def get_general_spectral_image_pipeline(
+    dataset_ref: DataRef,
+    reference_refs: Sequence[DataRef],
+    min_wvl: u.Quantity,
+    max_wvl: u.Quantity,
+    thresholds: Sequence[float],
+    python_mode: bool,
+    output_specs: Sequence[Tuple[str, np.dtype]],
+    python_func: SpectralImageComputeFunction,
+    numba_func: SpectralImageComputeFunction,
+) -> AlgorithmPipeline:
+    """
+    Build a no-chunking pipeline for image-mode spectral algorithms that consume
+    one target dataset and a list of reference spectra.
+    """
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    dataset_plan_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
+    return AlgorithmPipeline(
+        [
+            GeneralSpectralImageComputeStage(
+                _reference_refs=list(reference_refs),
+                _min_wvl=min_wvl,
+                _max_wvl=max_wvl,
+                _thresholds=list(thresholds),
+                _python_mode=python_mode,
+                _python_func=python_func,
+                _numba_func=numba_func,
+                _output_specs=list(output_specs),
+                default_executor="process",
+                input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=NoChunkingScheme,
+            )
+        ]
+    )
 
 
 def _run_compute_pca(

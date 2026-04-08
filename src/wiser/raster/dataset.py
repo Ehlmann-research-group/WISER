@@ -175,6 +175,83 @@ def dict_list_equal(
     return True
 
 
+def _try_float_equal(left: Any, right: Any) -> bool:
+    try:
+        left_float = float(left)
+        right_float = float(right)
+    except (TypeError, ValueError):
+        return False
+    return math.isclose(left_float, right_float, rel_tol=1e-9, abs_tol=1e-9)
+
+
+def _spectral_units_equal(left: Any, right: Any) -> bool:
+    left_unit = get_spectral_unit_from_any(left)
+    right_unit = get_spectral_unit_from_any(right)
+    if left_unit is None or right_unit is None:
+        return left == right
+    return left_unit == right_unit
+
+
+def _band_info_values_equal(key: str, left: Any, right: Any) -> bool:
+    if key == "wavelength_units":
+        return _spectral_units_equal(left, right)
+
+    if key == "wavelength_str":
+        return _try_float_equal(left, right)
+
+    if key == "wavelength":
+        if isinstance(left, u.Quantity) and isinstance(right, u.Quantity):
+            return left.unit == right.unit and math.isclose(
+                left.value, right.value, rel_tol=1e-9, abs_tol=1e-9
+            )
+        return _try_float_equal(left, right)
+
+    return left == right
+
+
+def band_info_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
+    """
+    Compare two dataset band-info lists using domain-specific wavelength rules.
+
+    This comparison is stricter than a shallow equality check on the overall
+    structure, but more permissive for values that can differ in formatting
+    while still representing the same spectral information. In particular:
+
+    - `wavelength_units` values are normalized through `KNOWN_SPECTRAL_UNITS`
+      so short and long spellings such as `nm` and `Nanometers` compare equal.
+    - `wavelength_str` values are compared numerically so formatting differences
+      like `451.98999` vs `451.989990` compare equal.
+    - `wavelength` quantity values are compared using their numeric value and
+      unit rather than object identity.
+    """
+    if len(a) != len(b):
+        print(f"band_info_list_equal length mismatch left={len(a)} right={len(b)}")
+        return False
+
+    for index, (left_band_info, right_band_info) in enumerate(zip(a, b)):
+        left_keys = set(left_band_info.keys())
+        right_keys = set(right_band_info.keys())
+        if left_keys != right_keys:
+            print(
+                "band_info_list_equal key mismatch "
+                f"index={index} left_only={sorted(left_keys - right_keys)} "
+                f"right_only={sorted(right_keys - left_keys)}"
+            )
+            return False
+
+        for key in sorted(left_keys):
+            left_value = left_band_info[key]
+            right_value = right_band_info[key]
+            if not _band_info_values_equal(key, left_value, right_value):
+                print(
+                    "band_info_list_equal mismatch "
+                    f"index={index} key={key!r} left={left_value!r} right={right_value!r}"
+                )
+                return False
+
+    return True
+
+
 class SpatialMetadata:
     def __init__(
         self,
@@ -741,6 +818,41 @@ class RasterDataSet(Serializable):
         impl dataset types. Use with caution!
         """
         self._band_unit = unit
+
+    def _set_wkt(self, wkt_spatial_reference: Optional[str]) -> None:
+        """
+        Test-only helper for setting the dataset WKT spatial reference.
+        This should only be used in tests.
+        """
+        self._wkt_spatial_reference = wkt_spatial_reference
+        if wkt_spatial_reference is None:
+            self._spatial_ref = None
+        else:
+            spatial_ref = osr.SpatialReference()
+            spatial_ref.ImportFromWkt(wkt_spatial_reference)
+            self._spatial_ref = spatial_ref
+        self.set_dirty()
+
+    def _set_geo_transform(self, geo_transform: Tuple) -> None:
+        """
+        Test-only helper for setting the dataset geo transform.
+        This should only be used in tests.
+        """
+        self._geo_transform = geo_transform
+        self.set_dirty()
+
+    def _set_spatial_reference(self, spatial_ref: Optional[osr.SpatialReference]) -> None:
+        """
+        Test-only helper for setting the dataset spatial reference.
+        This should only be used in tests.
+        """
+        if spatial_ref is None:
+            self._spatial_ref = None
+            self._wkt_spatial_reference = None
+        else:
+            self._spatial_ref = spatial_ref.Clone()
+            self._wkt_spatial_reference = self._spatial_ref.ExportToWkt()
+        self.set_dirty()
 
     def has_wavelengths(self):
         """
@@ -1520,17 +1632,19 @@ class RasterDataSet(Serializable):
         not get this changed metadata.
         """
         serial_save_state = metadata.get("save_state", None)
-        serial_elem_type = metadata.get("elem_type", None)
+        _ = metadata.get("elem_type", None)
         serial_data_ignore_value = metadata.get("data_ignore_value", None)
         serial_bad_bands = metadata.get("bad_bands", None)
         serial_wkt_spatial_ref = metadata.get("wkt_spatial_ref", None)
         serial_geo_transform = metadata.get("geo_transform", None)
         serial_wavelengths: List[u.Quantity] = metadata.get("wavelengths", None)
         serial_wavelength_units = metadata.get("wavelength_units", None)
+        serial_band_info = metadata.get("band_info", None)
         if serial_save_state:
             self.set_save_state(serial_save_state)
-        if serial_elem_type:
-            self._elem_type = serial_elem_type
+        # We don't set the elem type because it is built into the underlying
+        # impl object. Either it is built into the gdal.Dataset object or the
+        # numpy array
         if serial_data_ignore_value:
             self._data_ignore_value = serial_data_ignore_value
         if serial_bad_bands:
@@ -1542,10 +1656,14 @@ class RasterDataSet(Serializable):
             self._spatial_ref = spatial_ref
         if serial_geo_transform:
             self._geo_transform = serial_geo_transform
-        if serial_wavelengths:
-            self._band_info = build_band_info_from_wavelengths(serial_wavelengths)
+        if serial_wavelengths or serial_band_info:
+            if serial_band_info:
+                self._band_info = serial_band_info
+            else:
+                self._band_info = build_band_info_from_wavelengths(serial_wavelengths)
         if serial_wavelength_units:
             self._band_unit = serial_wavelength_units
+        self._has_wavelengths = self._compute_has_wavelengths()
 
     def get_serialized_form(self) -> SerializedForm:
         """
@@ -1585,7 +1703,6 @@ class RasterDataSet(Serializable):
             recreation_value = impl.get_filepaths()[0]
         elif isinstance(impl, NumPyRasterDataImpl):
             recreation_value = impl.get_image_data()
-            return SerializedForm(self.__class__, recreation_value, metadata)
         else:
             raise ValueError(f"Unsupported implementation type: {type(impl)}")
 
@@ -1595,6 +1712,7 @@ class RasterDataSet(Serializable):
         metadata["wkt_spatial_ref"] = self.get_wkt_spatial_reference()
         metadata["geo_transform"] = self.get_geo_transform()
         metadata["subdataset_name"] = self.get_subdataset_name()
+        metadata["band_info"] = self.get_band_info()
         if self._compute_has_wavelengths():
             metadata["wavelengths"] = [band["wavelength"] for band in self._band_info]
             metadata["wavelength_units"] = self.get_band_unit()

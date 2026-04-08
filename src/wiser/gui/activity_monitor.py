@@ -59,9 +59,13 @@ class ActivityMonitorDialog(QDialog):
         self._next_activity_id += 1
 
         task_widget = self._build_task_widget(title=title, meta=meta, enabled=True)
+        has_cancel_callback = True
+        if cancel_callback is None:
+            has_cancel_callback = False
+            cancel_callback = lambda: None  # noqa: E731
         controls_widget, controls = self._build_controls_widget(
             progress_enabled=True,
-            cancel_enabled=True,
+            cancel_enabled=has_cancel_callback,
             cancel_callback=lambda checked=False, activity_id=activity_id: self._cancel_task(activity_id),
         )
         metadata = {
