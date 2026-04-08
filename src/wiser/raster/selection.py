@@ -34,6 +34,11 @@ class Selection:
 
     Selections can be associated with a specific dataset, so that it is clear
     what data the selection draws from.
+
+    Pickling: RasterDataSet is not directly pickleable (it wraps a GDAL handle),
+    so __getstate__ / __setstate__ transparently swap it for a SerializedForm that
+    can cross process boundaries.  All concrete subclasses inherit this behavior
+    automatically because none of them define __slots__.
     """
 
     def __init__(self, selection_type: SelectionType, dataset: Optional[RasterDataSet] = None):
@@ -42,6 +47,23 @@ class Selection:
 
         self._selection_type = selection_type
         self._dataset = dataset
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        dataset = state.pop("_dataset")
+        if dataset is not None:
+            state["_pickle_dataset_serialized_form"] = dataset.get_serialized_form()
+        else:
+            state["_pickle_dataset_serialized_form"] = None
+        return state
+
+    def __setstate__(self, state):
+        serialized_form = state.pop("_pickle_dataset_serialized_form")
+        self.__dict__.update(state)
+        if serialized_form is not None:
+            self._dataset = serialized_form.get_serializable_class().deserialize_into_class(serialized_form)
+        else:
+            self._dataset = None
 
     def get_type(self) -> SelectionType:
         """
