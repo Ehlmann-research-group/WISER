@@ -86,11 +86,11 @@ def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> Non
         lines.append("No bundled cv2*.so files found.")
 
     try:
+        # Uncomment the below line if you want to print to stdout
+        # print("\n".join(lines))
         debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        print("\n".join(lines))
     except Exception as exc:
         try:
-            print("\n".join(lines))
             sys.stderr.write(f"[pyi_rth_cv2] Failed to write runtime debug log to {debug_path}: {exc}\n")
         except Exception:
             pass
@@ -99,19 +99,7 @@ def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> Non
 meipass = getattr(sys, "_MEIPASS", None)
 root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)).resolve()
 cv2_python_folder = _find_cv2_python_folder(meipass)
-print(f"cv2_python_folder: {cv2_python_folder}")
-print(f"root: {root}")
 _write_runtime_debug(root, cv2_python_folder)
 
 if cv2_python_folder:
-    # try:
-    #     meipass_index = sys.path.index(meipass)
-    # except ValueError:
-    #     meipass_index = None
-
-    # if cv2_python_folder not in sys.path:
-    #     if meipass_index is not None:
-    #         sys.path.insert(meipass_index, cv2_python_folder)
-    #     else:
-    #         sys.path.insert(0, cv2_python_folder)
     sys.path.insert(0, cv2_python_folder)
