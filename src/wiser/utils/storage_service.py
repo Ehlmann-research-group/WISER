@@ -178,6 +178,7 @@ class StorageService:
     _active_connections: Dict[int, Connection] = field(default_factory=dict, init=False, repr=False)
     _connection_threads: Dict[int, threading.Thread] = field(default_factory=dict, init=False, repr=False)
     _rpc_allowlist: Dict[str, Callable[..., Any]] = field(default_factory=dict, init=False, repr=False)
+    _debug_uuid: str = field(default_factory=lambda: uuid.uuid4().hex, init=False)
 
     _ram_used_bytes: int = 0
 
@@ -901,6 +902,7 @@ class StorageService:
     # Metadata
     # -------------------------------------------------------------------------
     def get_meta(self, ref: DataRef) -> DataMeta:
+        print(f"StorageService.get_meta uuid={self._debug_uuid} ref_id={ref.ref_id}")
         canonical = self.read_data_ref(ref)
         if canonical.ref_id in self.meta_by_ref:
             return self.meta_by_ref[canonical.ref_id]

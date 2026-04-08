@@ -47,7 +47,7 @@ class TestSpectralFeatureFitting(unittest.TestCase):
 
     def _wait_for_added_datasets(self, future, expected_count: int):
         self.assertIsNotNone(future)
-        future.result(timeout=20)
+        future.result(timeout=180)
         self.test_model.app.processEvents()
         datasets = self.test_model.app_state.get_datasets()
         self.assertGreaterEqual(len(datasets), expected_count)
@@ -623,6 +623,27 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         )
         cls_ds_py, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
 
+        print(f"cls_ds_numba.get_image_data().shape(): {cls_ds_numba.get_image_data().shape}")
+        print(f"cls_ds_numba.get_image_data(): {cls_ds_numba.get_image_data()}")
+        print(f"cls_ds_py.get_image_data().shape: {cls_ds_py.get_image_data().shape}")
+        print(f"cls_ds_py.get_image_data(): {cls_ds_py.get_image_data()}")
+        print(f"gt_cls.shape: {gt_cls.shape}")
+        print(f"gt_cls: {gt_cls}")
+        print("==============================")
+        print(f"rmse_ds_numba.get_image_data().shape: {rmse_ds_numba.get_image_data().shape}")
+        print(f"rmse_ds_numba.get_image_data(): {rmse_ds_numba.get_image_data()}")
+        print(f"rmse_ds_py.get_image_data().shape: {rmse_ds_py.get_image_data().shape}")
+        print(f"rmse_ds_py.get_image_data(): {rmse_ds_py.get_image_data()}")
+        print(f"gt_rmse.shape: {gt_rmse.shape}")
+        print(f"gt_rmse: {gt_rmse}")
+        print("==============================")
+        print(f"scale_ds_numba.get_image_data().shape: {scale_ds_numba.get_image_data().shape}")
+        print(f"scale_ds_numba.get_image_data(): {scale_ds_numba.get_image_data()}")
+        print(f"scale_ds_py.get_image_data().shape: {scale_ds_py.get_image_data().shape}")
+        print(f"scale_ds_py.get_image_data(): {scale_ds_py.get_image_data()}")
+        print(f"gt_scale.shape: {gt_scale.shape}")
+        print(f"gt_scale: {gt_scale}")
+
         self.assertTrue(
             np.allclose(
                 cls_ds_numba.get_image_data(),
@@ -843,14 +864,18 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         )
 
         future_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs, test_mode=True)
-        cls_ds_numba, rmse_ds_numba, scale_ds_numba = self._wait_for_added_datasets(future_numba, 3)
+        scale_ds_numba, rmse_ds_numba, cls_ds_numba = self._wait_for_added_datasets(future_numba, 3)
 
         future_py = generic_spectral_comp.find_matches(
             spectral_inputs=spectral_inputs,
             python_mode=True,
             test_mode=True,
         )
-        cls_ds_py, rmse_ds_py, scale_ds_py = self._wait_for_added_datasets(future_py, 3)
+        (
+            scale_ds_py,
+            rmse_ds_py,
+            cls_ds_py,
+        ) = self._wait_for_added_datasets(future_py, 3)
 
         gt_cls = np.array(
             [

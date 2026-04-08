@@ -580,16 +580,15 @@ class GenericSpectralComputationTool(QDialog):
         raise NotImplementedError
 
     def _resolve_app_services(self):
-        candidates = [self.parent(), self.window(), QApplication.activeWindow()] + list(
-            QApplication.topLevelWidgets()
-        )
-        for candidate in candidates:
-            if candidate is None:
-                continue
-            app_services = getattr(candidate, "_app_services", None)
-            if app_services is not None:
-                return app_services
-        raise RuntimeError("Could not resolve AppServices for spectral computation tool")
+        app = getattr(self._app_state, "_app", None)
+        if app is None:
+            raise RuntimeError("Could not resolve AppServices: app_state has no _app")
+
+        app_services = getattr(app, "_app_services", None)
+        if app_services is None:
+            raise RuntimeError("Could not resolve AppServices: app has no _app_services")
+
+        return app_services
 
     def find_matches(
         self,

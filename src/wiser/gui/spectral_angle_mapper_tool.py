@@ -538,6 +538,17 @@ class SAMTool(GenericSpectralComputationTool):
         self._threshold: float = 5.0  # metric-specific name as requested
         # initialize UI threshold spin to default
         super().__init__("Spectral Angle Mapper", app_state, parent)
+        app = getattr(self._app_state, "_app", None)
+        app_services = getattr(app, "_app_services", None)
+        storage_service = getattr(app_services, "storage_service", None)
+        print(
+            "SAMTool init "
+            f"app_state: {self._app_state} || app_services: {app_services} || "
+            f"storage_service: {storage_service}\n"
+            f"app_services_uuid={getattr(app_services, '_debug_uuid', 'missing')}\n"
+            f"storage_service_id={id(storage_service) if storage_service is not None else 'missing'}\n"
+            f"storage_service_uuid={getattr(storage_service, '_debug_uuid', 'missing')}"
+        )
         self._ui.method_threshold.setValue(self._threshold)
         self._maybe_add_default_library()
 
@@ -651,11 +662,27 @@ class SAMTool(GenericSpectralComputationTool):
         python_mode: bool = False,
     ):
         app_services: "AppServices" = self._resolve_app_services()
+        app_services_uuid = getattr(app_services, "_debug_uuid", "missing")
+        print(
+            "SAM compute_score_image\n"
+            f"app_services_uuid={app_services_uuid}\n"
+            f"app_services_id={id(app_services)}\n"
+            f"storage_service_id={id(app_services.storage_service)}\n"
+            f"storage_service_uuid={getattr(app_services.storage_service, '_debug_uuid', 'missing')}\n"
+            f"target_name={target.get_name()}\n"
+            f"python_mode={python_mode}"
+        )
         target_ref = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=target))
         reference_refs = [
             app_services.storage_service.register_external(ExternalSpectrumHandle(spectrum_obj=reference))
             for reference in reference_spectra
         ]
+        print(
+            "SAM registered refs\n"
+            f"app_services_uuid={app_services_uuid}\n"
+            f"storage_service_uuid={getattr(app_services.storage_service, '_debug_uuid', 'missing')}\n"
+            f"target_ref={target_ref.ref_id}\n"
+        )
         sam_task = SpectralAngleMapperTask(
             app_state=self._app_state,
             target=target,
