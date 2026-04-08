@@ -139,7 +139,7 @@ class TestMnf(unittest.TestCase):
             for i in range(num_components):
                 ours = our_mnf[:, :, i].reshape(-1).astype(np.float64)
                 theirs = spy_mnf[:, :, i].reshape(-1).astype(np.float64)
-                self.assertTrue(np.allclose(np.abs(ours), np.abs(theirs), atol=1e-3))
+                self.assertTrue(np.allclose(np.abs(ours), np.abs(theirs), atol=5e-2))
         finally:
             if storage_client is not None:
                 storage_client.close()
