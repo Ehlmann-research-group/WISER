@@ -203,3 +203,110 @@ class TestSpectrumComputeTask(unittest.TestCase):
             release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+
+class TestGetSpectrumAsyncMatchSync(unittest.TestCase):
+    """``get_spectrum_async`` should match ``get_spectrum()`` once work completes."""
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def _small_numpy_dataset(self):
+        bands, h, w = 4, 8, 8
+        arr = np.arange(1, bands + 1, dtype=np.float32).reshape((bands, 1, 1)) * np.ones(
+            (bands, h, w), dtype=np.float32
+        )
+        loader = RasterDataLoader()
+        return loader.dataset_from_numpy_array(arr, cache=None)
+
+    def test_numpy_get_spectrum_async_matches_get_spectrum(self):
+        arr = np.linspace(0.2, 1.1, 16, dtype=np.float32)
+        spec = NumPyArraySpectrum(arr, name="async_np", source_name="src")
+        expected = spec.get_spectrum()
+        received = []
+
+        spec.get_spectrum_async(done=lambda a: received.append(np.asarray(a, dtype=np.float32)))
+
+        self.assertEqual(len(received), 1)
+        np.testing.assert_array_equal(received[0], expected)
+
+    def test_roi_average_get_spectrum_async_matches_after_future(self):
+        dataset = self._small_numpy_dataset()
+        roi = RegionOfInterest(name="async_roi")
+        roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(5, 5)))
+        spec = ROIAverageSpectrum(dataset, roi, avg_mode=SpectrumAverageMode.MEAN)
+        expected = spec.get_spectrum()
+
+        app_services = self.test_model.app_services
+        futures = []
+
+        def submit(task):
+            f = app_services.submit_semantic_task(task)
+            futures.append(f)
+            return f
+
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            received = []
+            spec.get_spectrum_async(
+                dataset_ref=dataset_ref,
+                submit_semantic_task=submit,
+                done=lambda a: received.append(np.asarray(a, dtype=np.float32)),
+                task_id=9101,
+            )
+            self.assertEqual(len(futures), 1)
+            futures[0].result(timeout=60)
+            QApplication.processEvents()
+
+            self.assertEqual(len(received), 1)
+            np.testing.assert_allclose(received[0], expected, rtol=1e-5, atol=1e-5)
+        finally:
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_spectrum_at_point_get_spectrum_async_matches_after_future(self):
+        dataset = self._small_numpy_dataset()
+        spec = SpectrumAtPoint(
+            dataset,
+            (2, 3),
+            area=(3, 3),
+            avg_mode=SpectrumAverageMode.MEAN,
+        )
+        expected = spec.get_spectrum()
+
+        app_services = self.test_model.app_services
+        futures = []
+
+        def submit(task):
+            f = app_services.submit_semantic_task(task)
+            futures.append(f)
+            return f
+
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            received = []
+            spec.get_spectrum_async(
+                dataset_ref=dataset_ref,
+                submit_semantic_task=submit,
+                done=lambda a: received.append(np.asarray(a, dtype=np.float32)),
+                task_id=9102,
+            )
+            self.assertEqual(len(futures), 1)
+            futures[0].result(timeout=60)
+            QApplication.processEvents()
+
+            self.assertEqual(len(received), 1)
+            np.testing.assert_allclose(received[0], expected, rtol=1e-5, atol=1e-5)
+        finally:
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
