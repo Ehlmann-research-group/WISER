@@ -8,11 +8,12 @@ and that CONDA_PREFIX is set when running pyinstaller.
 import glob
 import sys
 import os
+import subprocess
 
 sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
 # Make spec portable: derive project root from SPECPATH. :contentReference[oaicite:2]{index=2}
-spec_dir = os.path.abspath(os.path.dirname(SPECPATH))
+spec_dir = os.path.abspath(SPECPATH)
 project_root = spec_dir  # assumes the spec file sits at repo root; adjust if needed
 
 # If your repo layout is different (e.g., spec in docker/), you can do:
@@ -21,7 +22,11 @@ project_root = spec_dir  # assumes the spec file sits at repo root; adjust if ne
 devtools_path = os.path.join(project_root, "src", "devtools")
 sys.path.insert(0, os.path.abspath(devtools_path))
 
-from PyInstaller.utils.hooks import collect_submodules, collect_dynamic_libs
+from PyInstaller.utils.hooks import (
+    collect_data_files,
+    collect_dynamic_libs,
+    collect_submodules,
+)
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 
@@ -104,8 +109,9 @@ existing_hidden_imports = _hidden
 # OpenCV dynamic libs fix: collect cv2 shared objects (.so only on Linux)
 cv2_binaries = collect_dynamic_libs(
     "cv2",
-    search_patterns=["cv2*.so", "python-*/cv2*.so"],
+    search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"],
 )
+cv2_data_files_diagnostic = collect_data_files("cv2")
 existing_binaries += cv2_binaries
 
 # SECOND PASS: rebuild Analysis with full hiddenimports
