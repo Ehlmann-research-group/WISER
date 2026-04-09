@@ -1,34 +1,106 @@
 import os
 import sys
+from pathlib import Path
+from typing import Union
 
-cv2_python_folder = None
 
-# Get sys._MEIPASS (only exists in PyInstaller)
-meipass = getattr(sys, "_MEIPASS", None)
-
-if meipass and getattr(sys, "frozen", False):
-    # Check if <_MEIPASS>/cv2 exists
-    cv2_root = os.path.join(meipass, "cv2")
-    if os.path.isdir(cv2_root):
-        # Look inside for a subfolder that starts with "python-"
-        for name in os.listdir(cv2_root):
-            if name.startswith("python-"):
-                candidate = os.path.join(cv2_root, name)
-                if os.path.isdir(candidate):
-                    cv2_python_folder = candidate
-                    break
-
-# If we found it, put it on sys.path right before _MEIPASS
-if cv2_python_folder:
+def _read_text(path: Path) -> str:
     try:
-        meipass_index = sys.path.index(meipass)
-    except ValueError:
-        meipass_index = None
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(errors="replace")
+    except Exception as exc:  # pragma: no cover - diagnostic path
+        return f"<failed to read: {exc}>"
 
-    if cv2_python_folder not in sys.path:
-        if meipass_index is not None:
-            # Insert *right before* sys._MEIPASS
-            sys.path.insert(meipass_index, cv2_python_folder)
-        else:
-            # Fallback: put it at the front
-            sys.path.insert(0, cv2_python_folder)
+
+def _find_cv2_python_folder(meipass: Union[str, None]) -> Union[str, None]:
+    if not (meipass and getattr(sys, "frozen", False)):
+        return None
+
+    cv2_root = os.path.join(meipass, "cv2")
+    if not os.path.isdir(cv2_root):
+        return None
+
+    for name in os.listdir(cv2_root):
+        if name.startswith("python-"):
+            candidate = os.path.join(cv2_root, name)
+            if os.path.isdir(candidate):
+                return candidate
+    return None
+
+
+def _write_runtime_debug(root: Path, cv2_python_folder: Union[str, None]) -> None:
+    debug_path = root / "cv2_runtime_debug.txt"
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    lines = []
+
+    def add_header(title: str) -> None:
+        line = "=" * len(title)
+        lines.extend(["", line, title, line])
+
+    meipass = getattr(sys, "_MEIPASS", None)
+    add_header("ROOT INFO")
+    lines.append(f"sys.executable: {sys.executable}")
+    lines.append(f"sys._MEIPASS: {meipass}")
+    lines.append(f"resolved_root: {root}")
+    lines.append(f"cv2_python_folder: {cv2_python_folder}")
+
+    add_header("SYS.PATH")
+    for index, entry in enumerate(sys.path):
+        lines.append(f"{index}: {entry}")
+
+    bundled_init_files = sorted(root.rglob("cv2/__init__.py"))
+    add_header("BUNDLED CV2 PACKAGE FILES")
+    if bundled_init_files:
+        for path in bundled_init_files:
+            lines.append(str(path))
+    else:
+        lines.append("No bundled cv2/__init__.py files found.")
+
+    bundled_config_files = sorted(path for path in root.rglob("config*.py") if "cv2" in path.parts)
+    add_header("BUNDLED CV2 CONFIG FILES")
+    if bundled_config_files:
+        for path in bundled_config_files:
+            lines.append(str(path))
+            lines.append(_read_text(path))
+    else:
+        lines.append("No bundled cv2 config*.py files found.")
+
+    bundled_shared_libs = sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path.name.startswith("cv2") and path.suffix == ".so"
+    )
+    add_header("CANDIDATE CV2 SHARED LIBRARIES")
+    if bundled_shared_libs:
+        for path in bundled_shared_libs:
+            lines.append(str(path))
+        likely_parent = bundled_shared_libs[0].parent
+        lines.append(f"likely_shared_lib_parent: {likely_parent}")
+        lines.append(f"likely_shared_lib_parent_on_sys_path: {str(likely_parent) in sys.path}")
+    else:
+        lines.append("No bundled cv2*.so files found.")
+
+    try:
+        # Uncomment the below line if you want to print to stdout
+        # print("\n".join(lines))
+        debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except Exception as exc:
+        try:
+            sys.stderr.write(f"[pyi_rth_cv2] Failed to write runtime debug log to {debug_path}: {exc}\n")
+        except Exception:
+            pass
+
+
+meipass = getattr(sys, "_MEIPASS", None)
+root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)).resolve()
+cv2_python_folder = _find_cv2_python_folder(meipass)
+# Uncomment below to print out cv2 debug logging if/when it breaks again
+# _write_runtime_debug(root, cv2_python_folder)
+
+if cv2_python_folder:
+    sys.path.insert(0, cv2_python_folder)

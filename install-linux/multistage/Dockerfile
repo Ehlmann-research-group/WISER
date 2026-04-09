@@ -253,4 +253,3 @@ COPY install-linux/run_smoke.sh /usr/local/bin/run_smoke.sh
 RUN chmod +x /usr/local/bin/run_smoke.sh
 
 ENTRYPOINT ["/usr/local/bin/run_smoke.sh"]
-
