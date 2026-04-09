@@ -40,13 +40,16 @@ from astropy import units as u
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from concurrent.futures import Future
+
     from wiser.raster import RasterDataSet
     from wiser.raster.spectrum import Spectrum
 
     from wiser.gui.app_state import ApplicationState
+    from wiser.utils.task_system import SemanticTask
 
 MATPLOTLIB_LEGEND_ARGS = {
     LegendPlacement.NO_LEGEND: None,
@@ -148,12 +151,20 @@ class SpectrumDisplayInfo:
     information for a specific spectrum being displayed.
     """
 
-    def __init__(self, spectrum: "Spectrum"):
+    def __init__(
+        self,
+        spectrum: "Spectrum",
+        submit_semantic_task: Callable[["SemanticTask"], "Future"],
+    ):
         """
         *   id is the numeric ID assigned to the spectrum
         *   line2d is the matplotlib line for the spectrum's data
+
+        ``submit_semantic_task`` is typically :meth:`AppServices.submit_semantic_task`
+        (narrow facade over task planning + scheduler).
         """
         self._spectrum: "Spectrum" = spectrum
+        self._submit_semantic_task = submit_semantic_task
 
         if self._spectrum.get_color() is None:
             self._spectrum.set_color(get_random_matplotlib_color())
@@ -449,6 +460,12 @@ class SpectrumPlotGeneric(QWidget):
         # General configuration for the spectrum plot
 
         self._app_state: "ApplicationState" = app_state
+        if self._app_services is None:
+            # Try to access app_services from app_state, accessing _app and then _app_services.
+            self._app_services = getattr(getattr(self._app_state, "_app", None), "_app_services", None)
+
+            if self._app_services is None:
+                raise ValueError("AppServices is not set")
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -815,7 +832,7 @@ class SpectrumPlotGeneric(QWidget):
         return self._app_state
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
-        display_info = SpectrumDisplayInfo(spectrum)
+        display_info = SpectrumDisplayInfo(spectrum, self._app_services.submit_semantic_task)
         self._spectrum_display_info[spectrum.get_id()] = display_info
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False

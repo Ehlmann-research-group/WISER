@@ -1,7 +1,25 @@
+from __future__ import annotations
+
 import abc
 import enum
 import os
-from typing import List, Optional, Tuple, Union, Dict
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
+
+if TYPE_CHECKING:
+    from concurrent.futures import Future
+
+    from wiser.utils.primitives import DataRef
+    from wiser.utils.task_system import SemanticTask
+
+    from wiser.raster.spectrum_compute_task import SpectrumRecomputeHandle
 
 from collections import deque
 
@@ -406,6 +424,26 @@ class Spectrum(abc.ABC, Serializable):
         """
         raise NotImplementedError("Must be implemented in subclass")
 
+    @abc.abstractmethod
+    def get_spectrum_async(
+        self,
+        *,
+        dataset_ref: Optional[DataRef] = None,
+        submit_semantic_task: Optional[Callable[[SemanticTask], Future]] = None,
+        done: Optional[Callable[[np.ndarray], None]] = None,
+        task_id: Optional[int] = None,
+    ) -> "SpectrumRecomputeHandle":
+        """
+        Start asynchronous spectrum calculation where supported.
+
+        Raster-backed spectra require ``dataset_ref`` and ``submit_semantic_task``
+        (e.g. :meth:`wiser.gui.app_services.AppServices.submit_semantic_task`).
+
+        If ``done`` is provided, it is connected to the returned handle's
+        ``result_ready`` signal (which also carries the 1D spectrum array).
+        """
+        ...
+
     def get_color(self) -> Optional[str]:
         return self._color
 
@@ -614,6 +652,23 @@ class NumPyArraySpectrum(Spectrum):
         """
         return self._arr
 
+    def get_spectrum_async(
+        self,
+        *,
+        dataset_ref: Optional[DataRef] = None,
+        submit_semantic_task: Optional[Callable[[SemanticTask], Future]] = None,
+        done: Optional[Callable[[np.ndarray], None]] = None,
+        task_id: Optional[int] = None,
+    ) -> "SpectrumRecomputeHandle":
+        from wiser.raster.spectrum_compute_task import NumPySpectrumImmediateTask
+
+        _ = (dataset_ref, submit_semantic_task, task_id)
+        handle = NumPySpectrumImmediateTask(self)
+        if done is not None:
+            handle.result_ready.connect(done)
+        handle.emit_now()
+        return handle
+
     def is_editable(self):
         return self._editable
 
@@ -767,6 +822,20 @@ class RasterDataSetSpectrum(Spectrum):
 
         return self._spectrum
 
+    def get_spectrum_async(
+        self,
+        *,
+        dataset_ref: Optional[DataRef] = None,
+        submit_semantic_task: Optional[Callable[[SemanticTask], Future]] = None,
+        done: Optional[Callable[[np.ndarray], None]] = None,
+        task_id: Optional[int] = None,
+    ) -> "SpectrumRecomputeHandle":
+        _ = task_id
+        raise NotImplementedError(
+            "get_spectrum_async must be implemented by concrete RasterDataSetSpectrum subclasses "
+            "(e.g. SpectrumAtPoint, ROIAverageSpectrum)"
+        )
+
     def __eq__(self, other: "Spectrum") -> bool:
         return (
             self.get_spectrum() == other.get_spectrum()
@@ -824,6 +893,26 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
             self._dataset, self._point, self._area, self._avg_mode
         )
 
+    def get_spectrum_async(
+        self,
+        *,
+        dataset_ref: Optional[DataRef] = None,
+        submit_semantic_task: Optional[Callable[[SemanticTask], Future]] = None,
+        done: Optional[Callable[[np.ndarray], None]] = None,
+        task_id: Optional[int] = None,
+    ) -> "SpectrumRecomputeHandle":
+        from wiser.raster.spectrum_compute_task import build_spectrum_recompute_task
+
+        if dataset_ref is None:
+            raise ValueError("dataset_ref is required for SpectrumAtPoint.get_spectrum_async")
+        if submit_semantic_task is None:
+            raise ValueError("submit_semantic_task is required for SpectrumAtPoint.get_spectrum_async")
+        handle = build_spectrum_recompute_task(self, dataset_ref=dataset_ref, task_id=task_id)
+        if done is not None:
+            handle.result_ready.connect(done)
+        submit_semantic_task(handle)
+        return handle
+
     def get_point(self):
         return self._point
 
@@ -872,3 +961,23 @@ class ROIAverageSpectrum(RasterDataSetSpectrum):
         this object, based on its current configuration.
         """
         self._spectrum = calc_roi_spectrum(self._dataset, self._roi, self._avg_mode)
+
+    def get_spectrum_async(
+        self,
+        *,
+        dataset_ref: Optional[DataRef] = None,
+        submit_semantic_task: Optional[Callable[[SemanticTask], Future]] = None,
+        done: Optional[Callable[[np.ndarray], None]] = None,
+        task_id: Optional[int] = None,
+    ) -> "SpectrumRecomputeHandle":
+        from wiser.raster.spectrum_compute_task import build_spectrum_recompute_task
+
+        if dataset_ref is None:
+            raise ValueError("dataset_ref is required for ROIAverageSpectrum.get_spectrum_async")
+        if submit_semantic_task is None:
+            raise ValueError("submit_semantic_task is required for ROIAverageSpectrum.get_spectrum_async")
+        handle = build_spectrum_recompute_task(self, dataset_ref=dataset_ref, task_id=task_id)
+        if done is not None:
+            handle.result_ready.connect(done)
+        submit_semantic_task(handle)
+        return handle

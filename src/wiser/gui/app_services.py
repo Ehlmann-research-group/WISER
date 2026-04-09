@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+from concurrent.futures import Future
+
 from PySide2.QtCore import QObject
 
 import os
@@ -7,7 +9,13 @@ import uuid
 
 from wiser.gui.activity_monitor import ActivityMonitorDialog
 from wiser.utils.storage_service import StorageService
-from wiser.utils.task_system import PlanningContext, SimpleChunkingPolicy, TaskManager, TaskPlanner
+from wiser.utils.task_system import (
+    PlanningContext,
+    SemanticTask,
+    SimpleChunkingPolicy,
+    TaskManager,
+    TaskPlanner,
+)
 from wiser.utils.work_scheduler import (
     SchedulerConfig,
     WorkScheduler,
@@ -86,6 +94,16 @@ class AppServices(QObject):
     @property
     def task_manager(self):
         return self._task_manager
+
+    def submit_semantic_task(self, task: SemanticTask) -> Future:
+        """
+        Plan a semantic task and run it on the work scheduler.
+
+        Narrow facade for call sites that only need to submit work (e.g. spectrum
+        async recomputation) without touching the planner or scheduler directly.
+        """
+        task_plan = self._task_planner.plan_semantic_task(task)
+        return self._scheduler.run_task_plan(task_plan)
 
     def close(self) -> None:
         if self._closed:
