@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from wiser.raster.spectrum import Spectrum
 
     from wiser.gui.app_state import ApplicationState
+    from wiser.utils.primitives import DataRef
     from wiser.utils.task_system import SemanticTask
 
 MATPLOTLIB_LEGEND_ARGS = {
@@ -154,17 +155,25 @@ class SpectrumDisplayInfo:
     def __init__(
         self,
         spectrum: "Spectrum",
-        submit_semantic_task: Callable[["SemanticTask"], "Future"],
+        register_and_submit_semantic_task: Callable[["SemanticTask"], "Future"],
+        register_external_dataset: Callable[["RasterDataSet"], "DataRef"],
     ):
         """
         *   id is the numeric ID assigned to the spectrum
         *   line2d is the matplotlib line for the spectrum's data
 
-        ``submit_semantic_task`` is typically :meth:`AppServices.submit_semantic_task`
+        ``register_and_submit_semantic_task`` is typically
+        :meth:`AppServices.register_and_submit_semantic_task`
         (narrow facade over task planning + scheduler).
+
+        ``register_external_dataset`` is typically
+        :meth:`AppServices.register_external_dataset` — registers a
+        :class:`RasterDataSet` with the storage service and returns its
+        :class:`DataRef`.
         """
         self._spectrum: "Spectrum" = spectrum
-        self._submit_semantic_task = submit_semantic_task
+        self._register_and_submit_semantic_task = register_and_submit_semantic_task
+        self._register_external_dataset = register_external_dataset
 
         if self._spectrum.get_color() is None:
             self._spectrum.set_color(get_random_matplotlib_color())
@@ -172,6 +181,8 @@ class SpectrumDisplayInfo:
         self._icon: Optional[QIcon] = None
         self._line2d = None
         self._values = None
+        self._dataset_ref = None
+        self._pending_draw_context = None
 
     def reset(self) -> None:
         self._icon = None
@@ -186,29 +197,53 @@ class SpectrumDisplayInfo:
     def get_spectrum(self) -> "Spectrum":
         return self._spectrum
 
-    def generate_plot(self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True):
-        # If we already have a plot, remove it.
+    def _get_or_register_dataset_ref(self):
+        """Lazily register the spectrum's underlying dataset with the storage service."""
+        from wiser.raster.spectrum import RasterDataSetSpectrum
+
+        if not isinstance(self._spectrum, RasterDataSetSpectrum):
+            return None
+        if self._dataset_ref is not None:
+            return self._dataset_ref
+        self._dataset_ref = self._register_external_dataset(self._spectrum.get_dataset())
+        return self._dataset_ref
+
+    def generate_plot(
+        self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True, draw_spectra_fn=None
+    ):
         self.remove_plot()
 
-        # wavelength_units = self._spectrum.get_wavelengths()[0].unit.si
-        if should_recalculate or self._values is None:
-            self._values = self._spectrum.get_spectrum()
+        if not should_recalculate and self._values is not None:
+            self._draw_line(axes, use_wavelengths, to_unit)
+            return
+
+        self._pending_draw_context = (axes, use_wavelengths, to_unit, draw_spectra_fn)
+        self._spectrum.get_spectrum_async(
+            dataset_ref=self._get_or_register_dataset_ref(),
+            submit_semantic_task=self._register_and_submit_semantic_task,
+            done=self._on_spectrum_ready,
+        )
+
+    def _on_spectrum_ready(self, spectrum_array: np.ndarray) -> None:
+        """Callback invoked (on the main thread) when the spectrum data is available."""
+        self._values = np.asarray(spectrum_array)
+        if self._pending_draw_context is not None:
+            axes, use_wavelengths, to_unit, draw_spectra_fn = self._pending_draw_context
+            self._pending_draw_context = None
+            self._draw_line(axes, use_wavelengths, to_unit)
+            if draw_spectra_fn is not None:
+                draw_spectra_fn()
+
+    def _draw_line(self, axes, use_wavelengths, to_unit=u.nm) -> None:
+        """Draw the matplotlib line using the already-computed ``_values``."""
+        self.remove_plot()
 
         color = self._spectrum.get_color()
         linewidth = 0.5
 
         if use_wavelengths:
-            # We should only be told to use wavelengths if all displayed spectra
-            # have wavelengths for the bands.
             assert self._spectrum.has_wavelengths()
-
-            # If we can use wavelengths, each spectrum is a series of
-            # (wavelength, value) coordinates, which we can plot.  This allows
-            # the graphs to look correct, even in the face of bad bands, plots
-            # from different datasets with different wavelengths, etc.
-
             wavelengths = raster_utils.get_band_values(self._spectrum.get_wavelengths(), to_unit)
-
             lines = axes.plot(
                 wavelengths,
                 self._values,
@@ -219,11 +254,6 @@ class SpectrumDisplayInfo:
             assert len(lines) == 1
             self._line2d = lines[0]
         else:
-            # If we don't have wavelengths, each spectrum is just a series of
-            # values.  We can of course plot this, but we can't guarantee it
-            # will be meaningful if there are multiple plots from different
-            # datasets to display.
-
             lines = axes.plot(
                 self._values,
                 color=color,
@@ -832,7 +862,11 @@ class SpectrumPlotGeneric(QWidget):
         return self._app_state
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
-        display_info = SpectrumDisplayInfo(spectrum, self._app_services.submit_semantic_task)
+        display_info = SpectrumDisplayInfo(
+            spectrum,
+            self._app_services.register_and_submit_semantic_task,
+            self._app_services.register_external_dataset,
+        )
         self._spectrum_display_info[spectrum.get_id()] = display_info
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False
@@ -860,8 +894,13 @@ class SpectrumPlotGeneric(QWidget):
 
         if use_wavelengths == self._plot_uses_wavelengths:
             for _, single_display_info in self._spectrum_display_info.items():
-                # Nothing has changed, so just generate a plot for the new spectrum
-                single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+                single_display_info.generate_plot(
+                    self._axes,
+                    use_wavelengths,
+                    self._x_units,
+                    should_recalculate=False,
+                    draw_spectra_fn=self._draw_spectra,
+                )
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
                 if unit_name is not None and use_wavelengths:
                     self._axes.set_xlabel(
@@ -888,7 +927,13 @@ class SpectrumPlotGeneric(QWidget):
                 self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
-                other_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+                other_info.generate_plot(
+                    self._axes,
+                    use_wavelengths,
+                    self._x_units,
+                    should_recalculate=False,
+                    draw_spectra_fn=self._draw_spectra,
+                )
 
             self._plot_uses_wavelengths = use_wavelengths
 
@@ -1292,19 +1337,25 @@ class SpectrumPlotGeneric(QWidget):
         display_info = self._spectrum_display_info.get(spectrum.get_id())
         if display_info is not None:
             display_info.reset()
+            treeitem.setIcon(0, display_info.get_icon())
+
+            def _after_plot_ready():
+                if self._click is not None and self._click.get_spectrum() is spectrum:
+                    self._click.remove_plot()
+                    self._click.generate_plot(self._axes, self._font_name, self._font_size["selection"])
+                self._draw_spectra()
+
             display_info.generate_plot(
                 self._axes,
                 self._plot_uses_wavelengths,
                 should_recalculate=self._spectrum_edit_dialog.should_recalculate,
+                draw_spectra_fn=_after_plot_ready,
             )
-            treeitem.setIcon(0, display_info.get_icon())
-
-        # Are we showing a point on this spectrum?
-        if self._click is not None and self._click.get_spectrum() is spectrum:
-            self._click.remove_plot()
-            self._click.generate_plot(self._axes, self._font_name, self._font_size["selection"])
-
-        self._draw_spectra()
+        else:
+            if self._click is not None and self._click.get_spectrum() is spectrum:
+                self._click.remove_plot()
+                self._click.generate_plot(self._axes, self._font_name, self._font_size["selection"])
+            self._draw_spectra()
 
     def add_collected_spectrum(self, spectrum: "Spectrum"):
         self._collected_spectra.append(spectrum)

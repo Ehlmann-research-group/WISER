@@ -26,6 +26,7 @@ from wiser.utils.worker_runtime import initialize_process_storage_client, reset_
 
 if TYPE_CHECKING:
     from wiser.gui.activity_monitor import ActivityMonitorDialog
+    from wiser.utils.primitives import DataRef
 
 
 class AppServices(QObject):
@@ -95,6 +96,15 @@ class AppServices(QObject):
     def task_manager(self):
         return self._task_manager
 
+    def register_and_submit_semantic_task(self, task: "SemanticTask") -> "Future[None]":
+        """
+        Registers and submits a semantic task. Plans the semantic task, registers it with the
+        task manager and activity monitor, and submits it to the scheduler.
+        """
+        task_plan = self._task_planner.plan_semantic_task(task)
+        # Use our TaskManager to register the task with the ActivityMonitorDialog and submit it.
+        return self._task_manager.register_and_submit_task_plan(self._scheduler, task_plan)
+
     def submit_semantic_task(self, task: SemanticTask) -> Future:
         """
         Plan a semantic task and run it on the work scheduler.
@@ -104,6 +114,12 @@ class AppServices(QObject):
         """
         task_plan = self._task_planner.plan_semantic_task(task)
         return self._scheduler.run_task_plan(task_plan)
+
+    def register_external_dataset(self, dataset) -> "DataRef":
+        """Register a RasterDataSet as an external handle and return its DataRef."""
+        from wiser.utils.primitives import ExternalRasterHandle
+
+        return self._storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
 
     def close(self) -> None:
         if self._closed:

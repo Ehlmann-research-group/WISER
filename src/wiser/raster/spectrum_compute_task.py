@@ -281,7 +281,7 @@ def build_spectrum_recompute_task(
     """
     from wiser.utils.primitives import PriorityClass
 
-    pc = priority_class if priority_class is not None else PriorityClass.INTERACTIVE
+    pc = priority_class if priority_class is not None else PriorityClass.BACKGROUND
 
     if isinstance(spectrum, NumPyArraySpectrum):
         return NumPySpectrumImmediateTask(spectrum)
