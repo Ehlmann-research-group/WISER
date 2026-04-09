@@ -1,8 +1,9 @@
 """
 Tests for src/devtools/patch_cv2_config_for_bundle.py.
 
-These tests run entirely in-process using a temporary directory, so they work
-in both normal pytest and the bundled --test_mode pytest runner.
+These tests run entirely in-process using a temporary directory. They are
+skipped inside a frozen bundle because patch_cv2_config_for_bundle.py is a
+build-time devtool and is not shipped inside the app.
 """
 
 import importlib.util
@@ -13,8 +14,13 @@ from pathlib import Path
 
 import pytest
 
+if getattr(sys, "frozen", False):
+    pytest.skip(
+        "patch_cv2_config_for_bundle is a build-time devtool; skipped in frozen bundle",
+        allow_module_level=True,
+    )
+
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.unit,
 ]
 
