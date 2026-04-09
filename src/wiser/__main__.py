@@ -6,6 +6,7 @@ import logging
 import logging.config
 import os
 import sys
+import traceback
 
 import multiprocessing
 
@@ -122,6 +123,7 @@ import matplotlib
 
 # Use absolute paths
 from wiser.gui import bug_reporting
+from wiser.gui.startup_splash import StartupSplash, WiserGuiImportThread
 
 
 # ============================================================================
@@ -257,34 +259,39 @@ def main():
         app = QApplication([])
         icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
         icon = QIcon(icon_path)
+        app.setWindowIcon(icon)
         pixmap = icon.pixmap(256, 256)
-        flags = Qt.WindowDoesNotAcceptFocus | Qt.FramelessWindowHint
-        splash = QSplashScreen(pixmap, flags)
+        splash = StartupSplash(pixmap, icon)
         splash.show()
-        splash.showMessage(
-            "WISER may take longer to load the\nfirst time after a fresh install.",
-            Qt.AlignHCenter | Qt.AlignBottom,
-            QColor("black"),
-        )
         app.processEvents()
 
-        def load_app() -> QMainWindow:
-            # Use absolute imports in __main__.py so that we can pass the file to
-            # pyinstaller. Also this has heavy imports
-            # heavy imports
-            from wiser.gui.app import DataVisualizerApp
+        data_files: list[str] = list(args.data_files) if args.data_files else []
 
-            wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
-            # Set the initial window size to be 70% of the screen size.
-            screen_size = app.screens()[0].size()
-            wiser_ui.resize(screen_size * 0.7)
-            splash.finish(wiser_ui)
-            wiser_ui.show()
+        import_thread = WiserGuiImportThread(app)
 
-            return wiser_ui
+        def on_import_succeeded(app_module) -> None:
+            if app.closingDown() or splash.is_cancelled():
+                return
+            try:
+                wiser_ui = app_module.DataVisualizerApp(config_path=config_path, config=config)
+                screen_size = app.screens()[0].size()
+                wiser_ui.resize(screen_size * 0.7)
+                splash.finish_and_show_main(wiser_ui)
+                for file_path in data_files:
+                    wiser_ui._app_state.open_file(file_path)
+            except Exception:
+                logger.exception("Failed to construct WISER main window")
+                splash.set_startup_failed(traceback.format_exc())
 
-        # Run load_app when event loop starts
-        QTimer.singleShot(0, load_app)
+        def on_import_failed(message: str) -> None:
+            if app.closingDown() or splash.is_cancelled():
+                return
+            splash.set_startup_failed(message)
+
+        import_thread.succeeded.connect(on_import_succeeded)
+        import_thread.failed.connect(on_import_failed)
+        # Import runs on a worker thread so the splash stays responsive (e.g. cancel via ×).
+        QTimer.singleShot(0, import_thread.start)
 
         # ========================================================================
         # WISER Application Initialization
@@ -307,14 +314,7 @@ def main():
             except OSError:
                 logger.exception(f"Couldn't save WISER config file at {config_path}")
 
-        # If any data files are specified on the command-line, open them now
-        data_files = []
-        if args.data_files is not None:
-            data_files = args.data_files
-        if data_files:
-            for file_path in sys.argv[1:]:
-                logger.info(f'Opening file "{file_path}" specified on command-line')
-                wiser_ui._app_state.open_file(file_path)
+        # Command-line data files are opened in on_import_succeeded after the main window exists.
 
         sys.exit(app.exec_())
 
