@@ -219,6 +219,36 @@ def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverage
     return calc_spectrum(dataset, points, mode)
 
 
+def calc_spectrum_at_point_with_area(
+    dataset: RasterDataSet,
+    point: Tuple[int, int],
+    area: Tuple[int, int],
+    mode: SpectrumAverageMode = SpectrumAverageMode.MEAN,
+) -> np.ndarray:
+    """
+    Compute a 1D spectrum at a single pixel, or the mean/median spectrum over an
+    odd-sized rectangle centered on ``point``.
+
+    Shared by ``SpectrumAtPoint`` and the async spectrum task worker; matches
+    the historical behavior (including fallback array shapes on failure).
+    """
+    x, y = int(point[0]), int(point[1])
+    if area == (1, 1):
+        try:
+            return dataset.get_all_bands_at(x, y)
+        except BaseException:
+            return np.full((dataset.num_bands(),), np.nan)
+
+    width, height = int(area[0]), int(area[1])
+    left = x - (width - 1) / 2
+    top = y - (height - 1) / 2
+    rect = QRect(left, top, width, height)
+    try:
+        return calc_rect_spectrum(dataset, rect, mode=mode)
+    except BaseException:
+        return np.full((width, height), np.nan)
+
+
 def calc_spectrum(dataset: RasterDataSet, points: List[QPoint], mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a collection of points from the specified dataset.
@@ -790,23 +820,9 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
         This internal helper method computes and stores the spectrum data for
         this object, based on its current configuration.
         """
-        (x, y) = self._point
-
-        if self._area == (1, 1):
-            try:
-                self._spectrum = self._dataset.get_all_bands_at(x, y)
-            except:
-                self._spectrum = np.full((self._dataset.num_bands(),), np.nan)
-
-        else:
-            (width, height) = self._area
-            left = x - (width - 1) / 2
-            top = y - (height - 1) / 2
-            rect = QRect(left, top, width, height)
-            try:
-                self._spectrum = calc_rect_spectrum(self._dataset, rect, mode=self._avg_mode)
-            except:
-                self._spectrum = np.full((width, height), np.nan)
+        self._spectrum = calc_spectrum_at_point_with_area(
+            self._dataset, self._point, self._area, self._avg_mode
+        )
 
     def get_point(self):
         return self._point
