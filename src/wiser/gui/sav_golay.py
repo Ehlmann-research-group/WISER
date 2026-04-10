@@ -333,7 +333,7 @@ class SavGolayDialog(QDialog):
 
 class SavGolayPlugin(plugins.ContextMenuPlugin):
     def add_context_menu_items(self, context_type: plugins.ContextMenuType, context_menu, context):
-        if context_type == plugins.ContextMenuType.DATASET_PICK:
+        if context_type == plugins.ContextMenuType.RASTER_VIEW:
             act = context_menu.addAction(context_menu.tr("Savitzky-Golay Filter"))
             act.triggered.connect(
                 lambda checked=False: self._show_dialog(context, VariableType.IMAGE_CUBE_DATASET)
