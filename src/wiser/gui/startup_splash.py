@@ -22,6 +22,7 @@ from PySide2.QtWidgets import (
     QLabel,
     QMainWindow,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -52,6 +53,11 @@ class WiserGuiImportThread(QThread):
 
 # Shown under the logo until startup finishes or fails.
 DEFAULT_LOADING_MESSAGE = "WISER may take longer to load the\nfirst time after a fresh install."
+
+# Progress bar colors aligned with the app icon background (light cyan-blue in icon_256x256.png).
+_LOAD_PROGRESS_TRACK = "#f0fafa"
+_LOAD_PROGRESS_CHUNK = "#abc0e4"
+_LOAD_PROGRESS_BORDER = "#000000"
 
 
 class _AspectFitPixmapLabel(QLabel):
@@ -204,6 +210,31 @@ class StartupSplash(QWidget):
         logo.setContentsMargins(0, 6, 0, 8)
         root.addWidget(logo, stretch=1)
 
+        root.addSpacing(8)
+
+        # Indeterminate busy bar (native QProgressBar: min==max==0).
+        self._load_progress = QProgressBar()
+        self._load_progress.setRange(0, 0)
+        self._load_progress.setTextVisible(False)
+        self._load_progress.setFixedHeight(10)
+        self._load_progress.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._load_progress.setStyleSheet(
+            f"""
+            QProgressBar {{
+                border: 1px solid {_LOAD_PROGRESS_BORDER};
+                border-radius: 5px;
+                background-color: {_LOAD_PROGRESS_TRACK};
+            }}
+            QProgressBar::chunk {{
+                background-color: {_LOAD_PROGRESS_CHUNK};
+                border-radius: 4px;
+            }}
+            """
+        )
+        root.addWidget(self._load_progress)
+
+        root.addSpacing(10)
+
         # ── Status / hint text ───────────────────────────────────────────────
         self._message_label = QLabel(loading_message)
         self._message_label.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -215,15 +246,6 @@ class StartupSplash(QWidget):
         root.addWidget(self._message_label)
 
         root.addSpacing(12)
-
-        # ── Divider ──────────────────────────────────────────────────────────
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setFrameShadow(QFrame.Sunken)
-        divider.setStyleSheet("color: #ccc;")
-        root.addWidget(divider)
-
-        root.addSpacing(8)
 
         # ── Logs ─────────────────────────────────────────────────────────────
         logs_title = QLabel("Logs")
@@ -282,6 +304,7 @@ class StartupSplash(QWidget):
         self.append_log(message)
         self._message_label.setText("WISER could not start. See Logs below for details.")
         self._message_label.setStyleSheet("color: #a40000; font-weight: bold;")
+        self._load_progress.hide()
         self._log_view.setStyleSheet(
             """
             QPlainTextEdit {
