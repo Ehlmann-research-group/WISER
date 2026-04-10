@@ -63,7 +63,7 @@ Perhaps an option can be provided to turn this on or off, so that
 lightweight/reliable plugins can be kept within the WISER process. It should be
 noted that supporting running plugins in separate processes will require us to
 rethink how the user can create plugins that interact with the GUI. As of
-10/08/2025, users just have to create their PySide2 widget and show it, but a
+04/14/2026, users just have to create their PySide2 widget and show it, but a
 separate process can't easily do this.
 
 WISER needs to provide a long-running-task abstraction for plugins to leverage,
@@ -77,7 +77,7 @@ be a high priority to build early on, for the sake of usability.
 dependencies of WISER?**  WISER has a set of Python dependencies.  Plugins may
 have additional dependencies outside of WISER's dependencies.  Also, plugins
 may have dependencies that are incompatible with WISER's dependencies.  We need
-to consider how to support plugins in these scenarios. As of 10/08/2025, WISER
+to consider how to support plugins in these scenarios. As of 04/14/2026, WISER
 does not support plugins that have incompatible dependencies.
 
 This suggests that WISER should support plugins of two main "flavors":  plugins
