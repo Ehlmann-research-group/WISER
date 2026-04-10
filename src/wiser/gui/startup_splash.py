@@ -12,7 +12,7 @@ import logging
 import traceback
 from typing import Optional
 
-from PySide2.QtCore import Qt, QThread, QTimer, Signal
+from PySide2.QtCore import QSize, Qt, QThread, QTimer, Signal
 from PySide2.QtGui import QFont, QIcon, QPixmap
 from PySide2.QtWidgets import (
     QApplication,
@@ -22,7 +22,9 @@ from PySide2.QtWidgets import (
     QLabel,
     QMainWindow,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -52,6 +54,71 @@ class WiserGuiImportThread(QThread):
 # Shown under the logo until startup finishes or fails.
 DEFAULT_LOADING_MESSAGE = "WISER may take longer to load the\nfirst time after a fresh install."
 
+# Progress bar colors aligned with the app icon background (light cyan-blue in icon_256x256.png).
+_LOAD_PROGRESS_TRACK = "#f0fafa"
+_LOAD_PROGRESS_CHUNK = "#abc0e4"
+_LOAD_PROGRESS_BORDER = "#000000"
+
+
+class _AspectFitPixmapLabel(QLabel):
+    """
+    QLabel that rescales a pixmap to fit the current label size without clipping.
+
+    ``setScaledContents(True)`` is *not* used: it stretches the pixmap to the full
+    label rectangle and ignores aspect ratio. Here we rescale with
+    ``Qt.KeepAspectRatio`` on each resize so the image fits inside and stays centered.
+
+    ``min_size`` and ``preferred_size`` are square **edge lengths** (one number, not a
+    ``QSize``) used only for ``minimumSizeHint`` / ``sizeHint`` so the layout knows
+    how much space to reserve for a roughly square logo.
+    """
+
+    def __init__(
+        self,
+        source: QPixmap,
+        *,
+        preferred_size: int,
+        min_size: int = 64,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._source = QPixmap(source)
+        self._preferred_size = max(1, preferred_size)
+        self._min_size = max(1, min_size)
+        self.setAlignment(Qt.AlignCenter)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._refresh_pixmap()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._refresh_pixmap()
+
+    def minimumSizeHint(self) -> QSize:
+        m = self._min_size
+        return QSize(m, m)
+
+    def sizeHint(self) -> QSize:
+        s = self._preferred_size
+        return QSize(s, s)
+
+    def _refresh_pixmap(self) -> None:
+        if self._source.isNull():
+            return
+        # QLabel draws the pixmap inside contentsRect(), not the full geometry.
+        # Using width()/height() after setContentsMargins() scales too large → slight clip.
+        r = self.contentsRect()
+        w = max(1, r.width())
+        h = max(1, r.height())
+        dpr = self.devicePixelRatioF()
+        scaled = self._source.scaled(
+            int(w * dpr),
+            int(h * dpr),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation,
+        )
+        scaled.setDevicePixelRatio(dpr)
+        super().setPixmap(scaled)
+
 
 class StartupSplash(QWidget):
     """
@@ -78,7 +145,7 @@ class StartupSplash(QWidget):
         self._setup_window(icon)
         self._build_ui(pixmap, loading_message)
 
-    _LOGO_SIZE = 100
+    _LOGO_SIZE = 300
     _WINDOW_WIDTH = 400
     _WINDOW_HEIGHT = 520
 
@@ -138,18 +205,35 @@ class StartupSplash(QWidget):
         header.addWidget(close_btn)
         root.addLayout(header)
 
-        # ── Logo ─────────────────────────────────────────────────────────────
-        scaled = pixmap.scaled(
-            self._LOGO_SIZE,
-            self._LOGO_SIZE,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation,
-        )
-        logo = QLabel()
-        logo.setPixmap(scaled)
-        logo.setAlignment(Qt.AlignCenter)
+        # ── Logo (row stretches; pixmap scales to fit label, aspect preserved) ─
+        logo = _AspectFitPixmapLabel(pixmap, preferred_size=self._LOGO_SIZE)
         logo.setContentsMargins(0, 6, 0, 8)
-        root.addWidget(logo)
+        root.addWidget(logo, stretch=1)
+
+        root.addSpacing(8)
+
+        # Indeterminate busy bar (native QProgressBar: min==max==0).
+        self._load_progress = QProgressBar()
+        self._load_progress.setRange(0, 0)
+        self._load_progress.setTextVisible(False)
+        self._load_progress.setFixedHeight(10)
+        self._load_progress.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._load_progress.setStyleSheet(
+            f"""
+            QProgressBar {{
+                border: 1px solid {_LOAD_PROGRESS_BORDER};
+                border-radius: 5px;
+                background-color: {_LOAD_PROGRESS_TRACK};
+            }}
+            QProgressBar::chunk {{
+                background-color: {_LOAD_PROGRESS_CHUNK};
+                border-radius: 4px;
+            }}
+            """
+        )
+        root.addWidget(self._load_progress)
+
+        root.addSpacing(10)
 
         # ── Status / hint text ───────────────────────────────────────────────
         self._message_label = QLabel(loading_message)
@@ -162,15 +246,6 @@ class StartupSplash(QWidget):
         root.addWidget(self._message_label)
 
         root.addSpacing(12)
-
-        # ── Divider ──────────────────────────────────────────────────────────
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setFrameShadow(QFrame.Sunken)
-        divider.setStyleSheet("color: #ccc;")
-        root.addWidget(divider)
-
-        root.addSpacing(8)
 
         # ── Logs ─────────────────────────────────────────────────────────────
         logs_title = QLabel("Logs")
@@ -185,7 +260,10 @@ class StartupSplash(QWidget):
         self._log_view = QPlainTextEdit()
         self._log_view.setReadOnly(True)
         self._log_view.setPlaceholderText("Startup messages appear here if something goes wrong.")
-        self._log_view.setMinimumHeight(100)
+        # Preferred (not Expanding): avoid consuming all leftover height; scroll inside.
+        self._log_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._log_view.setMinimumHeight(40)
+        self._log_view.setMaximumHeight(80)
         self._log_view.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
         self._log_view.setStyleSheet(
             """
@@ -198,7 +276,7 @@ class StartupSplash(QWidget):
             }
             """
         )
-        root.addWidget(self._log_view, stretch=1)
+        root.addWidget(self._log_view)
 
     def _on_close_clicked(self) -> None:
         self.close()
@@ -226,6 +304,7 @@ class StartupSplash(QWidget):
         self.append_log(message)
         self._message_label.setText("WISER could not start. See Logs below for details.")
         self._message_label.setStyleSheet("color: #a40000; font-weight: bold;")
+        self._load_progress.hide()
         self._log_view.setStyleSheet(
             """
             QPlainTextEdit {
