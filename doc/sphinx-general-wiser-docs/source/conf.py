@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "general-wiser-docs"
-copyright = "2025, Joshua Garcia-Kimble"
+copyright = "2026, Joshua Garcia-Kimble"
 author = "Joshua Garcia-Kimble"
-release = "1.4b1"
+release = "2.1b1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
