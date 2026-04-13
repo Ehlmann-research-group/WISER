@@ -1687,7 +1687,7 @@ class BandMathDialog(QDialog):
             # If there is a row for batch processing and batch processing is disabled, remove the row
             # If there is no row for batch processing and batch processing is enabled, add a new row
             batch_proc_mismatch = self._is_batch_var_row(index) != self.is_batch_processing_enabled()
-            # If the current row's dataset got deleted, we need to readd the row
+            # If the current row's dataset got deleted, we need to read the row
             row_state_changed = not self.is_row_state_unchanged(index)
             if index == -1 or batch_proc_mismatch or row_state_changed:
                 if (batch_proc_mismatch and index != -1) or row_state_changed:
@@ -2103,7 +2103,7 @@ class BandMathDialog(QDialog):
         if var_type == bandmath.VariableType.IMAGE_CUBE:
             if isinstance(value_widget, QComboBox):
                 ds_id = value_widget.currentData()
-                return ds_id is not None and self._app_state.has_dataset(ds_id)
+                return ds_id is None or self._app_state.has_dataset(ds_id)
             return False
 
         # IMAGE_BAND -> dataset ID from DatasetBandChooserWidget
@@ -2117,6 +2117,9 @@ class BandMathDialog(QDialog):
         if var_type == bandmath.VariableType.SPECTRUM:
             if isinstance(value_widget, QComboBox):
                 info = value_widget.currentData()
+                # If there is no data in the widget, then it couldn't have been changed
+                if info is None:
+                    return True
                 if isinstance(info, int):
                     return self._app_state.has_spectrum(info)
                 if isinstance(info, tuple) and len(info) == 2:
@@ -2186,7 +2189,7 @@ class BandMathDialog(QDialog):
                         lib = self._app_state.get_spectral_library(lib_id)
                         value = lib.get_spectrum(spectrum_index)
 
-                else:
+                elif not isinstance(spectrum_info, type(None)):
                     raise TypeError(f"Unrecognized type of spectrum info:  {spectrum_info}")
             elif var_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
                 # If value is None, then the bandmath dialog will raise the not all bindings specified error
@@ -2219,7 +2222,7 @@ class BandMathDialog(QDialog):
                 raise AssertionError(f"Unrecognized binding type {var_type} for variable {var}")
 
             assert isinstance(
-                value, Serializable
+                value, (Serializable, type(None))
             ), f"value from get_variable_bindings is not Serializable, instead it's {type(value)}"
             variables[var] = (var_type, value)
 
