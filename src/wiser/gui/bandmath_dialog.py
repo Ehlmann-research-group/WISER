@@ -2103,14 +2103,18 @@ class BandMathDialog(QDialog):
         if var_type == bandmath.VariableType.IMAGE_CUBE:
             if isinstance(value_widget, QComboBox):
                 ds_id = value_widget.currentData()
-                return ds_id is None or self._app_state.has_dataset(ds_id)
+                if ds_id is None:
+                    return True
+                return self._app_state.has_dataset(ds_id)
             return False
 
         # IMAGE_BAND -> dataset ID from DatasetBandChooserWidget
         if var_type == bandmath.VariableType.IMAGE_BAND:
             if isinstance(value_widget, DatasetBandChooserWidget):
-                ds_id, _band_idx = value_widget.get_ds_band()
-                return ds_id is not None and self._app_state.has_dataset(ds_id)
+                ds_id, band_idx = value_widget.get_ds_band()
+                if ds_id is None or band_idx is None:
+                    return True
+                return self._app_state.has_dataset(ds_id)
             return False
 
         # SPECTRUM -> either spectrum ID (int) or (lib_id, spectrum_index) tuple

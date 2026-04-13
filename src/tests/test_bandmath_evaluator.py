@@ -32,6 +32,8 @@ from wiser.raster.serializable import BasicValueSerialized, SerializedForm
 
 from test_utils.test_model import WiserTestModel
 
+from PySide2.QtWidgets import QComboBox
+
 from wiser.bandmath.utils import (
     load_image_from_bandmath_result,
     load_band_from_bandmath_result,
@@ -1864,6 +1866,45 @@ class TestBandmathEvaluator(unittest.TestCase):
 
     def test_bandmath_builtin_func_async(self):
         self.bandmath_test_builtin_func_helper(run_sync=False)
+
+    # Band Math dialog: variable type changes with empty app state (regression)
+
+    def _assert_bandmath_dialog_variable_type_result(self, target_type: VariableType):
+        dialog = self.test_model._bandmath_regression_dialog
+        self.assertIsNotNone(dialog, "Band Math dialog should be open on the test model")
+        tbl = dialog._ui.tbl_variables
+        self.assertEqual(tbl.rowCount(), 1)
+        item0 = tbl.item(0, 0)
+        self.assertIsNotNone(item0)
+        self.assertEqual(item0.text(), "a")
+        type_combo = tbl.cellWidget(0, 1)
+        self.assertIsInstance(type_combo, QComboBox)
+        self.assertEqual(type_combo.currentData(), target_type)
+        self.assertEqual(type_combo.currentText(), dialog._variable_types_text[target_type])
+        info_text = dialog._ui.lbl_result_info.text()
+        self.assertNotIn(
+            "Error:",
+            info_text,
+            msg=f"Band-math result label should not show an exception error: {info_text!r}",
+        )
+        stylesheet = dialog._ui.lbl_result_info.styleSheet() or ""
+        self.assertNotIn(
+            "color: red",
+            stylesheet.lower(),
+            msg="Result label should not use red error styling after type change",
+        )
+
+    def test_bandmath_dialog_variable_type_spectrum_empty_app(self):
+        """Regression: switch ``a`` to Spectrum with no spectra loaded; type must stick."""
+        self.addCleanup(self.test_model.close_bandmath_regression_dialog)
+        self.test_model.bandmath_dialog_variable_type_change_empty_app(VariableType.SPECTRUM)
+        self._assert_bandmath_dialog_variable_type_result(VariableType.SPECTRUM)
+
+    def test_bandmath_dialog_variable_type_image_cube_empty_app(self):
+        """Regression: switch ``a`` to Image (cube) with no data loaded; type must stick."""
+        self.addCleanup(self.test_model.close_bandmath_regression_dialog)
+        self.test_model.bandmath_dialog_variable_type_change_empty_app(VariableType.IMAGE_CUBE)
+        self._assert_bandmath_dialog_variable_type_result(VariableType.IMAGE_CUBE)
 
 
 if __name__ == "__main__":
