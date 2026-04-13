@@ -10,7 +10,7 @@ libraries, probably because of library/DLL versioning issues. However, between W
 
 ## IDE
 
-The ID that WISER is currently (10/7/2025) developed on is Visual Studio Code. Although, I don't see why other IDEs would not work.
+The IDE that WISER is currently (04/14/2026) developed on is Visual Studio Code. Although, I don't see why other IDEs would not work.
 
 ## Installer - NSIS
 

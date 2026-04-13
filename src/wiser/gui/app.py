@@ -76,6 +76,7 @@ from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
 from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
+from wiser.gui.mnf import MinimumNoiseFractionDialog
 
 from wiser.config import FLAGS
 
@@ -389,6 +390,9 @@ class DataVisualizerApp(QMainWindow):
         if FLAGS.sff:
             act = submenu.addAction(self.tr("Spectral Feature Fitting"))
             act.triggered.connect(self.show_spectral_feature_fitting_dialog)
+
+        act = submenu.addAction(self.tr("Minimum Noise Fraction"))
+        act.triggered.connect(self.show_mnf_dialog)
 
         act = self._tools_menu.addAction(self.tr("Geo Reference"))
         act.triggered.connect(self.show_geo_reference_dialog)
@@ -999,6 +1003,12 @@ class DataVisualizerApp(QMainWindow):
 
     def show_scatter_plot_dialog(self):
         self._main_view.on_scatter_plot_2D()
+
+    def show_mnf_dialog(self):
+        dlg = MinimumNoiseFractionDialog(self._app_state, self._app_services, parent=self)
+        dlg.select_dataset(None)
+        if dlg.exec_() == QDialog.Accepted:
+            pass
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:

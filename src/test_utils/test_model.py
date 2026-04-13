@@ -59,6 +59,9 @@ from wiser.gui.ui_library import (
     ROIChooserDialog,
     BandChooserDialog,
 )
+from wiser.gui.bandmath_dialog import BandMathDialog
+
+from wiser.bandmath import VariableType
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
@@ -120,6 +123,8 @@ class WiserTestModel:
         self._set_up()
 
         self.raster_data_loader = RasterDataLoader()
+
+        self._bandmath_regression_dialog: Optional[BandMathDialog] = None
 
     def _tear_down_windows(self):
         """Closes all open windows and processes pending events."""
@@ -2096,6 +2101,65 @@ class WiserTestModel:
         # We expect this to be none here
         none_ = self.app_state._plugin_band_chooser_dialog.get_chosen_object()
         return none_
+
+    # ==========================================
+    # region Band Math dialog
+    # ==========================================
+
+    def _bandmath_apply_variable_type_combo(self, type_combo: QComboBox, target_type: VariableType) -> bool:
+        idx = type_combo.findData(target_type)
+        if idx < 0:
+            return False
+        type_combo.setCurrentIndex(idx)
+        type_combo.activated.emit(idx)
+        QApplication.processEvents()
+        return True
+
+    def close_bandmath_regression_dialog(self) -> None:
+        """Close the Band Math dialog opened for regression tests and clear the reference."""
+        if self._bandmath_regression_dialog is not None:
+            self._bandmath_regression_dialog.close()
+            self._bandmath_regression_dialog.deleteLater()
+            self._bandmath_regression_dialog = None
+            QApplication.processEvents()
+
+    @run_in_wiser_decorator
+    def bandmath_dialog_variable_type_change_empty_app(self, target_type: VariableType) -> None:
+        """
+        Open Band Math with expression ``a+0``, change variable ``a`` to ``target_type``,
+        and leave the dialog open on ``self._bandmath_regression_dialog``.
+
+        Tests must read **live** widget state from that dialog **after** this method
+        returns (do not snapshot values inside this function for assertions). Call
+        :meth:`close_bandmath_regression_dialog` when finished.
+
+        Runs inside the Qt event loop via :func:`run_in_wiser_decorator`. Parent is the
+        main window, like ``DataVisualizerApp.show_bandmath_dialog``.
+
+        For Image Band, first switches to Image (cube) then to Image Band so switching
+        *to* Image Band is exercised (default name guess for ``a`` is already Image Band).
+        """
+        self.close_bandmath_regression_dialog()
+
+        dialog = BandMathDialog(self.app_state, parent=self.main_window)
+        self._bandmath_regression_dialog = dialog
+
+        dialog.setAttribute(Qt.WA_DontShowOnScreen, True)
+        dialog.show()
+        QApplication.processEvents()
+
+        dialog._ui.ledit_expression.setText("a+0")
+        dialog._analyze_expr()
+        QApplication.processEvents()
+
+        type_combo = dialog._ui.tbl_variables.cellWidget(0, 1)
+        if not isinstance(type_combo, QComboBox):
+            return
+
+        if target_type == VariableType.IMAGE_BAND:
+            self._bandmath_apply_variable_type_combo(type_combo, VariableType.IMAGE_CUBE)
+
+        self._bandmath_apply_variable_type_combo(type_combo, target_type)
 
     # ==========================================
     # region General
