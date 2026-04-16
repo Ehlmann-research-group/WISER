@@ -20,6 +20,7 @@ Questions or feedback? Please open an issue on the
     user-content/saving-datasets.md
     user-content/spectral-plots.md
     user-content/band-math.md
+    user-content/plugin-repository.md
     user-content/data-analysis-tools.md
     user-content/georeferencer.md
     user-content/similarity-transform.md
