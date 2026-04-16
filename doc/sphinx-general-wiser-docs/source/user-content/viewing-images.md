@@ -16,5 +16,5 @@ main window. Correspondingly, the area visible in the main window is indicated
 in the context window.  _(Tip:  The color of this viewport highlight can be
 changed in the WISER configuration dialog.)_  Mouse-clicks or scrolling within
 the various display windows will update the other windows.
-Mouse clicks within the main or zoom windows willMouse clicks within the mainpixel, and update the spectrum plot window
+Mouse clicks within the main or zoom windows will update the spectrum plot window
 with the pixel's spectrum.
