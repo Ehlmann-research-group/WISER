@@ -72,7 +72,7 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
 4.  Go to the project directory for WISER.
 
-    On my computer this is:  `C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER`
+    For example:  `C:\Users\<username>\WISER`
 
 5.  Clean up any existing build artifacts.
 
