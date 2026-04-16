@@ -31,3 +31,16 @@ python -m wiser
 For full setup instructions, see the
 [Developer Environment Setup](doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md)
 guide.
+
+## Reporting Issues
+
+If you find a bug or want to request a feature, please
+[open a GitHub Issue](https://github.com/Ehlmann-research-group/WISER/issues/new/choose).
+
+## License
+
+Copyright 2019–2026, California Institute of Technology (Caltech) and
+Regents of the University of Colorado. All rights reserved.
+
+See [LICENSE](LICENSE) for the full license text.
+
