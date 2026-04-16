@@ -3,6 +3,12 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import os
+import sys
+
+# Make wiser package importable for sphinx.ext.autodoc (used by extending-wiser pages)
+sys.path.insert(0, os.path.abspath("../../../../src"))
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -29,7 +35,9 @@ html_title = "WISER Docs"
 extensions = [
     "myst_parser",
     "autodoc2",
+    "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
+    "sphinx.ext.viewcode",
     "enum_tools.autoenum",
 ]
 
@@ -42,6 +50,11 @@ autodoct_render_plugin = "myst"
 
 autodoc2_hidden_objects = {"inherited"}
 autodoc2_class_docstring = "merged"
+
+# sphinx.ext.autodoc options (used by extending-wiser plugin API pages)
+autodoc_default_options = {
+    "member-order": "bysource",
+}
 
 templates_path = ["_templates"]
 exclude_patterns = []
