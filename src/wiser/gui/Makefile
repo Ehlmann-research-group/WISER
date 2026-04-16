@@ -41,6 +41,7 @@ FILENAMES=\
 	scatter_plot_axes_ui.py \
 	scatter_plot_colormap_ui.py \
 	similarity_transform_dialog_ui.py \
+	smoothing_filter_dialog_ui.py \
 	spectral_angle_mapper_ui.py \
 	spectral_feature_fitting_ui.py \
 	spectrum_info_editor_ui.py \
