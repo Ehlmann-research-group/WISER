@@ -29,3 +29,7 @@ adding to WISER.
     developer-content/system-design/activity_monitor.md
 
     developer-content/system-design/storage_memory_management.md
+
+    developer-content/code-review-and-quality.md
+
+
