@@ -30,6 +30,8 @@ adding to WISER.
 
     developer-content/system-design/storage_memory_management.md
 
+    developer-content/system-design/multi-views.md
+
     developer-content/code-review-and-quality.md
 
     developer-content/release-process.md

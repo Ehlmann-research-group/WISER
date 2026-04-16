@@ -17,3 +17,4 @@ This website has information for both users of WISER and contributors to WISER.
    extending-wiser/index.rst
    developer.rst
    contributing.rst
+   general-content/related-projects.md
