@@ -1,7 +1,9 @@
+import inspect
 from dataclasses import dataclass, field, replace
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, Union
 import numpy as np
+from scipy import ndimage
 from scipy.signal import savgol_filter
 from sklearn.decomposition import IncrementalPCA, PCA
 from PySide2.QtCore import *
@@ -25,6 +27,7 @@ from wiser.utils.primitives import (
     SpectraBatchRef,
     SpectraListPlanMeta,
     SpatialTileScheme,
+    SpectralBatchDatasetScheme,
 )
 from wiser.utils.task_system import (
     AlgorithmPipeline,
@@ -1344,6 +1347,504 @@ def get_savgol_filter_pipeline(
             )
         ]
     )
+
+
+# region Smoothing filter MapStages (spatial / spectral ndimage)
+
+
+NDIMAGE_SMOOTHING_FILTER_REGISTRY: Dict[str, Callable[..., Any]] = {
+    "uniform_filter": ndimage.uniform_filter,
+    "median_filter": ndimage.median_filter,
+    "gaussian_filter": ndimage.gaussian_filter,
+}
+
+_GAUSSIAN_FILTER_DEFAULT_TRUNCATE = 4.0
+
+
+def _resolve_smoothing_ndimage_callable(
+    *,
+    ndimage_filter_fn: Optional[Callable[..., Any]],
+    filter_registry_key: Optional[str],
+) -> Callable[..., Any]:
+    if ndimage_filter_fn is not None:
+        return ndimage_filter_fn
+    if filter_registry_key is None:
+        raise ValueError("Provide _ndimage_filter_fn or _filter_registry_key (e.g. 'median_filter').")
+    fn = NDIMAGE_SMOOTHING_FILTER_REGISTRY.get(filter_registry_key)
+    if fn is None:
+        raise ValueError(
+            f"Unknown _filter_registry_key={filter_registry_key!r}. "
+            f"Known keys: {sorted(NDIMAGE_SMOOTHING_FILTER_REGISTRY.keys())}"
+        )
+    return fn
+
+
+def _normalize_smoothing_filter_kwargs(
+    fn: Callable[..., Any],
+    raw_kwargs: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Drop None-valued keys; apply gaussian_filter defaults (e.g. truncate)."""
+    kwargs = {k: v for k, v in dict(raw_kwargs or {}).items() if v is not None}
+    if fn is ndimage.gaussian_filter or getattr(fn, "__name__", "") == "gaussian_filter":
+        # SciPy default truncate is 4.0; we set explicitly so callers can rely on it.
+        kwargs.setdefault("truncate", _GAUSSIAN_FILTER_DEFAULT_TRUNCATE)
+    return kwargs
+
+
+def _finalize_smoothing_filter_kwargs_spatial(
+    fn: Callable[..., Any],
+    kwargs: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Force filtering on dataset axes (0, 1) = (y, x). ``size`` / ``sigma`` / ``radius`` must be int or float
+    (same along y and x) or a length-2 pair of int/float for (axis 0, axis 1).
+    """
+    out = dict(kwargs)
+    if "axes" in out and tuple(out["axes"]) != (0, 1):
+        raise ValueError(
+            "SmoothingFilterSpatial fixes axes=(0, 1) for (y, x); "
+            "remove 'axes' from _filter_kwargs or use (0, 1)."
+        )
+    out["axes"] = (0, 1)
+
+    name = getattr(fn, "__name__", "")
+    if fn is ndimage.gaussian_filter or name == "gaussian_filter":
+        sig = out["sigma"]
+        if isinstance(sig, (int, float)):
+            out["sigma"] = (sig, sig)
+        elif isinstance(sig, (tuple, list)) and len(sig) == 2:
+            if not isinstance(sig[0], (int, float)) or not isinstance(sig[1], (int, float)):
+                raise TypeError(f"Spatial gaussian_filter 'sigma' pair must be int or float, got {sig!r}")
+            out["sigma"] = (sig[0], sig[1])
+        else:
+            raise TypeError(
+                "Spatial gaussian_filter 'sigma' must be int or float "
+                f"or a pair of int/float, got {type(sig).__name__}"
+            )
+        if "radius" in out:
+            rad = out["radius"]
+            if isinstance(rad, (int, float)):
+                out["radius"] = (rad, rad)
+            elif isinstance(rad, (tuple, list)) and len(rad) == 2:
+                if not isinstance(rad[0], (int, float)) or not isinstance(rad[1], (int, float)):
+                    raise TypeError(
+                        f"Spatial gaussian_filter 'radius' pair must be int or float, got {rad!r}"
+                    )
+                out["radius"] = (rad[0], rad[1])
+            else:
+                raise TypeError(
+                    "Spatial gaussian_filter 'radius' must be int or float "
+                    f"or a pair of int/float, got {type(rad).__name__}"
+                )
+    elif fn in (ndimage.uniform_filter, ndimage.median_filter) or name in ("uniform_filter", "median_filter"):
+        sz = out["size"]
+        if isinstance(sz, (int, float)):
+            out["size"] = (sz, sz)
+        elif isinstance(sz, (tuple, list)) and len(sz) == 2:
+            if not isinstance(sz[0], (int, float)) or not isinstance(sz[1], (int, float)):
+                raise TypeError(f"Spatial {name} 'size' pair must be int or float, got {sz!r}")
+            out["size"] = (sz[0], sz[1])
+        else:
+            raise TypeError(
+                f"Spatial {name} 'size' must be int or float or a pair of int/float, got {type(sz).__name__}"
+            )
+    return out
+
+
+def _finalize_smoothing_filter_kwargs_spectral(
+    fn: Callable[..., Any], kwargs: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Force filtering on axis (2,) (spectral / band axis). Coerce size / sigma / radius to one scalar each.
+    """
+    out = dict(kwargs)
+    if "axes" in out and tuple(out["axes"]) != (2,):
+        raise ValueError(
+            "SmoothingFilterSpectral fixes axes=(2,) (spectral axis); "
+            "remove 'axes' from _filter_kwargs or use (2,)."
+        )
+    out["axes"] = (2,)
+
+    name = getattr(fn, "__name__", "")
+    if fn is ndimage.gaussian_filter or name == "gaussian_filter":
+        if not isinstance(out["sigma"], (int, float)):
+            raise TypeError(
+                f"Spectral gaussian_filter 'sigma' must be int or float, got {type(out['sigma']).__name__}"
+            )
+        if "radius" in out:
+            if not isinstance(out["radius"], (int, float)):
+                raise TypeError(
+                    "Spectral gaussian_filter 'radius' must be int or float, "
+                    f"got {type(out['radius']).__name__}"
+                )
+    elif fn in (ndimage.uniform_filter, ndimage.median_filter) or name in ("uniform_filter", "median_filter"):
+        if not isinstance(out["size"], (int, float)):
+            raise TypeError(f"Spectral {name} 'size' must be int or float, got {type(out['size']).__name__}")
+    return out
+
+
+def _validate_smoothing_ndimage_parameter_combinations(
+    fn: Callable[..., Any], kwargs: Dict[str, Any]
+) -> None:
+    """
+    Semantic rules beyond signature checks (no array dry-run).
+    """
+    name = getattr(fn, "__name__", "")
+    if fn is ndimage.gaussian_filter or name == "gaussian_filter":
+        if "sigma" not in kwargs:
+            raise ValueError("gaussian_filter requires keyword 'sigma' (must not be None).")
+        if kwargs["sigma"] is None:
+            raise ValueError("gaussian_filter keyword 'sigma' must not be None.")
+        # radius is optional; truncate is set in _normalize_smoothing_filter_kwargs
+    if fn in (ndimage.uniform_filter, ndimage.median_filter) or name in ("uniform_filter", "median_filter"):
+        if "size" not in kwargs:
+            raise ValueError(f"{name} requires keyword 'size' (must not be None).")
+
+
+def _validate_ndimage_kwargs_match_signature(fn: Callable[..., Any], kwargs: Dict[str, Any]) -> None:
+    """
+    Ensure every keyword is accepted by ``fn`` using inspect.signature and no value is None.
+    We run _normalize_smoothing_filter_kwargs before calling this function to get rid of None values.
+    """
+    for k, v in kwargs.items():
+        if v is None:
+            raise ValueError(f"Filter keyword {k!r} must not be None after normalization (got None).")
+
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError) as e:
+        raise TypeError(f"Cannot inspect signature of {fn!r}") from e
+
+    params = list(sig.parameters.values())
+    if not params:
+        raise TypeError(f"{fn!r} has no parameters")
+
+    var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params)
+    if var_kw:
+        return
+
+    # First parameter is the input array (positional); remaining names are keyword/positional-or-keyword.
+    accepted: set[str] = set()
+    for p in params[1:]:
+        if p.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):
+            accepted.add(p.name)
+
+    for k in kwargs:
+        if k not in accepted:
+            raise TypeError(f"{getattr(fn, '__name__', fn)!r}() got an unexpected keyword argument {k!r}")
+
+
+def build_smoothing_exclusion_mask(
+    tile_yxb: np.ndarray,
+    nodata: Optional[float],
+    bad_bands: Optional[Any],
+) -> np.ndarray:
+    """
+    Return a boolean mask (same shape as ``tile_yxb``) that is True wherever a
+    sample should be treated as invalid before smoothing.
+
+    Invalid means either:
+    - the sample equals the dataset's nodata value (or is NaN when nodata is NaN), or
+    - the sample belongs to a bad band (bad_bands[b] == 0).
+
+    Split out from the tile runner so the test suite can build the same mask
+    when computing the reference (expected) array.
+    """
+    mask = np.zeros(tile_yxb.shape, dtype=np.bool_)
+    if nodata is not None:
+        if np.isnan(nodata):
+            mask |= np.isnan(tile_yxb)
+        else:
+            mask |= tile_yxb == nodata
+    if bad_bands is not None:
+        bad_band_mask = (np.asarray(bad_bands) == 0).reshape(1, 1, tile_yxb.shape[2])
+        mask |= np.broadcast_to(bad_band_mask, tile_yxb.shape)
+    return mask
+
+
+def _smoothing_dataset_tile_exclusion_mask(tile_yxb: np.ndarray, region_meta: Any) -> np.ndarray:
+    return build_smoothing_exclusion_mask(tile_yxb, region_meta.nodata, region_meta.bad_bands)
+
+
+def _write_smoothing_ndimage_output_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    if not isinstance(full_input_region, DatasetRegionRef):
+        raise TypeError("Smoothing filter metadata write requires DatasetRegionRef full_input_region")
+
+    client = get_process_storage_client()
+    input_region_meta = client.get_region_meta(input_ref, full_input_region)
+    output_meta = client.get_meta(output_write.ref)
+    out_meta = replace(
+        output_meta,
+        elem_type=np.dtype(np.float32),
+        nodata=input_region_meta.nodata,
+        wavelengths=input_region_meta.wavelengths,
+        wavelength_units=input_region_meta.wavelength_units,
+        bad_bands=input_region_meta.bad_bands,
+        crs_wkt=input_region_meta.crs_wkt,
+        geotransform=input_region_meta.geotransform,
+    )
+    client.write_meta(output_write.ref, out_meta)
+
+
+def _run_smoothing_filter_ndimage_tile(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    ndimage_filter_fn: Callable[..., Any],
+    filter_kwargs: Dict[str, Any],
+) -> None:
+    """
+    Read tile, mask invalid samples to NaN, coerce non-finite values to NaN, run ndimage filter,
+    then copy original values back at excluded positions (nodata/bad-band cells from input).
+    Extra NaNs from the kernel near edges are left as-is (see feature spec).
+    """
+    if not isinstance(input_region, DatasetRegionRef):
+        raise TypeError("Smoothing filter stages require DatasetRegionRef input_region")
+
+    client = get_process_storage_client()
+    input_tile, region_meta = client.read_region(input_ref, input_region, filter_data=False)
+
+    if input_tile.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [y][x][b], got {input_tile.shape}")
+
+    exclusion = _smoothing_dataset_tile_exclusion_mask(input_tile, region_meta)
+
+    work = np.asarray(input_tile, dtype=np.float32, order="C")
+    work[exclusion] = np.nan
+    work[~np.isfinite(work)] = np.nan
+
+    filtered = ndimage_filter_fn(work, **filter_kwargs)
+    output_tile = np.asarray(filtered, dtype=np.float32, order="C")
+
+    # Restore original stored values at mask locations so nodata/bad-band
+    # semantics stay aligned with metadata.
+    output_tile[exclusion] = input_tile[exclusion]
+
+    assert output_write.region is not None, "output_write.region cannot be None for smoothing filter output"
+    output_write.region.validate_array_shape(output_tile)
+    client.write_spec(output_write, output_tile.astype(np.float32, copy=False))
+
+
+@dataclass
+class SmoothingFilterSpatial(MapStage):
+    """
+    Apply a scipy.ndimage filter over spatial axes (y, x).
+
+    ``axes=(0, 1)`` is set automatically. ``size`` (uniform/median) or ``sigma`` / optional ``radius``
+    (gaussian) must be one scalar (symmetric kernel) or a pair of two scalars for the two spatial axes.
+    Do not pass ``axes`` in ``_filter_kwargs`` unless it is ``(0, 1)``.
+
+    Uses ``SpectralBatchDatasetScheme`` so each work unit receives the full spatial extent
+    (H, W) for a subset of bands. Because spatial filtering only needs neighbors along y and x,
+    bands are independent and can be processed in slices without boundary effects.
+    """
+
+    _ndimage_filter_fn: Optional[Callable[..., Any]] = None
+    _filter_registry_key: Optional[str] = None
+    _filter_kwargs: Optional[Dict[str, Any]] = None
+    _output_ref_name: str = "spatial_smoothed_dataset"
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpectralBatchDatasetScheme
+
+    _resolved_ndimage_filter_fn: Callable[..., Any] = field(init=False, repr=False)
+    _resolved_filter_kwargs: Dict[str, Any] = field(init=False, repr=False)
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+        fn = _resolve_smoothing_ndimage_callable(
+            ndimage_filter_fn=self._ndimage_filter_fn,
+            filter_registry_key=self._filter_registry_key,
+        )
+        kwargs = _normalize_smoothing_filter_kwargs(fn, self._filter_kwargs)
+        _validate_smoothing_ndimage_parameter_combinations(fn, kwargs)
+        kwargs = _finalize_smoothing_filter_kwargs_spatial(fn, kwargs)
+        _validate_ndimage_kwargs_match_signature(fn, kwargs)
+
+        object.__setattr__(self, "_resolved_ndimage_filter_fn", fn)
+        object.__setattr__(self, "_resolved_filter_kwargs", kwargs)
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("SmoothingFilterSpatial expects DatasetRegionRef input")
+        return input_region
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "SmoothingFilterSpatial input_meta must be DatasetPlanMeta"
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height
+                * input_meta.width
+                * input_meta.bands
+                * np.dtype(np.float32).itemsize,
+                shape=(input_meta.height, input_meta.width, input_meta.bands),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _run_smoothing_filter_ndimage_tile,
+            input_ref,
+            input_region,
+            output_write,
+            self._resolved_ndimage_filter_fn,
+            self._resolved_filter_kwargs,
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_smoothing_ndimage_output_meta, input_ref, full_input_region, output_write)
+
+
+@dataclass
+class SmoothingFilterSpectral(MapStage):
+    """
+    Apply a scipy.ndimage filter along the spectral (band) axis.
+
+    ``axes=(2,)`` is set automatically. ``size`` (uniform/median) or ``sigma`` / optional ``radius``
+    (gaussian) must be a single scalar (kernel along bands only). Do not pass ``axes`` in
+    ``_filter_kwargs`` unless it is ``(2,)``.
+
+    Uses ``SpatialTileScheme`` so each work unit receives a spatial tile with the full band depth
+    (b0=0, b1=B). This is required for spectral filtering: the kernel along axis 2 needs access to
+    every band of each pixel's spectrum to produce a correct result.
+    """
+
+    _ndimage_filter_fn: Optional[Callable[..., Any]] = None
+    _filter_registry_key: Optional[str] = None
+    _filter_kwargs: Optional[Dict[str, Any]] = None
+    _output_ref_name: str = "spectral_smoothed_dataset"
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    _resolved_ndimage_filter_fn: Callable[..., Any] = field(init=False, repr=False)
+    _resolved_filter_kwargs: Dict[str, Any] = field(init=False, repr=False)
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+        fn = _resolve_smoothing_ndimage_callable(
+            ndimage_filter_fn=self._ndimage_filter_fn,
+            filter_registry_key=self._filter_registry_key,
+        )
+        kwargs = _normalize_smoothing_filter_kwargs(fn, self._filter_kwargs)
+        _validate_smoothing_ndimage_parameter_combinations(fn, kwargs)
+        kwargs = _finalize_smoothing_filter_kwargs_spectral(fn, kwargs)
+        _validate_ndimage_kwargs_match_signature(fn, kwargs)
+
+        object.__setattr__(self, "_resolved_ndimage_filter_fn", fn)
+        object.__setattr__(self, "_resolved_filter_kwargs", kwargs)
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("SmoothingFilterSpectral expects DatasetRegionRef input")
+        return input_region
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "SmoothingFilterSpectral input_meta must be DatasetPlanMeta"
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height
+                * input_meta.width
+                * input_meta.bands
+                * np.dtype(np.float32).itemsize,
+                shape=(input_meta.height, input_meta.width, input_meta.bands),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _run_smoothing_filter_ndimage_tile,
+            input_ref,
+            input_region,
+            output_write,
+            self._resolved_ndimage_filter_fn,
+            self._resolved_filter_kwargs,
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_smoothing_ndimage_output_meta, input_ref, full_input_region, output_write)
+
+
+# endregion Smoothing filter MapStages
 
 
 def _running_covariance(
