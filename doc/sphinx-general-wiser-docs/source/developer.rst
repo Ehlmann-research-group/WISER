@@ -32,4 +32,10 @@ adding to WISER.
 
     developer-content/code-review-and-quality.md
 
+    developer-content/release-process.md
+
+    developer-content/diagnostics.md
+
+    developer-content/plugin-architecture.md
+
 
