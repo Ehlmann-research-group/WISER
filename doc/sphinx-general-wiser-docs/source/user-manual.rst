@@ -15,3 +15,4 @@ comments.
 
     user-content/overview.md
     user-content/contrast-stretch.md
+    user-content/data-analysis-tools.md
