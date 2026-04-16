@@ -1,6 +1,37 @@
 (contrast-stretch)=
 # Contrast Stretch
 
+The contrast stretch tool provides sophisticated options for adjusting the
+contrast of images being displayed. This allows the user to bring out details
+in the image data that might otherwise not be perceptible.
+
+Here is an example of the contrast stretch tool being used with the Caltech
+AVIRIS data.
+
+<img class="img_center" src="../_static/images/stretch_full_linear.png" width="80%">
+
+A histogram is shown for each display band, allowing one to see the
+distribution of values for that band. The user can select both the kind of
+contrast stretch used, and any conditioners to apply to the data before
+applying the stretch. Because it is useful to see the results of applying
+contrast stretch, changes in the dialog are immediately reflected in the
+affected raster displays. If the "Cancel" button is pressed, the changes
+will be discarded; otherwise, they will be kept when the dialog is closed.
+
+Here is another example of applying a 2.5% linear stretch to the Caltech
+AVIRIS data:
+
+<img class="img_center" src="../_static/images/stretch_2.5_linear.png" width="80%">
+
+When applying a linear stretch, the sliders may be adjusted to control the
+endpoints of the contrast-stretch operation. Additionally, minimum and
+maximum values may be specified, to exclude noise that appears outside the
+range of useful data, or to focus in on a specific range of values.
+
+---
+
+## How Contrast Stretch Calculations Work
+
 WISER supports manipulating the contrast stretch of data sets being displayed.
 This is often very helpful to bring out important details in the data.
 
