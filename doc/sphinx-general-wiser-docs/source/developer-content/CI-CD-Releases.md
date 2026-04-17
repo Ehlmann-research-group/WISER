@@ -182,7 +182,139 @@ WISER with a summary of what is in the release. If you don't have
 permission to, reach out to someone who does with the email you want 
 them to send.
 
-> **Note**: This process can only be done by a maintainer with 
-access to all of these resources. This intentionally limits who can 
-do official WISER releases. If the community thinks that an official 
-WISER release should be done, please reach out to the maintainers.
+> **Note**: This process can only be done by a maintainer with
+> access to all of these resources. This intentionally limits who can
+> do official WISER releases. If the community thinks that an official
+> WISER release should be done, please reach out to the maintainers.
+
+## GitHub Actions Environment Setup
+
+Creating the conda environment on each CI run is the main performance
+bottleneck. Approaches ranked slowest to fastest:
+
+### 1. Create from scratch every run (~7.5 min)
+
+```yaml
+- uses: conda-incubator/setup-miniconda@v3
+  with:
+    auto-update-conda: true
+    activate-environment: wiser-source
+    environment-file: etc/testing.yml
+    channels: conda-forge
+    auto-activate-base: false
+```
+
+### 2. Cache conda packages, then create env (~4.5 min)
+
+```yaml
+- name: Setup Cached Conda Environment
+  uses: actions/cache@v4
+  env:
+    CACHE_NUMBER: 0
+  id: cache
+  with:
+    path: ~/conda_pkgs_dir
+    key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('etc/testing.yml') }}
+    restore-keys: |
+      ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-
+
+- uses: conda-incubator/setup-miniconda@v3
+  with:
+    auto-update-conda: true
+    activate-environment: wiser-source
+    environment-file: etc/testing.yml
+    channels: conda-forge
+    auto-activate-base: false
+    use-only-tar-bz2: true  # required for caching to work
+
+- name: Update environment
+  run: conda env update -n wiser-source -f etc/testing.yml
+  if: steps.cache.outputs.cache-hit != 'true'
+```
+
+### 3. Preloaded Docker image (fastest, harder to maintain)
+
+Run tests inside a Docker image that already has the conda environment
+installed. The tradeoff is that the Docker image must be rebuilt and pushed
+whenever dependencies change.
+
+Useful references:
+
+- [Caching dependencies in GitHub Actions](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/caching-dependencies-to-speed-up-workflows)
+- [setup-miniconda caching](https://github.com/conda-incubator/setup-miniconda?tab=readme-ov-file) — search "caching
+  environments"
+- [Beginner Docker guide](https://learncloudnative.com/blog/2020-04-29-beginners-guide-to-docker)
+- [Conda in Dockerfiles](https://pythonspeed.com/articles/activate-conda-dockerfile/)
+
+## Docker Container Reference
+
+### Running Qt (headless) inside Docker
+
+PySide6/PySide2 requires a display. Use `xvfb` inside a container:
+
+```bash
+Xvfb :1 -screen 0 1024x768x16 &
+export DISPLAY=:1
+pytest test_rasterpane
+```
+
+See
+also: [Stack Overflow — headless Qt](https://stackoverflow.com/questions/65200690/how-to-run-a-qt-application-in-headless-mode-without-showing-my-gui)
+
+**Note:** `pytest-qt` currently only works with PySide6, not PySide2.
+See [pytest-qt docs](https://pytest-qt.readthedocs.io/en/latest/intro.html).
+
+### Common Docker Commands
+
+```bash
+# List all containers
+docker ps -a
+
+# Run a container with WISER source mounted
+docker run -it --mount type=bind,src=<path-to-WISER>,dst=/WISER wiser-env:0.1.17 /bin/bash
+
+# Build the Docker image (run from WISER/ root)
+docker build -f ./etc/Dockerfile -t wiser-env:0.1.17 .
+
+# Tag for pushing to Docker Hub
+docker tag wiser-env:0.1.17 jgarciak/wiser-env:0.1.17
+
+# Push to Docker Hub (must be signed in)
+docker image push jgarciak/wiser-env:0.1.17
+```
+
+### Known Docker / CI Issues
+
+**NetCDF segfault on Linux:** Opening a `.nc` file inside a Linux Docker
+container (tested with GDAL 3.10.1 and 3.9.3) causes a fatal segmentation
+fault during `get_band_data_normalized`. The stack trace originates in
+`numpy.ma.core.masked_values` called from `dataset.py`. This is a known
+issue with no current fix.
+
+**Common conda error:** `does not exist (perhaps a typo or a missing channel)`
+— usually caused by a missing conda-forge channel or a typo in the environment
+file.
+
+## Maintaining the Plugin API Documentation
+
+The Plugin API documentation lives in a separate repository:
+[WISER-Plugin-API](https://github.com/Ehlmann-research-group/WISER-Plugin-API).
+It is served as GitHub Pages from the `main` branch.
+
+To rebuild and publish the Plugin API docs:
+
+1. Make sure you have Sphinx and the required extensions installed (activate
+   the `wiser-dev` environment or a dedicated docs environment).
+2. Go to `WISER/doc/sphinx-extending-wiser/`.
+3. Confirm `conf.py` has:
+   ```python
+   html_baseurl = 'https://ehlmann-research-group.github.io/WISER-Plugin-API/'
+   ```
+4. Run `make` (or `make html`) to build.
+5. Copy the **contents** of the `build/` folder (not the folder itself) into
+   the root of the `WISER-Plugin-API` repository.
+6. Ensure a `.nojekyll` file exists at the root of `WISER-Plugin-API`.
+7. Push to `main` — GitHub Pages will publish automatically.
+
+This step is part of the release process (see step 6 of
+[Release Process](CI-CD-Releases.md#release-process)).
