@@ -10,11 +10,6 @@ adding to WISER.
 
     developer-content/environment-setup
 
-    developer-content/devenv-win.md
-
-    developer-content/devenv-mac.md
-
-    developer-content/devenv-linux.md
 
     developer-content/codesign-mac.md
 
