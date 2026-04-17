@@ -7,7 +7,7 @@ and performance issues in Python programs.
 
 Some libraries, like Qt PySide2 and GDAL, are Python bindings for C/C++ code.
 This means it is very possible to generate SIGSEGVs and other faults from buggy
-Python code.  To diagnose the cause of such faults, use the built-in Python
+Python code. To diagnose the cause of such faults, use the built-in Python
 [faulthandler](https://docs.python.org/3/library/faulthandler.html) module.
 
     import faulthandler
@@ -15,7 +15,7 @@ Python code.  To diagnose the cause of such faults, use the built-in Python
     # At the start of the program, do this:
     faulthandler.enable()
 
-When faults occur, you will get a nice Python stack trace.  If you're lucky,
+When faults occur, you will get a nice Python stack trace. If you're lucky,
 the stack trace will show you exactly what the problem is.
 
 ## Profile a Python Program
@@ -51,7 +51,7 @@ The `pstats` module can also be run from the command-line, like this:
     python -m pstats
 
 Once the program is started, various commands can be typed at the `%` command
-prompt.  The `help` command can always be used to learn more about what options
+prompt. The `help` command can always be used to learn more about what options
 are available.
 
 Read in the data file named `profile_stats`:
@@ -126,12 +126,12 @@ on a Dell PC (7 Chrome tabs open).
 
 Dataset: 6 GB 3-band file (`Gale_MSL_HiRISE_Color_Mosaic_warp.tif`)
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 93.63    |
-| 2   | 122.64   |
-| Mean | 108.14  |
-| Std  | 14.51   |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 93.63    |
+| 2    | 122.64   |
+| Mean | 108.14   |
+| Std  | 14.51    |
 
 ### ROI Average (15 GB VNIR image)
 
@@ -139,75 +139,75 @@ Dataset: `C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr`
 
 **Rectangle ROI:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 6.17     |
-| 2   | 7.62     |
-| 3   | 7.80     |
-| Mean | 7.19    |
-| Std  | 0.73    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 6.17     |
+| 2    | 7.62     |
+| 3    | 7.80     |
+| Mean | 7.19     |
+| Std  | 0.73     |
 
 **Polygon ROI:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 32.52    |
-| 2   | 32.65    |
-| 3   | 31.28    |
-| Mean | 32.15   |
-| Std  | 0.62    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 32.52    |
+| 2    | 32.65    |
+| 3    | 31.28    |
+| Mean | 32.15    |
+| Std  | 0.62     |
 
 **Multi-pixel ROI:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 0.85     |
-| 2   | 0.95     |
-| 3   | 0.91     |
-| Mean | 0.90    |
-| Std  | 0.04    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 0.85     |
+| 2    | 0.95     |
+| 3    | 0.91     |
+| Mean | 0.90     |
+| Std  | 0.04     |
 
 ### Stretch Builder (15 GB VNIR image)
 
 **Linear:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 10.02    |
-| 2   | 1.73     |
-| 3   | 1.68     |
-| Mean | 4.48    |
-| Std  | 3.92    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 10.02    |
+| 2    | 1.73     |
+| 3    | 1.68     |
+| Mean | 4.48     |
+| Std  | 3.92     |
 
 **Equalize:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 7.75     |
-| 2   | 2.50     |
-| 3   | 2.95     |
-| Mean | 4.40    |
-| Std  | 2.38    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 7.75     |
+| 2    | 2.50     |
+| 3    | 2.95     |
+| Mean | 4.40     |
+| Std  | 2.38     |
 
 **Sqrt:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 2.63     |
-| 2   | 1.59     |
-| 3   | 1.63     |
-| Mean | 1.95    |
-| Std  | 0.48    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 2.63     |
+| 2    | 1.59     |
+| 3    | 1.63     |
+| Mean | 1.95     |
+| Std  | 0.48     |
 
 **Log2:**
 
-| Run | Time (s) |
-|-----|----------|
-| 1   | 2.75     |
-| 2   | 1.71     |
-| 3   | 1.80     |
-| Mean | 2.08    |
-| Std  | 0.47    |
+| Run  | Time (s) |
+|------|----------|
+| 1    | 2.75     |
+| 2    | 1.71     |
+| 3    | 1.80     |
+| Mean | 2.08     |
+| Std  | 0.47     |
 
 ## Precompiled Numba
 
@@ -222,6 +222,7 @@ Provide a wrapper that falls back to the JIT version if the precompiled binary
 is absent.
 
 Drawbacks:
+
 - Difficult to test the precompiled binary in isolation.
 - AOT compilation does not optimise for the specific CPU model the way JIT does.
 
