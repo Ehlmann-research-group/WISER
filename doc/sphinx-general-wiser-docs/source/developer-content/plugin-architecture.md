@@ -100,10 +100,58 @@ extended.  (Or, at least, Donnie doesn't know how to do this.)  But, in that
 case, WISER can spawn a separate Python process with its own environment and
 dependencies.
 
-Before WISER release 1.3b1, WISER could not load a plugin dependency if that
-dependency was a submodule that pyinstaller pruned out of WISER. This means
-if WISER used scipy, but didn't use scipy.io and a user's plugin uses scipy.io,
-there would be no way to get WISER to recognize scipy.io. We have fixed this
-issue by loading in all of the submodules manually during pyinstallers build
-process.
+## Known Plugin Dependency Issue and Fixes
 
+### The Problem (Pre-release 1.3b1)
+
+When PyInstaller builds a frozen WISER application it recursively resolves
+all imports and stores them in `_internal/`. Before release 1.3b1, if a
+plugin used a submodule that PyInstaller had pruned (e.g. `scipy.io` when
+WISER itself only used top-level `scipy`), that submodule would not be found
+at runtime and the plugin would fail to load.
+
+**Bandage solution (releases 1.2b1 and earlier):** The PyInstaller spec was
+updated to include all submodules of WISER's Python dependencies explicitly.
+This is done in `pyinstaller_hooks/` and ensures submodules are not pruned.
+All `rel/1.2b1` and `rel/1.2b1-intelmac` branches (Windows, ARM Mac, Intel
+Mac) carry this fix.
+
+To verify the fix:
+1. Build a frozen WISER (no need to code-sign or notarize).
+2. Add the `pca_plugin` (it depends on `scipy.io`).
+3. Confirm no `scipy.io` import error occurs.
+
+**Longer-term direction (under investigation):** Allow plugins to declare
+their own Python dependencies (separate from WISER's conda environment) using
+`uv` in a subprocess. Rough sketch:
+
+1. A Python bootloader script installs `uv` if not present (downloaded from
+   the internet, not bundled with PyInstaller).
+2. On plugin load, WISER spawns a subprocess via `uv` that provides the
+   plugin's declared dependencies.
+3. WISER must be packaged as a wheel (`python -m zipapp`) so it can be
+   imported by the plugin subprocess.
+4. Plugins that ship as wheels are supported; dev-environment (loose source)
+   plugins are also supported.
+
+Constraints identified:
+- GDAL and similar packages that require compiled C extensions cannot be
+  installed via pip alone — they need conda or system packages.
+- `PySide6` is required (over `PySide2`) for this approach because PySide6
+  has pip wheels for all major platforms.
+- Architecture-specific DLLs can only be installed by pip if the corresponding
+  package itself supports pip installation.
+
+Tooling evaluated: Bazel, Nuitka (requires PySide6), Poetry, cx_Freeze.
+None has been adopted yet.
+
+### Replicating the Pre-fix Bug
+
+Add the path to a conda environment's `site-packages` (e.g.
+`C:\Users\<user>\anaconda3\envs\plugin_lib\Lib\site-packages`) to plugin
+directories, and add `pca_plugin.PCAPlugin` to plugins in settings.
+`scipy.io` will not be found because PyInstaller did not include it.
+
+### Background References
+
+- [Is Python interpreted or compiled?](https://stackoverflow.com/questions/6889747/is-python-interpreted-or-compiled-or-both) — Python is first compiled to bytecode and then interpreted, which is faster than pure interpretation.

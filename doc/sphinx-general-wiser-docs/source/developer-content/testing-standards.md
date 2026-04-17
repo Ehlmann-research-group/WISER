@@ -171,3 +171,117 @@ If the feature is too large to test immediately:
     # Tracking: <link to PR with tests>
     ```
     No feature is considered complete until the corresponding tests have been merged.
+
+## File Type Testing Checklist
+
+When adding support for a new file type, verify the following behaviours after
+the class is integrated. Go through `RasterDataImpl` and confirm each function
+still makes sense with the new class and that the class can remain
+multi-threaded.
+
+### General Checklist (apply to every new file type)
+
+- [ ] Band math can be done
+  - [ ] Multi-threaded band math can be done
+- [ ] ROI average
+- [ ] All panes, zoom in, zoom out, aspect ratio fit
+- [ ] Has wavelengths
+- [ ] Has all metadata
+- [ ] Has geo transform
+- [ ] Stretch builder works
+- [ ] Band chooser works (greyscale and colour map)
+- [ ] Georeferencing
+  - Note: linking views for bad warps may be broken
+- [ ] Similarity transform tooling works
+- [ ] Continuum removal
+- [ ] Saving works
+
+### NetCDF
+
+All items above verified as of last update. Remaining notes:
+
+- Linking views for bad warps may still be broken.
+- Bug: right after saving a georeferenced dataset and re-opening it, it
+  may not report that views can be linked.
+
+### PDS4
+
+Most items verified. Outstanding items:
+
+- Multi-threaded band math — not yet verified.
+- All panes / zoom — not yet verified.
+- Has wavelengths — not yet verified (some PDS4 files lack wavelength metadata;
+  a prompt to upload wavelengths from a text file is planned).
+- Has all metadata — partial: data-ignore value detection added; upload
+  wavelengths from file is planned (see below).
+- Georeferencing: loading and saving GCPs not yet verified.
+- Continuum removal — not yet verified.
+
+**Planned: wavelength upload for PDS4**
+
+When a PDS4 file has no wavelengths, prompt the user to upload them from a
+text file. The upload dialog must let the user specify: delimiter, whether a
+header row exists, whether wavelengths are in columns or rows, which column or
+row contains the wavelengths, and wavelength units. Show validation results
+and prevent confirmation if the wavelengths do not match the band count. Use
+the existing import-spectra-text dialog as the starting point.
+
+### PDS3
+
+- Cannot open `.dat` files.
+- Planned: try-your-luck PDR file opener.
+
+### JP2
+
+- Ask whether JP2 files always have an associated wavelength or are assumed RGB.
+- Has wavelengths — not yet verified.
+- Has all metadata — not yet verified.
+- Continuum removal — not yet verified.
+- Saving — not yet verified.
+
+---
+
+## QA Checklist Before Release
+
+Run through all items below before cutting a new WISER release. Mark items
+that have known bugs with a note.
+
+- [ ] All file types and sizes: ROI average works
+- [ ] All file types and sizes: colour map can be changed
+- [ ] All file types and sizes: colour map works with 1-band images
+- [ ] Files can be saved correctly (including subset save)
+  - Known: when images are saved from a compute dataset, they do not inherit
+    the spatial reference system or data-ignore value from the parent dataset
+    (fixed in recent release — verify).
+- [ ] Band math works with all functions, file types, and sizes
+- [ ] Geographic linking works
+- [ ] Clicking context pane and zoom pane properly changes main view, especially
+  when rasters are linked
+- [ ] Spectrum can be saved, collected, and imported in the spectrum plot
+- [ ] Opening all file types at once
+- [ ] Stretch builder preserves WISER state
+  - Known: stretch builder was broken for large images (float32/GDAL FLOAT16
+    list issue — verify fix).
+- [ ] "Go to pixel" and "Go to coordinate" work
+- [ ] All example plugin types still work
+  - How: open `WISER/src/example_plugins/`, go to Settings → Plugins, add the
+    path to each example plugin folder.
+- [ ] WISER settings dialog works
+- [ ] Multiple band math operations in sequence work
+
+---
+
+## Notes on Stretch Builder and Band Math Tests
+
+Stretch builder cache behaviour to verify:
+
+- Caches link states for min/max and slider link.
+- After linking, remembers the values provided by the link and does not revert
+  to individual values.
+- Caches individual min, max, and stretch states.
+- Changing the slider alters the correct display band in the raster view.
+
+Band math tests to verify:
+
+- Performing band math and retrieving output datasets.
+- Performing operations on band-math output datasets.
