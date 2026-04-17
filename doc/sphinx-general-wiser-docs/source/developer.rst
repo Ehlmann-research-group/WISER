@@ -35,4 +35,8 @@ adding to WISER.
 
     developer-content/plugin-architecture.md
 
+    developer-content/batch-processing.md
+
+    developer-content/georeferencer-design.md
+
 
