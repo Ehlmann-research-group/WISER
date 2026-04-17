@@ -12,15 +12,17 @@ import numpy as np
 import wiser.gui.generated.resources
 
 from .export_image import ExportImageDialog
-from .toolbarmenu import ToolbarMenu
+from .mnf import MinimumNoiseFractionDialog
+from .plugin_utils import add_plugin_context_menu_items
 from .rasterpane import RasterPane
 from .rasterview import RasterView
+from .sav_golay import SavGolayDialog
+from .scatter_plot_2D import ScatterPlot2DDialog
+from .smooth_filter import SmoothingFilterDialog, SmoothingFilterKind
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
+from .toolbarmenu import ToolbarMenu
 from .util import add_toolbar_action, get_painter
-from .plugin_utils import add_plugin_context_menu_items
-from .scatter_plot_2D import ScatterPlot2DDialog
-from .mnf import MinimumNoiseFractionDialog
 
 # from .spectral_angle_mapper import SAMTool
 # from .spectral_feature_fitting import SFFTool
@@ -33,7 +35,8 @@ from wiser.raster import roi_export
 
 from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
-from wiser.config import FLAGS
+from wiser.bandmath.types import VariableType
+
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +209,34 @@ class MainViewWidget(RasterPane):
 
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mnf_dialog(rv))
+
+        submenu = menu.addMenu(self.tr("Filters"))
+
+        act = submenu.addAction(self.tr("Savitzky-Golay Filter..."))
+        act.triggered.connect(lambda checked=False, rv=rasterview: self._open_savgol_dialog(rv))
+
+        submenu.addSeparator()
+
+        act = submenu.addAction(self.tr("Mean Smoothing Filter..."))
+        act.triggered.connect(
+            lambda checked=False, rv=rasterview: self._open_smoothing_filter_dialog(
+                rv, SmoothingFilterKind.MEAN
+            )
+        )
+
+        act = submenu.addAction(self.tr("Median Smoothing Filter..."))
+        act.triggered.connect(
+            lambda checked=False, rv=rasterview: self._open_smoothing_filter_dialog(
+                rv, SmoothingFilterKind.MEDIAN
+            )
+        )
+
+        act = submenu.addAction(self.tr("Gaussian Smoothing Filter..."))
+        act.triggered.connect(
+            lambda checked=False, rv=rasterview: self._open_smoothing_filter_dialog(
+                rv, SmoothingFilterKind.GAUSSIAN
+            )
+        )
 
         # Plugin context-menus
         add_plugin_context_menu_items(
@@ -713,6 +744,35 @@ class MainViewWidget(RasterPane):
             target_point = self._pixel_highlight.get_pixel()
 
         self._draw_crosshair_at_coord(target_point, widget)
+
+    def _open_savgol_dialog(self, rasterview) -> None:
+        dataset = rasterview.get_raster_data()
+        if dataset is None:
+            return
+        target_id = dataset.get_id()
+        if target_id is None:
+            target_id = self._app_state.take_next_id()
+            dataset.set_id(target_id)
+        dlg = SavGolayDialog(
+            app_state=self._app_state,
+            app_services=self._app_services,
+            target_type=VariableType.IMAGE_CUBE_DATASET,
+            target_id=int(target_id),
+            parent=self,
+        )
+        dlg.exec_()
+
+    def _open_smoothing_filter_dialog(self, rasterview, filter_kind: SmoothingFilterKind) -> None:
+        dataset = rasterview.get_raster_data()
+        target_id = None if dataset is None else dataset.get_id()
+        dlg = SmoothingFilterDialog(
+            app_state=self._app_state,
+            app_services=self._app_services,
+            filter_kind=filter_kind,
+            target_dataset_id=target_id,
+            parent=self,
+        )
+        dlg.exec_()
 
     def _on_zoom_to_actual(self, evt):
         """Zoom the view to 100% scale."""
