@@ -1,14 +1,9 @@
-.. WISER documentation master file, created by
-sphinx-quickstart on Thu Apr 22 16:56:01 2021.
-You can adapt this file completely to your liking, but it should at least
-contain the root `toctree` directive.
-
 
 Extending WISER
 ===============
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Contents:
 
     plugins
@@ -21,4 +16,5 @@ Extending WISER
     wiser_state
     supporting_types
     more_example_plugins
+    plugin_repository
 
