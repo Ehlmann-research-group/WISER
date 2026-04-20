@@ -17,6 +17,7 @@ from .utils import (
     convert_spectral,
     get_spectral_unit,
     get_netCDF_reflectance_path,
+    numpy_dtype_to_gdal_export_types,
 )
 from .loaders import envi
 
@@ -1929,7 +1930,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             )
 
         elem_type = src_dataset.get_elem_type()
-        gdal_elem_type = gdal_array.NumericTypeCodeToGDALTypeCode(elem_type)
+        gdal_elem_type, band_write_dtype = numpy_dtype_to_gdal_export_types(elem_type)
 
         # logger.debug('Destination raster image values:\n' +
         #     f'width={dst_width}, height={dst_height}\n' +
@@ -2020,6 +2021,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             ]
             # print(f"Destination-array size: {dst_data.size}")
             # print(f'Destination-array shape:  {dst_data.shape}')
+            if dst_data.dtype != band_write_dtype:
+                dst_data = np.asarray(dst_data, dtype=band_write_dtype)
             dst_band.WriteArray(dst_data, 0, 0)
             chunk_size += dst_data.size
             if chunk_size >= CHUNK_WRITE_SIZE:
