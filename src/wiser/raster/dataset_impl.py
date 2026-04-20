@@ -14,9 +14,7 @@ from contextlib import contextmanager
 
 from .utils import (
     make_spectral_value,
-    convert_spectral,
     get_spectral_unit,
-    get_netCDF_reflectance_path,
     numpy_dtype_to_gdal_export_types,
 )
 from .loaders import envi
