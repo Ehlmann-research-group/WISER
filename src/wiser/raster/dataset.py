@@ -1731,6 +1731,8 @@ class RasterDataSet(Serializable):
         """
         if self._data_ignore_value is not None:
             return hash((self._id, self._data_ignore_value))
+        if self._id is None:
+            raise ValueError("Dataset ID must be set in order to hash!")
         return self._id
 
     def __eq__(self, other) -> bool:
