@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.abspath("../../../../src"))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "general-wiser-docs"
-copyright = "2026, Joshua Garcia-Kimble"
-author = "Joshua Garcia-Kimble"
+project = "WISER"
+copyright = "2019-2026, California Institute of Technology"
+author = "Ehlmann Research Group"
 release = "2.1b1"
 
 # -- General configuration ---------------------------------------------------
@@ -30,7 +30,7 @@ html_theme_options = {
 
 html_logo = "_static/icon_128x128.png"
 
-html_title = "WISER Docs"
+html_title = "WISER Documentation"
 
 extensions = [
     "myst_parser",
@@ -55,6 +55,8 @@ autodoc2_class_docstring = "merged"
 autodoc_default_options = {
     "member-order": "bysource",
 }
+
+autosectionlabel_prefix_document = True
 
 templates_path = ["_templates"]
 exclude_patterns = []
