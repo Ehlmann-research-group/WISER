@@ -1235,6 +1235,9 @@ class SpectrumPlotGeneric(QWidget):
             act = menu.addAction(self.tr("Edit..."))
             act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
+
             menu.addSeparator()
 
             act = menu.addAction(self.tr("Discard..."))
@@ -2002,6 +2005,9 @@ class SpectrumPlot(SpectrumPlotGeneric):
 
             act = menu.addAction(self.tr("Edit..."))
             act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
+
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
 
             # Add plugin menu items
             add_plugin_context_menu_items(
