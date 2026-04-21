@@ -1599,6 +1599,7 @@ def _run_smoothing_filter_ndimage_tile(
     output_write: "WriteSpec",
     ndimage_filter_fn: Callable[..., Any],
     filter_kwargs: Dict[str, Any],
+    filter_kind: Optional[str] = None,
 ) -> None:
     """
     Read tile, mask invalid samples to NaN, coerce non-finite values to NaN, run ndimage filter,
@@ -1620,8 +1621,20 @@ def _run_smoothing_filter_ndimage_tile(
     work[exclusion] = np.nan
     work[~np.isfinite(work)] = np.nan
 
-    filtered = ndimage_filter_fn(work, **filter_kwargs)
-    output_tile = np.asarray(filtered, dtype=np.float32, order="C")
+    if filter_kind == "uniform_filter":
+        # NaN-aware mean: filter values and finite-value mask separately, then normalize.
+        valid_mask = np.isfinite(work).astype(np.float32, copy=False)
+        values = np.nan_to_num(work, nan=0.0, posinf=0.0, neginf=0.0)
+
+        numerator = np.asarray(ndimage_filter_fn(values, **filter_kwargs), dtype=np.float32, order="C")
+        denominator = np.asarray(ndimage_filter_fn(valid_mask, **filter_kwargs), dtype=np.float32, order="C")
+
+        output_tile = np.full_like(numerator, np.nan, dtype=np.float32)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            np.divide(numerator, denominator, out=output_tile, where=denominator > 0.0)
+    else:
+        filtered = ndimage_filter_fn(work, **filter_kwargs)
+        output_tile = np.asarray(filtered, dtype=np.float32, order="C")
 
     # Restore original stored values at mask locations so nodata/bad-band
     # semantics stay aligned with metadata.
@@ -1662,6 +1675,7 @@ class SmoothingFilterSpatial(MapStage):
 
     _resolved_ndimage_filter_fn: Callable[..., Any] = field(init=False, repr=False)
     _resolved_filter_kwargs: Dict[str, Any] = field(init=False, repr=False)
+    _resolved_filter_kind: Optional[str] = field(init=False, repr=False)
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
@@ -1677,6 +1691,9 @@ class SmoothingFilterSpatial(MapStage):
 
         object.__setattr__(self, "_resolved_ndimage_filter_fn", fn)
         object.__setattr__(self, "_resolved_filter_kwargs", kwargs)
+        object.__setattr__(
+            self, "_resolved_filter_kind", self._filter_registry_key or getattr(fn, "__name__", None)
+        )
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         if not isinstance(input_region, DatasetRegionRef):
@@ -1724,6 +1741,7 @@ class SmoothingFilterSpatial(MapStage):
             output_write,
             self._resolved_ndimage_filter_fn,
             self._resolved_filter_kwargs,
+            self._resolved_filter_kind,
         )
 
     def post_task_fn(
@@ -1768,6 +1786,7 @@ class SmoothingFilterSpectral(MapStage):
 
     _resolved_ndimage_filter_fn: Callable[..., Any] = field(init=False, repr=False)
     _resolved_filter_kwargs: Dict[str, Any] = field(init=False, repr=False)
+    _resolved_filter_kind: Optional[str] = field(init=False, repr=False)
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
@@ -1783,6 +1802,9 @@ class SmoothingFilterSpectral(MapStage):
 
         object.__setattr__(self, "_resolved_ndimage_filter_fn", fn)
         object.__setattr__(self, "_resolved_filter_kwargs", kwargs)
+        object.__setattr__(
+            self, "_resolved_filter_kind", self._filter_registry_key or getattr(fn, "__name__", None)
+        )
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         if not isinstance(input_region, DatasetRegionRef):
@@ -1830,6 +1852,7 @@ class SmoothingFilterSpectral(MapStage):
             output_write,
             self._resolved_ndimage_filter_fn,
             self._resolved_filter_kwargs,
+            self._resolved_filter_kind,
         )
 
     def post_task_fn(
