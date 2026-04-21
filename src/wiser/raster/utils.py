@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any, Tuple
 
-from osgeo import gdal, osr
+from osgeo import gdal, gdal_array, osr
 
 from sklearn.decomposition import PCA
 import numpy as np
@@ -24,6 +24,26 @@ ARRAY_NUMBA_THRESHOLD = 150000000  # 150 MB
 
 # For easier typing in this module
 Number = Union[int, float]
+
+
+def numpy_dtype_to_gdal_export_types(elem_type: Union[np.dtype, type]) -> Tuple[int, np.dtype]:
+    """
+    Map an in-memory per-pixel dtype to a GDAL raster band type and a NumPy dtype
+    for ``WriteArray`` / ``WriteRaster``.
+
+    GDAL has no native boolean band type. Boolean cubes (for example SAM or SFF
+    classification masks) are exported as ``GDT_Byte`` with values 0/1, so callers
+    should cast band arrays to the returned NumPy dtype when it differs from the
+    source element type.
+    """
+    et = np.dtype(elem_type)
+    if np.issubdtype(et, np.bool_) or et == np.dtype(bool):
+        return gdal.GDT_Byte, np.dtype(np.uint8)
+
+    gdal_elem_type = gdal_array.NumericTypeCodeToGDALTypeCode(et)
+    if gdal_elem_type is None:
+        raise TypeError(f"Unsupported NumPy dtype for GDAL export: {et}")
+    return gdal_elem_type, et
 
 
 # ============================================================================

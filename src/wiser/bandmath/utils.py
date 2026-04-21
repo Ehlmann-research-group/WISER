@@ -925,6 +925,9 @@ def write_raster_to_dataset(
     if isinstance(result, np.ma.MaskedArray):
         result = np.ma.filled(result, default_ignore_value)
 
+    if isinstance(result, np.ndarray) and np.issubdtype(result.dtype, np.bool_):
+        result = result.astype(np.uint8, copy=False)
+
     gdal_band_list_current = [band + 1 for band in band_index_list]
 
     out_dataset_gdal.WriteRaster(
@@ -943,6 +946,10 @@ def write_raster_to_dataset(
 
 def np_dtype_to_gdal(np_dtype):
     """Converts a NumPy dtype to the corresponding GDAL GDT type."""
+
+    np_dtype = np.dtype(np_dtype)
+    if np.issubdtype(np_dtype, np.bool_) or np_dtype == np.dtype(bool):
+        return gdal.GDT_Byte
 
     # Create a mapping between NumPy dtypes and GDAL GDT types
     dtype_mapping = {

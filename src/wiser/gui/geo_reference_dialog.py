@@ -29,6 +29,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import GDALRasterDataImpl
 from wiser.raster.utils import (
     copy_metadata_to_gdal_dataset,
+    numpy_dtype_to_gdal_export_types,
     set_data_ignore_of_gdal_dataset,
 )
 
@@ -2033,7 +2034,7 @@ class GeoReferencerDialog(QDialog):
             output_size: Tuple[int, int] = None
             output_dataset: gdal.Dataset = None
             driver: gdal.Driver = gdal.GetDriverByName("GTiff")
-            gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(target_dataset.get_elem_type())
+            gdal_dtype, _ = numpy_dtype_to_gdal_export_types(target_dataset.get_elem_type())
 
             # Get the output size
             warp_options = gdal.WarpOptions(**self._warp_kwargs)

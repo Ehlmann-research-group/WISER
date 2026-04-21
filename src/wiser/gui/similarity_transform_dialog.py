@@ -21,12 +21,12 @@ from .util import (
     make_into_help_button,
 )
 
-from osgeo import gdal, gdal_array
+from osgeo import gdal
 
 from wiser.bandmath.builtins.constants import MAX_RAM_BYTES
 from wiser.bandmath.utils import write_raster_to_dataset
 
-from wiser.raster.utils import copy_metadata_to_gdal_dataset
+from wiser.raster.utils import copy_metadata_to_gdal_dataset, numpy_dtype_to_gdal_export_types
 
 import numpy as np
 
@@ -502,9 +502,7 @@ class SimilarityTransformDialog(QDialog):
             pixmap_width = pixmap.width()
             num_bands = self._rotate_scale_dataset.num_bands()
             np_dtype = self._rotate_scale_dataset.get_elem_type()  # Returns a numpy dtype
-            gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(
-                np_dtype
-            )  # Convert numpy dtype to GDAL type
+            gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
 
             output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
 
@@ -648,9 +646,7 @@ class SimilarityTransformDialog(QDialog):
                 width = self._translation_dataset.get_width()
                 num_bands = self._translation_dataset.num_bands()
                 np_dtype = self._translation_dataset.get_elem_type()  # Returns a numpy dtype
-                gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(
-                    np_dtype
-                )  # Convert numpy dtype to GDAL type
+                gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
 
                 output_bytes = width * height * num_bands * np_dtype.itemsize
                 ratio = MAX_RAM_BYTES / output_bytes
