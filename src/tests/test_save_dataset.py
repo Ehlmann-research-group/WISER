@@ -11,6 +11,9 @@ from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import spectral_unit_to_string
 
+ID_SET_1 = 6174
+ID_SET_2 = 42
+
 
 class TestSaveDataset(unittest.TestCase):
     def setUp(self):
@@ -35,7 +38,21 @@ class TestSaveDataset(unittest.TestCase):
             equal_nan=True,
         )
 
-    def _run_save_roundtrip_test(self, dataset: RasterDataSet, save_path: Path) -> None:
+    def _assert_equal_or_both_none_or_empty(self, left, right, msg=None) -> None:
+        """``None`` and ``''`` compare equal to each other; otherwise require ``==``."""
+        left_missing = left is None or left == ""
+        right_missing = right is None or right == ""
+        if left_missing and right_missing:
+            return
+        self.assertEqual(left, right, msg)
+
+    def _run_save_roundtrip_test(
+        self,
+        dataset: RasterDataSet,
+        save_path: Path,
+        *,
+        skip_band_info_equal: bool = False,
+    ) -> None:
         loader = RasterDataLoader()
         band_info = dataset.band_list()
         saved_hdr_path = save_path.with_suffix(".hdr")
@@ -73,18 +90,28 @@ class TestSaveDataset(unittest.TestCase):
             self.assertTrue(saved_hdr_path.exists())
 
             reopened = loader.load_from_file(str(saved_hdr_path), interactive=False)[0]
+            reopened.set_id(ID_SET_2)
             self.assertIsInstance(reopened, RasterDataSet)
 
             self.assertEqual(reopened.get_bad_bands(), dataset.get_bad_bands())
-            self.assertEqual(reopened.get_data_ignore_value(), dataset.get_data_ignore_value())
-            self.assertEqual(reopened.get_wkt_spatial_reference(), dataset.get_wkt_spatial_reference())
+            self._assert_equal_or_both_none_or_empty(
+                reopened.get_data_ignore_value(),
+                dataset.get_data_ignore_value(),
+            )
+            # We have to do this because NumpyRasterDatasetImpl returns None for the wkt string
+            # but GDALRasterDatasetImpl returns an emtpy string when wkt is not present
+            self._assert_equal_or_both_none_or_empty(
+                reopened.get_wkt_spatial_reference(),
+                dataset.get_wkt_spatial_reference(),
+            )
             self.assertEqual(reopened.get_geo_transform(), dataset.get_geo_transform())
             self.assertEqual(reopened.get_width(), dataset.get_width())
             self.assertEqual(reopened.get_height(), dataset.get_height())
             self.assertEqual(reopened.num_bands(), dataset.num_bands())
             self.assertEqual(reopened.get_band_unit(), dataset.get_band_unit())
             self.assertEqual(reopened.default_display_bands(), dataset.default_display_bands())
-            self.assertTrue(band_info_list_equal(reopened._band_info, dataset._band_info))
+            if not skip_band_info_equal:
+                self.assertTrue(band_info_list_equal(reopened._band_info, dataset._band_info))
 
             expected_raw = np.ma.array(
                 dataset.get_image_data(filter_data_ignore_value=False),
@@ -133,6 +160,44 @@ class TestSaveDataset(unittest.TestCase):
             / "caltech_425_6_6_data_ignore_saved.img"
         ).resolve()
         self._run_save_roundtrip_test(dataset, save_path)
+
+    def test_save_dataset_helper_preserves_bool_numpy_dataset(self):
+        """
+        Boolean cubes (e.g. SAM classification) save as GDAL byte bands; roundtrip
+        values must match when interpreted as 0/1.
+        """
+        loader = RasterDataLoader()
+        cache = self.test_model.app_state.get_cache()
+        arr = np.array(
+            [
+                [
+                    [True, False, True, False],
+                    [False, True, False, True],
+                    [True, True, False, False],
+                ],
+                [
+                    [False, False, True, True],
+                    [True, False, True, False],
+                    [False, True, False, True],
+                ],
+            ],
+            dtype=np.bool_,
+        )
+        dataset = loader.dataset_from_numpy_array(arr, cache)
+        dataset.set_id(ID_SET_1)
+        self.assertEqual(dataset.get_elem_type(), np.dtype(np.bool_))
+
+        save_path = (
+            Path(__file__).resolve().parent
+            / ".."
+            / "test_utils"
+            / "test_datasets"
+            / "artifacts"
+            / "bool_classification_saved.img"
+        ).resolve()
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        # Reopened ENVI band descriptions often differ from NumPy placeholder names.
+        self._run_save_roundtrip_test(dataset, save_path, skip_band_info_equal=True)
 
     def test_save_dataset_helper_preserves_netcdf_reflectance_dataset(self):
         fixture_path = Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "netcdf.nc"

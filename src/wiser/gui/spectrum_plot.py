@@ -73,6 +73,12 @@ TICK_THRESHOLD = 100
 
 SHOW_LIBRARY_SPECTRA_THRESHOLD = 20
 
+# Linewidth for SpectrumPointDisplayInfo dotted crosshair (axvline / axhline)
+CROSSHAIR_WIDTH = 0.5
+
+# Single-point spectra use Line2D markers; ~matches SpectrumPointDisplayInfo scatter (s=3).
+SINGLE_POINT_MARKERSIZE = 3
+
 
 def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
     """
@@ -159,6 +165,7 @@ class SpectrumDisplayInfo:
             self._spectrum.set_color(get_random_matplotlib_color())
 
         self._icon: Optional[QIcon] = None
+        # Matplotlib artist for this spectrum (normally Line2D from plot; either works with .remove())
         self._line2d = None
         self._values = None
 
@@ -175,13 +182,23 @@ class SpectrumDisplayInfo:
     def get_spectrum(self) -> "Spectrum":
         return self._spectrum
 
-    def generate_plot(self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True):
+    def generate_plot(
+        self,
+        axes,
+        use_wavelengths,
+        to_unit=u.nm,
+        should_recalculate=True,
+        single_point_marker: Optional[str] = None,
+    ):
         # If we already have a plot, remove it.
         self.remove_plot()
 
         # wavelength_units = self._spectrum.get_wavelengths()[0].unit.si
         if should_recalculate or self._values is None:
             self._values = self._spectrum.get_spectrum()
+
+        vals = np.asarray(self._values).ravel()
+        draw_as_single_marker = vals.size == 1 and single_point_marker is not None
 
         color = self._spectrum.get_color()
         linewidth = 0.5
@@ -198,29 +215,62 @@ class SpectrumDisplayInfo:
 
             wavelengths = raster_utils.get_band_values(self._spectrum.get_wavelengths(), to_unit)
 
-            lines = axes.plot(
-                wavelengths,
-                self._values,
-                color=color,
-                linewidth=linewidth,
-                label=self._spectrum.get_name(),
-            )
-            assert len(lines) == 1
-            self._line2d = lines[0]
+            if draw_as_single_marker:
+                wx = np.asarray(wavelengths, dtype=float).ravel()
+                if wx.size != 1:
+                    draw_as_single_marker = False
+
+            if draw_as_single_marker:
+                lines = axes.plot(
+                    [float(wx[0])],
+                    [float(vals[0])],
+                    linestyle="none",
+                    marker=single_point_marker,
+                    markersize=SINGLE_POINT_MARKERSIZE,
+                    markeredgewidth=CROSSHAIR_WIDTH,
+                    color=color,
+                    label=self._spectrum.get_name(),
+                )
+                assert len(lines) == 1
+                self._line2d = lines[0]
+            else:
+                lines = axes.plot(
+                    wavelengths,
+                    self._values,
+                    color=color,
+                    linewidth=linewidth,
+                    label=self._spectrum.get_name(),
+                )
+                assert len(lines) == 1
+                self._line2d = lines[0]
         else:
             # If we don't have wavelengths, each spectrum is just a series of
             # values.  We can of course plot this, but we can't guarantee it
             # will be meaningful if there are multiple plots from different
             # datasets to display.
 
-            lines = axes.plot(
-                self._values,
-                color=color,
-                linewidth=linewidth,
-                label=self._spectrum.get_name(),
-            )
-            assert len(lines) == 1
-            self._line2d = lines[0]
+            if draw_as_single_marker:
+                lines = axes.plot(
+                    [0.0],
+                    [float(vals[0])],
+                    linestyle="none",
+                    marker=single_point_marker,
+                    markersize=SINGLE_POINT_MARKERSIZE,
+                    markeredgewidth=CROSSHAIR_WIDTH,
+                    color=color,
+                    label=self._spectrum.get_name(),
+                )
+                assert len(lines) == 1
+                self._line2d = lines[0]
+            else:
+                lines = axes.plot(
+                    self._values,
+                    color=color,
+                    linewidth=linewidth,
+                    label=self._spectrum.get_name(),
+                )
+                assert len(lines) == 1
+                self._line2d = lines[0]
 
     def remove_plot(self):
         if self._line2d is not None:
@@ -316,14 +366,18 @@ class SpectrumPointDisplayInfo:
         if self._crosshair:
             self._point_vline = axes.axvline(
                 x=x_value.value,
-                linewidth=0.5,
+                linewidth=CROSSHAIR_WIDTH,
                 linestyle="dotted",
                 color="black",
                 zorder=1,
             )
 
             self._point_hline = axes.axhline(
-                y=y_value, linewidth=0.5, linestyle="dotted", color="black", zorder=1
+                y=y_value,
+                linewidth=CROSSHAIR_WIDTH,
+                linestyle="dotted",
+                color="black",
+                zorder=1,
             )
 
         self._scatter = axes.scatter(
@@ -331,7 +385,7 @@ class SpectrumPointDisplayInfo:
             y_value,  # label=self._text,
             marker=self._marker_type,
             s=3,
-            linewidth=0.5,
+            linewidth=CROSSHAIR_WIDTH,
             color="black",
         )
 
@@ -844,7 +898,12 @@ class SpectrumPlotGeneric(QWidget):
         if use_wavelengths == self._plot_uses_wavelengths:
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
-                single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+                single_display_info.generate_plot(
+                    self._axes,
+                    use_wavelengths,
+                    self._x_units,
+                    single_point_marker=self._selection_marker,
+                )
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
                 if unit_name is not None and use_wavelengths:
                     self._axes.set_xlabel(
@@ -871,7 +930,12 @@ class SpectrumPlotGeneric(QWidget):
                 self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
-                other_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+                other_info.generate_plot(
+                    self._axes,
+                    use_wavelengths,
+                    self._x_units,
+                    single_point_marker=self._selection_marker,
+                )
 
             self._plot_uses_wavelengths = use_wavelengths
 
@@ -1171,6 +1235,9 @@ class SpectrumPlotGeneric(QWidget):
             act = menu.addAction(self.tr("Edit..."))
             act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
+
             menu.addSeparator()
 
             act = menu.addAction(self.tr("Discard..."))
@@ -1226,6 +1293,9 @@ class SpectrumPlotGeneric(QWidget):
                 act = menu.addAction(self.tr("Edit..."))
                 act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
+
             if spectrum.is_discardable():
                 menu.addSeparator()
 
@@ -1278,7 +1348,9 @@ class SpectrumPlotGeneric(QWidget):
             display_info.generate_plot(
                 self._axes,
                 self._plot_uses_wavelengths,
+                self._x_units,
                 should_recalculate=self._spectrum_edit_dialog.should_recalculate,
+                single_point_marker=self._selection_marker,
             )
             treeitem.setIcon(0, display_info.get_icon())
 
@@ -1345,6 +1417,23 @@ class SpectrumPlotGeneric(QWidget):
                 spectra.append(treeitem.data(0, Qt.UserRole))
 
             export_spectrum_list(selected[0], spectra)
+
+    def _on_save_single_spectrum(self, treeitem):
+        spectrum = treeitem.data(0, Qt.UserRole)
+        supported_formats = [
+            self.tr("Text files (*.txt)"),
+            self.tr("All files (*)"),
+        ]
+
+        selected = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save Spectrum"),
+            self._app_state.get_current_dir(),
+            ";;".join(supported_formats),
+        )
+
+        if len(selected[0]) > 0:
+            export_spectrum_list(selected[0], [spectrum])
 
     def _on_discard_spectrum(self, treeitem, display_confirm=True):
         spectrum = treeitem.data(0, Qt.UserRole)
@@ -1917,6 +2006,9 @@ class SpectrumPlot(SpectrumPlotGeneric):
             act = menu.addAction(self.tr("Edit..."))
             act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
+
             # Add plugin menu items
             add_plugin_context_menu_items(
                 self._app_state,
@@ -1985,6 +2077,9 @@ class SpectrumPlot(SpectrumPlotGeneric):
             if spectrum.is_editable():
                 act = menu.addAction(self.tr("Edit..."))
                 act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
+
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
 
             # Add plugin menu items
             add_plugin_context_menu_items(
