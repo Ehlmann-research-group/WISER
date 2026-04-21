@@ -25,6 +25,16 @@ class KMeansDialog(QDialog):
         self._ui = Ui_KMeansDialog()
         self._ui.setupUi(self)
 
+        self._ui.wdgt_advanced_options.setVisible(False)
+        self._ui.btn_advanced_options.setText("Advanced Options \u25b6")
+        self._ui.btn_advanced_options.clicked.connect(self._toggle_advanced_options)
+
+    def _toggle_advanced_options(self) -> None:
+        visible = not self._ui.wdgt_advanced_options.isVisible()
+        self._ui.wdgt_advanced_options.setVisible(visible)
+        arrow = "\u25bc" if visible else "\u25b6"
+        self._ui.btn_advanced_options.setText(f"Advanced Options {arrow}")
+
     def show_kmeans(self, dataset_id: Optional[int] = None) -> None:
         pass
 
