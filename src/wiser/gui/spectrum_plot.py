@@ -1290,6 +1290,9 @@ class SpectrumPlotGeneric(QWidget):
                 act = menu.addAction(self.tr("Edit..."))
                 act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
+
             if spectrum.is_discardable():
                 menu.addSeparator()
 
@@ -1411,6 +1414,23 @@ class SpectrumPlotGeneric(QWidget):
                 spectra.append(treeitem.data(0, Qt.UserRole))
 
             export_spectrum_list(selected[0], spectra)
+
+    def _on_save_single_spectrum(self, treeitem):
+        spectrum = treeitem.data(0, Qt.UserRole)
+        supported_formats = [
+            self.tr("Text files (*.txt)"),
+            self.tr("All files (*)"),
+        ]
+
+        selected = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save Spectrum"),
+            self._app_state.get_current_dir(),
+            ";;".join(supported_formats),
+        )
+
+        if len(selected[0]) > 0:
+            export_spectrum_list(selected[0], [spectrum])
 
     def _on_discard_spectrum(self, treeitem, display_confirm=True):
         spectrum = treeitem.data(0, Qt.UserRole)
@@ -2051,6 +2071,9 @@ class SpectrumPlot(SpectrumPlotGeneric):
             if spectrum.is_editable():
                 act = menu.addAction(self.tr("Edit..."))
                 act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
+
+            act = menu.addAction(self.tr("Save to file..."))
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_save_single_spectrum(treeitem))
 
             # Add plugin menu items
             add_plugin_context_menu_items(
