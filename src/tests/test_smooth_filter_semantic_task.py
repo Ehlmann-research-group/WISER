@@ -14,7 +14,10 @@ from wiser.gui.smooth_filter import (
     SmoothingFilterSemanticTask,
 )
 from wiser.utils.primitives import ExternalRasterHandle
-from wiser.utils.task_stage_utils import build_smoothing_exclusion_mask
+from wiser.utils.task_stage_utils import (
+    _nan_aware_linear_ndimage_filtered_output,
+    build_smoothing_exclusion_mask,
+)
 
 pytestmark = [
     pytest.mark.integration,
@@ -191,9 +194,10 @@ class TestSmoothingFilterSemanticTask(unittest.TestCase):
         )
 
         work = self._expected_input(dataset)
-        expected = np.asarray(
-            ndimage.gaussian_filter(work, sigma=(1.0, 1.0), axes=(0, 1), mode="reflect", truncate=4.0),
-            dtype=np.float32,
+        expected = _nan_aware_linear_ndimage_filtered_output(
+            work,
+            ndimage.gaussian_filter,
+            {"sigma": (1.0, 1.0), "axes": (0, 1), "mode": "reflect", "truncate": 4.0},
         )
         mask = ~np.isfinite(work)
         expected[mask] = work[mask]
@@ -275,9 +279,10 @@ class TestSmoothingFilterSemanticTask(unittest.TestCase):
         )
 
         work = self._expected_input(dataset)
-        expected = np.asarray(
-            ndimage.gaussian_filter(work, sigma=2.0, axes=(2,), mode="reflect", truncate=4.0),
-            dtype=np.float32,
+        expected = _nan_aware_linear_ndimage_filtered_output(
+            work,
+            ndimage.gaussian_filter,
+            {"sigma": 2.0, "axes": (2,), "mode": "reflect", "truncate": 4.0},
         )
         mask = ~np.isfinite(work)
         expected[mask] = work[mask]

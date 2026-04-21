@@ -15,6 +15,7 @@ from wiser.utils.storage_client import StorageClient
 from wiser.utils.task_stage_utils import (
     SmoothingFilterSpatial,
     SmoothingFilterSpectral,
+    _nan_aware_linear_ndimage_filtered_output,
     build_smoothing_exclusion_mask,
 )
 from wiser.utils.task_system import (
@@ -289,9 +290,10 @@ class TestSmoothingFilters(unittest.TestCase):
             actual, actual_meta = self._run_stage(dataset, stage, output_ref_name)
 
             work = self._expected_input(dataset)
-            expected = np.asarray(
-                ndimage.gaussian_filter(work, sigma=(1.0, 1.0), axes=(0, 1), mode="reflect", truncate=4.0),
-                dtype=np.float32,
+            expected = _nan_aware_linear_ndimage_filtered_output(
+                work,
+                ndimage.gaussian_filter,
+                {"sigma": (1.0, 1.0), "axes": (0, 1), "mode": "reflect", "truncate": 4.0},
             )
 
             mask = ~np.isfinite(work)
@@ -379,9 +381,10 @@ class TestSmoothingFilters(unittest.TestCase):
             actual, actual_meta = self._run_stage(dataset, stage, output_ref_name)
 
             work = self._expected_input(dataset)
-            expected = np.asarray(
-                ndimage.gaussian_filter(work, sigma=2.0, axes=(2,), mode="reflect", truncate=4.0),
-                dtype=np.float32,
+            expected = _nan_aware_linear_ndimage_filtered_output(
+                work,
+                ndimage.gaussian_filter,
+                {"sigma": 2.0, "axes": (2,), "mode": "reflect", "truncate": 4.0},
             )
 
             mask = ~np.isfinite(work)

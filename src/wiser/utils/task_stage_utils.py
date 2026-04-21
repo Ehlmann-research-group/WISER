@@ -1569,6 +1569,28 @@ def _smoothing_dataset_tile_exclusion_mask(tile_yxb: np.ndarray, region_meta: An
     return build_smoothing_exclusion_mask(tile_yxb, region_meta.nodata, region_meta.bad_bands)
 
 
+def _nan_aware_linear_ndimage_filtered_output(
+    work: np.ndarray,
+    ndimage_filter_fn: Callable[..., Any],
+    filter_kwargs: Dict[str, Any],
+) -> np.ndarray:
+    """
+    NaN-aware linear smoothing: run ``ndimage_filter_fn`` on zero-filled values and on a
+    finite mask, then divide (renormalize). Valid for ``uniform_filter`` and
+    ``gaussian_filter``; not for ``median_filter``.
+    """
+    valid_mask = np.isfinite(work).astype(np.float32, copy=False)
+    values = np.nan_to_num(work, nan=0.0, posinf=0.0, neginf=0.0)
+
+    numerator = np.asarray(ndimage_filter_fn(values, **filter_kwargs), dtype=np.float32, order="C")
+    denominator = np.asarray(ndimage_filter_fn(valid_mask, **filter_kwargs), dtype=np.float32, order="C")
+
+    output_tile = np.full_like(numerator, np.nan, dtype=np.float32)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.divide(numerator, denominator, out=output_tile, where=denominator > 0.0)
+    return output_tile
+
+
 def _write_smoothing_ndimage_output_meta(
     input_ref: DataRef,
     full_input_region: DataRegion,
@@ -1621,17 +1643,10 @@ def _run_smoothing_filter_ndimage_tile(
     work[exclusion] = np.nan
     work[~np.isfinite(work)] = np.nan
 
-    if filter_kind == "uniform_filter":
-        # NaN-aware mean: filter values and finite-value mask separately, then normalize.
-        valid_mask = np.isfinite(work).astype(np.float32, copy=False)
-        values = np.nan_to_num(work, nan=0.0, posinf=0.0, neginf=0.0)
-
-        numerator = np.asarray(ndimage_filter_fn(values, **filter_kwargs), dtype=np.float32, order="C")
-        denominator = np.asarray(ndimage_filter_fn(valid_mask, **filter_kwargs), dtype=np.float32, order="C")
-
-        output_tile = np.full_like(numerator, np.nan, dtype=np.float32)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            np.divide(numerator, denominator, out=output_tile, where=denominator > 0.0)
+    if filter_kind in ("uniform_filter", "gaussian_filter"):
+        # NaN-aware linear smoother: zero non-finite samples, filter mask and values with the
+        # same kernel, then renormalize (valid for mean / Gaussian weights).
+        output_tile = _nan_aware_linear_ndimage_filtered_output(work, ndimage_filter_fn, filter_kwargs)
     else:
         filtered = ndimage_filter_fn(work, **filter_kwargs)
         output_tile = np.asarray(filtered, dtype=np.float32, order="C")
