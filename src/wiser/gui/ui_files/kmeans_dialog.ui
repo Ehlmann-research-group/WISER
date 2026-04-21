@@ -19,7 +19,7 @@
      <item>
       <widget class="QLabel" name="lbl_k_clusters">
        <property name="text">
-        <string>K clusters:</string>
+        <string>K clusters</string>
        </property>
       </widget>
      </item>
