@@ -28,6 +28,13 @@ pytestmark = [
 ]
 
 _JPL_HDR = Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+_CALTECH_DATA_IGNORE_HDR = (
+    Path(__file__).resolve().parent
+    / ".."
+    / "test_utils"
+    / "test_datasets"
+    / "caltech_425_6_6_data_ignore.hdr"
+)
 
 _TASK_ID_COUNTER = iter(range(50000, 51000))
 
@@ -140,6 +147,9 @@ class TestSmoothingFilters(unittest.TestCase):
         else:
             self.assertTrue(np.array_equal(np.asarray(actual_meta.bad_bands), np.asarray(bad_bands)))
         self.assertEqual(actual_meta.nodata, dataset.get_data_ignore_value())
+
+    def _assert_output_not_all_nan(self, output: np.ndarray, label: str) -> None:
+        self.assertFalse(np.isnan(output).all(), msg=f"{label} output is entirely NaN")
 
     # ------------------------------------------------------------------
     # Spatial: mean (uniform_filter)
@@ -303,6 +313,53 @@ class TestSmoothingFilters(unittest.TestCase):
         self.assertEqual(actual.shape, expected.shape)
         self.assertTrue(np.allclose(actual, expected, atol=1e-5, equal_nan=True))
         self._check_meta(actual_meta, dataset)
+
+    def _run_nan_propagation_cases(self, dataset, cases) -> None:
+        for label, stage_builder, filter_registry_key, filter_kwargs in cases:
+            with self.subTest(label=label):
+                output_ref_name = f"{label}_caltech_data_ignore"
+                stage = stage_builder(
+                    dataset,
+                    filter_registry_key=filter_registry_key,
+                    filter_kwargs=filter_kwargs,
+                    output_ref_name=output_ref_name,
+                )
+                actual, _ = self._run_stage(dataset, stage, output_ref_name)
+                self._assert_output_not_all_nan(actual, label)
+
+    def test_caltech_data_ignore_mean_nan_propagation_outputs_not_all_nan(self) -> None:
+        dataset = self.test_model.load_dataset(str(_CALTECH_DATA_IGNORE_HDR))
+        cases = [
+            ("spatial_mean", self._make_spatial_stage, "uniform_filter", {"size": 3, "mode": "reflect"}),
+            ("spectral_mean", self._make_spectral_stage, "uniform_filter", {"size": 5, "mode": "reflect"}),
+        ]
+        self._run_nan_propagation_cases(dataset, cases)
+
+    def test_caltech_data_ignore_median_nan_propagation_outputs_not_all_nan(self) -> None:
+        dataset = self.test_model.load_dataset(str(_CALTECH_DATA_IGNORE_HDR))
+        cases = [
+            ("spatial_median", self._make_spatial_stage, "median_filter", {"size": 3, "mode": "reflect"}),
+            ("spectral_median", self._make_spectral_stage, "median_filter", {"size": 5, "mode": "reflect"}),
+        ]
+        self._run_nan_propagation_cases(dataset, cases)
+
+    def test_caltech_data_ignore_gaussian_nan_propagation_outputs_not_all_nan(self) -> None:
+        dataset = self.test_model.load_dataset(str(_CALTECH_DATA_IGNORE_HDR))
+        cases = [
+            (
+                "spatial_gaussian",
+                self._make_spatial_stage,
+                "gaussian_filter",
+                {"sigma": 1.0, "mode": "reflect"},
+            ),
+            (
+                "spectral_gaussian",
+                self._make_spectral_stage,
+                "gaussian_filter",
+                {"sigma": 2.0, "mode": "reflect"},
+            ),
+        ]
+        self._run_nan_propagation_cases(dataset, cases)
 
 
 if __name__ == "__main__":
