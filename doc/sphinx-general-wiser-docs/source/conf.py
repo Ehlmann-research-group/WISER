@@ -7,7 +7,7 @@ import os
 import sys
 
 # Make wiser package importable for sphinx.ext.autodoc (used by extending-wiser pages)
-sys.path.insert(0, os.path.abspath("../../../../src"))
+sys.path.insert(0, os.path.abspath("../../../src"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -34,19 +34,15 @@ html_title = "WISER Documentation"
 
 extensions = [
     "myst_parser",
-    "autodoc2",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.viewcode",
     "enum_tools.autoenum",
 ]
 
-# autodoc2_packages = [
-#     "../../../src/wiser",
-# ]
-
+# autodoc2 is intentionally omitted: autodoc2_packages has no entries and
+# the plugin-API pages use sphinx.ext.autodoc directly.
 autodoc2_output_dir = "api"
-autodoct_render_plugin = "myst"
 
 autodoc2_hidden_objects = {"inherited"}
 autodoc2_class_docstring = "merged"
