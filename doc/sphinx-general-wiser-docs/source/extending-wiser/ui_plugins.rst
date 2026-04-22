@@ -1,3 +1,5 @@
+.. _gui plugins in wiser:
+
 GUI Plugins in WISER
 ====================
 
