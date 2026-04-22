@@ -60,44 +60,55 @@ except Exception:
 
 # Hard-code the logging configuration to remove the need for a log-config file.
 # TODO(donnie):  This is probably a BAD idea and needs to be revised in the future.
-logfile_path = os.path.join(get_wiser_config_dir(), "wiser.log")
-logging.config.dictConfig(
-    {
-        "version": 1,
-        "formatters": {
-            "simpleFormatter": {
-                "format": "%(asctime)s %(levelname)-5s %(name)s : %(message)s",
+if multiprocessing.parent_process() is None:  # This is the main process
+    logfile_path = os.path.join(get_wiser_config_dir(), "wiser.log")
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "formatters": {
+                "simpleFormatter": {
+                    "format": "%(asctime)s %(levelname)-5s %(name)s : %(message)s",
+                },
             },
-        },
-        "handlers": {
-            "consoleHandler": {
-                "class": "logging.StreamHandler",
-                "level": "WARNING",
-                "formatter": "simpleFormatter",
-                "stream": sys.stderr,
+            "handlers": {
+                "consoleHandler": {
+                    "class": "logging.StreamHandler",
+                    "level": "WARNING",
+                    "formatter": "simpleFormatter",
+                    "stream": sys.stderr,
+                },
+                "fileHandler": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "level": "DEBUG",
+                    "formatter": "simpleFormatter",
+                    "filename": logfile_path,
+                    "maxBytes": 5_000,
+                    "backupCount": 15,
+                },
             },
-            "fileHandler": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "level": "DEBUG",
-                "formatter": "simpleFormatter",
-                "filename": logfile_path,
-                "maxBytes": 10000000,
-                "backupCount": 5,
+            "loggers": {
+                "root": {
+                    "level": "DEBUG",
+                    "handlers": ["consoleHandler", "fileHandler"],
+                },
+                "matplotlib": {
+                    "level": "WARNING",
+                    "handlers": ["consoleHandler", "fileHandler"],
+                    "qualname": "matplotlib",
+                },
             },
-        },
-        "loggers": {
-            "root": {
-                "level": "DEBUG",
-                "handlers": ["consoleHandler", "fileHandler"],
-            },
-            "matplotlib": {
-                "level": "WARNING",
-                "handlers": ["consoleHandler", "fileHandler"],
-                "qualname": "matplotlib",
-            },
-        },
-    }
-)
+        }
+    )
+else:
+    # Remove the "lastResort" handler, so only the null handler is left.
+    root_logger = logging.getLogger()
+    # Remove all handlers except NullHandler
+    for handler in root_logger.handlers[:]:
+        if not isinstance(handler, logging.NullHandler):
+            root_logger.removeHandler(handler)
+    # Ensure at least a NullHandler is present
+    if not any(isinstance(h, logging.NullHandler) for h in root_logger.handlers):
+        root_logger.addHandler(logging.NullHandler())
 
 logger = logging.getLogger(__name__)
 
