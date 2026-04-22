@@ -59,7 +59,9 @@ except Exception:
 
 
 # Hard-code the logging configuration to remove the need for a log-config file.
-# TODO(donnie):  This is probably a BAD idea and needs to be revised in the future.
+# The if statement below ensures that only the main process and no subprocesses
+# can get a file handle to the logger because this can cause a file rotation.
+# The issue is noted in #502
 if multiprocessing.parent_process() is None:  # This is the main process
     logfile_path = os.path.join(get_wiser_config_dir(), "wiser.log")
     logging.config.dictConfig(
