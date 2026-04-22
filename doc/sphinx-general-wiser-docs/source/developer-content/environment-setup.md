@@ -81,6 +81,7 @@ run `make dev-lockfile`; to create just the prod lockfile, run
 and the dev .yml file has not been created yet, these commands will create it
 first.
 
+(installing-environment-from-lockfile)=
 ## Installing Environment from Lockfile
 
 Once you have the lock files, run:
@@ -309,7 +310,7 @@ compatibility goals. Supported Instruction Set Architectures (ISAs) are amd64
 Development has been tested on Ubuntu 22.04.5 amd64. The instructions below
 should work for other Linux distributions.
 
-#### How to Install Conda
+#### How to Install Conda on Linux
 
 Follow the instructions at
 https://www.anaconda.com/docs/getting-started/miniconda/main to install
