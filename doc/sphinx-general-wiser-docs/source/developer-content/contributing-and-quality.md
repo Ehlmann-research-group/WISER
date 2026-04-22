@@ -56,9 +56,9 @@ This guide covers:
 All pull requests (PRs) should be tied to an **existing issue**.  
 If no issue exists, **create one first** - we provide templates for common issue types to make this easy.
 
-## Code Review Guidelines
+(code-review-guidelines)=
 
-Code review in WISER focuses on ensuring that contributions meet both **functional** and **design** expectations.
+## Code Review Guidelines ensuring that contributions meet both **functional** and **design** expectations.
 
 ### What We Look For
 
@@ -81,9 +81,9 @@ Code review in WISER focuses on ensuring that contributions meet both **function
 - If documentation or tests are pending, you may open a **follow-up PR**.
 - Reviewers are encouraged to comment on **design clarity, naming, and simplicity** just as much as functionality.
 
+(commit-message-standards)=
 ## Commit Message Standards
 
-Commit messages communicate the *why* behind changes.
 
 ### Format
 
@@ -132,9 +132,10 @@ When squash merging a PR:
     - **Delete your branch** both locally and on GitHub.
     - **Pull from `main`** to sync your local repository.
 
-## Commenting Style
+(commenting-style)=
 
-Comments clarify *why* code exists - not just *what* it does.  
+## Commenting Style - not just *what* it does.
+
 Focus on explaining reasoning, design choices, and non-obvious logic.
 
 > Reference: [Do’s and Don’ts of Commenting Code](https://blog.openreplay.com/dos-and-donts-of-commenting-code/)
@@ -158,9 +159,9 @@ Focus on explaining reasoning, design choices, and non-obvious logic.
 
 ---
 
-## Naming and Code Style
+(naming-and-code-style)=
 
-Code should be **self-describing**: good names make code easier to read and maintain.
+## Naming and Code Style: good names make code easier to read and maintain.
 
 ### Python Naming Conventions
 
