@@ -34,5 +34,5 @@ Example Context-Menu Plugin
 
 Here is an example of a simple context menu plugin.
 
-.. literalinclude:: ../../src/example_plugins/ctxmenu_plugin.py
+.. literalinclude:: ../../../../src/example_plugins/ctxmenu_plugin.py
    :language: python
