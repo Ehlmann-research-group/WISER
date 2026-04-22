@@ -82,8 +82,8 @@ if multiprocessing.parent_process() is None:  # This is the main process
                     "level": "DEBUG",
                     "formatter": "simpleFormatter",
                     "filename": logfile_path,
-                    "maxBytes": 5_000,
-                    "backupCount": 15,
+                    "maxBytes": 10_000_000,
+                    "backupCount": 5,
                 },
             },
             "loggers": {
