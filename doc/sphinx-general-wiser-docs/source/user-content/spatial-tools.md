@@ -15,7 +15,7 @@ include:
 
 Example:
 
-```wkt
+```text
 GEOGCRS["WGS 84",
     DATUM["World Geodetic System 1984",
         ELLIPSOID["WGS 84",6378137,298.257223563,
