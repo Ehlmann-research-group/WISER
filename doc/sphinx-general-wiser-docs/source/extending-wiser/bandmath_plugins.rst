@@ -106,5 +106,5 @@ Example BandMath Plugin
 Okay, lets get into an example plugin that lets you do a spectral angle calculation
 between a spectrum and a dataset.
 
-.. literalinclude:: ../../src/example_plugins/bandmath_plugin.py
+.. literalinclude:: ../../../../src/example_plugins/bandmath_plugin.py
    :language: python
