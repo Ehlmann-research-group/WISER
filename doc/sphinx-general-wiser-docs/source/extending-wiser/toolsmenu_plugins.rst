@@ -16,5 +16,5 @@ Example Tools-Menu Plugin
 
 Okay, lets see an example plugin.
 
-.. literalinclude:: ../../src/example_plugins/tool_plugin.py
+.. literalinclude:: ../../../../src/example_plugins/tool_plugin.py
    :language: python
