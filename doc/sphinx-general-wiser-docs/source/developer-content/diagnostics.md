@@ -20,7 +20,7 @@ the stack trace will show you exactly what the problem is.
 
 ## Profile a Python Program
 
-To run the Python [cProfile]() profiler on `program.py`, storing the profile
+To run the Python [cProfile](https://docs.python.org/3/library/profile.html) profiler on `program.py`, storing the profile
 data into a file `profile_stats`:
 
     python -m cProfile -o profile_stats program.py
