@@ -222,10 +222,7 @@ class GenericSpectralComputationTool(QDialog):
         ui = self._ui
         ui.SelectTargetData.blockSignals(True)
         ui.SelectTargetData.clear()
-        if FLAGS.sff_sam_image_cube:
-            ui.SelectTargetData.addItems(["Spectrum", "Image Cube"])
-        else:
-            ui.SelectTargetData.addItems(["Spectrum"])
+        ui.SelectTargetData.addItems(["Spectrum", "Image Cube"])
         ui.SelectTargetData.blockSignals(False)
         ui.SelectTargetData.setCurrentText("Spectrum")
         self._on_target_type_changed("Spectrum")

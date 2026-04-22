@@ -12,6 +12,7 @@ import numpy as np
 import wiser.gui.generated.resources
 
 from .export_image import ExportImageDialog
+from .kmeans import KMeansDialog
 from .mnf import MinimumNoiseFractionDialog
 from .plugin_utils import add_plugin_context_menu_items
 from .rasterpane import RasterPane
@@ -36,6 +37,8 @@ from wiser.raster import roi_export
 from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
 from wiser.bandmath.types import VariableType
+
+from wiser.config import FLAGS
 
 
 logger = logging.getLogger(__name__)
@@ -209,6 +212,10 @@ class MainViewWidget(RasterPane):
 
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mnf_dialog(rv))
+
+        if FLAGS.kmeans:
+            act = submenu.addAction(self.tr("K-means"))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_kmeans_dialog(rv))
 
         submenu = menu.addMenu(self.tr("Filters"))
 
@@ -423,6 +430,13 @@ class MainViewWidget(RasterPane):
         dlg.select_dataset(dataset_id)
         if dlg.exec_() == QDialog.Accepted:
             pass
+
+    def _open_kmeans_dialog(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        dataset_id = None if dataset is None else dataset.get_id()
+        dlg = KMeansDialog(self._app_state, self._app_services, parent=self)
+        dlg.select_dataset(dataset_id)
+        dlg.exec_()
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
         # If dialog exists and is already visible, just bring it to front
