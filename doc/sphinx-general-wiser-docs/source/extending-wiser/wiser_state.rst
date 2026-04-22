@@ -16,6 +16,8 @@ See the ``get_loader()`` function above.  The loader offers these operations:
 .. autoclass:: wiser.raster.RasterDataLoader
     :members:
 
+.. _loading raster data into wiser:
+
 Loading Raster Data into WISER
 ------------------------------
 
