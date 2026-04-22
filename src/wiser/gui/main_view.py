@@ -38,6 +38,8 @@ from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_
 
 from wiser.bandmath.types import VariableType
 
+from wiser.config import FLAGS
+
 
 logger = logging.getLogger(__name__)
 
@@ -211,8 +213,9 @@ class MainViewWidget(RasterPane):
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mnf_dialog(rv))
 
-        act = submenu.addAction(self.tr("K-means"))
-        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_kmeans_dialog(rv))
+        if FLAGS.kmeans:
+            act = submenu.addAction(self.tr("K-means"))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_kmeans_dialog(rv))
 
         submenu = menu.addMenu(self.tr("Filters"))
 
