@@ -384,19 +384,18 @@ class DataVisualizerApp(QMainWindow):
         act = submenu.addAction(self.tr("Interactive Scatter Plot"))
         act.triggered.connect(self.show_scatter_plot_dialog)
 
-        if FLAGS.sam:
-            act = submenu.addAction(self.tr("Spectral Angle Mapper"))
-            act.triggered.connect(self.show_spectral_angle_mapper_dialog)
+        act = submenu.addAction(self.tr("Spectral Angle Mapper"))
+        act.triggered.connect(self.show_spectral_angle_mapper_dialog)
 
-        if FLAGS.sff:
-            act = submenu.addAction(self.tr("Spectral Feature Fitting"))
-            act.triggered.connect(self.show_spectral_feature_fitting_dialog)
+        act = submenu.addAction(self.tr("Spectral Feature Fitting"))
+        act.triggered.connect(self.show_spectral_feature_fitting_dialog)
 
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
 
-        act = submenu.addAction(self.tr("K-means"))
-        act.triggered.connect(self.show_kmeans_dialog)
+        if FLAGS.kmeans:
+            act = submenu.addAction(self.tr("K-means"))
+            act.triggered.connect(self.show_kmeans_dialog)
 
         act = self._tools_menu.addAction(self.tr("Geo Reference"))
         act.triggered.connect(self.show_geo_reference_dialog)
