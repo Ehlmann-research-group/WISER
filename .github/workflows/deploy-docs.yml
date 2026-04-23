@@ -3,6 +3,9 @@ name: Deploy Sphinx documentation to Pages
 on:
   push:
     branches: [main]
+    paths:
+      - "doc/sphinx-general-wiser-docs/**"
+      - "src/wiser/**/*.py"
   workflow_dispatch: {}
 
 concurrency:
@@ -10,16 +13,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pages:
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed by peaceiris/actions-gh-pages
+
     steps:
-    - id: deployment
-      uses: sphinx-notes/pages@v3
-      with:
-        publish: false
-        documentation_path: doc/sphinx-general-wiser-docs/source
-        requirements_path: doc/sphinx-general-wiser-docs/requirements.txt
-    - uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ${{ steps.deployment.outputs.artifact }}
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install doc dependencies
+        run: pip install -r doc/sphinx-general-wiser-docs/requirements.txt
+
+      - name: Build HTML
+        run: make html
+        working-directory: doc/sphinx-general-wiser-docs
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: doc/sphinx-general-wiser-docs/build/html
