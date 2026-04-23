@@ -58,7 +58,9 @@ If no issue exists, **create one first** - we provide templates for common issue
 
 (code-review-guidelines)=
 
-## Code Review Guidelines ensuring that contributions meet both **functional** and **design** expectations.
+## Code Review Guidelines
+
+Code review in WISER focuses on ensuring that contributions meet both **functional** and **design** expectations.
 
 ### What We Look For
 
@@ -134,9 +136,9 @@ When squash merging a PR:
 
 (commenting-style)=
 
-## Commenting Style - not just *what* it does.
+## Commenting Style
 
-Focus on explaining reasoning, design choices, and non-obvious logic.
+Comments clarify *why* code exists — not just *what* it does.
 
 > Reference: [Do’s and Don’ts of Commenting Code](https://blog.openreplay.com/dos-and-donts-of-commenting-code/)
 
@@ -161,7 +163,9 @@ Focus on explaining reasoning, design choices, and non-obvious logic.
 
 (naming-and-code-style)=
 
-## Naming and Code Style: good names make code easier to read and maintain.
+## Naming and Code Style
+
+Code should be **self-describing**: good names make code easier to read and maintain.
 
 ### Python Naming Conventions
 
