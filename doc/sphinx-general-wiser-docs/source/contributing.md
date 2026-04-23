@@ -49,3 +49,19 @@ When filling out the template:
 Feature requests should align with **WISER's mission**. Not all requests will
 be accepted --- some may require discussion and iteration to refine into a
 concrete, well-scoped solution. Please be patient and open to feedback.
+
+## Contributing Code
+
+Want to contribute a fix or feature? Start here:
+
+1. **Open an issue first** — describe what you want to change and why. This
+   avoids duplicate work and lets maintainers give early feedback on the approach.
+2. **Set up your environment** — see the [Developer Environment Setup](developer-content/environment-setup).
+3. **Read the contribution standards** — branching strategy, code review
+   expectations, commit message format, and style conventions are documented in
+   [Contributing & Code Quality](developer-content/contributing-and-quality).
+4. **Write tests** — new features and bug fixes should include tests. See the
+   [Testing & QA](developer-content/testing-and-qa) guide.
+5. **Open a pull request** — link it to your issue. The PR description is the
+   merge commit body, so write it clearly.
+

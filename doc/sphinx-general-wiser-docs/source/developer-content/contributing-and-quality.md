@@ -21,12 +21,11 @@ to find a way to make sure your feature is gated from production until it is rea
 We use feature flags to do this.
 
 We should have good confidence that the code we merge into main is not buggy.
-To have this confidence we need to ensure our testing
-suite has good coverage and handles edge cases well. Currently, I would not say
-WISER's testing suite has good coverage. This is due to the fact that the core body
-of WISER was not written with GUI tests and this issue was compounded by how hard it is to write GUI tests for PySide2
-applications. There is currently no good
-GUI testing suite for PySide2 applications.
+To have this confidence we need to ensure our testing suite has good coverage
+and handles edge cases well. WISER's test coverage is still growing — the core
+codebase predates the current testing standards, and GUI testing for PySide2
+applications presents known challenges. New contributions are expected to
+include tests; see the {doc}`Testing & QA <testing-and-qa>` guide.
 
 Next we have release branches. Release branches will be made from main. When
 release branches are made, there should no longer be any new features added
@@ -251,7 +250,10 @@ future.
 
 ---
 
-## Testing Standards
+```{seealso}
+Testing standards, QA checklists, and release verification are documented in
+{doc}`Testing & QA <testing-and-qa>`.
+```
 
 ## Purpose & Scope
 
