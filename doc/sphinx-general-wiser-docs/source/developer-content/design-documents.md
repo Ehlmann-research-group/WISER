@@ -101,8 +101,8 @@ development setting (where WISER's source code is available to the developer,
 and the developer can install other dependencies), or whether it is being used
 in a "frozen application" setting (where WISER has been frozen, along with its
 dependencies). In the frozen-app situation, WISER's dependencies cannot be
-extended.  (Or, at least, Donnie doesn't know how to do this.)  But, in that
-case, WISER can spawn a separate Python process with its own environment and
+extended.  (This may not be possible in a frozen-app context, but WISER can spawn a separate Python process with its own
+environment and
 dependencies.
 
 ## Known Plugin Dependency Issue and Fixes
