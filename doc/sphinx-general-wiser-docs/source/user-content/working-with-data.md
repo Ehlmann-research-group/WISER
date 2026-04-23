@@ -11,7 +11,11 @@ in the image data that might otherwise not be perceptible.
 Here is an example of the contrast stretch tool being used with the Caltech
 AVIRIS data.
 
-<img class="img_center" src="../_static/images/stretch_full_linear.png" width="80%">
+:::{figure} ../_static/images/stretch_full_linear.png
+:width: 80%
+:align: center
+:alt: Contrast stretch dialog showing a full linear stretch
+:::
 
 A histogram is shown for each display band, allowing one to see the
 distribution of values for that band. The user can select both the kind of
@@ -24,7 +28,11 @@ will be discarded; otherwise, they will be kept when the dialog is closed.
 Here is another example of applying a 2.5% linear stretch to the Caltech
 AVIRIS data:
 
-<img class="img_center" src="../_static/images/stretch_2.5_linear.png" width="80%">
+:::{figure} ../_static/images/stretch_2.5_linear.png
+:width: 80%
+:align: center
+:alt: Contrast stretch dialog with a 2.5% linear stretch applied
+:::
 
 When applying a linear stretch, the sliders may be adjusted to control the
 endpoints of the contrast-stretch operation. Additionally, minimum and
@@ -197,13 +205,21 @@ and the spectra of all pixels in the ROI may be exported as an ASCII file.
 
 Here are the Region of Interest tools in the main toolbar:
 
-<img class="img_center" src="../_static/images/roi_tools_annotated.png" width=400>
+:::{figure} ../_static/images/roi_tools_annotated.png
+:width: 400px
+:align: center
+:alt: Annotated Region of Interest toolbar buttons
+:::
 
 The first button allows a new Region of Interest to be created; a dialog allows
 the user to enter basic details about the Region of Interest. It is recommended
 to use a different color for each Region of Interest to avoid confusion.
 
-<img class="img_center" src="../_static/images/roi_create.png" width=400>
+:::{figure} ../_static/images/roi_create.png
+:width: 400px
+:align: center
+:alt: Create new Region of Interest dialog
+:::
 
 Once a Region of Interest is created, _selections_ may be added to the ROI.
 The right button allows users to create rectangle, polygon, and point-set
@@ -211,7 +227,11 @@ selections, which will then be added to the current Region of Interest. The
 ROI that the selection is added to may be changed with the drop-down combobox
 in the toolbar.
 
-<img class="img_center" src="../_static/images/roi_add_selection.png" width=400>
+:::{figure} ../_static/images/roi_add_selection.png
+:width: 400px
+:align: center
+:alt: Add selection to ROI — rectangle, polygon, and point-set options
+:::
 
 > Tip:  The status bar at the bottom of the UI provides instructions about how
 > to create each kind of selection.
@@ -223,7 +243,11 @@ done with a single polygon selection).  **It is not a problem to have
 overlapping selections in a Region of Interest;** each pixel in the ROI will
 only be used once by operations on the ROI.
 
-<img class="img_center" src="../_static/images/roi_add_selection_3.png" width=400>
+:::{figure} ../_static/images/roi_add_selection_3.png
+:width: 400px
+:align: center
+:alt: Two ROIs after adding multiple overlapping rectangle selections
+:::
 
 Once a Region of Interest has been created, right-clicking in the ROI's
 selections will pop up a context menu providing various operations with the ROI.
@@ -236,7 +260,11 @@ selections will pop up a context menu providing various operations with the ROI.
 * The spectra of every pixel in the ROI may be exported as an ASCII file
 * Import and export ROI's as .geojson files
 
-<img class="img_center" src="../_static/images/rois.png" width=600>
+:::{figure} ../_static/images/rois.png
+:width: 600px
+:align: center
+:alt: ROI context menu showing available operations
+:::
 
 ---
 
@@ -247,7 +275,11 @@ subsetting. The first is by right clicking the image and selecting "Save as..."
 The second option is "Save dataset" in the file menu, selecting the image to
 export.
 
-<img class="img_center" src="../_static/images/save_img.png" width=400>
+:::{figure} ../_static/images/save_img.png
+:width: 400px
+:align: center
+:alt: Save image dialog
+:::
 
 In the dialog box, click "Show Advanced" to access the following:
 
@@ -257,7 +289,11 @@ In the dialog box, click "Show Advanced" to access the following:
 * Choose the wavelengths to save and set bad bands
 * Set default RGB or grayscale display bands
 
-<img class="img_center" src="../_static/images/save_dataset.png" width=400>
+:::{figure} ../_static/images/save_dataset.png
+:width: 400px
+:align: center
+:alt: Save dataset dialog with advanced options expanded
+:::
 
 ---
 
@@ -271,7 +307,11 @@ off, and their colors changed. Clicking on the plot displays the (x, y)
 coordinates of the point. Right click on the plot to hide the coordinates of
 the selected point.
 
-<img class="img_center" src="../_static/images/plot_show_spectrum.png" width=400>
+:::{figure} ../_static/images/plot_show_spectrum.png
+:width: 400px
+:align: center
+:alt: Spectral plot showing a spectrum from a clicked pixel
+:::
 
 When multiple images are displayed in grid view, the plot will display spectra
 from any dataset that the user clicks. Using the upper left icon on the plot,
@@ -279,7 +319,11 @@ the user can opt to always pull spectra from one particular dataset. This is
 particularly useful with linked datasets in grid view such that clicking on one
 image will display a spectrum from the same pixel in a linked image.
 
-<img class="img_center" src="../_static/images/plot_clicked_dataset.png" width=400>
+:::{figure} ../_static/images/plot_clicked_dataset.png
+:width: 400px
+:align: center
+:alt: Spectral plot in grid view showing dataset selection control
+:::
 
 The import tool on the plot opens spectral libraries (.sli) and ASCII files
 with spectra. For ASCII files WISER opens a dialog box to select the column

@@ -6,7 +6,11 @@ The goal of WISER is to provide an intuitive and configurable user interface
 that supports many different workflows and styles of interaction. When WISER
 is started, the UI looks like this:
 
-<img class="img_center" src="../_static/images/wiser_start.png" width="80%">
+:::{figure} ../_static/images/wiser_start.png
+:width: 80%
+:align: center
+:alt: WISER at startup with no data loaded
+:::
 
 The WISER interface provides multiple panes for displaying raster data at
 varying levels of magnification. The Context Pane starts out on the left side
@@ -19,12 +23,20 @@ data is loaded yet, so these areas display "(no data)".
 Across the top of the Main Window is the Main Toolbar, which provides various
 tools to work with raster data:
 
-<img class="img_center" src="../_static/images/main_toolbar.png" width="70%">
+:::{figure} ../_static/images/main_toolbar.png
+:width: 70%
+:align: center
+:alt: The WISER main toolbar
+:::
 
 The buttons marked "Display Toggles" will show and hide specific tools for
 interacting with spectral data. These buttons are as follows:
 
-<img class="img_center" src="../_static/images/display_toggles.png" width="40%">
+:::{figure} ../_static/images/display_toggles.png
+:width: 40%
+:align: center
+:alt: Display toggle buttons in the main toolbar
+:::
 
 These tools are described in subsequent sections.
 
@@ -39,7 +51,11 @@ the various tools. You can access these properties through the WISER menubar.
 For example, on macOS you can access "WISER" -> "Preferences" to show this
 dialog:
 
-<img class="img_center" src="../_static/images/wiser_config.png" width="30%">
+:::{figure} ../_static/images/wiser_config.png
+:width: 45%
+:align: center
+:alt: WISER preferences dialog
+:::
 
 These settings are saved on disk so that they don't need to be specified every
 time. Some additional details are given in the following sections.
@@ -67,7 +83,13 @@ allows the user to configure these values.
 
 Here is a screenshot of WISER after loading AVIRIS data of the Caltech campus
 and the surrounding Pasadena area.
-<img class="img_center" src="../_static/images/wiser_caltech_annotated.png" width="80%">
+
+:::{figure} ../_static/images/wiser_caltech_annotated.png
+:width: 80%
+:align: center
+:alt: WISER displaying AVIRIS Caltech data with all panes visible and annotated
+:::
+
 In this image, all of the different tools have been shown using the display
 toggle buttons in the main toolbar:  the context pane, the main window and the
 zoom pane, as well as the spectral plot window and the dataset information
@@ -94,7 +116,11 @@ stretch of the bands being displayed. Note that all raster display windows
 have one or more of these buttons, allowing for control of how raster data
 is displayed.
 
-<img class="img_center" src="../_static/images/main_display_buttons.png" width="30%">
+:::{figure} ../_static/images/main_display_buttons.png
+:width: 30%
+:align: center
+:alt: Dataset toolbar buttons
+:::
 
 ## Dataset Chooser
 
@@ -109,12 +135,20 @@ The _band chooser_ shows a dialog that gives the user significant control over
 what bands are being displayed, and whether the image is to be shown in RGB
 mode (three bands) or grayscale mode (one band only).
 
-<img class="img_center" src="../_static/images/band_chooser.png" width="40%">
+:::{figure} ../_static/images/band_chooser.png
+:width: 40%
+:align: center
+:alt: The band chooser dialog
+:::
 
 When the grayscale or single band option is selected in the Band Chooser, WISER
 can display with a color bar or gradient.
 
-<img class="img_center" src="../_static/images/colormap.png" width="40%">
+:::{figure} ../_static/images/colormap.png
+:width: 40%
+:align: center
+:alt: Colormap selection for single-band display
+:::
 
 Besides letting the user select any combination of bands, the band chooser also
 exposes the ability to select the dataset's default bands, if any were
@@ -135,13 +169,21 @@ WISER allows simultaneous viewing of multiple images in the main window through
 the grid view, and images of the same size can be linked. Any grid dimensions
 can be input. Click the grid icon to split or unsplit the main view.
 
-<img class="img_center" src="../_static/images/grid_options.png" width="40%">
+:::{figure} ../_static/images/grid_options.png
+:width: 40%
+:align: center
+:alt: Grid view dimension options
+:::
 
 Note that, once images are displayed in a grid, the band selector and contrast
 stretch options are available above each image and not in the main WISER
 toolbar.
 
-<img class="img_center" src="../_static/images/grid_view.png" width="80%">
+:::{figure} ../_static/images/grid_view.png
+:width: 80%
+:align: center
+:alt: WISER grid view showing multiple images side by side
+:::
 
 Images in the grid can only be linked if all images open in WISER have the same
 spatial dimensions.

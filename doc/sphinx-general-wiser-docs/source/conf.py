@@ -24,11 +24,18 @@ html_theme = "sphinx_book_theme"
 
 html_theme_options = {
     "repository_url": "https://github.com/Ehlmann-research-group/WISER",
+    "repository_branch": "main",
+    "path_to_docs": "doc/sphinx-general-wiser-docs/source",
     "use_repository_button": True,
-    "max_navbar_depth": 10,
+    "use_edit_page_button": True,
+    "home_page_in_toc": True,
+    "show_toc_level": 2,
+    "navigation_with_keys": True,
+    "max_navbar_depth": 3,
 }
 
 html_logo = "_static/icon_128x128.png"
+html_favicon = "_static/icon_128x128.png"
 
 html_title = "WISER Documentation"
 
@@ -41,12 +48,12 @@ extensions = [
     "enum_tools.autoenum",
 ]
 
-# autodoc2 is intentionally omitted: autodoc2_packages has no entries and
-# the plugin-API pages use sphinx.ext.autodoc directly.
-autodoc2_output_dir = "api"
-
-autodoc2_hidden_objects = {"inherited"}
-autodoc2_class_docstring = "merged"
+myst_enable_extensions = [
+    "colon_fence",  # ::: fences for Sphinx directives in Markdown
+    "deflist",  # definition lists
+    "tasklist",  # renders - [ ] checkboxes
+    "attrs_inline",  # inline attribute syntax
+]
 
 # sphinx.ext.autodoc options (used by extending-wiser plugin API pages)
 autodoc_default_options = {
