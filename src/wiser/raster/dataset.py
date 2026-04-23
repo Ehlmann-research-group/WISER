@@ -1,14 +1,16 @@
 import copy
+import enum
 import math
-
+from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING, Iterable
 
 import numpy as np
 from astropy import units as u
-import enum
-
 from osgeo import osr, gdal
 
+from wiser.gui.dataset_editor_dialog import DatasetEditorDialog
+from wiser.raster.serializable import Serializable, SerializedForm
+from .data_cache import DataCache
 from .dataset_impl import (
     RasterDataImpl,
     SaveState,
@@ -23,7 +25,6 @@ from .utils import (
     RED_WAVELENGTH,
     GREEN_WAVELENGTH,
     BLUE_WAVELENGTH,
-    KNOWN_SPECTRAL_UNITS,
     get_spectral_unit_from_any,
 )
 from .utils import (
@@ -33,18 +34,8 @@ from .utils import (
     have_spatial_overlap,
     build_band_info_from_wavelengths,
 )
-from .data_cache import DataCache
-
-from wiser.gui.dataset_editor_dialog import DatasetEditorDialog
-
-from wiser.raster.serializable import Serializable, SerializedForm
-
-from time import perf_counter
-
-from abc import ABC
 
 if TYPE_CHECKING:
-    from wiser.raster.spectrum import Spectrum
     from wiser.raster.loader import RasterDataLoader
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
@@ -786,15 +777,15 @@ class RasterDataSet(Serializable):
         impl dataset types. Use with caution!
 
         Args:
-            band_list (List[Dict[str, Any]]):
-                band_list should contain at least one of these keys:
-                *   'index' - the integer index of the band (always present)
-                *   'description' - the string description of the band
-                *   'wavelength' - a value-with-units for the spectral wavelength of
-                    the band.  astropy.units is used to represent the values-with-units.
-                *   'wavelength_str' - the string version of the band's wavelength
-                *   'wavelength_units' - the string version of the band's
-                    wavelength-units value
+            band_list (List[Dict[str, Any]]): A list of band-info dicts.
+                Each dict should contain at least one of these keys:
+
+                - ``index``: the integer index of the band (always present)
+                - ``description``: the string description of the band
+                - ``wavelength``: a value-with-units for the spectral wavelength
+                  of the band (astropy.units is used to represent values-with-units)
+                - ``wavelength_str``: the string version of the band's wavelength
+                - ``wavelength_units``: the string version of the band's wavelength units
         """
         self._band_info = copy.deepcopy(band_list)
         self._has_wavelengths = self._compute_has_wavelengths()
