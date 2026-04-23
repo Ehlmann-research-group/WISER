@@ -73,7 +73,7 @@ jobs:
               issue_number: context.issue.number,
             });
 
-            const marker = '📄 **Docs preview ready.**';
+            const marker = '**Docs preview ready.**';
             const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
 
             if (existing) {
