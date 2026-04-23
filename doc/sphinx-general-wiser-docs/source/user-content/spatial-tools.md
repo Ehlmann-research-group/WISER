@@ -2,6 +2,10 @@
 
 ## Georeferencer
 
+The Georeferencer tool lets you assign or correct the spatial reference system
+(CRS) of a raster dataset and apply geometric transformations to align it with
+real-world coordinates.
+
 ## Reference System Information
 
 A reference system (more commonly known as a **spatial reference system (SRS)**
@@ -75,7 +79,10 @@ to specify the full WKT string or full PROJJSON schema.
 The Georeferencer tool in WISER allows you to specify a coordinate reference
 system by the authority name and authority code.
 
-![Georeferencer Ref System Creator](../_static/images/georef_authority_code_entry.png)
+:::{figure} ../_static/images/georef_authority_code_entry.png
+:align: center
+:alt: Georeferencer authority code entry dialog
+:::
 
 If you do not know your authority name or authority code but you do have the WKT
 string or PROJJSON schema, then you will likely be able to find your authority
@@ -91,31 +98,52 @@ You can see it references UTM Zone 11N and WGS 1984. Go to
 [spatialreference.org](https://spatialreference.org/ref/) and search for
 `UTM Zone 11N WGS 1984`.
 
-![Spatial Reference Finder Website](../_static/images/spatial_reference_org_website.png)
+:::{figure} ../_static/images/spatial_reference_org_website.png
+:align: center
+:alt: spatialreference.org search page
+:::
 
-![Entering descriptive string into search](../_static/images/failed_ref_sys_search.png)
+:::{figure} ../_static/images/failed_ref_sys_search.png
+:align: center
+:alt: Search returning no results with a very specific query
+:::
 
 If the search returns no results, try a less specific term such as
 `UTM Zone 11N WGS`.
 
-![Successful search with UTM Zone 11N WGS](../_static/images/successful_ref_sys_search.png)
+:::{figure} ../_static/images/successful_ref_sys_search.png
+:align: center
+:alt: Successful search result for UTM Zone 11N WGS
+:::
 
 Click one of the results to verify it matches your WKT string.
 
-![EPSG:32611 Page](../_static/images/ref_sys_page.png)
+:::{figure} ../_static/images/ref_sys_page.png
+:align: center
+:alt: EPSG 32611 reference system page on spatialreference.org
+:::
 
 Click **WKT-1 as HTML** to view the WKT string for that authority code.
 
-![WKT-1 As HTML Image](../_static/images/wkt_link_click.png)
+:::{figure} ../_static/images/wkt_link_click.png
+:align: center
+:alt: Clicking the WKT-1 as HTML link on the reference system page
+:::
 
 Compare the WKT string at the URL with your own WKT string to confirm they
 match.
 
-![WKT string in an html page](../_static/images/wkt_string_html.png)
+:::{figure} ../_static/images/wkt_string_html.png
+:align: center
+:alt: WKT string displayed in a browser from the spatialreference.org URL
+:::
 
 Finally, enter the authority name and code (e.g. `EPSG:32611`) into WISER.
 
-![Entering Reference System into WISER](../_static/images/enter_crs_into_wiser.png)
+:::{figure} ../_static/images/enter_crs_into_wiser.png
+:align: center
+:alt: Entering the authority code EPSG:32611 into WISER
+:::
 
 ---
 

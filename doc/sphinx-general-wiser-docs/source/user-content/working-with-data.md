@@ -329,7 +329,11 @@ The import tool on the plot opens spectral libraries (.sli) and ASCII files
 with spectra. For ASCII files WISER opens a dialog box to select the column
 delimiter and identify which column(s) specify wavelength values.
 
-<img class="img_center" src="../_static/images/spectra_import.png" width=400>
+:::{figure} ../_static/images/spectra_import.png
+:width: 400px
+:align: center
+:alt: Import spectra dialog for spectral libraries and ASCII files
+:::
 
 By default, imported spectra are listed but not displayed. All spectra can be
 shown or hidden by right clicking the name of the file or library in the list
@@ -346,8 +350,123 @@ The spectral plot has many configuration options:
   and median
 * Display legend
 
-<img class="img_center" src="../_static/images/plot_config.png" width=400>
+:::{figure} ../_static/images/plot_config.png
+:width: 400px
+:align: center
+:alt: Spectral plot configuration options dialog
+:::
 
 By right clicking on plots, WISER provides an option to "Export Plot to Image."
 Available formats are EPS, PDF, PNG, and SVG with 72, 100, or 300 dpi
 resolution.
+
+---
+
+## Analysis Tools
+
+WISER includes several built-in analysis tools accessible from the Tools menu
+and context menus. These tools operate on loaded datasets and produce new
+output datasets or visualizations.
+
+## Band Math
+
+The band math utility is available in the Tools menu. WISER band math supports
+the following operations: arithmetic, power/root, and comparisons/conditionals.
+Expressions can be saved for future use, and band math can be extended with
+user-defined functions in plugins. Variables can be mapped to full images,
+single bands, and spectra. Help can be toggled to see the band math operators.
+
+:::{figure} ../_static/images/band_math.png
+:width: 600px
+:align: center
+:alt: The band math dialog
+:::
+
+> Note: Band math is not currently optimized to operate on very large images
+> and may exceed the memory availability of the user's computer. The expected
+> size of the output is calculated to help users assess whether band math
+> operations are feasible given the image size and computing resources.
+
+---
+
+## Continuum Removal
+
+WISER has continuum removal built in. To use it, right-click on an image in
+the main image view and select _Continuum Removal: Image_.
+
+:::{figure} ../_static/images/cont_remove_image.png
+:width: 20%
+:align: center
+:alt: Continuum removal context menu option on an image
+:::
+
+You can use it on an individual spectrum or all collected spectra by
+right-clicking in the Spectrum Plot and selecting either
+_Continuum Removal: Single Spectrum_ or _Continuum Removal: Collected Spectra_.
+
+:::{figure} ../_static/images/cont_remove_spectra.png
+:width: 20%
+:align: center
+:alt: Continuum removal context menu options in the spectrum plot
+:::
+
+## Principal Component Analysis (PCA)
+
+To use PCA, right-click on an image in the main view, select **PCA** in the
+context menu, then choose the number of principal components. Currently, only
+PCA using the covariance matrix is supported.
+
+:::{figure} ../_static/images/pca_ui.png
+:width: 50%
+:align: center
+:alt: PCA options dialog
+:::
+
+After PCA runs, a window displays all output data including the mean,
+variances, and components. This data can be saved to a file.
+
+## Interactive Scatter Plot
+
+To open the interactive scatter plot go to
+_Tools → Data Analysis → Interactive Scatter Plot_, or right-click on the main
+window when a dataset is showing and go to
+_Data Analysis → Interactive Scatter Plot_.
+
+:::{figure} ../_static/images/int_scat_plot_empty.png
+:width: 35%
+:align: center
+:alt: Interactive scatter plot setup — empty, awaiting band selection
+:::
+
+Select the band for the x-axis and the band for the y-axis, then select the
+dataset to render onto and press **Plot**. Once done loading, the scatter plot
+appears:
+
+:::{figure} ../_static/images/int_scat_plot.png
+:width: 35%
+:align: center
+:alt: Interactive scatter plot with data rendered
+:::
+
+Click on the plot (while not panning or zooming) to create a polygon selection.
+The pixels corresponding to the points inside the polygon will be highlighted
+with a red circle in their center on the selected dataset.
+
+## Spectral Angle Mapper & Spectral Feature Fitting
+
+These algorithms share a similar UI and are grouped here. The basic premise:
+
+1. There is a target image or target spectrum and one or more reference spectra
+   to compare against.
+2. When comparing a target image to a reference spectrum, each spectrum in that
+   image is compared to the reference spectrum individually.
+3. The comparison is performed over a specific wavelength range.
+    - **Spectral Angle Mapper (SAM):** takes the angle between the two spectra.
+    - **Spectral Feature Fitting (SFF):** takes the root mean squared error after
+      scaling the spectra by a factor gamma (least-squares solution).
+
+To use, go to _Tools → Data Analysis → (Spectral Angle Mapper / Spectral
+Feature Fitting)_, or right-click on the main window and go to
+_Data Analysis → (Spectral Angle Mapper / Spectral Feature Fitting)_.
+
+
