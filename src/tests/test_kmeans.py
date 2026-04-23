@@ -14,6 +14,7 @@ from wiser.gui.kmeans import (
     KMeansAlgorithm,
     KMeansInitMethod,
     KMeansParameters,
+    KMeansSemanticTask,
     get_kmeans_pipeline,
 )
 from wiser.raster.loader import RasterDataLoader
@@ -143,6 +144,96 @@ class TestKMeansStage(unittest.TestCase):
             app_services.storage_service.close()
 
 
+class TestKMeansSemanticTask(unittest.TestCase):
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def test_semantic_task_adds_labels_dataset_matching_sklearn_on_jpl(self) -> None:
+        """
+        Run KMeansSemanticTask on jpl_425_7_7 and verify that:
+          - exactly one new dataset is added to WISER after the task completes
+          - the label image in that dataset matches sklearn KMeans with the same seed
+          - the dataset's data_ignore_value is -1
+        """
+        app_state = self.test_model.app_state
+        app_services = self.test_model.app_services
+
+        dataset = self.test_model.load_dataset(str(_JPL_HDR))
+        dataset_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=dataset)
+        )
+
+        params = KMeansParameters(
+            k=_K,
+            init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
+            num_inits=3,
+            max_iter=100,
+            tol=1e-4,
+            seed=_SEED,
+            algorithm=KMeansAlgorithm.LLOYD,
+        )
+
+        datasets_before = len(app_state.get_datasets())
+
+        kmeans_task = KMeansSemanticTask(
+            app_state=app_state,
+            source_dataset=dataset,
+            input_ref=dataset_ref,
+            params=params,
+        )
+
+        task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
+        future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+        future.result(timeout=180)
+        self.test_model.app.processEvents()
+
+        datasets_after = app_state.get_datasets()
+        self.assertEqual(
+            len(datasets_after),
+            datasets_before + 1,
+            "Expected exactly one new dataset to be added by the semantic task",
+        )
+
+        labels_ds = datasets_after[-1]
+
+        self.assertEqual(labels_ds.get_data_ignore_value(), -1)
+
+        # (1, y, x) from get_image_data → (y, x, 1) after transpose
+        labels_byb = np.asarray(labels_ds.get_image_data(filter_data_ignore_value=False))
+        labels_array = labels_byb.transpose(1, 2, 0).astype(np.int32)
+
+        # ------------------------------------------------------------------
+        # Reference: jpl_425_7_7 has no bad bands and no nodata
+        # ------------------------------------------------------------------
+        image_yxb = np.asarray(
+            dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float32
+        ).transpose(1, 2, 0)  # (y, x, b)
+        y, x, b = image_yxb.shape
+        flat = image_yxb.reshape(y * x, b)
+
+        ref_kmeans = SklearnKMeans(
+            n_clusters=_K,
+            init="k-means++",
+            n_init=3,
+            max_iter=100,
+            tol=1e-4,
+            random_state=_SEED,
+            algorithm="lloyd",
+        )
+        ref_labels_flat = ref_kmeans.fit_predict(flat).astype(np.int32)
+        ref_labels_image = ref_labels_flat.reshape(y, x, 1)
+
+        self.assertEqual(labels_array.shape, ref_labels_image.shape)
+        np.testing.assert_array_equal(
+            labels_array,
+            ref_labels_image,
+            err_msg="Semantic task label image does not match sklearn reference.",
+        )
+
+
 if __name__ == "__main__":
-    test = TestKMeansStage()
-    test.test_kmeans_stage_labels_and_centroids_match_sklearn_on_jpl()
+    unittest.main()
