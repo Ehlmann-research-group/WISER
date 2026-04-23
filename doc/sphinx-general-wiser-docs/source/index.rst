@@ -11,16 +11,18 @@ WISER runs on **macOS, Windows, and Linux**. Pre-built installers and AppImages
 are available; see :doc:`Getting Started <get-started>` for download links and
 installation instructions.
 
-WISER is developed by the
-`Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_.
-
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :caption: Using WISER
 
    about.md
    get-started.rst
    user-manual.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
+   contributing.md
    extending-wiser/index.rst
    developer.rst
-   contributing.md
