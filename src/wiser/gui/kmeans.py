@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import partial
@@ -5,6 +6,7 @@ from typing import Any, Callable, Dict, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
 from sklearn.cluster import KMeans as SklearnKMeans
+from PySide2.QtCore import QObject, Signal, Slot
 from PySide2.QtGui import QIntValidator, QDoubleValidator
 from PySide2.QtWidgets import QDialog
 
@@ -15,10 +17,12 @@ from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
     DataBinding,
+    DataMeta,
     DataRef,
     DataRegion,
     DatasetRegionRef,
     NoChunkingScheme,
+    PriorityClass,
 )
 from wiser.utils.task_stage_utils import (
     get_good_band_runs,
@@ -29,13 +33,14 @@ from wiser.utils.task_system import (
     BasePlanMeta,
     DatasetPlanMeta,
     ResourceModel,
+    SemanticTask,
     SequentialStage,
     WriteSpec,
 )
 from wiser.utils.worker_runtime import get_process_storage_client
 
 if TYPE_CHECKING:
-    pass
+    from wiser.raster.dataset import RasterDataSet
 
 
 class KMeansInitMethod(Enum):
@@ -386,6 +391,85 @@ def get_kmeans_pipeline(
 
 
 # endregion
+
+
+class KMeansSemanticTask(QObject, SemanticTask):
+    """Semantic task that runs K-means clustering and loads the label image into WISER."""
+
+    result_ready = Signal(object, object, object)
+
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        source_dataset: "RasterDataSet",
+        input_ref: DataRef,
+        params: KMeansParameters,
+        labels_ref_name: str = "kmeans_labels",
+        centroids_ref_name: str = "kmeans_centroids",
+    ):
+        QObject.__init__(self)
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=input_ref,
+            algorithm_pipeline=get_kmeans_pipeline(input_ref, params, labels_ref_name, centroids_ref_name),
+            task_title="K-Means Clustering",
+            task_variables={
+                "K": params.get_k(),
+                "Dataset": source_dataset.get_name(),
+                "Init Method": params.get_init_method().value,
+            },
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._source_dataset = source_dataset
+        self._params = params
+        self._labels_ref_name = labels_ref_name
+        self._centroids_ref_name = centroids_ref_name
+        self.result_ready.connect(self._load_result_into_wiser)
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        labels_ref = bindings.get(self._labels_ref_name)
+        if labels_ref is None:
+            raise KeyError(f"Missing K-Means labels output binding: {self._labels_ref_name}")
+        centroids_ref = bindings.get(self._centroids_ref_name)
+        if centroids_ref is None:
+            raise KeyError(f"Missing K-Means centroids output binding: {self._centroids_ref_name}")
+
+        storage_client = get_process_storage_client()
+
+        labels_meta = storage_client.get_meta(labels_ref)
+        height, width, bands = labels_meta.shape
+        labels_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
+        labels_data, _ = storage_client.read_region(labels_ref, labels_region, filter_data=False)
+
+        centroids_data, _ = storage_client.read_data(centroids_ref)
+
+        self.result_ready.emit(np.asarray(labels_data), labels_meta, np.asarray(centroids_data))
+
+    @Slot(object, object, object)
+    def _load_result_into_wiser(
+        self, labels_data: object, labels_meta: object, centroids_data: object
+    ) -> None:
+        _ = centroids_data  # reserved for future use
+        labels_array = np.asarray(labels_data)  # (y, x, 1)
+        labels_by_band = labels_array.transpose(2, 0, 1)  # (1, y, x)
+
+        loader = self._app_state.get_loader()
+        cache = self._app_state.get_cache()
+        labels_dataset = loader.dataset_from_numpy_array(labels_by_band, cache)
+
+        source_name = self._source_dataset.get_name() or "Dataset"
+        timestamp = datetime.datetime.now().isoformat()
+        k = self._params.get_k()
+        labels_dataset.set_name(self._app_state.unique_dataset_name(f"K-Means Labels (k={k}): {source_name}"))
+        labels_dataset.set_description(f"K-Means cluster label image (k={k}): {source_name} ({timestamp})")
+        labels_dataset.set_data_ignore_value(-1)
+
+        if self._source_dataset.get_spatial_metadata().get_spatial_ref():
+            labels_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+
+        self._app_state.add_dataset(labels_dataset, view_dataset=False)
 
 
 class KMeansDialog(QDialog):
