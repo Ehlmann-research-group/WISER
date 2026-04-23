@@ -1,0 +1,91 @@
+name: Docs preview (PR)
+
+# Runs on every PR push that touches docs or Python source.
+# Builds the Sphinx HTML, uploads it as an artifact, and posts a comment
+# on the PR with a direct link to the workflow run where the artifact
+# can be downloaded and previewed locally.
+#
+# For a zero-login live-URL preview, consider connecting the repo to
+# Read the Docs (readthedocs.org) — it is free for open-source projects
+# and posts a live preview URL automatically on every PR.
+
+on:
+  pull_request:
+    paths:
+      - "doc/sphinx-general-wiser-docs/**"
+      - "src/wiser/**/*.py"
+
+concurrency:
+  group: docs-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Sphinx docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # Install doc build dependencies.
+      # wiser itself is not installed here, so autodoc API sections will
+      # render as stubs — all narrative docs build correctly.
+      - name: Install doc dependencies
+        run: pip install -r doc/sphinx-general-wiser-docs/requirements.txt
+
+      - name: Build HTML
+        run: make html
+        working-directory: doc/sphinx-general-wiser-docs
+
+      - name: Upload HTML artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview-pr${{ github.event.number }}
+          path: doc/sphinx-general-wiser-docs/build/html/
+          retention-days: 14
+
+      # Post (or update) a single comment on the PR linking to this run.
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '📄 **Docs preview ready.**',
+              '',
+              `Download the \`docs-preview-pr${context.issue.number}\` artifact from the [workflow run](${runUrl}), unzip it, and open \`index.html\` locally.`,
+              '',
+              '_Artifact expires after 14 days. Updated on every push to this PR._',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '📄 **Docs preview ready.**';
+            const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
