@@ -1,10 +1,9 @@
 # About WISER
 
 WISER (Workbench for Imaging Spectroscopy Exploration and Research) is an
-open-source, GUI-based tool for visualizing and analyzing spectral imaging data. It is
-written in Python and provides a cross-platform GUI built on Qt 5 with PySide2.
-GDAL is used for loading and saving spectral data, and NumPy for internal data
-representation.
+open-source tool for visualizing and analyzing hyperspectral imagery.
+It is written in Python with a cross-platform Qt/PySide2 GUI. GDAL handles
+raster I/O and NumPy is used for internal data representation.
 
 WISER is developed and maintained by the
 [Ehlmann Research Group](https://github.com/Ehlmann-research-group).
