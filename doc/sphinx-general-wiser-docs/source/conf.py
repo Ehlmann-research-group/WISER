@@ -28,7 +28,7 @@ html_theme_options = {
     "path_to_docs": "doc/sphinx-general-wiser-docs/source",
     "use_repository_button": True,
     "use_edit_page_button": True,
-    "home_page_in_toc": False,
+    "home_page_in_toc": True,
     "show_toc_level": 2,
     "navigation_with_keys": True,
     "max_navbar_depth": 3,
