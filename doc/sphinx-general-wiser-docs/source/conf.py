@@ -35,6 +35,7 @@ html_title = "WISER Documentation"
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.viewcode",
     "enum_tools.autoenum",
