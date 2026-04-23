@@ -15,6 +15,9 @@ on:
       - "doc/sphinx-general-wiser-docs/**"
       - "src/wiser/**/*.py"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: docs-preview-${{ github.event.number }}
   cancel-in-progress: true
