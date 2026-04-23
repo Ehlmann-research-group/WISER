@@ -330,9 +330,11 @@ This page documents the process for creating a new WISER release.
 
 ## Overview
 
-(To be documented. This page will cover the end-to-end release workflow
-including version bumping, building distributables, code signing,
-CI/CD pipeline, and publishing releases.)
+```{note}
+This section is not yet written. It will cover the end-to-end release workflow:
+version bumping, building distributables, code signing, CI/CD pipeline, and
+publishing releases.
+```
 
 ## Related
 
