@@ -1,8 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
+from sklearn.cluster import KMeans as SklearnKMeans
 from PySide2.QtGui import QIntValidator, QDoubleValidator
 from PySide2.QtWidgets import QDialog
 
@@ -16,6 +18,10 @@ from wiser.utils.primitives import (
     DataRef,
     DataRegion,
     NoChunkingScheme,
+)
+from wiser.utils.task_stage_utils import (
+    get_good_band_runs,
+    split_dataset_tile_by_good_band_runs,
 )
 from wiser.utils.task_system import (
     AlgorithmPipeline,
@@ -84,7 +90,149 @@ class KMeansParameters:
         return self._manual_spectra
 
 
+class KMeansCentroids:
+    """Convenience wrapper around a (k, b) float32 centroid array."""
+
+    def __init__(self, centroids: np.ndarray) -> None:
+        if centroids.ndim != 2:
+            raise ValueError(f"Expected 2D centroid array of shape (k, b), got {centroids.shape}")
+        self._centroids = np.asarray(centroids, dtype=np.float32)
+
+    def get_centroid(self, index: int) -> np.ndarray:
+        """Return the 1-D spectrum for cluster *index* (shape ``(b,)``)."""
+        return self._centroids[index]
+
+    def num_centroids(self) -> int:
+        """Return k, the number of cluster centroids."""
+        return self._centroids.shape[0]
+
+
 # region KMeans TaskStage
+
+
+def _write_kmeans_labels_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    labels_write: "WriteSpec",
+) -> None:
+    _ = full_input_region
+    client = get_process_storage_client()
+    input_meta = client.get_meta(input_ref)
+    output_meta = client.get_meta(labels_write.ref)
+    labels_meta = replace(
+        output_meta,
+        crs_wkt=input_meta.crs_wkt,
+        geotransform=input_meta.geotransform,
+    )
+    client.write_meta(labels_write.ref, labels_meta)
+
+
+def _run_kmeans(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    labels_write: "WriteSpec",
+    centroids_ref: DataRef,
+    params: "KMeansParameters",
+) -> None:
+    client = get_process_storage_client()
+
+    # Read the full dataset as float32 (y, x, b_total)
+    image_data, region_meta = client.read_data(input_ref, filter_data=False)
+    image_array = np.asarray(np.ma.getdata(image_data), dtype=np.float32)
+
+    if image_array.ndim != 3:
+        raise ValueError(f"Expected dataset shape [y][x][b], got {image_array.shape}")
+
+    y, x, b_total = image_array.shape
+
+    # Remove bad bands: extract only good-band runs and concatenate into (y, x, b_good)
+    if region_meta.bad_bands is None:
+        good_band_runs = [(0, b_total)]
+    else:
+        good_band_runs = get_good_band_runs(np.asarray(region_meta.bad_bands))
+
+    if len(good_band_runs) == 0:
+        raise ValueError("KMeans requires at least one valid band; all bands are flagged as bad.")
+
+    good_chunks = split_dataset_tile_by_good_band_runs(image_array, good_band_runs)
+    image_good = np.concatenate(good_chunks, axis=2)  # (y, x, b_good)
+    b_good = image_good.shape[2]
+
+    # Flatten to (n_pixels, b_good) while preserving the flat index -> (y, x) mapping
+    flat = image_good.reshape(y * x, b_good)
+
+    # Remove rows that contain the data ignore value
+    nodata = region_meta.nodata
+    if nodata is not None:
+        if np.isnan(nodata):
+            nodata_row_mask = np.any(np.isnan(flat), axis=1)
+        else:
+            nodata_row_mask = np.any(flat == nodata, axis=1)
+        valid_indices = np.where(~nodata_row_mask)[0]
+    else:
+        valid_indices = np.arange(y * x)
+
+    flat_valid = flat[valid_indices]  # (n_valid, b_good)
+
+    # Error out on any remaining NaN or infinite values
+    if not np.all(np.isfinite(flat_valid)):
+        raise ValueError(
+            "KMeans input contains NaN or infinite values in valid (non-nodata) pixels. "
+            "Check your dataset for corrupt values."
+        )
+
+    # Build the init argument
+    init_method = params.get_init_method()
+    if init_method == KMeansInitMethod.MANUAL:
+        manual_spectra = params.get_manual_spectra()
+        if manual_spectra is None or len(manual_spectra) == 0:
+            raise ValueError("KMeansInitMethod.MANUAL requires manual_spectra to be provided.")
+        # Each manual spectrum is assumed to be full-band; strip to good bands
+        init_arg = np.stack(
+            [
+                np.concatenate([np.asarray(s, dtype=np.float32)[start:end] for start, end in good_band_runs])
+                for s in manual_spectra
+            ],
+            axis=0,
+        )  # (k, b_good)
+        n_init = 1
+    else:
+        init_arg = init_method.value  # "k-means++" or "random"
+        n_init = params.get_num_inits() if params.get_num_inits() is not None else 10
+
+    kmeans = SklearnKMeans(
+        n_clusters=params.get_k(),
+        init=init_arg,
+        n_init=n_init,
+        max_iter=params.get_max_iter() if params.get_max_iter() is not None else 300,
+        tol=params.get_tol() if params.get_tol() is not None else 1e-4,
+        random_state=params.get_seed(),
+        algorithm=params.get_algorithm().value,
+    )
+
+    labels_valid = kmeans.fit_predict(flat_valid)  # (n_valid,) int64
+
+    # Scatter labels back to (y*x,), filling nodata pixels with -1
+    labels_flat = np.full((y * x,), fill_value=-1, dtype=np.int32)
+    labels_flat[valid_indices] = labels_valid.astype(np.int32)
+    labels_image = labels_flat.reshape(y, x, 1)  # (y, x, 1)
+
+    # Write labels
+    assert labels_write.region is not None, "labels WriteSpec must have a non-None region"
+    labels_write.region.validate_array_shape(labels_image)
+    client.write_spec(labels_write, labels_image)
+
+    # Expand centroids from (k, b_good) back to (k, b_total) by scattering good bands
+    # back to their original positions; bad-band columns remain zero.
+    centroids_compact = kmeans.cluster_centers_.astype(np.float32)  # (k, b_good)
+    centroids_full = np.zeros((params.get_k(), b_total), dtype=np.float32)
+    band_offset = 0
+    for start, end in good_band_runs:
+        run_length = end - start
+        centroids_full[:, start:end] = centroids_compact[:, band_offset : band_offset + run_length]
+        band_offset += run_length
+
+    client.write_data(centroids_ref, centroids_full)
 
 
 @dataclass
@@ -94,12 +242,12 @@ class KMeansStage(SequentialStage):
 
     Runs on the whole dataset at once (NoChunkingScheme) and allocates two outputs:
       - a (y, x, 1) int32 dataset holding the per-pixel cluster label
-      - a (k, b) float32 array holding the k cluster centroids
+      - a (k, b) float32 array holding the k cluster centroids (bad-band columns are zero)
     """
 
     _labels_ref_name: str = "kmeans_labels"
     _centroids_ref_name: str = "kmeans_centroids"
-    _params: KMeansParameters = None
+    _params: Optional[KMeansParameters] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -115,6 +263,10 @@ class KMeansStage(SequentialStage):
             DataBinding(self._labels_ref_name, kind="dataset"),
             DataBinding(self._centroids_ref_name, kind="array"),
         ]
+        # Centroids has no spatial region; expose it as a DataRef via broadcast_input
+        self.broadcast_input |= {
+            "centroids_ref": DataBinding(self._centroids_ref_name),
+        }
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         _ = input_region
@@ -168,7 +320,20 @@ class KMeansStage(SequentialStage):
         output_writes: Dict[str, "WriteSpec"],
         broadcast_inputs: Dict[str, Any] = {},
     ) -> Callable:
-        raise NotImplementedError("KMeansStage.task_fn is not yet implemented")
+        labels_write = output_writes[self._labels_ref_name]
+        centroids_ref: DataRef = broadcast_inputs["centroids_ref"]
+        return partial(_run_kmeans, input_ref, input_region, labels_write, centroids_ref, self._params)
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        labels_write = output_writes[self._labels_ref_name]
+        return partial(_write_kmeans_labels_meta, input_ref, full_input_region, labels_write)
 
 
 def get_kmeans_stage(
