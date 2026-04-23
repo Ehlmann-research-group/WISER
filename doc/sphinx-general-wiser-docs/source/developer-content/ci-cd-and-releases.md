@@ -77,7 +77,7 @@ ensures that WISER actually starts up and that core WISER functionality
 has been properly packaged up.
 
 It is important to note that these build artifacts still
-need somne more work done to them in order to become our
+need some more work done to them in order to become our
 distributables. The Windows artifact needs to be code-signed
 then packaged into an installer. The MacOS artifacts
 need to be packaged into a .dmg and code-signed.

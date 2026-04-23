@@ -74,7 +74,7 @@ Only print the top 40 results:
 
     profile_stats% stats 40
 
-## Programatically List All Installed Packages with Versions
+## Programmatically List All Installed Packages with Versions
 
 To list all installed packages and their working versions:
 

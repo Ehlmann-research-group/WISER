@@ -110,7 +110,7 @@ do this for all other commit messages):
 - refactor: (code refactor)
 - perf:     (performance improvement)
 - test:     (adding tests)
-- hotfix:   (quick urgen fix)
+- hotfix:   (quick urgent fix)
 - build:    (changes to build system)
 - ci:       (changes to continuous integration)
 - chore:    (miscellaneous task)
@@ -195,8 +195,8 @@ To maintain clarity in GUI code, widgets should use consistent prefixes:
 
 ### Private and public attributes/methods
 
-In a class, a private attribute (variable) should have an underscore infront of it. If it does not
-have an underscore infront of it, then it's assumped to be public. Example:
+In a class, a private attribute (variable) should have an underscore in front of it. If it does not
+have an underscore in front of it, then it's assumed to be public. Example:
 
 ```python
 self._update_table  # Private
@@ -299,7 +299,7 @@ as the test suite grows.
 
 - Test filenames must start with:  
   `test_*.py`
-- If the test works y by clicking through gui elements and only
+- If the test works by clicking through gui elements and only
   tests one piece of functionality, put `_gui` at the end. If it tests
   the interface between two features put `_integ` at the end. We may change or get rid of this in the future in place of
   pytest markers.

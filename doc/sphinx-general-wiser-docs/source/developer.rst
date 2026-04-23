@@ -1,5 +1,5 @@
 Developing WISER
-==========================================
+================
 
 Contributors and Maintainers of WISER can use these pages as reference for
 adding to WISER.
