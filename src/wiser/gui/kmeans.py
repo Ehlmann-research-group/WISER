@@ -17,6 +17,7 @@ from wiser.utils.primitives import (
     DataBinding,
     DataRef,
     DataRegion,
+    DatasetRegionRef,
     NoChunkingScheme,
 )
 from wiser.utils.task_stage_utils import (
@@ -269,8 +270,16 @@ class KMeansStage(SequentialStage):
         }
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
-        _ = input_region
-        return None
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("KMeansStage requires a DatasetRegionRef input region")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=1,
+        )
 
     def generate_allocation_requests(
         self,
