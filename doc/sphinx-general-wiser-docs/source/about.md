@@ -37,4 +37,4 @@ Other open-source tools for working with multispectral and hyperspectral data:
 
 Copyright 2019-2026, California Institute of Technology (Caltech) and
 Regents of the University of Colorado. All rights reserved.
-See [LICENSE](LICENSE) for the full license text.
+See the [LICENSE](https://github.com/Ehlmann-research-group/WISER/blob/main/LICENSE) for the full license text.
