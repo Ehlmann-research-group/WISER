@@ -107,32 +107,9 @@ See the `LICENSE <https://github.com/Ehlmann-research-group/WISER/blob/main/LICE
 
 .. toctree::
    :hidden:
-   :caption: Using WISER
 
-   user-content/interface-overview
-   user-content/working-with-data
-   user-content/spatial-tools
-
-.. toctree::
-   :hidden:
-   :caption: Extending WISER
-
+   user-content/user-manual
    extending-wiser/index
-
-.. toctree::
-   :hidden:
-   :caption: Developer Guide
-
    developer-content/environment-setup
-   developer-content/ci-cd-and-releases
-   developer-content/contributing-and-quality
-   developer-content/testing-and-qa
-   developer-content/system-design
-   developer-content/diagnostics
-   developer-content/design-documents
-
-.. toctree::
-   :hidden:
-   :caption: Contributing
 
    contributing

@@ -1,17 +1,38 @@
-# Developer Environment Setup
+# Developer Guide
 
-This page covers environment setup concepts for all platforms —
-lockfiles, conda environments, dependency management, and
-platform-specific build and distribution steps.
+This guide walks you through setting up a WISER development environment and
+covers the full contributor workflow from first clone to merged PR.
 
-For macOS code signing, see [macOS Code Signing](codesign-mac.md).
+**Reading order for new contributors:**
+
+1. **This page** — install conda, set up the dev environment, run WISER from source
+2. [Contributing & Code Quality](contributing-and-quality.md) — code style, PR process, review standards
+3. [Testing & QA](testing-and-qa.md) — running tests, writing tests, CI
+4. [CI/CD and Releases](ci-cd-and-releases.md) — how releases are built and shipped
+5. [System Design](system-design.md) — architecture overview for deeper changes
+6. [Diagnostics](diagnostics.md) — profiling, logging, debugging tools
+7. [Design Documents](design-documents.md) — longer-form design rationale
 
 ```{toctree}
 :hidden:
 :maxdepth: 1
 
 codesign-mac.md
+ci-cd-and-releases.md
+contributing-and-quality.md
+testing-and-qa.md
+system-design.md
+diagnostics.md
+design-documents.md
 ```
+
+## Developer Environment Setup
+
+This section covers environment setup for all platforms —
+lockfiles, conda environments, dependency management, and
+platform-specific build and distribution steps.
+
+For macOS code signing, see [macOS Code Signing](codesign-mac.md).
 
 ## Prerequisites
 
