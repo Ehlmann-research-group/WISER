@@ -801,7 +801,11 @@ followed:
 
 These behaviors are also followed when the user clicks in the zoom window.
 
-## TODO: Confusing Scenarios
+## Confusing Scenarios (Open Questions)
+
+```{note}
+These are unresolved design questions captured for future discussion.
+```
 
 Scenario:  different "unrelated" spectral data sets
 
