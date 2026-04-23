@@ -81,9 +81,7 @@ followed for each color channel being displayed.
 
   Note that this normalization _does not_ include the application of min/max
   limits; those limits are only used in the calculation of histograms in the
-  Contrast Stretch UI.  (TODO:  Will this result in accuracy issues for e.g.
-  data sets with a very large range of input values, and a very small range of
-  values the user wants to visualize? Need to think about this!)
+  Contrast Stretch UI.
 
   Normalized values are usually 32-bit floating point; they will only be
   64-bit floating point if the input data is also 64-bit floating point.
