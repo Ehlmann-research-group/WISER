@@ -28,7 +28,7 @@ If there is an error message, paste it under **Error Message**, and add any
 
 Once submitted, maintainers will review your report. They may ask for
 clarification or logs to help pinpoint the issue. Please be patient and
-responsive --- this helps get your bug fixed faster!
+responsive: this helps get your bug fixed faster!
 
 ## Requesting a Feature
 
@@ -47,7 +47,7 @@ When filling out the template:
 - Add **context, screenshots, or examples** if applicable.
 
 Feature requests should align with **WISER's mission**. Not all requests will
-be accepted --- some may require discussion and iteration to refine into a
+be accepted: some may require discussion and iteration to refine into a
 concrete, well-scoped solution. Please be patient and open to feedback.
 
 ## Contributing Code
