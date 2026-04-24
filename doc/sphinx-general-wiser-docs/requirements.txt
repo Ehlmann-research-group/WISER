@@ -6,3 +6,4 @@ sphinx-autodoc-typehints
 sphinx-autodoc2
 enum-tools[sphinx]
 sphinx-book-theme
+PySide2
