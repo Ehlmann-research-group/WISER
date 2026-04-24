@@ -44,6 +44,7 @@ from wiser.gui.util import StateChange
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
+    from wiser.gui.kmeans import KMeansParameters, KMeansCentroids
 
 
 def make_unique_name(candidate: str, used_names: str) -> str:
@@ -133,6 +134,10 @@ class ApplicationState(QObject):
         # All regions of interest in the application.  The key is the numeric ID
         # of the ROI, and the value is a RegionOfInterest object.
         self._regions_of_interest: Dict[int, RegionOfInterest] = {}
+
+        # K-Means centroid results, keyed by KMeansParameters (which includes
+        # dataset_id).  Last write wins for identical parameter sets.
+        self._kmeans_centroids: Dict["KMeansParameters", "KMeansCentroids"] = {}
 
         # A collection of all spectra in the application state, so that we can
         # look them up by ID.
@@ -404,6 +409,24 @@ class ApplicationState(QObject):
 
         self.dataset_removed.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.REMOVED, dataset))
+
+    # ------------------------------------------------------------------
+    # K-Means centroids
+    # ------------------------------------------------------------------
+
+    def add_kmeans_centroids(self, params: "KMeansParameters", centroids: "KMeansCentroids") -> None:
+        """Store *centroids* under *params*.  Overwrites any previous entry for the same key."""
+        self._kmeans_centroids[params] = centroids
+
+    def get_kmeans_centroids(self, params: "KMeansParameters") -> "Optional[KMeansCentroids]":
+        """Return the centroids stored under *params*, or ``None`` if not found."""
+        return self._kmeans_centroids.get(params)
+
+    def get_all_kmeans_centroids(
+        self,
+    ) -> "Dict[KMeansParameters, KMeansCentroids]":
+        """Return a shallow copy of the full centroids mapping."""
+        return dict(self._kmeans_centroids)
 
     def multiple_datasets_same_size(self):
         """

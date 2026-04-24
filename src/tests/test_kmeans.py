@@ -56,6 +56,7 @@ class TestKMeansStage(unittest.TestCase):
             )
 
             params = KMeansParameters(
+                dataset_id=0,  # dataset not registered in app_state; use sentinel
                 k=_K,
                 init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
                 num_inits=3,
@@ -168,6 +169,7 @@ class TestKMeansSemanticTask(unittest.TestCase):
         )
 
         params = KMeansParameters(
+            dataset_id=dataset.get_id(),
             k=_K,
             init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
             num_inits=3,
@@ -232,6 +234,18 @@ class TestKMeansSemanticTask(unittest.TestCase):
             labels_array,
             ref_labels_image,
             err_msg="Semantic task label image does not match sklearn reference.",
+        )
+
+        # Verify centroids were stored in app_state under the correct key
+        stored_centroids = app_state.get_kmeans_centroids(params)
+        self.assertIsNotNone(stored_centroids, "KMeansCentroids were not stored in app_state")
+        self.assertEqual(stored_centroids.num_centroids(), _K)
+        ref_centroids = ref_kmeans.cluster_centers_.astype(np.float32)
+        np.testing.assert_allclose(
+            stored_centroids._centroids,
+            ref_centroids,
+            atol=1e-5,
+            err_msg="Stored centroids do not match sklearn reference.",
         )
 
 

@@ -56,8 +56,19 @@ class KMeansAlgorithm(Enum):
 
 @dataclass(frozen=True)
 class KMeansParameters:
-    """K-means configuration (mirrors the k-means dialog, plus optional manual-initialization spectra)."""
+    """K-means configuration keyed by dataset and all algorithm options.
 
+    ``dataset_id`` identifies which WISER dataset these parameters apply to and
+    is used (together with every other field) as a dict key when storing results
+    in application state.
+
+    ``_manual_spectra`` is excluded from the auto-generated ``__eq__``/``__hash__``
+    (``compare=False``) because numpy arrays are not directly hashable.  Custom
+    ``__eq__`` and ``__hash__`` implementations below include them via
+    element-wise comparison and ``ndarray.tobytes()``.
+    """
+
+    dataset_id: int
     k: int
     init_method: KMeansInitMethod
     num_inits: Optional[int]
@@ -66,6 +77,69 @@ class KMeansParameters:
     seed: Optional[int]
     algorithm: KMeansAlgorithm
     _manual_spectra: Optional[Sequence[np.ndarray]] = field(default=None, repr=False, compare=False)
+
+    # ------------------------------------------------------------------
+    # Equality and hashing
+    # ------------------------------------------------------------------
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, KMeansParameters):
+            return NotImplemented
+        if (
+            self.dataset_id,
+            self.k,
+            self.init_method,
+            self.num_inits,
+            self.max_iter,
+            self.tol,
+            self.seed,
+            self.algorithm,
+        ) != (
+            other.dataset_id,
+            other.k,
+            other.init_method,
+            other.num_inits,
+            other.max_iter,
+            other.tol,
+            other.seed,
+            other.algorithm,
+        ):
+            return False
+        if self._manual_spectra is None and other._manual_spectra is None:
+            return True
+        if self._manual_spectra is None or other._manual_spectra is None:
+            return False
+        if len(self._manual_spectra) != len(other._manual_spectra):
+            return False
+        return all(np.array_equal(a, b) for a, b in zip(self._manual_spectra, other._manual_spectra))
+
+    def __hash__(self) -> int:
+        spectra_key: Optional[tuple] = None
+        if self._manual_spectra is not None:
+            spectra_key = tuple(
+                (np.asarray(arr).tobytes(), np.asarray(arr).shape, str(np.asarray(arr).dtype))
+                for arr in self._manual_spectra
+            )
+        return hash(
+            (
+                self.dataset_id,
+                self.k,
+                self.init_method,
+                self.num_inits,
+                self.max_iter,
+                self.tol,
+                self.seed,
+                self.algorithm,
+                spectra_key,
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Getters
+    # ------------------------------------------------------------------
+
+    def get_dataset_id(self) -> int:
+        return self.dataset_id
 
     def get_k(self) -> int:
         return self.k
@@ -89,10 +163,7 @@ class KMeansParameters:
         return self.algorithm
 
     def get_manual_spectra(self) -> Optional[Sequence[np.ndarray]]:
-        """
-        Return initial spectra when :attr:`init_method` is
-        :attr:`KMeansInitMethod.MANUAL`, else usually ``None``.
-        """
+        """Return initial spectra when :attr:`init_method` is ``MANUAL``, else ``None``."""
         return self._manual_spectra
 
 
@@ -451,7 +522,9 @@ class KMeansSemanticTask(QObject, SemanticTask):
     def _load_result_into_wiser(
         self, labels_data: object, labels_meta: object, centroids_data: object
     ) -> None:
-        _ = centroids_data  # reserved for future use
+        centroids_obj = KMeansCentroids(np.asarray(centroids_data))
+        self._app_state.add_kmeans_centroids(self._params, centroids_obj)
+
         labels_array = np.asarray(labels_data)  # (y, x, 1)
         labels_by_band = labels_array.transpose(2, 0, 1)  # (1, y, x)
 
