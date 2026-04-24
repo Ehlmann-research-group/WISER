@@ -21,6 +21,7 @@ from wiser.utils.primitives import (
     DataRef,
     DataRegion,
     DatasetRegionRef,
+    ExternalRasterHandle,
     NoChunkingScheme,
     PriorityClass,
 )
@@ -641,7 +642,17 @@ class KMeansDialog(QDialog):
         return self._ui.cbox_algo.currentData()
 
     def show_kmeans(self, dataset_id: Optional[int] = None) -> None:
-        pass
+        cbox = self._ui.cbox_input_dataset
+        cbox.clear()
+        cbox.addItem(self.tr("(no data)"), -1)
+        for dataset in self._app_state.get_datasets():
+            cbox.addItem(dataset.get_name(), dataset.get_id())
+
+        if dataset_id is not None:
+            index = cbox.findData(dataset_id)
+            cbox.setCurrentIndex(index if index >= 0 else 0)
+        else:
+            cbox.setCurrentIndex(0)
 
     def showEvent(self, event):
         self.show_kmeans(dataset_id=self._selected_dataset_id)
@@ -651,5 +662,49 @@ class KMeansDialog(QDialog):
         self._selected_dataset_id = dataset_id
         self.show_kmeans(dataset_id=dataset_id)
 
+    def get_selected_dataset(self):
+        dataset_id = self._ui.cbox_input_dataset.currentData()
+        if dataset_id is None or int(dataset_id) < 0:
+            return None
+        return self._app_state.get_dataset(int(dataset_id))
+
+    def perform_kmeans(self):
+        selected_dataset = self.get_selected_dataset()
+        if selected_dataset is None:
+            raise ValueError("No dataset selected for K-Means clustering")
+
+        k = self.get_k_clusters()
+        if k is None:
+            raise ValueError("K (number of clusters) must be specified")
+
+        params = KMeansParameters(
+            dataset_id=selected_dataset.get_id(),
+            k=k,
+            init_method=self.get_init_method(),
+            num_inits=self.get_num_inits(),
+            max_iter=self.get_max_iter(),
+            tol=self.get_tol(),
+            seed=self.get_seed(),
+            algorithm=self.get_algorithm(),
+        )
+
+        dataset_ref = self._app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=selected_dataset)
+        )
+
+        kmeans_task = KMeansSemanticTask(
+            app_state=self._app_state,
+            source_dataset=selected_dataset,
+            input_ref=dataset_ref,
+            params=params,
+        )
+
+        task_plan = self._app_services.task_planner.plan_semantic_task(kmeans_task)
+        future = self._app_services.task_manager.register_and_submit_task_plan(
+            self._app_services.scheduler, task_plan
+        )
+        return future
+
     def accept(self):
+        self.perform_kmeans()
         super().accept()

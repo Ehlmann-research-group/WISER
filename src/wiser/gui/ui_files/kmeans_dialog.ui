@@ -13,7 +13,21 @@
   <property name="windowTitle">
    <string>K-means Dialog</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,1,0,0">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,1,0,0">
+   <item>
+    <layout class="QHBoxLayout" name="hlayout_input_dataset">
+     <item>
+      <widget class="QLabel" name="lbl_input_dataset">
+       <property name="text">
+        <string>Input Dataset</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="cbox_input_dataset"/>
+     </item>
+    </layout>
+   </item>
    <item>
     <layout class="QHBoxLayout" name="hlayout_k_clusters">
      <item>
