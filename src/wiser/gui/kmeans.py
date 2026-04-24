@@ -645,7 +645,7 @@ class KMeansCentroidsDialog(QDialog):
             for i in range(centroids.num_centroids())
         ]
         title = f"K-Means Centroids — {self._format_params(params)}"
-        self._app_state.show_spectra_in_plot(spectra, plot_title=title)
+        self._app_state.show_spectra_in_plot(spectra, plot_title=title, parent=self)
 
 
 class KMeansDialog(QDialog):
