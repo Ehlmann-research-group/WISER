@@ -8,7 +8,8 @@ covers the full contributor workflow from first clone to merged PR.
 1. **This page** — install conda, set up the dev environment, run WISER from source
 2. [Contributing & Code Quality](contributing-and-quality.md) — code style, PR process, review standards
 3. [Testing & QA](testing-and-qa.md) — running tests, writing tests, CI
-4. [CI/CD and Releases](ci-cd-and-releases.md) — how releases are built and shipped
+4. [CI/CD and Releases](ci-cd-and-releases.md) — how releases are built and shipped (see
+   also: [macOS Code Signing](codesign-mac.md))
 5. [System Design](system-design.md) — architecture overview for deeper changes
 6. [Diagnostics](diagnostics.md) — profiling, logging, debugging tools
 7. [Design Documents](design-documents.md) — longer-form design rationale
@@ -17,10 +18,10 @@ covers the full contributor workflow from first clone to merged PR.
 :hidden:
 :maxdepth: 1
 
-codesign-mac.md
-ci-cd-and-releases.md
 contributing-and-quality.md
 testing-and-qa.md
+ci-cd-and-releases.md
+codesign-mac.md
 system-design.md
 diagnostics.md
 design-documents.md
