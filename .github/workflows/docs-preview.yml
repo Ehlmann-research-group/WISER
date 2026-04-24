@@ -27,7 +27,7 @@ jobs:
     name: Build Sphinx docs
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +56,9 @@ jobs:
           retention-days: 14
 
       # Post (or update) a single comment on the PR linking to this run.
+      # Skipped for fork PRs — the token is read-only for cross-repo events.
       - name: Comment on PR
+        if: github.event.pull_request.head.repo.id == github.event.pull_request.base.repo.id
         uses: actions/github-script@v7
         with:
           script: |
