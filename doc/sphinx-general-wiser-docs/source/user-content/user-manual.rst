@@ -9,7 +9,7 @@ Start with **Interface Overview** to orient yourself, then work through
 **Working with Data** for the core data exploration workflow.
 
 Tutorial Exercises
----------
+------------------
 
 The following step-by-step tutorials are a great way to get
 up and running quickly:
