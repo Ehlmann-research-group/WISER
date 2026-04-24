@@ -60,15 +60,6 @@ autodoc_default_options = {
     "member-order": "bysource",
 }
 
-# Prevent autodoc from failing if native dependencies are unavailable at build time
-autodoc_mock_imports = [
-    "osgeo",
-    "gdal",
-    "PySide2",
-    "shapely",
-    "numba",
-    "astropy",
-]
 
 autosectionlabel_prefix_document = True
 
