@@ -1014,10 +1014,12 @@ class DataVisualizerApp(QMainWindow):
             pass
 
     def show_kmeans_dialog(self):
-        dlg = KMeansDialog(self._app_state, self._app_services, parent=self)
-        dlg.select_dataset(None)
-        if dlg.exec_() == QDialog.Accepted:
-            pass
+        if not hasattr(self, "_kmeans_dialog") or self._kmeans_dialog is None:
+            self._kmeans_dialog = KMeansDialog(self._app_state, self._app_services, parent=self)
+            self._kmeans_dialog.select_dataset(None)
+        self._kmeans_dialog.show()
+        self._kmeans_dialog.raise_()
+        self._kmeans_dialog.activateWindow()
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:

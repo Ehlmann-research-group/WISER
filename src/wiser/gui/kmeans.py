@@ -6,9 +6,17 @@ from typing import Any, Callable, Dict, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
 from sklearn.cluster import KMeans as SklearnKMeans
-from PySide2.QtCore import QObject, Signal, Slot
+from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtGui import QIntValidator, QDoubleValidator
-from PySide2.QtWidgets import QDialog
+from PySide2.QtWidgets import (
+    QDialog,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
@@ -39,6 +47,8 @@ from wiser.utils.task_system import (
     WriteSpec,
 )
 from wiser.utils.worker_runtime import get_process_storage_client
+
+from wiser.raster.spectrum import NumPyArraySpectrum
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
@@ -546,6 +556,98 @@ class KMeansSemanticTask(QObject, SemanticTask):
         self._app_state.add_dataset(labels_dataset, view_dataset=False)
 
 
+class KMeansCentroidsDialog(QDialog):
+    """Lists all stored K-Means centroid results.
+
+    Each entry is shown as a button whose label summarises the
+    ``KMeansParameters`` used to produce it (using the dataset *name* rather
+    than the raw ID).  Clicking a button opens a :class:`SpectrumPlotGeneric`
+    that displays every centroid spectrum named ``"{i}-centroid"``.
+    """
+
+    def __init__(self, app_state: ApplicationState, parent=None):
+        super().__init__(parent=parent)
+        self._app_state = app_state
+        self.setWindowTitle("K-Means Centroids")
+        self.resize(620, 400)
+        self._scroll: Optional[QScrollArea] = None
+        self._build_ui()
+        app_state.kmeans_centroids_changed.connect(self._rebuild_content)
+
+    # ------------------------------------------------------------------
+    # UI construction
+    # ------------------------------------------------------------------
+
+    def _build_ui(self) -> None:
+        outer = QVBoxLayout(self)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        outer.addWidget(self._scroll)
+        self._rebuild_content()
+
+    def _rebuild_content(self) -> None:
+        """Rebuild the scrollable list of centroid buttons from current app state."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setAlignment(Qt.AlignTop)
+
+        all_centroids = self._app_state.get_all_kmeans_centroids()
+        if not all_centroids:
+            layout.addWidget(QLabel("No K-Means centroids have been stored yet."))
+        else:
+            for params, centroids in all_centroids.items():
+                btn_text = self._format_params(params)
+                btn = QPushButton(btn_text)
+                btn.setToolTip(btn_text)
+                btn.clicked.connect(lambda checked=False, p=params, c=centroids: self._show_centroids(p, c))
+                layout.addWidget(btn)
+
+        self._scroll.setWidget(container)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _format_params(self, params: KMeansParameters) -> str:
+        """Build a human-readable summary of *params*, using the dataset name."""
+        try:
+            ds = self._app_state.get_dataset(params.get_dataset_id())
+            ds_name = ds.get_name() or f"id={params.get_dataset_id()}"
+        except KeyError:
+            ds_name = f"id={params.get_dataset_id()}"
+
+        parts = [
+            f"Dataset: {ds_name}",
+            f"k={params.get_k()}",
+            f"init={params.get_init_method().value}",
+        ]
+        if params.get_num_inits() is not None:
+            parts.append(f"n_init={params.get_num_inits()}")
+        if params.get_max_iter() is not None:
+            parts.append(f"max_iter={params.get_max_iter()}")
+        if params.get_tol() is not None:
+            parts.append(f"tol={params.get_tol()}")
+        if params.get_seed() is not None:
+            parts.append(f"seed={params.get_seed()}")
+        parts.append(f"algo={params.get_algorithm().value}")
+        if params.get_manual_spectra() is not None:
+            parts.append("init_spectra=manual")
+        return " | ".join(parts)
+
+    def _show_centroids(self, params: KMeansParameters, centroids: KMeansCentroids) -> None:
+        """Open a SpectrumPlotGeneric showing every centroid in *centroids*."""
+        spectra = [
+            NumPyArraySpectrum(
+                centroids.get_centroid(i),
+                name=f"{i}-centroid",
+                source_name=self._format_params(params),
+            )
+            for i in range(centroids.num_centroids())
+        ]
+        title = f"K-Means Centroids — {self._format_params(params)}"
+        self._app_state.show_spectra_in_plot(spectra, plot_title=title)
+
+
 class KMeansDialog(QDialog):
     def __init__(
         self,
@@ -557,6 +659,7 @@ class KMeansDialog(QDialog):
         self._app_state = app_state
         self._app_services = app_services
         self._selected_dataset_id: Optional[int] = None
+        self._centroids_dialog: Optional[KMeansCentroidsDialog] = None
 
         self._ui = Ui_KMeansDialog()
         self._ui.setupUi(self)
@@ -564,11 +667,15 @@ class KMeansDialog(QDialog):
         self._ui.wdgt_advanced_options.setVisible(False)
         self._ui.btn_advanced_options.setText("Advanced Options \u25b6")
         self._ui.btn_advanced_options.clicked.connect(self._toggle_advanced_options)
+        self._ui.btn_view_centroids.clicked.connect(self._on_view_centroids)
 
         self._init_cbox_init_method()
         self._init_cbox_algo()
         self._init_validators()
         self._ui.cbox_init_method.currentIndexChanged.connect(self._on_init_method_changed)
+
+        app_state.dataset_added.connect(self._on_datasets_changed)
+        app_state.dataset_removed.connect(self._on_datasets_changed)
 
     def _init_cbox_init_method(self) -> None:
         cbox = self._ui.cbox_init_method
@@ -641,6 +748,19 @@ class KMeansDialog(QDialog):
     def get_algorithm(self) -> KMeansAlgorithm:
         return self._ui.cbox_algo.currentData()
 
+    def _on_view_centroids(self) -> None:
+        if self._centroids_dialog is None or not self._centroids_dialog.isVisible():
+            self._centroids_dialog = KMeansCentroidsDialog(self._app_state, parent=self)
+        self._centroids_dialog.show()
+        self._centroids_dialog.raise_()
+        self._centroids_dialog.activateWindow()
+
+    def _on_datasets_changed(self, *args) -> None:
+        """Refresh the input-dataset combo while preserving the current selection."""
+        current_id = self._ui.cbox_input_dataset.currentData()
+        preserve_id = current_id if (current_id is not None and int(current_id) >= 0) else None
+        self.show_kmeans(dataset_id=preserve_id)
+
     def show_kmeans(self, dataset_id: Optional[int] = None) -> None:
         cbox = self._ui.cbox_input_dataset
         cbox.clear()
@@ -707,4 +827,4 @@ class KMeansDialog(QDialog):
 
     def accept(self):
         self.perform_kmeans()
-        super().accept()
+        QMessageBox.information(self, "K-Means", "K-Means is running in the background.")

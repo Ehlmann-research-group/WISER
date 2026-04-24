@@ -97,6 +97,9 @@ class ApplicationState(QObject):
     # TODO(donnie):  collected_spectra_changed = Signal(StateChange, int)
     collected_spectra_changed = Signal(object, int, int)
 
+    # Signal: a KMeans centroid result was added or updated in app state
+    kmeans_centroids_changed = Signal()
+
     # TODO(donnie):  Signals for config changes and color changes!
 
     def __init__(self, app, config: Optional[ApplicationConfig] = None):
@@ -417,6 +420,7 @@ class ApplicationState(QObject):
     def add_kmeans_centroids(self, params: "KMeansParameters", centroids: "KMeansCentroids") -> None:
         """Store *centroids* under *params*.  Overwrites any previous entry for the same key."""
         self._kmeans_centroids[params] = centroids
+        self.kmeans_centroids_changed.emit()
 
     def get_kmeans_centroids(self, params: "KMeansParameters") -> "Optional[KMeansCentroids]":
         """Return the centroids stored under *params*, or ``None`` if not found."""
@@ -941,7 +945,7 @@ class ApplicationState(QObject):
         Takes the list of spectra passed in and displays it in a generic
         spectrum plot.
         """
-        generic_spectrum_plot = SpectrumPlotGeneric(self)
+        generic_spectrum_plot = SpectrumPlotGeneric(self._app)
         if plot_title is not None:
             generic_spectrum_plot.set_title(plot_title)
         for spectrum in spectra:
@@ -956,6 +960,8 @@ class ApplicationState(QObject):
         )
 
         generic_spectrum_plot.show()
+        generic_spectrum_plot.raise_()
+        generic_spectrum_plot.activateWindow()
 
     def _on_generic_spectrum_plot_closed(self, spectrum_plot: SpectrumPlotGeneric):
         self._generic_spectrum_plots.remove(spectrum_plot)
