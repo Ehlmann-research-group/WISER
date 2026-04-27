@@ -447,6 +447,72 @@ def extract_netcdf_wavelengths(
     return first_data, first_unit
 
 
+_GOOD_WAVELENGTH_VAR_SUBSTRINGS: frozenset = frozenset({"good_wavelengths", "good_wavelength"})
+
+
+def _is_good_wavelength_var_name(name: str) -> bool:
+    """Return ``True`` if *name* matches a good-wavelength variable."""
+    lower = name.lower()
+    return any(kw in lower for kw in _GOOD_WAVELENGTH_VAR_SUBSTRINGS)
+
+
+def _collect_good_wavelength_candidates(group) -> List[np.ndarray]:
+    """Recursively collect good-wavelength masks, walking *group* and all
+    sub-groups depth-first.
+
+    Each candidate is a 1-D ``int`` array where ``1`` means the band is good
+    and ``0`` means bad.  Any element whose raw value equals the variable's
+    ``_FillValue`` is forced to ``0`` before the array is appended.
+    """
+    candidates: List[np.ndarray] = []
+
+    for var_name, var in group.variables.items():
+        if not _is_good_wavelength_var_name(var_name):
+            continue
+        try:
+            raw = np.asarray(var[:])
+            if raw.ndim != 1 or not np.issubdtype(raw.dtype, np.number):
+                continue
+        except Exception:
+            continue
+
+        data = raw.astype(int)
+
+        fill_value = getattr(var, "_FillValue", None)
+        if fill_value is not None:
+            try:
+                data[raw == fill_value] = 0
+            except Exception:
+                pass
+
+        candidates.append(data)
+
+    for sub_group in group.groups.values():
+        candidates.extend(_collect_good_wavelength_candidates(sub_group))
+
+    return candidates
+
+
+def extract_netcdf_good_wavelengths(netcdf_dataset) -> Optional[List[int]]:
+    """Search a ``netCDF4.Dataset`` for a good-wavelength mask at any depth.
+
+    All groups and sub-groups are visited recursively.  Variable names are
+    matched case-insensitively against the substrings ``good_wavelength`` and
+    ``good_wavelengths``.
+
+    Values are interpreted as ``1`` = good band, ``0`` = bad band.  Any
+    element whose raw value equals the variable's ``_FillValue`` is treated as
+    a bad band (set to ``0``).
+
+    The first matching array is returned as a :class:`numpy.ndarray` of
+    ``numpy.bool_``.  Returns ``None`` if no matching variable is found.
+    """
+    candidates = _collect_good_wavelength_candidates(netcdf_dataset)
+    if not candidates:
+        return None
+    return [int(v) for v in candidates[0]]
+
+
 def get_netCDF_reflectance_path(file_path):
     """
     Checks for the presence of reflectance and reflectance uncertainty subdatasets.

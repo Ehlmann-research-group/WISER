@@ -8,7 +8,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.generated.subdataset_chooser_dialog_ui import Ui_SubdatasetChooser
 from .util import populate_combo_box_with_units
-from wiser.raster.utils import extract_netcdf_wavelengths
+from wiser.raster.utils import extract_netcdf_wavelengths, extract_netcdf_good_wavelengths
 from osgeo import gdal, osr
 
 import numpy as np
@@ -80,6 +80,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
         self._spatial_ref_wkt: Optional[str] = None  # Keep raw string until asked for osr object
         self._wavelengths: Optional[np.ndarray] = None
+        self._good_wavelengths: Optional[List[int]] = None
         self._use_wavelengths: bool = None
         self.netcdf_impl = None  # Of type NetCDF_GDALRasterDataImpl
         self._band_count: int = None
@@ -262,6 +263,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         # subgroups at any nesting depth).
         wavelengths, _detected_unit = extract_netcdf_wavelengths(self._netcdf_dataset)
         self._wavelengths = wavelengths
+        self._good_wavelengths = extract_netcdf_good_wavelengths(self._netcdf_dataset)
 
         subdataset = self._get_selected_subdataset()
 
@@ -289,6 +291,16 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Disable wavelength-unit selection if we did not manage to extract any.
         self._ui.cbox_wavelength_units.setEnabled(self._use_wavelengths)
+
+        # Enable "Use Good Wavelength Bands" only when we have wavelengths AND a
+        # good-wavelength mask whose length matches the wavelength array.
+        good_wvl_valid = (
+            self._use_wavelengths
+            and self._good_wavelengths is not None
+            and len(self._good_wavelengths) == len(self._wavelengths)
+        )
+        self._ui.cbox_good_wvl_bands.setEnabled(good_wvl_valid)
+        self._ui.cbox_good_wvl_bands.setChecked(good_wvl_valid)
 
         tbl.setRowCount(self._band_count)
         for i in range(self._band_count):
