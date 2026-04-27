@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from contextlib import contextmanager
 
 from .utils import (
+    extract_netcdf_bad_bands,
     make_spectral_value,
     get_spectral_unit,
     numpy_dtype_to_gdal_export_types,
@@ -1380,6 +1381,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         if wl_unit is None:
             wl_unit = u.nanometer
 
+        # ---- Good-wavelength mask (bad bands)
+        bad_bands = extract_netcdf_bad_bands(netcdf_dataset)
+        if bad_bands is not None and subdataset.RasterCount != len(bad_bands):
+            bad_bands = None
+
         # ---- NoData from the chosen variable's attrs in netCDF
         nodata = None
         nc_var = cls._nc_resolve_var(netcdf_dataset, sub_var_path)
@@ -1413,6 +1419,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             wl_unit,
             wavelengths,
             geotransform,
+            bad_bands=bad_bands,
         )
 
     @classmethod
@@ -1464,6 +1471,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         band_units: Optional[u.Unit],
         wavelengths: Optional[np.ndarray],
         geotransform: Optional[Tuple],
+        bad_bands: List[int] = None,
     ):
         super().__init__(gdal_dataset)
         self._netcdf_dataset = netcdf_dataset
@@ -1474,6 +1482,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
         self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
         self._subdataset_name = subdataset_name
+        if self._wavelengths is not None:
+            assert (
+                self._wavelengths.shape[0] == self.gdal_dataset.RasterCount
+            ), "Wavelengths and RasterCount must match"
+        if bad_bands is not None:
+            self._bad_bands = bad_bands
+        else:
+            self._bad_bands = [1] * self.gdal_dataset.RasterCount
 
     @contextmanager
     def _quiet_gdal_warnings(self):
@@ -1660,6 +1676,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             if self._spatial_ref:
                 return self._spatial_ref.ExportToWkt()
             return super().get_wkt_spatial_reference()
+
+    def read_bad_bands(self) -> List[int]:
+        return self._bad_bands
 
 
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):

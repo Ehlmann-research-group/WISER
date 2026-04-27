@@ -495,7 +495,7 @@ def _collect_good_wavelength_candidates(group) -> List[np.ndarray]:
     return candidates
 
 
-def extract_netcdf_good_wavelengths(netcdf_dataset) -> Optional[List[int]]:
+def extract_netcdf_bad_bands(netcdf_dataset) -> Optional[List[int]]:
     """Search a ``netCDF4.Dataset`` for a good-wavelength mask at any depth.
 
     All groups and sub-groups are visited recursively.  Variable names are
