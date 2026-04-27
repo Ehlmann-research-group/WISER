@@ -309,6 +309,144 @@ def build_band_info_from_wavelengths(
     return band_info
 
 
+# ============================================================================
+# NETCDF WAVELENGTH EXTRACTION
+
+
+# Variable-name fragments that suggest a variable holds wavelength data.
+# All comparisons are done case-insensitively as a substring search.
+_WAVELENGTH_VAR_SUBSTRINGS: frozenset = frozenset(
+    {"wavelength", "wavelengths", "wvl", "wlen", "lambda", "bands"}
+)
+
+
+def parse_unit_from_string(s: Optional[str]) -> Optional[u.Unit]:
+    """Parse an astropy unit from a plain string.
+
+    Tries the astropy parser first, then falls back to a hand-written mapping
+    that covers common spectral unit spellings.  Returns ``None`` for
+    unitless / unrecognised strings.
+    """
+    if not s:
+        return None
+    t = s.strip().lower().replace("µ", "u")
+    if t in {"unitless", "dimensionless", "1"}:
+        return None
+    try:
+        return u.Unit(t)
+    except Exception:
+        pass
+    mapping: Dict[str, u.Unit] = {
+        "nm": u.nanometer,
+        "nanometer": u.nanometer,
+        "nanometers": u.nanometer,
+        "um": u.micrometer,
+        "micrometer": u.micrometer,
+        "micrometers": u.micrometer,
+        "mm": u.millimeter,
+        "millimeter": u.millimeter,
+        "millimeters": u.millimeter,
+        "cm": u.centimeter,
+        "centimeter": u.centimeter,
+        "centimeters": u.centimeter,
+        "m": u.meter,
+        "meter": u.meter,
+        "meters": u.meter,
+        "angstrom": u.angstrom,
+        "å": u.angstrom,
+        "cm-1": u.cm**-1,
+        "cm^-1": u.cm**-1,
+        "1/cm": u.cm**-1,
+        "wavenumber": u.cm**-1,
+        "ghz": u.GHz,
+        "mhz": u.MHz,
+    }
+    if t in mapping:
+        return mapping[t]
+    for key, unit in mapping.items():
+        if key in t:
+            return unit
+    return None
+
+
+def _is_wavelength_var_name(name: str) -> bool:
+    """Return ``True`` if *name* contains any wavelength-related keyword."""
+    lower = name.lower()
+    return any(kw in lower for kw in _WAVELENGTH_VAR_SUBSTRINGS)
+
+
+def _collect_wavelength_candidates(
+    group,
+) -> List[Tuple[np.ndarray, Optional[u.Unit]]]:
+    """Recursively walk *group* and all sub-groups, returning candidates.
+
+    A candidate is any variable whose name passes :func:`_is_wavelength_var_name`
+    and whose data is a 1-D numeric array.  Each candidate is a
+    ``(data_array, unit_or_None)`` tuple.
+
+    Traversal order: variables in the current group first (in iteration
+    order), then sub-groups depth-first.  This means shallower / earlier
+    variables take priority when selection is applied later.
+    """
+    candidates: List[Tuple[np.ndarray, Optional[u.Unit]]] = []
+
+    for var_name, var in group.variables.items():
+        if not _is_wavelength_var_name(var_name):
+            continue
+        try:
+            data = np.asarray(var[:])
+            if data.ndim != 1 or not np.issubdtype(data.dtype, np.number):
+                continue
+        except Exception:
+            continue
+        unit = parse_unit_from_string(getattr(var, "units", None))
+        candidates.append((data, unit))
+
+    for sub_group in group.groups.values():
+        candidates.extend(_collect_wavelength_candidates(sub_group))
+
+    return candidates
+
+
+def extract_netcdf_wavelengths(
+    netcdf_dataset,
+) -> Tuple[Optional[np.ndarray], Optional[u.Unit]]:
+    """Search a ``netCDF4.Dataset`` for wavelength data at any nesting depth.
+
+    All groups and sub-groups are visited recursively.  Variable names are
+    matched case-insensitively against the substrings ``wavelength``,
+    ``wavelengths``, ``wvl``, ``wlen``, ``lambda``, and ``bands``. Nasa
+    netcdf products use CF conventions. While these conventions where
+    a wavelength variable should be specified and contain units.
+
+    Selection
+    ---------
+    1. Return the **first** candidate (in depth-first, declaration order) that
+       has **both** a 1-D numeric data array *and* a recognised unit.
+    2. If no candidate has both, return the first available data array paired
+       with the first available unit — either may be ``None``.
+
+    Returns
+    -------
+    ``(wavelengths, unit)`` where *wavelengths* is a :class:`numpy.ndarray`
+    or ``None``, and *unit* is an :class:`astropy.units.Unit` or ``None``.
+    """
+    candidates = _collect_wavelength_candidates(netcdf_dataset)
+
+    if not candidates:
+        return None, None
+
+    # Priority 1: first candidate with both data and unit
+    for data, unit in candidates:
+        if data is not None and unit is not None:
+            return data, unit
+
+    # Priority 2: independently pick the first data and the first unit
+    first_data = next((d for d, _ in candidates if d is not None), None)
+    first_unit = next((unit for _, unit in candidates if unit is not None), None)
+    return first_data, first_unit
+
+
 def get_netCDF_reflectance_path(file_path):
     """
     Checks for the presence of reflectance and reflectance uncertainty subdatasets.

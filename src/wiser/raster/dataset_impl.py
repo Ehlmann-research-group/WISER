@@ -16,6 +16,8 @@ from .utils import (
     make_spectral_value,
     get_spectral_unit,
     numpy_dtype_to_gdal_export_types,
+    parse_unit_from_string,
+    extract_netcdf_wavelengths,
 )
 from .loaders import envi
 
@@ -1270,52 +1272,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return getattr(cur, "variables", {}).get(parts[-1]) if cur is not None else None
 
     @staticmethod
-    def _unit_from_string(s: Optional[str]) -> Optional[u.Unit]:
-        """Robust unit parsing; returns None for unitless/unknown."""
-        if not s:
-            return None
-        t = s.strip().lower().replace("µ", "u")
-        if t in {"unitless", "dimensionless", "1"}:
-            return None
-        # Try astropy parser first
-        try:
-            return u.Unit(t)
-        except Exception:
-            pass
-        # Fallback mapping (common spellings)
-        mapping = {
-            "nm": u.nanometer,
-            "nanometer": u.nanometer,
-            "nanometers": u.nanometer,
-            "um": u.micrometer,
-            "micrometer": u.micrometer,
-            "micrometers": u.micrometer,
-            "mm": u.millimeter,
-            "millimeter": u.millimeter,
-            "millimeters": u.millimeter,
-            "cm": u.centimeter,
-            "centimeter": u.centimeter,
-            "centimeters": u.centimeter,
-            "m": u.meter,
-            "meter": u.meter,
-            "meters": u.meter,
-            "angstrom": u.angstrom,
-            "å": u.angstrom,
-            "cm-1": u.cm**-1,
-            "cm^-1": u.cm**-1,
-            "1/cm": u.cm**-1,
-            "wavenumber": u.cm**-1,
-            "ghz": u.GHz,
-            "mhz": u.MHz,
-        }
-        if t in mapping:
-            return mapping[t]
-        for key, unit in mapping.items():
-            if key in t:
-                return unit
-        return None
-
-    @staticmethod
     def _score_subdataset(var_path: str, description: str) -> int:
         """Heuristic score for elevation-like layers."""
         name = (var_path or "").lower()
@@ -1413,38 +1369,16 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             except Exception:
                 srs = None
 
-        # ---- Wavelengths and Units from netCDF group: /sensor_band_parameters
-        wavelengths = None
-        wl_unit: Optional[u.Unit] = None
-        try:
-            sbp = netcdf_dataset.groups.get("sensor_band_parameters")
-            if sbp:
-                wl_var = sbp.variables.get("wavelengths")
-                if wl_var is not None:
-                    wavelengths = wl_var[:]  # array
-                    wl_unit = cls._unit_from_string(getattr(wl_var, "units", None))
+        # ---- Wavelengths and Units (searches all groups/subgroups at any depth)
+        wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset)
 
-                # If wavelength units missing, try fwhm as a hint
-                if wl_unit is None:
-                    fwhm_var = sbp.variables.get("fwhm")
-                    if fwhm_var is not None:
-                        wl_unit = cls._unit_from_string(getattr(fwhm_var, "units", None))
-            else:
-                # Maybe the wavelengths are in the global group
-                wl_var = netcdf_dataset.variables["wavelengths"]
-                wavelengths = wl_var[:]
-
-        except Exception:
-            wavelengths = None
-            wl_unit = None
-
-        # Validate wavelengths length
+        # Validate wavelengths length — drop on mismatch
         if wavelengths is not None and subdataset.RasterCount != len(wavelengths):
-            wavelengths = None  # mismatch; safer to drop
+            wavelengths = None
 
         # Final fallback ONLY if we truly couldn't resolve units
         if wl_unit is None:
-            wl_unit = u.nanometer  # default to nm per your requirement
+            wl_unit = u.nanometer
 
         # ---- NoData from the chosen variable's attrs in netCDF
         nodata = None

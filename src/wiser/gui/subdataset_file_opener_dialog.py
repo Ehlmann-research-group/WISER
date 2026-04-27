@@ -8,6 +8,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.generated.subdataset_chooser_dialog_ui import Ui_SubdatasetChooser
 from .util import populate_combo_box_with_units
+from wiser.raster.utils import extract_netcdf_wavelengths
 from osgeo import gdal, osr
 
 import numpy as np
@@ -257,21 +258,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         tbl.setColumnCount(1)
         tbl.setHorizontalHeaderLabels(["Bands List"])
 
-        # Try to extract wavelength array from the NetCDF side first.
-        wavelengths: Optional[List[float]] = None
-        try:
-            sbp_group = self._netcdf_dataset.groups.get("sensor_band_parameters")
-            if sbp_group and "wavelengths" in sbp_group.variables:
-                wl_var = sbp_group["wavelengths"]
-                wavelengths = wl_var[:]
-            else:
-                wl_var = self._netcdf_dataset.variables["wavelengths"]
-                wavelengths = wl_var[:]
-
-        except Exception:
-            # Any failure means we fallback to just the indices
-            wavelengths = None
-
+        # Extract wavelength array from the NetCDF file (searches all groups/
+        # subgroups at any nesting depth).
+        wavelengths, _detected_unit = extract_netcdf_wavelengths(self._netcdf_dataset)
         self._wavelengths = wavelengths
 
         subdataset = self._get_selected_subdataset()
