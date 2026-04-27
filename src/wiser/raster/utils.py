@@ -447,7 +447,9 @@ def extract_netcdf_wavelengths(
     return first_data, first_unit
 
 
-_GOOD_WAVELENGTH_VAR_SUBSTRINGS: frozenset = frozenset({"good_wavelengths", "good_wavelength"})
+_GOOD_WAVELENGTH_VAR_SUBSTRINGS: frozenset = frozenset(
+    {"good_wavelengths", "good_wavelength", "bbl", "bad_band_list"}
+)
 
 
 def _is_good_wavelength_var_name(name: str) -> bool:
