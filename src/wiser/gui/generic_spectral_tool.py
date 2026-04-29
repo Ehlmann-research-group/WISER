@@ -894,7 +894,10 @@ class GenericSpectralComputationTool(QDialog):
             target.set_color("#000000")
         except Exception:
             pass
-        plot_widget = SpectrumPlotGeneric(self._app_state)
+        plot_widget = SpectrumPlotGeneric(
+            app_state=self._app_state,
+            parent=self.parent(),
+        )
         layout.addWidget(plot_widget)
         plot_widget.add_collected_spectrum(target)
         for rec in rows[:5]:
