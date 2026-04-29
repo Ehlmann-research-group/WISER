@@ -153,20 +153,136 @@ def _run_matched_filter_tile(
     client.write_spec(output_write, scores)
 
 
+def _validate_matched_filter_inputs(
+    input_ref: DataRef,
+    inv_noise_cov_ref: DataRef,
+    noise_mean_ref: DataRef,
+    target_spectra_ref: DataRef,
+) -> None:
+    """Pre-task validation: confirm that all inputs are dimensionally consistent.
+
+    Runs once before any spatial tile work units execute.
+
+    Args:
+        input_ref: DataRef for the input hyperspectral data cube (H, W, B_total).
+        inv_noise_cov_ref: DataRef for the inverse noise covariance matrix.
+        noise_mean_ref: DataRef for the noise mean vector.
+        target_spectra_ref: DataRef for the target spectra array.
+
+    Raises:
+        ValueError: If any dimensional mismatch is detected.
+    """
+    client = get_process_storage_client()
+
+    dataset_meta = client.get_meta(input_ref)
+    b_total = dataset_meta.shape[2]
+
+    # Determine the number of good bands after bad-band removal
+    if dataset_meta.bad_bands is None:
+        good_band_runs = [(0, b_total)]
+    else:
+        good_band_runs = get_good_band_runs(np.asarray(dataset_meta.bad_bands))
+    b_good = sum(end - start for start, end in good_band_runs)
+
+    if b_good == 0:
+        raise ValueError("Matched filter requires at least one valid band; all bands are flagged as bad.")
+
+    # Validate noise mean: must have length == b_good
+    mean_meta = client.get_meta(noise_mean_ref)
+    mean_len = mean_meta.shape[0] if len(mean_meta.shape) == 1 else int(np.prod(mean_meta.shape))
+    if mean_len != b_good:
+        raise ValueError(
+            f"Noise mean length ({mean_len}) does not match the number of good bands "
+            f"({b_good}) after bad-band removal. "
+            f"Supply a noise mean computed from the same good-band-filtered data."
+        )
+
+    # Validate inverse covariance: must be square with side == b_good
+    cov_meta = client.get_meta(inv_noise_cov_ref)
+    cov_shape = cov_meta.shape
+    if len(cov_shape) < 2 or cov_shape[0] != b_good or cov_shape[1] != b_good:
+        raise ValueError(
+            f"Inverse noise covariance shape {cov_shape} is not ({b_good}, {b_good}). "
+            f"It must be square with side equal to the number of good bands ({b_good}) "
+            f"after bad-band removal."
+        )
+
+    # Validate target spectra: band dimension must match b_total (full, pre-removal)
+    target_meta = client.get_meta(target_spectra_ref)
+    target_shape = target_meta.shape
+    if len(target_shape) == 1:
+        target_bands = target_shape[0]
+    elif len(target_shape) == 2:
+        target_bands = target_shape[1]
+    else:
+        raise ValueError(f"Target spectra must be 1-D (B,) or 2-D (N_targets, B), got shape {target_shape}.")
+    if target_bands != b_total:
+        raise ValueError(
+            f"Target spectra band count ({target_bands}) does not match the total number of "
+            f"bands in the input data cube ({b_total}). "
+            f"Supply full-band target spectra (including bad bands); bad bands are removed "
+            f"internally before the matched-filter is applied."
+        )
+
+
 @dataclass
 class MatchedFilterStage(MapStage):
-    """
-    Compute the matched-filter detection score between every pixel in a
-    hyperspectral data cube and one or more reference target spectra.
+    """Task stage that computes matched-filter detection scores for a hyperspectral cube.
 
-    Inputs (all supplied via broadcast_input as DataRef objects):
-        inv_noise_cov_ref  - (B, B) inverse noise covariance matrix
-        noise_mean_ref     - (B,)   noise mean vector
-        target_spectra_ref - (N_targets, B) array; each row is one target
+    Implements the matched filter:
 
-    Output:
-        A single dataset of shape (H, W, N_targets) where
-        output[:, :, i] is the matched-filter score map for target i.
+    .. code-block:: text
+
+        T(x) = [(t - μ)ᵀ Γ⁻¹ (x - μ)] / [(t - μ)ᵀ Γ⁻¹ (t - μ)]
+
+    where ``x`` is an observed pixel spectrum, ``t`` is a target reference
+    spectrum, ``μ`` is the noise mean, and ``Γ⁻¹`` is the inverse noise
+    covariance matrix.
+
+    The stage uses ``SpatialTileScheme`` to split the cube into spatial tiles
+    (all bands, sub-region of rows/columns), processes each tile independently
+    in a worker process, and writes results to a single pre-allocated output
+    dataset.
+
+    **Band handling:**
+        Before any arithmetic, bad bands are stripped from the data cube using
+        the ``bad_bands`` metadata attached to the input dataset.  The noise
+        mean and inverse covariance matrix must therefore be provided in
+        *good-band space* (i.e. already computed on the band-filtered data).
+        Target spectra must be provided in *full-band space* (same total band
+        count as the raw cube); bad bands are removed from them internally.
+
+    **Nodata handling:**
+        Pixels whose value in any good band equals the dataset's ``nodata``
+        value (or is NaN when ``nodata`` is NaN) are excluded from the
+        matched-filter computation and written as ``NaN`` in the output.
+
+    **Output:**
+        A single float32 dataset of shape ``(H, W, N_targets)`` where band
+        slice ``i`` is the matched-filter score map for target ``i``.
+
+    Attributes:
+        _output_ref_name: Allocation name for the output dataset.
+            Defaults to ``"matched_filter_output"``.
+        _inv_noise_cov_ref_name: Broadcast-input key for the inverse noise
+            covariance matrix (good-band space, shape ``(b_good, b_good)``).
+            Defaults to ``"inv_noise_cov"``.
+        _noise_mean_ref_name: Broadcast-input key for the noise mean vector
+            (good-band space, shape ``(b_good,)``).
+            Defaults to ``"noise_mean"``.
+        _target_spectra_ref_name: Broadcast-input key for the target spectra
+            array (full-band space, shape ``(N_targets, B_total)`` or
+            ``(B_total,)`` for a single target).
+            Defaults to ``"target_spectra"``.
+        _num_targets: Number of target spectra (rows in the target array).
+            Resolved automatically by ``get_matched_filter_stage``.
+
+    Note:
+        All three broadcast inputs (``inv_noise_cov_ref``, ``noise_mean_ref``,
+        ``target_spectra_ref``) must be present in ``broadcast_input`` before
+        the stage is constructed; ``__post_init__`` raises ``ValueError`` if
+        any are missing.  Use ``get_matched_filter_stage`` or
+        ``get_matched_filter_pipeline`` to construct the stage safely.
     """
 
     _output_ref_name: str = "matched_filter_output"
@@ -245,6 +361,25 @@ class MatchedFilterStage(MapStage):
             input_ref,
             input_region,
             output_write,
+            inv_noise_cov_ref,
+            noise_mean_ref,
+            target_spectra_ref,
+        )
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (full_input_region, output_writes)
+        inv_noise_cov_ref = broadcast_inputs[self._inv_noise_cov_ref_name]
+        noise_mean_ref = broadcast_inputs[self._noise_mean_ref_name]
+        target_spectra_ref = broadcast_inputs[self._target_spectra_ref_name]
+        return partial(
+            _validate_matched_filter_inputs,
+            input_ref,
             inv_noise_cov_ref,
             noise_mean_ref,
             target_spectra_ref,
