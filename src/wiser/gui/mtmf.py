@@ -23,6 +23,7 @@ from wiser.utils.task_system import (
     ResourceModel,
     WriteSpec,
 )
+from wiser.utils.task_stage_utils import get_good_band_runs, split_dataset_tile_by_good_band_runs
 from wiser.utils.worker_runtime import get_process_storage_client
 
 
@@ -56,45 +57,100 @@ def _run_matched_filter_tile(
 
     client = get_process_storage_client()
 
-    data_tile, _ = client.read_region(input_ref, input_region, filter_data=False)
-    data_arr = np.asarray(np.ma.getdata(data_tile), dtype=np.float64)  # (h, w, B)
+    data_tile, region_meta = client.read_region(input_ref, input_region, filter_data=False)
+    data_arr = np.asarray(np.ma.getdata(data_tile), dtype=np.float64)  # (h, w, B_total)
 
+    if data_arr.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [y][x][b], got {data_arr.shape}")
+
+    chunk_h, chunk_w, b_total = data_arr.shape
+
+    # ------------------------------------------------------------------
+    # Strip bad bands from the data cube
+    # ------------------------------------------------------------------
+    if region_meta.bad_bands is None:
+        good_band_runs = [(0, b_total)]
+    else:
+        good_band_runs = get_good_band_runs(np.asarray(region_meta.bad_bands))
+
+    if len(good_band_runs) == 0:
+        raise ValueError("Matched filter requires at least one valid band; all bands are flagged as bad.")
+
+    good_chunks = split_dataset_tile_by_good_band_runs(data_arr, good_band_runs)
+    data_good = np.concatenate(good_chunks, axis=2)  # (h, w, b_good)
+    b_good = data_good.shape[2]
+
+    # ------------------------------------------------------------------
+    # Read broadcast inputs and restrict them to good bands
+    # ------------------------------------------------------------------
     noise_mean_raw, _ = client.read_data(noise_mean_ref)
-    noise_mean = np.asarray(np.ma.getdata(noise_mean_raw), dtype=np.float64).ravel()  # (B,)
+    noise_mean_full = np.asarray(np.ma.getdata(noise_mean_raw), dtype=np.float64).ravel()  # (B_total,)
+    noise_mean = np.concatenate([noise_mean_full[start:end] for start, end in good_band_runs])  # (b_good,)
 
     inv_cov_raw, _ = client.read_data(inv_noise_cov_ref)
-    inv_cov = np.asarray(np.ma.getdata(inv_cov_raw), dtype=np.float64)  # (B, B)
-    if inv_cov.ndim == 3:
-        inv_cov = np.squeeze(inv_cov, axis=2)
-    if inv_cov.ndim != 2:
-        raise ValueError(f"Inverse noise covariance must be 2-D, got shape {inv_cov.shape}")
+    inv_cov_full = np.asarray(np.ma.getdata(inv_cov_raw), dtype=np.float64)  # (B_total, B_total)
+    if inv_cov_full.ndim == 3:
+        inv_cov_full = np.squeeze(inv_cov_full, axis=2)
+    if inv_cov_full.ndim != 2:
+        raise ValueError(f"Inverse noise covariance must be 2-D, got shape {inv_cov_full.shape}")
+    good_indices = np.concatenate([np.arange(s, e) for s, e in good_band_runs])
+    inv_cov = inv_cov_full[np.ix_(good_indices, good_indices)]  # (b_good, b_good)
 
     targets_raw, _ = client.read_data(target_spectra_ref)
-    targets = np.asarray(np.ma.getdata(targets_raw), dtype=np.float64)  # (N_targets, B)
-    if targets.ndim == 1:
-        targets = targets[np.newaxis, :]
-    if targets.ndim != 2:
-        raise ValueError(f"Target spectra must be 1-D or 2-D, got shape {targets.shape}")
+    targets_full = np.asarray(np.ma.getdata(targets_raw), dtype=np.float64)  # (N_targets, B_total)
+    if targets_full.ndim == 1:
+        targets_full = targets_full[np.newaxis, :]
+    if targets_full.ndim != 2:
+        raise ValueError(f"Target spectra must be 1-D or 2-D, got shape {targets_full.shape}")
+    targets = np.concatenate(
+        [targets_full[:, start:end] for start, end in good_band_runs], axis=1
+    )  # (N_targets, b_good)
 
-    chunk_h, chunk_w, B = data_arr.shape
+    # ------------------------------------------------------------------
+    # Flatten to pixels and remove nodata rows
+    # ------------------------------------------------------------------
+    flat = data_good.reshape(chunk_h * chunk_w, b_good)  # (n_pixels, b_good)
 
-    # Center the data and targets by subtracting the noise mean
-    x_centered = (data_arr - noise_mean).reshape(-1, B)  # (n_pixels, B)
-    t_centered = targets - noise_mean  # (N_targets, B)
+    nodata = region_meta.nodata
+    if nodata is not None:
+        if np.isnan(nodata):
+            nodata_mask = np.any(np.isnan(flat), axis=1)
+        else:
+            nodata_mask = np.any(flat == nodata, axis=1)
+        valid_indices = np.where(~nodata_mask)[0]
+    else:
+        valid_indices = np.arange(chunk_h * chunk_w)
 
-    # t_Sigma_inv[i] = t_centered[i] @ Γ⁻¹  →  shape (N_targets, B)
+    flat_valid = flat[valid_indices]  # (n_valid, b_good)
+
+    # ------------------------------------------------------------------
+    # Matched-filter computation on valid pixels only
+    #   T(x) = [(t-μ)ᵀ Γ⁻¹ (x-μ)] / [(t-μ)ᵀ Γ⁻¹ (t-μ)]
+    # ------------------------------------------------------------------
+    x_centered = flat_valid - noise_mean  # (n_valid, b_good)
+    t_centered = targets - noise_mean  # (N_targets, b_good)
+
+    # t_Sigma_inv[i] = t_centered[i] @ Γ⁻¹  →  (N_targets, b_good)
     t_Sigma_inv = t_centered @ inv_cov
 
-    # Numerator: (x - μ)^T Γ⁻¹ (t - μ) for every pixel and every target
-    #   x_centered @ t_Sigma_inv.T  →  (n_pixels, N_targets)
+    # Numerator: x_centered @ t_Sigma_inv.T  →  (n_valid, N_targets)
     numerators = x_centered @ t_Sigma_inv.T
 
-    # Denominator: scalar per target - (t - μ)^T Γ⁻¹ (t - μ)
+    # Denominator: scalar per target
     denominators = (t_centered * t_Sigma_inv).sum(axis=1)  # (N_targets,)
     denominators = np.where(denominators == 0.0, np.finfo(np.float64).eps, denominators)
 
-    scores = (numerators / denominators).reshape(chunk_h, chunk_w, targets.shape[0])
-    client.write_spec(output_write, scores.astype(np.float32, copy=False))
+    scores_valid = numerators / denominators  # (n_valid, N_targets)
+
+    # ------------------------------------------------------------------
+    # Scatter scores back to full pixel grid; nodata pixels get NaN
+    # ------------------------------------------------------------------
+    n_targets = targets.shape[0]
+    scores_flat = np.full((chunk_h * chunk_w, n_targets), fill_value=np.nan, dtype=np.float32)
+    scores_flat[valid_indices] = scores_valid.astype(np.float32)
+    scores = scores_flat.reshape(chunk_h, chunk_w, n_targets)
+
+    client.write_spec(output_write, scores)
 
 
 @dataclass
