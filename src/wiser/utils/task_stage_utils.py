@@ -4172,3 +4172,259 @@ def get_project_onto_eigenvectors_pipeline(
             )
         ]
     )
+
+
+# ---------------------------------------------------------------------------
+# Positive Semi-Definite Matrix Inverse (SVD pseudoinverse)
+# ---------------------------------------------------------------------------
+
+
+def _compute_psd_matrix_inverse(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_ref: DataRef,
+    rcond: Optional[float],
+) -> None:
+    """Worker: compute the Moore-Penrose pseudoinverse of a PSD matrix via SVD.
+
+    Singular values smaller than ``rcond * sigma_max`` are treated as zero,
+    making this a numerically stable pseudoinverse for rank-deficient or
+    near-singular matrices.
+
+    Args:
+        input_ref: DataRef for the input square PSD matrix of shape ``(N, N)``.
+        input_region: Unused; present for framework compatibility.
+        output_ref: DataRef to write the pseudoinverse result into.
+        rcond: Relative threshold for singular-value truncation.  Singular
+            values ``s[i] < rcond * s[0]`` are treated as zero.  When
+            ``None``, defaults to ``eps * N`` where ``eps`` is the machine
+            epsilon for float64 and ``N`` is the matrix side length.
+
+    Raises:
+        ValueError: If the input is not a 2-D square matrix.
+    """
+    _ = input_region
+    client = get_process_storage_client()
+
+    raw, _ = client.read_data(input_ref)
+    matrix = np.asarray(np.ma.getdata(raw), dtype=np.float64)
+
+    if matrix.ndim == 3 and matrix.shape[2] == 1:
+        matrix = matrix[:, :, 0]
+    if matrix.ndim != 2:
+        raise ValueError(f"Expected a 2-D square matrix, got shape {matrix.shape}")
+    if matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"Expected a square matrix for pseudoinverse, got shape {matrix.shape}")
+
+    n = matrix.shape[0]
+    effective_rcond = rcond if rcond is not None else np.finfo(np.float64).eps * n
+
+    U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
+
+    # Truncate singular values below the threshold
+    threshold = effective_rcond * s[0]
+    s_inv = np.where(s > threshold, 1.0 / s, 0.0)
+
+    # Pseudoinverse: V @ diag(s_inv) @ U^T
+    pseudoinverse = (Vh.T * s_inv) @ U.T
+
+    client.write_data(output_ref, pseudoinverse.astype(np.float32, copy=False))
+
+
+@dataclass
+class PosSemiDefMatrixInverse(SequentialStage):
+    """Task stage that computes the pseudoinverse of a positive semi-definite matrix.
+
+    Uses a truncated Singular Value Decomposition (SVD) to compute the
+    Moore-Penrose pseudoinverse, which is numerically stable for rank-deficient
+    or near-singular matrices.
+
+    Given a PSD matrix ``M`` with SVD ``M = U @ diag(s) @ Vᴴ``, the
+    pseudoinverse is:
+
+    .. code-block:: text
+
+        M⁺ = V @ diag(s_inv) @ Uᵀ
+
+    where ``s_inv[i] = 1 / s[i]`` when ``s[i] > rcond * s[0]``, and
+    ``s_inv[i] = 0`` otherwise.  Singular values below the threshold
+    correspond to numerically zero directions and are left uninverted.
+
+    The stage reads the full matrix in one shot (``NoChunkingScheme``) and
+    writes a float32 result of the same shape.
+
+    Attributes:
+        _output_ref_name: Allocation name for the pseudoinverse output array.
+            Defaults to ``"psd_matrix_inverse"``.
+        _rcond: Relative singular-value threshold.  Singular values smaller
+            than ``rcond * sigma_max`` are treated as zero.  When ``None``
+            (default), the threshold is set to ``eps * N`` at runtime, where
+            ``eps`` is the float64 machine epsilon and ``N`` is the matrix
+            side length.
+
+    Note:
+        The input must be registered as an array ``DataRef`` with shape
+        ``(N, N)``.  The stage validates squareness in the factory function
+        ``get_pos_semi_def_matrix_inverse_stage`` before construction.  Use
+        that factory rather than instantiating this class directly.
+    """
+
+    _output_ref_name: str = "psd_matrix_inverse"
+    _rcond: Optional[float] = None
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=8,
+            bytes_per_scalar_out=0,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self) -> None:
+        self.output_bindings = list(self.output_bindings) + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, SpectraBatchRef
+        ), "Input region for PosSemiDefMatrixInverse must be SpectraBatchRef"
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        """Allocate a single ``(N, N)`` float32 output array.
+
+        Args:
+            input_meta: Must be a ``SpectraListPlanMeta`` describing the
+                ``(N, N)`` input matrix.
+            chosen_scheme: Unused; present for interface compatibility.
+
+        Returns:
+            A one-element list containing the ``AllocationRequest`` for the
+            pseudoinverse output.
+
+        Raises:
+            AssertionError: If ``input_meta`` is not a ``SpectraListPlanMeta``.
+        """
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, SpectraListPlanMeta
+        ), "PosSemiDefMatrixInverse requires SpectraListPlanMeta input_meta"
+        n = input_meta.num_spectra
+        size_est = n * n * np.dtype(np.float32).itemsize
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=size_est,
+                shape=(n, n),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        """Return the worker callable for this stage.
+
+        Args:
+            input_ref: DataRef for the input PSD matrix.
+            input_region: Region descriptor (unused for ``NoChunkingScheme``).
+            output_writes: Mapping from output name to ``WriteSpec``.
+            broadcast_inputs: Unused; present for interface compatibility.
+
+        Returns:
+            A ``partial`` wrapping ``_compute_psd_matrix_inverse``.
+        """
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _compute_psd_matrix_inverse,
+            input_ref,
+            input_region,
+            output_write.ref,
+            self._rcond,
+        )
+
+
+def get_pos_semi_def_matrix_inverse_stage(
+    matrix_ref: DataRef,
+    output_ref_name: str = "psd_matrix_inverse",
+    rcond: Optional[float] = None,
+) -> PosSemiDefMatrixInverse:
+    """Build a :class:`PosSemiDefMatrixInverse` stage from a matrix ``DataRef``.
+
+    Validates that the input is a 2-D square array before constructing the
+    stage, so any shape errors surface at planning time rather than at runtime.
+
+    Args:
+        matrix_ref: DataRef for the input PSD matrix of shape ``(N, N)``.
+        output_ref_name: Allocation name for the pseudoinverse output.
+            Defaults to ``"psd_matrix_inverse"``.
+        rcond: Relative singular-value truncation threshold.  Singular values
+            smaller than ``rcond * sigma_max`` are treated as zero.  Pass
+            ``None`` to use the automatic default ``eps * N``.
+
+    Returns:
+        A fully configured :class:`PosSemiDefMatrixInverse` stage.
+
+    Raises:
+        ValueError: If the input ``DataRef`` does not describe a 2-D square
+            array.
+    """
+    storage_client = get_process_storage_client()
+    matrix_meta = storage_client.get_meta(matrix_ref)
+
+    shape = matrix_meta.shape
+    if len(shape) == 3 and shape[2] == 1:
+        shape = shape[:2]
+    if len(shape) != 2:
+        raise ValueError(f"Expected a 2-D square matrix for pseudoinverse, got shape {matrix_meta.shape}")
+    if shape[0] != shape[1]:
+        raise ValueError(f"Expected a square matrix for pseudoinverse, got shape {matrix_meta.shape}")
+
+    n = int(shape[0])
+    input_meta = SpectraListPlanMeta(
+        num_spectra=n,
+        spectrum_length=n,
+        dtype=np.dtype(matrix_meta.elem_type),
+    )
+    return PosSemiDefMatrixInverse(
+        _output_ref_name=output_ref_name,
+        _rcond=rcond,
+        default_executor="process",
+        input_plan_meta=input_meta,
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
+
+def get_pos_semi_def_matrix_inverse_pipeline(
+    matrix_ref: DataRef,
+    output_ref_name: str = "psd_matrix_inverse",
+    rcond: Optional[float] = None,
+) -> AlgorithmPipeline:
+    """Return a single-stage pipeline that pseudoinverts a PSD matrix.
+
+    Args:
+        matrix_ref: DataRef for the input PSD matrix of shape ``(N, N)``.
+        output_ref_name: Allocation name for the pseudoinverse output.
+            Defaults to ``"psd_matrix_inverse"``.
+        rcond: Relative singular-value truncation threshold passed through to
+            :func:`get_pos_semi_def_matrix_inverse_stage`.  ``None`` uses the
+            automatic default.
+
+    Returns:
+        An :class:`AlgorithmPipeline` containing a single
+        :class:`PosSemiDefMatrixInverse` stage.
+    """
+    return AlgorithmPipeline([get_pos_semi_def_matrix_inverse_stage(matrix_ref, output_ref_name, rcond)])
