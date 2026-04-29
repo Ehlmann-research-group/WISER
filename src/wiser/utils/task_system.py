@@ -420,8 +420,9 @@ class TaskPlanner:
         plan.task_title = semantic_task.task_title
         plan.task_input_variables = semantic_task.task_variables
 
-        # 1) init bindings
-        bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
+        # 1) init bindings (extras first so __task_input__ always wins)
+        bindings: Dict[str, DataRef] = dict(semantic_task.get_extra_plan_bindings())
+        bindings["__task_input__"] = semantic_task.input_ref
 
         plan.bindings.update(bindings)
         plan.completion_callback = semantic_task.completion_callback
@@ -769,6 +770,7 @@ class SemanticTask:
         algorithm_pipeline: AlgorithmPipeline,
         task_title: str = "Generic Task Title",
         task_variables: Optional[Dict[str, str]] = None,
+        extra_plan_bindings: Optional[Dict[str, DataRef]] = None,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
@@ -780,6 +782,15 @@ class SemanticTask:
 
         self._task_title = task_title
         self._task_variables = task_variables or dict()
+        self._extra_plan_bindings: Dict[str, DataRef] = dict(extra_plan_bindings or ())
+
+    def get_extra_plan_bindings(self) -> Dict[str, DataRef]:
+        """Additional :class:`DataRef` entries merged into the task plan before planning.
+
+        The reserved key ``__task_input__`` always maps to :attr:`input_ref` and
+        overrides any duplicate key from this mapping.
+        """
+        return self._extra_plan_bindings
 
     @property
     def task_title(self) -> str:

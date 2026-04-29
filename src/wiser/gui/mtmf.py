@@ -1,11 +1,15 @@
 """Matched target / matched filter (MTMF) task stage for hyperspectral cubes."""
 
+import datetime
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
+from PySide2.QtCore import QObject, Signal, Slot
 
+from wiser.gui.app_services import AppServices
+from wiser.gui.app_state import ApplicationState
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -13,6 +17,10 @@ from wiser.utils.primitives import (
     DataRef,
     DataRegion,
     DatasetRegionRef,
+    ExternalRasterHandle,
+    NoChunkingScheme,
+    PriorityClass,
+    SpectraListPlanMeta,
     SpatialTileScheme,
 )
 from wiser.utils.task_system import (
@@ -21,10 +29,21 @@ from wiser.utils.task_system import (
     DatasetPlanMeta,
     MapStage,
     ResourceModel,
+    SemanticTask,
     WriteSpec,
 )
-from wiser.utils.task_stage_utils import get_good_band_runs, split_dataset_tile_by_good_band_runs
+from wiser.utils.task_stage_utils import (
+    CalcCovMatrixStage,
+    get_good_band_runs,
+    get_spectral_mean_stage,
+    PosSemiDefMatrixInverse,
+    split_dataset_tile_by_good_band_runs,
+)
 from wiser.utils.worker_runtime import get_process_storage_client
+
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
+    from wiser.raster.spectrum import Spectrum
 
 
 # ---------------------------------------------------------------------------
@@ -470,3 +489,333 @@ def get_matched_filter_pipeline(
             )
         ]
     )
+
+
+# ---------------------------------------------------------------------------
+# Full MTMF pipeline: noise stats → inverse covariance → matched filter
+# ---------------------------------------------------------------------------
+
+_MTMF_NOISE_MEAN_NAME = "mtmf_noise_mean"
+_MTMF_NOISE_COV_NAME = "mtmf_noise_covariance"
+_MTMF_INV_COV_NAME = "mtmf_inv_noise_covariance"
+_MTMF_NOISE_PLAN_BINDING = "mtmf_noise_ref"
+
+
+def get_mtmf_pipeline(
+    source_ref: DataRef,
+    noise_ref: DataRef,
+    target_spectra_ref: DataRef,
+    output_ref_name: str = "matched_filter_output",
+) -> AlgorithmPipeline:
+    """Build the full MTMF :class:`AlgorithmPipeline`.
+
+    Chains four stages:
+
+    1. **Noise mean** - spectral mean of the noise dataset.
+    2. **Noise covariance** - running covariance of the noise dataset.
+    3. **Inverse covariance** - Moore-Penrose pseudoinverse via SVD.
+    4. **Matched filter** - per-pixel scores against every target spectrum.
+
+    The semantic task's ``input_ref`` must be the **source** cube (same ref as
+    ``source_ref``).  Stages 1-2 read the noise cube via plan binding
+    ``mtmf_noise_ref``; pass ``noise_ref`` in the semantic task's
+    ``extra_plan_bindings`` constructor argument.
+
+    Args:
+        source_ref: DataRef for the source hyperspectral data cube (H, W, B).
+            Must match ``task.input_ref`` when the task is planned.
+        noise_ref: DataRef for the noise dataset used to estimate statistics.
+            Must appear in ``extra_plan_bindings`` under the key
+            ``mtmf_noise_ref``.
+        target_spectra_ref: DataRef for the stacked target spectra array
+            with shape ``(N_targets, B)`` in full-band space.
+        output_ref_name: Name for the final matched-filter output allocation.
+            Defaults to ``"matched_filter_output"``.
+
+    Returns:
+        An :class:`AlgorithmPipeline` ready to be wrapped in a
+        :class:`SemanticTask` with ``input_ref=source_ref`` and
+        ``extra_plan_bindings`` containing ``mtmf_noise_ref`` mapped to
+        ``noise_ref``.
+
+    Raises:
+        ValueError: If either dataset ref does not describe a 3-D cube, or
+            if the target spectra ref does not describe a 1-D or 2-D array.
+    """
+    client = get_process_storage_client()
+
+    noise_meta = client.get_meta(noise_ref)
+    if len(noise_meta.shape) != 3:
+        raise ValueError(f"Expected noise dataset shape (H, W, B), got {noise_meta.shape}")
+    source_meta = client.get_meta(source_ref)
+    if len(source_meta.shape) != 3:
+        raise ValueError(f"Expected source dataset shape (H, W, B), got {source_meta.shape}")
+
+    target_meta = client.get_meta(target_spectra_ref)
+    if len(target_meta.shape) == 1:
+        num_targets = 1
+    elif len(target_meta.shape) == 2:
+        num_targets = target_meta.shape[0]
+    else:
+        raise ValueError(
+            f"Target spectra must be 1-D (B,) or 2-D (N_targets, B), " f"got shape {target_meta.shape}"
+        )
+
+    if noise_meta.bad_bands is not None:
+        noise_b_good = int(np.count_nonzero(np.asarray(noise_meta.bad_bands) != 0))
+    else:
+        noise_b_good = noise_meta.shape[2]
+
+    _default_resource = ResourceModel(
+        fixed_overhead_bytes=0,
+        bytes_per_scalar_in=1,
+        bytes_per_scalar_out=1,
+        scratch_bytes_per_scalar_in=0,
+    )
+
+    noise_input_binding = DataBinding(_MTMF_NOISE_PLAN_BINDING)
+
+    # Stage 1: spectral mean of noise  →  (b_good,)
+    noise_mean_stage = get_spectral_mean_stage(
+        noise_ref,
+        _MTMF_NOISE_MEAN_NAME,
+        input_binding=noise_input_binding,
+    )
+
+    # Stage 2: covariance of noise  →  (b_good, b_good, 1)
+    noise_plan_meta = DatasetPlanMeta(
+        shape=noise_meta.shape,
+        dtype=np.dtype(noise_meta.elem_type),
+    )
+    noise_cov_stage = CalcCovMatrixStage(
+        _total_spectra=0,
+        _num_features=noise_b_good,
+        _output_ref_name=_MTMF_NOISE_COV_NAME,
+        _internal_total_ref_name=f"{_MTMF_NOISE_COV_NAME}_total",
+        default_executor="process",
+        input_binding=noise_input_binding,
+        input_plan_meta=noise_plan_meta,
+        resource_model=_default_resource,
+        broadcast_input={"mean": DataBinding(_MTMF_NOISE_MEAN_NAME)},
+    )
+
+    # Stage 3: pseudoinverse of noise covariance  →  (b_good, b_good)
+    inv_cov_stage = PosSemiDefMatrixInverse(
+        _output_ref_name=_MTMF_INV_COV_NAME,
+        default_executor="process",
+        input_binding=DataBinding(_MTMF_NOISE_COV_NAME),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=noise_b_good,
+            spectrum_length=noise_b_good,
+            dtype=np.dtype(np.float32),
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=8,
+            bytes_per_scalar_out=4,
+            scratch_bytes_per_scalar_in=8,
+        ),
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
+    # Stage 4: matched filter against all targets  →  (H, W, N_targets)
+    # Reads the source cube via __task_input__ (must equal ``source_ref``).
+    source_plan_meta = DatasetPlanMeta(
+        shape=source_meta.shape,
+        dtype=np.dtype(source_meta.elem_type),
+    )
+    mf_stage = MatchedFilterStage(
+        _output_ref_name=output_ref_name,
+        _inv_noise_cov_ref_name="inv_noise_cov",
+        _noise_mean_ref_name="noise_mean",
+        _target_spectra_ref_name="target_spectra",
+        _num_targets=num_targets,
+        default_executor="process",
+        input_plan_meta=source_plan_meta,
+        chunking_scheme_type=SpatialTileScheme,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=8,
+            bytes_per_scalar_out=4,
+            scratch_bytes_per_scalar_in=8,
+        ),
+        broadcast_input={
+            "inv_noise_cov": DataBinding(_MTMF_INV_COV_NAME),
+            "noise_mean": DataBinding(_MTMF_NOISE_MEAN_NAME),
+            "target_spectra": target_spectra_ref,
+        },
+    )
+
+    return AlgorithmPipeline([noise_mean_stage, noise_cov_stage, inv_cov_stage, mf_stage])
+
+
+# ---------------------------------------------------------------------------
+# MTMFSemanticTask
+# ---------------------------------------------------------------------------
+
+
+class MTMFSemanticTask(QObject, SemanticTask):
+    """Semantic task that runs the full Matched Target Matched Filter pipeline.
+
+    Registers the source and noise datasets, stacks the target spectra into a
+    single array, builds the four-stage MTMF pipeline (noise mean → noise
+    covariance → pseudoinverse → matched filter), and on completion slices the
+    3-D output ``(H, W, N_targets)`` into individual score-map datasets — one
+    per target — and loads them into the WISER application state.
+
+    Args:
+        app_state: The running :class:`ApplicationState` used to register
+            results and obtain unique dataset names.
+        app_services: Application services used for dataset registration and
+            task allocation.
+        source_dataset: The hyperspectral image cube to score.
+        noise_dataset: A dataset used to estimate background noise statistics
+            (mean and covariance).  Must have the same spectral bands as
+            ``source_dataset``.
+        target_spectra: One or more target reference spectra.  Each spectrum
+            must span the *full* band count of ``source_dataset`` (bad-band
+            removal is performed internally).
+        output_ref_name: Storage allocation name for the matched-filter output
+            cube.  Defaults to ``"matched_filter_output"``.
+
+    Signals:
+        result_ready: Emitted in the completion callback with the score array
+            ``(H, W, N_targets)`` and the list of target names.  Connected to
+            :meth:`_load_result_into_wiser` which runs on the Qt main thread.
+
+    Note:
+        The task's ``input_ref`` is the **source** image cube.  The noise
+        dataset is supplied through ``extra_plan_bindings`` under
+        ``mtmf_noise_ref`` so the first two pipeline stages can read it while
+        the matched-filter stage uses ``__task_input__`` for the source.
+    """
+
+    result_ready = Signal(object)
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        app_services: AppServices,
+        source_dataset: "RasterDataSet",
+        noise_dataset: "RasterDataSet",
+        target_spectra: List["Spectrum"],
+        output_ref_name: str = "matched_filter_output",
+    ) -> None:
+        QObject.__init__(self)
+
+        if not target_spectra:
+            raise ValueError("MTMFSemanticTask requires at least one target spectrum.")
+
+        # Register source and noise datasets as external refs
+        source_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=source_dataset)
+        )
+        noise_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=noise_dataset)
+        )
+
+        # Stack target spectra into a single (N_targets, B) float32 array and
+        # allocate it as a named array DataRef.
+        target_names: List[str] = []
+        spectra_arrays: List[np.ndarray] = []
+        for i, spectrum in enumerate(target_spectra):
+            name = getattr(spectrum, "get_name", lambda: None)()
+            target_names.append(name if name else f"Target {i + 1}")
+            spectra_arrays.append(np.asarray(spectrum.get_spectrum(), dtype=np.float32))
+
+        target_array = np.stack(spectra_arrays, axis=0)  # (N_targets, B)
+
+        process_client = get_process_storage_client()
+        target_spectra_ref = app_services.storage_service.allocate_data(
+            AllocationRequest(
+                name="mtmf_target_spectra",
+                kind="array",
+                residency="ram_cacheable",
+                size_est=int(target_array.size * target_array.dtype.itemsize),
+                shape=target_array.shape,
+                dtype=target_array.dtype,
+            )
+        )
+        process_client.write_data(target_spectra_ref, target_array)
+
+        pipeline = get_mtmf_pipeline(
+            source_ref=source_ref,
+            noise_ref=noise_ref,
+            target_spectra_ref=target_spectra_ref,
+            output_ref_name=output_ref_name,
+        )
+
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=source_ref,
+            algorithm_pipeline=pipeline,
+            task_title="Matched Filter (MTMF)",
+            task_variables={
+                "Source": source_dataset.get_name() or "Dataset",
+                "Noise": noise_dataset.get_name() or "Noise Dataset",
+                "Targets": len(target_spectra),
+            },
+            extra_plan_bindings={_MTMF_NOISE_PLAN_BINDING: noise_ref},
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._source_dataset = source_dataset
+        self._output_ref_name = output_ref_name
+        self._target_names: List[str] = target_names
+        self.result_ready.connect(self._load_result_into_wiser)
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        """Read the full score cube and emit it for loading on the main thread.
+
+        Args:
+            bindings: Mapping of allocation names to resolved :class:`DataRef`
+                objects produced by the task pipeline.
+
+        Raises:
+            KeyError: If the expected output binding is not present.
+        """
+        output_ref = bindings.get(self._output_ref_name)
+        if output_ref is None:
+            raise KeyError(f"Missing MTMF output binding: '{self._output_ref_name}'")
+
+        storage_client = get_process_storage_client()
+        meta = storage_client.get_meta(output_ref)
+        height, width, n_targets = meta.shape
+        region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=n_targets)
+        scores_data, _ = storage_client.read_region(output_ref, region, filter_data=False)
+        self.result_ready.emit(np.asarray(scores_data, dtype=np.float32))
+
+    @Slot(object, object)
+    def _load_result_into_wiser(self, scores_data: object) -> None:
+        """Slice the score cube into individual datasets and add them to WISER.
+
+        Each band slice ``scores[:, :, i]`` becomes a separate float32 dataset
+        named after its target spectrum.  Pixels that were excluded as nodata
+        during the matched-filter computation are stored as ``NaN``.
+
+        Args:
+            scores_data: The ``(H, W, N_targets)`` score array emitted by
+                :meth:`completion_callback`.
+        """
+        target_names = list(self._target_names)
+        scores_array = np.asarray(scores_data, dtype=np.float32)  # (H, W, N_targets)
+        names: List[str] = list(target_names)
+
+        loader = self._app_state.get_loader()
+        cache = self._app_state.get_cache()
+        source_name = self._source_dataset.get_name() or "Dataset"
+        timestamp = datetime.datetime.now().isoformat(timespec="seconds")
+
+        for i, target_name in enumerate(names):
+            score_band = scores_array[:, :, i : i + 1]  # (H, W, 1)
+            score_by_band = score_band.transpose(2, 0, 1)  # (1, H, W)
+
+            score_dataset = loader.dataset_from_numpy_array(score_by_band, cache)
+            score_dataset.set_name(self._app_state.unique_dataset_name(f"MF [{target_name}]: {source_name}"))
+            score_dataset.set_description(
+                f"Matched filter score for '{target_name}' against '{source_name}' ({timestamp})"
+            )
+            score_dataset.set_data_ignore_value(float("nan"))
+            score_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+            self._app_state.add_dataset(score_dataset, view_dataset=False)

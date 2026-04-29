@@ -2366,11 +2366,25 @@ class SpectralMeanStage(SequentialStage):
         return partial(_write_spectral_mean_meta, input_ref, full_input_region, output_write)
 
 
-def get_spectral_mean_stage(dataset_ref: DataRef, output_ref_name: str) -> SpectralMeanStage:
+def get_spectral_mean_stage(
+    dataset_ref: DataRef,
+    output_ref_name: str,
+    input_binding: Optional[DataBinding] = None,
+) -> SpectralMeanStage:
+    """Build a :class:`SpectralMeanStage` for ``dataset_ref``.
+
+    Args:
+        dataset_ref: Dataset whose meta drives allocation sizes and whose
+            pixels are read at execution time (unless ``input_binding`` points
+            elsewhere).
+        output_ref_name: Name for the mean-spectrum allocation.
+        input_binding: Optional binding for which :class:`DataRef` to read
+            tiles from.  Defaults to ``DataBinding("__task_input__")``.
+    """
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
     plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=data_meta.elem_type)
-    stage = SpectralMeanStage(
+    stage_kwargs: Dict[str, Any] = dict(
         _output_ref_name=output_ref_name,
         default_executor="process",
         input_plan_meta=plan_meta,
@@ -2384,7 +2398,9 @@ def get_spectral_mean_stage(dataset_ref: DataRef, output_ref_name: str) -> Spect
         _dataset_ref=dataset_ref,
         output_bindings=[DataBinding(output_ref_name)],
     )
-    return stage
+    if input_binding is not None:
+        stage_kwargs["input_binding"] = input_binding
+    return SpectralMeanStage(**stage_kwargs)
 
 
 @dataclass(frozen=True)
