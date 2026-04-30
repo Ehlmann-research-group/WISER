@@ -857,6 +857,7 @@ class MTMFDialog(QDialog):
         parent=None,
     ) -> None:
         super().__init__(parent=parent)
+        self.setModal(False)
         self._app_state = app_state
         self._app_services = app_services
 
@@ -871,6 +872,50 @@ class MTMFDialog(QDialog):
         self._populate_target_combo()
         self._ui.cbox_input_type.setCurrentIndex(1)
         self._populate_input_combo()
+
+        # Keep combos fresh while the dialog stays open
+        app_state.dataset_added.connect(self._on_datasets_changed)
+        app_state.dataset_removed.connect(self._on_datasets_changed)
+        app_state.active_spectrum_changed.connect(self._on_spectra_changed)
+        app_state.collected_spectra_changed.connect(self._on_spectra_changed)
+
+    def closeEvent(self, event) -> None:
+        self._app_state.dataset_added.disconnect(self._on_datasets_changed)
+        self._app_state.dataset_removed.disconnect(self._on_datasets_changed)
+        self._app_state.active_spectrum_changed.disconnect(self._on_spectra_changed)
+        self._app_state.collected_spectra_changed.disconnect(self._on_spectra_changed)
+        super().closeEvent(event)
+
+    def _on_datasets_changed(self, *_args) -> None:
+        """Refresh dataset-backed combos, preserving current selections."""
+        prev_input = self._ui.cbox_input.currentData()
+        prev_noise = self._ui.cbox_noise.currentData()
+        self._populate_noise_combo()
+        self._populate_input_combo()
+        if prev_input is not None:
+            idx = self._ui.cbox_input.findData(prev_input)
+            if idx >= 0:
+                self._ui.cbox_input.setCurrentIndex(idx)
+        if prev_noise is not None:
+            idx = self._ui.cbox_noise.findData(prev_noise)
+            if idx >= 0:
+                self._ui.cbox_noise.setCurrentIndex(idx)
+
+    def _on_spectra_changed(self, *_args) -> None:
+        """Refresh spectrum-backed combos, preserving current selections."""
+        prev_input = self._ui.cbox_input.currentData()
+        prev_target = self._ui.cbox_target.currentData()
+        self._populate_target_combo()
+        if self._ui.cbox_input_type.currentData() == _INPUT_TYPE_SPECTRUM:
+            self._populate_input_combo()
+            if prev_input is not None:
+                idx = self._ui.cbox_input.findData(prev_input)
+                if idx >= 0:
+                    self._ui.cbox_input.setCurrentIndex(idx)
+        if prev_target is not None:
+            idx = self._ui.cbox_target.findData(prev_target)
+            if idx >= 0:
+                self._ui.cbox_target.setCurrentIndex(idx)
 
     def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
         """Prefer Image Cube mode and select ``dataset_id`` when present."""
@@ -1009,4 +1054,3 @@ class MTMFDialog(QDialog):
             self.tr("Matched Target Matched Filter"),
             self.tr("MTMF is running in the background."),
         )
-        super().accept()

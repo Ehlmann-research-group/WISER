@@ -445,9 +445,12 @@ class MainViewWidget(RasterPane):
     def _open_mtmf_dialog(self, rasterview):
         dataset = rasterview.get_raster_data()
         dataset_id = None if dataset is None else dataset.get_id()
-        dlg = MTMFDialog(self._app_state, self._app_services, parent=self)
-        dlg.select_image_cube_dataset(dataset_id)
-        dlg.exec_()
+        if not hasattr(self, "_mtmf_dialog") or self._mtmf_dialog is None:
+            self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)
+        self._mtmf_dialog.select_image_cube_dataset(dataset_id)
+        self._mtmf_dialog.show()
+        self._mtmf_dialog.raise_()
+        self._mtmf_dialog.activateWindow()
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
         # If dialog exists and is already visible, just bring it to front
