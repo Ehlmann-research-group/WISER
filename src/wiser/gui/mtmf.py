@@ -3,13 +3,15 @@
 import datetime
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 from PySide2.QtCore import QObject, Signal, Slot
+from PySide2.QtWidgets import QDialog, QMessageBox
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
+from wiser.gui.generated.mtmf_dialog_ui import Ui_MTMF_Dialog
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -41,9 +43,8 @@ from wiser.utils.task_stage_utils import (
 )
 from wiser.utils.worker_runtime import get_process_storage_client
 
-if TYPE_CHECKING:
-    from wiser.raster.dataset import RasterDataSet
-    from wiser.raster.spectrum import Spectrum
+from wiser.raster.dataset import RasterDataSet
+from wiser.raster.spectrum import Spectrum
 
 
 # ---------------------------------------------------------------------------
@@ -696,9 +697,9 @@ class MTMFSemanticTask(QObject, SemanticTask):
         self,
         app_state: ApplicationState,
         app_services: AppServices,
-        source_dataset: "RasterDataSet",
-        noise_dataset: "RasterDataSet",
-        target_spectra: List["Spectrum"],
+        source_dataset: RasterDataSet,
+        noise_dataset: RasterDataSet,
+        target_spectra: List[Spectrum],
         output_ref_name: str = "matched_filter_output",
     ) -> None:
         QObject.__init__(self)
@@ -786,7 +787,7 @@ class MTMFSemanticTask(QObject, SemanticTask):
         scores_data, _ = storage_client.read_region(output_ref, region, filter_data=False)
         self.result_ready.emit(np.asarray(scores_data, dtype=np.float32))
 
-    @Slot(object, object)
+    @Slot(object)
     def _load_result_into_wiser(self, scores_data: object) -> None:
         """Slice the score cube into individual datasets and add them to WISER.
 
@@ -819,3 +820,193 @@ class MTMFSemanticTask(QObject, SemanticTask):
             score_dataset.set_data_ignore_value(float("nan"))
             score_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
             self._app_state.add_dataset(score_dataset, view_dataset=False)
+
+
+# ---------------------------------------------------------------------------
+# MTMF dialog
+# ---------------------------------------------------------------------------
+
+_INPUT_TYPE_SPECTRUM = 0
+_INPUT_TYPE_IMAGE_CUBE = 1
+
+
+def _spectrum_to_single_pixel_dataset(spectrum: Spectrum, app_state: ApplicationState) -> RasterDataSet:
+    """Wrap a spectrum as a 1x1xB raster for cube-based pipelines."""
+    loader = app_state.get_loader()
+    cache = app_state.get_cache()
+    arr = np.asarray(spectrum.get_spectrum(), dtype=np.float32)
+    arr_by_band = arr[:, np.newaxis, np.newaxis]
+    ds = loader.dataset_from_numpy_array(arr_by_band, cache)
+    ds.copy_spectral_metadata(spectrum.get_spectral_metadata())
+    bb = spectrum.get_bad_bands()
+    if bb is not None:
+        ds.set_bad_bands(np.asarray(bb).astype(int).tolist())
+    nodata = getattr(spectrum, "get_data_ignore_value", lambda: None)()
+    if nodata is not None:
+        ds.set_data_ignore_value(nodata)
+    return ds
+
+
+class MTMFDialog(QDialog):
+    """Dialog to choose source, noise, and targets for :class:`MTMFSemanticTask`."""
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        app_services: AppServices,
+        parent=None,
+    ) -> None:
+        super().__init__(parent=parent)
+        self._app_state = app_state
+        self._app_services = app_services
+
+        self._ui = Ui_MTMF_Dialog()
+        self._ui.setupUi(self)
+
+        self._ui.cbox_input_type.addItem(self.tr("Spectrum"), _INPUT_TYPE_SPECTRUM)
+        self._ui.cbox_input_type.addItem(self.tr("Image Cube"), _INPUT_TYPE_IMAGE_CUBE)
+        self._ui.cbox_input_type.currentIndexChanged.connect(lambda _i: self._populate_input_combo())
+
+        self._populate_noise_combo()
+        self._populate_target_combo()
+        self._ui.cbox_input_type.setCurrentIndex(1)
+        self._populate_input_combo()
+
+    def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
+        """Prefer Image Cube mode and select ``dataset_id`` when present."""
+        idx = self._ui.cbox_input_type.findData(_INPUT_TYPE_IMAGE_CUBE)
+        if idx >= 0:
+            self._ui.cbox_input_type.setCurrentIndex(idx)
+        self._populate_input_combo()
+        if dataset_id is not None:
+            in_idx = self._ui.cbox_input.findData(dataset_id)
+            if in_idx >= 0:
+                self._ui.cbox_input.setCurrentIndex(in_idx)
+
+    def _spectra_for_plot_input(self) -> List[Spectrum]:
+        """Active spectrum first, then collected spectra (unique by id)."""
+        seen: set = set()
+        out: List[Spectrum] = []
+        active = self._app_state.get_active_spectrum()
+        if active is not None and active.get_id() is not None:
+            seen.add(active.get_id())
+            out.append(active)
+        for s in self._app_state.get_collected_spectra():
+            sid = s.get_id()
+            if sid is None or sid in seen:
+                continue
+            seen.add(sid)
+            out.append(s)
+        return out
+
+    def _populate_combo_with_separator(self, combo, entries: List[tuple]) -> None:
+        """Fill combo with (label, userData) pairs, then separator and (no data)."""
+        combo.clear()
+        for label, data in entries:
+            combo.addItem(label, data)
+        combo.insertSeparator(combo.count())
+        combo.addItem(self.tr("(no data)"), None)
+
+    def _populate_input_combo(self) -> None:
+        mode = self._ui.cbox_input_type.currentData()
+        if mode == _INPUT_TYPE_SPECTRUM:
+            pairs = []
+            for sp in self._spectra_for_plot_input():
+                sid = sp.get_id()
+                if sid is None:
+                    continue
+                name = sp.get_name() or self.tr("<unnamed>")
+                pairs.append((name, sid))
+            self._populate_combo_with_separator(self._ui.cbox_input, pairs)
+        else:
+            pairs = []
+            for ds in self._app_state.get_datasets():
+                did = ds.get_id()
+                if did is None:
+                    continue
+                pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
+            self._populate_combo_with_separator(self._ui.cbox_input, pairs)
+
+    def _populate_noise_combo(self) -> None:
+        pairs = []
+        for ds in self._app_state.get_datasets():
+            did = ds.get_id()
+            if did is None:
+                continue
+            pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
+        self._populate_combo_with_separator(self._ui.cbox_noise, pairs)
+
+    def _populate_target_combo(self) -> None:
+        pairs = []
+        all_spec = self._app_state.get_all_spectra()
+        for sid in sorted(all_spec.keys()):
+            sp = all_spec[sid]
+            label = sp.get_name() or (self.tr("Spectrum") + f" ({sid})")
+            pairs.append((label, sid))
+        self._populate_combo_with_separator(self._ui.cbox_target, pairs)
+
+    def _resolve_source_dataset(self) -> RasterDataSet:
+        mode = self._ui.cbox_input_type.currentData()
+        data = self._ui.cbox_input.currentData()
+        if data is None:
+            raise ValueError(self.tr('Select an input source (not "(no data)").'))
+        if mode == _INPUT_TYPE_IMAGE_CUBE:
+            ds = self._app_state.get_dataset(int(data))
+            if ds is None:
+                raise ValueError(self.tr("Selected input dataset is no longer available."))
+            return ds
+        raise ValueError(self.tr("We currently don't support selecting an input spectra."))
+        # sp_map = self._app_state.get_all_spectra()
+        # sp = sp_map.get(int(data))
+        # if sp is None:
+        #     raise ValueError(self.tr("Selected input spectrum is no longer available."))
+        # return _spectrum_to_single_pixel_dataset(sp, self._app_state)
+
+    def _resolve_noise_dataset(self) -> RasterDataSet:
+        data = self._ui.cbox_noise.currentData()
+        if data is None:
+            raise ValueError(self.tr('Select a noise dataset (not "(no data)").'))
+        ds = self._app_state.get_dataset(int(data))
+        if ds is None:
+            raise ValueError(self.tr("Selected noise dataset is no longer available."))
+        return ds
+
+    def _resolve_target_spectra(self) -> List[Spectrum]:
+        data = self._ui.cbox_target.currentData()
+        if data is None:
+            raise ValueError(self.tr('Select a target spectrum (not "(no data)").'))
+        sp = self._app_state.get_all_spectra().get(int(data))
+        if sp is None:
+            raise ValueError(self.tr("Selected target spectrum is no longer available."))
+        return [sp]
+
+    def _perform_mtmf(self) -> None:
+        source_ds = self._resolve_source_dataset()
+        noise_ds = self._resolve_noise_dataset()
+        target_list = self._resolve_target_spectra()
+
+        task = MTMFSemanticTask(
+            app_state=self._app_state,
+            app_services=self._app_services,
+            source_dataset=source_ds,
+            noise_dataset=noise_ds,
+            target_spectra=target_list,
+        )
+        task_plan = self._app_services.task_planner.plan_semantic_task(task)
+        self._app_services.task_manager.register_and_submit_task_plan(
+            self._app_services.scheduler,
+            task_plan,
+        )
+
+    def accept(self) -> None:
+        try:
+            self._perform_mtmf()
+        except ValueError as exc:
+            QMessageBox.warning(self, self.tr("Matched Target Matched Filter"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.tr("Matched Target Matched Filter"),
+            self.tr("MTMF is running in the background."),
+        )
+        super().accept()

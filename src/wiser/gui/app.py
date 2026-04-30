@@ -78,6 +78,7 @@ from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.gui.kmeans import KMeansDialog
 from wiser.gui.mnf import MinimumNoiseFractionDialog
+from wiser.gui.mtmf import MTMFDialog
 
 from wiser.config import FLAGS
 
@@ -392,6 +393,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
+
+        act = submenu.addAction(self.tr("Matched Target Matched Filter"))
+        act.triggered.connect(self.show_mtmf_dialog)
 
         if FLAGS.kmeans:
             act = submenu.addAction(self.tr("K-means"))
@@ -1012,6 +1016,10 @@ class DataVisualizerApp(QMainWindow):
         dlg.select_dataset(None)
         if dlg.exec_() == QDialog.Accepted:
             pass
+
+    def show_mtmf_dialog(self):
+        dlg = MTMFDialog(self._app_state, self._app_services, parent=self)
+        dlg.exec_()
 
     def show_kmeans_dialog(self):
         if not hasattr(self, "_kmeans_dialog") or self._kmeans_dialog is None:
