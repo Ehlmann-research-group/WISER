@@ -53,6 +53,8 @@ from wiser.raster.spectrum import NumPyArraySpectrum
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
 
+import time
+
 
 class KMeansInitMethod(Enum):
     KMEANS_PLUS_PLUS = "k-means++"
@@ -511,6 +513,7 @@ class KMeansSemanticTask(QObject, SemanticTask):
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        print(f"kmeans completion callback start at time: {time.time()}")
         labels_ref = bindings.get(self._labels_ref_name)
         if labels_ref is None:
             raise KeyError(f"Missing K-Means labels output binding: {self._labels_ref_name}")
@@ -528,11 +531,13 @@ class KMeansSemanticTask(QObject, SemanticTask):
         centroids_data, _ = storage_client.read_data(centroids_ref)
 
         self.result_ready.emit(np.asarray(labels_data), labels_meta, np.asarray(centroids_data))
+        print(f"kmeans completion callback finished at time: {time.time()}")
 
     @Slot(object, object, object)
     def _load_result_into_wiser(
         self, labels_data: object, labels_meta: object, centroids_data: object
     ) -> None:
+        print(f"kmeans load result into wiser start at time: {time.time()}")
         centroids_obj = KMeansCentroids(np.asarray(centroids_data))
         self._app_state.add_kmeans_centroids(self._params, centroids_obj)
 
@@ -554,6 +559,7 @@ class KMeansSemanticTask(QObject, SemanticTask):
             labels_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
 
         self._app_state.add_dataset(labels_dataset, view_dataset=False)
+        print(f"kmeans load result into wiser finished at time: {time.time()}")
 
 
 class KMeansCentroidsDialog(QDialog):
