@@ -1166,118 +1166,147 @@ class WorkScheduler:
         """Handle unit completion, advance stages, and resolve the plan future."""
         try:
             with self._state_lock:
-                # Always return capacity token, even when state is already terminal/evicted.
-                sem.release()
-                self._in_flight_ram_bytes = max(0, self._in_flight_ram_bytes - ram_peak_est_bytes)
-                plan_state = self._plan_states.get(plan_id)
-                if plan_state is None:
-                    return
-                if plan_state.completion_future.done():
-                    return
+                plan_state: Optional[PlanExecutionState] = None
+                try:
+                    # Always return capacity token, even when state is already terminal/evicted.
+                    sem.release()
+                    self._in_flight_ram_bytes = max(0, self._in_flight_ram_bytes - ram_peak_est_bytes)
+                    plan_state = self._plan_states.get(plan_id)
+                    if plan_state is None:
+                        return
+                    if plan_state.completion_future.done():
+                        return
 
-                stage_state = plan_state.stage_states[stage_id]
-                exc = fut.exception()
-                if exc is None:
-                    stage_state.succeeded_unit_ids.add(unit_id)
-                    self._log_queue_transition_by_fields_locked(
-                        plan_id=plan_id,
-                        stage_id=stage_id,
-                        unit_id=unit_id,
-                        from_queue=self._in_flight_queue_name(executor_kind),
-                        to_queue="done",
-                        reason="unit_succeeded",
-                        defer_count=0,
-                    )
-                    if self._recorder is not None:
-                        self._recorder.on_unit_done(plan_id, stage_id, unit_id, success=True)
-                else:
-                    stage_state.failed_unit_ids[unit_id] = exc
-                    plan_state.failed_units[unit_id] = exc
-                    self._log_queue_transition_by_fields_locked(
-                        plan_id=plan_id,
-                        stage_id=stage_id,
-                        unit_id=unit_id,
-                        from_queue=self._in_flight_queue_name(executor_kind),
-                        to_queue="done",
-                        reason="unit_failed",
-                        defer_count=0,
-                    )
-                    if self._recorder is not None:
-                        self._recorder.on_unit_done(
-                            plan_id, stage_id, unit_id, success=False, error=f"{type(exc).__name__}: {exc}"
+                    stage_state = plan_state.stage_states[stage_id]
+                    exc = fut.exception()
+                    if exc is None:
+                        stage_state.succeeded_unit_ids.add(unit_id)
+                        self._log_queue_transition_by_fields_locked(
+                            plan_id=plan_id,
+                            stage_id=stage_id,
+                            unit_id=unit_id,
+                            from_queue=self._in_flight_queue_name(executor_kind),
+                            to_queue="done",
+                            reason="unit_succeeded",
+                            defer_count=0,
                         )
-                    if self._task_manager is not None:
-                        self._task_manager.task_errored.emit((plan_id, f"{type(exc).__name__}: {exc}"))
-
-                    if plan_state.task_plan.fail_fast:
-                        # Cancel queued-but-not-submitted work and fail immediately.
-                        self._purge_plan_from_queues_locked(plan_id)
-                        fail_message = (
-                            f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
-                            f"to work unit {unit_id}: {exc}\n\n"
-                            f"Traceback:\n{exc.__traceback__}"
-                        )
-                        self._finalize_plan_outputs(plan_state, success=False)
-                        plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
-                            self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
+                            self._recorder.on_unit_done(plan_id, stage_id, unit_id, success=True)
+                    else:
+                        stage_state.failed_unit_ids[unit_id] = exc
+                        plan_state.failed_units[unit_id] = exc
+                        self._log_queue_transition_by_fields_locked(
+                            plan_id=plan_id,
+                            stage_id=stage_id,
+                            unit_id=unit_id,
+                            from_queue=self._in_flight_queue_name(executor_kind),
+                            to_queue="done",
+                            reason="unit_failed",
+                            defer_count=0,
+                        )
+                        if self._recorder is not None:
+                            self._recorder.on_unit_done(
+                                plan_id,
+                                stage_id,
+                                unit_id,
+                                success=False,
+                                error=f"{type(exc).__name__}: {exc}",
+                            )
+                        if self._task_manager is not None:
+                            self._task_manager.task_errored.emit((plan_id, f"{type(exc).__name__}: {exc}"))
+
+                        if plan_state.task_plan.fail_fast:
+                            # Cancel queued-but-not-submitted work and fail immediately.
+                            self._purge_plan_from_queues_locked(plan_id)
+                            fail_message = (
+                                f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
+                                f"to work unit {unit_id}: {exc}\n\n"
+                                f"Traceback:\n{exc.__traceback__}"
+                            )
+                            self._finalize_plan_outputs(plan_state, success=False)
+                            plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                            if self._recorder is not None:
+                                self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
+                            self._plan_states.pop(plan_id, None)
+                            self._drain_queues_locked()
+                            return
+
+                    if self._task_manager is not None:
+                        completed_units = sum(
+                            len(stage_state.succeeded_unit_ids) + len(stage_state.failed_unit_ids)
+                            for stage_state in plan_state.stage_states.values()
+                        )
+                        total_units = len(plan_state.task_plan.work_units)
+                        self._task_manager.task_progressed.emit((plan_id, completed_units, total_units))
+
+                    if not stage_state.is_current_step_terminal():
+                        # Current step still has in-flight work; only attempt to fill open slots.
+                        self._drain_queues_locked()
+                        return
+
+                    # Current step completed; enqueue the next step for this stage, if any.
+                    if stage_state.step_index < len(stage_state.step_unit_ids) - 1:
+                        stage_state.step_index += 1
+                        self._enqueue_stage_locked(plan_state, stage_id)
+                        self._drain_queues_locked()
+                        return
+
+                    at_last_stage = plan_state.stage_index >= len(plan_state.stage_order) - 1
+                    if at_last_stage:
+                        if plan_state.failed_units:
+                            first_unit_id, first_exc = next(iter(plan_state.failed_units.items()))
+                            fail_message = (
+                                f"TaskPlan {plan_id} completed with failures; "
+                                f"first failure unit={first_unit_id}: {first_exc}"
+                            )
+                            self._finalize_plan_outputs(plan_state, success=False)
+                            plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                            if self._recorder is not None:
+                                self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
+                        else:
+                            completion_callback = plan_state.task_plan.completion_callback
+                            # We call the completion callback BEFORE we delete outputs in
+                            # self._finalize_plan_outputs
+                            if completion_callback is not None:
+                                completion_callback(plan_state.task_plan.bindings)
+                            self._finalize_plan_outputs(plan_state, success=True)
+                            if self._task_manager is not None:
+                                self._task_manager.task_finished.emit(plan_id)
+                            plan_state.completion_future.set_result(None)
+                            if self._recorder is not None:
+                                self._recorder.on_plan_completed(plan_id, success=True)
                         self._plan_states.pop(plan_id, None)
                         self._drain_queues_locked()
                         return
 
-                if self._task_manager is not None:
-                    completed_units = sum(
-                        len(stage_state.succeeded_unit_ids) + len(stage_state.failed_unit_ids)
-                        for stage_state in plan_state.stage_states.values()
+                    # Stage is complete; enqueue the next stage and continue draining.
+                    plan_state.stage_index += 1
+                    next_stage_id = plan_state.stage_order[plan_state.stage_index]
+                    self._enqueue_stage_locked(plan_state, next_stage_id)
+                    self._drain_queues_locked()
+
+                except Exception as scheduler_exc:
+                    # An unhandled exception inside the scheduler's own logic (e.g. in a
+                    # completion_callback) would otherwise be silently swallowed by
+                    # concurrent.futures' done-callback mechanism, leaving
+                    # completion_future pending forever. Surface it here instead.
+                    fail_message = (
+                        f"Unhandled scheduler error while processing unit {unit_id} "
+                        f"of plan {plan_id}: {type(scheduler_exc).__name__}: {scheduler_exc}"
                     )
-                    total_units = len(plan_state.task_plan.work_units)
-                    self._task_manager.task_progressed.emit((plan_id, completed_units, total_units))
-
-                if not stage_state.is_current_step_terminal():
-                    # Current step still has in-flight work; only attempt to fill open slots.
-                    self._drain_queues_locked()
-                    return
-
-                # Current step completed; enqueue the next step for this stage, if any.
-                if stage_state.step_index < len(stage_state.step_unit_ids) - 1:
-                    stage_state.step_index += 1
-                    self._enqueue_stage_locked(plan_state, stage_id)
-                    self._drain_queues_locked()
-                    return
-
-                at_last_stage = plan_state.stage_index >= len(plan_state.stage_order) - 1
-                if at_last_stage:
-                    if plan_state.failed_units:
-                        first_unit_id, first_exc = next(iter(plan_state.failed_units.items()))
-                        fail_message = (
-                            f"TaskPlan {plan_id} completed with failures; "
-                            f"first failure unit={first_unit_id}: {first_exc}"
-                        )
-                        self._finalize_plan_outputs(plan_state, success=False)
-                        plan_state.completion_future.set_exception(RuntimeError(fail_message))
+                    if plan_state is not None and not plan_state.completion_future.done():
+                        self._purge_plan_from_queues_locked(plan_id)
                         if self._recorder is not None:
+                            self._recorder.on_unit_done(
+                                plan_id, stage_id, unit_id, success=False, error=fail_message
+                            )
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
-                    else:
-                        completion_callback = plan_state.task_plan.completion_callback
-                        # We call the completion callback BEFORE we delete outputs in
-                        # self._finalize_plan_outputs
-                        if completion_callback is not None:
-                            completion_callback(plan_state.task_plan.bindings)
-                        self._finalize_plan_outputs(plan_state, success=True)
                         if self._task_manager is not None:
-                            self._task_manager.task_finished.emit(plan_id)
-                        plan_state.completion_future.set_result(None)
-                        if self._recorder is not None:
-                            self._recorder.on_plan_completed(plan_id, success=True)
-                    self._plan_states.pop(plan_id, None)
-                    self._drain_queues_locked()
-                    return
-
-                # Stage is complete; enqueue the next stage and continue draining.
-                plan_state.stage_index += 1
-                next_stage_id = plan_state.stage_order[plan_state.stage_index]
-                self._enqueue_stage_locked(plan_state, next_stage_id)
-                self._drain_queues_locked()
+                            self._task_manager.task_errored.emit((plan_id, fail_message))
+                        self._finalize_plan_outputs(plan_state, success=False)
+                        plan_state.completion_future.set_exception(scheduler_exc)
+                        self._plan_states.pop(plan_id, None)
+                        self._drain_queues_locked()
         finally:
             # _on_unit_done can enqueue more work under lock; flush registrations
             # now so newly submitted futures get callbacks attached lock-free.
