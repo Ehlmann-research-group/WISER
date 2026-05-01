@@ -22,6 +22,8 @@ from wiser.utils.primitives import DeletePolicy, ExternalRasterHandle, PriorityC
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.task_system import SemanticTask
 
+import time
+
 pytestmark = [
     pytest.mark.integration,
 ]
@@ -195,8 +197,11 @@ class TestKMeansSemanticTask(unittest.TestCase):
         )
 
         task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
+        print(f"before future submit time: {time.time()}")
         future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+        print(f"after future submit time: {time.time()}")
         future.result(timeout=180)
+        print(f"after future result time: {time.time()}")
         self.test_model.app.processEvents()
 
         datasets_after = app_state.get_datasets()
