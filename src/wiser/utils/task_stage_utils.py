@@ -4219,6 +4219,7 @@ def _compute_psd_matrix_inverse(
     Raises:
         ValueError: If the input is not a 2-D square matrix.
     """
+    print("before _compute_psd_matrix_inverse")
     _ = input_region
     client = get_process_storage_client()
 
@@ -4243,7 +4244,7 @@ def _compute_psd_matrix_inverse(
 
     # Pseudoinverse: V @ diag(s_inv) @ U^T
     pseudoinverse = (Vh.T * s_inv) @ U.T
-
+    print("after _compute_psd_matrix_inverse")
     client.write_data(output_ref, pseudoinverse.astype(np.float32, copy=False))
 
 

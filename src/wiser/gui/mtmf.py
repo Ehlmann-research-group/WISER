@@ -873,11 +873,16 @@ class MTMFDialog(QDialog):
         self._ui.cbox_input_type.setCurrentIndex(1)
         self._populate_input_combo()
 
-        # Keep combos fresh while the dialog stays open
-        app_state.dataset_added.connect(self._on_datasets_changed)
-        app_state.dataset_removed.connect(self._on_datasets_changed)
-        app_state.active_spectrum_changed.connect(self._on_spectra_changed)
-        app_state.collected_spectra_changed.connect(self._on_spectra_changed)
+    def showEvent(self, event) -> None:
+        # Refresh combos and (re)connect signals each time the dialog is shown.
+        self._populate_noise_combo()
+        self._populate_target_combo()
+        self._populate_input_combo()
+        self._app_state.dataset_added.connect(self._on_datasets_changed)
+        self._app_state.dataset_removed.connect(self._on_datasets_changed)
+        self._app_state.active_spectrum_changed.connect(self._on_spectra_changed)
+        self._app_state.collected_spectra_changed.connect(self._on_spectra_changed)
+        super().showEvent(event)
 
     def closeEvent(self, event) -> None:
         self._app_state.dataset_added.disconnect(self._on_datasets_changed)
