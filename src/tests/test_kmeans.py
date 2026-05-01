@@ -32,8 +32,13 @@ _K = 5
 _SEED = 42
 
 
+def _print_test_start(case: unittest.TestCase) -> None:
+    print(f"\nRunning test: {case.id()}", flush=True)
+
+
 class TestKMeansStage(unittest.TestCase):
     def setUp(self):
+        _print_test_start(self)
         self.test_model = WiserTestModel()
 
     def tearDown(self):
@@ -147,6 +152,7 @@ class TestKMeansStage(unittest.TestCase):
 
 class TestKMeansSemanticTask(unittest.TestCase):
     def setUp(self):
+        _print_test_start(self)
         self.test_model = WiserTestModel()
 
     def tearDown(self):
@@ -262,6 +268,7 @@ class TestKMeansSemanticTaskParameters(unittest.TestCase):
     """
 
     def setUp(self):
+        _print_test_start(self)
         self.test_model = WiserTestModel()
 
     def tearDown(self):
