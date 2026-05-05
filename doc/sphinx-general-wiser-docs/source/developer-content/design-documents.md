@@ -159,11 +159,6 @@ Add the path to a conda environment's `site-packages` (e.g.
 directories, and add `pca_plugin.PCAPlugin` to plugins in settings.
 `scipy.io` will not be found because PyInstaller did not include it.
 
-#### Background References
-
-- [Is Python interpreted or compiled?](https://stackoverflow.com/questions/6889747/is-python-interpreted-or-compiled-or-both) —
-  Python is first compiled to bytecode and then interpreted, which is faster than pure interpretation.
-
 ---
 
 ## Batch Processing
@@ -192,64 +187,3 @@ Relevant background:
 
 - [GDAL and multiprocessing](https://gdal.org/tutorials/multiprocessing.html)
 - [Pickle error with GDAL Dataset](https://gis.stackexchange.com/questions/361703/pickle-error-with-gdal-dataset)
-
----
-
-## Georeferencer Design
-
-This document captures requirements and proposed design for the WISER
-Georeferencer tool.
-
-### Problem Statement
-
-Allow users to apply a spatial reference system and geo transform to an image
-by adding ground control points (GCPs) that map pixel coordinates in the
-target image to known geographic coordinates. This can be done using a
-reference image that already has spatial information, or by manually entering
-reference points.
-
-### Scope
-
-The tool is confined to its dialog window and its supporting classes:
-
-- **GeoreferencerPane**: handles UI updates when the user clicks the target
-  dataset to place GCPs.
-- **GeoReferenceTaskDelegate**: handles the logic of adding GCPs when the user
-  clicks between the target and reference image.
-
-### Goals
-
-- The user can add GCPs to the target image.
-- GCPs can be added using either a reference image or manual entry.
-
-### Background
-
-WISER previously had no system to attach geographic information to datasets.
-The Georeferencer is the first step in doing so. It is particularly useful for
-hyperspectral datasets that lack embedded spatial reference information.
-
-### Functional Requirements
-
-- Open any dataset currently loaded in WISER as the target image.
-- Open any dataset with spatial information as the reference image.
-- Handle out-of-memory datasets during georeferencing.
-- Georeferencing computation must not block the main thread.
-
-### Proposed Design
-
-#### High-Level Architecture
-
-- **GeoreferencerDialog**: top-level dialog containing two GeoreferencerPane
-  instances and the GeoReferencerTaskDelegate.
-- **GeoreferencerPane** (x2): one for the target image, one for the reference
-  image. Updates display when user clicks to place a GCP.
-- **GeoReferencerTaskDelegate**: coordinates GCP placement between the two
-  panes.
-
-#### Data Model
-
-To be documented as implementation proceeds.
-
-#### UI/UX
-
-Mockups to be added.
