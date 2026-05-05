@@ -13,7 +13,7 @@ consideration.
 This document discusses plugin support for WISER, including the desired
 features, potential implementation issues, and possible design approaches.
 
-## Desired Features
+### Desired Features
 
 WISER is intended to be a research tool. As such, it should be extensible by
 researchers as they develop new data processing techniques.
@@ -36,12 +36,12 @@ The integration points for WISER extension are as follows:
 None of these options are necessarily aimed at the WISER Python Console, since
 the console is expected to be able to import Python modules on its own.
 
-## Implementation Questions and Issues
+### Implementation Questions and Issues
 
 Several implementation questions and issues present themselves with this
 functionality. They fall into various categories.
 
-## Knowledge Required for Implementation
+### Knowledge Required for Implementation
 
 WISER will provide some kind of programmatic API for integrating plugins into
 the application. It is reasonable to expect users to know this API. It will
@@ -62,7 +62,7 @@ their plugins. For example:
 We want to provide the _minimum barrier to entry_ for people wishing to extend
 WISER.
 
-## Plugin Quality
+### Plugin Quality
 
 **Do we want to try to isolate WISER from bad plugin behaviors, such as
 long-running tasks, infinite loops, and buggy/crashing behavior?**
@@ -81,7 +81,7 @@ or for WISER to leverage when invoking plugins, to keep them from killing UI
 interactivity. We already need this to support large data files, so this will
 be a high priority to build early on, for the sake of usability.
 
-## Dependencies
+### Dependencies
 
 **How do we reconcile the library dependencies of plugins, with the library
 dependencies of WISER?**  WISER has a set of Python dependencies. Plugins may
@@ -105,9 +105,9 @@ extended.  (This may not be possible in a frozen-app context, but WISER can spaw
 environment and
 dependencies.)
 
-## Known Plugin Dependency Issue and Fixes
+### Known Plugin Dependency Issue and Fixes
 
-### The Problem (Pre-release 1.3b1)
+#### The Problem (Pre-release 1.3b1)
 
 When PyInstaller builds a frozen WISER application it recursively resolves
 all imports and stores them in `_internal/`. Before release 1.3b1, if a
@@ -152,14 +152,14 @@ Constraints identified:
 Tooling evaluated: Bazel, Nuitka (requires PySide6), Poetry, cx_Freeze.
 None has been adopted yet.
 
-### Replicating the Pre-fix Bug
+#### Replicating the Pre-fix Bug
 
 Add the path to a conda environment's `site-packages` (e.g.
 `C:\Users\<user>\anaconda3\envs\plugin_lib\Lib\site-packages`) to plugin
 directories, and add `pca_plugin.PCAPlugin` to plugins in settings.
 `scipy.io` will not be found because PyInstaller did not include it.
 
-### Background References
+#### Background References
 
 - [Is Python interpreted or compiled?](https://stackoverflow.com/questions/6889747/is-python-interpreted-or-compiled-or-both) —
   Python is first compiled to bytecode and then interpreted, which is faster than pure interpretation.
@@ -173,7 +173,7 @@ directories, and add `pca_plugin.PCAPlugin` to plugins in settings.
 This document captures the requirements and design notes for batch processing
 in WISER.
 
-## Overview
+### Overview
 
 We want a way to queue a batch of tasks and run processes on them. Tasks should
 have a progress bar and the ability to be cancelled. This should also allow
@@ -182,23 +182,23 @@ many operations that previously blocked the Qt thread to run without hanging.
 There are two primary use cases: batch processing for plugins and batch
 processing for band math.
 
-## Plugin Batch Processing
+### Plugin Batch Processing
 
-### UI
+#### UI
 
 A "Batch Processing" button in the Tools menu opens a dialog that lets the user
 select batch-processing plugins and, for each plugin, select the datasets to run
 it on. Dataset selection could be done with a series of dropdowns similar to
 the band-math variable binding UI.
 
-### Backend
+#### Backend
 
 - Load all plugin functions and their parameters.
 - Spawn a separate process for each plugin run up to a configurable limit; once
   the limit is reached, queue remaining runs per process.
 - Shared memory will be required to pass dataset data to worker processes.
 
-### Batch Processing Plugin Class
+#### Batch Processing Plugin Class
 
 A batch-processing plugin class must:
 
@@ -214,7 +214,7 @@ The plugin must expose:
 - A function listing output parameters (name + type) — used to determine where
   to save results.
 
-### Order of Work
+#### Order of Work
 
 1. Confirm that multiprocessing in WISER can share dataset data across
    processes.
@@ -222,9 +222,9 @@ The plugin must expose:
    can be executed in a subprocess.
 3. Write the GUI for the batch processing dialog.
 
-## Band Math Batch Processing
+### Band Math Batch Processing
 
-### UI Changes
+#### UI Changes
 
 - A toggle button in a new row (Row A, index 0) enables/disables batch mode.
   When enabled, additional controls appear.
@@ -242,7 +242,7 @@ The plugin must expose:
   (batch)" and "Image band (batch)". The "Image band (batch)" binding lets the
   user choose between band number or wavelength value.
 
-### Band Math Backend
+#### Band Math Backend
 
 - Add `BandMathVariableType` entries for batch inputs.
 - `BandMathExprInfo` must detect batch inputs and handle them without changing
@@ -253,7 +253,7 @@ The plugin must expose:
 - New state variables needed: `_input_folder`, `_output_folder`,
   `_load_into_wiser`, `_save_on_filesystem`.
 
-### Known Technical Challenges
+#### Known Technical Challenges
 
 GDAL `Dataset` objects are not serialisable (cannot be pickled) and cannot be
 memory-mapped. Windows does not support `fork`, so process spawning with GDAL
@@ -267,7 +267,7 @@ Relevant background:
 - [Picklability of GDAL files](https://chatgpt.com/c/689ce320-4f9c-8330-8bd0-2e97b3621e77)
 - [Spawn process copying data](https://chatgpt.com/c/689ce040-289c-8323-89b6-8c6987d448a1)
 
-## Notes on Concurrency
+### Notes on Concurrency
 
 From Nia (internal discussion):
 
@@ -283,7 +283,7 @@ From Nia (internal discussion):
 This document captures requirements and proposed design for the WISER
 Georeferencer tool.
 
-## Problem Statement
+### Problem Statement
 
 Allow users to apply a spatial reference system and geo transform to an image
 by adding ground control points (GCPs) that map pixel coordinates in the
@@ -291,7 +291,7 @@ target image to known geographic coordinates. This can be done using a
 reference image that already has spatial information, or by manually entering
 reference points.
 
-## Scope
+### Scope
 
 The tool is confined to its dialog window and its supporting classes:
 
@@ -300,27 +300,27 @@ The tool is confined to its dialog window and its supporting classes:
 - **GeoReferenceTaskDelegate**: handles the logic of adding GCPs when the user
   clicks between the target and reference image.
 
-## Goals
+### Goals
 
 - The user can add GCPs to the target image.
 - GCPs can be added using either a reference image or manual entry.
 
-## Background
+### Background
 
 WISER previously had no system to attach geographic information to datasets.
 The Georeferencer is the first step in doing so. It is particularly useful for
 hyperspectral datasets that lack embedded spatial reference information.
 
-## Functional Requirements
+### Functional Requirements
 
 - Open any dataset currently loaded in WISER as the target image.
 - Open any dataset with spatial information as the reference image.
 - Handle out-of-memory datasets during georeferencing.
 - Georeferencing computation must not block the main thread.
 
-## Proposed Design
+### Proposed Design
 
-### High-Level Architecture
+#### High-Level Architecture
 
 - **GeoreferencerDialog**: top-level dialog containing two GeoreferencerPane
   instances and the GeoReferencerTaskDelegate.
@@ -329,10 +329,10 @@ hyperspectral datasets that lack embedded spatial reference information.
 - **GeoReferencerTaskDelegate**: coordinates GCP placement between the two
   panes.
 
-### Data Model
+#### Data Model
 
 To be documented as implementation proceeds.
 
-### UI/UX
+#### UI/UX
 
 Mockups to be added.
