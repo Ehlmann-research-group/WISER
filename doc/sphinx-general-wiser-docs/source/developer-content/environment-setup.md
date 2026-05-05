@@ -11,8 +11,7 @@ covers the full contributor workflow from first clone to merged PR.
 4. [CI/CD and Releases](ci-cd-and-releases.md) — how releases are built and shipped (see
    also: [macOS Code Signing](codesign-mac.md))
 5. [System Design](system-design.md) — architecture overview for deeper changes
-6. [Diagnostics](diagnostics.md) — profiling, logging, debugging tools
-7. [Design Documents](design-documents.md) — longer-form design rationale
+   6[Design Documents](design-documents.md) — longer-form design rationale
 
 ```{toctree}
 :hidden:
@@ -23,7 +22,6 @@ testing-and-qa.md
 ci-cd-and-releases.md
 codesign-mac.md
 system-design.md
-diagnostics.md
 design-documents.md
 ```
 
