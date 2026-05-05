@@ -13,8 +13,7 @@ Imaging spectroscopy cubes are represented with the ``RasterDataSet`` class.
 This class provides access to both the data and metadata of a spectral image
 cube.
 
-.. autoclass:: wiser.raster.RasterDataSet
-    :members:
+.. autodoc2-object:: wiser.raster.dataset.RasterDataSet
 
 Making a Data Set from a NumPy Array
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -30,8 +29,7 @@ class.  This class is a simple wrapper of a
 :class:`wiser.raster.RasterDataSet` object, that also includes the index of the
 referenced band.
 
-.. autoclass:: wiser.raster.RasterDataBand
-    :members:
+.. autodoc2-object:: wiser.raster.dataset.RasterDataBand
 
 Spectra
 -------
@@ -42,8 +40,7 @@ they may be calculated from the area in a Region of Interest or the area around
 a pixel in an image, and so forth.  The base-type of all these different kinds
 of spectra is the ``Spectrum`` class:
 
-.. autoclass:: wiser.raster.Spectrum
-    :members:
+.. autodoc2-object:: wiser.raster.spectrum.Spectrum
 
 Making a Spectrum from a NumPy Array
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -51,8 +48,7 @@ Making a Spectrum from a NumPy Array
 A spectrum may be constructed from a NumPy array using the
 ``NumPyArraySpectrum`` subclass:
 
-.. autoclass:: wiser.raster.NumPyArraySpectrum
-    :members:
+.. autodoc2-object:: wiser.raster.spectrum.NumPyArraySpectrum
 
 
 Region Of Interest
@@ -61,36 +57,29 @@ Region Of Interest
 A region of interest that is draw on the screen is represented by the ``Region Of Interest``
 class.
 
-.. autoclass:: wiser.raster.RegionOfInterest
-    :members:
-    :undoc-members:
+.. autodoc2-object:: wiser.raster.roi.RegionOfInterest
 
 DynamicInputDialog
 ------------------
 
 A utility for plugin developers to use to easily collect user input through a GUI.
 
-.. autoclass:: wiser.gui.ui_library.DynamicInputDialog
-    :members:
+.. autodoc2-object:: wiser.gui.ui_library.DynamicInputDialog
 
 DynamicInputType
 ----------------
-.. autoclass:: wiser.gui.ui_library.DynamicInputType
-    :members:
-    :undoc-members:
+.. autodoc2-object:: wiser.gui.ui_library.DynamicInputType
 
 TableDisplayWidget
 ------------------
 
 A utility for plugin developers to easily display information in a table.
 
-.. autoclass:: wiser.gui.ui_library.TableDisplayWidget
-    :members:
+.. autodoc2-object:: wiser.gui.ui_library.TableDisplayWidget
 
 MatplotlibDisplayWidget
 -----------------------
 
 A utility for plugin developers to easily display matplotlib plots.
 
-.. autoclass:: wiser.gui.ui_library.MatplotlibDisplayWidget
-    :members:
+.. autodoc2-object:: wiser.gui.ui_library.MatplotlibDisplayWidget

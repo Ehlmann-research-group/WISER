@@ -22,12 +22,11 @@ Context-menu plugins must derive from the ``ContextMenuPlugin`` class.  The
 documentation for this class spells out the essential details for interfacing
 with WISER.
 
-.. autoclass:: wiser.plugins.ContextMenuPlugin
-    :members:
+.. autodoc2-object:: wiser.plugins.types.ContextMenuPlugin
 
 The ``ContextMenuType`` enumeration is as follows:
 
-.. autoenum:: wiser.plugins.ContextMenuType
+.. autodoc2-object:: wiser.plugins.types.ContextMenuType
 
 Example Context-Menu Plugin
 ---------------------------

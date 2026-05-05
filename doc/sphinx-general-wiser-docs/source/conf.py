@@ -6,7 +6,9 @@
 import os
 import sys
 
-# Make wiser package importable for sphinx.ext.autodoc (used by extending-wiser pages)
+# Make wiser package importable for sphinx.ext.viewcode source links.
+# autodoc2 uses AST-based analysis and does NOT import wiser at build time,
+# so heavy runtime deps (PySide2, GDAL) are not required in the docs environment.
 sys.path.insert(0, os.path.abspath("../../../src"))
 
 # -- Project information -----------------------------------------------------
@@ -41,11 +43,10 @@ html_title = "WISER Documentation"
 
 extensions = [
     "myst_parser",
-    "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon",
+    "autodoc2",  # AST-based API docs — replaces sphinx.ext.autodoc
+    "sphinx.ext.napoleon",  # Google/NumPy docstring support
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.viewcode",
-    "enum_tools.autoenum",
 ]
 
 myst_enable_extensions = [
@@ -55,16 +56,22 @@ myst_enable_extensions = [
     "attrs_inline",  # inline attribute syntax
 ]
 
-# sphinx.ext.autodoc options (used by extending-wiser plugin API pages)
-autodoc_default_options = {
-    "member-order": "bysource",
-}
-
+# autodoc2: index the wiser package via AST (no imports at build time)
+autodoc2_packages = [
+    {
+        "path": "../../../src/wiser",
+        "module": "wiser",
+    }
+]
+# Write generated auto-API pages to apidocs/ but exclude them from the build —
+# we use explicit .. autodoc2-object:: directives in hand-crafted .rst pages instead.
+autodoc2_output_dir = "apidocs"
+autodoc2_render_plugin = "rst"
 
 autosectionlabel_prefix_document = True
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["apidocs"]  # suppress orphan warnings for auto-generated API pages
 
 
 # -- Options for HTML output -------------------------------------------------

@@ -8,8 +8,7 @@ to that action.
 If you have actions that are used less frequently, consider organizing them into a submenu to keep the
 main Tool Menu concise and easy to navigate.
 
-.. autoclass:: wiser.plugins.ToolsMenuPlugin
-    :members:
+.. autodoc2-object:: wiser.plugins.types.ToolsMenuPlugin
 
 Example Tools-Menu Plugin
 -------------------------

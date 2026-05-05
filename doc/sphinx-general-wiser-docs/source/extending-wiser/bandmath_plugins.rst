@@ -12,8 +12,7 @@ The ``BandMathPlugin`` Class
 
 Band-math plugins must derive from the ``BandMathPlugin`` class:
 
-.. autoclass:: wiser.plugins.BandMathPlugin
-    :members:
+.. autodoc2-object:: wiser.plugins.types.BandMathPlugin
 
 The plugin implementation is very straightforward; it must simply return a
 Python ``dict`` that associates string function-names and corresponding
@@ -27,8 +26,7 @@ The ``BandMathFunction`` Class
 
 Band-math functions must derive from the ``BandMathFunction`` class:
 
-.. autoclass:: wiser.bandmath.BandMathFunction
-    :members:
+.. autodoc2-object:: wiser.bandmath.types.BandMathFunction
 
 For maximum flexibility, band-math functions may accept any number and type of
 arguments.  For example, a band-math function ``dotprod(a, b)`` may accept two
@@ -46,8 +44,7 @@ The ``BandMathValue`` Class
 Band-math function arguments and return-values are wrapped in the
 ``BandMathValue`` class:
 
-.. autoclass:: wiser.bandmath.BandMathValue
-    :members:
+.. autodoc2-object:: wiser.bandmath.types.BandMathValue
 
 For arguments, non-scalar band-math values may be fetched from a
 ``BandMathValue`` object via the :meth:`BandMathValue.as_numpy_array()` method.
@@ -60,7 +57,7 @@ object (e.g. ``RasterDataSet``, ``Spectrum``, ...), or a scalar.  In all these
 cases, the type of the result must be reported with a value from the
 :class:`wiser.bandmath.VariableType` enumeration:
 
-.. autoenum:: wiser.bandmath.VariableType
+.. autodoc2-object:: wiser.bandmath.types.VariableType
 
 Reporting Other Function Details
 --------------------------------
