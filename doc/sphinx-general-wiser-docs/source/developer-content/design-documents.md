@@ -103,7 +103,7 @@ in a "frozen application" setting (where WISER has been frozen, along with its
 dependencies). In the frozen-app situation, WISER's dependencies cannot be
 extended.  (This may not be possible in a frozen-app context, but WISER can spawn a separate Python process with its own
 environment and
-dependencies.
+dependencies.)
 
 ## Known Plugin Dependency Issue and Fixes
 
