@@ -14,7 +14,7 @@ main Tool Menu concise and easy to navigate.
 Example Tools-Menu Plugin
 -------------------------
 
-Okay, lets see an example plugin.
+The following example adds a single "Hello, WISER!" action to the Tools menu:
 
 .. literalinclude:: ../../../../src/example_plugins/tool_plugin.py
    :language: python
