@@ -28,11 +28,11 @@ Installation
 Download WISER
 ~~~~~~~~~~~~~~
 
-Pre-built installers for macOS and Windows are available at:
+Pre-built installers for macOS, Windows, and Linux are available at:
 `ehlmann.caltech.edu/wiser <https://ehlmann.caltech.edu/wiser/index.html>`_
 
 Download the installer for your platform and follow the on-screen instructions.
-Linux users should use the AppImage distributed via
+Users can also download and install WISER from
 `GitHub Releases <https://github.com/Ehlmann-research-group/WISER/releases>`_.
 
 .. note::
