@@ -37,8 +37,10 @@ from wiser.utils.task_system import (
 )
 from wiser.utils.task_stage_utils import (
     CalcCovMatrixStage,
+    DiagonalMatrixFromValuesStage,
     get_good_band_runs,
     get_spectral_mean_stage,
+    MatrixMultiplicationStage,
     PosSemiDefMatrixInverse,
     split_dataset_tile_by_good_band_runs,
 )
@@ -78,6 +80,13 @@ def get_mnf_mtmf_pipeline(
     mnf_whitened_eigen_ref_name = "mtmf_mnf_whitened_eigen"
     mnf_data_ref_name = "mtmf_mnf_data"
 
+    storage_client = get_process_storage_client()
+    data_meta = storage_client.get_meta(dataset_ref)
+    if data_meta.bad_bands is not None:
+        num_features = int(np.sum(data_meta.bad_bands))
+    else:
+        num_features = int(data_meta.shape[2])
+
     mnf_pipeline = get_mnf_pipeline(
         dataset_ref,
         num_components=None,
@@ -92,7 +101,62 @@ def get_mnf_mtmf_pipeline(
         whitened_eigen_ref_name=mnf_whitened_eigen_ref_name,
     )
 
-    return mnf_pipeline
+    # Step 3 — build full MNF transformation matrix T = A × W
+    # A = whitened eigenvectors (num_features × num_features)
+    # W = noise whitening matrix (num_features × num_features)
+    # T = A × W maps a mean-centered input spectrum directly into MNF space
+    mnf_transform_matrix_ref_name = "mtmf_mnf_transform_matrix"
+    mnf_eigenvectors_ref_name = f"{mnf_whitened_eigen_ref_name}_vectors"
+    transform_matrix_stage = MatrixMultiplicationStage(
+        _output_ref_name=mnf_transform_matrix_ref_name,
+        _matrix_input_names=(mnf_eigenvectors_ref_name, mnf_noise_whitening_matrix_ref_name),
+        _output_shape=(num_features, num_features),
+        _output_dtype=np.dtype(np.float32),
+        default_executor="process",
+        input_binding=DataBinding(mnf_eigenvectors_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=num_features,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float32),
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={
+            mnf_eigenvectors_ref_name: DataBinding(mnf_eigenvectors_ref_name),
+            mnf_noise_whitening_matrix_ref_name: DataBinding(mnf_noise_whitening_matrix_ref_name),
+        },
+    )
+
+    # Step 4 — construct Λ (diagonal covariance of MNF data) from eigenvalues
+    # The covariance of MNF-transformed data equals the diagonal matrix of
+    # the whitened eigenvalues, i.e. Λ = diag(λ₁, λ₂, ..., λ_N)
+    mnf_eigenvalues_ref_name = f"{mnf_whitened_eigen_ref_name}_values"
+    mnf_lambda_ref_name = "mtmf_mnf_lambda"
+    lambda_stage = DiagonalMatrixFromValuesStage(
+        _output_ref_name=mnf_lambda_ref_name,
+        _n=num_features,
+        default_executor="process",
+        input_binding=DataBinding(mnf_eigenvalues_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=1,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float32),
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+    )
+
+    # TODO: Step 5 — matched filter and infeasibility stages
+
+    return AlgorithmPipeline(mnf_pipeline.stages + [transform_matrix_stage, lambda_stage])
 
 
 # ---------------------------------------------------------------------------
