@@ -293,6 +293,79 @@ class TestMTMF(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_mnf_whitened_quadratic_form_equals_diagonal_eigenvalues(self) -> None:
+        """(Σ_N^{-1/2} U)^T Σ_b (Σ_N^{-1/2} U) = diag(λ) using pipeline artifacts.
+
+        Σ_N^{-1/2} is the noise whitening matrix ``W``, ``U`` has orthonormal columns from the
+        whitened eigendecomposition (storage uses eigenvectors as rows ``A_row``, so ``U = A_row.T``),
+        ``Σ_b`` is the input covariance, and ``λ`` are the whitened eigenvalues. With symmetric ``W``,
+        this equals ``U^T (W Σ_b W) U``, i.e. diagonalization of the whitened covariance.
+        """
+        whitening_ref_name = "mtmf_mnf_noise_whitening_matrix"
+        input_cov_ref_name = "mtmf_mnf_input_covariance"
+        whitened_vectors_ref_name = "mtmf_mnf_whitened_eigen_vectors"
+        whitened_values_ref_name = "mtmf_mnf_whitened_eigen_values"
+
+        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
+                dataset,
+                output_ref_name="mnf_mtmf_quadratic_form_test",
+                task_id=5012,
+                keep_ref_names=[
+                    whitening_ref_name,
+                    input_cov_ref_name,
+                    whitened_vectors_ref_name,
+                    whitened_values_ref_name,
+                ],
+            )
+
+            w_raw, _ = storage_client.read_data(task_plan.bindings[whitening_ref_name], filter_data=False)
+            sigma_b_raw, _ = storage_client.read_data(
+                task_plan.bindings[input_cov_ref_name], filter_data=False
+            )
+            a_raw, _ = storage_client.read_data(
+                task_plan.bindings[whitened_vectors_ref_name], filter_data=False
+            )
+            lam_raw, _ = storage_client.read_data(
+                task_plan.bindings[whitened_values_ref_name], filter_data=False
+            )
+
+            w = np.asarray(np.ma.getdata(w_raw), dtype=np.float64)
+            sigma_b = np.asarray(np.ma.getdata(sigma_b_raw), dtype=np.float64)
+            a_row = np.asarray(np.ma.getdata(a_raw), dtype=np.float64)
+            lam = np.asarray(np.ma.getdata(lam_raw), dtype=np.float64).reshape(-1)
+
+            if w.ndim == 3:
+                w = np.squeeze(w, axis=2)
+            if sigma_b.ndim == 3:
+                sigma_b = np.squeeze(sigma_b, axis=2)
+            if a_row.ndim == 3:
+                a_row = np.squeeze(a_row, axis=2)
+
+            assert w.ndim == 2 and sigma_b.ndim == 2 and a_row.ndim == 2
+            u = a_row.T
+            w_u = w @ u
+            quadratic = w_u.T @ sigma_b @ w_u
+            quadratic = np.diagonal(quadratic)
+            expected = lam
+
+            np.testing.assert_allclose(
+                quadratic,
+                expected,
+                rtol=5e-4,
+                atol=5e-5,
+                err_msg="(W U)^T Σ_b (W U) should equal diag(whitened eigenvalues)",
+            )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_mtmf_pipeline_runs_without_error_on_jpl_fixture(self) -> None:
         """Pipeline completes and output binding is present."""
         dataset = self.test_model.load_dataset(str(_JPL_PATH))
