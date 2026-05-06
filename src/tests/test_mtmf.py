@@ -293,6 +293,89 @@ class TestMTMF(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_mnf_residual_orthogonal_to_target(self) -> None:
+        """r = x_mnf - a·t_mnf is Λ⁻¹-orthogonal to t_mnf for every valid pixel and target.
+
+        The MNF matched-filter score a is computed as a Mahalanobis projection:
+            a_j = (t_j^T Λ⁻¹ x) / (t_j^T Λ⁻¹ t_j)
+
+        By definition of orthogonal projection in the Λ⁻¹-weighted inner product,
+        the residual r = x_mnf - a·t_mnf satisfies:
+            r^T Λ⁻¹ t_j = 0  for every valid pixel and target j.
+        """
+        mnf_data_ref_name = "mtmf_mnf_data"
+        target_mnf_ref_name = "mtmf_target_mnf"
+        inv_lambda_ref_name = "mtmf_inv_lambda"
+        mf_scores_ref_name = "mnf_mtmf_ortho_mf_scores"
+
+        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
+                dataset,
+                output_ref_name=mf_scores_ref_name,
+                task_id=5013,
+                keep_ref_names=[mnf_data_ref_name, target_mnf_ref_name, inv_lambda_ref_name],
+            )
+
+            mnf_raw, _ = storage_client.read_data(task_plan.bindings[mnf_data_ref_name], filter_data=False)
+            t_raw, _ = storage_client.read_data(task_plan.bindings[target_mnf_ref_name], filter_data=False)
+            alpha_raw, _ = storage_client.read_data(task_plan.bindings[mf_scores_ref_name], filter_data=False)
+            inv_lam_raw, _ = storage_client.read_data(
+                task_plan.bindings[inv_lambda_ref_name], filter_data=False
+            )
+
+            x_mnf = np.asarray(np.ma.getdata(mnf_raw), dtype=np.float64)  # (H, W, F)
+            t_mnf = np.asarray(np.ma.getdata(t_raw), dtype=np.float64)  # (N_targets, F)
+            alpha = np.asarray(np.ma.getdata(alpha_raw), dtype=np.float64)  # (H, W, N_targets)
+            inv_lam = np.asarray(np.ma.getdata(inv_lam_raw), dtype=np.float64)  # (F, F) diagonal
+            if inv_lam.ndim == 3:
+                inv_lam = np.squeeze(inv_lam, axis=2)
+            if t_mnf.ndim == 1:
+                t_mnf = t_mnf[np.newaxis, :]
+
+            h, w, f = x_mnf.shape
+            n_targets = t_mnf.shape[0]
+
+            # Valid-pixel mask: exclude nodata rows (any band == nodata or NaN)
+            mnf_meta = storage_client.get_meta(task_plan.bindings[mnf_data_ref_name])
+            nodata = mnf_meta.nodata
+            flat_x = x_mnf.reshape(-1, f)
+            flat_alpha = alpha.reshape(-1, n_targets)
+            if nodata is not None:
+                if np.isnan(nodata):
+                    valid_mask = ~np.any(np.isnan(flat_x), axis=1)
+                else:
+                    valid_mask = ~np.any(flat_x == nodata, axis=1)
+            else:
+                valid_mask = np.ones(h * w, dtype=bool)
+
+            x_valid = flat_x[valid_mask]  # (N_valid, F)
+            alpha_valid = flat_alpha[valid_mask]  # (N_valid, N_targets)
+
+            # Precompute Λ⁻¹ t_j for each target: (N_targets, F)
+            inv_lam_t = (inv_lam @ t_mnf.T).T  # (N_targets, F)
+
+            for j in range(n_targets):
+                # r = x_mnf - a_j * t_j  →  (N_valid, F)
+                residual = x_valid - alpha_valid[:, j : j + 1] * t_mnf[j]
+
+                # --- Λ⁻¹-weighted inner product: r^T Λ⁻¹ t_j  →  (N_valid,) ---
+                dots = residual @ inv_lam_t[j]
+                np.testing.assert_allclose(
+                    dots,
+                    0.0,
+                    atol=1e-4,
+                    err_msg=f"Residual r = x_mnf - a·t_mnf must be Λ⁻¹-orthogonal to t_mnf[{j}]",
+                )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_mnf_whitened_quadratic_form_equals_diagonal_eigenvalues(self) -> None:
         """(Σ_N^{-1/2} U)^T Σ_b (Σ_N^{-1/2} U) = diag(λ) using pipeline artifacts.
 
