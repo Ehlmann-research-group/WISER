@@ -33,6 +33,7 @@ from wiser.utils.task_system import (
     MapStage,
     ResourceModel,
     SemanticTask,
+    SequentialStage,
     WriteSpec,
 )
 from wiser.utils.task_stage_utils import (
@@ -48,6 +49,119 @@ from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import Spectrum
+
+
+def _run_transform_targets_to_mnf(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_ref: DataRef,
+    target_spectra_ref: DataRef,
+    input_mean_ref: DataRef,
+    good_band_runs: tuple,
+) -> None:
+    """Worker: transform target spectra into MNF space.
+
+    Computes t_mnf = T_mnf x (t - μ_b) for each target, stripping bad bands
+    from the full-band target spectra before applying the transform.
+    """
+    _ = input_region
+    client = get_process_storage_client()
+
+    transform_raw, _ = client.read_data(input_ref)
+    transform = np.asarray(np.ma.getdata(transform_raw), dtype=np.float64)
+    if transform.ndim == 3:
+        transform = np.squeeze(transform, axis=2)
+
+    mean_raw, _ = client.read_data(input_mean_ref)
+    mean_arr = np.asarray(np.ma.getdata(mean_raw), dtype=np.float64).ravel()
+
+    targets_raw, _ = client.read_data(target_spectra_ref)
+    targets_full = np.asarray(np.ma.getdata(targets_raw), dtype=np.float64)
+    if targets_full.ndim == 1:
+        targets_full = targets_full[np.newaxis, :]
+
+    targets = np.concatenate([targets_full[:, start:end] for start, end in good_band_runs], axis=1)
+
+    targets_centered = targets - mean_arr
+    t_mnf = (transform @ targets_centered.T).T
+
+    client.write_data(output_ref, t_mnf.astype(np.float32, copy=False))
+
+
+@dataclass
+class TransformTargetsToMNFStage(SequentialStage):
+    """Transform target spectra from full-band space into MNF space.
+
+    Computes ``t_mnf = T_mnf x (t - μ_b)`` for each target spectrum.
+    Bad bands are stripped from the full-band target spectra before the
+    transform is applied.  The primary input is the T_mnf matrix.
+
+    Output shape: ``(N_targets, num_features)``.
+    """
+
+    _output_ref_name: str = "t_mnf"
+    _target_spectra_ref_name: str = "target_spectra"
+    _input_mean_ref_name: str = "input_mean"
+    _good_band_runs: tuple = field(default_factory=tuple)
+    _n_targets: int = 1
+    _num_features: int = 0
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self) -> None:
+        for name in (self._target_spectra_ref_name, self._input_mean_ref_name):
+            if name not in self.broadcast_input:
+                raise ValueError(f"TransformTargetsToMNFStage requires '{name}' in broadcast_input")
+        self.output_bindings = list(self.output_bindings) + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = (input_meta, chosen_scheme)
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=self._n_targets * self._num_features * np.dtype(np.float32).itemsize,
+                shape=(self._n_targets, self._num_features),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        target_spectra_ref = broadcast_inputs[self._target_spectra_ref_name]
+        input_mean_ref = broadcast_inputs[self._input_mean_ref_name]
+        return partial(
+            _run_transform_targets_to_mnf,
+            input_ref,
+            input_region,
+            output_write.ref,
+            target_spectra_ref,
+            input_mean_ref,
+            self._good_band_runs,
+        )
 
 
 def get_mnf_mtmf_pipeline(
@@ -84,8 +198,18 @@ def get_mnf_mtmf_pipeline(
     data_meta = storage_client.get_meta(dataset_ref)
     if data_meta.bad_bands is not None:
         num_features = int(np.sum(data_meta.bad_bands))
+        good_band_runs = tuple(get_good_band_runs(np.asarray(data_meta.bad_bands)))
     else:
         num_features = int(data_meta.shape[2])
+        good_band_runs = ((0, num_features),)
+
+    target_meta = storage_client.get_meta(target_spectra_ref)
+    if len(target_meta.shape) == 1:
+        n_targets = 1
+    elif len(target_meta.shape) == 2:
+        n_targets = int(target_meta.shape[0])
+    else:
+        raise ValueError(f"Target spectra must be 1-D (B,) or 2-D (N_targets, B), got {target_meta.shape}")
 
     mnf_pipeline = get_mnf_pipeline(
         dataset_ref,
@@ -154,9 +278,44 @@ def get_mnf_mtmf_pipeline(
         ),
     )
 
-    # TODO: Step 5 — matched filter and infeasibility stages
+    # Stage 1 — transform target spectra into MNF space
+    # t_mnf = T_mnf × (t - μ_b), with bad bands stripped from t first
+    target_mnf_ref_name = "mtmf_target_mnf"
+    _target_spectra_bc = "mtmf_bc_target_spectra"
+    _input_mean_bc = "mtmf_bc_input_mean"
+    transform_targets_stage = TransformTargetsToMNFStage(
+        _output_ref_name=target_mnf_ref_name,
+        _target_spectra_ref_name=_target_spectra_bc,
+        _input_mean_ref_name=_input_mean_bc,
+        _good_band_runs=good_band_runs,
+        _n_targets=n_targets,
+        _num_features=num_features,
+        default_executor="process",
+        input_binding=DataBinding(mnf_transform_matrix_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=num_features,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float32),
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={
+            _target_spectra_bc: target_spectra_ref,
+            _input_mean_bc: DataBinding(mnf_input_mean_ref_name),
+        },
+    )
 
-    return AlgorithmPipeline(mnf_pipeline.stages + [transform_matrix_stage, lambda_stage])
+    # TODO: Step 2 — invert Λ (PosSemiDefMatrixInverse on mnf_lambda_ref_name)
+    # TODO: Step 3 — matched filter MapStage (Mahalanobis with normalization)
+    # TODO: Step 4 — infeasibility MapStage
+
+    return AlgorithmPipeline(
+        mnf_pipeline.stages + [transform_matrix_stage, lambda_stage, transform_targets_stage]
+    )
 
 
 # ---------------------------------------------------------------------------
