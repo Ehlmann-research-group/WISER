@@ -12,6 +12,7 @@ from PySide2.QtWidgets import QDialog, QMessageBox
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.mtmf_dialog_ui import Ui_MTMF_Dialog
+from wiser.gui.mnf import get_mnf_pipeline
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -45,6 +46,53 @@ from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import Spectrum
+
+
+def get_mnf_mtmf_pipeline(
+    dataset_ref: DataRef,
+    target_spectra_ref: DataRef,
+    output_ref_name: str,
+) -> AlgorithmPipeline:
+    """Build the MNF-based MTMF AlgorithmPipeline.
+
+    Runs a full MNF transform (all components) on the dataset, then uses the
+    resulting MNF-space data, transformation matrix, and eigenvalue-diagonal
+    covariance to run the matched filter and infeasibility stages.
+
+    Args:
+        dataset_ref:        DataRef for the input hyperspectral data cube (H, W, B).
+        target_spectra_ref: DataRef for the target spectra (N_targets, B) or (B,).
+        output_ref_name:    Name for the final output allocation.
+
+    Returns:
+        An AlgorithmPipeline containing the MNF stages followed by the
+        MTMF-specific stages.
+    """
+    mnf_noise_ref_name = "mtmf_mnf_shift_y_noise"
+    mnf_noise_eigen_ref_name = "mtmf_mnf_noise_eigen"
+    mnf_noise_whitening_matrix_ref_name = "mtmf_mnf_noise_whitening_matrix"
+    mnf_input_mean_ref_name = "mtmf_mnf_input_spectral_mean"
+    mnf_input_total_ref_name = "mtmf_mnf_input_valid_pixel_total"
+    mnf_input_covariance_ref_name = "mtmf_mnf_input_covariance"
+    mnf_whitened_covariance_ref_name = "mtmf_mnf_whitened_covariance"
+    mnf_whitened_eigen_ref_name = "mtmf_mnf_whitened_eigen"
+    mnf_data_ref_name = "mtmf_mnf_data"
+
+    mnf_pipeline = get_mnf_pipeline(
+        dataset_ref,
+        num_components=None,
+        output_ref_name=mnf_data_ref_name,
+        noise_ref_name=mnf_noise_ref_name,
+        noise_eigen_ref_name=mnf_noise_eigen_ref_name,
+        noise_whitening_matrix_ref_name=mnf_noise_whitening_matrix_ref_name,
+        input_mean_ref_name=mnf_input_mean_ref_name,
+        input_total_ref_name=mnf_input_total_ref_name,
+        input_covariance_ref_name=mnf_input_covariance_ref_name,
+        whitened_covariance_ref_name=mnf_whitened_covariance_ref_name,
+        whitened_eigen_ref_name=mnf_whitened_eigen_ref_name,
+    )
+
+    return mnf_pipeline
 
 
 # ---------------------------------------------------------------------------

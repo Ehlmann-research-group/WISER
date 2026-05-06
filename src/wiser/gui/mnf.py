@@ -171,8 +171,8 @@ def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateSh
 
 def get_mnf_pipeline(
     dataset_ref: DataRef,
-    num_components: int,
-    output_ref_name: str,
+    num_components: Optional[int] = None,
+    output_ref_name: str = "mnf_output",
     noise_ref_name: str = "mnf_shift_y_noise",
     noise_eigen_ref_name: str = "mnf_noise_eigen",
     noise_whitening_matrix_ref_name: str = "mnf_noise_whitening_matrix",
@@ -190,6 +190,8 @@ def get_mnf_pipeline(
     else:
         num_features = dataset_plan_meta.bands
     bands = dataset_plan_meta.bands
+    if num_components is None:
+        num_components = num_features
     if num_components <= 0 or num_components > num_features:
         raise ValueError(f"num_components must be in [1, {num_features}], got {num_components}")
 
@@ -367,7 +369,9 @@ class MNFSemanticTask(QObject, SemanticTask):
             self,
             priority_class=PriorityClass.BACKGROUND,
             input_ref=input_ref,
-            algorithm_pipeline=get_mnf_pipeline(input_ref, num_components, output_ref_name),
+            algorithm_pipeline=get_mnf_pipeline(
+                input_ref, num_components=num_components, output_ref_name=output_ref_name
+            ),
             task_title="Minimum Noise Fraction",
             task_variables={
                 "Num Components": num_components,
