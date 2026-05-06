@@ -705,9 +705,7 @@ def get_mnf_mtmf_pipeline(
         default_executor="process",
         input_binding=DataBinding(mnf_data_ref_name),
         input_plan_meta=DatasetPlanMeta(
-            height=height,
-            width=width,
-            num_bands=num_features,
+            shape=(height, width, num_features),
             dtype=np.dtype(np.float32),
         ),
         broadcast_input={
@@ -733,9 +731,7 @@ def get_mnf_mtmf_pipeline(
         default_executor="process",
         input_binding=DataBinding(mnf_data_ref_name),
         input_plan_meta=DatasetPlanMeta(
-            height=height,
-            width=width,
-            num_bands=num_features,
+            shape=(height, width, num_features),
             dtype=np.dtype(np.float32),
         ),
         broadcast_input={
