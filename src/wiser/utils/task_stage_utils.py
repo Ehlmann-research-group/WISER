@@ -2488,7 +2488,7 @@ def _write_eigendecomposition(
 class EigenDecompositionStage(SequentialStage):
     """
     Compute eigendecomposition for a square [N][N] matrix and persist:
-      - eigen vectors in an array [N][N],
+      - eigen vectors in an array [N][N] (eigen vectors are in the ),
       - eigen values in an array [N],
       - a lightweight JSON descriptor that references both arrays.
     """
@@ -2620,6 +2620,78 @@ def get_eigendecomposition_stage(
 
 def get_eigendecomposition_pipeline(matrix_ref: DataRef, output_ref_name: str) -> AlgorithmPipeline:
     return AlgorithmPipeline([get_eigendecomposition_stage(matrix_ref, output_ref_name)])
+
+
+def _build_diagonal_matrix(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_ref: DataRef,
+) -> None:
+    _ = input_region
+    client = get_process_storage_client()
+    values, _ = client.read_data(input_ref)
+    values_array = np.asarray(np.ma.getdata(values), dtype=np.float32).ravel()
+    diag_matrix = np.diag(values_array).astype(np.float32)
+    client.write_data(output_ref, diag_matrix)
+
+
+@dataclass
+class DiagonalMatrixFromValuesStage(SequentialStage):
+    """Build an (N, N) diagonal matrix from a 1-D vector of N values.
+
+    Reads the primary input as a flat array of length N and writes
+    ``np.diag(values)`` to the output allocation.  Intended for converting
+    a vector of eigenvalues into the diagonal covariance matrix Λ.
+    """
+
+    _output_ref_name: str = "diagonal_matrix"
+    _n: int = 0
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        n = self._n
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=n * n * np.dtype(np.float32).itemsize,
+                shape=(n, n),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_build_diagonal_matrix, input_ref, input_region, output_write.ref)
 
 
 def _write_whitening_matrix(
