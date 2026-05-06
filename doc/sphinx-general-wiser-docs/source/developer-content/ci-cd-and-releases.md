@@ -175,10 +175,9 @@ The process of creating a release is documented below.
 5. You will then need to put the release on
    the [website's release notes page](https://ehlmann.caltech.edu/wiser/release-notes.html).
 
-6. Lastly, you will need to update the plugin API documentation on
-   the page for [Plugin Dependencies](https://ehlmann-research-group.
-   github.io/WISER-Plugin-API/plugin_dependencies.html) to include all
-   of the dependencies in the latest version.
+6. Lastly, you will need to update the plugin API documentation in
+   `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any
+   changes to plugin interfaces or dependencies in the latest version.
 
 7. Finally, if have the permissions to, then you should send an
    email to wiser-announce@caltech.edu to announce a new release of
@@ -288,24 +287,14 @@ file.
 
 ## Maintaining the Plugin API Documentation
 
-The Plugin API documentation lives in a separate repository:
-[WISER-Plugin-API](https://github.com/Ehlmann-research-group/WISER-Plugin-API).
-It is served as GitHub Pages from the `main` branch.
+The Plugin API documentation is part of this Sphinx docs site
+(`doc/sphinx-general-wiser-docs/`), under the **Extending WISER** section.
+It is built and deployed alongside the rest of the WISER documentation via
+the existing GitHub Actions workflow (see `docs-preview.yml` / `deploy-docs.yml`).
 
-To rebuild and publish the Plugin API docs:
-
-1. Make sure you have Sphinx and the required extensions installed (activate
-   the `wiser-dev` environment or a dedicated docs environment).
-2. Go to `WISER/doc/sphinx-extending-wiser/`.
-3. Confirm `conf.py` has:
-   ```python
-   html_baseurl = 'https://ehlmann-research-group.github.io/WISER-Plugin-API/'
-   ```
-4. Run `make` (or `make html`) to build.
-5. Copy the **contents** of the `build/` folder (not the folder itself) into
-   the root of the `WISER-Plugin-API` repository.
-6. Ensure a `.nojekyll` file exists at the root of `WISER-Plugin-API`.
-7. Push to `main` — GitHub Pages will publish automatically.
+The community plugin examples and third-party plugins themselves live in a
+separate repository:
+[WISER-Plugin-Repository](https://github.com/Ehlmann-research-group/WISER-Plugin-Repository).
 
 This step is part of the release process (see the Release Process section above).
 
