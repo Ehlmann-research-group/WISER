@@ -164,6 +164,164 @@ class TransformTargetsToMNFStage(SequentialStage):
         )
 
 
+def _run_mnf_mahalanobis_tile(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    inv_cov_ref: DataRef,
+    t_mnf_ref: DataRef,
+    normalize: bool,
+) -> None:
+    """Worker: compute Mahalanobis matched-filter scores for one spatial tile.
+
+    For each pixel x_mnf in the tile computes:
+        score = (t_mnf^T Λ⁻¹ x_mnf) [/ (t_mnf^T Λ⁻¹ t_mnf) when normalize=True]
+
+    The data is already in MNF space and mean-centered, so no further
+    centering or bad-band stripping is needed.
+    """
+    client = get_process_storage_client()
+
+    data_tile, region_meta = client.read_region(input_ref, input_region, filter_data=False)
+    data_arr = np.asarray(np.ma.getdata(data_tile), dtype=np.float64)  # (h, w, num_features)
+    chunk_h, chunk_w, num_features = data_arr.shape
+
+    inv_cov_raw, _ = client.read_data(inv_cov_ref)
+    inv_cov = np.asarray(np.ma.getdata(inv_cov_raw), dtype=np.float64)
+    if inv_cov.ndim == 3:
+        inv_cov = np.squeeze(inv_cov, axis=2)
+
+    t_mnf_raw, _ = client.read_data(t_mnf_ref)
+    t_mnf = np.asarray(np.ma.getdata(t_mnf_raw), dtype=np.float64)
+    if t_mnf.ndim == 1:
+        t_mnf = t_mnf[np.newaxis, :]
+    n_targets = t_mnf.shape[0]
+
+    flat = data_arr.reshape(chunk_h * chunk_w, num_features)  # (n_pixels, num_features)
+
+    nodata = region_meta.nodata
+    if nodata is not None:
+        if np.isnan(nodata):
+            nodata_mask = np.any(np.isnan(flat), axis=1)
+        else:
+            nodata_mask = np.any(flat == nodata, axis=1)
+        valid_indices = np.where(~nodata_mask)[0]
+    else:
+        valid_indices = np.arange(chunk_h * chunk_w)
+
+    flat_valid = flat[valid_indices]  # (n_valid, num_features)
+
+    # Λ⁻¹ × t_mnf^T → (num_features, N_targets)
+    inv_cov_t = inv_cov @ t_mnf.T
+
+    # Numerator: x_mnf @ (Λ⁻¹ t_mnf^T) → (n_valid, N_targets)
+    numerators = flat_valid @ inv_cov_t
+
+    if normalize:
+        # Denominator: t_mnf^T Λ⁻¹ t_mnf — one scalar per target (diagonal of t_mnf @ inv_cov_t)
+        denominators = np.sum(t_mnf * inv_cov_t.T, axis=1)  # (N_targets,)
+        denominators = np.where(denominators == 0.0, np.finfo(np.float64).eps, denominators)
+        scores_valid = numerators / denominators
+    else:
+        scores_valid = numerators
+
+    scores_flat = np.full((chunk_h * chunk_w, n_targets), fill_value=np.nan, dtype=np.float32)
+    scores_flat[valid_indices] = scores_valid.astype(np.float32)
+    client.write_spec(output_write, scores_flat.reshape(chunk_h, chunk_w, n_targets))
+
+
+@dataclass
+class MNFMatchedFilterStage(MapStage):
+    """Compute matched-filter scores per pixel in MNF space.
+
+    Implements the (optionally normalized) Mahalanobis inner product:
+
+    .. code-block:: text
+
+        score = (t_mnf^T Λ⁻¹ x_mnf) [/ (t_mnf^T Λ⁻¹ t_mnf) when normalize=True]
+
+    With ``normalize=True`` (the default) this is the standard matched-filter
+    abundance estimate a.  The primary input is the MNF-transformed data cube
+    (H, W, num_features); the data must already be mean-centered.
+
+    Output shape: ``(H, W, N_targets)`` float32.
+    """
+
+    _output_ref_name: str = "mnf_matched_filter"
+    _inv_cov_ref_name: str = "inv_cov"
+    _t_mnf_ref_name: str = "t_mnf"
+    _n_targets: int = 1
+    _normalize: bool = True
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=3,
+            bytes_per_scalar_out=0,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self) -> None:
+        for name in (self._inv_cov_ref_name, self._t_mnf_ref_name):
+            if name not in self.broadcast_input:
+                raise ValueError(f"MNFMatchedFilterStage requires '{name}' in broadcast_input")
+        self.output_bindings = list(self.output_bindings) + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("MNFMatchedFilterStage expects a DatasetRegionRef input region")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=self._n_targets,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> List[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(input_meta, DatasetPlanMeta), "MNFMatchedFilterStage requires DatasetPlanMeta"
+        size_est = input_meta.height * input_meta.width * self._n_targets * np.dtype(np.float32).itemsize
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=size_est,
+                shape=(input_meta.height, input_meta.width, self._n_targets),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        inv_cov_ref = broadcast_inputs[self._inv_cov_ref_name]
+        t_mnf_ref = broadcast_inputs[self._t_mnf_ref_name]
+        return partial(
+            _run_mnf_mahalanobis_tile,
+            input_ref,
+            input_region,
+            output_write,
+            inv_cov_ref,
+            t_mnf_ref,
+            self._normalize,
+        )
+
+
 def get_mnf_mtmf_pipeline(
     dataset_ref: DataRef,
     target_spectra_ref: DataRef,
@@ -329,7 +487,34 @@ def get_mnf_mtmf_pipeline(
         chunking_scheme_type=NoChunkingScheme,
     )
 
-    # TODO: Step 3 — matched filter MapStage (Mahalanobis with normalization)
+    # Step 3 — matched filter: score = (t_mnf^T Λ⁻¹ x_mnf) / (t_mnf^T Λ⁻¹ t_mnf)
+    # Primary input: MNF data cube (H, W, num_features), already mean-centered.
+    # Broadcast: Λ⁻¹ and t_mnf.  Output: (H, W, N_targets) float32.
+    _inv_lambda_bc = "mtmf_bc_inv_lambda"
+    _target_mnf_bc = "mtmf_bc_target_mnf"
+    matched_filter_ref_name = output_ref_name
+    height = int(data_meta.shape[0])
+    width = int(data_meta.shape[1])
+    matched_filter_stage = MNFMatchedFilterStage(
+        _output_ref_name=matched_filter_ref_name,
+        _inv_cov_ref_name=_inv_lambda_bc,
+        _t_mnf_ref_name=_target_mnf_bc,
+        _n_targets=n_targets,
+        _normalize=True,
+        default_executor="process",
+        input_binding=DataBinding(mnf_data_ref_name),
+        input_plan_meta=DatasetPlanMeta(
+            height=height,
+            width=width,
+            num_bands=num_features,
+            dtype=np.dtype(np.float32),
+        ),
+        broadcast_input={
+            _inv_lambda_bc: DataBinding(inv_lambda_ref_name),
+            _target_mnf_bc: DataBinding(target_mnf_ref_name),
+        },
+    )
+
     # TODO: Step 4 — infeasibility MapStage
 
     return AlgorithmPipeline(
@@ -339,6 +524,7 @@ def get_mnf_mtmf_pipeline(
             lambda_stage,
             transform_targets_stage,
             inv_lambda_stage,
+            matched_filter_stage,
         ]
     )
 
