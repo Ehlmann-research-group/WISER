@@ -1,3 +1,4 @@
+from typing import Optional
 import unittest
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import tests.context  # noqa: F401 – sets up sys.path
 
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
-from wiser.gui.mtmf import get_mtmf_pipeline
+from wiser.gui.mtmf import get_mnf_mtmf_pipeline, get_mtmf_pipeline
 from wiser.raster.spectrum import SpectrumAtPoint
 from wiser.utils.primitives import AllocationRequest, DeletePolicy, ExternalRasterHandle, PriorityClass
 from wiser.utils.storage_client import StorageClient
@@ -21,6 +22,14 @@ pytestmark = [
 
 _JPL_PATH = (
     Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+).resolve()
+
+_CALTECH_PATH = (
+    Path(__file__).resolve().parent
+    / ".."
+    / "test_utils"
+    / "test_datasets"
+    / "caltech_425_6_6_data_ignore.hdr"
 ).resolve()
 
 # Pixel (x=4, y=4) in image-coordinate convention used by SpectrumAtPoint
@@ -101,9 +110,111 @@ class TestMTMF(unittest.TestCase):
         scores, _ = storage_client.read_data(output_ref, filter_data=False)
         return np.asarray(scores, dtype=np.float32), storage_client, app_services
 
+    def _run_mnf_mtmf_pipeline(
+        self,
+        dataset,
+        *,
+        output_ref_name: str,
+        task_id: int,
+        keep_ref_names: Optional[list] = None,
+    ):
+        """Run get_mnf_mtmf_pipeline and keep selected intermediate refs alive.
+
+        Returns ``(source_ref, task_plan, storage_client, app_services)``.
+        The caller is responsible for closing ``storage_client`` and
+        calling ``release_kept_refs`` / shutdown.
+        """
+        if keep_ref_names is None:
+            keep_ref_names = []
+
+        app_services = self.test_model.app_services
+
+        source_ref = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+
+        target_spectrum = SpectrumAtPoint(dataset, _TARGET_POINT)
+        target_arr = np.asarray(target_spectrum.get_spectrum(), dtype=np.float32)
+        target_2d = target_arr[np.newaxis, :]
+
+        target_ref = app_services.storage_service.allocate_data(
+            AllocationRequest(
+                name="mnf_mtmf_test_target",
+                kind="array",
+                residency="ram_cacheable",
+                size_est=int(target_2d.size * target_2d.dtype.itemsize),
+                shape=target_2d.shape,
+                dtype=target_2d.dtype,
+            )
+        )
+        get_process_storage_client().write_data(target_ref, target_2d)
+
+        pipeline = get_mnf_mtmf_pipeline(
+            dataset_ref=source_ref,
+            target_spectra_ref=target_ref,
+            output_ref_name=output_ref_name,
+        )
+
+        keep_set = set(keep_ref_names) | {output_ref_name}
+        for stage in pipeline.stages:
+            for ob in stage.output_bindings:
+                if ob.name in keep_set:
+                    stage.set_output_delete_policy(ob.name, DeletePolicy.KEEP)
+
+        task = SemanticTask(
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=source_ref,
+            algorithm_pipeline=pipeline,
+        )
+        task.id = task_id
+
+        task_plan = app_services.task_planner.plan_semantic_task(task)
+        future = app_services.scheduler.run_task_plan(task_plan)
+        future.result(timeout=180)
+
+        listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+        storage_client = StorageClient(
+            service=None,  # type: ignore[arg-type]
+            service_address=listener_address,
+            service_authkey=listener_authkey,
+        )
+
+        return source_ref, task_plan, storage_client, app_services
+
     # ------------------------------------------------------------------
     # tests
     # ------------------------------------------------------------------
+
+    def test_mnf_data_mean_is_near_zero(self) -> None:
+        """MNF output is mean-centered, so its per-band mean over valid pixels should be ≈ 0."""
+        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            mnf_data_ref_name = "mtmf_mnf_data"
+            _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
+                dataset,
+                output_ref_name="mnf_mtmf_mean_test",
+                task_id=5010,
+                keep_ref_names=[mnf_data_ref_name],
+            )
+
+            mnf_ref = task_plan.bindings[mnf_data_ref_name]
+            mnf_data, _ = storage_client.read_data(mnf_ref, filter_data=False)
+            mnf_arr = np.asarray(mnf_data, dtype=np.float32)  # (H, W, num_features)
+
+            # Compute per-band mean across all pixels
+            band_means = mnf_arr.reshape(-1, mnf_arr.shape[2]).mean(axis=0)
+            np.testing.assert_allclose(
+                band_means,
+                0.0,
+                atol=1e-3,
+                err_msg="MNF output should be mean-centered; per-band mean must be near zero",
+            )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
     def test_mtmf_pipeline_runs_without_error_on_jpl_fixture(self) -> None:
         """Pipeline completes and output binding is present."""
