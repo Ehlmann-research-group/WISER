@@ -2413,6 +2413,8 @@ class EigenVectorsAndValues:
 
     Eigen vectors should be in decreasing order of eigen value from left to right
     Each row should have an eigen vector
+
+    Eigen vectors are in an [N][N] array and eigen vectors are stored in the rows.
     """
 
     eigen_vectors_ref: DataRef
@@ -2507,7 +2509,14 @@ class EigenDecompositionStage(SequentialStage):
     chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
 
     def __post_init__(self):
-        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
+        # Declare all three allocations so planners and delete-policy overrides see them
+        # (vectors/values were always allocated in generate_allocation_requests but were
+        # previously omitted here, so KEEP could not apply to those refs).
+        self.output_bindings = self.output_bindings + [
+            DataBinding(self._vectors_ref_name),
+            DataBinding(self._values_ref_name),
+            DataBinding(self._output_ref_name, kind="json"),
+        ]
         self.broadcast_input |= {
             "eigen_vectors_ref": DataBinding(self._vectors_ref_name),
             "eigen_values_ref": DataBinding(self._values_ref_name),
