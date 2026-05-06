@@ -1,16 +1,18 @@
 # Contributing to WISER
 
-Questions, bugs, and feature requests should all be submitted as
-[GitHub Issues](https://github.com/Ehlmann-research-group/WISER/issues).
+Questions, bugs, and feature requests can be submitted as
+[GitHub Issues](https://github.com/Ehlmann-research-group/WISER/issues),
+or via the [WISER feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)
+if you prefer not to use GitHub.
 
 ## Reporting a Bug
 
 Thank you for helping make WISER better!
-If you find a problem or unexpected behavior, please **submit it as a GitHub
-issue** using the **Bug report** template.
+If you find a problem or unexpected behavior, you can report it in two ways:
 
-You can submit a new bug report here:
-[**Submit a Bug Report**](https://github.com/Ehlmann-research-group/WISER/issues/new/choose)
+- **[Submit via the feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)** — no GitHub account required.
+- **[Submit a GitHub Issue](https://github.com/Ehlmann-research-group/WISER/issues/new/choose)** — use the **Bug report
+  ** template.
 
 When filling out the issue form:
 
@@ -34,10 +36,11 @@ responsive: this helps get your bug fixed faster!
 
 Before submitting a feature request, please review the following guidelines.
 
-All new feature requests should be submitted as a **GitHub issue** using the
-**Feature request** issue template. Click
-[here](https://github.com/Ehlmann-research-group/WISER/issues/new/choose) to
-go to GitHub issues.
+Submit a new feature request using one of these options:
+
+- **[Submit via the feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)** — no GitHub account required.
+- **[Submit a GitHub Issue](https://github.com/Ehlmann-research-group/WISER/issues/new/choose)** — use the **Feature
+  request** template.
 
 When filling out the template:
 
