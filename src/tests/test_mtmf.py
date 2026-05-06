@@ -216,6 +216,83 @@ class TestMTMF(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
+    def test_transform_matrix_applied_to_input_matches_mnf_data(self) -> None:
+        """Manually applying the MNF transform matrix to mean-centered input reproduces the MNF cube.
+
+        The pipeline stores T = A @ W where A are the whitened eigenvectors and W is the noise
+        whitening matrix.  For every valid pixel x (bad bands stripped):
+            mnf(x)  ==  T @ (x - μ)
+        """
+        # Note: test currently doens't work when using _CALTECH_PATH (but does with _JPL_PATH)
+        # this is likely due to a difference in the cleaning of bad bands and data ignore values
+        dataset = self.test_model.load_dataset(str(_CALTECH_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            mnf_data_ref_name = "mtmf_mnf_data"
+            transform_matrix_ref_name = "mtmf_mnf_transform_matrix"
+            mnf_input_mean_ref_name = "mtmf_mnf_input_spectral_mean"
+
+            source_ref, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
+                dataset,
+                output_ref_name="mnf_mtmf_transform_test",
+                task_id=5011,
+                keep_ref_names=[mnf_data_ref_name, transform_matrix_ref_name, mnf_input_mean_ref_name],
+            )
+
+            # --- read raw input data ---
+            source_data, _ = storage_client.read_data(source_ref, filter_data=False)
+            source_arr = np.asarray(source_data, dtype=np.float32)  # (H, W, B_total)
+            source_meta = storage_client.get_meta(source_ref)
+
+            # Strip bad bands to reach (H, W, num_features)
+            if source_meta.bad_bands is not None:
+                good_band_indices = np.where(np.asarray(source_meta.bad_bands) != 0)[0]
+                source_good = source_arr[:, :, good_band_indices]
+            else:
+                source_good = source_arr
+
+            # Build valid-pixel mask (exclude nodata pixels)
+            if source_meta.nodata is not None:
+                valid_mask = ~np.all(source_arr == source_meta.nodata, axis=2)
+            else:
+                valid_mask = np.ones(source_arr.shape[:2], dtype=bool)
+
+            x_valid = source_good[valid_mask]  # (N_valid, num_features)
+
+            # --- read pipeline intermediates ---
+            T_raw, _ = storage_client.read_data(
+                task_plan.bindings[transform_matrix_ref_name], filter_data=False
+            )
+            T = np.asarray(T_raw, dtype=np.float32)  # (num_features, num_features)
+
+            mean_raw, _ = storage_client.read_data(
+                task_plan.bindings[mnf_input_mean_ref_name], filter_data=False
+            )
+            mean = np.asarray(mean_raw, dtype=np.float32).reshape(-1)  # (num_features,)
+
+            mnf_raw, _ = storage_client.read_data(task_plan.bindings[mnf_data_ref_name], filter_data=False)
+            mnf_arr = np.asarray(mnf_raw, dtype=np.float32)  # (H, W, num_features)
+            mnf_valid = mnf_arr[valid_mask]  # (N_valid, num_features)
+
+            # --- apply transform manually: mnf = (x - μ) @ T.T ---
+            x_centered = x_valid - mean
+            result = x_centered @ T.T
+
+            np.testing.assert_allclose(
+                result,
+                mnf_valid,
+                rtol=1e-4,
+                atol=1e-4,
+                err_msg="Manually applied transform matrix must match the MNF data cube",
+            )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
     def test_mtmf_pipeline_runs_without_error_on_jpl_fixture(self) -> None:
         """Pipeline completes and output binding is present."""
         dataset = self.test_model.load_dataset(str(_JPL_PATH))
