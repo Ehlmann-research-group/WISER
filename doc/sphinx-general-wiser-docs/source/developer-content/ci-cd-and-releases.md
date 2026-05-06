@@ -273,24 +273,6 @@ also: [Stack Overflow — headless Qt](https://stackoverflow.com/questions/65200
 **Note:** `pytest-qt` currently only works with PySide6, not PySide2.
 See [pytest-qt docs](https://pytest-qt.readthedocs.io/en/latest/intro.html).
 
-### Common Docker Commands
-
-```bash
-# List all containers
-docker ps -a
-
-# Run a container with WISER source mounted
-docker run -it --mount type=bind,src=<path-to-WISER>,dst=/WISER wiser-env:0.1.17 /bin/bash
-
-# Build the Docker image (run from WISER/ root)
-docker build -f ./etc/Dockerfile -t wiser-env:0.1.17 .
-
-# Tag for pushing to Docker Hub
-docker tag wiser-env:0.1.17 jgarciak/wiser-env:0.1.17
-
-# Push to Docker Hub (must be signed in)
-docker image push jgarciak/wiser-env:0.1.17
-```
 
 ### Known Docker / CI Issues
 
