@@ -236,7 +236,7 @@ bottleneck. Approaches ranked slowest to fastest:
   if: steps.cache.outputs.cache-hit != 'true'
 ```
 
-### 3. Preloaded Docker image (fastest, harder to maintain)
+### 3. Preloaded Docker image (fast, harder to maintain)
 
 Run tests inside a Docker image that already has the conda environment
 installed. The tradeoff is that the Docker image must be rebuilt and pushed
@@ -249,6 +249,11 @@ Useful references:
   environments"
 - [Beginner Docker guide](https://learncloudnative.com/blog/2020-04-29-beginners-guide-to-docker)
 - [Conda in Dockerfiles](https://pythonspeed.com/articles/activate-conda-dockerfile/)
+
+#### 4. Micromamba with conda-lock and caching (fastest, and relatively easy to maintain)
+
+Using conda-lock, micromamba doesn't need to solve and micromamba itself is very fast and barebones. I believe when I
+tested this in the past it took about 1.5 minutes to make an environment from a cold start.
 
 ## Docker Container Reference
 
