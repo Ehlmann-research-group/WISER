@@ -173,6 +173,14 @@ def get_mnf_pipeline(
     dataset_ref: DataRef,
     num_components: int,
     output_ref_name: str,
+    noise_ref_name: str = "mnf_shift_y_noise",
+    noise_eigen_ref_name: str = "mnf_noise_eigen",
+    noise_whitening_matrix_ref_name: str = "mnf_noise_whitening_matrix",
+    input_mean_ref_name: str = "mnf_input_spectral_mean",
+    input_total_ref_name: str = "mnf_input_valid_pixel_total",
+    input_covariance_ref_name: str = "mnf_input_covariance",
+    whitened_covariance_ref_name: str = "mnf_whitened_covariance",
+    whitened_eigen_ref_name: str = "mnf_whitened_eigen",
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
@@ -184,15 +192,6 @@ def get_mnf_pipeline(
     bands = dataset_plan_meta.bands
     if num_components <= 0 or num_components > num_features:
         raise ValueError(f"num_components must be in [1, {num_features}], got {num_components}")
-
-    noise_ref_name = "mnf_shift_y_noise"
-    noise_eigen_ref_name = "mnf_noise_eigen"
-    noise_whitening_matrix_ref_name = "mnf_noise_whitening_matrix"
-    input_mean_ref_name = "mnf_input_spectral_mean"
-    input_total_ref_name = "mnf_input_valid_pixel_total"
-    input_covariance_ref_name = "mnf_input_covariance"
-    whitened_covariance_ref_name = "mnf_whitened_covariance"
-    whitened_eigen_ref_name = "mnf_whitened_eigen"
 
     noise_plan_meta = DatasetPlanMeta(
         shape=(max(0, dataset_plan_meta.height - 1), dataset_plan_meta.width, bands),
