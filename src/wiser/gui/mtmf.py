@@ -518,6 +518,15 @@ def get_mnf_mtmf_pipeline(
     dataset_ref: DataRef,
     target_spectra_ref: DataRef,
     output_ref_name: str,
+    mnf_noise_ref_name: str = "mtmf_mnf_shift_y_noise",
+    mnf_noise_eigen_ref_name: str = "mtmf_mnf_noise_eigen",
+    mnf_noise_whitening_matrix_ref_name: str = "mtmf_mnf_noise_whitening_matrix",
+    mnf_input_mean_ref_name: str = "mtmf_mnf_input_spectral_mean",
+    mnf_input_total_ref_name: str = "mtmf_mnf_input_valid_pixel_total",
+    mnf_input_covariance_ref_name: str = "mtmf_mnf_input_covariance",
+    mnf_whitened_covariance_ref_name: str = "mtmf_mnf_whitened_covariance",
+    mnf_whitened_eigen_ref_name: str = "mtmf_mnf_whitened_eigen",
+    mnf_data_ref_name: str = "mtmf_mnf_data",
 ) -> AlgorithmPipeline:
     """Build the MNF-based MTMF AlgorithmPipeline.
 
@@ -526,23 +535,23 @@ def get_mnf_mtmf_pipeline(
     covariance to run the matched filter and infeasibility stages.
 
     Args:
-        dataset_ref:        DataRef for the input hyperspectral data cube (H, W, B).
-        target_spectra_ref: DataRef for the target spectra (N_targets, B) or (B,).
-        output_ref_name:    Name for the final output allocation.
+        dataset_ref:                         DataRef for the input hyperspectral data cube (H, W, B).
+        target_spectra_ref:                  DataRef for the target spectra (N_targets, B) or (B,).
+        output_ref_name:                     Name for the final output allocation.
+        mnf_noise_ref_name:                  Ref name for the shift-Y noise cube.
+        mnf_noise_eigen_ref_name:            Ref name for the noise eigen-decomposition.
+        mnf_noise_whitening_matrix_ref_name: Ref name for the noise whitening matrix.
+        mnf_input_mean_ref_name:             Ref name for the input spectral mean vector.
+        mnf_input_total_ref_name:            Ref name for the valid-pixel count accumulator.
+        mnf_input_covariance_ref_name:       Ref name for the input covariance matrix.
+        mnf_whitened_covariance_ref_name:    Ref name for the whitened covariance matrix.
+        mnf_whitened_eigen_ref_name:         Ref name for the whitened eigen-decomposition.
+        mnf_data_ref_name:                   Ref name for the MNF-transformed data cube output.
 
     Returns:
         An AlgorithmPipeline containing the MNF stages followed by the
         MTMF-specific stages.
     """
-    mnf_noise_ref_name = "mtmf_mnf_shift_y_noise"
-    mnf_noise_eigen_ref_name = "mtmf_mnf_noise_eigen"
-    mnf_noise_whitening_matrix_ref_name = "mtmf_mnf_noise_whitening_matrix"
-    mnf_input_mean_ref_name = "mtmf_mnf_input_spectral_mean"
-    mnf_input_total_ref_name = "mtmf_mnf_input_valid_pixel_total"
-    mnf_input_covariance_ref_name = "mtmf_mnf_input_covariance"
-    mnf_whitened_covariance_ref_name = "mtmf_mnf_whitened_covariance"
-    mnf_whitened_eigen_ref_name = "mtmf_mnf_whitened_eigen"
-    mnf_data_ref_name = "mtmf_mnf_data"
 
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
