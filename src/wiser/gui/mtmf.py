@@ -211,7 +211,7 @@ def _run_mnf_mahalanobis_tile(
 
     flat_valid = flat[valid_indices]  # (n_valid, num_features)
 
-    # Λ⁻¹ × t_mnf^T → (num_features, N_targets)
+    # Λ⁻¹ x t_mnf^T → (num_features, N_targets)
     inv_cov_t = inv_cov @ t_mnf.T
 
     # Numerator: x_mnf @ (Λ⁻¹ t_mnf^T) → (n_valid, N_targets)
@@ -322,6 +322,189 @@ class MNFMatchedFilterStage(MapStage):
         )
 
 
+def _run_infeasibility_tile(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    inv_cov_ref: DataRef,
+    t_mnf_ref: DataRef,
+    mf_scores_ref: DataRef,
+    n_targets: int,
+) -> None:
+    """Worker: compute MTMF infeasibility scores for one spatial tile.
+
+    For each pixel x_mnf and its matched-filter abundance a the residual after
+    removing the target contribution is:
+
+        r = x_mnf - a x t_mnf
+
+    The infeasibility score is then the Mahalanobis length of that residual:
+
+        I = sqrt(r^T Λ⁻¹ r)
+
+    A high value of I means the pixel is far from the target sub-space even
+    when its matched-filter score a is high, which is the signature of a
+    false positive.
+    """
+    client = get_process_storage_client()
+
+    # Primary: MNF data tile (h, w, num_features)
+    data_tile, region_meta = client.read_region(input_ref, input_region, filter_data=False)
+    data_arr = np.asarray(np.ma.getdata(data_tile), dtype=np.float64)
+    chunk_h, chunk_w, num_features = data_arr.shape
+
+    # Read the matched-filter scores for the same spatial region
+    assert isinstance(input_region, DatasetRegionRef)
+    mf_region = DatasetRegionRef(
+        y0=input_region.y0,
+        y1=input_region.y1,
+        x0=input_region.x0,
+        x1=input_region.x1,
+        b0=0,
+        b1=n_targets,
+    )
+    mf_tile, _ = client.read_region(mf_scores_ref, mf_region, filter_data=False)
+    alpha = np.asarray(np.ma.getdata(mf_tile), dtype=np.float64)  # (h, w, N_targets)
+
+    inv_cov_raw, _ = client.read_data(inv_cov_ref)
+    inv_cov = np.asarray(np.ma.getdata(inv_cov_raw), dtype=np.float64)
+    if inv_cov.ndim == 3:
+        inv_cov = np.squeeze(inv_cov, axis=2)
+
+    t_mnf_raw, _ = client.read_data(t_mnf_ref)
+    t_mnf = np.asarray(np.ma.getdata(t_mnf_raw), dtype=np.float64)  # (N_targets, num_features)
+    if t_mnf.ndim == 1:
+        t_mnf = t_mnf[np.newaxis, :]
+
+    flat = data_arr.reshape(chunk_h * chunk_w, num_features)  # (n_pixels, num_features)
+    alpha_flat = alpha.reshape(chunk_h * chunk_w, n_targets)  # (n_pixels, N_targets)
+
+    nodata = region_meta.nodata
+    if nodata is not None:
+        if np.isnan(nodata):
+            nodata_mask = np.any(np.isnan(flat), axis=1)
+        else:
+            nodata_mask = np.any(flat == nodata, axis=1)
+        valid_indices = np.where(~nodata_mask)[0]
+    else:
+        valid_indices = np.arange(chunk_h * chunk_w)
+
+    flat_valid = flat[valid_indices]  # (n_valid, num_features)
+    alpha_valid = alpha_flat[valid_indices]  # (n_valid, N_targets)
+
+    # Residual: r[n_valid, N_targets, num_features]
+    #   r_ij = x_i - a_ij x t_j
+    r = flat_valid[:, np.newaxis, :] - alpha_valid[:, :, np.newaxis] * t_mnf[np.newaxis, :, :]
+
+    # I = sqrt(r^T Λ⁻¹ r) per (pixel, target)
+    r_inv_cov = r @ inv_cov  # (n_valid, N_targets, num_features)
+    infeasibility_valid = np.sqrt(np.sum(r_inv_cov * r, axis=2))  # (n_valid, N_targets)
+
+    infeasibility_flat = np.full((chunk_h * chunk_w, n_targets), fill_value=np.nan, dtype=np.float32)
+    infeasibility_flat[valid_indices] = infeasibility_valid.astype(np.float32)
+    client.write_spec(output_write, infeasibility_flat.reshape(chunk_h, chunk_w, n_targets))
+
+
+@dataclass
+class MNFInfeasibilityStage(MapStage):
+    """Compute MTMF infeasibility scores per pixel in MNF space.
+
+    For each pixel ``x_mnf`` and its matched-filter abundance ``a`` the
+    infeasibility score is the Mahalanobis length of the residual after
+    subtracting the target contribution:
+
+    .. code-block:: text
+
+        r = x_mnf - a x t_mnf
+        I = sqrt(r^T Λ⁻¹ r)
+
+    A large ``I`` with a large ``a`` signals a false detection: the pixel
+    has a high matched-filter score but lies off the target sub-space.
+
+    The primary input is the MNF-transformed data cube (H, W, num_features).
+    The matched-filter scores ``(H, W, N_targets)`` are read by spatial region
+    from a broadcast ``DataRef`` so the two cubes stay tile-synchronized.
+
+    Output shape: ``(H, W, N_targets)`` float32.
+    """
+
+    _output_ref_name: str = "mnf_infeasibility"
+    _inv_cov_ref_name: str = "inv_cov"
+    _t_mnf_ref_name: str = "t_mnf"
+    _mf_scores_ref_name: str = "mf_scores"
+    _n_targets: int = 1
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=6,
+            bytes_per_scalar_out=0,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self) -> None:
+        for name in (self._inv_cov_ref_name, self._t_mnf_ref_name, self._mf_scores_ref_name):
+            if name not in self.broadcast_input:
+                raise ValueError(f"MNFInfeasibilityStage requires '{name}' in broadcast_input")
+        self.output_bindings = list(self.output_bindings) + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("MNFInfeasibilityStage expects a DatasetRegionRef input region")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=self._n_targets,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> List[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(input_meta, DatasetPlanMeta), "MNFInfeasibilityStage requires DatasetPlanMeta"
+        size_est = input_meta.height * input_meta.width * self._n_targets * np.dtype(np.float32).itemsize
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=size_est,
+                shape=(input_meta.height, input_meta.width, self._n_targets),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        inv_cov_ref = broadcast_inputs[self._inv_cov_ref_name]
+        t_mnf_ref = broadcast_inputs[self._t_mnf_ref_name]
+        mf_scores_ref = broadcast_inputs[self._mf_scores_ref_name]
+        return partial(
+            _run_infeasibility_tile,
+            input_ref,
+            input_region,
+            output_write,
+            inv_cov_ref,
+            t_mnf_ref,
+            mf_scores_ref,
+            self._n_targets,
+        )
+
+
 def get_mnf_mtmf_pipeline(
     dataset_ref: DataRef,
     target_spectra_ref: DataRef,
@@ -383,10 +566,10 @@ def get_mnf_mtmf_pipeline(
         whitened_eigen_ref_name=mnf_whitened_eigen_ref_name,
     )
 
-    # Step 3 — build full MNF transformation matrix T = A × W
-    # A = whitened eigenvectors (num_features × num_features)
-    # W = noise whitening matrix (num_features × num_features)
-    # T = A × W maps a mean-centered input spectrum directly into MNF space
+    # Step 3 — build full MNF transformation matrix T = A x W
+    # A = whitened eigenvectors (num_features x num_features)
+    # W = noise whitening matrix (num_features x num_features)
+    # T = A x W maps a mean-centered input spectrum directly into MNF space
     mnf_transform_matrix_ref_name = "mtmf_mnf_transform_matrix"
     mnf_eigenvectors_ref_name = f"{mnf_whitened_eigen_ref_name}_vectors"
     transform_matrix_stage = MatrixMultiplicationStage(
@@ -437,7 +620,7 @@ def get_mnf_mtmf_pipeline(
     )
 
     # Stage 1 — transform target spectra into MNF space
-    # t_mnf = T_mnf × (t - μ_b), with bad bands stripped from t first
+    # t_mnf = T_mnf x (t - μ_b), with bad bands stripped from t first
     target_mnf_ref_name = "mtmf_target_mnf"
     _target_spectra_bc = "mtmf_bc_target_spectra"
     _input_mean_bc = "mtmf_bc_input_mean"
@@ -515,7 +698,30 @@ def get_mnf_mtmf_pipeline(
         },
     )
 
-    # TODO: Step 4 — infeasibility MapStage
+    # Step 4 — infeasibility: I = sqrt((x_mnf - a t_mnf)^T Λ⁻¹ (x_mnf - a t_mnf))
+    # Primary input: same MNF cube; matched-filter scores read by region inside the worker.
+    infeasibility_ref_name = f"{output_ref_name}_infeasibility"
+    _mf_scores_bc = "mtmf_bc_mf_scores"
+    infeasibility_stage = MNFInfeasibilityStage(
+        _output_ref_name=infeasibility_ref_name,
+        _inv_cov_ref_name=_inv_lambda_bc,
+        _t_mnf_ref_name=_target_mnf_bc,
+        _mf_scores_ref_name=_mf_scores_bc,
+        _n_targets=n_targets,
+        default_executor="process",
+        input_binding=DataBinding(mnf_data_ref_name),
+        input_plan_meta=DatasetPlanMeta(
+            height=height,
+            width=width,
+            num_bands=num_features,
+            dtype=np.dtype(np.float32),
+        ),
+        broadcast_input={
+            _inv_lambda_bc: DataBinding(inv_lambda_ref_name),
+            _target_mnf_bc: DataBinding(target_mnf_ref_name),
+            _mf_scores_bc: DataBinding(matched_filter_ref_name),
+        },
+    )
 
     return AlgorithmPipeline(
         mnf_pipeline.stages
@@ -525,6 +731,7 @@ def get_mnf_mtmf_pipeline(
             transform_targets_stage,
             inv_lambda_stage,
             matched_filter_stage,
+            infeasibility_stage,
         ]
     )
 
