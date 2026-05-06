@@ -309,12 +309,37 @@ def get_mnf_mtmf_pipeline(
         },
     )
 
-    # TODO: Step 2 — invert Λ (PosSemiDefMatrixInverse on mnf_lambda_ref_name)
+    # Step 2 — invert Λ to get Λ⁻¹ for the matched filter
+    inv_lambda_ref_name = "mtmf_inv_lambda"
+    inv_lambda_stage = PosSemiDefMatrixInverse(
+        _output_ref_name=inv_lambda_ref_name,
+        default_executor="process",
+        input_binding=DataBinding(mnf_lambda_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=num_features,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float32),
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
     # TODO: Step 3 — matched filter MapStage (Mahalanobis with normalization)
     # TODO: Step 4 — infeasibility MapStage
 
     return AlgorithmPipeline(
-        mnf_pipeline.stages + [transform_matrix_stage, lambda_stage, transform_targets_stage]
+        mnf_pipeline.stages
+        + [
+            transform_matrix_stage,
+            lambda_stage,
+            transform_targets_stage,
+            inv_lambda_stage,
+        ]
     )
 
 
