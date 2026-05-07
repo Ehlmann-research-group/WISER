@@ -1,0 +1,703 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Design Documents &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/design-documents';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Contributing to WISER" href="../contributing.html" />
+    <link rel="prev" title="System Design" href="system-design.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/design-documents.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/design-documents.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Design Documents</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-architecture-and-design">Plugin Architecture and Design</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#desired-features">Desired Features</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-questions-and-issues">Implementation Questions and Issues</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#knowledge-required-for-implementation">Knowledge Required for Implementation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-quality">Plugin Quality</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dependencies">Dependencies</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-plugin-dependency-issue-and-fixes">Known Plugin Dependency Issue and Fixes</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem-pre-release-1-3b1">The Problem (Pre-release 1.3b1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#replicating-the-pre-fix-bug">Replicating the Pre-fix Bug</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-processing">Batch Processing</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-technical-challenges">Known Technical Challenges</a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="design-documents">
+<h1>Design Documents<a class="headerlink" href="#design-documents" title="Link to this heading">#</a></h1>
+<p>These documents capture requirements, proposed designs, and architecture decisions for features in development or under
+consideration.</p>
+<section id="plugin-architecture-and-design">
+<h2>Plugin Architecture and Design<a class="headerlink" href="#plugin-architecture-and-design" title="Link to this heading">#</a></h2>
+<blockquote>
+<div><p><strong>Note:</strong> This is an internal design document discussing plugin isolation,
+dependency management, and implementation considerations. It is not the
+user-facing plugin development guide. For documentation on how to write
+plugins for WISER, see the <a class="reference internal" href="../extending-wiser/index.html"><span class="doc std std-doc">Extending WISER</span></a> section.</p>
+</div></blockquote>
+<p>This document discusses plugin support for WISER, including the desired
+features, potential implementation issues, and possible design approaches.</p>
+<section id="desired-features">
+<h3>Desired Features<a class="headerlink" href="#desired-features" title="Link to this heading">#</a></h3>
+<p>WISER is intended to be a research tool. As such, it should be extensible by
+researchers as they develop new data processing techniques.</p>
+<p>The integration points for WISER extension are as follows:</p>
+<ul class="simple">
+<li><p>Plugins may be exposed in a “Tools” drop-down menu in the global application
+toolbar. This is the most general way to extend WISER. Such tool plugins
+may be written as Python modules.</p></li>
+<li><p>Plugins may be exposed as pop-up context menu entries, when the user e.g.
+right-clicks on a dataset, ROI, spectrum, or other such object in the GUI.
+The plugin is intended to operate on the specific kind of object that was
+selected.  (Example:  A plugin that provides a custom processing operation
+over the pixels in the ROI right-clicked by the user.)</p></li>
+<li><p>Plugins may also expose custom functions in the band-math functionality, if
+users want to provide custom band-math operations for exploring their data.</p></li>
+</ul>
+<p>None of these options are necessarily aimed at the WISER Python Console, since
+the console is expected to be able to import Python modules on its own.</p>
+</section>
+<section id="implementation-questions-and-issues">
+<h3>Implementation Questions and Issues<a class="headerlink" href="#implementation-questions-and-issues" title="Link to this heading">#</a></h3>
+<p>Several implementation questions and issues present themselves with this
+functionality. They fall into various categories.</p>
+</section>
+<section id="knowledge-required-for-implementation">
+<h3>Knowledge Required for Implementation<a class="headerlink" href="#knowledge-required-for-implementation" title="Link to this heading">#</a></h3>
+<p>WISER will provide some kind of programmatic API for integrating plugins into
+the application. It is reasonable to expect users to know this API. It will
+be well-documented, and over time we will refine it to be powerful and easy to
+use.</p>
+<p><strong>Are we expecting users to know Qt5 and PySide2?</strong>  These libraries are quite
+involved, and we probably don’t want to require users to know about them. On
+the other hand, if users <em>are</em> familiar with these libraries, we would like the
+user to be able to use them to create more sophisticated UIs.</p>
+<p>This suggests providing a library of common UI interactions for users to use in
+their plugins. For example:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ds:</span> <span class="pre">RasterDataSet</span> <span class="pre">=</span> <span class="pre">app.choose_dataset_ui()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">spectrum:</span> <span class="pre">SpectrumInfo</span> <span class="pre">=</span> <span class="pre">app.choose_spectrum_ui()</span></code></p></li>
+</ul>
+<p>We want to provide the <em>minimum barrier to entry</em> for people wishing to extend
+WISER.</p>
+</section>
+<section id="plugin-quality">
+<h3>Plugin Quality<a class="headerlink" href="#plugin-quality" title="Link to this heading">#</a></h3>
+<p><strong>Do we want to try to isolate WISER from bad plugin behaviors, such as
+long-running tasks, infinite loops, and buggy/crashing behavior?</strong></p>
+<p>It would seem desirable to do this. Because of this, we should consider running
+plugins (or giving users the option of running plugins) in separate processes.
+Perhaps an option can be provided to turn this on or off, so that
+lightweight/reliable plugins can be kept within the WISER process. It should be
+noted that supporting running plugins in separate processes will require us to
+rethink how the user can create plugins that interact with the GUI. As of
+04/14/2026, users just have to create their PySide2 widget and show it, but a
+separate process can’t easily do this.</p>
+<p>WISER needs to provide a long-running-task abstraction for plugins to leverage,
+or for WISER to leverage when invoking plugins, to keep them from killing UI
+interactivity. We already need this to support large data files, so this will
+be a high priority to build early on, for the sake of usability.</p>
+</section>
+<section id="dependencies">
+<h3>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading">#</a></h3>
+<p><strong>How do we reconcile the library dependencies of plugins, with the library
+dependencies of WISER?</strong>  WISER has a set of Python dependencies. Plugins may
+have additional dependencies outside of WISER’s dependencies. Also, plugins
+may have dependencies that are incompatible with WISER’s dependencies. We need
+to consider how to support plugins in these scenarios. As of 04/14/2026, WISER
+does not support plugins that have incompatible dependencies.</p>
+<p>This suggests that WISER should support plugins of two main “flavors”:  plugins
+that work within the WISER dependencies, and plugins that run out-of-process,
+possibly against some separate Python environment.  (A special case of this
+could be plugins that run within a Docker container, or that interface with
+software running in a Docker container.)</p>
+<p>This is further affected by whether WISER is being used in an internal
+development setting (where WISER’s source code is available to the developer,
+and the developer can install other dependencies), or whether it is being used
+in a “frozen application” setting (where WISER has been frozen, along with its
+dependencies). In the frozen-app situation, WISER’s dependencies cannot be
+extended.  (This may not be possible in a frozen-app context, but WISER can spawn a separate Python process with its own
+environment and
+dependencies.)</p>
+</section>
+<section id="known-plugin-dependency-issue-and-fixes">
+<h3>Known Plugin Dependency Issue and Fixes<a class="headerlink" href="#known-plugin-dependency-issue-and-fixes" title="Link to this heading">#</a></h3>
+<section id="the-problem-pre-release-1-3b1">
+<h4>The Problem (Pre-release 1.3b1)<a class="headerlink" href="#the-problem-pre-release-1-3b1" title="Link to this heading">#</a></h4>
+<p>When PyInstaller builds a frozen WISER application it recursively resolves
+all imports and stores them in <code class="docutils literal notranslate"><span class="pre">_internal/</span></code>. Before release 1.3b1, if a
+plugin used a submodule that PyInstaller had pruned (e.g. <code class="docutils literal notranslate"><span class="pre">scipy.io</span></code> when
+WISER itself only used top-level <code class="docutils literal notranslate"><span class="pre">scipy</span></code>), that submodule would not be found
+at runtime and the plugin would fail to load.</p>
+<p><strong>Bandage solution (releases 1.2b1 and earlier):</strong> The PyInstaller spec was
+updated to include all submodules of WISER’s Python dependencies explicitly.
+This is done in <code class="docutils literal notranslate"><span class="pre">pyinstaller_hooks/</span></code> and ensures submodules are not pruned.
+All <code class="docutils literal notranslate"><span class="pre">rel/1.2b1</span></code> and <code class="docutils literal notranslate"><span class="pre">rel/1.2b1-intelmac</span></code> branches (Windows, ARM Mac, Intel
+Mac) carry this fix.</p>
+<p>To verify the fix:</p>
+<ol class="arabic simple">
+<li><p>Build a frozen WISER (no need to code-sign or notarize).</p></li>
+<li><p>Add the <code class="docutils literal notranslate"><span class="pre">pca_plugin</span></code> (it depends on <code class="docutils literal notranslate"><span class="pre">scipy.io</span></code>).</p></li>
+<li><p>Confirm no <code class="docutils literal notranslate"><span class="pre">scipy.io</span></code> import error occurs.</p></li>
+</ol>
+<p><strong>Longer-term direction (under investigation):</strong> Allow plugins to declare
+their own Python dependencies (separate from WISER’s conda environment) using
+<code class="docutils literal notranslate"><span class="pre">uv</span></code> in a subprocess. Rough sketch:</p>
+<ol class="arabic simple">
+<li><p>A Python bootloader script installs <code class="docutils literal notranslate"><span class="pre">uv</span></code> if not present (downloaded from
+the internet, not bundled with PyInstaller).</p></li>
+<li><p>On plugin load, WISER spawns a subprocess via <code class="docutils literal notranslate"><span class="pre">uv</span></code> that provides the
+plugin’s declared dependencies.</p></li>
+<li><p>WISER must be packaged as a wheel (<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">zipapp</span></code>) so it can be
+imported by the plugin subprocess.</p></li>
+<li><p>Plugins that ship as wheels are supported; dev-environment (loose source)
+plugins are also supported.</p></li>
+</ol>
+<p>Constraints identified:</p>
+<ul class="simple">
+<li><p>GDAL and similar packages that require compiled C extensions cannot be
+installed via pip alone — they need conda or system packages.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PySide6</span></code> is required (over <code class="docutils literal notranslate"><span class="pre">PySide2</span></code>) for this approach because PySide6
+has pip wheels for all major platforms.</p></li>
+<li><p>Architecture-specific DLLs can only be installed by pip if the corresponding
+package itself supports pip installation.</p></li>
+</ul>
+<p>Tooling evaluated: Bazel, Nuitka (requires PySide6), Poetry, cx_Freeze.
+None has been adopted yet.</p>
+</section>
+<section id="replicating-the-pre-fix-bug">
+<h4>Replicating the Pre-fix Bug<a class="headerlink" href="#replicating-the-pre-fix-bug" title="Link to this heading">#</a></h4>
+<p>Add the path to a conda environment’s <code class="docutils literal notranslate"><span class="pre">site-packages</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">C:\Users\&lt;user&gt;\anaconda3\envs\plugin_lib\Lib\site-packages</span></code>) to plugin
+directories, and add <code class="docutils literal notranslate"><span class="pre">pca_plugin.PCAPlugin</span></code> to plugins in settings.
+<code class="docutils literal notranslate"><span class="pre">scipy.io</span></code> will not be found because PyInstaller did not include it.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="batch-processing">
+<h2>Batch Processing<a class="headerlink" href="#batch-processing" title="Link to this heading">#</a></h2>
+<p>Researchers frequently need to apply the same processing step — a plugin algorithm,
+a band-math expression, a spectral analysis — across many datasets at once. Today,
+WISER handles each operation interactively and sequentially on the main thread,
+which does not scale to multi-file workflows and can freeze the UI on large inputs.</p>
+<p>The goal of batch processing is to let users define a set of tasks, submit them
+as a queue, track their progress, and cancel individual runs — all without
+interrupting the rest of the application. This capability is needed in two areas:
+running plugins over collections of datasets, and applying band-math expressions
+to folders of images. The band-math is case is already implemented.</p>
+<section id="known-technical-challenges">
+<h3>Known Technical Challenges<a class="headerlink" href="#known-technical-challenges" title="Link to this heading">#</a></h3>
+<p>GDAL <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> objects are not serializable (cannot be pickled) and cannot be
+memory-mapped. Windows does not support <code class="docutils literal notranslate"><span class="pre">fork</span></code>, so process spawning with GDAL
+objects is non-trivial. Options being explored:</p>
+<ul class="simple">
+<li><p>Pass file paths to worker processes and re-open datasets there.</p></li>
+<li><p>Use shared memory for raw array data extracted before spawning.</p></li>
+</ul>
+<p>Relevant background:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://gdal.org/tutorials/multiprocessing.html">GDAL and multiprocessing</a></p></li>
+<li><p><a class="reference external" href="https://gis.stackexchange.com/questions/361703/pickle-error-with-gdal-dataset">Pickle error with GDAL Dataset</a></p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="system-design.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">System Design</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../contributing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Contributing to WISER</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-architecture-and-design">Plugin Architecture and Design</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#desired-features">Desired Features</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-questions-and-issues">Implementation Questions and Issues</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#knowledge-required-for-implementation">Knowledge Required for Implementation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-quality">Plugin Quality</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dependencies">Dependencies</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-plugin-dependency-issue-and-fixes">Known Plugin Dependency Issue and Fixes</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem-pre-release-1-3b1">The Problem (Pre-release 1.3b1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#replicating-the-pre-fix-bug">Replicating the Pre-fix Bug</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-processing">Batch Processing</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-technical-challenges">Known Technical Challenges</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

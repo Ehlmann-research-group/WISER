@@ -1,0 +1,918 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Band-Math Plugins &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'extending-wiser/bandmath_plugins';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="GUI Plugins in WISER" href="ui_plugins.html" />
+    <link rel="prev" title="Context-Menu Plugins" href="ctxmenu_plugins.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Extending WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/extending-wiser/bandmath_plugins.rst" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/extending-wiser/bandmath_plugins.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Band-Math Plugins</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-bandmathplugin-class">The <code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code> Class</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin"><code class="docutils literal notranslate"><span class="pre">wiser.plugins.types.BandMathPlugin.BandMathPlugin</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions"><code class="docutils literal notranslate"><span class="pre">wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-bandmathfunction-class">The <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> Class</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.apply"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction.apply()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-bandmathvalue-class">The <code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code> Class</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.set_name"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.set_name()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_shape"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.get_shape()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.SPECTRUM"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.SPECTRUM</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.NUMBER"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.NUMBER</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.BOOLEAN"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.BOOLEAN</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.STRING"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.STRING</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-other-function-details">Reporting Other Function Details</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-suggestions">Implementation Suggestions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-bandmath-plugin">Example BandMath Plugin</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="band-math-plugins">
+<h1>Band-Math Plugins<a class="headerlink" href="#band-math-plugins" title="Link to this heading">#</a></h1>
+<p>The WISER band-math functionality may be extended by implementing a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.plugins.BandMathPlugin</span></code> instance that provides implementations of
+the <code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.bandmath.BandMathFunction</span></code> type.  The plugin itself is very
+straightforward, but the implementation of functions is somewhat involved, as
+WISER must manage various details in the band-math implementation.</p>
+<section id="the-bandmathplugin-class">
+<h2>The <code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code> Class<a class="headerlink" href="#the-bandmathplugin-class" title="Link to this heading">#</a></h2>
+<p>Band-math plugins must derive from the <code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code> class:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">BandMathPlugin</span></span><a class="headerlink" href="#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-obj docutils literal notranslate"><span class="pre">wiser.plugins.types.Plugin</span></code></p>
+<p>This is the base type for plugins that provide custom band-math functions.</p>
+<p class="rubric">Initialization</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions">
+<span class="sig-name descname"><span class="pre">get_bandmath_functions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">wiser.bandmath.BandMathFunction</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions" title="Link to this definition">#</a></dt>
+<dd><p>This method returns a dictionary of all band-math functions provided by
+the plugin.</p>
+<p>The keys are the function names, and must satisfy the parsing
+requirements of the band-math parser:  names must start with an
+alphabetical character (a-z), and must include only alphanumeric
+characters and underscores (a-z, 0-9, _).</p>
+<p>The values are instances of classes that extend the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">BandMathFunction</span></code> type, to provide the various operations
+required by band-math functions.</p>
+<p>Band-math expressions are <em>case-insensitive</em>.  Therefore, all function
+names specified by a plugin are converted to lowercase when loaded into
+the band-math evaluator.</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>The plugin implementation is very straightforward; it must simply return a
+Python <code class="docutils literal notranslate"><span class="pre">dict</span></code> that associates string function-names and corresponding
+<code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> instances.</p>
+<p>The implementation of the band-math functions themselves is more involved;
+read on for details.</p>
+</section>
+<section id="the-bandmathfunction-class">
+<h2>The <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> Class<a class="headerlink" href="#the-bandmathfunction-class" title="Link to this heading">#</a></h2>
+<p>Band-math functions must derive from the <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> class:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">BandMathFunction</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-obj docutils literal notranslate"><span class="pre">abc.ABC</span></code></p>
+<p>The abstract base-class for all band-math functions and built-in operators.
+Functions must be able to report useful documentation, as well as the type
+of the result based on their input types, so that the user interface can
+provide useful feedback to users.</p>
+<p>This class should be serializable.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description">
+<span class="sig-name descname"><span class="pre">get_description</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description" title="Link to this definition">#</a></dt>
+<dd><p>Return a helpful description of the band-math function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">analyze</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.bandmath.types.BandMathExprInfo</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.bandmath.types.BandMathExprInfo</span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze" title="Link to this definition">#</a></dt>
+<dd><p>Given the indicated argument types, this function reports the
+result-type of the function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.apply">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue" title="wiser.bandmath.types.BandMathValue"><span class="pre">wiser.bandmath.types.BandMathValue</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue" title="wiser.bandmath.types.BandMathValue"><span class="pre">wiser.bandmath.types.BandMathValue</span></a></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.apply" title="Link to this definition">#</a></dt>
+<dd><p>Apply the function to the specified arguments to produce a value.  If
+the function gets the wrong number or types of arguments, it should
+raise a suitably-typed Exception.</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>For maximum flexibility, band-math functions may accept any number and type of
+arguments.  For example, a band-math function <code class="docutils literal notranslate"><span class="pre">dotprod(a,</span> <span class="pre">b)</span></code> may accept two
+spectra (returning a number), a spectrum and a data-set (for a pixel-wise
+dot-product of the spectrum with the data-set, returning a 1-band data-set),
+or a data-set and a spectrum (same).  Therefore, functions are responsible for
+reporting errors if they are given the wrong number of arguments, or if the
+arguments are of the wrong types.  Additional checks may also be necessary, if
+e.g. there is a mismatch in the number of bands between arguments, or a mismatch
+in the spatial dimensions of images or bands.</p>
+</section>
+<section id="the-bandmathvalue-class">
+<h2>The <code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code> Class<a class="headerlink" href="#the-bandmathvalue-class" title="Link to this heading">#</a></h2>
+<p>Band-math function arguments and return-values are wrapped in the
+<code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code> class:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">BandMathValue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType" title="wiser.bandmath.types.VariableType"><span class="pre">wiser.bandmath.types.VariableType</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">computed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_intermediate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue" title="Link to this definition">#</a></dt>
+<dd><p>This is a value created or consumed by a band-math expression during
+evaluation.  The high-level type of the variable is stored, along with the
+actual value.  The value may be one of several possible types, since most
+band-math operations work directly on NumPy arrays rather than other WISER
+types.</p>
+<p>Whether the band-math value is a computed result or not is also recorded in
+this type, so that math operations can reuse an argument’s memory where that
+would be more efficient.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>type</strong> – The type of the band-math value.</p></li>
+<li><p><strong>value</strong> – The value itself.</p></li>
+<li><p><strong>computed</strong> – If True, the value was computed from an expression.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Initialization</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.set_name">
+<span class="sig-name descname"><span class="pre">set_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.set_name" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_shape">
+<span class="sig-name descname"><span class="pre">get_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_shape" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type">
+<span class="sig-name descname"><span class="pre">get_elem_type</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.dtype</span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar">
+<span class="sig-name descname"><span class="pre">as_scalar</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar" title="Link to this definition">#</a></dt>
+<dd><p>If this BandMathValue is a scalar type, it will return that type. Here
+scalar is defined as a singular value, so boolean is considered a scalar.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array">
+<span class="sig-name descname"><span class="pre">as_numpy_array</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array" title="Link to this definition">#</a></dt>
+<dd><p>If a band-math value is an image cube, image band, or spectrum, this
+function returns the value as a NumPy <code class="docutils literal notranslate"><span class="pre">ndarray</span></code>.  If a band-math
+value is some other type, the function raises a <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands">
+<span class="sig-name descname"><span class="pre">as_numpy_array_by_bands</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands" title="Link to this definition">#</a></dt>
+<dd><p>If a band-math value is an image cube, image band, or spectrum, this
+function returns the value as a NumPy <code class="docutils literal notranslate"><span class="pre">ndarray</span></code>.  If a band-math
+value is some other type, the function raises a <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>.
+This function should really only be called on image_cubes unless its
+called through make_image_cube_compatible_by_bands</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>For arguments, non-scalar band-math values may be fetched from a
+<code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code> object via the <code class="xref py py-meth docutils literal notranslate"><span class="pre">BandMathValue.as_numpy_array()</span></code> method.
+Scalar values may of course be retrieved directly from the
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">BandMathValue.value</span></code> member.</p>
+<p>For function return-values, results must also be wrapped in a <code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code>
+object.  The result may be a NumPy <code class="docutils literal notranslate"><span class="pre">ndarray</span></code> instance, or a specific kind of
+object (e.g. <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>, <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code>, …), or a scalar.  In all these
+cases, the type of the result must be reported with a value from the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.bandmath.VariableType</span></code> enumeration:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">VariableType</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-obj docutils literal notranslate"><span class="pre">enum.IntEnum</span></code></p>
+<p>Types of variables that are supported by the band-math functionality.</p>
+<p class="rubric">Initialization</p>
+<p>Initialize self.  See help(type(self)) for accurate signature.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE">
+<span class="sig-name descname"><span class="pre">IMAGE_CUBE</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND">
+<span class="sig-name descname"><span class="pre">IMAGE_BAND</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.SPECTRUM">
+<span class="sig-name descname"><span class="pre">SPECTRUM</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.SPECTRUM" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST">
+<span class="sig-name descname"><span class="pre">REGION_OF_INTEREST</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.NUMBER">
+<span class="sig-name descname"><span class="pre">NUMBER</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.NUMBER" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.BOOLEAN">
+<span class="sig-name descname"><span class="pre">BOOLEAN</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">6</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.BOOLEAN" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.STRING">
+<span class="sig-name descname"><span class="pre">STRING</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">7</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.STRING" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH">
+<span class="sig-name descname"><span class="pre">IMAGE_CUBE_BATCH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH">
+<span class="sig-name descname"><span class="pre">IMAGE_BAND_BATCH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">9</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET">
+<span class="sig-name descname"><span class="pre">IMAGE_CUBE_DATASET</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></span><a class="headerlink" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="reporting-other-function-details">
+<h2>Reporting Other Function Details<a class="headerlink" href="#reporting-other-function-details" title="Link to this heading">#</a></h2>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">BandMathFunction</span></code> implementations should also implement the other
+specified operations, to fully integrate with the functionality exposed in
+WISER.  For example, the <code class="xref py py-meth docutils literal notranslate"><span class="pre">wiser.bandmath.BandMathFunction.get_result_type()</span></code>
+method reports the type of the result based on the number and types of the
+arguments, which is then reported to the user in the GUI.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Additional abstract methods will be added to the <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> type
+in the near future.  For example, WISER needs the ability to estimate the
+memory requirements for evaluating a given band-math expression, as
+operations may be very resource-intensive.  Thus, functions will need to
+expose this kind of information in the future.</p>
+<p>The goal of the band-math implementation will be to not <em>require</em> these new
+operations, so that existing band-math plugins are rendered unusable when
+new implementation details are added.  However, for full integration into
+WISER’s capabilities, it would be valuable to implement missing
+functionality as quickly as possible.</p>
+</div>
+</section>
+<section id="implementation-suggestions">
+<h2>Implementation Suggestions<a class="headerlink" href="#implementation-suggestions" title="Link to this heading">#</a></h2>
+<p>The present form of the band-math functionality requires the use of a number of
+wrapper objects for functions and values.  Thus, plugin writers are encouraged
+to separate the <em>operations themselves</em> from the <em>band-math integration code</em>.
+This will ensure that useful operations you may create are still widely useful
+in your own code, and only the integration-points with the WISER band-math
+functionality will require the additional overhead of the above classes.</p>
+<p>Additionally, it is suggested that computational operations should be
+implemented to operate on NumPy <code class="docutils literal notranslate"><span class="pre">ndarray</span></code> objects for maximum generality,
+although it may also be useful to implement certain operations against
+<code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.raster.RasterDataSet</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.raster.Spectrum</span></code> objects,
+where metadata is available for use.</p>
+</section>
+<section id="example-bandmath-plugin">
+<h2>Example BandMath Plugin<a class="headerlink" href="#example-bandmath-plugin" title="Link to this heading">#</a></h2>
+<p>Okay, lets get into an example plugin that lets you do a spectral angle calculation
+between a spectrum and a dataset.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">wiser.plugins</span><span class="w"> </span><span class="kn">import</span> <span class="n">BandMathPlugin</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">wiser.bandmath</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BandMathValue</span><span class="p">,</span>
+    <span class="n">BandMathEvalError</span><span class="p">,</span>
+    <span class="n">VariableType</span><span class="p">,</span>
+    <span class="n">BandMathExprInfo</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wiser.bandmath.functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">BandMathFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wiser.bandmath.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">reorder_args</span><span class="p">,</span> <span class="n">check_image_cube_compatible</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SpectralAnglePlugin</span><span class="p">(</span><span class="n">BandMathPlugin</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_bandmath_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BandMathFunction</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;spectral_angle&quot;</span><span class="p">:</span> <span class="n">SpectralAngle</span><span class="p">()}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SpectralAngle</span><span class="p">(</span><span class="n">BandMathFunction</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_report_type_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lhs_type</span><span class="p">,</span> <span class="n">rhs_type</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Operands </span><span class="si">{</span><span class="n">lhs_type</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">rhs_type</span><span class="si">}</span><span class="s2"> not compatible for spectral angle operation.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">infos</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BandMathExprInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BandMathExprInfo</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">infos</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;spectral_angle function requires exactly two arguments.&quot;</span><span class="p">)</span>
+
+        <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">infos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">infos</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">reorder_args</span><span class="p">(</span><span class="n">lhs</span><span class="o">.</span><span class="n">result_type</span><span class="p">,</span> <span class="n">rhs</span><span class="o">.</span><span class="n">result_type</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">lhs</span><span class="o">.</span><span class="n">result_type</span> <span class="o">==</span> <span class="n">VariableType</span><span class="o">.</span><span class="n">IMAGE_CUBE</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">result_type</span> <span class="o">==</span> <span class="n">VariableType</span><span class="o">.</span><span class="n">SPECTRUM</span><span class="p">:</span>
+            <span class="n">check_image_cube_compatible</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">lhs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="n">BandMathExprInfo</span><span class="p">(</span><span class="n">VariableType</span><span class="o">.</span><span class="n">IMAGE_BAND</span><span class="p">)</span>
+            <span class="n">info</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">lhs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">lhs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">info</span><span class="o">.</span><span class="n">elem_type</span> <span class="o">=</span> <span class="n">lhs</span><span class="o">.</span><span class="n">elem_type</span>
+            <span class="n">info</span><span class="o">.</span><span class="n">spatial_metadata_source</span> <span class="o">=</span> <span class="n">lhs</span><span class="o">.</span><span class="n">spatial_metadata_source</span>
+            <span class="n">info</span><span class="o">.</span><span class="n">spectral_metadata_source</span> <span class="o">=</span> <span class="n">lhs</span><span class="o">.</span><span class="n">spectral_metadata_source</span>
+            <span class="k">return</span> <span class="n">info</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_report_type_error</span><span class="p">(</span><span class="n">lhs</span><span class="o">.</span><span class="n">result_type</span><span class="p">,</span> <span class="n">rhs</span><span class="o">.</span><span class="n">result_type</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BandMathValue</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BandMathValue</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">BandMathEvalError</span><span class="p">(</span><span class="s2">&quot;spectral_angle function requires exactly two arguments.&quot;</span><span class="p">)</span>
+
+        <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">reorder_args</span><span class="p">(</span><span class="n">lhs</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">rhs</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">lhs</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">VariableType</span><span class="o">.</span><span class="n">IMAGE_CUBE</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">VariableType</span><span class="o">.</span><span class="n">SPECTRUM</span><span class="p">:</span>
+            <span class="n">img_arr</span> <span class="o">=</span> <span class="n">lhs</span><span class="o">.</span><span class="n">as_numpy_array</span><span class="p">()</span>
+            <span class="n">spectrum_arr</span> <span class="o">=</span> <span class="n">rhs</span><span class="o">.</span><span class="n">as_numpy_array</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">lhs</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">VariableType</span><span class="o">.</span><span class="n">SPECTRUM</span> <span class="ow">and</span> <span class="n">rhs</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">VariableType</span><span class="o">.</span><span class="n">IMAGE_CUBE</span><span class="p">:</span>
+            <span class="n">spectrum_arr</span> <span class="o">=</span> <span class="n">lhs</span><span class="o">.</span><span class="n">as_numpy_array</span><span class="p">()</span>
+            <span class="n">img_arr</span> <span class="o">=</span> <span class="n">rhs</span><span class="o">.</span><span class="n">as_numpy_array</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">BandMathEvalError</span><span class="p">(</span>
+                <span class="s2">&quot;spectral_angle function requires two arguments, an IMAGE_CUBE and a SPECTRUM.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Compute the spectral angle</span>
+        <span class="n">spectrum_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">spectrum_arr</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">img_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">img_arr</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">spectrum_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">spectrum_arr</span><span class="p">)</span>
+        <span class="n">img_mags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">img_arr</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">result_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">img_arr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">result_arr_no_nan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">result_arr</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">result_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">result_arr_no_nan</span><span class="p">,</span> <span class="n">spectrum_arr</span><span class="p">)</span>
+        <span class="n">result_arr</span> <span class="o">=</span> <span class="n">result_arr</span> <span class="o">/</span> <span class="p">(</span><span class="n">spectrum_mag</span> <span class="o">*</span> <span class="n">img_mags</span><span class="p">)</span>
+        <span class="n">result_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">result_arr</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">BandMathValue</span><span class="p">(</span><span class="n">VariableType</span><span class="o">.</span><span class="n">IMAGE_BAND</span><span class="p">,</span> <span class="n">result_arr</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="ctxmenu_plugins.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Context-Menu Plugins</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="ui_plugins.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">GUI Plugins in WISER</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-bandmathplugin-class">The <code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code> Class</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin"><code class="docutils literal notranslate"><span class="pre">wiser.plugins.types.BandMathPlugin.BandMathPlugin</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions"><code class="docutils literal notranslate"><span class="pre">wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-bandmathfunction-class">The <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> Class</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.apply"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathFunction.BandMathFunction.apply()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-bandmathvalue-class">The <code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code> Class</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.set_name"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.set_name()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_shape"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.get_shape()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.SPECTRUM"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.SPECTRUM</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.NUMBER"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.NUMBER</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.BOOLEAN"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.BOOLEAN</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.STRING"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.STRING</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET"><code class="docutils literal notranslate"><span class="pre">wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-other-function-details">Reporting Other Function Details</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-suggestions">Implementation Suggestions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-bandmath-plugin">Example BandMath Plugin</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

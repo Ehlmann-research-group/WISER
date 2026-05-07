@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Engaging With WISER &#8212; WISER Docs</title>
+    <title>Contributing to WISER &#8212; WISER Documentation</title>
   
   
   
@@ -32,7 +32,7 @@
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
-    <link rel="stylesheet" type="text/css" href="_static/style.css?v=613452eb" />
+    <link rel="stylesheet" type="text/css" href="_static/style.css?v=aa29f439" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -40,15 +40,15 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=2fb55b05"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'contributing';</script>
+    <link rel="icon" href="_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Feature Submitting Guide" href="general-content/feature-submitting-guide.html" />
-    <link rel="prev" title="WISER Storage and Memory Management" href="developer-content/system-design/storage_memory_management.html" />
+    <link rel="prev" title="Design Documents" href="developer-content/design-documents.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -130,8 +130,8 @@
       
     
     
-    <img src="_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
-    <img src="_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Docs - Home"/>
+    <img src="_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
   
   
 </a></div>
@@ -144,36 +144,42 @@
 </button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
-        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="get-started.html">Getting started</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html">WISER Overview</a></li>
-
-
-
-<li class="toctree-l2"><a class="reference internal" href="user-content/contrast-stretch.html">Contrast Stretch</a></li>
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/spatial-tools.html">Spatial Tools</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer.html">Developing WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-linux.html">Developing and Building WISER on Linux</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/branching-strategy.html">Branching Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-standards.html">Testing Standards</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/task_system.html">WISER Task, Storage, and Scheduler System Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/activity_monitor.html">Activity Monitor Update Flow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/storage_memory_management.html">WISER Storage and Memory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Engaging With WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
-<li class="toctree-l2"><a class="reference internal" href="general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Contributing to WISER</a></li>
 </ul>
 
     </div>
@@ -222,18 +228,50 @@
 <div class="article-header-buttons">
 
 
-<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
-   class="btn btn-sm btn-source-repository-button"
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
-   data-bs-placement="bottom" data-bs-toggle="tooltip"
+   data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
 
 <span class="btn__icon-container">
   <i class="fab fa-github"></i>
   </span>
-
+<span class="btn__text-container">Repository</span>
 </a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/contributing.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
 
 
 
@@ -248,7 +286,7 @@
       
       
       
-      <li><a href="_sources/contributing.rst" target="_blank"
+      <li><a href="_sources/contributing.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -258,7 +296,7 @@
 <span class="btn__icon-container">
   <i class="fas fa-file"></i>
   </span>
-<span class="btn__text-container">.rst</span>
+<span class="btn__text-container">.md</span>
 </a>
 </li>
       
@@ -311,7 +349,9 @@
 <button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
 </button>
-
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
 </div></div>
       
     </div>
@@ -322,11 +362,21 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Engaging With WISER</h1>
+    <h1>Contributing to WISER</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
             
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-a-bug">Reporting a Bug</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requesting-a-feature">Requesting a Feature</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-code">Contributing Code</a></li>
+</ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -336,26 +386,77 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="engaging-with-wiser">
-<h1>Engaging With WISER<a class="headerlink" href="#engaging-with-wiser" title="Link to this heading">#</a></h1>
-<p>This page hosts documentation for how to notify WISER
-maintainers/committers/contributors of what you want or
-what you have found.</p>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents</span></p>
+  <section id="contributing-to-wiser">
+<h1>Contributing to WISER<a class="headerlink" href="#contributing-to-wiser" title="Link to this heading">#</a></h1>
+<p>Questions, bugs, and feature requests can be submitted as
+<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues">GitHub Issues</a>,
+or via the <a class="reference external" href="https://forms.gle/eqkdnv9b2ogEUbPp6">WISER feedback form</a>
+if you prefer not to use GitHub.</p>
+<section id="reporting-a-bug">
+<h2>Reporting a Bug<a class="headerlink" href="#reporting-a-bug" title="Link to this heading">#</a></h2>
+<p>Thank you for helping make WISER better!
+If you find a problem or unexpected behavior, you can report it in two ways:</p>
+<ul class="simple">
+<li><p><strong><a class="reference external" href="https://forms.gle/eqkdnv9b2ogEUbPp6">Submit via the feedback form</a></strong> — no GitHub account required.</p></li>
+<li><p><strong><a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues/new/choose">Submit a GitHub Issue</a></strong> — use the **Bug report
+** template.</p></li>
+</ul>
+<p>When filling out the issue form:</p>
+<ul class="simple">
+<li><p>Clearly <strong>describe the bug</strong> — what went wrong and where.</p></li>
+<li><p>Include <strong>steps to reproduce</strong> the problem (numbered if possible).</p></li>
+<li><p>State what you <strong>expected to happen</strong> versus what actually occurred.</p></li>
+<li><p>Add <strong>screenshots or console messages</strong> if they help explain the issue.</p></li>
+<li><p>Include details about your <strong>system setup</strong>:</p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="general-content/feature-submitting-guide.html">Feature Submitting Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="general-content/feature-submitting-guide.html#how-to-submit-a-feature-request">How to Submit a Feature Request</a></li>
-<li class="toctree-l2"><a class="reference internal" href="general-content/feature-submitting-guide.html#review-process">Review Process</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="general-content/bug-submitting-guide.html">Bug Submitting Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="general-content/bug-submitting-guide.html#how-to-submit-a-bug-report">How to Submit a Bug Report</a></li>
-<li class="toctree-l2"><a class="reference internal" href="general-content/bug-submitting-guide.html#review-process">Review Process</a></li>
+<li><p>Operating System (e.g., Windows, macOS, Linux)</p></li>
+<li><p>CPU architecture (x86_64, ARM, etc.)</p></li>
+<li><p>WISER version (e.g., <code class="docutils literal notranslate"><span class="pre">1.4b1</span></code>)</p></li>
 </ul>
 </li>
 </ul>
-</div>
+<p>If there is an error message, paste it under <strong>Error Message</strong>, and add any
+<strong>additional context</strong> that might help reproduce or understand the bug.</p>
+<p>Once submitted, maintainers will review your report. They may ask for
+clarification or logs to help pinpoint the issue. Please be patient and
+responsive: this helps get your bug fixed faster!</p>
+</section>
+<section id="requesting-a-feature">
+<h2>Requesting a Feature<a class="headerlink" href="#requesting-a-feature" title="Link to this heading">#</a></h2>
+<p>Before submitting a feature request, please review the following guidelines.</p>
+<p>Submit a new feature request using one of these options:</p>
+<ul class="simple">
+<li><p><strong><a class="reference external" href="https://forms.gle/eqkdnv9b2ogEUbPp6">Submit via the feedback form</a></strong> — no GitHub account required.</p></li>
+<li><p><strong><a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues/new/choose">Submit a GitHub Issue</a></strong> — use the <strong>Feature
+request</strong> template.</p></li>
+</ul>
+<p>When filling out the template:</p>
+<ul class="simple">
+<li><p>Clearly describe the <strong>problem</strong> your feature aims to solve.</p></li>
+<li><p>Propose a <strong>solution</strong> and explain how it fits with <strong>WISER’s mission</strong>.</p></li>
+<li><p>Include any <strong>alternatives</strong> or design ideas you have considered.</p></li>
+<li><p>Add <strong>context, screenshots, or examples</strong> if applicable.</p></li>
+</ul>
+<p>Feature requests should align with <strong>WISER’s mission</strong>. Not all requests will
+be accepted: some may require discussion and iteration to refine into a
+concrete, well-scoped solution. Please be patient and open to feedback.</p>
+</section>
+<section id="contributing-code">
+<h2>Contributing Code<a class="headerlink" href="#contributing-code" title="Link to this heading">#</a></h2>
+<p>Want to contribute a fix or feature? Start here:</p>
+<ol class="arabic simple">
+<li><p><strong>Open an issue first</strong> — describe what you want to change and why. This
+avoids duplicate work and lets maintainers give early feedback on the approach.</p></li>
+<li><p><strong>Set up your environment</strong> — see the <a class="reference internal" href="developer-content/environment-setup.html"><span class="doc std std-doc">Developer Environment Setup</span></a>.</p></li>
+<li><p><strong>Read the contribution standards</strong> — branching strategy, code review
+expectations, commit message format, and style conventions are documented in
+<a class="reference internal" href="developer-content/contributing-and-quality.html"><span class="doc std std-doc">Contributing &amp; Code Quality</span></a>.</p></li>
+<li><p><strong>Write tests</strong> — new features and bug fixes should include tests. See the
+<a class="reference internal" href="developer-content/testing-and-qa.html"><span class="doc std std-doc">Testing &amp; QA</span></a> guide.</p></li>
+<li><p><strong>Open a pull request</strong> — link it to your issue. The PR description is the
+merge commit body, so write it clearly.</p></li>
+</ol>
+</section>
 </section>
 
 
@@ -370,22 +471,13 @@ what you have found.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="developer-content/system-design/storage_memory_management.html"
+       href="developer-content/design-documents.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">WISER Storage and Memory Management</p>
+        <p class="prev-next-title">Design Documents</p>
       </div>
-    </a>
-    <a class="right-next"
-       href="general-content/feature-submitting-guide.html"
-       title="next page">
-      <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Feature Submitting Guide</p>
-      </div>
-      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>
@@ -393,6 +485,25 @@ what you have found.</p>
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-a-bug">Reporting a Bug</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requesting-a-feature">Requesting a Feature</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-code">Contributing Code</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>
@@ -403,7 +514,7 @@ what you have found.</p>
   <div class="footer-item">
     
 <p class="component-author">
-By Joshua Garcia-Kimble
+By Ehlmann Research Group
 </p>
 
   </div>
@@ -413,7 +524,7 @@ By Joshua Garcia-Kimble
 
   <p class="copyright">
     
-      © Copyright 2026, Joshua Garcia-Kimble.
+      © Copyright 2019-2026, California Institute of Technology.
       <br/>
     
   </p>

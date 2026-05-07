@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>General WISER Documentation &#8212; WISER Docs</title>
+    <title>WISER Documentation &#8212; WISER Documentation</title>
   
   
   
@@ -32,7 +32,7 @@
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
-    <link rel="stylesheet" type="text/css" href="_static/style.css?v=613452eb" />
+    <link rel="stylesheet" type="text/css" href="_static/style.css?v=aa29f439" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -40,14 +40,15 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=2fb55b05"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <link rel="icon" href="_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Getting started" href="get-started.html" />
+    <link rel="next" title="User Manual" href="user-content/user-manual.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -131,8 +132,8 @@
       
     
     
-    <img src="_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
-    <img src="_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Docs - Home"/>
+    <img src="_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
   
   
 </a></div>
@@ -145,36 +146,42 @@
 </button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
-        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="get-started.html">Getting started</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html">WISER Overview</a></li>
-
-
-
-<li class="toctree-l2"><a class="reference internal" href="user-content/contrast-stretch.html">Contrast Stretch</a></li>
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1 current active">
+                <a class="reference internal" href="#">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/spatial-tools.html">Spatial Tools</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer.html">Developing WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-linux.html">Developing and Building WISER on Linux</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/branching-strategy.html">Branching Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-standards.html">Testing Standards</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/task_system.html">WISER Task, Storage, and Scheduler System Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/activity_monitor.html">Activity Monitor Update Flow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/storage_memory_management.html">WISER Storage and Memory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
-<li class="toctree-l2"><a class="reference internal" href="general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to WISER</a></li>
 </ul>
 
     </div>
@@ -223,18 +230,50 @@
 <div class="article-header-buttons">
 
 
-<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
-   class="btn btn-sm btn-source-repository-button"
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
-   data-bs-placement="bottom" data-bs-toggle="tooltip"
+   data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
 
 <span class="btn__icon-container">
   <i class="fab fa-github"></i>
   </span>
-
+<span class="btn__text-container">Repository</span>
 </a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/index.rst" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
 
 
 
@@ -312,7 +351,9 @@
 <button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
 </button>
-
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
 </div></div>
       
     </div>
@@ -323,11 +364,25 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>General WISER Documentation</h1>
+    <h1>WISER Documentation</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
             
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-wiser">Download WISER</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-from-source">Running from Source</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-platforms">Supported Platforms</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to Go Next</a></li>
+</ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -337,45 +392,94 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="general-wiser-documentation">
-<h1>General WISER Documentation<a class="headerlink" href="#general-wiser-documentation" title="Link to this heading">#</a></h1>
-<p>This website has information for both users of WISER and contributors to WISER.</p>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="get-started.html">Getting started</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="get-started.html#prerequisites">Prerequisites</a></li>
+  <section id="wiser-documentation">
+<h1>WISER Documentation<a class="headerlink" href="#wiser-documentation" title="Link to this heading">#</a></h1>
+<p><strong>WISER</strong> (Workbench for Imaging Spectroscopy Exploration and Research) is an
+open-source, cross-platform GUI for visualizing and analyzing hyperspectral
+imagery. Built in Python on Qt/PySide2, it runs on <strong>macOS, Windows, and
+Linux</strong> with no commercial license required.</p>
+<p>Developed and maintained by the <a class="reference external" href="https://github.com/Ehlmann-research-group">Ehlmann Research Group</a>
+at Caltech &amp; CU Boulder.</p>
+<p><strong>Key capabilities:</strong></p>
+<ul class="simple">
+<li><p>Load, display, and navigate hyperspectral and multispectral raster data</p></li>
+<li><p>Click any pixel to view and collect its spectrum in a live spectral plot</p></li>
+<li><p>Regions of Interest (ROIs) for area-averaged spectra and pixel exports</p></li>
+<li><p>Contrast stretch and color mapping for display control</p></li>
+<li><p>Band math with custom expressions and plugin-defined functions</p></li>
+<li><p>Analysis tools: PCA, Spectral Angle Mapper, Continuum Removal, Scatter Plot</p></li>
+<li><p>Georeferencing and coordinate system management</p></li>
+<li><p>Extensible plugin system (Tools Menu, Context Menu, Band Math)</p></li>
 </ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="user-manual.html">WISER User Manual</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html">WISER Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html#viewing-an-image">Viewing an Image</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html#dataset-tools">Dataset Tools</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html#regions-of-interest">Regions of Interest</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-content/contrast-stretch.html">Contrast Stretch</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="developer.html">Developing WISER</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-linux.html">Developing and Building WISER on Linux</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/branching-strategy.html">Branching Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-standards.html">Testing Standards</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/task_system.html">WISER Task, Storage, and Scheduler System Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/activity_monitor.html">Activity Monitor Update Flow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/storage_memory_management.html">WISER Storage and Memory Management</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="contributing.html">Engaging With WISER</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
-<li class="toctree-l2"><a class="reference internal" href="general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
-</ul>
-</li>
-</ul>
+<hr class="docutils" />
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
+<section id="download-wiser">
+<h3>Download WISER<a class="headerlink" href="#download-wiser" title="Link to this heading">#</a></h3>
+<p>Pre-built installers for macOS, Windows, and Linux are available at:
+<a class="reference external" href="https://ehlmann.caltech.edu/wiser/index.html">ehlmann.caltech.edu/wiser</a></p>
+<p>Download the installer for your platform and follow the on-screen instructions.
+Users can also download and install WISER from
+<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">GitHub Releases</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The download location will change in a future release as WISER transitions
+to CU Boulder. Links on this page will be updated when that happens.</p>
 </div>
+</section>
+<section id="running-from-source">
+<h3>Running from Source<a class="headerlink" href="#running-from-source" title="Link to this heading">#</a></h3>
+<p>If you want to run WISER from source or contribute to development, see the
+<a class="reference internal" href="developer-content/environment-setup.html"><span class="doc">Developer Environment Setup</span></a> guide.</p>
+<p>In brief:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>etc
+make<span class="w"> </span>install-dev-env<span class="w">          </span><span class="c1"># macOS/Linux</span>
+conda<span class="w"> </span>activate<span class="w"> </span>wiser-dev
+<span class="nb">cd</span><span class="w"> </span>../src
+python<span class="w"> </span>-m<span class="w"> </span>wiser
+</pre></div>
+</div>
+</section>
+<section id="supported-platforms">
+<h3>Supported Platforms<a class="headerlink" href="#supported-platforms" title="Link to this heading">#</a></h3>
+<p>WISER builds currently target:</p>
+<ul class="simple">
+<li><p><strong>macOS 15</strong> — ARM (Apple Silicon) and Intel</p></li>
+<li><p><strong>Windows 10/11</strong></p></li>
+<li><p><strong>Linux</strong> — Ubuntu 20.04+, Debian 11+, Fedora 39+ (amd64 and aarch64)</p></li>
+</ul>
+<p>If you encounter issues building or running WISER, please
+<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues">open a GitHub Issue</a>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="where-to-go-next">
+<h2>Where to Go Next<a class="headerlink" href="#where-to-go-next" title="Link to this heading">#</a></h2>
+<p class="rubric">User Manual</p>
+<p><a class="reference internal" href="user-content/interface-overview.html"><span class="doc">Interface Overview</span></a> ·
+<a class="reference internal" href="user-content/working-with-data.html"><span class="doc">Working with Data</span></a> ·
+<a class="reference internal" href="user-content/spatial-tools.html"><span class="doc">Spatial Tools</span></a></p>
+<p class="rubric">Extend WISER</p>
+<p><a class="reference internal" href="extending-wiser/index.html"><span class="doc">Build plugins</span></a> to add custom workflows,
+context-menu operations, and band-math functions — no rebuild required.</p>
+<p class="rubric">Developer Guide</p>
+<p><a class="reference internal" href="developer-content/environment-setup.html"><span class="doc">Environment Setup</span></a> ·
+<a class="reference internal" href="developer-content/contributing-and-quality.html"><span class="doc">Contributing &amp; Code Quality</span></a> ·
+<a class="reference internal" href="developer-content/testing-and-qa.html"><span class="doc">Testing &amp; QA</span></a></p>
+<hr class="docutils" />
+<p class="rubric">Get Help</p>
+<ul class="simple">
+<li><p><strong>Questions, bugs, feature requests:</strong> <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues">Open a GitHub Issue</a></p></li>
+<li><p><strong>Community plugins:</strong> <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER-Plugin-Repository">WISER Plugin Repository</a></p></li>
+</ul>
+<p class="rubric">License</p>
+<p>Copyright 2019–2026, California Institute of Technology (Caltech) and
+Regents of the University of Colorado. All rights reserved.
+See the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/blob/main/LICENSE">LICENSE</a> for the full text.</p>
+<hr class="docutils" />
+<div class="toctree-wrapper compound">
+</div>
+</section>
 </section>
 
 
@@ -390,11 +494,11 @@
                   
 <div class="prev-next-area">
     <a class="right-next"
-       href="get-started.html"
+       href="user-content/user-manual.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Getting started</p>
+        <p class="prev-next-title">User Manual</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -405,6 +509,29 @@
             
             
               
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-wiser">Download WISER</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-from-source">Running from Source</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-platforms">Supported Platforms</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to Go Next</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
             
           </div>
           <footer class="bd-footer-content">
@@ -414,7 +541,7 @@
   <div class="footer-item">
     
 <p class="component-author">
-By Joshua Garcia-Kimble
+By Ehlmann Research Group
 </p>
 
   </div>
@@ -424,7 +551,7 @@ By Joshua Garcia-Kimble
 
   <p class="copyright">
     
-      © Copyright 2026, Joshua Garcia-Kimble.
+      © Copyright 2019-2026, California Institute of Technology.
       <br/>
     
   </p>

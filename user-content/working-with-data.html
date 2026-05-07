@@ -1,0 +1,931 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Working with Data &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-content/working-with-data';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Spatial Tools" href="spatial-tools.html" />
+    <link rel="prev" title="Interface Overview" href="interface-overview.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/user-content/working-with-data.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/user-content/working-with-data.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Working with Data</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contrast-stretch">Contrast Stretch</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-contrast-stretch-calculations-work">How Contrast Stretch Calculations Work</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#specifying-minimum-and-maximum-limits-on-band-data">Specifying Minimum and Maximum Limits on Band Data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overview-of-display-calculations">Overview of Display Calculations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#stretch-types">Stretch Types</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linear-stretch">100% Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#histogram-equalization-stretch">Histogram Equalization Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conditioners">Conditioners</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regions-of-interest">Regions of Interest</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saving-and-subsetting-datasets">Saving and Subsetting Datasets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectral-plots">Spectral Plots</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#analysis-tools">Analysis Tools</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-math">Band Math</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuum-removal">Continuum Removal</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#principal-component-analysis-pca">Principal Component Analysis (PCA)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interactive-scatter-plot">Interactive Scatter Plot</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectral-angle-mapper-spectral-feature-fitting">Spectral Angle Mapper &amp; Spectral Feature Fitting</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="working-with-data">
+<h1>Working with Data<a class="headerlink" href="#working-with-data" title="Link to this heading">#</a></h1>
+<section id="contrast-stretch">
+<span id="id1"></span><h2>Contrast Stretch<a class="headerlink" href="#contrast-stretch" title="Link to this heading">#</a></h2>
+<p>The contrast stretch tool provides sophisticated options for adjusting the
+contrast of images being displayed. This allows the user to bring out details
+in the image data that might otherwise not be perceptible.</p>
+<p>Here is an example of the contrast stretch tool being used with the Caltech
+AVIRIS data.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/stretch_full_linear.png"><img alt="Contrast stretch dialog showing a full linear stretch" src="../_images/stretch_full_linear.png" style="width: 80%;" />
+</a>
+</figure>
+<p>A histogram is shown for each display band, allowing one to see the
+distribution of values for that band. The user can select both the kind of
+contrast stretch used, and any conditioners to apply to the data before
+applying the stretch. Because it is useful to see the results of applying
+contrast stretch, changes in the dialog are immediately reflected in the
+affected raster displays. If the “Cancel” button is pressed, the changes
+will be discarded; otherwise, they will be kept when the dialog is closed.</p>
+<p>Here is another example of applying a 2.5% linear stretch to the Caltech
+AVIRIS data:</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/stretch_2.5_linear.png"><img alt="Contrast stretch dialog with a 2.5% linear stretch applied" src="../_images/stretch_2.5_linear.png" style="width: 80%;" />
+</a>
+</figure>
+<p>When applying a linear stretch, the sliders may be adjusted to control the
+endpoints of the contrast-stretch operation. Additionally, minimum and
+maximum values may be specified, to exclude noise that appears outside the
+range of useful data, or to focus in on a specific range of values.</p>
+<hr class="docutils" />
+<section id="how-contrast-stretch-calculations-work">
+<h3>How Contrast Stretch Calculations Work<a class="headerlink" href="#how-contrast-stretch-calculations-work" title="Link to this heading">#</a></h3>
+<p>WISER supports manipulating the contrast stretch of data sets being displayed.
+This is often very helpful to bring out important details in the data.</p>
+<p>Before discussing how stretch may be applied, it is important to understand what
+WISER must do to display data. The band data being displayed may be of many
+different data types; floating point or integer data, of various bit widths
+(e.g. 8, 16, 32 or 64 bits). Therefore, the data itself may cover many
+different ranges of values. The Workbench must map each band’s values to an
+integer color value in the range [0, 255]. If the Workbench is showing image
+data in RGB mode, this must occur for each color channel; if the Workbench is
+using grayscale then only one band is being used and it is mapped to a single
+[0, 255] value.</p>
+<p>Note that raster data sets may specify “data ignore values” - values that should
+explicitly be ignored by tools working with the data. The Workbench filters out
+such values before any of this processing occurs; they are represented as NaNs,
+and all stretch calculations are implemented to ignore NaN values throughout.</p>
+<p>Finally, note that the calculations for displaying raster data are not used
+when plotting spectra; spectrum calculations use the raster data directly.</p>
+</section>
+<section id="specifying-minimum-and-maximum-limits-on-band-data">
+<h3>Specifying Minimum and Maximum Limits on Band Data<a class="headerlink" href="#specifying-minimum-and-maximum-limits-on-band-data" title="Link to this heading">#</a></h3>
+<p>The Contrast Stretch UI provides users the ability to specify minimum and
+maximum limits on band data. This can be useful when raster data doesn’t
+specify a “data ignore value,” or when raster data is computed and has a large
+range of possible values, but only a small range of “useful” or “interesting”
+values.</p>
+<p>The min/max limits are applied before any histograms are computed in the
+Contrast Stretch UI. Note that values outside of the min/max limits are simply
+filtered out; they are not clamped to the min/max limits. This is particularly
+important for N% linear stretches and histogram-equalization stretches; values
+outside of the min/max limits are completely ignored in the configuration of
+these stretches.</p>
+</section>
+<section id="overview-of-display-calculations">
+<h3>Overview of Display Calculations<a class="headerlink" href="#overview-of-display-calculations" title="Link to this heading">#</a></h3>
+<p>The Workbench follows this approach for displaying band data. This process is
+followed for each color channel being displayed.</p>
+<ul>
+<li><p>The band data is normalized to either 32-bit or 64-bit floating point values
+in the range [0.0, 1.0].</p>
+<p>Note that this normalization <em>does not</em> include the application of min/max
+limits; those limits are only used in the calculation of histograms in the
+Contrast Stretch UI.</p>
+<p>Normalized values are usually 32-bit floating point; they will only be
+64-bit floating point if the input data is also 64-bit floating point.</p>
+</li>
+<li><p>Apply any user-specified conditioner to the data. Conditioners are
+discussed below, but they are functions that consume normalized data and
+produce normalized data.</p></li>
+<li><p>Apply any user-specified stretch to the data. Again, this mapping consumes
+normalized data and produces normalized data.</p></li>
+<li><p>The final floating point values are in the range [0.0, 1.0], so they are
+multiplied by 255.0 and then cast to an 8-bit unsigned integer to yield a
+color intensity.</p></li>
+</ul>
+</section>
+<section id="stretch-types">
+<h3>Stretch Types<a class="headerlink" href="#stretch-types" title="Link to this heading">#</a></h3>
+<p>WISER supports three stretch types:</p>
+<ul class="simple">
+<li><p>100% linear stretch</p></li>
+<li><p>Linear stretch</p></li>
+<li><p>Histogram equalization stretch</p></li>
+</ul>
+<p>If WISER is displaying an RGB image, all color channels will use the same
+stretch type. It is not possible to configure WISER to display different color
+channels of the same image with different stretch types.  (Obviously, the
+parameters for each channel may be different, as each channel’s data
+distribution will be different.)</p>
+</section>
+<section id="linear-stretch">
+<h3>100% Linear Stretch<a class="headerlink" href="#linear-stretch" title="Link to this heading">#</a></h3>
+<p>The “100% linear stretch” type causes the Workbench to follow a very
+straightforward, simple mapping of band data to color values in the range
+[0, 255]. The specific mapping depends on the type of the input data.</p>
+<ol class="arabic simple">
+<li><p>The minimum and maximum data value for each band is determined.</p></li>
+<li><p>Values in each band are mapped to the range [0.0, 1.0] with a simple
+calculation:  (value - band_min) / (band_max - band_min). This is typically
+represented as a 32-bit floating point value, but may be 64-bit floating
+point if the initial data was 64-bit floating point.</p></li>
+<li><p>Values are then scaled to integers in the range [0, 255], with 0.0 mapping
+to 0, and 1.0 mapping to 255.</p></li>
+</ol>
+<p>This approach is called “100% linear stretch” because it is just the “linear
+stretch” method, with low and high bounds taken from the band’s minimum and
+maximum values.</p>
+</section>
+<section id="id2">
+<h3>Linear Stretch<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<p>The “linear stretch” type causes WISER to map band values in a range
+[stretch_low, stretch_high] to floating-point values in the range [0.0, 1.0].</p>
+<ul class="simple">
+<li><p>Values less than stretch_low are mapped to 0.0.</p></li>
+<li><p>Values greater than stretch_high are mapped to 1.0.</p></li>
+<li><p>Values between stretch_low and stretch_high are linearly mapped to a value
+in the range [0.0, 1.0].</p></li>
+</ul>
+<p>These intermediate values are then mapped to a color value in the range
+[0, 255].</p>
+<p>WISER supports arbitrary values for the stretch_low and stretch_high values,
+and each color channel will specify its own values for stretch_low and
+stretch_high. The Contrast Stretch UI calculates and displays a histogram of
+the band data for each channel, to aid the user in selecting appropriate
+stretch_low / stretch_high values. In addition, the UI provides the ability to
+apply a 2.5% or 5% linear stretch across all channels.</p>
+<p>For an N% linear stretch, WISER will choose each channel’s stretch_low and
+stretch_high such that (N/2)% of the low values will be excluded, and (N/2)%
+of the high values will be excluded. This is computed from the band’s
+histogram, and is therefore approximate.  (As mentioned earlier, this histogram
+is computed after the min/max limits have been used to filter the band’s data.)</p>
+</section>
+<section id="histogram-equalization-stretch">
+<h3>Histogram Equalization Stretch<a class="headerlink" href="#histogram-equalization-stretch" title="Link to this heading">#</a></h3>
+<p>The “histogram equalization stretch” type causes WISER to map the normalized
+band values to floating point values in the range [0.0, 1.0] such that the
+density of the output values is uniform across this range. This is computed
+from the band’s histogram.  (As mentioned earlier, this histogram is computed
+after the min/max limits have been used to filter the band’s data.)</p>
+</section>
+<section id="conditioners">
+<h3>Conditioners<a class="headerlink" href="#conditioners" title="Link to this heading">#</a></h3>
+<p>Conditioners can be useful when the input data’s distribution needs to be
+modified; for example, to bring out details in low intensity values and to mute
+variations in high intensity values. WISER supports three conditioner options:</p>
+<ul class="simple">
+<li><p>No conditioner</p></li>
+<li><p>Square root conditioner</p></li>
+<li><p>Logarithmic conditioner</p></li>
+</ul>
+<p>All conditioners consume normalized data, and produce normalized data. In the
+case of “no conditioner,” this can be thought of as the identity function, but
+the implementation simply does nothing.</p>
+<p>It may be noted that sqrt(x) for x in [0.0, 1.0] already produces values only
+in the range [0.0, 1.0]. This is what WISER does for square root conditioning.</p>
+<p>In the case of logarithmic conditioner, WISER uses the function
+log<sub>2</sub>(x + 1.0); when given values in the range [0.0, 1.0], this will
+only produce values in the range [0.0, 1.0].</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="regions-of-interest">
+<h2>Regions of Interest<a class="headerlink" href="#regions-of-interest" title="Link to this heading">#</a></h2>
+<p>WISER supports the creation of Regions of Interest (ROI) on a raster data set.
+Regions of Interest may be created in both the main window and the zoom window.
+Once a ROI has been created, the average spectrum over the ROI may be plotted,
+and the spectra of all pixels in the ROI may be exported as an ASCII file.</p>
+<p>Here are the Region of Interest tools in the main toolbar:</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/roi_tools_annotated.png"><img alt="Annotated Region of Interest toolbar buttons" src="../_images/roi_tools_annotated.png" style="width: 400px;" />
+</a>
+</figure>
+<p>The first button allows a new Region of Interest to be created; a dialog allows
+the user to enter basic details about the Region of Interest. It is recommended
+to use a different color for each Region of Interest to avoid confusion.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/roi_create.png"><img alt="Create new Region of Interest dialog" src="../_images/roi_create.png" style="width: 400px;" />
+</a>
+</figure>
+<p>Once a Region of Interest is created, <em>selections</em> may be added to the ROI.
+The right button allows users to create rectangle, polygon, and point-set
+selections, which will then be added to the current Region of Interest. The
+ROI that the selection is added to may be changed with the drop-down combobox
+in the toolbar.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/roi_add_selection.png"><img alt="Add selection to ROI — rectangle, polygon, and point-set options" src="../_images/roi_add_selection.png" style="width: 400px;" />
+</a>
+</figure>
+<blockquote>
+<div><p>Tip:  The status bar at the bottom of the UI provides instructions about how
+to create each kind of selection.</p>
+</div></blockquote>
+<p>Here is the UI state after two Regions of Interest have been created - one named
+“grass” and the other named “solar panels”. Note that the “solar panels” ROI
+is comprised of multiple overlapping rectangle selections (this could also be
+done with a single polygon selection).  <strong>It is not a problem to have
+overlapping selections in a Region of Interest;</strong> each pixel in the ROI will
+only be used once by operations on the ROI.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/roi_add_selection_3.png"><img alt="Two ROIs after adding multiple overlapping rectangle selections" src="../_images/roi_add_selection_3.png" style="width: 400px;" />
+</a>
+</figure>
+<p>Once a Region of Interest has been created, right-clicking in the ROI’s
+selections will pop up a context menu providing various operations with the ROI.</p>
+<ul class="simple">
+<li><p>The ROI’s information or display color may be edited</p></li>
+<li><p>Individual selections in the ROI may be edited or deleted, or the entire
+ROI may be deleted</p></li>
+<li><p>The average spectrum of the ROI may be displayed in the spectrum plot
+window</p></li>
+<li><p>The spectra of every pixel in the ROI may be exported as an ASCII file</p></li>
+<li><p>Import and export ROI’s as .geojson files</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/rois.png"><img alt="ROI context menu showing available operations" src="../_images/rois.png" style="width: 600px;" />
+</a>
+</figure>
+</section>
+<hr class="docutils" />
+<section id="saving-and-subsetting-datasets">
+<h2>Saving and Subsetting Datasets<a class="headerlink" href="#saving-and-subsetting-datasets" title="Link to this heading">#</a></h2>
+<p>There are two ways to save datasets with options for spatial and spectral
+subsetting. The first is by right clicking the image and selecting “Save as…”
+The second option is “Save dataset” in the file menu, selecting the image to
+export.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/save_img.png"><img alt="Save image dialog" src="../_images/save_img.png" style="width: 400px;" />
+</a>
+</figure>
+<p>In the dialog box, click “Show Advanced” to access the following:</p>
+<ul class="simple">
+<li><p>Data description</p></li>
+<li><p>Data ignore value</p></li>
+<li><p>Spatial subsetting (“Dimensions” tab)</p></li>
+<li><p>Choose the wavelengths to save and set bad bands</p></li>
+<li><p>Set default RGB or grayscale display bands</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/save_dataset.png"><img alt="Save dataset dialog with advanced options expanded" src="../_images/save_dataset.png" style="width: 400px;" />
+</a>
+</figure>
+</section>
+<hr class="docutils" />
+<section id="spectral-plots">
+<h2>Spectral Plots<a class="headerlink" href="#spectral-plots" title="Link to this heading">#</a></h2>
+<p>Spectra can be viewed from any image dataset with multiple bands by clicking
+points on the main and zoom windows. Choose the plot symbol on the main toolbar.
+X-axis units are wavelengths if available; otherwise, units are band numbers.
+Spectra can be “collected” and retained on screen or in a list, turned on and
+off, and their colors changed. Clicking on the plot displays the (x, y)
+coordinates of the point. Right click on the plot to hide the coordinates of
+the selected point.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/plot_show_spectrum.png"><img alt="Spectral plot showing a spectrum from a clicked pixel" src="../_images/plot_show_spectrum.png" style="width: 400px;" />
+</a>
+</figure>
+<p>When multiple images are displayed in grid view, the plot will display spectra
+from any dataset that the user clicks. Using the upper left icon on the plot,
+the user can opt to always pull spectra from one particular dataset. This is
+particularly useful with linked datasets in grid view such that clicking on one
+image will display a spectrum from the same pixel in a linked image.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/plot_clicked_dataset.png"><img alt="Spectral plot in grid view showing dataset selection control" src="../_images/plot_clicked_dataset.png" style="width: 400px;" />
+</a>
+</figure>
+<p>The import tool on the plot opens spectral libraries (.sli) and ASCII files
+with spectra. For ASCII files WISER opens a dialog box to select the column
+delimiter and identify which column(s) specify wavelength values.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/spectra_import.png"><img alt="Import spectra dialog for spectral libraries and ASCII files" src="../_images/spectra_import.png" style="width: 400px;" />
+</a>
+</figure>
+<p>By default, imported spectra are listed but not displayed. All spectra can be
+shown or hidden by right clicking the name of the file or library in the list
+below the plot, or individual spectra can be displayed by right clicking on the
+spectrum name.</p>
+<p>The spectral plot has many configuration options:</p>
+<ul class="simple">
+<li><p>Plot and axis titles</p></li>
+<li><p>Fonts and sizes</p></li>
+<li><p>x- and y-axis ranges</p></li>
+<li><p>Major and minor tick mark intervals</p></li>
+<li><p>Number of pixels to average for each selected point, with options for mean
+and median</p></li>
+<li><p>Display legend</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/plot_config.png"><img alt="Spectral plot configuration options dialog" src="../_images/plot_config.png" style="width: 400px;" />
+</a>
+</figure>
+<p>By right clicking on plots, WISER provides an option to “Export Plot to Image.”
+Available formats are EPS, PDF, PNG, and SVG with 72, 100, or 300 dpi
+resolution.</p>
+</section>
+<hr class="docutils" />
+<section id="analysis-tools">
+<h2>Analysis Tools<a class="headerlink" href="#analysis-tools" title="Link to this heading">#</a></h2>
+<p>WISER includes several built-in analysis tools accessible from the Tools menu
+and context menus. These tools operate on loaded datasets and produce new
+output datasets or visualizations.</p>
+</section>
+<section id="band-math">
+<h2>Band Math<a class="headerlink" href="#band-math" title="Link to this heading">#</a></h2>
+<p>The band math utility is available in the Tools menu. WISER band math supports
+the following operations: arithmetic, power/root, and comparisons/conditionals.
+Expressions can be saved for future use, and band math can be extended with
+user-defined functions in plugins. Variables can be mapped to full images,
+single bands, and spectra. Help can be toggled to see the band math operators.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/band_math.png"><img alt="The band math dialog" src="../_images/band_math.png" style="width: 600px;" />
+</a>
+</figure>
+<blockquote>
+<div><p>Note: Band math is not currently optimized to operate on very large images
+and may exceed the memory availability of the user’s computer. The expected
+size of the output is calculated to help users assess whether band math
+operations are feasible given the image size and computing resources.</p>
+</div></blockquote>
+</section>
+<hr class="docutils" />
+<section id="continuum-removal">
+<h2>Continuum Removal<a class="headerlink" href="#continuum-removal" title="Link to this heading">#</a></h2>
+<p>WISER has continuum removal built in. To use it, right-click on an image in
+the main image view and select <em>Continuum Removal: Image</em>.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/cont_remove_image.png"><img alt="Continuum removal context menu option on an image" src="../_images/cont_remove_image.png" style="width: 20%;" />
+</a>
+</figure>
+<p>You can use it on an individual spectrum or all collected spectra by
+right-clicking in the Spectrum Plot and selecting either
+<em>Continuum Removal: Single Spectrum</em> or <em>Continuum Removal: Collected Spectra</em>.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/cont_remove_spectra.png"><img alt="Continuum removal context menu options in the spectrum plot" src="../_images/cont_remove_spectra.png" style="width: 20%;" />
+</a>
+</figure>
+</section>
+<section id="principal-component-analysis-pca">
+<h2>Principal Component Analysis (PCA)<a class="headerlink" href="#principal-component-analysis-pca" title="Link to this heading">#</a></h2>
+<p>To use PCA, right-click on an image in the main view, select <strong>PCA</strong> in the
+context menu, then choose the number of principal components. Currently, only
+PCA using the covariance matrix is supported.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/pca_ui.png"><img alt="PCA options dialog" src="../_images/pca_ui.png" style="width: 50%;" />
+</a>
+</figure>
+<p>After PCA runs, a window displays all output data including the mean,
+variances, and components. This data can be saved to a file.</p>
+</section>
+<section id="interactive-scatter-plot">
+<h2>Interactive Scatter Plot<a class="headerlink" href="#interactive-scatter-plot" title="Link to this heading">#</a></h2>
+<p>To open the interactive scatter plot go to
+<em>Tools → Data Analysis → Interactive Scatter Plot</em>, or right-click on the main
+window when a dataset is showing and go to
+<em>Data Analysis → Interactive Scatter Plot</em>.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/int_scat_plot_empty.png"><img alt="Interactive scatter plot setup — empty, awaiting band selection" src="../_images/int_scat_plot_empty.png" style="width: 35%;" />
+</a>
+</figure>
+<p>Select the band for the x-axis and the band for the y-axis, then select the
+dataset to render onto and press <strong>Plot</strong>. Once done loading, the scatter plot
+appears:</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/int_scat_plot.png"><img alt="Interactive scatter plot with data rendered" src="../_images/int_scat_plot.png" style="width: 35%;" />
+</a>
+</figure>
+<p>Click on the plot (while not panning or zooming) to create a polygon selection.
+The pixels corresponding to the points inside the polygon will be highlighted
+with a red circle in their center on the selected dataset.</p>
+</section>
+<section id="spectral-angle-mapper-spectral-feature-fitting">
+<h2>Spectral Angle Mapper &amp; Spectral Feature Fitting<a class="headerlink" href="#spectral-angle-mapper-spectral-feature-fitting" title="Link to this heading">#</a></h2>
+<p>These algorithms share a similar UI and are grouped here. The basic premise:</p>
+<ol class="arabic simple">
+<li><p>There is a target image or target spectrum and one or more reference spectra
+to compare against.</p></li>
+<li><p>When comparing a target image to a reference spectrum, each spectrum in that
+image is compared to the reference spectrum individually.</p></li>
+<li><p>The comparison is performed over a specific wavelength range.</p>
+<ul class="simple">
+<li><p><strong>Spectral Angle Mapper (SAM):</strong> takes the angle between the two spectra.</p></li>
+<li><p><strong>Spectral Feature Fitting (SFF):</strong> takes the root mean squared error after
+scaling the spectra by a factor gamma (least-squares solution).</p></li>
+</ul>
+</li>
+</ol>
+<p>To use, go to <em>Tools → Data Analysis → (Spectral Angle Mapper / Spectral
+Feature Fitting)</em>, or right-click on the main window and go to
+<em>Data Analysis → (Spectral Angle Mapper / Spectral Feature Fitting)</em>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="interface-overview.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Interface Overview</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="spatial-tools.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Spatial Tools</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contrast-stretch">Contrast Stretch</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-contrast-stretch-calculations-work">How Contrast Stretch Calculations Work</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#specifying-minimum-and-maximum-limits-on-band-data">Specifying Minimum and Maximum Limits on Band Data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overview-of-display-calculations">Overview of Display Calculations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#stretch-types">Stretch Types</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linear-stretch">100% Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#histogram-equalization-stretch">Histogram Equalization Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conditioners">Conditioners</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regions-of-interest">Regions of Interest</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saving-and-subsetting-datasets">Saving and Subsetting Datasets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectral-plots">Spectral Plots</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#analysis-tools">Analysis Tools</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-math">Band Math</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuum-removal">Continuum Removal</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#principal-component-analysis-pca">Principal Component Analysis (PCA)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interactive-scatter-plot">Interactive Scatter Plot</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectral-angle-mapper-spectral-feature-fitting">Spectral Angle Mapper &amp; Spectral Feature Fitting</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

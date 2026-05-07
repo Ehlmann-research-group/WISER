@@ -1,0 +1,1260 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Accessing and Modifying WISER State &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'extending-wiser/wiser_state';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Supporting Types" href="supporting_types.html" />
+    <link rel="prev" title="GUI Plugins in WISER" href="ui_plugins.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Extending WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/extending-wiser/wiser_state.rst" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/extending-wiser/wiser_state.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Accessing and Modifying WISER State</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_added</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_loader"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_loader()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.open_file"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.open_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_cache"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_cache()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.config"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_config"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_config"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_roi"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_roi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_roi"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_roi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_rois"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_rois()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.create_form"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.create_form()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-raster-data-into-wiser">Loading Raster Data into WISER</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="accessing-and-modifying-wiser-state">
+<h1>Accessing and Modifying WISER State<a class="headerlink" href="#accessing-and-modifying-wiser-state" title="Link to this heading">#</a></h1>
+<p>Tool plugins and context-menu plugins can access and manipulate WISER
+application state through the <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> class.  The plugin can
+access an instance of this class via the <code class="docutils literal notranslate"><span class="pre">&quot;wiser&quot;</span></code> value in the context
+passed to the plugin.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ApplicationState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">app</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.gui.app_config.ApplicationConfig</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-obj docutils literal notranslate"><span class="pre">QObject</span></code></p>
+<p>This class holds all WISER application state.</p>
+<p class="rubric">Initialization</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added">
+<span class="sig-name descname"><span class="pre">dataset_added</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed">
+<span class="sig-name descname"><span class="pre">dataset_removed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed">
+<span class="sig-name descname"><span class="pre">mainview_dataset_changed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added">
+<span class="sig-name descname"><span class="pre">spectral_library_added</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed">
+<span class="sig-name descname"><span class="pre">spectral_library_removed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added">
+<span class="sig-name descname"><span class="pre">roi_added</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed">
+<span class="sig-name descname"><span class="pre">roi_removed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed">
+<span class="sig-name descname"><span class="pre">stretch_changed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed">
+<span class="sig-name descname"><span class="pre">active_spectrum_changed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed">
+<span class="sig-name descname"><span class="pre">collected_spectra_changed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process">
+<span class="sig-name descname"><span class="pre">add_running_process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">process_manager</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.gui.subprocessing_manager.ProcessManager</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process">
+<span class="sig-name descname"><span class="pre">remove_running_process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">process_manager_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager">
+<span class="sig-name descname"><span class="pre">_retire_process_manager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">process_manager_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes">
+<span class="sig-name descname"><span class="pre">cancel_all_running_processes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes">
+<span class="sig-name descname"><span class="pre">get_running_processes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">wiser.gui.subprocessing_manager.ProcessManager</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task">
+<span class="sig-name descname"><span class="pre">submit_parallel_task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">operation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id">
+<span class="sig-name descname"><span class="pre">get_next_process_pool_id</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id">
+<span class="sig-name descname"><span class="pre">take_next_id</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id" title="Link to this definition">#</a></dt>
+<dd><p>Returns the next ID for use with an object, and also increments the
+internal “next ID” value.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin">
+<span class="sig-name descname"><span class="pre">add_plugin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">class_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plugin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.plugins.Plugin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins">
+<span class="sig-name descname"><span class="pre">get_plugins</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">wiser.plugins.Plugin</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_loader">
+<span class="sig-name descname"><span class="pre">get_loader</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_loader" title="Link to this definition">#</a></dt>
+<dd><p>Returns the <code class="docutils literal notranslate"><span class="pre">RasterDataLoader</span></code> instance being used by WISER to load
+data sets.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir">
+<span class="sig-name descname"><span class="pre">get_current_dir</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir" title="Link to this definition">#</a></dt>
+<dd><p>Returns the current directory of the application.  This is the last
+directory that the user accessed in a load or save operation, so that
+the next load or save can start at the same directory.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir">
+<span class="sig-name descname"><span class="pre">set_current_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">current_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir" title="Link to this definition">#</a></dt>
+<dd><p>Sets the current directory of the application.  This is the last
+directory that the user accessed in a load or save operation, so that
+the next load or save can start at the same directory.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache">
+<span class="sig-name descname"><span class="pre">set_data_cache</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.data_cache.DataCache</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path">
+<span class="sig-name descname"><span class="pre">update_cwd_from_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path" title="Link to this definition">#</a></dt>
+<dd><p>This helper function makes it easier to update the current working
+directory (CWD) at the end of a file-load or file-save operation.  The
+specified path is assumed to be either a directory or a file:</p>
+<ul class="simple">
+<li><p>If it is a directory then the current directory is set to that path.</p></li>
+<li><p>If it is a file then the directory portion of the path is taken and
+used for the current directory.</p></li>
+</ul>
+<p>The function only updates the current directory if the filesystem
+actually reports it as a valid directory.  If the directory can’t be
+identified from the specified path (e.g. the OS doesn’t report the path
+as a valid directory), this function simply logs a warning.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text">
+<span class="sig-name descname"><span class="pre">show_status_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text">
+<span class="sig-name descname"><span class="pre">clear_status_text</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.open_file">
+<span class="sig-name descname"><span class="pre">open_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.open_file" title="Link to this definition">#</a></dt>
+<dd><p>A general file-open operation in WISER.  This method can be used
+for loading any kind of data file whose type and contents can be
+identified automatically.  This operation should not be used for
+importing ASCII spectral data, regions of interest, etc. since
+WISER cannot identify the file’s contents automatically.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset">
+<span class="sig-name descname"><span class="pre">add_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">view_dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset" title="Link to this definition">#</a></dt>
+<dd><p>Add a dataset to the application state.  A unique numeric ID is assigned
+to the dataset, which is also set on the dataset itself.</p>
+<p>The method will fire a signal indicating that the dataset was added.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset">
+<span class="sig-name descname"><span class="pre">has_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset" title="Link to this definition">#</a></dt>
+<dd><p>Returns whether the dataset with the specified numeric ID is in the application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset">
+<span class="sig-name descname"><span class="pre">get_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset" title="Link to this definition">#</a></dt>
+<dd><p>Return the dataset with the specified numeric ID.  If the ID is
+unrecognized then a KeyError will be raised.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_cache">
+<span class="sig-name descname"><span class="pre">get_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.data_cache.DataCache</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_cache" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets">
+<span class="sig-name descname"><span class="pre">num_datasets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets" title="Link to this definition">#</a></dt>
+<dd><p>Return the number of datasets in the application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets">
+<span class="sig-name descname"><span class="pre">get_datasets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets" title="Link to this definition">#</a></dt>
+<dd><p>Return a list of datasets in the application state.  The returned list
+is separate from the internal application-state data structures, and
+therefore may be mutated by the caller without harm.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset">
+<span class="sig-name descname"><span class="pre">remove_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset" title="Link to this definition">#</a></dt>
+<dd><p>Remove the dataset with the specified numeric ID from the application
+state and the cache. If the ID is unrecognized then a KeyError will
+be raised.</p>
+<p>The method will fire a signal indicating that the dataset was removed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size">
+<span class="sig-name descname"><span class="pre">multiple_datasets_same_size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size" title="Link to this definition">#</a></dt>
+<dd><p>This function returns True if there are multiple datasets, and they are
+all the same size.  If either of these cases is not true then False is
+returned.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible">
+<span class="sig-name descname"><span class="pre">multiple_datasets_link_compatible</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible">
+<span class="sig-name descname"><span class="pre">multiple_displayed_datasets_link_compatible</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">bool</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">wiser.raster.dataset.GeographicLinkState</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size">
+<span class="sig-name descname"><span class="pre">multiple_displayed_datasets_same_size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size" title="Link to this definition">#</a></dt>
+<dd><p>This function returns True if there are multiple visible datasets and
+they are all the same size.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name">
+<span class="sig-name descname"><span class="pre">unique_dataset_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name">
+<span class="sig-name descname"><span class="pre">unique_roi_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches">
+<span class="sig-name descname"><span class="pre">set_stretches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stretches</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.stretch.StretchBase</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches">
+<span class="sig-name descname"><span class="pre">get_stretches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Tuple</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library">
+<span class="sig-name descname"><span class="pre">add_spectral_library</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">library</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library" title="Link to this definition">#</a></dt>
+<dd><p>Add a spectral library to the application state, assigning a new ID to
+the library.  The method will fire a signal indicating that the spectral
+library was added, including the ID assigned to the library.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library">
+<span class="sig-name descname"><span class="pre">has_spectral_library</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lib_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library" title="Link to this definition">#</a></dt>
+<dd><p>Returns whether the spectral library with the specified numeric ID is in the application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library">
+<span class="sig-name descname"><span class="pre">get_spectral_library</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lib_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library" title="Link to this definition">#</a></dt>
+<dd><p>Return the spectral library with the specified ID.  If the ID is
+unrecognized, a KeyError will be raised.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries">
+<span class="sig-name descname"><span class="pre">num_spectral_libraries</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries" title="Link to this definition">#</a></dt>
+<dd><p>Return the number of spectral libraries in the application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries">
+<span class="sig-name descname"><span class="pre">get_spectral_libraries</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries" title="Link to this definition">#</a></dt>
+<dd><p>Return a list of all the spectral libraries in the application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library">
+<span class="sig-name descname"><span class="pre">remove_spectral_library</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lib_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library" title="Link to this definition">#</a></dt>
+<dd><p>Remove the specified spectral library from the application state.
+The method will fire a signal indicating that the spectral library
+was removed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.config">
+<span class="sig-name descname"><span class="pre">config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.gui.app_config.ApplicationConfig</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.config" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_config">
+<span class="sig-name descname"><span class="pre">get_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">option</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">as_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_config" title="Link to this definition">#</a></dt>
+<dd><p>Returns the value of the specified config option.  An optional default
+value may be specified.</p>
+<p>Options are specified as a sequence of names separated by dots ‘.’,
+just like a series of object-member accesses on an object hierarchy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_config">
+<span class="sig-name descname"><span class="pre">set_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">option</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_config" title="Link to this definition">#</a></dt>
+<dd><p>Sets the value of the specified config option.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_roi">
+<span class="sig-name descname"><span class="pre">add_roi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest" title="wiser.raster.roi.RegionOfInterest"><span class="pre">wiser.raster.roi.RegionOfInterest</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_name_unique</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_roi" title="Link to this definition">#</a></dt>
+<dd><p>Add a Region of Interest to WISER’s state.  A <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> is raised
+if the ROI does not have a unique name.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi">
+<span class="sig-name descname"><span class="pre">remove_roi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roi_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi" title="Link to this definition">#</a></dt>
+<dd><p>Removes the specified Region of Interest from WISER’s state.
+A <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> is raised if no ROI has the specified ID.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_roi">
+<span class="sig-name descname"><span class="pre">get_roi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest" title="wiser.raster.roi.RegionOfInterest"><span class="pre">wiser.raster.roi.RegionOfInterest</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_roi" title="Link to this definition">#</a></dt>
+<dd><p>Retrieve a Region of Interest from WISER’s state.  The caller may
+specify an <code class="docutils literal notranslate"><span class="pre">id</span></code> keyword-argument to retrieve an ROI by ID, or
+a <code class="docutils literal notranslate"><span class="pre">name</span></code> keyword-argument to retrieve an ROI by name.  Names are
+case-sensitive.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_rois">
+<span class="sig-name descname"><span class="pre">get_rois</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest" title="wiser.raster.roi.RegionOfInterest"><span class="pre">wiser.raster.roi.RegionOfInterest</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_rois" title="Link to this definition">#</a></dt>
+<dd><p>Returns a list of all Regions of Interest in WISER’s application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum">
+<span class="sig-name descname"><span class="pre">has_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Returns whether the spectrum with the specified numeric ID is in the application state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum">
+<span class="sig-name descname"><span class="pre">get_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum" title="wiser.raster.spectrum.Spectrum"><span class="pre">wiser.raster.spectrum.Spectrum</span></a></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Retrieve a spectrum from WISER’s state.  A <code class="docutils literal notranslate"><span class="pre">KeyError</span></code> is raised if
+the ID doesn’t correspond to a spectrum.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra">
+<span class="sig-name descname"><span class="pre">get_all_spectra</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra" title="Link to this definition">#</a></dt>
+<dd><p>Retrieves all spectra in the spectrum plot.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum">
+<span class="sig-name descname"><span class="pre">get_active_spectrum</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Retrieve the current active spectrum.  The “active spectrum” is the
+spectrum that the user most recently selected, or it may be the
+output of a band-math expression, plugin, etc. that computes a spectrum.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum">
+<span class="sig-name descname"><span class="pre">set_active_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum" title="wiser.raster.spectrum.Spectrum"><span class="pre">wiser.raster.spectrum.Spectrum</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Set the current active spectrum to be the specified spectrum.
+The “active spectrum” is the spectrum that the user most recently
+selected, or it may be the output of a band-math expression, plugin,
+etc. that computes a spectrum.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum">
+<span class="sig-name descname"><span class="pre">collect_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum" title="wiser.raster.spectrum.Spectrum"><span class="pre">wiser.raster.spectrum.Spectrum</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Add the specified spectrum to the “collected spectra” group.</p>
+<p>Note that the specified spectrum cannot be the current “active
+spectrum”; if it is, a <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> will be raised.  The
+current “active spectrum” is collected via the
+<code class="docutils literal notranslate"><span class="pre">collect_active_spectrum()</span></code> method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum">
+<span class="sig-name descname"><span class="pre">collect_active_spectrum</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Add the current “active spectrum” to the “collected spectra” group.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> will be raised if there is no active spectrum when
+this method is called.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra">
+<span class="sig-name descname"><span class="pre">get_collected_spectra</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum" title="wiser.raster.spectrum.Spectrum"><span class="pre">wiser.raster.spectrum.Spectrum</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra" title="Link to this definition">#</a></dt>
+<dd><p>Returns the current list of collected spectra.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum">
+<span class="sig-name descname"><span class="pre">remove_collected_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum" title="Link to this definition">#</a></dt>
+<dd><p>Removes a collected spectrum from the list of collected spectra.
+The spectrum to remove is specified by a 0-based index.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra">
+<span class="sig-name descname"><span class="pre">remove_all_collected_spectra</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra" title="Link to this definition">#</a></dt>
+<dd><p>Removes all spectra from the list of collected spectra.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs">
+<span class="sig-name descname"><span class="pre">get_user_created_crs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs">
+<span class="sig-name descname"><span class="pre">add_user_created_crs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.osr.SpatialReference</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs_creator_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.gui.reference_creator_dialog.CrsCreatorState</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui">
+<span class="sig-name descname"><span class="pre">choose_dataset_ui</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_test_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui">
+<span class="sig-name descname"><span class="pre">choose_spectrum_ui</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_test_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum" title="wiser.raster.spectrum.Spectrum"><span class="pre">wiser.raster.spectrum.Spectrum</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui">
+<span class="sig-name descname"><span class="pre">choose_roi_ui</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_test_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest" title="wiser.raster.roi.RegionOfInterest"><span class="pre">wiser.raster.roi.RegionOfInterest</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui">
+<span class="sig-name descname"><span class="pre">choose_band_ui</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_test_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand" title="wiser.raster.dataset.RasterDataBand"><span class="pre">wiser.raster.dataset.RasterDataBand</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.create_form">
+<span class="sig-name descname"><span class="pre">create_form</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">form_inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.dataset.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.dataset.Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_test_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.dataset.Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">wiser.raster.dataset.Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.create_form" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot">
+<span class="sig-name descname"><span class="pre">show_spectra_in_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum" title="wiser.raster.spectrum.Spectrum"><span class="pre">wiser.raster.spectrum.Spectrum</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot" title="Link to this definition">#</a></dt>
+<dd><p>Takes the list of spectra passed in and displays it in a generic
+spectrum plot.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed">
+<span class="sig-name descname"><span class="pre">_on_generic_spectrum_plot_closed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.gui.spectrum_plot.SpectrumPlotGeneric</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget">
+<span class="sig-name descname"><span class="pre">show_table_widget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">header</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rows</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.dataset.Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget" title="Link to this definition">#</a></dt>
+<dd><p>Creates and shows a table widget that is meant for display.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed">
+<span class="sig-name descname"><span class="pre">_on_table_display_widget_closed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_display_widget</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget" title="wiser.gui.ui_library.TableDisplayWidget"><span class="pre">wiser.gui.ui_library.TableDisplayWidget</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget">
+<span class="sig-name descname"><span class="pre">show_matplotlib_display_widget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">figure</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">matplotlib.figure.Figure</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">matplotlib.axes.Axes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget" title="Link to this definition">#</a></dt>
+<dd><p>Creates and shows a widget with a matplotlib plot</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed">
+<span class="sig-name descname"><span class="pre">_on_matplotlib_display_widget_closed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">matplotlib_display</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget" title="wiser.gui.ui_library.MatplotlibDisplayWidget"><span class="pre">wiser.gui.ui_library.MatplotlibDisplayWidget</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<p>Operations involving loading and storing raster data sets will require the use
+of a loader object, also accessible off of the <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> object.
+See the <code class="docutils literal notranslate"><span class="pre">get_loader()</span></code> function above.  The loader offers these operations:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">RasterDataLoader</span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader" title="Link to this definition">#</a></dt>
+<dd><p>A loader for loading 2D raster data-sets from the local filesystem, using
+GDAL (Geospatial Data Abstraction Library) for reading the data.</p>
+<p class="rubric">Initialization</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset">
+<span class="sig-name descname"><span class="pre">load_normal_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">impl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset_impl.RasterDataImpl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.DataCache</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset" title="Link to this definition">#</a></dt>
+<dd><p>The normal way to load in a dataset</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset">
+<span class="sig-name descname"><span class="pre">load_FITS_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">impl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset_impl.RasterDataImpl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.DataCache</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file">
+<span class="sig-name descname"><span class="pre">load_from_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdataset_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file" title="Link to this definition">#</a></dt>
+<dd><p>Load a raster data-set from the specified path.  Returns a
+list of <code class="xref py py-class docutils literal notranslate"><span class="pre">RasterDataSet</span></code> object.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames">
+<span class="sig-name descname"><span class="pre">get_save_filenames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'ENVI'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as">
+<span class="sig-name descname"><span class="pre">save_dataset_as</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">wiser.raster.dataset_impl.ENVI_GDALRasterDataImpl</span></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array">
+<span class="sig-name descname"><span class="pre">dataset_from_numpy_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.DataCache</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array" title="Link to this definition">#</a></dt>
+<dd><p>Given a NumPy ndarray, this function returns a RasterDataSet object
+that uses the array for its raster data.  The input ndarray must have
+three dimensions; they are interpreted as
+[spectral][spatial_y][spatial_x].</p>
+<p>Raises a ValueError if the input array doesn’t have 3 dimensions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset">
+<span class="sig-name descname"><span class="pre">dataset_from_gdal_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">osgeo.gdal.Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.DataCache</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></span><a class="headerlink" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<section id="loading-raster-data-into-wiser">
+<span id="id1"></span><h2>Loading Raster Data into WISER<a class="headerlink" href="#loading-raster-data-into-wiser" title="Link to this heading">#</a></h2>
+<p>The above classes expose two ways to load raster data into WISER.  The first
+option is to use the <code class="docutils literal notranslate"><span class="pre">ApplicationState.open_file()</span></code> function, which simply
+loads a file into WISER.  Several kinds of files (raster images, spectral
+libraries, and a few other kinds of files) are supported by this method.  No
+value is returned, so this function is not useful for getting access to the
+contents of a specific raster file.</p>
+<p>To open a raster data file and get back an object to access its contents
+requires the use of the <code class="docutils literal notranslate"><span class="pre">RasterDataLoader</span></code>.  The loader is accessed from the
+<code class="docutils literal notranslate"><span class="pre">ApplicationState.get_loader()</span></code> method, as described above.  Note that any
+raster image loaded this way is not automatically displayed; after it has been
+loaded and possibly manipulated, it must be added to the <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>
+object with the <code class="docutils literal notranslate"><span class="pre">add_dataset()</span></code> method, before it will be displayed.</p>
+<p>Similarly, a NumPy array can be converted into a <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> object using
+the <code class="docutils literal notranslate"><span class="pre">RasterDataLoader.dataset_from_numpy_array()</span></code> method.  It will likely be
+desirable to add metadata to the resulting <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> object (it is
+convenient to copy it from an existing data-set, if the new object was generated
+from an existing data-set), but this is not required.</p>
+<p>Finally, it is not advisable to change a <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> object after handing
+it to WISER for display, as WISER currently expects that the object will not
+change once it has been given to WISER.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="ui_plugins.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">GUI Plugins in WISER</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="supporting_types.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Supporting Types</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_added</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_loader"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_loader()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.open_file"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.open_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_cache"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_cache()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.config"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_config"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_config"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_roi"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_roi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_roi"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_roi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_rois"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_rois()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.create_form"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.create_form()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset"><code class="docutils literal notranslate"><span class="pre">wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-raster-data-into-wiser">Loading Raster Data into WISER</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

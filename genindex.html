@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Index &#8212; WISER Docs</title>
+    <title>Index &#8212; WISER Documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
-    <link rel="stylesheet" type="text/css" href="_static/style.css?v=613452eb" />
+    <link rel="stylesheet" type="text/css" href="_static/style.css?v=aa29f439" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -39,11 +39,12 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=2fb55b05"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
+    <link rel="icon" href="_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -129,8 +130,8 @@
       
     
     
-    <img src="_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
-    <img src="_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Docs - Home"/>
+    <img src="_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
   
   
 </a></div>
@@ -143,36 +144,42 @@
 </button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
-        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="get-started.html">Getting started</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="user-content/overview.html">WISER Overview</a></li>
-
-
-
-<li class="toctree-l2"><a class="reference internal" href="user-content/contrast-stretch.html">Contrast Stretch</a></li>
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/spatial-tools.html">Spatial Tools</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer.html">Developing WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-linux.html">Developing and Building WISER on Linux</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/branching-strategy.html">Branching Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/testing-standards.html">Testing Standards</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/task_system.html">WISER Task, Storage, and Scheduler System Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/activity_monitor.html">Activity Monitor Update Flow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design/storage_memory_management.html">WISER Storage and Memory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
-<li class="toctree-l2"><a class="reference internal" href="general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to WISER</a></li>
 </ul>
 
     </div>
@@ -291,8 +298,803 @@
 <h1 id="index">Index</h1>
 
 <div class="genindex-jumpbox">
+ <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#W"><strong>W</strong></a>
  
 </div>
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.__deepcopy__">__deepcopy__() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.__eq__">__eq__() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.__eq__">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.__hash__">__hash__() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.__str__">__str__() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet._compute_has_wavelengths">_compute_has_wavelengths() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog._on_combo_changed">_on_combo_changed() (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog._on_float_changed_no_units">_on_float_changed_no_units() (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog._on_float_units_changed">_on_float_units_changed() (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_generic_spectrum_plot_closed">_on_generic_spectrum_plot_closed() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed">_on_matplotlib_display_widget_closed() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed">_on_table_display_widget_closed() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager">_retire_process_manager() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet._set_geo_transform">_set_geo_transform() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet._set_spatial_reference">_set_spatial_reference() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet._set_wkt">_set_wkt() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed">active_spectrum_changed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuPlugin.ContextMenuPlugin.add_context_menu_items">add_context_menu_items() (wiser.plugins.types.wiser.plugins.types.ContextMenuPlugin.ContextMenuPlugin method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset">add_dataset() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_plugin">add_plugin() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_roi">add_roi() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_running_process">add_running_process() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.add_selection">add_selection() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_spectral_library">add_spectral_library() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/toolsmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin.add_tool_menu_items">add_tool_menu_items() (wiser.plugins.types.wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_user_created_crs">add_user_created_crs() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.analyze">analyze() (wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.apply">apply() (wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array">as_numpy_array() (wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_numpy_array_by_bands">as_numpy_array_by_bands() (wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.as_scalar">as_scalar() (wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.band_list">band_list() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.BOOLEAN">BOOLEAN (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.cache_band_stats">cache_band_stats() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.cancel_all_running_processes">cancel_all_running_processes() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_band_ui">choose_band_ui() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_dataset_ui">choose_dataset_ui() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_roi_ui">choose_roi_ui() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.choose_spectrum_ui">choose_spectrum_ui() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.clear_status_text">clear_status_text() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget.closed">closed (wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget attribute)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget.closed">(wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget.closeEvent">closeEvent() (wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget.closeEvent">(wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_active_spectrum">collect_active_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collect_spectrum">collect_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed">collected_spectra_changed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.COMBO_BOX">COMBO_BOX (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.config">config() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.copy_metadata_from">copy_metadata_from() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.copy_serialized_metadata_from">copy_serialized_metadata_from() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.copy_spatial_metadata">copy_spatial_metadata() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.copy_spectral_metadata">copy_spectral_metadata() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.copy_spectral_metadata">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.create_form">create_form() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog.create_input_dialog">create_input_dialog() (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget.create_plot">create_plot() (wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget.create_table">create_table() (wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_added">dataset_added (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_gdal_dataset">dataset_from_gdal_dataset() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.dataset_from_numpy_array">dataset_from_numpy_array() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType.DATASET_PICK">DATASET_PICK (wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.dataset_removed">dataset_removed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.default_display_bands">default_display_bands() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.del_selection">del_selection() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.delete_underlying_dataset">delete_underlying_dataset() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.deserialize_into_class">deserialize_into_class() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand static method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.deserialize_into_class">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet static method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.deserialize_into_class">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum static method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.determine_link_state">determine_link_state() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.FLOAT_NO_UNITS">FLOAT_NO_UNITS (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.FLOAT_UNITS">FLOAT_UNITS (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.geo_to_pixel_coords">geo_to_pixel_coords() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.geo_to_pixel_coords_exact">geo_to_pixel_coords_exact() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_active_spectrum">get_active_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_all_bands_at">get_all_bands_at() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_all_bands_at_rect">get_all_bands_at_rect() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_all_pixels">get_all_pixels() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_all_spectra">get_all_spectra() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_bad_bands">get_bad_bands() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_bad_bands">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_bad_bands">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_band_data">get_band_data() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_band_data_normalized">get_band_data_normalized() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.get_band_index">get_band_index() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.get_band_info">get_band_info() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_band_info">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_band_memory_size">get_band_memory_size() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_band_stats">get_band_stats() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_band_unit">get_band_unit() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin.get_bandmath_functions">get_bandmath_functions() (wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_bounding_box">get_bounding_box() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_cache">get_cache() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_cache">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_collected_spectra">get_collected_spectra() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_color">get_color() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_color">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_config">get_config() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_current_dir">get_current_dir() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.get_data">get_data() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_data_ignore_value">get_data_ignore_value() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_dataset">get_dataset() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_datasets">get_datasets() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction.get_description">get_description() (wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_description">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_description">(wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_elem_type">get_elem_type() (wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_elem_type">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_elem_type">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_elem_type">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths">get_filepaths() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_format">get_format() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_geo_transform">get_geo_transform() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_height">get_height() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_id">get_id() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_id">(wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_id">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_image_data">get_image_data() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_image_data_subset">get_image_data_subset() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_impl">get_impl() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_loader">get_loader() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_memory_size">get_memory_size() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_metadata">get_metadata() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_multiple_band_data">get_multiple_band_data() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_name">get_name() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_name">(wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_name">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_name">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_next_process_pool_id">get_next_process_pool_id() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_plugins">get_plugins() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_roi">get_roi() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_rois">get_rois() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_running_processes">get_running_processes() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.get_save_filenames">get_save_filenames() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_save_state">get_save_state() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.get_selections">get_selections() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.get_serialized_form">get_serialized_form() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_serialized_form">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_serialized_form">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.get_shape">get_shape() (wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_shape">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_shape">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_source_name">get_source_name() (wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_source_name">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_spatial_metadata">get_spatial_metadata() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_spatial_ref">get_spatial_ref() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_libraries">get_spectral_libraries() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectral_library">get_spectral_library() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_spectral_metadata">get_spectral_metadata() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_spectral_metadata">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_spectrum">get_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_spectrum">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_spectrum">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.get_stats">get_stats() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches">get_stretches() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_subdataset_name">get_subdataset_name() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_user_created_crs">get_user_created_crs() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_wavelength_units">get_wavelength_units() (wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_wavelength_units">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_wavelengths">get_wavelengths() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.get_wavelengths">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.get_wavelengths">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_width">get_width() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_wkt_spatial_reference">get_wkt_spatial_reference() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_dataset">has_dataset() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.has_geographic_info">has_geographic_info() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectral_library">has_spectral_library() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.has_spectrum">has_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.has_wavelengths">has_wavelengths() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.has_wavelengths">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.has_wavelengths">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND">IMAGE_BAND (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_BAND_BATCH">IMAGE_BAND_BATCH (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE">IMAGE_CUBE (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_BATCH">IMAGE_CUBE_BATCH (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.IMAGE_CUBE_DATASET">IMAGE_CUBE_DATASET (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_NO_UNITS">INT_NO_UNITS (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType attribute)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_UNITS">INT_UNITS (wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType attribute)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.is_dirty">is_dirty() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.is_discardable">is_discardable() (wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.is_discardable">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.is_editable">is_editable() (wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.is_editable">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand.is_metadata_same">is_metadata_same() (wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.is_metadata_same">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.is_pixel_in_image_bounds">is_pixel_in_image_bounds() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.is_spatial_coord_in_spatial_bounds">is_spatial_coord_in_spatial_bounds() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset">load_FITS_dataset() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file">load_from_file() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset">load_normal_dataset() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.mainview_dataset_changed">mainview_dataset_changed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_link_compatible">multiple_datasets_link_compatible() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_datasets_same_size">multiple_datasets_same_size() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_link_compatible">multiple_displayed_datasets_link_compatible() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.multiple_displayed_datasets_same_size">multiple_displayed_datasets_same_size() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.num_bands">num_bands() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.num_bands">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.num_bands">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_datasets">num_datasets() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.num_spectral_libraries">num_spectral_libraries() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.NUMBER">NUMBER (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.open_file">open_file() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.pprint">pprint() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType.RASTER_VIEW">RASTER_VIEW (wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.REGION_OF_INTEREST">REGION_OF_INTEREST (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_all_collected_spectra">remove_all_collected_spectra() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_collected_spectrum">remove_collected_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_dataset">remove_dataset() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_roi">remove_roi() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_running_process">remove_running_process() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.remove_spectral_library">remove_spectral_library() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added">roi_added (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType.ROI_PICK">ROI_PICK (wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed">roi_removed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.sample_band_data">sample_band_data() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.save_dataset_as">save_dataset_as() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_active_spectrum">set_active_spectrum() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_bad_bands">set_bad_bands() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.set_bad_bands">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_band_descriptions">set_band_descriptions() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_band_list">set_band_list() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_band_unit">set_band_unit() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.set_color">set_color() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.set_color">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_config">set_config() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_current_dir">set_current_dir() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_data_cache">set_data_cache() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_data_ignore_value">set_data_ignore_value() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_default_display_bands">set_default_display_bands() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_description">set_description() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.set_description">(wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_dirty">set_dirty() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_id">set_id() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.set_id">(wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.set_id">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue.set_name">set_name() (wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue method)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_name">(wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.set_name">(wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.set_name">(wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+        <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum.set_name">(wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.set_save_state">set_save_state() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.set_source_name">set_source_name() (wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches">set_stretches() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum.set_wavelengths">set_wavelengths() (wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.show_edit_dataset_dialog">show_edit_dataset_dialog() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_matplotlib_display_widget">show_matplotlib_display_widget() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_spectra_in_plot">show_spectra_in_plot() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_status_text">show_status_text() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.show_table_widget">show_table_widget() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_added">spectral_library_added (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.spectral_library_removed">spectral_library_removed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.SPECTRUM">SPECTRUM (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+</li>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType.SPECTRUM_PICK">SPECTRUM_PICK (wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType attribute)</a>
+</li>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType.SPECTRUM_PLOT">SPECTRUM_PLOT (wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType attribute)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed">stretch_changed (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState attribute)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType.STRING">STRING (wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType attribute)</a>
+
+      <ul>
+        <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING">(wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.submit_parallel_task">submit_parallel_task() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.take_next_id">take_next_id() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.to_angular_coords">to_angular_coords() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.to_geographic_coords">to_geographic_coords() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_dataset_name">unique_dataset_name() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.unique_roi_name">unique_roi_name() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.update_band_info">update_band_info() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.update_cwd_from_path">update_cwd_from_path() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathFunction.BandMathFunction">wiser.bandmath.types.BandMathFunction.BandMathFunction (class in wiser.bandmath.types)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.BandMathValue.BandMathValue">wiser.bandmath.types.BandMathValue.BandMathValue (class in wiser.bandmath.types)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.bandmath.types.wiser.bandmath.types.VariableType.VariableType">wiser.bandmath.types.VariableType.VariableType (class in wiser.bandmath.types)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState">wiser.gui.app_state.ApplicationState.ApplicationState (class in wiser.gui.app_state)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog">wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog (class in wiser.gui.ui_library)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType">wiser.gui.ui_library.DynamicInputType.DynamicInputType (class in wiser.gui.ui_library)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget">wiser.gui.ui_library.MatplotlibDisplayWidget.MatplotlibDisplayWidget (class in wiser.gui.ui_library)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget">wiser.gui.ui_library.TableDisplayWidget.TableDisplayWidget (class in wiser.gui.ui_library)</a>
+</li>
+      <li><a href="extending-wiser/bandmath_plugins.html#wiser.plugins.types.wiser.plugins.types.BandMathPlugin.BandMathPlugin">wiser.plugins.types.BandMathPlugin.BandMathPlugin (class in wiser.plugins.types)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuPlugin.ContextMenuPlugin">wiser.plugins.types.ContextMenuPlugin.ContextMenuPlugin (class in wiser.plugins.types)</a>
+</li>
+      <li><a href="extending-wiser/ctxmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ContextMenuType.ContextMenuType">wiser.plugins.types.ContextMenuType.ContextMenuType (class in wiser.plugins.types)</a>
+</li>
+      <li><a href="extending-wiser/toolsmenu_plugins.html#wiser.plugins.types.wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin">wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin (class in wiser.plugins.types)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataBand.RasterDataBand">wiser.raster.dataset.RasterDataBand.RasterDataBand (class in wiser.raster.dataset)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet">wiser.raster.dataset.RasterDataSet.RasterDataSet (class in wiser.raster.dataset)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader">wiser.raster.loader.RasterDataLoader.RasterDataLoader (class in wiser.raster.loader)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest">wiser.raster.roi.RegionOfInterest.RegionOfInterest (class in wiser.raster.roi)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum">wiser.raster.spectrum.NumPyArraySpectrum.NumPyArraySpectrum (class in wiser.raster.spectrum)</a>
+</li>
+      <li><a href="extending-wiser/supporting_types.html#wiser.raster.spectrum.wiser.raster.spectrum.Spectrum.Spectrum">wiser.raster.spectrum.Spectrum.Spectrum (class in wiser.raster.spectrum)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 
 
                 </article>
@@ -321,7 +1123,7 @@
   <div class="footer-item">
     
 <p class="component-author">
-By Joshua Garcia-Kimble
+By Ehlmann Research Group
 </p>
 
   </div>
@@ -331,7 +1133,7 @@ By Joshua Garcia-Kimble
 
   <p class="copyright">
     
-      © Copyright 2026, Joshua Garcia-Kimble.
+      © Copyright 2019-2026, California Institute of Technology.
       <br/>
     
   </p>

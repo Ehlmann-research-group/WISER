@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Environment setup &#8212; WISER Docs</title>
+    <title>Developer Guide &#8212; WISER Documentation</title>
   
   
   
@@ -32,7 +32,7 @@
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
-    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=613452eb" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -40,15 +40,16 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=2fb55b05"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/environment-setup';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Developing and Building WISER on Windows 10" href="devenv-win.html" />
-    <link rel="prev" title="Developing WISER" href="../developer.html" />
+    <link rel="next" title="Contributing and Code Quality" href="contributing-and-quality.html" />
+    <link rel="prev" title="Examples &amp; Community" href="../extending-wiser/examples.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -130,8 +131,8 @@
       
     
     
-    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
-    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Docs - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
   
   
 </a></div>
@@ -144,36 +145,42 @@
 </button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
-        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../get-started.html">Getting started</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../user-content/overview.html">WISER Overview</a></li>
-
-
-
-<li class="toctree-l2"><a class="reference internal" href="../user-content/contrast-stretch.html">Contrast Stretch</a></li>
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Environment setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="devenv-win.html">Developing and Building WISER on Windows 10</a></li>
-<li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
-<li class="toctree-l2"><a class="reference internal" href="devenv-linux.html">Developing and Building WISER on Linux</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
-<li class="toctree-l2"><a class="reference internal" href="CI-CD-Releases.html">CI/CD and Releases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="testing-standards.html">Testing Standards</a></li>
-<li class="toctree-l2"><a class="reference internal" href="system-design/task_system.html">WISER Task, Storage, and Scheduler System Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="system-design/activity_monitor.html">Activity Monitor Update Flow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="system-design/storage_memory_management.html">WISER Storage and Memory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
 </ul>
 
     </div>
@@ -222,18 +229,50 @@
 <div class="article-header-buttons">
 
 
-<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
-   class="btn btn-sm btn-source-repository-button"
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
    title="Source repository"
-   data-bs-placement="bottom" data-bs-toggle="tooltip"
+   data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
 
 <span class="btn__icon-container">
   <i class="fab fa-github"></i>
   </span>
-
+<span class="btn__text-container">Repository</span>
 </a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
 
 
 
@@ -324,7 +363,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Environment setup</h1>
+    <h1>Developer Guide</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -334,17 +373,43 @@
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#developer-environment-setup">Developer Environment Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lockfiles">Lockfiles</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-production-prod-dependencies">Changing production (prod) dependencies</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-development-dev-dependencies">Changing development (dev) dependencies</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regenerating-the-lock-file">Regenerating the lock file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-environment-from-lockfile">Installing environment from lockfile</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-production-prod-dependencies">Changing Production (prod) Dependencies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-development-dev-dependencies">Changing Development (dev) Dependencies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regenerating-the-lock-file">Regenerating the Lock File</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-environment-from-lockfile">Installing Environment from Lockfile</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-wiser">Running WISER</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#listing-out-dependencies-from-lockfile">Listing out dependencies from lockfile</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#other-useful-tools">Other useful tools</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#platform-specific-build-distribution">Platform-Specific Build &amp; Distribution</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#macos">macOS</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#important-build-targets">Important Build Targets</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#building-a-distributable-dmg">Building a Distributable .dmg</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#windows">Windows</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda">How to Install Conda</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ide">IDE</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#installer-nsis">Installer — NSIS</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-on-windows">Installing on Windows</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing">Code Signing</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-project">Building the Project</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linux">Linux</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-distributions-and-architectures">Supported Distributions and Architectures</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda-on-linux">How to Install Conda on Linux</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-build-wiser">How to Build WISER</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment">Continuous Deployment</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#other-useful-tools">Other Useful Tools</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#github-cli-tool">GitHub CLI Tool</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#listing-out-dependencies-from-lockfile">Listing Out Dependencies from Lockfile</a></li>
 </ul>
             </nav>
         </div>
@@ -356,109 +421,362 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="environment-setup">
-<h1>Environment setup<a class="headerlink" href="#environment-setup" title="Link to this heading">#</a></h1>
-<p>This page will teach us how to set up the prod environment and the dev environment for WISER
-as well as what is going on behind the scenes.</p>
-<p>You will need to have conda installed and python installed. You will also need to be able to use <code class="docutils literal notranslate"><span class="pre">make</span></code> in your terminal. Based on your operating system, you should look up how to install <code class="docutils literal notranslate"><span class="pre">make</span></code>.</p>
+  <section id="developer-guide">
+<h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading">#</a></h1>
+<p>This guide walks you through setting up a WISER development environment and
+covers the full contributor workflow from first clone to merged PR.</p>
+<p><strong>Reading order for new contributors:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>This page</strong> — install conda, set up the dev environment, run WISER from source</p></li>
+<li><p><a class="reference internal" href="contributing-and-quality.html"><span class="std std-doc">Contributing &amp; Code Quality</span></a> — code style, PR process, review standards</p></li>
+<li><p><a class="reference internal" href="testing-and-qa.html"><span class="std std-doc">Testing &amp; QA</span></a> — running tests, writing tests, CI</p></li>
+<li><p><a class="reference internal" href="ci-cd-and-releases.html"><span class="std std-doc">CI/CD and Releases</span></a> — how releases are built and shipped (see
+also: <a class="reference internal" href="codesign-mac.html"><span class="std std-doc">macOS Code Signing</span></a>)</p></li>
+<li><p><a class="reference internal" href="system-design.html"><span class="std std-doc">System Design</span></a> — architecture overview for deeper changes
+6<a class="reference internal" href="design-documents.html"><span class="std std-doc">Design Documents</span></a> — longer-form design rationale</p></li>
+</ol>
+<div class="toctree-wrapper compound">
+</div>
+<section id="developer-environment-setup">
+<h2>Developer Environment Setup<a class="headerlink" href="#developer-environment-setup" title="Link to this heading">#</a></h2>
+<p>This section covers environment setup for all platforms —
+lockfiles, conda environments, dependency management, and
+platform-specific build and distribution steps.</p>
+<p>For macOS code signing, see <a class="reference internal" href="codesign-mac.html"><span class="std std-doc">macOS Code Signing</span></a>.</p>
+</section>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
+<p>You will need conda and Python installed. You will need to do
+<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code> and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. It is recommended to do
+this inside a conda environment. You will also need <code class="docutils literal notranslate"><span class="pre">make</span></code> available in your
+terminal. Based on your operating system, look up how to install <code class="docutils literal notranslate"><span class="pre">make</span></code>.</p>
+</section>
 <section id="lockfiles">
 <h2>Lockfiles<a class="headerlink" href="#lockfiles" title="Link to this heading">#</a></h2>
-<p>In WISER under /etc there are two very important files for environment setup: <em>dev-conda-lock.yml</em>
-and <em>prod-conda-lock.yml</em>. These are our lockfiles for development and production respectively.
-You should be very hesitant to change these files. You should also never directly edit them!</p>
-<p>If you want to change the dependencies that these lockfiles have you will first have to decide
-if the dependency should go into the prod lockfile or the dev lockfile. Dependencies in the prod
-lockfile are needed for WISER to run in production. Dependencies in the dev lockfile are needed
-to run WISER from source on github and do all of the tasks a developer would do like run the
-tests or generate sphinx docs. Then you will have to follow the instructions below for each
-type of dependency you want to change.</p>
+<p>In WISER under <code class="docutils literal notranslate"><span class="pre">/etc</span></code> there are two very important files for environment setup:
+<em>dev-conda-lock.yml</em> and <em>prod-conda-lock.yml</em>. These are the lockfiles for
+development and production respectively. You should be very hesitant to change
+these files. You should also never directly edit them!</p>
+<p>If you want to change the dependencies that these lockfiles have, you will first
+have to decide if the dependency should go into the prod lockfile or the dev
+lockfile. Dependencies in the prod lockfile are needed for WISER to run in
+production. Dependencies in the dev lockfile are needed to run WISER from
+source on GitHub and do all of the tasks a developer would do — like run the
+tests or generate Sphinx docs. Then you will have to follow the instructions
+below for each type of dependency you want to change.</p>
 </section>
 <section id="changing-production-prod-dependencies">
-<h2>Changing production (prod) dependencies<a class="headerlink" href="#changing-production-prod-dependencies" title="Link to this heading">#</a></h2>
-<p>To change dependencies for production you simply have to go into the file <em>etc/wiser-prod.yml</em> and
-add the dependency. The dependency will either have to be a dependency on conda that we can get
-from conda-forge or a dependency that we can get from pip. Add your dependency and version to
-the .yml file in the appropriate location (under dependencies if it’s from conda and under pip
-if it’s from PyPI).</p>
-<p>It is encouraged to use as accurate of a version number as you can (so try to use major.minor.patch).
-We do not want our dependency versions to jump a lot when we add a new dependency. However, having
-big jumps in dependency versions may be unavoidable for important/large dependencies, like python,
-but we would still want to do this infrequently. This is important because plugin creators must
-partially base their plugin dependencies off WISER’s dependencies.</p>
+<h2>Changing Production (prod) Dependencies<a class="headerlink" href="#changing-production-prod-dependencies" title="Link to this heading">#</a></h2>
+<p>To change dependencies for production, go into the file <em>etc/wiser-prod.yml</em> and
+add the dependency. The dependency will either have to be a dependency on conda
+that we can get from conda-forge, or a dependency that we can get from pip. Add
+your dependency and version to the .yml file in the appropriate location (under
+<code class="docutils literal notranslate"><span class="pre">dependencies</span></code> if it is from conda, and under <code class="docutils literal notranslate"><span class="pre">pip</span></code> if it is from PyPI).</p>
+<p>It is encouraged to use as accurate a version number as you can (try to use
+major.minor.patch). We do not want our dependency versions to jump a lot when
+we add a new dependency. However, having big jumps in dependency versions may
+be unavoidable for important/large dependencies like Python, but we would still
+want to do this infrequently. This is important because plugin creators must
+partially base their plugin dependencies off of WISER’s dependencies.</p>
 </section>
 <section id="changing-development-dev-dependencies">
-<h2>Changing development (dev) dependencies<a class="headerlink" href="#changing-development-dev-dependencies" title="Link to this heading">#</a></h2>
-<p>To change dependencies for development you have to first go to the file etc/dev-additions.txt
-and add the dependency either under the <em>dependencies:</em> line (for conda-forge dependencies)
-or under the <em>pip:</em> line for pip dependencies. Follow the example at the top of the file.
-Note that you only use one equal sign to specify versions in this file. You would then go
-to the root directy and run the command:</p>
-<p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">src/devtools/make_dev_env.py</span> <span class="pre">etc/wiser-prod.yml</span> <span class="pre">etc/wiser-dev-additions.txt</span> <span class="pre">etc/wiser-dev.yml</span></code></p>
-<p>This command will generate the file wiser-dev.yml which will combine the packages in
-wiser-dev-additions  with the packages in wiser-prod.yml. You can also go into the
-folder <em>etc/</em> and do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dev-yaml</span></code>.</p>
+<h2>Changing Development (dev) Dependencies<a class="headerlink" href="#changing-development-dev-dependencies" title="Link to this heading">#</a></h2>
+<p>To change dependencies for development, first go to the file
+<code class="docutils literal notranslate"><span class="pre">etc/wiser-dev-additions.txt</span></code> and add the dependency either under the
+<code class="docutils literal notranslate"><span class="pre">dependencies:</span></code> line (for conda-forge dependencies) or under the <code class="docutils literal notranslate"><span class="pre">pip:</span></code> line
+for pip dependencies. Follow the example at the top of the file. Note that you
+only use one equal sign to specify versions in this file. You would then go to
+the root directory and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">src</span><span class="o">/</span><span class="n">devtools</span><span class="o">/</span><span class="n">make_dev_env</span><span class="o">.</span><span class="n">py</span> <span class="n">etc</span><span class="o">/</span><span class="n">wiser</span><span class="o">-</span><span class="n">prod</span><span class="o">.</span><span class="n">yml</span> <span class="n">etc</span><span class="o">/</span><span class="n">wiser</span><span class="o">-</span><span class="n">dev</span><span class="o">-</span><span class="n">additions</span><span class="o">.</span><span class="n">txt</span> <span class="n">etc</span><span class="o">/</span><span class="n">wiser</span><span class="o">-</span><span class="n">dev</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
+<p>This command will generate <code class="docutils literal notranslate"><span class="pre">wiser-dev.yml</span></code>, combining the packages in
+<code class="docutils literal notranslate"><span class="pre">wiser-dev-additions</span></code> with those in <code class="docutils literal notranslate"><span class="pre">wiser-prod.yml</span></code>. You can also go into the
+<code class="docutils literal notranslate"><span class="pre">etc/</span></code> folder and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dev-yaml</span></code>.</p>
 </section>
 <section id="regenerating-the-lock-file">
-<h2>Regenerating the lock file<a class="headerlink" href="#regenerating-the-lock-file" title="Link to this heading">#</a></h2>
-<p>To regenerate the dev lockfile you can do the command <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">lock</span> <span class="pre">-f</span> <span class="pre">wiser-dev.yml</span></code>
-and then rename the lock file to <em>dev-conda-lock.yml</em>. To regenerate the prod lockfile
-you can do the command <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">lock</span> <span class="pre">-f</span> <span class="pre">wiser-prod.yml</span></code> and rename the lockfile to
+<h2>Regenerating the Lock File<a class="headerlink" href="#regenerating-the-lock-file" title="Link to this heading">#</a></h2>
+<p>To regenerate the dev lockfile, run <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">lock</span> <span class="pre">-f</span> <span class="pre">wiser-dev.yml</span></code> and then
+rename the lock file to <em>dev-conda-lock.yml</em>. To regenerate the prod lockfile,
+run <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">lock</span> <span class="pre">-f</span> <span class="pre">wiser-prod.yml</span></code> and rename the lockfile to
 <em>prod-conda-lock.yml</em>.</p>
-<p>You can also go into the folder <em>etc/</em> and do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">create-lockfiles</span></code> to create both
-the dev and the prod lockfiles. To create just the dev do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dev-lockfile</span></code> and to
-create just the prod do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">prod-lockfile</span></code>. If you do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dev-lockfile</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">create-lockfiles</span></code> and the dev .yml file hasn’t been created, these commands
-will create it.</p>
+<p>You can also go into the <code class="docutils literal notranslate"><span class="pre">etc/</span></code> folder and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">create-lockfiles</span></code> to
+create both the dev and the prod lockfiles. To create just the dev lockfile,
+run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dev-lockfile</span></code>; to create just the prod lockfile, run
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">prod-lockfile</span></code>. If you run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dev-lockfile</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">create-lockfiles</span></code>
+and the dev .yml file has not been created yet, these commands will create it
+first.</p>
 </section>
 <section id="installing-environment-from-lockfile">
-<h2>Installing environment from lockfile<a class="headerlink" href="#installing-environment-from-lockfile" title="Link to this heading">#</a></h2>
-<p>Then once you have regenerated the lock files, you can do <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">install</span> <span class="pre">-n</span> <span class="pre">&lt;conda-env-name&gt;</span> <span class="pre">dev-conda-lock.yml</span></code>. Where conda-env-name is the name of the conda environment you want to install into.
-Additionally you can add the argument <code class="docutils literal notranslate"><span class="pre">--force-platform</span> <span class="pre">&lt;OS-name&gt;</span></code> to specify what
-OS you want the conda environment to support. This is useful when you are building
-an intel conda environment on an ARM mac as you can do the command:
-<code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">install</span> <span class="pre">-n</span> <span class="pre">wiser-intel</span> <span class="pre">--force-platform</span> <span class="pre">osx-64</span> <span class="pre">dev-conda-lock.yml</span></code>. The
-text <em>osx-64</em> means it will build to intel mac.</p>
-<p>If you are on MAC, to fully ensure your conda environment is the right platform, you
-may have to enter the command <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">config</span> <span class="pre">--env</span> <span class="pre">--set</span> <span class="pre">subdir</span> <span class="pre">osx-64</span></code> when you are
-in the conda enviroment you made. This specific command will ensure the environment
-is set to intel mac. To set to arm mac, you can do <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">config</span> <span class="pre">--env</span> <span class="pre">--set</span> <span class="pre">subdir</span> <span class="pre">osx-arm64</span></code>.
-You need only do these commands once.</p>
-<p>You can also do the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code> on windows to install the dev
-conda environment into conda. Do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span></code> to install the prod conda
-environment. If you are on MAC and you want to explicitly build for arm or intel
-you should do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span> <span class="pre">ENV=intel</span></code> to install for intel and
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span> <span class="pre">ENV=arm</span></code> to install for arm. If the previous steps of creating
-the dev .yml and create the lockfiles have not been done, these install commands will
-do the previous steps first.</p>
+<span id="id1"></span><h2>Installing Environment from Lockfile<a class="headerlink" href="#installing-environment-from-lockfile" title="Link to this heading">#</a></h2>
+<p>Once you have the lock files, run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span><span class="o">-</span><span class="n">lock</span> <span class="n">install</span> <span class="o">-</span><span class="n">n</span> <span class="o">&lt;</span><span class="n">conda</span><span class="o">-</span><span class="n">env</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span> <span class="n">dev</span><span class="o">-</span><span class="n">conda</span><span class="o">-</span><span class="n">lock</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">conda-env-name</span></code> is the name of the conda environment you want to install
+into. You can also add <code class="docutils literal notranslate"><span class="pre">--force-platform</span> <span class="pre">&lt;OS-name&gt;</span></code> to specify a target OS. For
+example, to build an Intel conda environment on an ARM Mac:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span><span class="o">-</span><span class="n">lock</span> <span class="n">install</span> <span class="o">-</span><span class="n">n</span> <span class="n">wiser</span><span class="o">-</span><span class="n">intel</span> <span class="o">--</span><span class="n">force</span><span class="o">-</span><span class="n">platform</span> <span class="n">osx</span><span class="o">-</span><span class="mi">64</span> <span class="n">dev</span><span class="o">-</span><span class="n">conda</span><span class="o">-</span><span class="n">lock</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
+<p>The text <code class="docutils literal notranslate"><span class="pre">osx-64</span></code> targets Intel Mac.</p>
+<p>If you are on macOS, to fully ensure your conda environment is the right
+platform, you may also need to run <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">config</span> <span class="pre">--env</span> <span class="pre">--set</span> <span class="pre">subdir</span> <span class="pre">osx-64</span></code>
+(for Intel) or <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">config</span> <span class="pre">--env</span> <span class="pre">--set</span> <span class="pre">subdir</span> <span class="pre">osx-arm64</span></code> (for ARM) while
+inside the conda environment. These commands only need to be run once.</p>
+<p>You can also run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code> to install the dev conda environment,
+or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span></code> to install the prod conda environment. On macOS, use
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span> <span class="pre">ENV=intel</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span> <span class="pre">ENV=arm</span></code> to
+explicitly target Intel or ARM. If the dev .yml and lockfiles have not been
+created, these install commands will create them first.</p>
 </section>
 <section id="running-wiser">
 <h2>Running WISER<a class="headerlink" href="#running-wiser" title="Link to this heading">#</a></h2>
-<p>Once you have done the above steps and are in the appropriate conda environment,
-you can go into the <code class="docutils literal notranslate"><span class="pre">src</span></code> folder and enter the command <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">wiser</span></code>. WISER
-should start running. If it is your first time doing the command after your
-computer has started it, it may take longer.</p>
+<p>Once you have the above steps done and are in the appropriate conda environment,
+go into the <code class="docutils literal notranslate"><span class="pre">src</span></code> folder and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">wiser</span>
+</pre></div>
+</div>
+<p>WISER should start running. If it is your first time running it after your
+computer has started, it may take a little longer.</p>
 </section>
-<section id="listing-out-dependencies-from-lockfile">
-<h2>Listing out dependencies from lockfile<a class="headerlink" href="#listing-out-dependencies-from-lockfile" title="Link to this heading">#</a></h2>
-<p>You may need to create a .yml file to show end users what dependencies
-WISER has in production. To do so do the following command
-<code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">render</span> <span class="pre">--kind</span> <span class="pre">env</span> <span class="pre">-p</span> <span class="pre">osx-64</span> <span class="pre">-p</span> <span class="pre">osx-arm64</span> <span class="pre">-p</span> <span class="pre">win-64</span> <span class="pre">prod-conda-lock.yml</span></code>.
-This will print out the depenencies that wiser has for the specified
-platforms. Excluding all <code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">&lt;OS-version&gt;</span></code> arguments will automatically
-create the .yml files for all the operaitng systems that <em>prod-conda-lock.yml</em>
-supports.</p>
-<p>**NOTE that the .yml file that <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">render...</span></code> creates CAN NOT
-be substituted for the conda-lock.yml files!! Installing a conda environment
-based on the .yml files from the render command is not always reproducible.</p>
+<section id="platform-specific-build-distribution">
+<h2>Platform-Specific Build &amp; Distribution<a class="headerlink" href="#platform-specific-build-distribution" title="Link to this heading">#</a></h2>
+<section id="macos">
+<h3>macOS<a class="headerlink" href="#macos" title="Link to this heading">#</a></h3>
+<p>You will need conda and Python installed, along with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code>
+and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. You will also need <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have
+all of this, go into the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>. If you
+are on an ARM Mac and want your dev environment to target Intel Macs, run
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span> <span class="pre">ENV=intel</span></code>.</p>
+<section id="important-build-targets">
+<h4>Important Build Targets<a class="headerlink" href="#important-build-targets" title="Link to this heading">#</a></h4>
+<p>Before you can run WISER, you must generate various files required by the Qt
+runtime. These include a <code class="docutils literal notranslate"><span class="pre">resources.py</span></code> file containing all icons used in the
+project, and a number of <code class="docutils literal notranslate"><span class="pre">*_ui.py</span></code> files which contain UI view code generated
+from the corresponding <code class="docutils literal notranslate"><span class="pre">*.ui</span></code> files created with
+<a class="reference external" href="https://doc.qt.io/qt-5/qtdesigner-manual.html">Qt Designer</a>. These files are
+generated into the <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/generated/</span></code> directory.</p>
+<p>WISER uses <code class="docutils literal notranslate"><span class="pre">make</span></code> to automate various build steps. To generate these files, go
+to the top directory of the WISER project and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Just typing &#39;make&#39; will also run the &#39;generated&#39; target.</span>
+<span class="n">make</span> <span class="n">generated</span>
+</pre></div>
+</div>
+<p>At this point, you should be able to run WISER:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">src</span>
+<span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">wiser</span>
+</pre></div>
+</div>
+</section>
+<section id="building-a-distributable-dmg">
+<h4>Building a Distributable .dmg<a class="headerlink" href="#building-a-distributable-dmg" title="Link to this heading">#</a></h4>
+<p>First make sure you are in the <code class="docutils literal notranslate"><span class="pre">wiser-prod</span></code> conda environment. Create this
+environment by going into the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder and running either
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span> <span class="pre">ENV=intel</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span> <span class="pre">ENV=arm</span></code> depending
+on your CPU architecture. Then activate the environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">activate</span> <span class="n">wiser</span><span class="o">-</span><span class="n">prod</span><span class="o">-</span><span class="n">arm</span>    <span class="c1"># macOS ARM</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">wiser</span><span class="o">-</span><span class="n">prod</span><span class="o">-</span><span class="n">intel</span>  <span class="c1"># macOS Intel</span>
+</pre></div>
+</div>
+<p>Then go back to the top-level directory of the WISER project and build:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">dist</span><span class="o">-</span><span class="n">mac</span>
+</pre></div>
+</div>
+<p>You can test the Mac application like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">open</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
+</pre></div>
+</div>
+<p>To clean up all generated files and distributable directories from the
+top-level directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">clean</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="windows">
+<h3>Windows<a class="headerlink" href="#windows" title="Link to this heading">#</a></h3>
+<p>You will need conda and Python installed, along with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code>
+and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. You will also need <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have
+all of this, go into the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
+<section id="how-to-install-conda">
+<h4>How to Install Conda<a class="headerlink" href="#how-to-install-conda" title="Link to this heading">#</a></h4>
+<p><a class="reference external" href="https://www.anaconda.com/">Anaconda</a> is a widely used Python package and
+library manager for Windows and scientific computing. In previous versions of
+WISER, the full Anaconda3 installation had some issues, but between WISER
+versions 1.1b1 and 1.4b1 it has worked. If Anaconda does not work for you, use
+the <a class="reference external" href="https://docs.conda.io/en/latest/miniconda.html">Miniconda installer</a>.</p>
+</section>
+<section id="ide">
+<h4>IDE<a class="headerlink" href="#ide" title="Link to this heading">#</a></h4>
+<p>The IDE that WISER is currently developed on is Visual Studio Code, although
+other IDEs should work as well.</p>
+</section>
+<section id="installer-nsis">
+<h4>Installer — NSIS<a class="headerlink" href="#installer-nsis" title="Link to this heading">#</a></h4>
+<p>The <a class="reference external" href="https://nsis.sourceforge.io/Main_Page">Nullsoft Scriptable Install System (NSIS)</a>
+is used to build the WISER installer. The installer installs at the user level.</p>
+</section>
+<section id="installing-on-windows">
+<h4>Installing on Windows<a class="headerlink" href="#installing-on-windows" title="Link to this heading">#</a></h4>
+<p>As of release 2.1b1, WISER is installed into a versioned location chosen by the
+installer (Program Files, AppData, or another writable folder). The installer
+uses versioned registry keys so that multiple different versions of WISER can
+coexist on the same machine without overwriting each other’s uninstall
+registration. Uninstalling one version removes only that version’s files,
+shortcuts, and registry key; other installed versions are unaffected.</p>
+<p>WISER writes app data (config files, log files, numba cache) to a location
+independent of the install directory and dependent on the WISER version — for
+example <code class="docutils literal notranslate"><span class="pre">%LOCALAPPDATA%/WISER-{version}</span></code> on Windows. If two copies of the same
+version are installed, they share that app-data directory.</p>
+</section>
+<section id="code-signing">
+<h4>Code Signing<a class="headerlink" href="#code-signing" title="Link to this heading">#</a></h4>
+<p>To code-sign the WISER installer, the
+<a class="reference external" href="https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk/">Windows 10 SDK</a>
+needs to be installed so that the <code class="docutils literal notranslate"><span class="pre">SignTool</span></code> utility is available. Code signing
+occurs in <em>/install-win/win-install.nsi</em>. Both the WISER installer and
+uninstaller are code-signed. The sign command used in that script is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;C:\Program Files (x86)\Windows Kits</span><span class="se">\10\b</span><span class="s2">in</span><span class="se">\10</span><span class="s2">.0.26100.0</span><span class="se">\x64</span><span class="s2">\signtool&quot;</span> <span class="n">sign</span> <span class="o">/</span><span class="n">sha1</span> <span class="s2">&quot;$</span><span class="si">{SHA1_THUMBPRINT}</span><span class="s2">&quot;</span> <span class="o">/</span><span class="n">fd</span> <span class="n">SHA256</span> <span class="o">/</span><span class="n">t</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">timestamp</span><span class="o">.</span><span class="n">sectigo</span><span class="o">.</span><span class="n">com</span> <span class="s2">&quot;%1&quot;</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">%1</span></code> is replaced by the installer filename (e.g. <code class="docutils literal notranslate"><span class="pre">Install-WISER-1.4b1.exe</span></code>).</p>
+</section>
+<section id="building-the-project">
+<h4>Building the Project<a class="headerlink" href="#building-the-project" title="Link to this heading">#</a></h4>
+<ol class="arabic">
+<li><p>Open an Anaconda terminal window:</p>
+<p>Start → “Anaconda3 (64-bit)” → “Anaconda Prompt (Miniconda3)”</p>
+</li>
+<li><p>Ensure you are in the <em>wiser-prod</em> conda environment. Create it by going to
+the <code class="docutils literal notranslate"><span class="pre">/etc</span></code> folder and running <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-prod-env</span></code>, then:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">activate</span> <span class="n">wiser</span><span class="o">-</span><span class="n">prod</span>
+</pre></div>
+</div>
+</li>
+<li><p>Figure out how to run <code class="docutils literal notranslate"><span class="pre">make</span></code> from the Anaconda terminal. Using GNU Make:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">c</span><span class="p">:</span>\<span class="n">Program</span> <span class="n">Files</span> <span class="p">(</span><span class="n">x86</span><span class="p">)</span>\<span class="n">GnuWin32</span>\<span class="nb">bin</span>\<span class="n">make</span><span class="o">.</span><span class="n">exe</span>
+</pre></div>
+</div>
+</li>
+<li><p>Go to the project directory for WISER, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">C</span><span class="p">:</span>\<span class="n">Users</span>\<span class="o">&lt;</span><span class="n">username</span><span class="o">&gt;</span>\<span class="n">WISER</span>
+</pre></div>
+</div>
+</li>
+<li><p>Clean up any existing build artifacts.</p>
+<p><strong>This is currently a manual process because the <code class="docutils literal notranslate"><span class="pre">clean</span></code> target does not
+work on Windows yet.</strong></p>
+<p>Delete these items:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">build</span> <span class="n">directory</span>
+<span class="n">dist</span> <span class="n">directory</span>
+<span class="n">Install</span><span class="o">-</span><span class="n">WISER</span><span class="o">-*.</span><span class="n">exe</span>
+<span class="n">src</span>\<span class="n">wiser</span>\<span class="n">gui</span>\<span class="n">generated</span>\<span class="o">*.</span><span class="n">py</span>
+</pre></div>
+</div>
+</li>
+<li><p>Build the project:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;c:\Program Files (x86)\GnuWin32</span><span class="se">\b</span><span class="s2">in\make.exe&quot;</span> <span class="n">dist</span><span class="o">-</span><span class="n">win</span>
+</pre></div>
+</div>
+<p>This should result in the creation of an NSIS installer in the local
+directory.</p>
+</li>
+</ol>
+<p><strong>NOTE:</strong> On Python 3.9 and PySide2 5.13.2, <code class="docutils literal notranslate"><span class="pre">uiparser.py</span></code> (at
+<code class="docutils literal notranslate"><span class="pre">C:\ProgramData\Miniconda3\Lib\site-packages\pyside2uic\uiparser.py</span></code>) has a
+call to <code class="docutils literal notranslate"><span class="pre">elem.getiterator()</span></code> on line 797 that must be changed to <code class="docutils literal notranslate"><span class="pre">elem.iter()</span></code>.
+That file requires Administrator permissions to edit. WISER does not currently
+use PySide2 5.13.2, but this is noted for reference.</p>
+</section>
+</section>
+<section id="linux">
+<h3>Linux<a class="headerlink" href="#linux" title="Link to this heading">#</a></h3>
+<p>You will need conda and Python installed, along with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code>
+and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. You will also need <code class="docutils literal notranslate"><span class="pre">git</span></code> and <code class="docutils literal notranslate"><span class="pre">make</span></code> installed, and
+<code class="docutils literal notranslate"><span class="pre">build-essential</span></code> is recommended. Once you have all of this, go into the <code class="docutils literal notranslate"><span class="pre">/etc</span></code>
+folder and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
+<section id="supported-distributions-and-architectures">
+<h4>Supported Distributions and Architectures<a class="headerlink" href="#supported-distributions-and-architectures" title="Link to this heading">#</a></h4>
+<p>WISER builds target Ubuntu 20.04, Debian 11, and Fedora 39. Builds should
+generally work on future versions of these distributions due to their backwards
+compatibility goals. Supported Instruction Set Architectures (ISAs) are amd64
+(x86_64) and aarch64 (arm64).</p>
+<p>Development has been tested on Ubuntu 22.04.5 amd64. The instructions below
+should work for other Linux distributions.</p>
+</section>
+<section id="how-to-install-conda-on-linux">
+<h4>How to Install Conda on Linux<a class="headerlink" href="#how-to-install-conda-on-linux" title="Link to this heading">#</a></h4>
+<p>Follow the instructions at
+https://www.anaconda.com/docs/getting-started/miniconda/main to install
+Miniconda. Then follow the <a class="reference internal" href="#installing-environment-from-lockfile">Installing Environment from Lockfile</a>
+section above to set up your conda environments.</p>
+</section>
+<section id="how-to-build-wiser">
+<h4>How to Build WISER<a class="headerlink" href="#how-to-build-wiser" title="Link to this heading">#</a></h4>
+<p>Once you have your conda environments set up, activate the <code class="docutils literal notranslate"><span class="pre">wiser-prod</span></code>
+environment and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build-linux</span></code> from the root directory of the
+repository. This produces a Linux build targeting your current distribution
+and ISA.</p>
+<p>It is recommended to use the GitHub Action to create your Linux build, as it
+handles dynamic library dependency issues that you will likely encounter when
+building locally with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build-linux</span></code>.</p>
+<p>The build output is placed under <code class="docutils literal notranslate"><span class="pre">/dist</span></code>. To test it, go to <code class="docutils literal notranslate"><span class="pre">/dist/WISER</span></code> and
+run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">WISER_Bin</span>
+</pre></div>
+</div>
+</section>
+<section id="continuous-deployment">
+<h4>Continuous Deployment<a class="headerlink" href="#continuous-deployment" title="Link to this heading">#</a></h4>
+<p>Official WISER releases for Linux are produced by the GitHub Action
+<code class="docutils literal notranslate"><span class="pre">Build</span> <span class="pre">and</span> <span class="pre">Smoke</span> <span class="pre">WISER</span></code>. The process:</p>
+<ol class="arabic simple">
+<li><p>A matrix strategy runs jobs in parallel targeting Ubuntu 20.04 + amd64,
+Debian 11 + amd64, Fedora 39 + amd64, Ubuntu 20.04 + arm64, Debian 11 +
+arm64, and Fedora 39 + arm64.</p></li>
+<li><p>For each target, <code class="docutils literal notranslate"><span class="pre">./build_linux_multistage.sh</span></code> is run with the OS and ISA,
+which runs the corresponding Docker bake target in <code class="docutils literal notranslate"><span class="pre">docker_bake.hcl</span></code>. The
+Dockerfile produces an output artifact at <code class="docutils literal notranslate"><span class="pre">/app/WISER.tar.gz</span></code> in the
+container.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">./build_linux_multistage.sh</span></code> copies <code class="docutils literal notranslate"><span class="pre">/app/WISER.tar.gz</span></code> to the host. It
+contains:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">install_wiser_appimage.sh</span></code> — installs the .AppImage on the user’s machine</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RUN.txt</span></code> — directions for running WISER</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SHA256SUMS</span></code> — SHA256 for verifying <code class="docutils literal notranslate"><span class="pre">WISER-x86_64.AppImage</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WISER-x86_64.AppImage</span></code> — the actual application</p></li>
+</ul>
+</li>
+<li><p>The GitHub Action uploads <code class="docutils literal notranslate"><span class="pre">WISER.tar.gz</span></code> to GitHub. Note that the upload
+always re-zips the file, which is slightly redundant since it is already
+compressed.</p></li>
+</ol>
+</section>
+</section>
 </section>
 <section id="other-useful-tools">
-<h2>Other useful tools<a class="headerlink" href="#other-useful-tools" title="Link to this heading">#</a></h2>
+<h2>Other Useful Tools<a class="headerlink" href="#other-useful-tools" title="Link to this heading">#</a></h2>
 <section id="github-cli-tool">
 <h3>GitHub CLI Tool<a class="headerlink" href="#github-cli-tool" title="Link to this heading">#</a></h3>
-<p>The GitHub CLI Tool gives you access to the <code class="docutils literal notranslate"><span class="pre">gh</span></code> command which is used to
-download and sign artifacts from our deployment pipeline. You should install
-this. Installation instructions can be found <a class="reference external" href="https://github.com/cli/cli#installation">here</a>.</p>
+<p>The GitHub CLI Tool provides the <code class="docutils literal notranslate"><span class="pre">gh</span></code> command, which is used to download and
+sign artifacts from the deployment pipeline. Installation instructions can be
+found at https://github.com/cli/cli#installation.</p>
 </section>
+</section>
+<section id="listing-out-dependencies-from-lockfile">
+<h2>Listing Out Dependencies from Lockfile<a class="headerlink" href="#listing-out-dependencies-from-lockfile" title="Link to this heading">#</a></h2>
+<p>You may need to create a .yml file to show end users what production
+dependencies WISER has. Run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span><span class="o">-</span><span class="n">lock</span> <span class="n">render</span> <span class="o">--</span><span class="n">kind</span> <span class="n">env</span> <span class="o">-</span><span class="n">p</span> <span class="n">osx</span><span class="o">-</span><span class="mi">64</span> <span class="o">-</span><span class="n">p</span> <span class="n">osx</span><span class="o">-</span><span class="n">arm64</span> <span class="o">-</span><span class="n">p</span> <span class="n">win</span><span class="o">-</span><span class="mi">64</span> <span class="n">prod</span><span class="o">-</span><span class="n">conda</span><span class="o">-</span><span class="n">lock</span><span class="o">.</span><span class="n">yml</span>
+</pre></div>
+</div>
+<p>This prints the dependencies for the specified platforms. Excluding all
+<code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">&lt;OS-version&gt;</span></code> arguments will automatically create .yml files for all
+operating systems that <em>prod-conda-lock.yml</em> supports.</p>
+<p><strong>NOTE:</strong> The .yml files produced by <code class="docutils literal notranslate"><span class="pre">conda-lock</span> <span class="pre">render</span></code> <strong>cannot</strong> be
+substituted for the conda-lock.yml files. Installing a conda environment based
+on those rendered .yml files is not always reproducible.</p>
 </section>
 </section>
 
@@ -474,20 +792,20 @@ this. Installation instructions can be found <a class="reference external" href=
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../developer.html"
+       href="../extending-wiser/examples.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Developing WISER</p>
+        <p class="prev-next-title">Examples &amp; Community</p>
       </div>
     </a>
     <a class="right-next"
-       href="devenv-win.html"
+       href="contributing-and-quality.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Developing and Building WISER on Windows 10</p>
+        <p class="prev-next-title">Contributing and Code Quality</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -509,17 +827,43 @@ this. Installation instructions can be found <a class="reference external" href=
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#developer-environment-setup">Developer Environment Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lockfiles">Lockfiles</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-production-prod-dependencies">Changing production (prod) dependencies</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-development-dev-dependencies">Changing development (dev) dependencies</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regenerating-the-lock-file">Regenerating the lock file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-environment-from-lockfile">Installing environment from lockfile</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-production-prod-dependencies">Changing Production (prod) Dependencies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#changing-development-dev-dependencies">Changing Development (dev) Dependencies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regenerating-the-lock-file">Regenerating the Lock File</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-environment-from-lockfile">Installing Environment from Lockfile</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-wiser">Running WISER</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#listing-out-dependencies-from-lockfile">Listing out dependencies from lockfile</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#other-useful-tools">Other useful tools</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#platform-specific-build-distribution">Platform-Specific Build &amp; Distribution</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#macos">macOS</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#important-build-targets">Important Build Targets</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#building-a-distributable-dmg">Building a Distributable .dmg</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#windows">Windows</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda">How to Install Conda</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ide">IDE</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#installer-nsis">Installer — NSIS</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#installing-on-windows">Installing on Windows</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing">Code Signing</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-project">Building the Project</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linux">Linux</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-distributions-and-architectures">Supported Distributions and Architectures</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda-on-linux">How to Install Conda on Linux</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-build-wiser">How to Build WISER</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment">Continuous Deployment</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#other-useful-tools">Other Useful Tools</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#github-cli-tool">GitHub CLI Tool</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#listing-out-dependencies-from-lockfile">Listing Out Dependencies from Lockfile</a></li>
 </ul>
   </nav></div>
 
@@ -534,7 +878,7 @@ this. Installation instructions can be found <a class="reference external" href=
   <div class="footer-item">
     
 <p class="component-author">
-By Joshua Garcia-Kimble
+By Ehlmann Research Group
 </p>
 
   </div>
@@ -544,7 +888,7 @@ By Joshua Garcia-Kimble
 
   <p class="copyright">
     
-      © Copyright 2026, Joshua Garcia-Kimble.
+      © Copyright 2019-2026, California Institute of Technology.
       <br/>
     
   </p>
