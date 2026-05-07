@@ -40,6 +40,8 @@ if TYPE_CHECKING:
 
 Number = Union[int, float]
 
+PRE_POST_FN_DEFAULT_RAM = 1028
+
 
 def _noop_post_task() -> None:
     """Default no-op post-task hook for stages that do not need post processing."""
@@ -507,12 +509,7 @@ class TaskPlanner:
                     output_writes=pre_unit_meta.output_writes,
                     broadcast_inputs=pre_unit_meta.broadcast_inputs,
                 ),
-                ram_peak_est_bytes=self._estimate_ram(
-                    stage.resource_model,
-                    full_input_region,
-                    pre_output_writes,
-                    input_meta,
-                ),
+                ram_peak_est_bytes=PRE_POST_FN_DEFAULT_RAM,
                 deps=tuple(prev_stage_unit_ids),
             )
 
@@ -587,12 +584,7 @@ class TaskPlanner:
                     output_writes=post_unit_meta.output_writes,
                     broadcast_inputs=post_unit_meta.broadcast_inputs,
                 ),
-                ram_peak_est_bytes=self._estimate_ram(
-                    stage.resource_model,
-                    full_input_region,
-                    post_output_writes,
-                    input_meta,
-                ),
+                ram_peak_est_bytes=PRE_POST_FN_DEFAULT_RAM,
                 deps=tuple(chunk_unit_ids if len(chunk_unit_ids) > 0 else [pre_unit_id]),
             )
 
