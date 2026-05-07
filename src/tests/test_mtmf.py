@@ -32,6 +32,18 @@ _CALTECH_PATH = (
     / "caltech_425_6_6_data_ignore.hdr"
 ).resolve()
 
+_CALTECH_ENVI_MTMF_GT_PATH = (
+    Path(__file__).resolve().parent
+    / ".."
+    / "test_utils"
+    / "test_datasets"
+    / "caltech_15_20_22_envi_mtmf_gt.hdr"
+).resolve()
+
+_CALTECH_BB_PATH = (
+    Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "caltech_15_20_22_bb.hdr"
+).resolve()
+
 # Pixel (x=4, y=4) in image-coordinate convention used by SpectrumAtPoint
 _TARGET_POINT = (4, 4)
 
@@ -442,6 +454,223 @@ class TestMTMF(unittest.TestCase):
                 atol=5e-5,
                 err_msg="(W U)^T Σ_b (W U) should equal diag(whitened eigenvalues)",
             )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_envi_mtmf_infeasibility_ranking(self) -> None:
+        """Read ENVI MTMF ground-truth, extract infeasibility (band 1), rank pixels.
+
+        Band 0 = MF score, band 1 = infeasibility.
+        get_image_data() returns shape [b][y][x], so infeasibility is [1].
+        Prints pixels ranked from highest to lowest infeasibility as
+        (rank, y, x, infeasibility_value) tuples.  No assertion yet.
+        """
+        gt_dataset = self.test_model.load_dataset(str(_CALTECH_ENVI_MTMF_GT_PATH))
+
+        # shape: [bands][lines][samples] = [2][22][20]
+        image_data = np.asarray(gt_dataset.get_image_data(filter_data_ignore_value=False))
+        infeasibility = image_data[1]  # (22, 20) — lines × samples
+
+        h, w = infeasibility.shape
+        # Build flat list of (y, x, value) then sort descending by value
+        pixels = [(int(y), int(x), float(infeasibility[y, x])) for y in range(h) for x in range(w)]
+        ranked = sorted(pixels, key=lambda p: p[2], reverse=True)
+
+        print("\n!@# ENVI MTMF infeasibility ranking (rank, y, x, value):")
+        for rank, (y, x, val) in enumerate(ranked):
+            print(f"!@#   rank={rank:4d}  y={y:3d}  x={x:3d}  infeasibility={val:.6f}")
+
+        # -----------------------------------------------------------------
+        # Run our MNF-MTMF pipeline on caltech_15_20_22_bb with the
+        # top-left pixel (x=0, y=0) as the target spectrum, then rank
+        # the resulting infeasibility output the same way.
+        # -----------------------------------------------------------------
+        bb_dataset = self.test_model.load_dataset(str(_CALTECH_BB_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            target_spectrum = SpectrumAtPoint(bb_dataset, (0, 0))
+            target_arr = np.asarray(target_spectrum.get_spectrum(), dtype=np.float32)  # (B,)
+            target_2d = target_arr[np.newaxis, :]  # (1, B)
+
+            source_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=bb_dataset)
+            )
+            target_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name="caltech_bb_target",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=int(target_2d.size * target_2d.dtype.itemsize),
+                    shape=target_2d.shape,
+                    dtype=target_2d.dtype,
+                )
+            )
+            get_process_storage_client().write_data(target_ref, target_2d)
+
+            mf_scores_ref_name = "caltech_bb_mf_scores"
+            infeasibility_ref_name = f"{mf_scores_ref_name}_infeasibility"
+            eigenvalues_ref_name = "mtmf_mnf_whitened_eigen_values"
+            noise_eigen_vectors_ref_name = "mtmf_mnf_noise_eigen_vectors"
+            noise_eigen_values_ref_name = "mtmf_mnf_noise_eigen_values"
+
+            pipeline = get_mnf_mtmf_pipeline(
+                dataset_ref=source_ref,
+                target_spectra_ref=target_ref,
+                output_ref_name=mf_scores_ref_name,
+            )
+
+            keep_set = {
+                mf_scores_ref_name,
+                infeasibility_ref_name,
+                eigenvalues_ref_name,
+                noise_eigen_vectors_ref_name,
+                noise_eigen_values_ref_name,
+            }
+            for stage in pipeline.stages:
+                for ob in stage.output_bindings:
+                    if ob.name in keep_set:
+                        stage.set_output_delete_policy(ob.name, DeletePolicy.KEEP)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=source_ref,
+                algorithm_pipeline=pipeline,
+            )
+            task.id = 5020
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=180)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+
+            infeas_raw, _ = storage_client.read_data(
+                task_plan.bindings[infeasibility_ref_name], filter_data=False
+            )
+            infeas_arr = np.asarray(infeas_raw, dtype=np.float32)  # (H, W, 1)
+            infeas_2d = infeas_arr[:, :, 0]  # (H, W)
+
+            h, w = infeas_2d.shape
+            our_pixels = [(int(y), int(x), float(infeas_2d[y, x])) for y in range(h) for x in range(w)]
+            our_ranked = sorted(our_pixels, key=lambda p: p[2], reverse=True)
+
+            print("\n!@# WISER MTMF infeasibility ranking (rank, y, x, value):")
+            for rank, (y, x, val) in enumerate(our_ranked):
+                print(f"!@#   rank={rank:4d}  y={y:3d}  x={x:3d}  infeasibility={val:.6f}")
+
+            assert len(ranked) == len(
+                our_ranked
+            ), f"Ranking length mismatch: ENVI={len(ranked)}, OURS={len(our_ranked)}"
+            print("\n!@# Side-by-side infeasibility ranking:")
+            print(f"!@# {'ENVI (y, x, val)':>35} | {'OURS (y, x, val)':>35}\t rank")
+            for rank, ((ey, ex, eval_), (oy, ox, oval)) in enumerate(zip(ranked, our_ranked)):
+                print(
+                    f"!@# ({ey:3d}, {ex:3d}, {eval_:10.6f}){' ':>14}"
+                    f" | ({oy:3d}, {ox:3d}, {oval:10.6f}){' ':>14}\t {rank}"
+                )
+
+            # -----------------------------------------------------------------
+            # Rank-distance and infeasibility-difference statistics
+            # Build dict: (y, x) -> (rank, infeasibility) for each method,
+            # then compare over the shared set of pixels.
+            # -----------------------------------------------------------------
+            envi_rank_map: dict[tuple[int, int], tuple[int, float]] = {
+                (y, x): (rank, val) for rank, (y, x, val) in enumerate(ranked)
+            }
+            our_rank_map: dict[tuple[int, int], tuple[int, float]] = {
+                (y, x): (rank, val) for rank, (y, x, val) in enumerate(our_ranked)
+            }
+
+            rank_diffs: list[float] = []
+            infeas_diffs: list[float] = []
+            for pixel, (envi_rank, envi_val) in envi_rank_map.items():
+                if pixel not in our_rank_map:
+                    continue
+                our_rank, our_val = our_rank_map[pixel]
+                rank_diffs.append(abs(envi_rank - our_rank))
+                infeas_diffs.append(abs(envi_val - our_val))
+
+            rank_diffs_arr = np.asarray(rank_diffs, dtype=np.float64)
+            infeas_diffs_arr = np.asarray(infeas_diffs, dtype=np.float64)
+
+            print(f"\n!@# Infeasibility rank-difference statistics (n={len(rank_diffs)}):")
+            print(f"!@#   min  = {rank_diffs_arr.min():.4f}")
+            print(f"!@#   max  = {rank_diffs_arr.max():.4f}")
+            print(f"!@#   mean = {rank_diffs_arr.mean():.4f}")
+            print(f"!@#   std  = {rank_diffs_arr.std():.4f}")
+
+            print(f"\n!@# Infeasibility score-difference statistics (n={len(infeas_diffs)}):")
+            print(f"!@#   min  = {infeas_diffs_arr.min():.6f}")
+            print(f"!@#   max  = {infeas_diffs_arr.max():.6f}")
+            print(f"!@#   mean = {infeas_diffs_arr.mean():.6f}")
+            print(f"!@#   std  = {infeas_diffs_arr.std():.6f}")
+
+            # -----------------------------------------------------------------
+            # Compare matched-filter scores (band 0 of ENVI GT vs our output)
+            # -----------------------------------------------------------------
+            envi_mf = image_data[0]  # (H, W) — MF score from ENVI GT
+
+            mf_raw, _ = storage_client.read_data(task_plan.bindings[mf_scores_ref_name], filter_data=False)
+            our_mf_arr = np.asarray(mf_raw, dtype=np.float32)  # (H, W, 1)
+            our_mf = our_mf_arr[:, :, 0]  # (H, W)
+
+            all_equal = True
+            mismatches = []
+            for y in range(envi_mf.shape[0]):
+                for x in range(envi_mf.shape[1]):
+                    ev = float(envi_mf[y, x])
+                    ov = float(our_mf[y, x])
+                    if not np.isclose(ev, ov, rtol=1e-1, atol=1e-8):
+                        all_equal = False
+                        mismatches.append((y, x, ev, ov))
+
+            if all_equal:
+                print("\n!@# MF scores: all pixels match ENVI")
+            else:
+                print(f"\n!@# MF scores: {len(mismatches)} pixel(s) differ from ENVI")
+                print(f"!@# {'ENVI (y, x, mf)':>35} | {'OURS (y, x, mf)':>35}")
+                for y, x, ev, ov in mismatches:
+                    print(f"!@# ({y:3d}, {x:3d}, {ev:10.6f}){' ':>14}" f" | ({y:3d}, {x:3d}, {ov:10.6f})")
+
+            # -----------------------------------------------------------------
+            # Print the diagonal of the whitened eigenvalue matrix (1-D vector)
+            # -----------------------------------------------------------------
+            eigenvalues_raw, _ = storage_client.read_data(
+                task_plan.bindings[eigenvalues_ref_name], filter_data=False
+            )
+            eigenvalues = np.asarray(np.ma.getdata(eigenvalues_raw), dtype=np.float32).ravel()
+            print(f"\n!@# Whitened eigenvalues (diagonal of Λ), length={len(eigenvalues)}:")
+            print(f"!@# {eigenvalues}")
+
+            # -----------------------------------------------------------------
+            # Print the noise eigen vectors and values
+            # -----------------------------------------------------------------
+            noise_vectors_raw, _ = storage_client.read_data(
+                task_plan.bindings[noise_eigen_vectors_ref_name], filter_data=False
+            )
+            noise_vectors = np.asarray(np.ma.getdata(noise_vectors_raw), dtype=np.float32)
+            print(f"\n!@# Noise eigen vectors shape={noise_vectors.shape}:")
+            print(f"!@# {noise_vectors}")
+
+            noise_values_raw, _ = storage_client.read_data(
+                task_plan.bindings[noise_eigen_values_ref_name], filter_data=False
+            )
+            noise_values = np.asarray(np.ma.getdata(noise_values_raw), dtype=np.float32).ravel()
+            print(f"\n!@# Noise eigen values (1-D diagonal), length={len(noise_values)}:")
+            print(f"!@# {noise_values}")
+
+            # Test is still in progress, so failing so we don't forget about it
+            self.assertTrue(False)
         finally:
             if storage_client is not None:
                 storage_client.close()
