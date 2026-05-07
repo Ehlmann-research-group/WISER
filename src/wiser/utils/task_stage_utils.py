@@ -3700,6 +3700,8 @@ class AdaptivePcaFitStage(SequentialStage):
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [
+            DataBinding(self._vectors_ref_name),
+            DataBinding(self._values_ref_name),
             DataBinding(self._output_ref_name, kind="json"),
             DataBinding(self._good_band_mask_ref_name, kind="array"),
         ]
