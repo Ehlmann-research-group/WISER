@@ -26,6 +26,10 @@ SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
 PRIORITY_LANE_COUNT = 3
+# Max times a reserved unit may fail RAM admission before its plan is aborted.
+# Prevents indefinite hangs when a unit's `ram_peak_est_bytes` exceeds the
+# scheduler's RAM budget (or otherwise cannot ever be admitted).
+MAX_DEFER_COUNT = 42
 
 
 @dataclass
@@ -73,12 +77,19 @@ class ReservedTracker:
         interactive_reservation_window_size: int = 3,
         render_reservation_window_size: int = 2,
         background_reservation_window_size: int = 1,
+        on_defer_exceeded: Optional[Callable[["QueuedWorkUnit"], None]] = None,
+        max_defer_count: int = MAX_DEFER_COUNT,
     ) -> None:
         self._window_size_by_priority: Dict[PriorityClass, int] = {
             PriorityClass.INTERACTIVE: int(interactive_reservation_window_size),
             PriorityClass.RENDER: int(render_reservation_window_size),
             PriorityClass.BACKGROUND: int(background_reservation_window_size),
         }
+        # Optional hook invoked when a reserved unit's defer_count exceeds
+        # `_max_defer_count`. The tracker only signals; it does not act on the
+        # unit. May be None (no-op).
+        self._on_defer_exceeded: Optional[Callable[[QueuedWorkUnit], None]] = on_defer_exceeded
+        self._max_defer_count: int = int(max_defer_count)
         self._reserved_queue_by_priority: Dict[PriorityClass, Deque[QueuedWorkUnit]] = {
             PriorityClass.INTERACTIVE: deque(),
             PriorityClass.RENDER: deque(),
@@ -163,6 +174,8 @@ class ReservedTracker:
         reservation_slot_index, candidate = candidate_with_slot
         candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
         if candidate_ram_bytes + in_flight_ram_bytes > scheduler_ram_cap_bytes:
+            candidate.defer_count += 1
+            self._maybe_signal_defer_exceeded(candidate)
             return None
 
         removed = self.remove_reserved_unit(candidate)
@@ -234,7 +247,17 @@ class ReservedTracker:
         candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
         if candidate_ram_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
             return candidate
+        candidate.defer_count += 1
+        self._maybe_signal_defer_exceeded(candidate)
         return None
+
+    def _maybe_signal_defer_exceeded(self, candidate: "QueuedWorkUnit") -> None:
+        """Invoke the defer-exceeded hook once, when the candidate's count crosses the cap."""
+        if self._on_defer_exceeded is None:
+            return
+        if candidate.defer_count != self._max_defer_count + 1:
+            return
+        self._on_defer_exceeded(candidate)
 
     def _recompute_hold_bytes(self) -> None:
         """Recompute per-class and total hold over configured window sizes."""
@@ -681,6 +704,7 @@ class WorkScheduler:
             interactive_reservation_window_size=3,
             render_reservation_window_size=2,
             background_reservation_window_size=1,
+            on_defer_exceeded=self._on_reserved_defer_exceeded,
         )
         self._pending_done_callbacks: Deque[PendingDoneCallback] = deque()
         self._plan_states: Dict[str, PlanExecutionState] = {}
@@ -1179,6 +1203,14 @@ class WorkScheduler:
 
                     stage_state = plan_state.stage_states[stage_id]
                     exc = fut.exception()
+                    status = "ok" if exc is None else "error"
+                    print(
+                        f"[scheduler] finished  unit_id={unit_id!r}"
+                        f"  stage_id={stage_id!r}"
+                        f"  executor_kind={executor_kind!r}"
+                        f"  status={status!r}"
+                    )
+
                     if exc is None:
                         stage_state.succeeded_unit_ids.add(unit_id)
                         self._log_queue_transition_by_fields_locked(
@@ -1217,18 +1249,17 @@ class WorkScheduler:
 
                         if plan_state.task_plan.fail_fast:
                             # Cancel queued-but-not-submitted work and fail immediately.
-                            self._purge_plan_from_queues_locked(plan_id)
                             fail_message = (
                                 f"TaskPlan {plan_id} failed fast at stage {stage_id} due "
                                 f"to work unit {unit_id}: {exc}\n\n"
                                 f"Traceback:\n{exc.__traceback__}"
                             )
-                            self._finalize_plan_outputs(plan_state, success=False)
-                            plan_state.completion_future.set_exception(RuntimeError(fail_message))
-                            if self._recorder is not None:
-                                self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
-                            self._plan_states.pop(plan_id, None)
-                            self._drain_queues_locked()
+                            self._abort_plan_locked(
+                                plan_id,
+                                error=RuntimeError(fail_message),
+                                error_message=fail_message,
+                                emit_task_errored=False,
+                            )
                             return
 
                     if self._task_manager is not None:
@@ -1295,18 +1326,16 @@ class WorkScheduler:
                         f"of plan {plan_id}: {type(scheduler_exc).__name__}: {scheduler_exc}"
                     )
                     if plan_state is not None and not plan_state.completion_future.done():
-                        self._purge_plan_from_queues_locked(plan_id)
                         if self._recorder is not None:
                             self._recorder.on_unit_done(
                                 plan_id, stage_id, unit_id, success=False, error=fail_message
                             )
-                            self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
-                        if self._task_manager is not None:
-                            self._task_manager.task_errored.emit((plan_id, fail_message))
-                        self._finalize_plan_outputs(plan_state, success=False)
-                        plan_state.completion_future.set_exception(scheduler_exc)
-                        self._plan_states.pop(plan_id, None)
-                        self._drain_queues_locked()
+                        self._abort_plan_locked(
+                            plan_id,
+                            error=scheduler_exc,
+                            error_message=fail_message,
+                            emit_task_errored=True,
+                        )
         finally:
             # _on_unit_done can enqueue more work under lock; flush registrations
             # now so newly submitted futures get callbacks attached lock-free.
@@ -1371,6 +1400,66 @@ class WorkScheduler:
         self._reserved_tracker.remove_units_for_plan(plan_id)
         if self._task_manager is not None:
             self._task_manager.task_cancelled.emit(plan_id)
+
+    def _on_reserved_defer_exceeded(self, queued: QueuedWorkUnit) -> None:
+        """Reserved-tracker hook fired when a unit's defer_count exceeds MAX_DEFER_COUNT.
+
+        The tracker calls this from inside our `_state_lock`, so we reuse the
+        plan-abort path directly. The plan is failed because the unit can't be
+        admitted (typically because `ram_peak_est_bytes` exceeds the scheduler
+        budget) and would otherwise hang the plan forever.
+        """
+        error_message = (
+            f"TaskPlan {queued.plan_id} aborted: reserved work unit "
+            f"{queued.work_unit.unit_id!r} (stage {queued.stage_id!r}) failed "
+            f"RAM admission {queued.defer_count} times "
+            f"(ram_peak_est_bytes={queued.work_unit.ram_peak_est_bytes}, "
+            f"scheduler_ram_cap_bytes={self._ram_budget_bytes}, "
+            f"max_defer_count={MAX_DEFER_COUNT})."
+        )
+        self._abort_plan_locked(
+            queued.plan_id,
+            error=RuntimeError(error_message),
+            error_message=error_message,
+            emit_task_errored=True,
+        )
+
+    def _abort_plan_locked(
+        self,
+        plan_id: str,
+        *,
+        error: BaseException,
+        error_message: Optional[str] = None,
+        emit_task_errored: bool = False,
+    ) -> None:
+        """Centralized fail-and-cleanup path for a plan. Caller must hold `_state_lock`.
+
+        Performs (idempotent) the steps shared by every abort site:
+          - purge queued/blocked/reserved work for `plan_id`,
+          - notify recorder that the plan completed unsuccessfully,
+          - optionally notify the task manager (`task_errored`),
+          - finalize plan outputs as failed,
+          - set the exception on the plan's completion future,
+          - remove the plan from `_plan_states`,
+          - drain queues so other plans can make progress.
+
+        If the plan is unknown or its completion future is already done, this
+        is a no-op so callers don't need to guard separately.
+        """
+        plan_state = self._plan_states.get(plan_id)
+        if plan_state is None or plan_state.completion_future.done():
+            return
+        if error_message is None:
+            error_message = f"{type(error).__name__}: {error}"
+        self._purge_plan_from_queues_locked(plan_id)
+        if self._recorder is not None:
+            self._recorder.on_plan_completed(plan_id, success=False, error=error_message)
+        if emit_task_errored and self._task_manager is not None:
+            self._task_manager.task_errored.emit((plan_id, error_message))
+        self._finalize_plan_outputs(plan_state, success=False)
+        plan_state.completion_future.set_exception(error)
+        self._plan_states.pop(plan_id, None)
+        self._drain_queues_locked()
 
     @staticmethod
     def _execute_work_unit(work_unit: WorkUnit) -> Any:
