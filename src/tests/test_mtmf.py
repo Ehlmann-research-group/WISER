@@ -30,10 +30,6 @@ _FULL_JPL_PATH = Path(
     r"C:\Users\jgarc\OneDrive\Documents\Data\ang20160910t185702_rdn_v2n2_clip_subset.hdr"
 ).resolve()
 
-_FULL_JPL_ENVI_MTMF_GT_PATH = Path(
-    r"C:\Users\jgarc\OneDrive\Documents\Data\MTMF_testing\full_jpl_mtmf.hdr"
-).resolve()
-
 
 _JPL_PATH = (
     Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
@@ -67,15 +63,7 @@ _CALTECH_BB_PATH = (
     Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "caltech_15_20_22_bb.hdr"
 ).resolve()
 
-_MTMF_TESTING_DIR = Path(r"C:\Users\jgarc\OneDrive\Documents\Data\MTMF_testing")
-_ENVI_MNF_V1_PATH = _MTMF_TESTING_DIR / "full_jpl_mnf_v1.hdr"
-_ENVI_MNF_STATS_PATH = Path(r"C:\Users\jgarc\OneDrive\Documents\Data\full_jpl_mnf_txt_stats.txt")
-_ENVI_NOISE_STATS_PATH = Path(
-    r"C:\Users\jgarc\OneDrive\Documents\Data\MTMF_testing\full_jpl_shift_diff_noise_txt_stats.txt"
-)
-_ENVI_JPL_STATS_PATH = Path(
-    r"C:\Users\jgarc\OneDrive\Documents\Data\MTMF_testing\ang2016_full_jpl_txt_stats.txt"
-)
+_MTMF_TESTING_DIR = Path(r"C:\Users\jgarc\OneDrive\Documents\Data\MTMF_testing\full_jpl_mnf_v1.hdr")
 
 # Pixel (x=4, y=4) in image-coordinate convention used by SpectrumAtPoint
 _TARGET_POINT = (4, 4)
@@ -619,7 +607,9 @@ class TestMTMF(unittest.TestCase):
         Prints pixels ranked from highest to lowest infeasibility as
         (rank, y, x, infeasibility_value) tuples.  No assertion yet.
         """
-        gt_dataset = self.test_model.load_dataset(str(_FULL_JPL_ENVI_MTMF_GT_PATH))
+        gt_dataset = self.test_model.load_dataset(
+            Path(r"<path to ENVI's mtmf result for ang20160910t185702_rdn_v2n2_clip_subset").resolve()
+        )
 
         # shape: [bands][lines][samples] = [2][22][20]
         image_data = np.asarray(gt_dataset.get_image_data(filter_data_ignore_value=False))
@@ -635,7 +625,9 @@ class TestMTMF(unittest.TestCase):
         # top-left pixel (x=0, y=0) as the target spectrum, then rank
         # the resulting infeasibility output the same way.
         # -----------------------------------------------------------------
-        bb_dataset = self.test_model.load_dataset(str(_FULL_JPL_PATH))
+        bb_dataset = self.test_model.load_dataset(
+            Path(r"<path to ang20160910t185702_rdn_v2n2_clip_subset.hdr>").resolve()
+        )
         app_services = self.test_model.app_services
         storage_client = None
         try:
@@ -833,7 +825,7 @@ class TestMTMF(unittest.TestCase):
             # -----------------------------------------------------------------
             # Manual MNF calculation
             # -----------------------------------------------------------------
-            import gc
+            import gc  # Memory can spike here, so we want to release memory quickly
 
             noise_cube_raw, _ = storage_client.read_data(
                 task_plan.bindings[noise_cube_ref_name], filter_data=False
@@ -914,7 +906,10 @@ class TestMTMF(unittest.TestCase):
             # -----------------------------------------------------------------
             # Compare our MNF data cube with the ENVI MNF reference
             # -----------------------------------------------------------------
-            envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
+
+            envi_mnf_ds = self.test_model.load_dataset(
+                str(Path(r"<path to intermediate MNF result from ENVI (.hdr)"))
+            )
             envi_mnf_source_ref = app_services.storage_service.register_external(
                 ExternalRasterHandle(dataset_obj=envi_mnf_ds)
             )
