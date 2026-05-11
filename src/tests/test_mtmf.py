@@ -599,8 +599,10 @@ class TestMTMF(unittest.TestCase):
         "score our ours. This is describe in the WISER Requirements -> Testing section here: "
         "https://docs.google.com/document/d/15tzSVhaqrEyCaV-NaXwp8G-caW9UUkeRii8-ql0W0YY/edit?usp=sharing"
     )
-    def test_compare_envi_mtmf_mnf_mf_and_infeasibility(self) -> None:
+    def test_compare_envi_mnf_mf_and_infeasibility(self) -> None:
         """Read ENVI MTMF ground-truth, extract infeasibility (band 1), rank pixels.
+        Compare ENVI matched filter result with outs. Compare ENVI's MNF result with ours.
+        Use this for either debugging the differences in ours and ENVI's MTMF.
 
         Band 0 = MF score, band 1 = infeasibility.
         get_image_data() returns shape [b][y][x], so infeasibility is [1].
