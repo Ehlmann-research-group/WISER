@@ -679,10 +679,6 @@ class TestMTMF(unittest.TestCase):
         pixels = [(int(y), int(x), float(infeasibility[y, x])) for y in range(h) for x in range(w)]
         ranked = sorted(pixels, key=lambda p: p[2], reverse=True)
 
-        # print("\n!@# ENVI MTMF infeasibility ranking (rank, y, x, value):")
-        # for rank, (y, x, val) in enumerate(ranked):
-        #     print(f"!@#   rank={rank:4d}  y={y:3d}  x={x:3d}  infeasibility={val:.6f}")
-
         # -----------------------------------------------------------------
         # Run our MNF-MTMF pipeline on caltech_15_20_22_bb with the
         # top-left pixel (x=0, y=0) as the target spectrum, then rank
@@ -693,72 +689,6 @@ class TestMTMF(unittest.TestCase):
         app_services = self.test_model.app_services
         storage_client = None
         try:
-            # -----------------------------------------------------------------
-            # Covariance / eigen-decomposition of the raw JPL input data
-            # -----------------------------------------------------------------
-            # get_image_data returns (B, H, W); reshape to (B, N) for np.cov.
-            jpl_raw_bhw = np.asarray(
-                bb_dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float64
-            )
-            jpl_2d = jpl_raw_bhw.reshape(jpl_raw_bhw.shape[0], -1)  # (B, N)
-
-            cov_jpl = np.cov(jpl_2d)  # (B, B)
-            # print(f"\n!@# Raw JPL covariance (first 5x5), shape={cov_jpl.shape}:")
-            # print(np.array2string(cov_jpl[:5, :5], precision=6, suppress_small=True))
-
-            # # eigh returns ascending order → reverse for greatest→smallest
-            # jpl_evals_asc, jpl_evecs_asc = np.linalg.eigh(cov_jpl)
-            # jpl_evals = jpl_evals_asc[::-1]
-            # jpl_evecs = jpl_evecs_asc[:, ::-1].T  # (B, B), row i = eigenvector i
-
-            # n_show = min(10, len(jpl_evals))
-            # print(f"\n!@# Raw JPL eigenvalues (greatest→smallest, first {n_show}):")
-            # print(f"!@# {'idx':>5}  {'value':>20}")
-            # for i in range(n_show):
-            #     print(f"!@# {i:>5}  {jpl_evals[i]:>20.6f}")
-
-            # n_show_entries = 5
-            # print(f"\n!@# Raw JPL eigenvectors — first {n_show_entries} entries of first {n_show} vectors:")
-            # for vi in range(n_show):
-            #     print(f"!@#  vec[{vi}]: {jpl_evecs[vi, :n_show_entries]}")
-
-            # # -----------------------------------------------------------------
-            # # Compare raw JPL covariance / eigen against ENVI stats for same data
-            # # -----------------------------------------------------------------
-            # _, envi_jpl_cov, _, envi_jpl_evecs, envi_jpl_evals = parse_jpl_mnf_stats(
-            #     str(_ENVI_JPL_STATS_PATH)
-            # )
-            # envi_jpl_cov   = envi_jpl_cov.astype(np.float64)
-            # envi_jpl_evecs = envi_jpl_evecs.astype(np.float64)
-            # envi_jpl_evals = envi_jpl_evals.astype(np.float64)
-
-            # print_eigenvalue_comparison(
-            #     jpl_evals, envi_jpl_evals,
-            #     label_a="our JPL", label_b="ENVI JPL",
-            # )
-            # print_eigenvector_comparison(
-            #     jpl_evecs, envi_jpl_evecs,
-            #     label_a="our JPL", label_b="ENVI JPL",
-            # )
-
-            # # Covariance side-by-side: one line per column index j,
-            # # showing first 5 rows: | our[r][j]  ENVI[r][j]  diff[r][j] |
-            # col_w = 14
-            # n_cov_rows = min(5, cov_jpl.shape[0], envi_jpl_cov.shape[0])
-            # n_cov_cols = cov_jpl.shape[1]
-            # print(f"\n!@# JPL covariance side-by-side (first {n_cov_rows} rows, one line per col index):")
-            # print(f"!@# Each cell: | {'our JPL':>{col_w}} {'ENVI JPL':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_cov_cols):
-            #     cells = "".join(
-            #         f"| {cov_jpl[r, j]:>{col_w}.6f}"
-            #         f" {envi_jpl_cov[r, j]:>{col_w}.6f}"
-            #         f" {cov_jpl[r, j] - envi_jpl_cov[r, j]:>{col_w}.6f} "
-            #         for r in range(n_cov_rows)
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # # -----------------------------------------------------------------
-
             target_spectrum = SpectrumAtPoint(bb_dataset, (0, 0))
             target_arr = np.asarray(target_spectrum.get_spectrum(), dtype=np.float32)  # (B,)
             target_2d = target_arr[np.newaxis, :]  # (1, B)
@@ -846,21 +776,6 @@ class TestMTMF(unittest.TestCase):
             our_pixels = [(int(y), int(x), float(infeas_2d[y, x])) for y in range(h) for x in range(w)]
             our_ranked = sorted(our_pixels, key=lambda p: p[2], reverse=True)
 
-            # print("\n!@# WISER MTMF infeasibility ranking (rank, y, x, value):")
-            # for rank, (y, x, val) in enumerate(our_ranked):
-            #     print(f"!@#   rank={rank:4d}  y={y:3d}  x={x:3d}  infeasibility={val:.6f}")
-
-            # assert len(ranked) == len(
-            #     our_ranked
-            # ), f"Ranking length mismatch: ENVI={len(ranked)}, OURS={len(our_ranked)}"
-            # print("\n!@# Side-by-side infeasibility ranking:")
-            # print(f"!@# {'ENVI (y, x, val)':>35} | {'OURS (y, x, val)':>35}\t rank")
-            # for rank, ((ey, ex, eval_), (oy, ox, oval)) in enumerate(zip(ranked, our_ranked)):
-            #     print(
-            #         f"!@# ({ey:3d}, {ex:3d}, {eval_:10.6f}){' ':>14}"
-            #         f" | ({oy:3d}, {ox:3d}, {oval:10.6f}){' ':>14}\t {rank}"
-            #     )
-
             # -----------------------------------------------------------------
             # Rank-distance and infeasibility-difference statistics
             # Build dict: (y, x) -> (rank, infeasibility) for each method,
@@ -933,9 +848,6 @@ class TestMTMF(unittest.TestCase):
                 print("\n!@# MF scores: all pixels match ENVI")
             else:
                 print(f"\n!@# MF scores: {len(mismatches)} pixel(s) differ from ENVI")
-                # print(f"!@# {'ENVI (y, x, mf)':>35} | {'OURS (y, x, mf)':>35}")
-                # for y, x, ev, ov in mismatches:
-                #     print(f"!@# ({y:3d}, {x:3d}, {ev:10.6f}){' ':>14}" f" | ({y:3d}, {x:3d}, {ov:10.6f})")
 
             mf_diffs_arr = np.abs(envi_mf.astype(np.float64) - our_mf.astype(np.float64)).ravel()
             print(f"\n!@# MF score difference statistics (n={mf_diffs_arr.size}):")
@@ -958,435 +870,107 @@ class TestMTMF(unittest.TestCase):
             print(f"!@#   std  = {our_mf_flat.std():.6f}")
 
             # -----------------------------------------------------------------
-            # Print the diagonal of the whitened eigenvalue matrix (1-D vector)
+            # Manual MNF calculation
             # -----------------------------------------------------------------
-            eigenvalues_raw, _ = storage_client.read_data(
-                task_plan.bindings[eigenvalues_ref_name], filter_data=False
+            import gc
+
+            noise_cube_raw, _ = storage_client.read_data(
+                task_plan.bindings[noise_cube_ref_name], filter_data=False
             )
-            # eigenvalues = np.asarray(np.ma.getdata(eigenvalues_raw), dtype=np.float32).ravel()
-            # print(f"\n!@# Whitened eigenvalues (diagonal of Λ), length={len(eigenvalues)}:")
-            # print(f"!@# {eigenvalues}")
-
-            # (eigenvalue/eigenvector comparison against ENVI stats is done below,
-            #  after mnf_manual is available so we can derive them from the MNF data)
-
-            # # -----------------------------------------------------------------
-            # # Print the noise eigen vectors and values
-            # # -----------------------------------------------------------------
-            # noise_vectors_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[noise_eigen_vectors_ref_name], filter_data=False
-            # )
-            # noise_vectors = np.asarray(np.ma.getdata(noise_vectors_raw), dtype=np.float32)
-            # print(f"\n!@# Noise eigen vectors shape={noise_vectors.shape}:")
-            # print(f"!@# {noise_vectors}")
-
-            # noise_values_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[noise_eigen_values_ref_name], filter_data=False
-            # )
-            # noise_values = np.asarray(np.ma.getdata(noise_values_raw), dtype=np.float32).ravel()
-            # print(f"\n!@# Noise eigen values (1-D diagonal), length={len(noise_values)}:")
-            # print(f"!@# {noise_values}")
-
-            # -----------------------------------------------------------------
-            # Save the shift-Y noise cube to an ENVI .hdr file
-            # -----------------------------------------------------------------
-            # noise_cube_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[noise_cube_ref_name], filter_data=False
-            # )
-            # noise_cube_raw shape is (H, W, B); dataset_from_numpy_array expects (B, H, W)
-            # noise_cube_arr = np.asarray(np.ma.getdata(noise_cube_raw), dtype=np.float32)
-            # noise_cube_byx = np.moveaxis(noise_cube_arr, -1, 0)  # (B, H, W)
-
-            # loader = RasterDataLoader()
-            # noise_ds = loader.dataset_from_numpy_array(noise_cube_byx)
-            # _MTMF_TESTING_DIR.mkdir(parents=True, exist_ok=True)
-            # noise_save_path = str(_MTMF_TESTING_DIR / "caltech_bb_shift_y_noise")
-            # loader.save_dataset_as(noise_ds, noise_save_path, format="ENVI", config={})
-            # print(f"\n!@# Noise cube saved to {noise_save_path}.hdr  shape={noise_cube_byx.shape}")
+            noise_cube_arr = np.asarray(np.ma.getdata(noise_cube_raw), dtype=np.float32)
+            cov_our_noise = np.cov(noise_cube_arr.reshape(-1, noise_cube_arr.shape[-1]).astype(np.float64).T)
+            del noise_cube_arr
+            gc.collect()
+            input_raw, _ = storage_client.read_data(source_ref, filter_data=False)
+            input_arr = np.asarray(np.ma.getdata(input_raw), dtype=np.float64)
+            input_data_mean = input_arr.reshape(-1, input_arr.shape[-1]).mean(axis=0, dtype=np.float64)
+            noise_evals_w, noise_evecs_w = np.linalg.eigh(cov_our_noise)
+            noise_evals_w = np.maximum(noise_evals_w, 1e-12)
+            W = noise_evecs_w @ np.diag(noise_evals_w**-0.5) @ noise_evecs_w.T
+            h_in, w_in, b_in = input_arr.shape
+            centered_2d = (input_arr - input_data_mean).reshape(-1, b_in)
+            del input_arr
+            gc.collect()
+            whitened_2d = centered_2d @ W.T
+            A_evals_asc, A_evecs_asc = np.linalg.eigh(np.cov(whitened_2d.T))
+            desc_idx = np.argsort(A_evals_asc)[::-1]
+            A = A_evecs_asc[:, desc_idx].T
+            T = A @ W
+            mnf_manual = (centered_2d @ T.T).reshape(h_in, w_in, T.shape[0])
+            del centered_2d
+            gc.collect()
+            lambda_vals = A_evals_asc[desc_idx]  # variance per MNF band (diag of C_mnf)
 
             # -----------------------------------------------------------------
-            # Compare our noise covariance / eigenvectors against ENVI's noise stats
-            # noise_cube_arr has shape (H, W, B)
+            # Manual matched filter and infeasibility
+            # MF: alpha = (t_mnf^T Λ⁻¹ x_mnf) / (t_mnf^T Λ⁻¹ t_mnf)
+            # Infeasibility: r = x_mnf - alpha t_mnf;
+            #                d = sqrt(λ)(1-alpha) + alpha;
+            #                I = ||r / d||_2
             # -----------------------------------------------------------------
-            _, envi_noise_cov, _, envi_noise_evecs, envi_noise_evals = parse_jpl_mnf_stats(
-                str(_ENVI_NOISE_STATS_PATH)
+            t_mnf = (target_arr.astype(np.float64) - input_data_mean) @ T.T  # (B,)
+            inv_lambda = 1.0 / np.where(lambda_vals == 0.0, np.finfo(np.float64).eps, lambda_vals)
+            mnf_flat = mnf_manual.reshape(-1, mnf_manual.shape[-1])  # (N, B)
+            numerator = mnf_flat @ (inv_lambda * t_mnf)  # (N,)
+            denominator = float(np.sum(t_mnf * inv_lambda * t_mnf))
+            denominator = denominator if denominator != 0.0 else np.finfo(np.float64).eps
+            alpha_flat = numerator / denominator  # (N,)
+            our_mf_manual = alpha_flat.reshape(h_in, w_in)
+
+            sqrt_lambda = np.sqrt(np.maximum(lambda_vals, 0.0))
+            r = mnf_flat - alpha_flat[:, np.newaxis] * t_mnf[np.newaxis, :]  # (N, B)
+            d = sqrt_lambda[np.newaxis, :] * (1.0 - alpha_flat[:, np.newaxis]) + alpha_flat[:, np.newaxis]
+            d = np.where(d == 0.0, np.finfo(np.float64).eps, d)
+            mt = r / d
+            our_infeas_manual = np.sqrt(np.sum(mt**2, axis=1)).reshape(h_in, w_in)
+
+            # -----------------------------------------------------------------
+            # Compare manual MF / infeasibility against ENVI
+            # -----------------------------------------------------------------
+            envi_infeas = image_data[1].astype(np.float64)
+            envi_mf_f64 = image_data[0].astype(np.float64)
+
+            mf_man_diff = (our_mf_manual.astype(np.float64) - envi_mf_f64).ravel()
+            print(f"\n!@# Manual MF vs ENVI MF difference statistics (n={mf_man_diff.size}):")
+            print(f"!@#   min  = {mf_man_diff.min():.6f}")
+            print(f"!@#   max  = {mf_man_diff.max():.6f}")
+            print(f"!@#   mean = {mf_man_diff.mean():.6f}")
+            print(f"!@#   std  = {mf_man_diff.std():.6f}")
+
+            infeas_man_diff = (our_infeas_manual.astype(np.float64) - envi_infeas).ravel()
+            print(
+                "\n!@# Manual infeasibility vs ENVI infeasibility difference statistics "
+                f"(n={infeas_man_diff.size}):"
             )
-            envi_noise_evals = envi_noise_evals.astype(np.float64)
-            envi_noise_evecs = envi_noise_evecs.astype(np.float64)
+            print(f"!@#   min  = {infeas_man_diff.min():.6f}")
+            print(f"!@#   max  = {infeas_man_diff.max():.6f}")
+            print(f"!@#   mean = {infeas_man_diff.mean():.6f}")
+            print(f"!@#   std  = {infeas_man_diff.std():.6f}")
 
-            # # Compute our noise covariance: reshape (H, W, B) → (B, N) for np.cov
-            # our_noise_2d = noise_cube_arr.reshape(-1, noise_cube_arr.shape[-1]).astype(np.float64).T
-            # cov_our_noise = np.cov(our_noise_2d)  # (B, B)
-
-            # One line per column index j; each cell shows that entry across the
-            # first 5 rows: | cov[0][j] | cov[1][j] | … |
-            col_w = 14
-            # n_noise_rows = min(5, cov_our_noise.shape[0])
-            # print(
-            #     f"\n!@# Our noise covariance (first {n_noise_rows} "
-            #     f"rows, one line per col index), shape={cov_our_noise.shape}:"
-            # )
-            # for j in range(cov_our_noise.shape[1]):
-            #     cells = "".join(
-            #         f"| {cov_our_noise[r, j]:>{col_w}.6f} "
-            #         for r in range(n_noise_rows)
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # # Eigen-decompose our noise covariance (eigh → ascending → reverse)
-            # our_noise_evals_asc, our_noise_evecs_asc = np.linalg.eigh(cov_our_noise)
-            # our_noise_evals = our_noise_evals_asc[::-1]  # noqa: F841
-            # # (B, B), row i = i-th eigenvector
-            # our_noise_evecs = our_noise_evecs_asc[:, ::-1].T  # noqa: F841
+            mf_pipeline_diff = (our_mf_manual.astype(np.float64) - our_mf.astype(np.float64)).ravel()
+            print(f"\n!@# Manual MF vs pipeline MF difference statistics (n={mf_pipeline_diff.size}):")
+            print(f"!@#   min  = {mf_pipeline_diff.min():.6f}")
+            print(f"!@#   max  = {mf_pipeline_diff.max():.6f}")
+            print(f"!@#   mean = {mf_pipeline_diff.mean():.6f}")
+            print(f"!@#   std  = {mf_pipeline_diff.std():.6f}")
 
             # # -----------------------------------------------------------------
-            # # Compare manual noise cov / eigen against pipeline's AdaptivePcaFitStage
-            # # pipeline ref names: "mtmf_mnf_noise_eigen_{covariance,vectors,values}"
-            # # vectors + values are already in keep_set via noise_eigen_vectors/values_ref_name
+            # # Compare our MNF data cube with the ENVI MNF reference
             # # -----------------------------------------------------------------
-            # pipeline_nc_raw, _ = storage_client.read_data(
-            #     task_plan.bindings["mtmf_mnf_noise_eigen_covariance"], filter_data=False
+            # envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
+            # envi_mnf_source_ref = app_services.storage_service.register_external(
+            #     ExternalRasterHandle(dataset_obj=envi_mnf_ds)
             # )
-            # pipeline_nc = np.asarray(np.ma.getdata(pipeline_nc_raw), dtype=np.float64)
-            # if pipeline_nc.ndim == 3 and pipeline_nc.shape[-1] == 1:
-            #     pipeline_nc = pipeline_nc[:, :, 0]
+            # envi_mnf_data_raw, _ = storage_client.read_data(envi_mnf_source_ref, filter_data=False)
+            # # read_data returns [y][x][b] for dataset refs — no axis reordering needed.
+            # envi_mnf = np.asarray(np.ma.getdata(envi_mnf_data_raw), dtype=np.float64)  # (H, W, B)
 
-            # n_nc = cov_our_noise.shape[0]  # noqa: F841
-            # col_w = 14
-            # print(f"\n!@# Noise covariance: manual vs pipeline, shape={cov_our_noise.shape}")
-            # print(f"!@# Each cell: | {'manual':>{col_w}} {'pipeline':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_nc):
-            #     cells = "".join(
-            #         f"| {cov_our_noise[r, j]:>{col_w}.6f}"
-            #         f" {pipeline_nc[r, j]:>{col_w}.6f}"
-            #         f" {cov_our_noise[r, j] - pipeline_nc[r, j]:>{col_w}.6f} "
-            #         for r in range(min(5, n_nc))
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # nc_diff = cov_our_noise - pipeline_nc
-            # print("\n!@# Noise covariance difference (manual - pipeline) statistics:")
-            # print(f"!@#   min  = {nc_diff.min():.8f}")
-            # print(f"!@#   max  = {nc_diff.max():.8f}")
-            # print(f"!@#   mean = {nc_diff.mean():.8f}")
-            # print(f"!@#   std  = {nc_diff.std():.8f}")
-
-            # # Noise eigenvalues
-            # pipeline_nv_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[noise_eigen_values_ref_name], filter_data=False
+            # our_mnf_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[mnf_data_ref_name], filter_data=False
             # )
-            # pipeline_noise_evals = np.asarray(np.ma.getdata(pipeline_nv_raw), dtype=np.float64).ravel()
+            # our_mnf = np.asarray(np.ma.getdata(our_mnf_raw), dtype=np.float64)  # (H, W, B)
 
-            # print_eigenvalue_comparison(
-            #     our_noise_evals, pipeline_noise_evals,
-            #     label_a="manual noise", label_b="pipeline noise",
-            # )
-
-            # Noise eigenvectors
-            pipeline_nvec_raw, _ = storage_client.read_data(
-                task_plan.bindings[noise_eigen_vectors_ref_name], filter_data=False
-            )
-            pipeline_noise_evecs = np.asarray(np.ma.getdata(pipeline_nvec_raw), dtype=np.float64)
-            if pipeline_noise_evecs.ndim == 3 and pipeline_noise_evecs.shape[-1] == 1:
-                pipeline_noise_evecs = pipeline_noise_evecs[:, :, 0]
-
-            # print_eigenvector_comparison(
-            #     our_noise_evecs, pipeline_noise_evecs,
-            #     label_a="manual noise", label_b="pipeline noise",
-            # )
-            # print_eigenvector_comparison(
-            #     our_noise_evecs, envi_noise_evecs,
-            #     label_a="our noise", label_b="ENVI noise",
-            # )
-
-            # # Noise covariance comparison
-            # # First 5 rows of both covariance matrices side-by-side
-            # # We only have our noise cov; reconstruct ENVI's from its eigenpairs.
-            # # Rather than reconstructing, print ours vs the ENVI covariance section.
-            # envi_noise_cov = envi_noise_cov.astype(np.float64)
-            # n_rows = min(5, cov_our_noise.shape[0], envi_noise_cov.shape[0])
-            # n_cols = cov_our_noise.shape[1]
-            # # Each printed line = one column index j across the first n_rows rows:
-            # # | ours[0][j] ENVI[0][j] diff[0][j] | ours[1][j] … |
-            # print(f"\n!@# Noise covariance side-by-side (first {n_rows} rows, one line per col index):")
-            # print(f"!@# Each cell: | {'ours':>{col_w}} {'ENVI':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_cols):
-            #     cells = "".join(
-            #         f"| {cov_our_noise[r, j]:>{col_w}.6f}"
-            #         f" {envi_noise_cov[r, j]:>{col_w}.6f}"
-            #         f" {cov_our_noise[r, j] - envi_noise_cov[r, j]:>{col_w}.6f} "
-            #         for r in range(n_rows)
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # # -----------------------------------------------------------------
-            # # Compare raw input mean vs pipeline mean
-            # # -----------------------------------------------------------------
-            # # Compute the mean directly from the input dataset array.
-            # input_raw, _ = storage_client.read_data(source_ref, filter_data=False)
-            # input_arr = np.asarray(np.ma.getdata(input_raw), dtype=np.float64)  # (H, W, B)
-            # input_data_mean = input_arr.reshape(-1, input_arr.shape[-1]).mean(axis=0, dtype=np.float64)
-
-            # # Read the mean vector computed by get_mnf_pipeline's SpectralMeanStage.
-            # pipeline_mean_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[input_mean_ref_name], filter_data=False
-            # )
-            # pipeline_mean = np.asarray(
-            #     np.ma.getdata(pipeline_mean_raw),
-            #     dtype=np.float64,
-            # ).ravel()
-
-            # print(f"\n!@# Input data mean (from raw array, length={len(input_data_mean)}):")
-            # print(f"!@# {input_data_mean}")
-            # print(f"\n!@# Pipeline spectral mean (from MNF stage, length={len(pipeline_mean)}):")
-            # print(f"!@# {pipeline_mean}")
-
-            # mean_diff = input_data_mean - pipeline_mean
-            # print(f"\n!@# Mean difference (input - pipeline):")
-            # print(f"!@# {mean_diff}")
-            # all_close = np.isclose(mean_diff, 0.0)
-            # print(
-            #     f"!@# Difference close to zero: {all_close.all()} "
-            #     f"({all_close.sum()}/{len(all_close)} components)"
-            # )
-
-            # centered_input = np.asarray(np.ma.getdata(input_raw), dtype=np.float64) - input_data_mean
-            # centered_mean = centered_input.reshape(-1, centered_input.shape[-1]).mean(
-            #     axis=0,
-            #     dtype=np.float64,
-            # )
-            # print(f"\n#$% Mean of (input_raw - input_data_mean): {centered_mean}")
-
-            # -----------------------------------------------------------------
-            # Build the MNF transform matrix manually: T = A @ W
-            #   W  = Σ_noise^(-1/2)  (noise whitening matrix)
-            #   A  = eigenvectors of the whitened data covariance (rows)
-            # -----------------------------------------------------------------
-
-            # # --- Step 1: whitening matrix W = V Λ^(-1/2) V^T ---
-            # # cov_our_noise = V Λ V^T  (from eigh, ascending order)
-            # noise_evals_w, noise_evecs_w = np.linalg.eigh(cov_our_noise)
-            # # Clamp tiny/negative eigenvalues for numerical stability
-            # noise_evals_w = np.maximum(noise_evals_w, 1e-12)
-            # W = noise_evecs_w @ np.diag(noise_evals_w**-0.5) @ noise_evecs_w.T  # (B, B)
-
-            # # Compare our manually computed W with the pipeline's whitening matrix
-            # pipeline_W_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[noise_whitening_matrix_ref_name], filter_data=False
-            # )
-            # pipeline_W = np.asarray(np.ma.getdata(pipeline_W_raw), dtype=np.float64)
-            # if pipeline_W.ndim == 3 and pipeline_W.shape[-1] == 1:
-            #     pipeline_W = pipeline_W[:, :, 0]
-
-            # n_W = W.shape[0]
-            # col_w = 14
-            # print(f"\n!@# Whitening-matrix comparison: manual W vs pipeline W, shape={W.shape}")
-            # print(f"!@# Each cell: | {'manual W':>{col_w}} {'pipeline W':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_W):
-            #     cells = "".join(
-            #         f"| {W[r, j]:>{col_w}.6f}"
-            #         f" {pipeline_W[r, j]:>{col_w}.6f}"
-            #         f" {W[r, j] - pipeline_W[r, j]:>{col_w}.6f} "
-            #         for r in range(min(5, n_W))
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # W_diff = W - pipeline_W
-            # print("\n!@# Whitening-matrix difference (manual - pipeline) statistics:")
-            # print(f"!@#   min  = {W_diff.min():.8f}")
-            # print(f"!@#   max  = {W_diff.max():.8f}")
-            # print(f"!@#   mean = {W_diff.mean():.8f}")
-            # print(f"!@#   std  = {W_diff.std():.8f}")
-
-            # # --- Step 2: whiten the mean-centred input data ---
-            # h_in, w_in, b_in = input_arr.shape
-            # centered = input_arr - input_data_mean  # (H, W, B)
-            # centered_2d = centered.reshape(-1, b_in)  # (N, B)
-            # whitened_2d = centered_2d @ W.T  # (N, B)
-
-            # # --- Step 3: eigenvectors of whitened data covariance ---
-            # whitened_cov = np.cov(whitened_2d.T)  # (B, B)
-
-            # # -----------------------------------------------------------------
-            # # Compare background covariance: cov_jpl  vs  pipeline input cov
-            # # -----------------------------------------------------------------
-            # pipeline_ic_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[input_covariance_ref_name], filter_data=False
-            # )
-            # pipeline_ic = np.asarray(np.ma.getdata(pipeline_ic_raw), dtype=np.float64)
-            # if pipeline_ic.ndim == 3 and pipeline_ic.shape[-1] == 1:
-            #     pipeline_ic = pipeline_ic[:, :, 0]
-
-            # n_ic = cov_jpl.shape[0]
-            # col_w = 14
-            # print(
-            #     "\n!$%^Background-cov comparison: maunal cov input data vs pipeline input cov, "
-            #     f"shape={cov_jpl.shape}"
-            # )
-            # print(f"!@# Each cell: | {'cov_jpl':>{col_w}} {'pipeline':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_ic):
-            #     cells = "".join(
-            #         f"| {cov_jpl[r, j]:>{col_w}.6f}"
-            #         f" {pipeline_ic[r, j]:>{col_w}.6f}"
-            #         f" {cov_jpl[r, j] - pipeline_ic[r, j]:>{col_w}.6f} "
-            #         for r in range(min(5, n_ic))
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # # -----------------------------------------------------------------
-            # # Comparison 1: our np.cov whitened_cov  vs  pipeline whitened cov
-            # # -----------------------------------------------------------------
-            # pipeline_wc_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[whitened_covariance_ref_name], filter_data=False
-            # )
-            # pipeline_wc = np.asarray(np.ma.getdata(pipeline_wc_raw), dtype=np.float64)
-            # if pipeline_wc.ndim == 3 and pipeline_wc.shape[-1] == 1:
-            #     pipeline_wc = pipeline_wc[:, :, 0]
-
-            # n_wc = whitened_cov.shape[0]
-            # col_w = 14
-            # print(
-            #     f"\n!@# Whitened-cov comparison 1: np.cov(whitened_2d) vs "
-            #     f"pipeline, shape={whitened_cov.shape}"
-            # )
-            # print(f"!@# Each cell: | {'np.cov':>{col_w}} {'pipeline':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_wc):
-            #     cells = "".join(
-            #         f"| {whitened_cov[r, j]:>{col_w}.6f}"
-            #         f" {pipeline_wc[r, j]:>{col_w}.6f}"
-            #         f" {whitened_cov[r, j] - pipeline_wc[r, j]:>{col_w}.6f} "
-            #         for r in range(min(5, n_wc))
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # -----------------------------------------------------------------
-            # Comparison 2: np.cov whitened_cov  vs  W @ cov_jpl @ W.T
-            # The theoretical whitened covariance is W Σ_b W^T.
-            # cov_jpl is computed from the full JPL raw data (Σ_b).
-            # -----------------------------------------------------------------
-            # theoretical_wc = W @ cov_jpl @ W.T  # (B, B)
-
-            # print(
-            #     "\n!@# Whitened-cov comparison 2: np.cov(whitened_2d) vs "
-            #     f"W@cov_jpl@W.T, shape={whitened_cov.shape}"
-            # )
-            # print(f"!@# Each cell: | {'np.cov':>{col_w}} {'W@Σ@W.T':>{col_w}} {'diff':>{col_w}} |")
-            # for j in range(n_wc):
-            #     cells = "".join(
-            #         f"| {whitened_cov[r, j]:>{col_w}.6f}"
-            #         f" {theoretical_wc[r, j]:>{col_w}.6f}"
-            #         f" {whitened_cov[r, j] - theoretical_wc[r, j]:>{col_w}.6f} "
-            #         for r in range(min(5, n_wc))
-            #     )
-            #     print(f"!@# col[{j:>4}]: {cells}|")
-
-            # A_evals_asc, A_evecs_asc = np.linalg.eigh(whitened_cov)
-            # # Sort descending; columns → rows
-            # desc_idx = np.argsort(A_evals_asc)[::-1]
-            # A = A_evecs_asc[:, desc_idx].T  # (B, B), row i = i-th eigenvector
-            # manual_wh_evals = A_evals_asc[desc_idx]  # (B,) descending
-
-            # -----------------------------------------------------------------
-            # Compare whitened-data eigenvectors / eigenvalues:
-            #   manual (from whitened_cov) vs pipeline
-            # -----------------------------------------------------------------
-            pipeline_wh_vecs_raw, _ = storage_client.read_data(
-                task_plan.bindings["mtmf_mnf_whitened_eigen_vectors"], filter_data=False
-            )
-            pipeline_wh_vecs = np.asarray(np.ma.getdata(pipeline_wh_vecs_raw), dtype=np.float64)
-            if pipeline_wh_vecs.ndim == 3 and pipeline_wh_vecs.shape[-1] == 1:
-                pipeline_wh_vecs = pipeline_wh_vecs[:, :, 0]
-
-            # # eigenvalues_ref_name == "mtmf_mnf_whitened_eigen_values" already kept
-            # pipeline_wh_evals_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[eigenvalues_ref_name], filter_data=False
-            # )
-            # pipeline_wh_evals = np.asarray(np.ma.getdata(pipeline_wh_evals_raw), dtype=np.float64).ravel()
-
-            # print_eigenvalue_comparison(
-            #     manual_wh_evals, pipeline_wh_evals,
-            #     label_a="manual whitened", label_b="pipeline whitened",
-            # )
-            # print_eigenvector_comparison(
-            #     A, pipeline_wh_vecs,
-            #     label_a="manual whitened", label_b="pipeline whitened",
-            # )
-
-            # # --- Step 4: full MNF transform ---
-            # T = A @ W  # (B, B)
-            # print(f"\n!@# Manual T shape={T.shape}  W shape={W.shape}  A shape={A.shape}")
-
-            # # Project each pixel: (N, B) @ T.T → (N, B); already have centered_2d
-            # mnf_manual = (centered_2d @ T.T).reshape(h_in, w_in, T.shape[0])
-
-            # print(f"\n!@# Manual MNF shape={mnf_manual.shape}  T shape={T.shape}")
-
-            # -----------------------------------------------------------------
-            # Derive eigenvalues/eigenvectors from the manual MNF data covariance
-            # and compare against ENVI's stats file.
-            #
-            # If the MNF transform is correct, cov(mnf_manual) ≈ Λ (diagonal),
-            # so the eigenvalues should match the MNF eigenvalues and the
-            # eigenvectors should be the standard basis (e_i).
-            # -----------------------------------------------------------------
-            # _, _, _, envi_evecs, envi_evals = parse_jpl_mnf_stats(str(_ENVI_MNF_STATS_PATH))
-            # envi_evals = envi_evals.astype(np.float64)
-            # envi_evecs = envi_evecs.astype(np.float64)
-
-            # # np.cov expects (features, observations)
-            # manual_2d = mnf_manual.reshape(-1, mnf_manual.shape[-1]).T  # (B, N)
-            # cov_manual = np.cov(manual_2d)  # (B, B)
-
-            # # eigh returns eigenvalues in ascending order → reverse for greatest→smallest
-            # manual_evals_asc, manual_evecs_asc = np.linalg.eigh(cov_manual)
-            # manual_evals = manual_evals_asc[::-1].astype(np.float64)
-            # # evecs columns are eigenvectors; after reversal col i ↔ eigenvalue i
-            # manual_evecs = manual_evecs_asc[:, ::-1].T  # (B, B) rows are eigenvectors
-
-            # Uncomment
-            # n_show_vals = min(len(manual_evals), len(envi_evals))
-            # print(f"\n!@# Eigenvalue comparison (manual MNF cov vs ENVI), n={n_show_vals}:")
-            # print(f"!@# {'idx':>5}  {'OURS(cov)':>15}  {'ENVI':>15}  {'diff':>15}")
-            # for i in range(n_show_vals):
-            #     diff = float(manual_evals[i]) - float(envi_evals[i])
-            #     print(f"!@# {i:>5}  {manual_evals[i]:>15.6f}  {envi_evals[i]:>15.6f}  {diff:>15.6f}")
-
-            # n_show_vecs = min(10, manual_evecs.shape[0], envi_evecs.shape[0])
-            # n_show_entries = 5
-            # print(f"\n!@# Eigenvector comparison (manual MNF cov eigenvecs vs ENVI)")
-            # print(f"!@# manual_evecs shape={manual_evecs.shape}, envi_evecs shape={envi_evecs.shape}")
-            # print(f"!@# — first {n_show_entries} entries of first {n_show_vecs} vectors:")
-            # for vi in range(n_show_vecs):
-            #     ours_row = manual_evecs[vi]
-            #     envi_row = envi_evecs[vi]
-            #     diff_same = np.abs(ours_row[:n_show_entries] - envi_row[:n_show_entries]).mean()
-            #     diff_flip = np.abs(-ours_row[:n_show_entries] - envi_row[:n_show_entries]).mean()
-            #     sign = -1.0 if diff_flip < diff_same else 1.0
-            #     sign_note = " [sign-flipped]" if sign < 0 else ""
-            #     print(f"!@#  vec[{vi}]{sign_note}:")
-            #     print(f"!@#    {'entry':>6}  {'OURS(cov)':>15}  {'ENVI':>15}  {'diff':>15}")
-            #     for ei in range(n_show_entries):
-            #         o = sign * float(ours_row[ei])
-            #         e = float(envi_row[ei])
-            #         print(f"!@#    {ei:>6}  {o:>15.8f}  {e:>15.8f}  {o - e:>15.8f}")
-
-            # -----------------------------------------------------------------
-            # Compare our MNF data cube with the ENVI MNF reference
-            # -----------------------------------------------------------------
-            envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
-            envi_mnf_source_ref = app_services.storage_service.register_external(
-                ExternalRasterHandle(dataset_obj=envi_mnf_ds)
-            )
-            envi_mnf_data_raw, _ = storage_client.read_data(envi_mnf_source_ref, filter_data=False)
-            # read_data returns [y][x][b] for dataset refs — no axis reordering needed.
-            envi_mnf = np.asarray(np.ma.getdata(envi_mnf_data_raw), dtype=np.float64)  # (H, W, B)
-
-            our_mnf_raw, _ = storage_client.read_data(
-                task_plan.bindings[mnf_data_ref_name], filter_data=False
-            )
-            our_mnf = np.asarray(np.ma.getdata(our_mnf_raw), dtype=np.float64)  # (H, W, B)
-
-            compare_datasets(our_mnf, envi_mnf, label_a="pipeline MNF", label_b="ENVI MNF")
+            # compare_datasets(our_mnf, envi_mnf, label_a="pipeline MNF", label_b="ENVI MNF")
             # compare_datasets(mnf_manual, envi_mnf, label_a="manual MNF",   label_b="ENVI MNF")
 
             # Test is still in progress, so failing so we don't forget about it

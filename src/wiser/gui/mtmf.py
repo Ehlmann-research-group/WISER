@@ -190,7 +190,6 @@ def _run_mnf_mahalanobis_tile(
     inv_cov = np.asarray(np.ma.getdata(inv_cov_raw), dtype=np.float64)
     if inv_cov.ndim == 3:
         inv_cov = np.squeeze(inv_cov, axis=2)
-    print("Here! $%^ :]")
     t_mnf_raw, _ = client.read_data(t_mnf_ref)
     t_mnf = np.asarray(np.ma.getdata(t_mnf_raw), dtype=np.float64)
     if t_mnf.ndim == 1:
