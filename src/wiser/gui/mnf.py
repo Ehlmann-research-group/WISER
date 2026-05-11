@@ -24,7 +24,6 @@ from wiser.utils.primitives import (
     SpectralBatchDatasetScheme,
 )
 from wiser.utils.task_stage_utils import (
-    AdaptivePcaFitStage,
     CalcCovMatrixStage,
     EigenDecompositionStage,
     MatrixMultiplicationStage,
@@ -184,7 +183,7 @@ def get_mnf_pipeline(
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
-    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
+    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(np.float64))
     if data_meta.bad_bands is not None:
         num_features = np.sum(data_meta.bad_bands)
     else:
@@ -202,20 +201,65 @@ def get_mnf_pipeline(
 
     noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
 
-    noise_ipca_stage = AdaptivePcaFitStage(
-        _num_components=None,
-        _num_features=num_features,
-        _data_variance_factor=2,
-        _output_ref_name=noise_eigen_ref_name,
-        _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
-        _values_ref_name=f"{noise_eigen_ref_name}_values",
-        _covariance_ref_name=f"{noise_eigen_ref_name}_covariance",
-        _mean_ref_name=f"{noise_eigen_ref_name}_mean",
-        _dataset_plan_meta=noise_plan_meta,
-        _resolved_num_components_ref_name=f"{noise_eigen_ref_name}_resolved_num_components",
+    # Manually compute the noise eigen decomposition:
+    #   1) SpectralMeanStage   → noise spectral mean
+    #   2) CalcCovMatrixStage  → noise covariance (uses the mean above)
+    #   3) EigenDecompositionStage → eigen vectors / values + JSON descriptor
+    # The JSON descriptor produced by step 3 is what `noise_whitening_stage`
+    # consumes (it expects `{"eigen": EigenVectorsAndValues}`), matching the
+    # behavior previously provided by AdaptivePcaFitStage.
+    noise_mean_ref_name = f"{noise_eigen_ref_name}_mean"
+    noise_total_ref_name = f"{noise_eigen_ref_name}_total"
+    noise_covariance_ref_name = f"{noise_eigen_ref_name}_covariance"
+
+    noise_mean_stage = SpectralMeanStage(
+        _output_ref_name=noise_mean_ref_name,
+        _internal_total_ref_name=noise_total_ref_name,
+        # The noise dataset inherits bad_bands from the source dataset, so use the
+        # source dataset_ref to size the mean spectrum to num_features (good bands).
+        _dataset_ref=dataset_ref,
         default_executor="process",
         input_binding=DataBinding(noise_ref_name),
         input_plan_meta=noise_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+    )
+
+    noise_covariance_stage = CalcCovMatrixStage(
+        _total_spectra=0,
+        _num_features=num_features,
+        _output_ref_name=noise_covariance_ref_name,
+        _internal_total_ref_name=noise_total_ref_name,
+        default_executor="process",
+        input_binding=DataBinding(noise_ref_name),
+        input_plan_meta=noise_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={
+            "mean": DataBinding(noise_mean_ref_name),
+            "total": DataBinding(noise_total_ref_name),
+        },
+    )
+
+    noise_eigendecomposition_stage = EigenDecompositionStage(
+        _output_ref_name=noise_eigen_ref_name,
+        _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
+        _values_ref_name=f"{noise_eigen_ref_name}_values",
+        default_executor="process",
+        input_binding=DataBinding(noise_covariance_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=num_features,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float64),
+        ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
             bytes_per_scalar_in=1,
@@ -231,7 +275,7 @@ def get_mnf_pipeline(
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -278,13 +322,13 @@ def get_mnf_pipeline(
         _output_ref_name=whitened_covariance_ref_name,
         _matrix_input_names=("matrix_ref_0", "matrix_ref_1", "matrix_ref_2"),
         _output_shape=(num_features, num_features),
-        _output_dtype=np.dtype(np.float32),
+        _output_dtype=np.dtype(np.float64),
         default_executor="process",
         input_binding=DataBinding(input_covariance_ref_name),
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -308,7 +352,7 @@ def get_mnf_pipeline(
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -342,7 +386,9 @@ def get_mnf_pipeline(
     return AlgorithmPipeline(
         [
             noise_stage,
-            noise_ipca_stage,
+            noise_mean_stage,
+            noise_covariance_stage,
+            noise_eigendecomposition_stage,
             noise_whitening_stage,
             input_mean_stage,
             input_covariance_stage,
