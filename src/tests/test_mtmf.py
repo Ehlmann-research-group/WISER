@@ -81,59 +81,6 @@ _ENVI_JPL_STATS_PATH = Path(
 _TARGET_POINT = (4, 4)
 
 
-def print_mf_score_analysis(
-    mf_a: np.ndarray,
-    mf_b: np.ndarray,
-    label_a: str = "A",
-    label_b: str = "B",
-    rtol: float = 1e-1,
-    atol: float = 1e-8,
-    max_gt_one: int = 10,
-    max_close_one: int = 10,
-) -> None:
-    """Print matched-filter score diagnostics for two (H, W) arrays.
-
-    Reports:
-      - Pixels with value > 1.0 (up to max_gt_one per array).
-      - Pixels close to 1.0 via np.isclose (up to max_close_one per array).
-    """
-    a = np.asarray(mf_a, dtype=np.float64)
-    b = np.asarray(mf_b, dtype=np.float64)
-
-    for arr, other, lbl in ((a, b, label_a), (b, a, label_b)):
-        gt_one = arr > 1.0
-        n_gt = int(np.count_nonzero(gt_one))
-        print(f"\n!@# {lbl} pixels with value > 1.0: count={n_gt}")
-        if n_gt > 0:
-            ys, xs = np.nonzero(gt_one)
-            shown = 0
-            for yi, xi in zip(ys, xs):
-                if shown >= max_gt_one:
-                    print(f"!@#   … (showing first {max_gt_one} of {n_gt})")
-                    break
-                ov = float(arr[yi, xi])
-                bv = float(other[yi, xi])
-                print(
-                    f"!@#   (y={int(yi)}, x={int(xi)})  {lbl}={ov:.10f}  "
-                    f"{label_b if lbl == label_a else label_a}={bv:.10f}"
-                )
-                shown += 1
-
-    for arr, lbl in ((a, label_a), (b, label_b)):
-        close_one = np.isclose(arr, 1.0, rtol=rtol, atol=atol)
-        n_close = int(np.count_nonzero(close_one))
-        print(f"\n!@# {lbl} values close to 1.0 (rtol={rtol:g}, atol={atol:g}): " f"count={n_close}")
-        if n_close > 0:
-            ys, xs = np.nonzero(close_one)
-            shown = 0
-            for yi, xi in zip(ys, xs):
-                if shown >= max_close_one:
-                    print(f"!@#   … (showing first {max_close_one} of {n_close})")
-                    break
-                print(f"!@#   (y={int(yi)}, x={int(xi)}, mf={float(arr[yi, xi]):.10f})")
-                shown += 1
-
-
 def print_eigenvalue_comparison(
     evals_a: np.ndarray,
     evals_b: np.ndarray,
@@ -143,11 +90,11 @@ def print_eigenvalue_comparison(
 ) -> None:
     """Print two 1-D eigenvalue arrays (greatest→smallest) side-by-side with diff."""
     n = min(len(evals_a), len(evals_b), n_show)
-    print(f"\n!@# Eigenvalue comparison ({label_a!r} vs {label_b!r}), first {n}:")
-    print(f"!@# {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
+    print(f"\n Eigenvalue comparison ({label_a!r} vs {label_b!r}), first {n}:")
+    print(f" {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
     for i in range(n):
         diff = float(evals_a[i]) - float(evals_b[i])
-        print(f"!@# {i:>5}  {evals_a[i]:>20.6f}  {evals_b[i]:>20.6f}  {diff:>20.6f}")
+        print(f" {i:>5}  {evals_a[i]:>20.6f}  {evals_b[i]:>20.6f}  {diff:>20.6f}")
 
 
 def print_eigenvector_comparison(
@@ -164,9 +111,9 @@ def print_eigenvector_comparison(
     flips and notes them.
     """
     n_vecs = min(n_vecs, evecs_a.shape[0], evecs_b.shape[0])
-    print(f"\n!@# Eigenvector comparison ({label_a!r} vs {label_b!r})")
-    print(f"!@# shapes: {evecs_a.shape} vs {evecs_b.shape}")
-    print(f"!@# — first {n_entries} entries of first {n_vecs} vectors:")
+    print(f"\n Eigenvector comparison ({label_a!r} vs {label_b!r})")
+    print(f" shapes: {evecs_a.shape} vs {evecs_b.shape}")
+    print(f" — first {n_entries} entries of first {n_vecs} vectors:")
     for vi in range(n_vecs):
         row_a = evecs_a[vi]
         row_b = evecs_b[vi]
@@ -174,12 +121,12 @@ def print_eigenvector_comparison(
         diff_flip = np.abs(-row_a[:n_entries] - row_b[:n_entries]).mean()
         sign = -1.0 if diff_flip < diff_same else 1.0
         sign_note = " [sign-flipped]" if sign < 0 else ""
-        print(f"!@#  vec[{vi}]{sign_note}:")
-        print(f"!@#    {'entry':>6}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
+        print(f"  vec[{vi}]{sign_note}:")
+        print(f"    {'entry':>6}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
         for ei in range(n_entries):
             a = sign * float(row_a[ei])
             b = float(row_b[ei])
-            print(f"!@#    {ei:>6}  {a:>20.8f}  {b:>20.8f}  {a - b:>20.8f}")
+            print(f"    {ei:>6}  {a:>20.8f}  {b:>20.8f}  {a - b:>20.8f}")
 
 
 def compare_datasets(
@@ -204,15 +151,15 @@ def compare_datasets(
     mean_b = pix_b.mean(axis=0)
 
     mean_diff = mean_a - mean_b
-    print(f"\n!@# === compare_datasets: {label_a!r} vs {label_b!r} ===")
-    print(f"!@# Spectral means — {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
+    print(f"\n === compare_datasets: {label_a!r} vs {label_b!r} ===")
+    print(f" Spectral means — {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
     for i in range(n_bands):
-        print(f"!@#                  {i:>5}  {mean_a[i]:>20.8f}  {mean_b[i]:>20.8f}  {mean_diff[i]:>20.8f}")
-    print(f"\n!@# Mean-difference statistics (n={n_bands} bands):")
-    print(f"!@#   min  = {mean_diff.min():.8f}")
-    print(f"!@#   max  = {mean_diff.max():.8f}")
-    print(f"!@#   mean = {mean_diff.mean():.8f}")
-    print(f"!@#   std  = {mean_diff.std():.8f}")
+        print(f"                  {i:>5}  {mean_a[i]:>20.8f}  {mean_b[i]:>20.8f}  {mean_diff[i]:>20.8f}")
+    print(f"\n Mean-difference statistics (n={n_bands} bands):")
+    print(f"   min  = {mean_diff.min():.8f}")
+    print(f"   max  = {mean_diff.max():.8f}")
+    print(f"   mean = {mean_diff.mean():.8f}")
+    print(f"   std  = {mean_diff.std():.8f}")
 
     # np.cov expects (features, observations)
     cov_a = np.cov(pix_a.T)  # (B, B)
@@ -225,25 +172,25 @@ def compare_datasets(
     evals_b = evals_b_asc[::-1]
 
     n_show = min(n_bands, 20)
-    print(f"\n!@# Eigenvalues (greatest→smallest, first {n_show}):")
-    print(f"!@# {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
+    print(f"\n Eigenvalues (greatest→smallest, first {n_show}):")
+    print(f" {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
     for i in range(n_show):
         diff = float(evals_a[i]) - float(evals_b[i])
-        print(f"!@# {i:>5}  {evals_a[i]:>20.6f}  {evals_b[i]:>20.6f}  {diff:>20.6f}")
+        print(f" {i:>5}  {evals_a[i]:>20.6f}  {evals_b[i]:>20.6f}  {diff:>20.6f}")
 
     # Each printed line = one column index j, showing that entry across the first
     # n_rows rows side-by-side: | cov_a[0][j] cov_b[0][j] diff[0][j] | cov_a[1][j] … |
     n_rows = min(5, n_bands)
     col_w = 12
-    print(f"\n!@# Covariance — first {n_rows} rows, one line per column index")
-    print(f"!@# Each cell: | {label_a[:col_w]:>{col_w}} {label_b[:col_w]:>{col_w}} {'diff':>{col_w}} |")
+    print(f"\n Covariance — first {n_rows} rows, one line per column index")
+    print(f" Each cell: | {label_a[:col_w]:>{col_w}} {label_b[:col_w]:>{col_w}} {'diff':>{col_w}} |")
     for j in range(n_bands):
         cells = "".join(
             f"| {cov_a[r, j]:>{col_w}.6f} {cov_b[r, j]:>{col_w}.6f}"
             f" {cov_a[r, j]-cov_b[r, j]:>{col_w}.6f} "
             for r in range(n_rows)
         )
-        print(f"!@# col[{j:>4}]: {cells}|")
+        print(f" col[{j:>4}]: {cells}|")
 
 
 class TestMTMF(unittest.TestCase):
@@ -659,7 +606,12 @@ class TestMTMF(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
-    def test_envi_mtmf_infeasibility_ranking(self) -> None:
+    @unittest.skip(
+        "Should be used to validate the infeasibility score differences between ENVI's infeasibility "
+        "score our ours. This is describe in the WISER Requirements -> Testing section here: "
+        "https://docs.google.com/document/d/15tzSVhaqrEyCaV-NaXwp8G-caW9UUkeRii8-ql0W0YY/edit?usp=sharing"
+    )
+    def test_compare_envi_mtmf_mnf_mf_and_infeasibility(self) -> None:
         """Read ENVI MTMF ground-truth, extract infeasibility (band 1), rank pixels.
 
         Band 0 = MF score, band 1 = infeasibility.
@@ -667,7 +619,6 @@ class TestMTMF(unittest.TestCase):
         Prints pixels ranked from highest to lowest infeasibility as
         (rank, y, x, infeasibility_value) tuples.  No assertion yet.
         """
-        # gt_dataset = self.test_model.load_dataset(str(_CALTECH_ENVI_MTMF_GT_PATH))
         gt_dataset = self.test_model.load_dataset(str(_FULL_JPL_ENVI_MTMF_GT_PATH))
 
         # shape: [bands][lines][samples] = [2][22][20]
@@ -680,11 +631,10 @@ class TestMTMF(unittest.TestCase):
         ranked = sorted(pixels, key=lambda p: p[2], reverse=True)
 
         # -----------------------------------------------------------------
-        # Run our MNF-MTMF pipeline on caltech_15_20_22_bb with the
+        # Run our MNF-MTMF pipeline on the testing dataset with the
         # top-left pixel (x=0, y=0) as the target spectrum, then rank
         # the resulting infeasibility output the same way.
         # -----------------------------------------------------------------
-        # bb_dataset = self.test_model.load_dataset(str(_CALTECH_BB_PATH))
         bb_dataset = self.test_model.load_dataset(str(_FULL_JPL_PATH))
         app_services = self.test_model.app_services
         storage_client = None
@@ -698,7 +648,7 @@ class TestMTMF(unittest.TestCase):
             )
             target_ref = app_services.storage_service.allocate_data(
                 AllocationRequest(
-                    name="caltech_bb_target",
+                    name="bb_target",
                     kind="array",
                     residency="ram_cacheable",
                     size_est=int(target_2d.size * target_2d.dtype.itemsize),
@@ -708,7 +658,7 @@ class TestMTMF(unittest.TestCase):
             )
             get_process_storage_client().write_data(target_ref, target_2d)
 
-            mf_scores_ref_name = "caltech_bb_mf_scores"
+            mf_scores_ref_name = "bb_mf_scores"
             infeasibility_ref_name = f"{mf_scores_ref_name}_infeasibility"
             eigenvalues_ref_name = "mtmf_mnf_whitened_eigen_values"
             noise_eigen_vectors_ref_name = "mtmf_mnf_noise_eigen_vectors"
@@ -800,17 +750,38 @@ class TestMTMF(unittest.TestCase):
             rank_diffs_arr = np.asarray(rank_diffs, dtype=np.float64)
             infeas_diffs_arr = np.asarray(infeas_diffs, dtype=np.float64)
 
-            print(f"\n!@# Infeasibility rank-difference statistics (n={len(rank_diffs)}):")
-            print(f"!@#   min  = {rank_diffs_arr.min():.4f}")
-            print(f"!@#   max  = {rank_diffs_arr.max():.4f}")
-            print(f"!@#   mean = {rank_diffs_arr.mean():.4f}")
-            print(f"!@#   std  = {rank_diffs_arr.std():.4f}")
+            print(f"\n Infeasibility rank-difference statistics (n={len(rank_diffs)}):")
+            print(f"   min  = {rank_diffs_arr.min():.4f}")
+            print(f"   max  = {rank_diffs_arr.max():.4f}")
+            print(f"   mean = {rank_diffs_arr.mean():.4f}")
+            print(f"   std  = {rank_diffs_arr.std():.4f}")
 
-            print(f"\n!@# Infeasibility score-difference statistics (n={len(infeas_diffs)}):")
-            print(f"!@#   min  = {infeas_diffs_arr.min():.6f}")
-            print(f"!@#   max  = {infeas_diffs_arr.max():.6f}")
-            print(f"!@#   mean = {infeas_diffs_arr.mean():.6f}")
-            print(f"!@#   std  = {infeas_diffs_arr.std():.6f}")
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            _hist_path = (
+                Path(__file__).resolve().parent.parent / "test_utils" / "infeas_rank_diff_histogram.png"
+            )
+            pval = np.percentile(rank_diffs_arr, 99.73)
+            rank_diffs_trimmed = rank_diffs_arr[rank_diffs_arr <= pval]
+            bin_edges = np.linspace(0, pval, 201)  # 200 bins over [0, pval]
+
+            fig, ax = plt.subplots()
+            ax.hist(rank_diffs_trimmed, bins=bin_edges)
+            ax.set_xlabel("Absolute infeasibility rank difference (ENVI vs WISER)")
+            ax.set_ylabel("Pixel count")
+            ax.set_title(f"Infeasibility ranking difference histogram (200 bins, ≤99.73th pct={pval:.1f})")
+            fig.savefig(str(_hist_path), dpi=150, bbox_inches="tight")
+            plt.close(fig)
+            print(f"\n Rank-difference histogram saved to {_hist_path}")
+
+            print(f"\n Infeasibility score-difference statistics (n={len(infeas_diffs)}):")
+            print(f"   min  = {infeas_diffs_arr.min():.6f}")
+            print(f"   max  = {infeas_diffs_arr.max():.6f}")
+            print(f"   mean = {infeas_diffs_arr.mean():.6f}")
+            print(f"   std  = {infeas_diffs_arr.std():.6f}")
 
             # -----------------------------------------------------------------
             # Compare matched-filter scores (band 0 of ENVI GT vs our output)
@@ -823,16 +794,6 @@ class TestMTMF(unittest.TestCase):
 
             _mf_rtol = 1e-1
             _mf_atol = 1e-8
-            print_mf_score_analysis(
-                our_mf,
-                envi_mf,
-                label_a="our_mf",
-                label_b="envi_mf",
-                rtol=_mf_rtol,
-                atol=_mf_atol,
-                max_gt_one=10,
-                max_close_one=10,
-            )
 
             all_equal = True
             mismatches = []
@@ -845,29 +806,29 @@ class TestMTMF(unittest.TestCase):
                         mismatches.append((y, x, ev, ov))
 
             if all_equal:
-                print("\n!@# MF scores: all pixels match ENVI")
+                print("\n MF scores: all pixels match ENVI")
             else:
-                print(f"\n!@# MF scores: {len(mismatches)} pixel(s) differ from ENVI")
+                print(f"\n MF scores: {len(mismatches)} pixel(s) differ from ENVI")
 
             mf_diffs_arr = np.abs(envi_mf.astype(np.float64) - our_mf.astype(np.float64)).ravel()
-            print(f"\n!@# MF score difference statistics (n={mf_diffs_arr.size}):")
-            print(f"!@#   min  = {mf_diffs_arr.min():.6f}")
-            print(f"!@#   max  = {mf_diffs_arr.max():.6f}")
-            print(f"!@#   mean = {mf_diffs_arr.mean():.6f}")
-            print(f"!@#   std  = {mf_diffs_arr.std():.6f}")
+            print(f"\n Pipeline vs ENVI MF score difference statistics (n={mf_diffs_arr.size}):")
+            print(f"   min  = {mf_diffs_arr.min():.6f}")
+            print(f"   max  = {mf_diffs_arr.max():.6f}")
+            print(f"   mean = {mf_diffs_arr.mean():.6f}")
+            print(f"   std  = {mf_diffs_arr.std():.6f}")
 
             envi_mf_flat = envi_mf.astype(np.float64).ravel()
             our_mf_flat = our_mf.astype(np.float64).ravel()
-            print(f"\n!@# ENVI MF score statistics (n={envi_mf_flat.size}):")
-            print(f"!@#   min  = {envi_mf_flat.min():.6f}")
-            print(f"!@#   max  = {envi_mf_flat.max():.6f}")
-            print(f"!@#   mean = {envi_mf_flat.mean():.6f}")
-            print(f"!@#   std  = {envi_mf_flat.std():.6f}")
-            print(f"\n!@# WISER MF score statistics (n={our_mf_flat.size}):")
-            print(f"!@#   min  = {our_mf_flat.min():.6f}")
-            print(f"!@#   max  = {our_mf_flat.max():.6f}")
-            print(f"!@#   mean = {our_mf_flat.mean():.6f}")
-            print(f"!@#   std  = {our_mf_flat.std():.6f}")
+            print(f"\n ENVI MF score statistics (n={envi_mf_flat.size}):")
+            print(f"   min  = {envi_mf_flat.min():.6f}")
+            print(f"   max  = {envi_mf_flat.max():.6f}")
+            print(f"   mean = {envi_mf_flat.mean():.6f}")
+            print(f"   std  = {envi_mf_flat.std():.6f}")
+            print(f"\n WISER MF score statistics (n={our_mf_flat.size}):")
+            print(f"   min  = {our_mf_flat.min():.6f}")
+            print(f"   max  = {our_mf_flat.max():.6f}")
+            print(f"   mean = {our_mf_flat.mean():.6f}")
+            print(f"   std  = {our_mf_flat.std():.6f}")
 
             # -----------------------------------------------------------------
             # Manual MNF calculation
@@ -931,50 +892,44 @@ class TestMTMF(unittest.TestCase):
             envi_mf_f64 = image_data[0].astype(np.float64)
 
             mf_man_diff = (our_mf_manual.astype(np.float64) - envi_mf_f64).ravel()
-            print(f"\n!@# Manual MF vs ENVI MF difference statistics (n={mf_man_diff.size}):")
-            print(f"!@#   min  = {mf_man_diff.min():.6f}")
-            print(f"!@#   max  = {mf_man_diff.max():.6f}")
-            print(f"!@#   mean = {mf_man_diff.mean():.6f}")
-            print(f"!@#   std  = {mf_man_diff.std():.6f}")
+            print(f"\n Manual MF vs ENVI MF difference statistics (n={mf_man_diff.size}):")
+            print(f"   min  = {mf_man_diff.min():.6f}")
+            print(f"   max  = {mf_man_diff.max():.6f}")
+            print(f"   mean = {mf_man_diff.mean():.6f}")
+            print(f"   std  = {mf_man_diff.std():.6f}")
 
             infeas_man_diff = (our_infeas_manual.astype(np.float64) - envi_infeas).ravel()
             print(
-                "\n!@# Manual infeasibility vs ENVI infeasibility difference statistics "
+                "\n Manual infeasibility vs ENVI infeasibility difference statistics "
                 f"(n={infeas_man_diff.size}):"
             )
-            print(f"!@#   min  = {infeas_man_diff.min():.6f}")
-            print(f"!@#   max  = {infeas_man_diff.max():.6f}")
-            print(f"!@#   mean = {infeas_man_diff.mean():.6f}")
-            print(f"!@#   std  = {infeas_man_diff.std():.6f}")
+            print(f"   min  = {infeas_man_diff.min():.6f}")
+            print(f"   max  = {infeas_man_diff.max():.6f}")
+            print(f"   mean = {infeas_man_diff.mean():.6f}")
+            print(f"   std  = {infeas_man_diff.std():.6f}")
 
-            mf_pipeline_diff = (our_mf_manual.astype(np.float64) - our_mf.astype(np.float64)).ravel()
-            print(f"\n!@# Manual MF vs pipeline MF difference statistics (n={mf_pipeline_diff.size}):")
-            print(f"!@#   min  = {mf_pipeline_diff.min():.6f}")
-            print(f"!@#   max  = {mf_pipeline_diff.max():.6f}")
-            print(f"!@#   mean = {mf_pipeline_diff.mean():.6f}")
-            print(f"!@#   std  = {mf_pipeline_diff.std():.6f}")
+            del mnf_flat
+            gc.collect()
 
-            # # -----------------------------------------------------------------
-            # # Compare our MNF data cube with the ENVI MNF reference
-            # # -----------------------------------------------------------------
-            # envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
-            # envi_mnf_source_ref = app_services.storage_service.register_external(
-            #     ExternalRasterHandle(dataset_obj=envi_mnf_ds)
-            # )
-            # envi_mnf_data_raw, _ = storage_client.read_data(envi_mnf_source_ref, filter_data=False)
-            # # read_data returns [y][x][b] for dataset refs — no axis reordering needed.
-            # envi_mnf = np.asarray(np.ma.getdata(envi_mnf_data_raw), dtype=np.float64)  # (H, W, B)
+            # -----------------------------------------------------------------
+            # Compare our MNF data cube with the ENVI MNF reference
+            # -----------------------------------------------------------------
+            envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
+            envi_mnf_source_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=envi_mnf_ds)
+            )
+            envi_mnf_data_raw, _ = storage_client.read_data(envi_mnf_source_ref, filter_data=False)
+            # read_data returns [y][x][b] for dataset refs — no axis reordering needed.
+            envi_mnf = np.asarray(np.ma.getdata(envi_mnf_data_raw), dtype=np.float64)  # (H, W, B)
 
-            # our_mnf_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[mnf_data_ref_name], filter_data=False
-            # )
-            # our_mnf = np.asarray(np.ma.getdata(our_mnf_raw), dtype=np.float64)  # (H, W, B)
+            our_mnf_raw, _ = storage_client.read_data(
+                task_plan.bindings[mnf_data_ref_name], filter_data=False
+            )
+            our_mnf = np.asarray(np.ma.getdata(our_mnf_raw), dtype=np.float64)  # (H, W, B)
 
-            # compare_datasets(our_mnf, envi_mnf, label_a="pipeline MNF", label_b="ENVI MNF")
-            # compare_datasets(mnf_manual, envi_mnf, label_a="manual MNF",   label_b="ENVI MNF")
+            compare_datasets(our_mnf, envi_mnf, label_a="pipeline MNF", label_b="ENVI MNF")
+            compare_datasets(mnf_manual, envi_mnf, label_a="manual MNF", label_b="ENVI MNF")
 
-            # Test is still in progress, so failing so we don't forget about it
-            # self.assertTrue(False)
         finally:
             if storage_client is not None:
                 storage_client.close()
