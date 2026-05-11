@@ -2740,9 +2740,8 @@ def _write_whitening_matrix(
     # Zero eigen values correspond to non-invertible directions, so keep their
     # whitening scale at 0 instead of dividing by 0.
     inverse_sqrt_values = np.zeros_like(eigen_values_array, dtype=np.float64)
-    # nonzero_mask = eigen_values_array > 0
-    # inverse_sqrt_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
-    inverse_sqrt_values = eigen_values_array**-0.5
+    nonzero_mask = eigen_values_array > 0
+    inverse_sqrt_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
     inverse_sqrt_eigen_values = np.diag(inverse_sqrt_values)
     whitening_matrix = eigen_vectors_array.T @ inverse_sqrt_eigen_values @ eigen_vectors_array
     client.write_data(output_ref, whitening_matrix.astype(np.float64, copy=False))
