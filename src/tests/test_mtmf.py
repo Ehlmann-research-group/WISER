@@ -990,11 +990,11 @@ class TestMTMF(unittest.TestCase):
             # -----------------------------------------------------------------
             # Save the shift-Y noise cube to an ENVI .hdr file
             # -----------------------------------------------------------------
-            noise_cube_raw, _ = storage_client.read_data(
-                task_plan.bindings[noise_cube_ref_name], filter_data=False
-            )
+            # noise_cube_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[noise_cube_ref_name], filter_data=False
+            # )
             # noise_cube_raw shape is (H, W, B); dataset_from_numpy_array expects (B, H, W)
-            noise_cube_arr = np.asarray(np.ma.getdata(noise_cube_raw), dtype=np.float32)
+            # noise_cube_arr = np.asarray(np.ma.getdata(noise_cube_raw), dtype=np.float32)
             # noise_cube_byx = np.moveaxis(noise_cube_arr, -1, 0)  # (B, H, W)
 
             # loader = RasterDataLoader()
@@ -1014,9 +1014,9 @@ class TestMTMF(unittest.TestCase):
             envi_noise_evals = envi_noise_evals.astype(np.float64)
             envi_noise_evecs = envi_noise_evecs.astype(np.float64)
 
-            # Compute our noise covariance: reshape (H, W, B) → (B, N) for np.cov
-            our_noise_2d = noise_cube_arr.reshape(-1, noise_cube_arr.shape[-1]).astype(np.float64).T
-            cov_our_noise = np.cov(our_noise_2d)  # (B, B)
+            # # Compute our noise covariance: reshape (H, W, B) → (B, N) for np.cov
+            # our_noise_2d = noise_cube_arr.reshape(-1, noise_cube_arr.shape[-1]).astype(np.float64).T
+            # cov_our_noise = np.cov(our_noise_2d)  # (B, B)
 
             # One line per column index j; each cell shows that entry across the
             # first 5 rows: | cov[0][j] | cov[1][j] | … |
@@ -1033,25 +1033,26 @@ class TestMTMF(unittest.TestCase):
             #     )
             #     print(f"!@# col[{j:>4}]: {cells}|")
 
-            # Eigen-decompose our noise covariance (eigh → ascending → reverse)
-            our_noise_evals_asc, our_noise_evecs_asc = np.linalg.eigh(cov_our_noise)
-            our_noise_evals = our_noise_evals_asc[::-1]  # noqa: F841
-            our_noise_evecs = our_noise_evecs_asc[:, ::-1].T  # (B, B), row i = i-th eigenvector  # noqa: F841
+            # # Eigen-decompose our noise covariance (eigh → ascending → reverse)
+            # our_noise_evals_asc, our_noise_evecs_asc = np.linalg.eigh(cov_our_noise)
+            # our_noise_evals = our_noise_evals_asc[::-1]  # noqa: F841
+            # # (B, B), row i = i-th eigenvector
+            # our_noise_evecs = our_noise_evecs_asc[:, ::-1].T  # noqa: F841
 
-            # -----------------------------------------------------------------
-            # Compare manual noise cov / eigen against pipeline's AdaptivePcaFitStage
-            # pipeline ref names: "mtmf_mnf_noise_eigen_{covariance,vectors,values}"
-            # vectors + values are already in keep_set via noise_eigen_vectors/values_ref_name
-            # -----------------------------------------------------------------
-            pipeline_nc_raw, _ = storage_client.read_data(
-                task_plan.bindings["mtmf_mnf_noise_eigen_covariance"], filter_data=False
-            )
-            pipeline_nc = np.asarray(np.ma.getdata(pipeline_nc_raw), dtype=np.float64)
-            if pipeline_nc.ndim == 3 and pipeline_nc.shape[-1] == 1:
-                pipeline_nc = pipeline_nc[:, :, 0]
+            # # -----------------------------------------------------------------
+            # # Compare manual noise cov / eigen against pipeline's AdaptivePcaFitStage
+            # # pipeline ref names: "mtmf_mnf_noise_eigen_{covariance,vectors,values}"
+            # # vectors + values are already in keep_set via noise_eigen_vectors/values_ref_name
+            # # -----------------------------------------------------------------
+            # pipeline_nc_raw, _ = storage_client.read_data(
+            #     task_plan.bindings["mtmf_mnf_noise_eigen_covariance"], filter_data=False
+            # )
+            # pipeline_nc = np.asarray(np.ma.getdata(pipeline_nc_raw), dtype=np.float64)
+            # if pipeline_nc.ndim == 3 and pipeline_nc.shape[-1] == 1:
+            #     pipeline_nc = pipeline_nc[:, :, 0]
 
-            n_nc = cov_our_noise.shape[0]  # noqa: F841
-            col_w = 14
+            # n_nc = cov_our_noise.shape[0]  # noqa: F841
+            # col_w = 14
             # print(f"\n!@# Noise covariance: manual vs pipeline, shape={cov_our_noise.shape}")
             # print(f"!@# Each cell: | {'manual':>{col_w}} {'pipeline':>{col_w}} {'diff':>{col_w}} |")
             # for j in range(n_nc):
@@ -1063,12 +1064,12 @@ class TestMTMF(unittest.TestCase):
             #     )
             #     print(f"!@# col[{j:>4}]: {cells}|")
 
-            nc_diff = cov_our_noise - pipeline_nc
-            print("\n!@# Noise covariance difference (manual - pipeline) statistics:")
-            print(f"!@#   min  = {nc_diff.min():.8f}")
-            print(f"!@#   max  = {nc_diff.max():.8f}")
-            print(f"!@#   mean = {nc_diff.mean():.8f}")
-            print(f"!@#   std  = {nc_diff.std():.8f}")
+            # nc_diff = cov_our_noise - pipeline_nc
+            # print("\n!@# Noise covariance difference (manual - pipeline) statistics:")
+            # print(f"!@#   min  = {nc_diff.min():.8f}")
+            # print(f"!@#   max  = {nc_diff.max():.8f}")
+            # print(f"!@#   mean = {nc_diff.mean():.8f}")
+            # print(f"!@#   std  = {nc_diff.std():.8f}")
 
             # # Noise eigenvalues
             # pipeline_nv_raw, _ = storage_client.read_data(
@@ -1118,19 +1119,22 @@ class TestMTMF(unittest.TestCase):
             #     )
             #     print(f"!@# col[{j:>4}]: {cells}|")
 
-            # -----------------------------------------------------------------
-            # Compare raw input mean vs pipeline mean
-            # -----------------------------------------------------------------
-            # Compute the mean directly from the input dataset array.
-            input_raw, _ = storage_client.read_data(source_ref, filter_data=False)
-            input_arr = np.asarray(np.ma.getdata(input_raw), dtype=np.float64)  # (H, W, B)
-            input_data_mean = input_arr.reshape(-1, input_arr.shape[-1]).mean(axis=0, dtype=np.float64)
+            # # -----------------------------------------------------------------
+            # # Compare raw input mean vs pipeline mean
+            # # -----------------------------------------------------------------
+            # # Compute the mean directly from the input dataset array.
+            # input_raw, _ = storage_client.read_data(source_ref, filter_data=False)
+            # input_arr = np.asarray(np.ma.getdata(input_raw), dtype=np.float64)  # (H, W, B)
+            # input_data_mean = input_arr.reshape(-1, input_arr.shape[-1]).mean(axis=0, dtype=np.float64)
 
-            # Read the mean vector computed by get_mnf_pipeline's SpectralMeanStage.
-            pipeline_mean_raw, _ = storage_client.read_data(
-                task_plan.bindings[input_mean_ref_name], filter_data=False
-            )
-            pipeline_mean = np.asarray(np.ma.getdata(pipeline_mean_raw), dtype=np.float64).ravel()  # noqa: F841
+            # # Read the mean vector computed by get_mnf_pipeline's SpectralMeanStage.
+            # pipeline_mean_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[input_mean_ref_name], filter_data=False
+            # )
+            # pipeline_mean = np.asarray(
+            #     np.ma.getdata(pipeline_mean_raw),
+            #     dtype=np.float64,
+            # ).ravel()
 
             # print(f"\n!@# Input data mean (from raw array, length={len(input_data_mean)}):")
             # print(f"!@# {input_data_mean}")
@@ -1159,63 +1163,66 @@ class TestMTMF(unittest.TestCase):
             #   A  = eigenvectors of the whitened data covariance (rows)
             # -----------------------------------------------------------------
 
-            # --- Step 1: whitening matrix W = V Λ^(-1/2) V^T ---
-            # cov_our_noise = V Λ V^T  (from eigh, ascending order)
-            noise_evals_w, noise_evecs_w = np.linalg.eigh(cov_our_noise)
-            # Clamp tiny/negative eigenvalues for numerical stability
-            noise_evals_w = np.maximum(noise_evals_w, 1e-12)
-            W = noise_evecs_w @ np.diag(noise_evals_w**-0.5) @ noise_evecs_w.T  # (B, B)
+            # # --- Step 1: whitening matrix W = V Λ^(-1/2) V^T ---
+            # # cov_our_noise = V Λ V^T  (from eigh, ascending order)
+            # noise_evals_w, noise_evecs_w = np.linalg.eigh(cov_our_noise)
+            # # Clamp tiny/negative eigenvalues for numerical stability
+            # noise_evals_w = np.maximum(noise_evals_w, 1e-12)
+            # W = noise_evecs_w @ np.diag(noise_evals_w**-0.5) @ noise_evecs_w.T  # (B, B)
 
-            # Compare our manually computed W with the pipeline's whitening matrix
-            pipeline_W_raw, _ = storage_client.read_data(
-                task_plan.bindings[noise_whitening_matrix_ref_name], filter_data=False
-            )
-            pipeline_W = np.asarray(np.ma.getdata(pipeline_W_raw), dtype=np.float64)
-            if pipeline_W.ndim == 3 and pipeline_W.shape[-1] == 1:
-                pipeline_W = pipeline_W[:, :, 0]
+            # # Compare our manually computed W with the pipeline's whitening matrix
+            # pipeline_W_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[noise_whitening_matrix_ref_name], filter_data=False
+            # )
+            # pipeline_W = np.asarray(np.ma.getdata(pipeline_W_raw), dtype=np.float64)
+            # if pipeline_W.ndim == 3 and pipeline_W.shape[-1] == 1:
+            #     pipeline_W = pipeline_W[:, :, 0]
 
-            n_W = W.shape[0]
-            col_w = 14
-            print(f"\n!@# Whitening-matrix comparison: manual W vs pipeline W, shape={W.shape}")
-            print(f"!@# Each cell: | {'manual W':>{col_w}} {'pipeline W':>{col_w}} {'diff':>{col_w}} |")
-            for j in range(n_W):
-                cells = "".join(
-                    f"| {W[r, j]:>{col_w}.6f}"
-                    f" {pipeline_W[r, j]:>{col_w}.6f}"
-                    f" {W[r, j] - pipeline_W[r, j]:>{col_w}.6f} "
-                    for r in range(min(5, n_W))
-                )
-                print(f"!@# col[{j:>4}]: {cells}|")
+            # n_W = W.shape[0]
+            # col_w = 14
+            # print(f"\n!@# Whitening-matrix comparison: manual W vs pipeline W, shape={W.shape}")
+            # print(f"!@# Each cell: | {'manual W':>{col_w}} {'pipeline W':>{col_w}} {'diff':>{col_w}} |")
+            # for j in range(n_W):
+            #     cells = "".join(
+            #         f"| {W[r, j]:>{col_w}.6f}"
+            #         f" {pipeline_W[r, j]:>{col_w}.6f}"
+            #         f" {W[r, j] - pipeline_W[r, j]:>{col_w}.6f} "
+            #         for r in range(min(5, n_W))
+            #     )
+            #     print(f"!@# col[{j:>4}]: {cells}|")
 
-            W_diff = W - pipeline_W
-            print("\n!@# Whitening-matrix difference (manual - pipeline) statistics:")
-            print(f"!@#   min  = {W_diff.min():.8f}")
-            print(f"!@#   max  = {W_diff.max():.8f}")
-            print(f"!@#   mean = {W_diff.mean():.8f}")
-            print(f"!@#   std  = {W_diff.std():.8f}")
+            # W_diff = W - pipeline_W
+            # print("\n!@# Whitening-matrix difference (manual - pipeline) statistics:")
+            # print(f"!@#   min  = {W_diff.min():.8f}")
+            # print(f"!@#   max  = {W_diff.max():.8f}")
+            # print(f"!@#   mean = {W_diff.mean():.8f}")
+            # print(f"!@#   std  = {W_diff.std():.8f}")
 
-            # --- Step 2: whiten the mean-centred input data ---
-            h_in, w_in, b_in = input_arr.shape
-            centered = input_arr - input_data_mean  # (H, W, B)
-            centered_2d = centered.reshape(-1, b_in)  # (N, B)
-            whitened_2d = centered_2d @ W.T  # (N, B)
+            # # --- Step 2: whiten the mean-centred input data ---
+            # h_in, w_in, b_in = input_arr.shape
+            # centered = input_arr - input_data_mean  # (H, W, B)
+            # centered_2d = centered.reshape(-1, b_in)  # (N, B)
+            # whitened_2d = centered_2d @ W.T  # (N, B)
 
-            # --- Step 3: eigenvectors of whitened data covariance ---
-            whitened_cov = np.cov(whitened_2d.T)  # (B, B)
+            # # --- Step 3: eigenvectors of whitened data covariance ---
+            # whitened_cov = np.cov(whitened_2d.T)  # (B, B)
 
-            # -----------------------------------------------------------------
-            # Compare background covariance: cov_jpl  vs  pipeline input cov
-            # -----------------------------------------------------------------
-            pipeline_ic_raw, _ = storage_client.read_data(
-                task_plan.bindings[input_covariance_ref_name], filter_data=False
-            )
-            pipeline_ic = np.asarray(np.ma.getdata(pipeline_ic_raw), dtype=np.float64)
-            if pipeline_ic.ndim == 3 and pipeline_ic.shape[-1] == 1:
-                pipeline_ic = pipeline_ic[:, :, 0]
+            # # -----------------------------------------------------------------
+            # # Compare background covariance: cov_jpl  vs  pipeline input cov
+            # # -----------------------------------------------------------------
+            # pipeline_ic_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[input_covariance_ref_name], filter_data=False
+            # )
+            # pipeline_ic = np.asarray(np.ma.getdata(pipeline_ic_raw), dtype=np.float64)
+            # if pipeline_ic.ndim == 3 and pipeline_ic.shape[-1] == 1:
+            #     pipeline_ic = pipeline_ic[:, :, 0]
 
-            n_ic = cov_jpl.shape[0]
-            col_w = 14
-            # print(f"\n!$%^Background-cov comparison: cov_jpl vs pipeline input cov, shape={cov_jpl.shape}")
+            # n_ic = cov_jpl.shape[0]
+            # col_w = 14
+            # print(
+            #     "\n!$%^Background-cov comparison: maunal cov input data vs pipeline input cov, "
+            #     f"shape={cov_jpl.shape}"
+            # )
             # print(f"!@# Each cell: | {'cov_jpl':>{col_w}} {'pipeline':>{col_w}} {'diff':>{col_w}} |")
             # for j in range(n_ic):
             #     cells = "".join(
@@ -1226,22 +1233,22 @@ class TestMTMF(unittest.TestCase):
             #     )
             #     print(f"!@# col[{j:>4}]: {cells}|")
 
-            # -----------------------------------------------------------------
-            # Comparison 1: our np.cov whitened_cov  vs  pipeline whitened cov
-            # -----------------------------------------------------------------
-            pipeline_wc_raw, _ = storage_client.read_data(
-                task_plan.bindings[whitened_covariance_ref_name], filter_data=False
-            )
-            pipeline_wc = np.asarray(np.ma.getdata(pipeline_wc_raw), dtype=np.float64)
-            if pipeline_wc.ndim == 3 and pipeline_wc.shape[-1] == 1:
-                pipeline_wc = pipeline_wc[:, :, 0]
+            # # -----------------------------------------------------------------
+            # # Comparison 1: our np.cov whitened_cov  vs  pipeline whitened cov
+            # # -----------------------------------------------------------------
+            # pipeline_wc_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[whitened_covariance_ref_name], filter_data=False
+            # )
+            # pipeline_wc = np.asarray(np.ma.getdata(pipeline_wc_raw), dtype=np.float64)
+            # if pipeline_wc.ndim == 3 and pipeline_wc.shape[-1] == 1:
+            #     pipeline_wc = pipeline_wc[:, :, 0]
 
-            n_wc = whitened_cov.shape[0]
-            col_w = 14
-            print(
-                f"\n!@# Whitened-cov comparison 1: np.cov(whitened_2d) vs "
-                f"pipeline, shape={whitened_cov.shape}"
-            )
+            # n_wc = whitened_cov.shape[0]
+            # col_w = 14
+            # print(
+            #     f"\n!@# Whitened-cov comparison 1: np.cov(whitened_2d) vs "
+            #     f"pipeline, shape={whitened_cov.shape}"
+            # )
             # print(f"!@# Each cell: | {'np.cov':>{col_w}} {'pipeline':>{col_w}} {'diff':>{col_w}} |")
             # for j in range(n_wc):
             #     cells = "".join(
@@ -1257,12 +1264,12 @@ class TestMTMF(unittest.TestCase):
             # The theoretical whitened covariance is W Σ_b W^T.
             # cov_jpl is computed from the full JPL raw data (Σ_b).
             # -----------------------------------------------------------------
-            theoretical_wc = W @ cov_jpl @ W.T  # (B, B)
+            # theoretical_wc = W @ cov_jpl @ W.T  # (B, B)
 
-            print(
-                "\n!@# Whitened-cov comparison 2: np.cov(whitened_2d) vs "
-                f"W@cov_jpl@W.T, shape={whitened_cov.shape}"
-            )
+            # print(
+            #     "\n!@# Whitened-cov comparison 2: np.cov(whitened_2d) vs "
+            #     f"W@cov_jpl@W.T, shape={whitened_cov.shape}"
+            # )
             # print(f"!@# Each cell: | {'np.cov':>{col_w}} {'W@Σ@W.T':>{col_w}} {'diff':>{col_w}} |")
             # for j in range(n_wc):
             #     cells = "".join(
@@ -1273,11 +1280,11 @@ class TestMTMF(unittest.TestCase):
             #     )
             #     print(f"!@# col[{j:>4}]: {cells}|")
 
-            A_evals_asc, A_evecs_asc = np.linalg.eigh(whitened_cov)
-            # Sort descending; columns → rows
-            desc_idx = np.argsort(A_evals_asc)[::-1]
-            A = A_evecs_asc[:, desc_idx].T  # (B, B), row i = i-th eigenvector
-            manual_wh_evals = A_evals_asc[desc_idx]  # (B,) descending
+            # A_evals_asc, A_evecs_asc = np.linalg.eigh(whitened_cov)
+            # # Sort descending; columns → rows
+            # desc_idx = np.argsort(A_evals_asc)[::-1]
+            # A = A_evecs_asc[:, desc_idx].T  # (B, B), row i = i-th eigenvector
+            # manual_wh_evals = A_evals_asc[desc_idx]  # (B,) descending
 
             # -----------------------------------------------------------------
             # Compare whitened-data eigenvectors / eigenvalues:
@@ -1290,11 +1297,11 @@ class TestMTMF(unittest.TestCase):
             if pipeline_wh_vecs.ndim == 3 and pipeline_wh_vecs.shape[-1] == 1:
                 pipeline_wh_vecs = pipeline_wh_vecs[:, :, 0]
 
-            # eigenvalues_ref_name == "mtmf_mnf_whitened_eigen_values" already kept
-            pipeline_wh_evals_raw, _ = storage_client.read_data(
-                task_plan.bindings[eigenvalues_ref_name], filter_data=False
-            )
-            pipeline_wh_evals = np.asarray(np.ma.getdata(pipeline_wh_evals_raw), dtype=np.float64).ravel()
+            # # eigenvalues_ref_name == "mtmf_mnf_whitened_eigen_values" already kept
+            # pipeline_wh_evals_raw, _ = storage_client.read_data(
+            #     task_plan.bindings[eigenvalues_ref_name], filter_data=False
+            # )
+            # pipeline_wh_evals = np.asarray(np.ma.getdata(pipeline_wh_evals_raw), dtype=np.float64).ravel()
 
             # print_eigenvalue_comparison(
             #     manual_wh_evals, pipeline_wh_evals,
@@ -1305,12 +1312,12 @@ class TestMTMF(unittest.TestCase):
             #     label_a="manual whitened", label_b="pipeline whitened",
             # )
 
-            # --- Step 4: full MNF transform ---
-            T = A @ W  # (B, B)
-            print(f"\n!@# Manual T shape={T.shape}  W shape={W.shape}  A shape={A.shape}")
+            # # --- Step 4: full MNF transform ---
+            # T = A @ W  # (B, B)
+            # print(f"\n!@# Manual T shape={T.shape}  W shape={W.shape}  A shape={A.shape}")
 
-            # Project each pixel: (N, B) @ T.T → (N, B); already have centered_2d
-            mnf_manual = (centered_2d @ T.T).reshape(h_in, w_in, T.shape[0])
+            # # Project each pixel: (N, B) @ T.T → (N, B); already have centered_2d
+            # mnf_manual = (centered_2d @ T.T).reshape(h_in, w_in, T.shape[0])
 
             # print(f"\n!@# Manual MNF shape={mnf_manual.shape}  T shape={T.shape}")
 
@@ -1322,19 +1329,19 @@ class TestMTMF(unittest.TestCase):
             # so the eigenvalues should match the MNF eigenvalues and the
             # eigenvectors should be the standard basis (e_i).
             # -----------------------------------------------------------------
-            _, _, _, envi_evecs, envi_evals = parse_jpl_mnf_stats(str(_ENVI_MNF_STATS_PATH))
-            envi_evals = envi_evals.astype(np.float64)
-            envi_evecs = envi_evecs.astype(np.float64)
+            # _, _, _, envi_evecs, envi_evals = parse_jpl_mnf_stats(str(_ENVI_MNF_STATS_PATH))
+            # envi_evals = envi_evals.astype(np.float64)
+            # envi_evecs = envi_evecs.astype(np.float64)
 
-            # np.cov expects (features, observations)
-            manual_2d = mnf_manual.reshape(-1, mnf_manual.shape[-1]).T  # (B, N)
-            cov_manual = np.cov(manual_2d)  # (B, B)
+            # # np.cov expects (features, observations)
+            # manual_2d = mnf_manual.reshape(-1, mnf_manual.shape[-1]).T  # (B, N)
+            # cov_manual = np.cov(manual_2d)  # (B, B)
 
-            # eigh returns eigenvalues in ascending order → reverse for greatest→smallest
-            manual_evals_asc, manual_evecs_asc = np.linalg.eigh(cov_manual)
-            manual_evals = manual_evals_asc[::-1].astype(np.float64)
-            # evecs columns are eigenvectors; after reversal col i ↔ eigenvalue i
-            manual_evecs = manual_evecs_asc[:, ::-1].T  # (B, B) rows are eigenvectors
+            # # eigh returns eigenvalues in ascending order → reverse for greatest→smallest
+            # manual_evals_asc, manual_evecs_asc = np.linalg.eigh(cov_manual)
+            # manual_evals = manual_evals_asc[::-1].astype(np.float64)
+            # # evecs columns are eigenvectors; after reversal col i ↔ eigenvalue i
+            # manual_evecs = manual_evecs_asc[:, ::-1].T  # (B, B) rows are eigenvectors
 
             # Uncomment
             # n_show_vals = min(len(manual_evals), len(envi_evals))
@@ -1363,23 +1370,23 @@ class TestMTMF(unittest.TestCase):
             #         e = float(envi_row[ei])
             #         print(f"!@#    {ei:>6}  {o:>15.8f}  {e:>15.8f}  {o - e:>15.8f}")
 
-            # # -----------------------------------------------------------------
-            # # Compare our MNF data cube with the ENVI MNF reference
-            # # -----------------------------------------------------------------
-            # envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
-            # envi_mnf_source_ref = app_services.storage_service.register_external(
-            #     ExternalRasterHandle(dataset_obj=envi_mnf_ds)
-            # )
-            # envi_mnf_data_raw, _ = storage_client.read_data(envi_mnf_source_ref, filter_data=False)
-            # # read_data returns [y][x][b] for dataset refs — no axis reordering needed.
-            # envi_mnf = np.asarray(np.ma.getdata(envi_mnf_data_raw), dtype=np.float64)  # (H, W, B)
+            # -----------------------------------------------------------------
+            # Compare our MNF data cube with the ENVI MNF reference
+            # -----------------------------------------------------------------
+            envi_mnf_ds = self.test_model.load_dataset(str(_ENVI_MNF_V1_PATH))
+            envi_mnf_source_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=envi_mnf_ds)
+            )
+            envi_mnf_data_raw, _ = storage_client.read_data(envi_mnf_source_ref, filter_data=False)
+            # read_data returns [y][x][b] for dataset refs — no axis reordering needed.
+            envi_mnf = np.asarray(np.ma.getdata(envi_mnf_data_raw), dtype=np.float64)  # (H, W, B)
 
-            # our_mnf_raw, _ = storage_client.read_data(
-            #     task_plan.bindings[mnf_data_ref_name], filter_data=False
-            # )
-            # our_mnf = np.asarray(np.ma.getdata(our_mnf_raw), dtype=np.float64)  # (H, W, B)
+            our_mnf_raw, _ = storage_client.read_data(
+                task_plan.bindings[mnf_data_ref_name], filter_data=False
+            )
+            our_mnf = np.asarray(np.ma.getdata(our_mnf_raw), dtype=np.float64)  # (H, W, B)
 
-            # compare_datasets(our_mnf,   envi_mnf, label_a="pipeline MNF", label_b="ENVI MNF")
+            compare_datasets(our_mnf, envi_mnf, label_a="pipeline MNF", label_b="ENVI MNF")
             # compare_datasets(mnf_manual, envi_mnf, label_a="manual MNF",   label_b="ENVI MNF")
 
             # Test is still in progress, so failing so we don't forget about it
