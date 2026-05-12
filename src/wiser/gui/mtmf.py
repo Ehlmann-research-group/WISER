@@ -49,6 +49,7 @@ from wiser.utils.task_stage_utils import (
 from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.selection import SelectionType
 from wiser.raster.spectrum import Spectrum
 
 
@@ -1419,19 +1420,10 @@ _INPUT_TYPE_SPECTRUM = 0
 _INPUT_TYPE_IMAGE_CUBE = 1
 
 
-class _NoiseMethod(IntEnum):
-    SHIFT_DOWN = 1
-    SHIFT_UP = 2
-    SHIFT_LEFT = 3
-    SHIFT_RIGHT = 4
-
-
-_NOISE_METHOD_TO_DIRECTION: Dict[_NoiseMethod, ShiftDiffNoiseDirection] = {
-    _NoiseMethod.SHIFT_DOWN: ShiftDiffNoiseDirection.DOWN,
-    _NoiseMethod.SHIFT_UP: ShiftDiffNoiseDirection.UP,
-    _NoiseMethod.SHIFT_LEFT: ShiftDiffNoiseDirection.LEFT,
-    _NoiseMethod.SHIFT_RIGHT: ShiftDiffNoiseDirection.RIGHT,
-}
+class _NoiseMethodType(IntEnum):
+    ROI_BASED = 0
+    DARK_IMAGE_BASED = 1
+    IMAGE_CUBE_BASED = 2
 
 
 def _spectrum_to_single_pixel_dataset(spectrum: Spectrum, app_state: ApplicationState) -> RasterDataSet:
@@ -1472,11 +1464,30 @@ class MTMFDialog(QDialog):
         self._ui.cbox_input_type.addItem(self.tr("Image Cube"), _INPUT_TYPE_IMAGE_CUBE)
         self._ui.cbox_input_type.currentIndexChanged.connect(lambda _i: self._populate_input_combo())
 
-        self._ui.cbox_noise_method.addItem(self.tr("Shift Difference Down"), _NoiseMethod.SHIFT_DOWN)
-        self._ui.cbox_noise_method.addItem(self.tr("Shift Difference Up"), _NoiseMethod.SHIFT_UP)
-        self._ui.cbox_noise_method.addItem(self.tr("Shift Difference Left"), _NoiseMethod.SHIFT_LEFT)
-        self._ui.cbox_noise_method.addItem(self.tr("Shift Difference Right"), _NoiseMethod.SHIFT_RIGHT)
+        self._ui.cbox_noise_method_type.addItem(self.tr("ROI Based"), _NoiseMethodType.ROI_BASED)
+        self._ui.cbox_noise_method_type.addItem(
+            self.tr("Dark Image Based"), _NoiseMethodType.DARK_IMAGE_BASED
+        )
+        self._ui.cbox_noise_method_type.addItem(
+            self.tr("Image Cube Based"), _NoiseMethodType.IMAGE_CUBE_BASED
+        )
+        self._ui.cbox_noise_method_type.currentIndexChanged.connect(
+            lambda _i: self._on_noise_method_type_changed()
+        )
+
+        self._ui.cbox_shift_diff_method.addItem(
+            self.tr("Shift Difference Down"), ShiftDiffNoiseDirection.DOWN
+        )
+        self._ui.cbox_shift_diff_method.addItem(self.tr("Shift Difference Up"), ShiftDiffNoiseDirection.UP)
+        self._ui.cbox_shift_diff_method.addItem(
+            self.tr("Shift Difference Left"), ShiftDiffNoiseDirection.LEFT
+        )
+        self._ui.cbox_shift_diff_method.addItem(
+            self.tr("Shift Difference Right"), ShiftDiffNoiseDirection.RIGHT
+        )
+
         self._populate_noise_combo()
+        self._on_noise_method_type_changed()
         self._populate_target_combo()
         self._ui.cbox_input_type.setCurrentIndex(1)
         self._populate_input_combo()
@@ -1506,7 +1517,7 @@ class MTMFDialog(QDialog):
     def _on_datasets_changed(self, *_args) -> None:
         """Refresh dataset-backed combos, preserving current selections."""
         prev_input = self._ui.cbox_input.currentData()
-        prev_noise = self._ui.cbox_noise.currentData()
+        prev_noise = self._ui.cbox_noise_method_val.currentData()
         self._populate_noise_combo()
         self._populate_input_combo()
         if prev_input is not None:
@@ -1514,9 +1525,9 @@ class MTMFDialog(QDialog):
             if idx >= 0:
                 self._ui.cbox_input.setCurrentIndex(idx)
         if prev_noise is not None:
-            idx = self._ui.cbox_noise.findData(prev_noise)
+            idx = self._ui.cbox_noise_method_val.findData(prev_noise)
             if idx >= 0:
-                self._ui.cbox_noise.setCurrentIndex(idx)
+                self._ui.cbox_noise_method_val.setCurrentIndex(idx)
 
     def _on_spectra_changed(self, *_args) -> None:
         """Refresh spectrum-backed combos, preserving current selections."""
@@ -1536,12 +1547,27 @@ class MTMFDialog(QDialog):
 
     def _on_rois_changed(self, *_args) -> None:
         """Refresh noise combo when ROIs are added or removed."""
-        prev_noise = self._ui.cbox_noise.currentData()
+        noise_method_type = self._ui.cbox_noise_method_type.currentData()
+        if noise_method_type == _NoiseMethodType.ROI_BASED:
+            prev_noise = self._ui.cbox_noise_method_val.currentData()
+            self._populate_noise_combo()
+            if prev_noise is not None:
+                idx = self._ui.cbox_noise_method_val.findData(prev_noise)
+                if idx >= 0:
+                    self._ui.cbox_noise_method_val.setCurrentIndex(idx)
+
+    def _on_noise_method_type_changed(self) -> None:
+        """Repopulate cbox_noise_method_val and enable/disable the shift diff widgets."""
+        noise_method_type = self._ui.cbox_noise_method_type.currentData()
+        shift_diff_enabled = noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED
+        self._ui.cbox_shift_diff_method.setEnabled(shift_diff_enabled)
+        self._ui.lbl_shift_diff_method.setEnabled(shift_diff_enabled)
+        prev_noise = self._ui.cbox_noise_method_val.currentData()
         self._populate_noise_combo()
         if prev_noise is not None:
-            idx = self._ui.cbox_noise.findData(prev_noise)
+            idx = self._ui.cbox_noise_method_val.findData(prev_noise)
             if idx >= 0:
-                self._ui.cbox_noise.setCurrentIndex(idx)
+                self._ui.cbox_noise_method_val.setCurrentIndex(idx)
 
     def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
         """Prefer Image Cube mode and select ``dataset_id`` when present."""
@@ -1608,46 +1634,48 @@ class MTMFDialog(QDialog):
         item.setFont(font)
         item.setFlags(item.flags() & ~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
 
+    @staticmethod
+    def _roi_has_rect_or_polygon(roi) -> bool:
+        """Return True if the ROI contains at least one rectangle or polygon selection."""
+        return any(
+            s.get_type() in (SelectionType.RECTANGLE, SelectionType.POLYGON) for s in roi.get_selections()
+        )
+
     def _populate_noise_combo(self) -> None:
-        """Populate cbox_noise with datasets and ROIs (always, independent of noise method)."""
-        combo = self._ui.cbox_noise
+        """Populate cbox_noise_method_val based on the currently selected noise method type."""
+        combo = self._ui.cbox_noise_method_val
         combo.clear()
+        noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        self._add_section_header(combo, self.tr("Datasets"))
-        combo.insertSeparator(combo.count())
-        for ds in self._app_state.get_datasets():
-            did = ds.get_id()
-            if did is None:
-                continue
-            combo.addItem(ds.get_name() or self.tr("<unnamed>"), did)
-
-        combo.insertSeparator(combo.count())
-        self._add_section_header(combo, self.tr("Regions of Interest"))
-        combo.insertSeparator(combo.count())
-        for roi in self._app_state.get_rois():
-            rid = roi.get_id()
-            if rid is None:
-                continue
-            combo.addItem(roi.get_name() or self.tr("<unnamed>"), ("roi", rid))
+        if noise_method_type == _NoiseMethodType.ROI_BASED:
+            for roi in self._app_state.get_rois():
+                rid = roi.get_id()
+                if rid is None or not self._roi_has_rect_or_polygon(roi):
+                    continue
+                combo.addItem(roi.get_name() or self.tr("<unnamed>"), ("roi", rid))
+        elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
+            for ds in self._app_state.get_datasets():
+                did = ds.get_id()
+                if did is None:
+                    continue
+                combo.addItem(ds.get_name() or self.tr("<unnamed>"), did)
+        else:
+            # IMAGE_CUBE_BASED
+            for ds in self._app_state.get_datasets():
+                did = ds.get_id()
+                if did is None:
+                    continue
+                combo.addItem(ds.get_name() or self.tr("<unnamed>"), did)
 
         combo.insertSeparator(combo.count())
         combo.addItem(self.tr("(no data)"), None)
 
-        # Auto-select: first dataset → first ROI → (no data)
-        first_dataset_idx = -1
-        first_roi_idx = -1
+        # Auto-select first real entry if available
         for i in range(combo.count()):
-            data = combo.itemData(i)
-            if first_dataset_idx < 0 and isinstance(data, int):
-                first_dataset_idx = i
-            elif first_roi_idx < 0 and isinstance(data, tuple) and data[0] == "roi":
-                first_roi_idx = i
-        if first_dataset_idx >= 0:
-            combo.setCurrentIndex(first_dataset_idx)
-        elif first_roi_idx >= 0:
-            combo.setCurrentIndex(first_roi_idx)
-        else:
-            combo.setCurrentIndex(combo.count() - 1)
+            if combo.itemData(i) is not None:
+                combo.setCurrentIndex(i)
+                return
+        combo.setCurrentIndex(combo.count() - 1)
 
     def _populate_target_combo(self) -> None:
         pairs = []
@@ -1671,14 +1699,13 @@ class MTMFDialog(QDialog):
         raise ValueError(self.tr("We currently don't support selecting an input spectra."))
 
     def _resolve_shift_diff_direction(self) -> ShiftDiffNoiseDirection:
-        method = self._ui.cbox_noise_method.currentData()
-        direction = _NOISE_METHOD_TO_DIRECTION.get(method)
-        if direction is None:
-            raise ValueError(self.tr("Select a shift difference direction as the noise method."))
+        direction = self._ui.cbox_shift_diff_method.currentData()
+        if not isinstance(direction, ShiftDiffNoiseDirection):
+            raise ValueError(self.tr("Select a shift difference direction."))
         return direction
 
     def _resolve_noise_dataset(self) -> RasterDataSet:
-        data = self._ui.cbox_noise.currentData()
+        data = self._ui.cbox_noise_method_val.currentData()
 
         if data is None:
             raise ValueError(self.tr('Select a noise source (not "(no data)").'))
@@ -1703,14 +1730,28 @@ class MTMFDialog(QDialog):
     def _perform_mtmf(self) -> None:
         source_ds = self._resolve_source_dataset()
         target_list = self._resolve_target_spectra()
-        direction = self._resolve_shift_diff_direction()
-        task = MTMFSemanticTask(
-            app_state=self._app_state,
-            app_services=self._app_services,
-            source_dataset=source_ds,
-            target_spectra=target_list,
-            shift_diff_noise_direction=direction,
-        )
+        noise_method_type = self._ui.cbox_noise_method_type.currentData()
+
+        if noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED:
+            direction = self._resolve_shift_diff_direction()
+            task = MTMFSemanticTask(
+                app_state=self._app_state,
+                app_services=self._app_services,
+                source_dataset=source_ds,
+                target_spectra=target_list,
+                shift_diff_noise_direction=direction,
+            )
+        elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
+            noise_ds = self._resolve_noise_dataset()
+            task = MTMFSemanticTask(
+                app_state=self._app_state,
+                app_services=self._app_services,
+                source_dataset=source_ds,
+                target_spectra=target_list,
+                noise_dataset=noise_ds,
+            )
+        else:
+            raise NotImplementedError(self.tr("ROI-based noise is not yet implemented."))
         task_plan = self._app_services.task_planner.plan_semantic_task(task)
         self._app_services.task_manager.register_and_submit_task_plan(
             self._app_services.scheduler,
@@ -1720,7 +1761,7 @@ class MTMFDialog(QDialog):
     def accept(self) -> None:
         try:
             self._perform_mtmf()
-        except ValueError as exc:
+        except (ValueError, NotImplementedError) as exc:
             QMessageBox.warning(self, self.tr("Mixture Tuned Matched Filter"), str(exc))
             return
         QMessageBox.information(
