@@ -14,7 +14,7 @@
    <string>Mixture Tuned Match Filter Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="3" column="2">
+   <item row="4" column="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -24,27 +24,41 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="0">
-    <widget class="QComboBox" name="cbox_input_type"/>
-   </item>
-   <item row="1" column="2">
+   <item row="2" column="2">
     <widget class="QComboBox" name="cbox_noise"/>
    </item>
-   <item row="0" column="2">
-    <widget class="QComboBox" name="cbox_input"/>
-   </item>
-   <item row="2" column="0">
+   <item row="3" column="0">
     <widget class="QLabel" name="lbl_target">
      <property name="text">
       <string>Target</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="2">
+   <item row="0" column="2">
+    <widget class="QComboBox" name="cbox_input"/>
+   </item>
+   <item row="0" column="0">
+    <widget class="QComboBox" name="cbox_input_type"/>
+   </item>
+   <item row="3" column="2">
     <widget class="QComboBox" name="cbox_target"/>
    </item>
    <item row="1" column="0">
-    <widget class="QComboBox" name="cbox_noise_type"/>
+    <widget class="QLabel" name="lbl_noise_method">
+     <property name="text">
+      <string>Noise Method</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QComboBox" name="cbox_noise_method"/>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="lbl_dark_image">
+     <property name="text">
+      <string>Dark Image</string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>
