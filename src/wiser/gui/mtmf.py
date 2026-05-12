@@ -6,7 +6,7 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
-from PySide2.QtCore import QObject, Signal, Slot
+from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtWidgets import QDialog, QMessageBox
 
 from wiser.gui.app_services import AppServices
@@ -1389,6 +1389,14 @@ class MTMFSemanticTask(QObject, SemanticTask):
 _INPUT_TYPE_SPECTRUM = 0
 _INPUT_TYPE_IMAGE_CUBE = 1
 
+_NOISE_TYPE_DARK_IMAGE = "dark_image"
+_NOISE_TYPE_IMAGE_CUBE = "image_cube"
+
+_SHIFT_DOWN = "shift_down"
+_SHIFT_UP = "shift_up"
+_SHIFT_LEFT = "shift_left"
+_SHIFT_RIGHT = "shift_right"
+
 
 def _spectrum_to_single_pixel_dataset(spectrum: Spectrum, app_state: ApplicationState) -> RasterDataSet:
     """Wrap a spectrum as a 1x1xB raster for cube-based pipelines."""
@@ -1428,6 +1436,10 @@ class MTMFDialog(QDialog):
         self._ui.cbox_input_type.addItem(self.tr("Image Cube"), _INPUT_TYPE_IMAGE_CUBE)
         self._ui.cbox_input_type.currentIndexChanged.connect(lambda _i: self._populate_input_combo())
 
+        self._ui.cbox_noise_type.addItem(self.tr("Dark Image Noise"), _NOISE_TYPE_DARK_IMAGE)
+        self._ui.cbox_noise_type.addItem(self.tr("Image Cube Noise"), _NOISE_TYPE_IMAGE_CUBE)
+        self._ui.cbox_noise_type.currentIndexChanged.connect(lambda _i: self._populate_noise_combo())
+
         self._populate_noise_combo()
         self._populate_target_combo()
         self._ui.cbox_input_type.setCurrentIndex(1)
@@ -1442,6 +1454,8 @@ class MTMFDialog(QDialog):
         self._app_state.dataset_removed.connect(self._on_datasets_changed)
         self._app_state.active_spectrum_changed.connect(self._on_spectra_changed)
         self._app_state.collected_spectra_changed.connect(self._on_spectra_changed)
+        self._app_state.roi_added.connect(self._on_rois_changed)
+        self._app_state.roi_removed.connect(self._on_rois_changed)
         super().showEvent(event)
 
     def closeEvent(self, event) -> None:
@@ -1449,6 +1463,8 @@ class MTMFDialog(QDialog):
         self._app_state.dataset_removed.disconnect(self._on_datasets_changed)
         self._app_state.active_spectrum_changed.disconnect(self._on_spectra_changed)
         self._app_state.collected_spectra_changed.disconnect(self._on_spectra_changed)
+        self._app_state.roi_added.disconnect(self._on_rois_changed)
+        self._app_state.roi_removed.disconnect(self._on_rois_changed)
         super().closeEvent(event)
 
     def _on_datasets_changed(self, *_args) -> None:
@@ -1461,7 +1477,7 @@ class MTMFDialog(QDialog):
             idx = self._ui.cbox_input.findData(prev_input)
             if idx >= 0:
                 self._ui.cbox_input.setCurrentIndex(idx)
-        if prev_noise is not None:
+        if self._ui.cbox_noise_type.currentData() == _NOISE_TYPE_DARK_IMAGE and prev_noise is not None:
             idx = self._ui.cbox_noise.findData(prev_noise)
             if idx >= 0:
                 self._ui.cbox_noise.setCurrentIndex(idx)
@@ -1481,6 +1497,16 @@ class MTMFDialog(QDialog):
             idx = self._ui.cbox_target.findData(prev_target)
             if idx >= 0:
                 self._ui.cbox_target.setCurrentIndex(idx)
+
+    def _on_rois_changed(self, *_args) -> None:
+        """Refresh noise combo when ROIs are added or removed."""
+        if self._ui.cbox_noise_type.currentData() == _NOISE_TYPE_DARK_IMAGE:
+            prev_noise = self._ui.cbox_noise.currentData()
+            self._populate_noise_combo()
+            if prev_noise is not None:
+                idx = self._ui.cbox_noise.findData(prev_noise)
+                if idx >= 0:
+                    self._ui.cbox_noise.setCurrentIndex(idx)
 
     def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
         """Prefer Image Cube mode and select ``dataset_id`` when present."""
@@ -1537,14 +1563,64 @@ class MTMFDialog(QDialog):
                 pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
             self._populate_combo_with_separator(self._ui.cbox_input, pairs)
 
+    def _add_section_header(self, combo, label: str) -> None:
+        """Insert a bold, non-selectable section-header item into *combo*."""
+        combo.addItem(label)
+        idx = combo.count() - 1
+        item = combo.model().item(idx)
+        font = item.font()
+        font.setBold(True)
+        item.setFont(font)
+        item.setFlags(item.flags() & ~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+
     def _populate_noise_combo(self) -> None:
-        pairs = []
+        combo = self._ui.cbox_noise
+        combo.clear()
+        noise_type = self._ui.cbox_noise_type.currentData()
+
+        if noise_type == _NOISE_TYPE_IMAGE_CUBE:
+            combo.addItem(self.tr("Shift Difference Down"), _SHIFT_DOWN)
+            combo.addItem(self.tr("Shift Difference Up"), _SHIFT_UP)
+            combo.addItem(self.tr("Shift Difference Left"), _SHIFT_LEFT)
+            combo.addItem(self.tr("Shift Difference Right"), _SHIFT_RIGHT)
+            return
+
+        # --- Dark Image Noise ---
+        self._add_section_header(combo, self.tr("Datasets"))
+        combo.insertSeparator(combo.count())
         for ds in self._app_state.get_datasets():
             did = ds.get_id()
             if did is None:
                 continue
-            pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
-        self._populate_combo_with_separator(self._ui.cbox_noise, pairs)
+            combo.addItem(ds.get_name() or self.tr("<unnamed>"), did)
+
+        combo.insertSeparator(combo.count())
+        self._add_section_header(combo, self.tr("Regions of Interest"))
+        combo.insertSeparator(combo.count())
+        for roi in self._app_state.get_rois():
+            rid = roi.get_id()
+            if rid is None:
+                continue
+            combo.addItem(roi.get_name() or self.tr("<unnamed>"), ("roi", rid))
+
+        combo.insertSeparator(combo.count())
+        combo.addItem(self.tr("(no data)"), None)
+
+        # Auto-select: first dataset → first ROI → (no data)
+        first_dataset_idx = -1
+        first_roi_idx = -1
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if first_dataset_idx < 0 and isinstance(data, int):
+                first_dataset_idx = i
+            elif first_roi_idx < 0 and isinstance(data, tuple) and data[0] == "roi":
+                first_roi_idx = i
+        if first_dataset_idx >= 0:
+            combo.setCurrentIndex(first_dataset_idx)
+        elif first_roi_idx >= 0:
+            combo.setCurrentIndex(first_roi_idx)
+        else:
+            combo.setCurrentIndex(combo.count() - 1)
 
     def _populate_target_combo(self) -> None:
         pairs = []
@@ -1573,9 +1649,20 @@ class MTMFDialog(QDialog):
         # return _spectrum_to_single_pixel_dataset(sp, self._app_state)
 
     def _resolve_noise_dataset(self) -> RasterDataSet:
+        noise_type = self._ui.cbox_noise_type.currentData()
         data = self._ui.cbox_noise.currentData()
+
+        if noise_type == _NOISE_TYPE_IMAGE_CUBE:
+            if data not in (_SHIFT_DOWN, _SHIFT_UP, _SHIFT_LEFT, _SHIFT_RIGHT):
+                raise ValueError(self.tr("Select a shift direction for Image Cube Noise."))
+            raise NotImplementedError(self.tr("Image Cube Noise is not yet implemented."))
+
         if data is None:
-            raise ValueError(self.tr('Select a noise dataset (not "(no data)").'))
+            raise ValueError(self.tr('Select a noise source (not "(no data)").'))
+
+        if isinstance(data, tuple) and data[0] == "roi":
+            raise NotImplementedError(self.tr("Region of Interest noise is not yet implemented."))
+
         ds = self._app_state.get_dataset(int(data))
         if ds is None:
             raise ValueError(self.tr("Selected noise dataset is no longer available."))
