@@ -1703,26 +1703,14 @@ class MTMFDialog(QDialog):
     def _perform_mtmf(self) -> None:
         source_ds = self._resolve_source_dataset()
         target_list = self._resolve_target_spectra()
-        noise_method = self._ui.cbox_noise_method.currentData()
-
-        if noise_method == _NoiseMethod.DARK_IMAGE:
-            noise_ds = self._resolve_noise_dataset()
-            task = MTMFSemanticTask(
-                app_state=self._app_state,
-                app_services=self._app_services,
-                source_dataset=source_ds,
-                target_spectra=target_list,
-                noise_dataset=noise_ds,
-            )
-        else:
-            direction = self._resolve_shift_diff_direction()
-            task = MTMFSemanticTask(
-                app_state=self._app_state,
-                app_services=self._app_services,
-                source_dataset=source_ds,
-                target_spectra=target_list,
-                shift_diff_noise_direction=direction,
-            )
+        direction = self._resolve_shift_diff_direction()
+        task = MTMFSemanticTask(
+            app_state=self._app_state,
+            app_services=self._app_services,
+            source_dataset=source_ds,
+            target_spectra=target_list,
+            shift_diff_noise_direction=direction,
+        )
         task_plan = self._app_services.task_planner.plan_semantic_task(task)
         self._app_services.task_manager.register_and_submit_task_plan(
             self._app_services.scheduler,
