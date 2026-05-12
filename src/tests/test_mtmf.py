@@ -842,12 +842,15 @@ class TestMTMF(unittest.TestCase):
         dataset = self.test_model.load_dataset(str(_JPL_PATH))
         app_services = self.test_model.app_services
         storage_client = None
+        output_ref_name = "mtmf_smoke"
         try:
-            scores, storage_client, _ = self._run_mnf_mtmf_pipeline(
+            _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
                 dataset,
-                output_ref_name="mtmf_smoke",
+                output_ref_name=output_ref_name,
                 task_id=5001,
             )
+            scores_raw, _ = storage_client.read_data(task_plan.bindings[output_ref_name], filter_data=False)
+            scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
             self.assertIsNotNone(scores)
             self.assertEqual(scores.ndim, 3)
         finally:
@@ -862,12 +865,17 @@ class TestMTMF(unittest.TestCase):
     #     dataset = self.test_model.load_dataset(str(_JPL_PATH))
     #     app_services = self.test_model.app_services
     #     storage_client = None
+    #     output_ref_name = "mtmf_shape"
     #     try:
-    #         scores, storage_client, _ = self._run_mnf_mtmf_pipeline(
+    #         _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
     #             dataset,
-    #             output_ref_name="mtmf_shape",
+    #             output_ref_name=output_ref_name,
     #             task_id=5002,
     #         )
+    #         scores_raw, _ = storage_client.read_data(
+    #             task_plan.bindings[output_ref_name], filter_data=False
+    #         )
+    #         scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
 
     #         # Dataset is 7×7 spatially; one target → (7, 7, 1)
     #         image_by_band = np.asarray(
@@ -892,12 +900,17 @@ class TestMTMF(unittest.TestCase):
     #     dataset = self.test_model.load_dataset(str(_JPL_PATH))
     #     app_services = self.test_model.app_services
     #     storage_client = None
+    #     output_ref_name = "mtmf_center"
     #     try:
-    #         scores, storage_client, _ = self._run_mnf_mtmf_pipeline(
+    #         _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
     #             dataset,
-    #             output_ref_name="mtmf_center",
+    #             output_ref_name=output_ref_name,
     #             task_id=5003,
     #         )
+    #         scores_raw, _ = storage_client.read_data(
+    #             task_plan.bindings[output_ref_name], filter_data=False
+    #         )
+    #         scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
 
     #         x, y = _TARGET_POINT
     #         center_score = float(scores[y, x, 0])
