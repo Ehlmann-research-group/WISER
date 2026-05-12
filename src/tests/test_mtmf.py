@@ -1,4 +1,3 @@
-# ruff: noqa: E402, F841
 from typing import Optional
 import sys
 import unittest
@@ -6,16 +5,13 @@ from pathlib import Path
 
 import numpy as np
 
-# Allow importing parse_jpl_mnf_stats from the same tests/ directory.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from parse_jpl_mnf_stats import parse_jpl_mnf_stats
 import pytest
 
 import tests.context  # noqa: F401 – sets up sys.path
 
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
-from wiser.gui.mtmf import get_mnf_mtmf_pipeline, get_mtmf_pipeline
+from wiser.gui.mtmf import get_mnf_mtmf_pipeline
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import SpectrumAtPoint
 from wiser.utils.primitives import AllocationRequest, DeletePolicy, ExternalRasterHandle, PriorityClass
@@ -26,9 +22,6 @@ from wiser.utils.worker_runtime import get_process_storage_client
 pytestmark = [
     pytest.mark.integration,
 ]
-_FULL_JPL_PATH = Path(
-    r"C:\Users\jgarc\OneDrive\Documents\Data\ang20160910t185702_rdn_v2n2_clip_subset.hdr"
-).resolve()
 
 
 _JPL_PATH = (
@@ -190,70 +183,8 @@ class TestMTMF(unittest.TestCase):
         del self.test_model
 
     # ------------------------------------------------------------------
-    # helpers
+    # Helpers
     # ------------------------------------------------------------------
-
-    def _run_mtmf_pipeline(self, dataset, *, output_ref_name: str, task_id: int):
-        """Register dataset as both source and noise, use center pixel as target.
-
-        Returns ``(scores_array, storage_client, app_services)`` where
-        ``scores_array`` has shape ``(H, W, 1)`` (one target).
-        The caller is responsible for closing ``storage_client`` and
-        calling ``release_kept_refs`` / shutdown.
-        """
-        app_services = self.test_model.app_services
-
-        source_ref = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
-        noise_ref = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
-
-        # Build a single-pixel target spectrum from the center pixel (4, 4).
-        target_spectrum = SpectrumAtPoint(dataset, _TARGET_POINT)
-        target_arr = np.asarray(target_spectrum.get_spectrum(), dtype=np.float32)  # (B,)
-        target_2d = target_arr[np.newaxis, :]  # (1, B)
-
-        target_ref = app_services.storage_service.allocate_data(
-            AllocationRequest(
-                name="mtmf_test_target",
-                kind="array",
-                residency="ram_cacheable",
-                size_est=int(target_2d.size * target_2d.dtype.itemsize),
-                shape=target_2d.shape,
-                dtype=target_2d.dtype,
-            )
-        )
-        get_process_storage_client().write_data(target_ref, target_2d)
-
-        pipeline = get_mtmf_pipeline(
-            source_ref=source_ref,
-            noise_ref=noise_ref,
-            target_spectra_ref=target_ref,
-            output_ref_name=output_ref_name,
-        )
-
-        # Keep the final output alive so we can read it back.
-        pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
-
-        task = SemanticTask(
-            priority_class=PriorityClass.BACKGROUND,
-            input_ref=source_ref,
-            algorithm_pipeline=pipeline,
-            extra_plan_bindings={"mtmf_noise_ref": noise_ref},
-        )
-        task.id = task_id
-
-        task_plan = app_services.task_planner.plan_semantic_task(task)
-        future = app_services.scheduler.run_task_plan(task_plan)
-        future.result(timeout=180)
-
-        listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
-        storage_client = StorageClient(
-            service=None,  # type: ignore[arg-type]
-            service_address=listener_address,
-            service_authkey=listener_authkey,
-        )
-        output_ref = task_plan.bindings[output_ref_name]
-        scores, _ = storage_client.read_data(output_ref, filter_data=False)
-        return np.asarray(scores, dtype=np.float32), storage_client, app_services
 
     def _run_mnf_mtmf_pipeline(
         self,
@@ -325,12 +256,12 @@ class TestMTMF(unittest.TestCase):
         return source_ref, task_plan, storage_client, app_services
 
     # ------------------------------------------------------------------
-    # tests
+    # Tests
     # ------------------------------------------------------------------
 
     def test_mnf_data_mean_is_near_zero(self) -> None:
         """MNF output is mean-centered, so its per-band mean over valid pixels should be ≈ 0."""
-        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        dataset = self.test_model.load_dataset(str(_CALTECH_PATH))
         app_services = self.test_model.app_services
         storage_client = None
         try:
@@ -344,10 +275,30 @@ class TestMTMF(unittest.TestCase):
 
             mnf_ref = task_plan.bindings[mnf_data_ref_name]
             mnf_data, _ = storage_client.read_data(mnf_ref, filter_data=False)
-            mnf_arr = np.asarray(mnf_data, dtype=np.float32)  # (H, W, num_features)
+            mnf_arr = np.asarray(np.ma.getdata(mnf_data), dtype=np.float64)  # (H, W, num_features)
 
-            # Compute per-band mean across all pixels
-            band_means = mnf_arr.reshape(-1, mnf_arr.shape[2]).mean(axis=0)
+            mnf_meta = storage_client.get_meta(mnf_ref)
+
+            # Build a per-pixel valid mask using the nodata value.
+            if mnf_meta.nodata is not None:
+                nodata = mnf_meta.nodata
+                if np.isnan(nodata):
+                    valid_mask = ~np.any(np.isnan(mnf_arr), axis=2)
+                else:
+                    valid_mask = ~np.all(mnf_arr == nodata, axis=2)
+            else:
+                valid_mask = np.ones(mnf_arr.shape[:2], dtype=bool)
+
+            valid_pixels = mnf_arr[valid_mask]  # (N_valid, num_features)
+
+            # Strip bad bands from the feature axis.
+            if mnf_meta.bad_bands is not None:
+                good_band_indices = np.where(np.asarray(mnf_meta.bad_bands) != 0)[0]
+                valid_pixels = valid_pixels[:, good_band_indices]
+
+            # Compute per-band mean over valid, good-band pixels only.
+            band_means = valid_pixels.mean(axis=0)
+
             np.testing.assert_allclose(
                 band_means,
                 0.0,
@@ -940,7 +891,7 @@ class TestMTMF(unittest.TestCase):
         app_services = self.test_model.app_services
         storage_client = None
         try:
-            scores, storage_client, _ = self._run_mtmf_pipeline(
+            scores, storage_client, _ = self._run_mnf_mtmf_pipeline(
                 dataset,
                 output_ref_name="mtmf_smoke",
                 task_id=5001,
@@ -960,7 +911,7 @@ class TestMTMF(unittest.TestCase):
     #     app_services = self.test_model.app_services
     #     storage_client = None
     #     try:
-    #         scores, storage_client, _ = self._run_mtmf_pipeline(
+    #         scores, storage_client, _ = self._run_mnf_mtmf_pipeline(
     #             dataset,
     #             output_ref_name="mtmf_shape",
     #             task_id=5002,
@@ -990,7 +941,7 @@ class TestMTMF(unittest.TestCase):
     #     app_services = self.test_model.app_services
     #     storage_client = None
     #     try:
-    #         scores, storage_client, _ = self._run_mtmf_pipeline(
+    #         scores, storage_client, _ = self._run_mnf_mtmf_pipeline(
     #             dataset,
     #             output_ref_name="mtmf_center",
     #             task_id=5003,
