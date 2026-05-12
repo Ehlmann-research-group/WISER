@@ -43,6 +43,9 @@ from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
 PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
+# Eigenvalues below max(λ) * this factor are treated as numerical null space and
+# zeroed before persisting (avoids junk ~1e-15 tails after legitimate small EVs).
+_EIGENDECOMP_RELATIVE_EIGENVALUE_CUTOFF = 1e-14
 TotalLike = Union[int, DataRef]
 NumComponentsLike = Union[int, DataRef]
 
@@ -2474,6 +2477,11 @@ def _write_eigendecomposition(
     # We transpose because np.linalg.eig gives us eigen vectors in the columns, but
     # we want them in the rows
     eigen_vectors = np.asarray(eigen_vectors[:, sort_desc].T, dtype=np.float64)
+
+    max_ev = float(np.max(eigen_values))
+    if max_ev > 0.0:
+        rel_thresh = max_ev * _EIGENDECOMP_RELATIVE_EIGENVALUE_CUTOFF
+        eigen_values = np.where(eigen_values < rel_thresh, 0.0, eigen_values)
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values)
