@@ -62,54 +62,6 @@ _MTMF_TESTING_DIR = Path(r"C:\Users\jgarc\OneDrive\Documents\Data\MTMF_testing\f
 _TARGET_POINT = (4, 4)
 
 
-def print_eigenvalue_comparison(
-    evals_a: np.ndarray,
-    evals_b: np.ndarray,
-    label_a: str = "A",
-    label_b: str = "B",
-    n_show: int = 500,
-) -> None:
-    """Print two 1-D eigenvalue arrays (greatest→smallest) side-by-side with diff."""
-    n = min(len(evals_a), len(evals_b), n_show)
-    print(f"\n Eigenvalue comparison ({label_a!r} vs {label_b!r}), first {n}:")
-    print(f" {'idx':>5}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
-    for i in range(n):
-        diff = float(evals_a[i]) - float(evals_b[i])
-        print(f" {i:>5}  {evals_a[i]:>20.6f}  {evals_b[i]:>20.6f}  {diff:>20.6f}")
-
-
-def print_eigenvector_comparison(
-    evecs_a: np.ndarray,
-    evecs_b: np.ndarray,
-    label_a: str = "A",
-    label_b: str = "B",
-    n_vecs: int = 10,
-    n_entries: int = 5,
-) -> None:
-    """Print first n_entries of first n_vecs eigenvectors side-by-side.
-
-    Rows are eigenvectors (row i = i-th eigenvector).  Detects per-vector sign
-    flips and notes them.
-    """
-    n_vecs = min(n_vecs, evecs_a.shape[0], evecs_b.shape[0])
-    print(f"\n Eigenvector comparison ({label_a!r} vs {label_b!r})")
-    print(f" shapes: {evecs_a.shape} vs {evecs_b.shape}")
-    print(f" — first {n_entries} entries of first {n_vecs} vectors:")
-    for vi in range(n_vecs):
-        row_a = evecs_a[vi]
-        row_b = evecs_b[vi]
-        diff_same = np.abs(row_a[:n_entries] - row_b[:n_entries]).mean()
-        diff_flip = np.abs(-row_a[:n_entries] - row_b[:n_entries]).mean()
-        sign = -1.0 if diff_flip < diff_same else 1.0
-        sign_note = " [sign-flipped]" if sign < 0 else ""
-        print(f"  vec[{vi}]{sign_note}:")
-        print(f"    {'entry':>6}  {label_a:>20}  {label_b:>20}  {'diff':>20}")
-        for ei in range(n_entries):
-            a = sign * float(row_a[ei])
-            b = float(row_b[ei])
-            print(f"    {ei:>6}  {a:>20.8f}  {b:>20.8f}  {a - b:>20.8f}")
-
-
 def compare_datasets(
     arr_a: np.ndarray,
     arr_b: np.ndarray,
