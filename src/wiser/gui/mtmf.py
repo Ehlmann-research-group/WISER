@@ -1634,13 +1634,6 @@ class MTMFDialog(QDialog):
         item.setFont(font)
         item.setFlags(item.flags() & ~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
 
-    @staticmethod
-    def _roi_has_rect_or_polygon(roi) -> bool:
-        """Return True if the ROI contains at least one rectangle or polygon selection."""
-        return any(
-            s.get_type() in (SelectionType.RECTANGLE, SelectionType.POLYGON) for s in roi.get_selections()
-        )
-
     def _populate_noise_combo(self) -> None:
         """Populate cbox_noise_method_val based on the currently selected noise method type."""
         combo = self._ui.cbox_noise_method_val
@@ -1650,8 +1643,6 @@ class MTMFDialog(QDialog):
         if noise_method_type == _NoiseMethodType.ROI_BASED:
             for roi in self._app_state.get_rois():
                 rid = roi.get_id()
-                if rid is None or not self._roi_has_rect_or_polygon(roi):
-                    continue
                 combo.addItem(roi.get_name() or self.tr("<unnamed>"), ("roi", rid))
         elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
             for ds in self._app_state.get_datasets():
