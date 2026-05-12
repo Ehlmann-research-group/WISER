@@ -1895,6 +1895,7 @@ def _running_covariance(
     mean_ref: DataRef,
     total: TotalLike,
     num_features: int = -1,
+    data_variance_factor: float = 1,
 ) -> None:
     client = get_process_storage_client()
     if isinstance(total, DataRef):
@@ -1949,6 +1950,7 @@ def _running_covariance(
     sum_outer_product = flattened_noise.T @ flattened_noise
     partial_cov_matrix = sum_outer_product / (total - 1)
     partial_cov_matrix = partial_cov_matrix[:, :, np.newaxis]
+    partial_cov_matrix = partial_cov_matrix / data_variance_factor
     running_cov += partial_cov_matrix
     client.write_data(output_ref, running_cov)
 
@@ -1968,6 +1970,7 @@ class CalcCovMatrixStage(SequentialStage):
     _output_ref_name: str = "cov_running"
     _num_features: int = -1
     _internal_total_ref_name: str = "_calc_cov_total"
+    _data_variance_factor: float = 1
     # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
     resource_model: ResourceModel = field(
@@ -2060,6 +2063,7 @@ class CalcCovMatrixStage(SequentialStage):
             mean,
             total,
             self._num_features,
+            self._data_variance_factor,
         )
 
     def pre_task_fn(

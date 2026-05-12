@@ -214,7 +214,7 @@ class MainViewWidget(RasterPane):
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mnf_dialog(rv))
 
-        act = submenu.addAction(self.tr("Matched Target Matched Filter"))
+        act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mtmf_dialog(rv))
 
         if FLAGS.kmeans:

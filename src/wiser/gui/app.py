@@ -394,7 +394,7 @@ class DataVisualizerApp(QMainWindow):
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
 
-        act = submenu.addAction(self.tr("Matched Target Matched Filter"))
+        act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
         act.triggered.connect(self.show_mtmf_dialog)
 
         if FLAGS.kmeans:

@@ -527,6 +527,7 @@ def get_mnf_mtmf_pipeline(
     mnf_whitened_covariance_ref_name: str = "mtmf_mnf_whitened_covariance",
     mnf_whitened_eigen_ref_name: str = "mtmf_mnf_whitened_eigen",
     mnf_data_ref_name: str = "mtmf_mnf_data",
+    data_variance_factor: float = 2,
 ) -> AlgorithmPipeline:
     """Build the MNF-based MTMF AlgorithmPipeline.
 
@@ -582,6 +583,7 @@ def get_mnf_mtmf_pipeline(
         input_covariance_ref_name=mnf_input_covariance_ref_name,
         whitened_covariance_ref_name=mnf_whitened_covariance_ref_name,
         whitened_eigen_ref_name=mnf_whitened_eigen_ref_name,
+        data_variance_factor=data_variance_factor,
     )
 
     # Step 3 — build full MNF transformation matrix T = A x W
@@ -1214,7 +1216,7 @@ _MTMF_NOISE_PLAN_BINDING = "mtmf_noise_ref"
 
 
 class MTMFSemanticTask(QObject, SemanticTask):
-    """Semantic task that runs the full Matched Target Matched Filter pipeline.
+    """Semantic task that runs the full Mixture Tuned Matched Filter pipeline.
 
     Registers the source and noise datasets, stacks the target spectra into a
     single array, builds the four-stage MTMF pipeline (noise mean → noise
@@ -1298,7 +1300,7 @@ class MTMFSemanticTask(QObject, SemanticTask):
         process_client.write_data(target_spectra_ref, target_array)
 
         pipeline = get_mnf_mtmf_pipeline(
-            source_ref=source_ref,
+            dataset_ref=source_ref,
             noise_ref=noise_ref,
             target_spectra_ref=target_spectra_ref,
             output_ref_name=output_ref_name,
@@ -1610,10 +1612,10 @@ class MTMFDialog(QDialog):
         try:
             self._perform_mtmf()
         except ValueError as exc:
-            QMessageBox.warning(self, self.tr("Matched Target Matched Filter"), str(exc))
+            QMessageBox.warning(self, self.tr("Mixture Tuned Matched Filter"), str(exc))
             return
         QMessageBox.information(
             self,
-            self.tr("Matched Target Matched Filter"),
+            self.tr("Mixture Tuned Matched Filter"),
             self.tr("MTMF is running in the background."),
         )

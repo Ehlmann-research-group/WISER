@@ -568,6 +568,7 @@ class TestMTMF(unittest.TestCase):
                 dataset_ref=source_ref,
                 target_spectra_ref=target_ref,
                 output_ref_name=mf_scores_ref_name,
+                data_variance_factor=1,
             )
             keep_set = {mf_scores_ref_name, infeasibility_ref_name, mnf_data_ref_name, noise_cube_ref_name}
             for stage in pipeline.stages:
@@ -731,6 +732,7 @@ class TestMTMF(unittest.TestCase):
                 dataset_ref=source_ref,
                 target_spectra_ref=target_ref,
                 output_ref_name=mf_scores_ref_name,
+                data_variance_factor=1,
             )
 
             whitened_covariance_ref_name = "mtmf_mnf_whitened_covariance"

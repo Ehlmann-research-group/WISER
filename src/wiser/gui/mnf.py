@@ -180,6 +180,7 @@ def get_mnf_pipeline(
     input_covariance_ref_name: str = "mnf_input_covariance",
     whitened_covariance_ref_name: str = "mnf_whitened_covariance",
     whitened_eigen_ref_name: str = "mnf_whitened_eigen",
+    data_variance_factor: float = 2,
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
@@ -234,6 +235,7 @@ def get_mnf_pipeline(
         _num_features=num_features,
         _output_ref_name=noise_covariance_ref_name,
         _internal_total_ref_name=noise_total_ref_name,
+        _data_variance_factor=data_variance_factor,
         default_executor="process",
         input_binding=DataBinding(noise_ref_name),
         input_plan_meta=noise_plan_meta,
@@ -304,6 +306,7 @@ def get_mnf_pipeline(
         _num_features=num_features,
         _output_ref_name=input_covariance_ref_name,
         _internal_total_ref_name=f"{input_covariance_ref_name}_total",
+        _data_variance_factor=data_variance_factor,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
