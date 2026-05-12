@@ -356,7 +356,7 @@ class TestMTMF(unittest.TestCase):
         inv_lambda_ref_name = "mtmf_inv_lambda"
         mf_scores_ref_name = "mnf_mtmf_ortho_mf_scores"
 
-        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        dataset = self.test_model.load_dataset(str(_CALTECH_BB_PATH))
         app_services = self.test_model.app_services
         storage_client = None
         try:
@@ -437,7 +437,7 @@ class TestMTMF(unittest.TestCase):
         whitened_vectors_ref_name = "mtmf_mnf_whitened_eigen_vectors"
         whitened_values_ref_name = "mtmf_mnf_whitened_eigen_values"
 
-        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        dataset = self.test_model.load_dataset(str(_CALTECH_BB_PATH))
         app_services = self.test_model.app_services
         storage_client = None
         try:
@@ -839,7 +839,7 @@ class TestMTMF(unittest.TestCase):
 
     def test_mtmf_pipeline_runs_without_error_on_jpl_fixture(self) -> None:
         """Pipeline completes and output binding is present."""
-        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        dataset = self.test_model.load_dataset(str(_CALTECH_BB_PATH))
         app_services = self.test_model.app_services
         storage_client = None
         output_ref_name = "mtmf_smoke"
@@ -860,72 +860,66 @@ class TestMTMF(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
-    # def test_mtmf_output_shape_matches_input_spatial_dims_and_one_target(self) -> None:
-    #     """Output shape is (H, W, 1) for one target spectrum."""
-    #     dataset = self.test_model.load_dataset(str(_JPL_PATH))
-    #     app_services = self.test_model.app_services
-    #     storage_client = None
-    #     output_ref_name = "mtmf_shape"
-    #     try:
-    #         _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
-    #             dataset,
-    #             output_ref_name=output_ref_name,
-    #             task_id=5002,
-    #         )
-    #         scores_raw, _ = storage_client.read_data(
-    #             task_plan.bindings[output_ref_name], filter_data=False
-    #         )
-    #         scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
+    def test_mtmf_output_shape_matches_input_spatial_dims_and_one_target(self) -> None:
+        """Output shape is (H, W, 1) for one target spectrum."""
+        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        output_ref_name = "mtmf_shape"
+        try:
+            _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
+                dataset,
+                output_ref_name=output_ref_name,
+                task_id=5002,
+            )
+            scores_raw, _ = storage_client.read_data(task_plan.bindings[output_ref_name], filter_data=False)
+            scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
 
-    #         # Dataset is 7×7 spatially; one target → (7, 7, 1)
-    #         image_by_band = np.asarray(
-    #             dataset.get_image_data(filter_data_ignore_value=False)
-    #         )
-    #         _bands, h, w = image_by_band.shape
-    #         self.assertEqual(scores.shape, (h, w, 1))
-    #     finally:
-    #         if storage_client is not None:
-    #             storage_client.close()
-    #         release_kept_refs(app_services)
-    #         app_services.scheduler.shutdown(wait=True)
-    #         app_services.storage_service.close()
+            # Dataset is 7×7 spatially; one target → (7, 7, 1)
+            image_by_band = np.asarray(dataset.get_image_data(filter_data_ignore_value=False))
+            _bands, h, w = image_by_band.shape
+            self.assertEqual(scores.shape, (h, w, 1))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
-    # def test_mtmf_center_pixel_score_is_close_to_one(self) -> None:
-    #     """The matched-filter score at the target pixel should be ≈ 1.
+    def test_mtmf_center_pixel_score_is_close_to_one(self) -> None:
+        """The matched-filter score at the target pixel should be ≈ 1.
 
-    #     When the target spectrum equals a pixel, the matched-filter formula
-    #     T(x) = (t-μ)ᵀΓ⁻¹(x-μ) / (t-μ)ᵀΓ⁻¹(t-μ) evaluates to exactly 1
-    #     for that pixel (modulo floating-point rounding).
-    #     """
-    #     dataset = self.test_model.load_dataset(str(_JPL_PATH))
-    #     app_services = self.test_model.app_services
-    #     storage_client = None
-    #     output_ref_name = "mtmf_center"
-    #     try:
-    #         _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
-    #             dataset,
-    #             output_ref_name=output_ref_name,
-    #             task_id=5003,
-    #         )
-    #         scores_raw, _ = storage_client.read_data(
-    #             task_plan.bindings[output_ref_name], filter_data=False
-    #         )
-    #         scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
+        When the target spectrum equals a pixel, the matched-filter formula
+        T(x) = (t-μ)ᵀΓ⁻¹(x-μ) / (t-μ)ᵀΓ⁻¹(t-μ) evaluates to exactly 1
+        for that pixel (modulo floating-point rounding).
+        """
+        dataset = self.test_model.load_dataset(str(_CALTECH_BB_PATH))
+        app_services = self.test_model.app_services
+        storage_client = None
+        output_ref_name = "mtmf_center"
+        try:
+            _, task_plan, storage_client, _ = self._run_mnf_mtmf_pipeline(
+                dataset,
+                output_ref_name=output_ref_name,
+                task_id=5003,
+            )
+            scores_raw, _ = storage_client.read_data(task_plan.bindings[output_ref_name], filter_data=False)
+            scores = np.asarray(np.ma.getdata(scores_raw), dtype=np.float32)
 
-    #         x, y = _TARGET_POINT
-    #         center_score = float(scores[y, x, 0])
-    #         self.assertAlmostEqual(
-    #             center_score,
-    #             1.0,
-    #             delta=0.05,
-    #             msg=f"Expected center-pixel score ≈ 1.0, got {center_score:.6f}",
-    #         )
-    #     finally:
-    #         if storage_client is not None:
-    #             storage_client.close()
-    #         release_kept_refs(app_services)
-    #         app_services.scheduler.shutdown(wait=True)
-    #         app_services.storage_service.close()
+            x, y = _TARGET_POINT
+            center_score = float(scores[y, x, 0])
+            self.assertAlmostEqual(
+                center_score,
+                1.0,
+                delta=0.05,
+                msg=f"Expected center-pixel score ≈ 1.0, got {center_score:.6f}",
+            )
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
 
 if __name__ == "__main__":
