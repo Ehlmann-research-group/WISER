@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field as dataclass_field
 from abc import ABC
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Any, Dict, Literal, Optional, Tuple, Iterable, Protocol, TYPE_CHECKING, ClassVar
 import tempfile
 from pathlib import Path
@@ -16,6 +16,27 @@ if TYPE_CHECKING:
     from wiser.raster.spectral_library import SpectralLibrary
     from wiser.raster.spectrum import Spectrum
     from wiser.raster.serializable import SerializedForm
+
+
+class NoiseMethodType(IntEnum):
+    """How noise samples for the MNF/MTMF covariance pipeline are obtained.
+
+    - ``ROI_BASED``: noise samples come from the deduplicated pixels of a
+      :class:`RegionOfInterest` over a source dataset (registered as an
+      ``ExternalRoiHandle`` / ``roi_proxy`` ref).  Samples are raw spectra, so
+      ``data_variance_factor`` is forced to ``1``.
+    - ``DARK_IMAGE_BASED``: noise samples come from a separate "dark image"
+      :class:`RasterDataSet`.  Samples are raw noise, so the natural
+      ``data_variance_factor`` is also ``1`` (caller-controlled).
+    - ``IMAGE_CUBE_BASED``: noise samples are computed on-the-fly as
+      first-order spatial shift differences of the input cube.  Differences
+      have ~2x the variance of the underlying noise, so the natural
+      ``data_variance_factor`` is ``2`` (caller-controlled).
+    """
+
+    ROI_BASED = 0
+    DARK_IMAGE_BASED = 1
+    IMAGE_CUBE_BASED = 2
 
 
 class PriorityClass(Enum):

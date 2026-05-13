@@ -1,7 +1,6 @@
 """Matched target / matched filter (MTMF) task stage for hyperspectral cubes."""
 
 import datetime
-from enum import IntEnum
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
@@ -23,6 +22,7 @@ from wiser.utils.primitives import (
     DatasetRegionRef,
     ExternalRasterHandle,
     NoChunkingScheme,
+    NoiseMethodType,
     PriorityClass,
     SpectraListPlanMeta,
     SpatialTileScheme,
@@ -1420,12 +1420,6 @@ _INPUT_TYPE_SPECTRUM = 0
 _INPUT_TYPE_IMAGE_CUBE = 1
 
 
-class _NoiseMethodType(IntEnum):
-    ROI_BASED = 0
-    DARK_IMAGE_BASED = 1
-    IMAGE_CUBE_BASED = 2
-
-
 def _spectrum_to_single_pixel_dataset(spectrum: Spectrum, app_state: ApplicationState) -> RasterDataSet:
     """Wrap a spectrum as a 1x1xB raster for cube-based pipelines."""
     loader = app_state.get_loader()
@@ -1464,13 +1458,9 @@ class MTMFDialog(QDialog):
         self._ui.cbox_input_type.addItem(self.tr("Image Cube"), _INPUT_TYPE_IMAGE_CUBE)
         self._ui.cbox_input_type.currentIndexChanged.connect(lambda _i: self._populate_input_combo())
 
-        self._ui.cbox_noise_method_type.addItem(self.tr("ROI Based"), _NoiseMethodType.ROI_BASED)
-        self._ui.cbox_noise_method_type.addItem(
-            self.tr("Dark Image Based"), _NoiseMethodType.DARK_IMAGE_BASED
-        )
-        self._ui.cbox_noise_method_type.addItem(
-            self.tr("Image Cube Based"), _NoiseMethodType.IMAGE_CUBE_BASED
-        )
+        self._ui.cbox_noise_method_type.addItem(self.tr("ROI Based"), NoiseMethodType.ROI_BASED)
+        self._ui.cbox_noise_method_type.addItem(self.tr("Dark Image Based"), NoiseMethodType.DARK_IMAGE_BASED)
+        self._ui.cbox_noise_method_type.addItem(self.tr("Image Cube Based"), NoiseMethodType.IMAGE_CUBE_BASED)
         self._ui.cbox_noise_method_type.currentIndexChanged.connect(
             lambda _i: self._on_noise_method_type_changed()
         )
@@ -1511,7 +1501,7 @@ class MTMFDialog(QDialog):
         self._populate_noise_combo()
         self._populate_input_combo()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             self._populate_noise_method_extra_combo()
         if prev_input is not None:
             idx = self._ui.cbox_input.findData(prev_input)
@@ -1545,7 +1535,7 @@ class MTMFDialog(QDialog):
     def _on_rois_changed(self, *_args) -> None:
         """Refresh noise combo when ROIs are added or removed."""
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             prev_noise = self._ui.cbox_noise_method_val.currentData()
             self._populate_noise_combo()
             if prev_noise is not None:
@@ -1558,12 +1548,12 @@ class MTMFDialog(QDialog):
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
         # The extra row is disabled only for Dark Image Based.
-        extra_enabled = noise_method_type != _NoiseMethodType.DARK_IMAGE_BASED
+        extra_enabled = noise_method_type != NoiseMethodType.DARK_IMAGE_BASED
         self._ui.lbl_noise_method_extra.setEnabled(extra_enabled)
         self._ui.cbox_shift_diff_method.setEnabled(extra_enabled)
 
         # Update the label text to reflect the current mode.
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             self._ui.lbl_noise_method_extra.setText(self.tr("Dataset For ROI"))
         else:
             self._ui.lbl_noise_method_extra.setText(self.tr("Shift Diff Method"))
@@ -1655,11 +1645,11 @@ class MTMFDialog(QDialog):
         combo.clear()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             for roi in self._app_state.get_rois():
                 rid = roi.get_id()
                 combo.addItem(roi.get_name() or self.tr("<unnamed>"), ("roi", rid))
-        elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
             for ds in self._app_state.get_datasets():
                 did = ds.get_id()
                 if did is None:
@@ -1694,7 +1684,7 @@ class MTMFDialog(QDialog):
         combo.clear()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             for ds in self._app_state.get_datasets():
                 did = ds.get_id()
                 if did is None:
@@ -1709,7 +1699,7 @@ class MTMFDialog(QDialog):
                     return
             combo.setCurrentIndex(combo.count() - 1)
 
-        elif noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED:
+        elif noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
             combo.addItem(self.tr("Shift Difference Down"), ShiftDiffNoiseDirection.DOWN)
             combo.addItem(self.tr("Shift Difference Up"), ShiftDiffNoiseDirection.UP)
             combo.addItem(self.tr("Shift Difference Left"), ShiftDiffNoiseDirection.LEFT)
@@ -1731,7 +1721,7 @@ class MTMFDialog(QDialog):
         Returns ``None`` if the current noise method type is not ROI_BASED or if
         no dataset has been selected (i.e. the combo shows "(no data)").
         """
-        if self._ui.cbox_noise_method_type.currentData() != _NoiseMethodType.ROI_BASED:
+        if self._ui.cbox_noise_method_type.currentData() != NoiseMethodType.ROI_BASED:
             return None
         data = self._ui.cbox_shift_diff_method.currentData()
         if data is None:
@@ -1745,7 +1735,7 @@ class MTMFDialog(QDialog):
         Returns ``None`` if the current noise method type is not IMAGE_CUBE_BASED
         or if the combo does not hold a valid :class:`ShiftDiffNoiseDirection`.
         """
-        if self._ui.cbox_noise_method_type.currentData() != _NoiseMethodType.IMAGE_CUBE_BASED:
+        if self._ui.cbox_noise_method_type.currentData() != NoiseMethodType.IMAGE_CUBE_BASED:
             return None
         direction = self._ui.cbox_shift_diff_method.currentData()
         if not isinstance(direction, ShiftDiffNoiseDirection):
@@ -1798,7 +1788,7 @@ class MTMFDialog(QDialog):
         target_list = self._resolve_target_spectra()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        if noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED:
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
             direction = self._resolve_shift_diff_direction()
             task = MTMFSemanticTask(
                 app_state=self._app_state,
@@ -1807,7 +1797,7 @@ class MTMFDialog(QDialog):
                 target_spectra=target_list,
                 shift_diff_noise_direction=direction,
             )
-        elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
             noise_ds = self._resolve_noise_dataset()
             task = MTMFSemanticTask(
                 app_state=self._app_state,

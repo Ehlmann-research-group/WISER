@@ -19,6 +19,7 @@ from wiser.utils.primitives import (
     DataRef,
     DataRegion,
     DatasetRegionRef,
+    NoiseMethodType,
     PriorityClass,
     SpectraBatchScheme,
     SpectraListPlanMeta,
@@ -58,27 +59,6 @@ class ShiftDiffNoiseDirection(IntEnum):
     DOWN = 1
     LEFT = 2
     RIGHT = 3
-
-
-class NoiseMethodType(IntEnum):
-    """How the noise samples for the MNF/MTMF covariance pipeline are obtained.
-
-    - ``ROI_BASED``: noise samples come from the deduplicated pixels of a
-      :class:`RegionOfInterest` over a source dataset (registered as an
-      ``ExternalRoiHandle`` / ``roi_proxy`` ref).  Samples are raw spectra, so
-      ``data_variance_factor`` is forced to ``1``.
-    - ``DARK_IMAGE_BASED``: noise samples come from a separate "dark image"
-      :class:`RasterDataSet`.  Samples are raw noise, so the natural
-      ``data_variance_factor`` is also ``1`` (caller-controlled).
-    - ``IMAGE_CUBE_BASED``: noise samples are computed on-the-fly as
-      first-order spatial shift differences of the input cube.  Differences
-      have ~2x the variance of the underlying noise, so the natural
-      ``data_variance_factor`` is ``2`` (caller-controlled).
-    """
-
-    ROI_BASED = 0
-    DARK_IMAGE_BASED = 1
-    IMAGE_CUBE_BASED = 2
 
 
 def shift_diff_noise_output_shape(
