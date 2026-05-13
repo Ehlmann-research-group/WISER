@@ -2415,6 +2415,76 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
         self._assert_mean_close(roi, task_id=90003)
 
 
+class TestRoiCalcCovMatrixStage(unittest.TestCase):
+    """
+    CalcCovMatrixStage driven by an ExternalRoiHandle over the 15-band
+    40x30 JPL test dataset.
+
+    Ground truth is ``np.cov`` computed directly from the ROI pixel spectra.
+    """
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        self.dataset = _load_jpl_dataset()
+        self.app_services = AppServices()
+
+    def tearDown(self):
+        release_kept_refs(self.app_services)
+        self.app_services.scheduler.shutdown(wait=True)
+        self.app_services.storage_service.close()
+        self.test_model.close_app()
+        del self.test_model
+
+    def _assert_cov_close(self, roi, task_id, atol=1e-2):
+        """Run the pipeline and check the covariance matrix vs numpy reference."""
+        pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
+        _, expected_cov = _expected_mean_and_cov(pixels, self.dataset)
+
+        cov_arr, _ = _run_roi_cov_pipeline(self.app_services, roi, self.dataset, task_id=task_id)
+
+        # Pipeline stores covariance as (b, b, 1) — squeeze the trailing dim.
+        cov_2d = np.asarray(cov_arr, dtype=np.float64).squeeze(-1)
+        self.assertEqual(cov_2d.shape, (15, 15), "covariance must be 15x15")
+        self.assertTrue(
+            np.allclose(cov_2d, expected_cov, atol=atol),
+            msg=(
+                f"Covariance mismatch (max diff "
+                f"{np.max(np.abs(cov_2d - expected_cov)):.6f})\n"
+                f"pipeline diagonal: {np.diag(cov_2d)}\n"
+                f"numpy   diagonal: {np.diag(expected_cov)}"
+            ),
+        )
+
+    def test_covariance_roi_single_rectangle(self):
+        """5x6 rectangle — ground truth via np.cov."""
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        roi = RegionOfInterest(name="cov_rect")
+        roi.set_id(91001)
+        roi.add_selection(RectangleSelection(QPoint(3, 5), QPoint(8, 11)))
+        self._assert_cov_close(roi, task_id=91001)
+
+    def test_covariance_roi_two_overlapping_rectangles(self):
+        """
+        Two overlapping rectangles.  Overlap pixels appear only once in the
+        pixel set, so the pipeline covariance must match np.cov over the
+        deduplicated set.
+        """
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        roi = RegionOfInterest(name="cov_two_rects")
+        roi.set_id(91002)
+        # Rect A: x 0..6, y 0..5
+        roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(7, 6)))
+        # Rect B: x 4..11, y 3..9 — overlaps A in x 4..6, y 3..5
+        roi.add_selection(RectangleSelection(QPoint(4, 3), QPoint(12, 10)))
+        self._assert_cov_close(roi, task_id=91002)
+
+
 if __name__ == "__main__":
     test_stage_funcs = TestTaskStageFuncs()
     test_stage_funcs.setUp()
