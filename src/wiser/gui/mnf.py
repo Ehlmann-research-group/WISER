@@ -275,7 +275,7 @@ def get_mnf_pipeline(
         _internal_total_ref_name=noise_total_ref_name,
         # The noise dataset inherits bad_bands from the source dataset, so use the
         # source dataset_ref to size the mean spectrum to num_features (good bands).
-        _dataset_ref=dataset_ref,
+        _meta_ref=dataset_ref,
         default_executor="process",
         input_binding=DataBinding(noise_ref_name),
         input_plan_meta=noise_plan_meta,
@@ -347,7 +347,7 @@ def get_mnf_pipeline(
     input_mean_stage = SpectralMeanStage(
         _output_ref_name=input_mean_ref_name,
         _internal_total_ref_name=input_total_ref_name,
-        _dataset_ref=dataset_ref,
+        _meta_ref=dataset_ref,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(

@@ -339,7 +339,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             stage = SpectralMeanStage(
                 _output_ref_name="spectral_mean_with_total",
                 _internal_total_ref_name="spectral_mean_with_total_ref",
-                _dataset_ref=input_ref,
+                _meta_ref=input_ref,
                 default_executor="process",
                 input_plan_meta=DatasetPlanMeta(shape=(2, 2, 2), dtype=np.dtype(np.float32)),
                 resource_model=ResourceModel(
@@ -608,7 +608,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             mean_stage = SpectralMeanStage(
                 _output_ref_name="cov_reuse_mean",
                 _internal_total_ref_name="shared_total_ref",
-                _dataset_ref=input_ref,
+                _meta_ref=input_ref,
                 default_executor="process",
                 input_plan_meta=DatasetPlanMeta(shape=(2, 2, 3), dtype=np.dtype(np.float32)),
                 resource_model=ResourceModel(
