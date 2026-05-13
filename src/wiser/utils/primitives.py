@@ -125,20 +125,54 @@ def _derive_region_meta(meta: DataMeta, region: DataRegion) -> RegionMeta:
 
 
 class ExternalHandle(Protocol):
-    """Read-only adapter for externally loaded data objects."""
+    """
+    Read-only adapter that bridges an externally owned data object (e.g., an
+    already-open RasterDataSet or SpectralLibrary) into the StorageService
+    ref-tracking system.
+
+    Callers pass a concrete ExternalHandle implementation to
+    StorageService.register_external, which returns a DataRef that the rest of
+    the pipeline can treat like any other managed ref. The StorageService
+    interacts with the underlying object exclusively through this protocol, so
+    it never needs to know the concrete type of the external object.
+
+    Concrete implementations live in this module:
+        - ExternalRasterHandle  - wraps a RasterDataSet
+        - ExternalSpectraListHandle - wraps a SpectralLibrary / ENVISpectralLibrary
+        - ExternalSpectrumHandle - wraps a single Spectrum
+    """
 
     kind: InputKind
 
     def read_region(self, region: DataRegion) -> np.ndarray:
+        """
+        Read and return a sub-region of the underlying data as a NumPy array.
+
+        Called by StorageService when it needs to materialize external data
+        into shared memory (e.g., to hand it off to a worker process). The
+        returned array layout must match the StorageService convention for the
+        data kind: datasets use [y, x, band] axis order.
+        """
         ...
 
     def get_meta(self) -> DataMeta:
+        """
+        Return a DataMeta snapshot describing the full extent and properties of
+        the underlying data (shape, dtype, wavelengths, CRS, etc.).
+        """
         ...
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
+        """
+        Return a RegionMeta for a specific sub-region of the underlying data.
+        """
         ...
 
     def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        """
+        Return True if ``other`` refers to the same underlying external object
+        as this handle.
+        """
         ...
 
     def get_serialized_object_form(self) -> "SerializedForm":
@@ -377,7 +411,29 @@ class SpectraListPlanMeta(BasePlanMeta):
 @dataclass(frozen=True)
 class ExternalParams:
     """
-    Reconstruction contract for external disk-backed refs.
+    Reconstruction contract for an externally registered, disk-backed data ref.
+
+    When a caller registers an external object (e.g., an open RasterDataSet or
+    spectral library) with the StorageService via register_external, the service
+    tries to derive an ExternalParams from the handle. This descriptor is then
+    attached to the resulting DataRef so that any code that later holds only a
+    DataRef—such as a worker process receiving a serialized ref over IPC, or a
+    storage client that needs to re-open the backing file—can reconstruct the
+    full object without a live Python reference to the original handle.
+
+    Attributes:
+        family: Broad category of data (``"dataset"``, ``"spectra_list"``, or
+            ``"array"``), mirroring the DataRef kind hierarchy.
+        driver: The specific file format / reader to use when reopening the
+            data. Each driver string corresponds to a concrete loader (e.g.,
+            ``"envi_gdal"`` for ENVI binary files read via GDAL, ``"netcdf_gdal"``
+            for NetCDF via GDAL, ``"envi_sli"`` for ENVI spectral libraries).
+        kwargs: Driver-specific keyword arguments forwarded verbatim to the
+            loader. At minimum this contains ``"path"``; some drivers include
+            additional keys such as ``"subdataset_name"`` for NetCDF.
+
+    An ExternalParams of None on a DataRef means the ref cannot be
+    reconstructed from disk and is treated as having no disk materialization.
     """
 
     family: ExternalParamsFamily
