@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass, replace
 from enum import IntEnum
 from functools import partial
-from typing import Callable, Dict, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
 import numpy as np
 from PySide2.QtCore import *
@@ -235,6 +235,7 @@ def get_noise_covariance_subpipeline(
     num_features: int,
     data_variance_factor: float = 1.0,
     shift_diff_noise_direction: Optional[ShiftDiffNoiseDirection] = None,
+    noise_input_binding_name: Optional[str] = None,
 ) -> list[TaskStage]:
     """Build the noise → mean → covariance pipeline tail for MNF/MTMF.
 
@@ -245,20 +246,23 @@ def get_noise_covariance_subpipeline(
     Per-mode behaviour:
 
     - ``NoiseMethodType.IMAGE_CUBE_BASED``: ``noise_input_ref`` is the source
-      data cube.  Stages: ``[CalculateShiftYDiffNoise, SpectralMeanStage,
-      CalcCovMatrixStage]``, all on :class:`SpatialTileScheme` over the
-      shift-difference output's :class:`DatasetPlanMeta`.
-      ``shift_diff_noise_direction`` is required.
+      data cube (assumed to be bound as ``__task_input__``).  Stages:
+      ``[CalculateShiftYDiffNoise, SpectralMeanStage, CalcCovMatrixStage]``,
+      all on :class:`SpatialTileScheme` over the shift-difference output's
+      :class:`DatasetPlanMeta`.  ``shift_diff_noise_direction`` is required.
     - ``NoiseMethodType.DARK_IMAGE_BASED``: ``noise_input_ref`` is a separate
       dark-image dataset.  Stages: ``[SpectralMeanStage, CalcCovMatrixStage]``
       on :class:`SpatialTileScheme` over the noise dataset's
-      :class:`DatasetPlanMeta`.
+      :class:`DatasetPlanMeta`.  ``data_variance_factor`` is forced to ``1``
+      (raw samples, not differences).  ``noise_input_binding_name`` should
+      name the extra-plan-binding pointing to ``noise_input_ref`` so the
+      stages read from it instead of ``__task_input__``.
     - ``NoiseMethodType.ROI_BASED``: ``noise_input_ref`` is an
       ``ExternalRoiHandle`` (``roi_proxy``) ref.  Stages:
       ``[SpectralMeanStage, CalcCovMatrixStage]`` on
       :class:`SpectraBatchScheme` over the ROI's :class:`SpectraListPlanMeta`.
-      ``data_variance_factor`` is forced to ``1`` (raw samples, not
-      differences).
+      ``data_variance_factor`` is forced to ``1``.  Same
+      ``noise_input_binding_name`` convention as ``DARK_IMAGE_BASED``.
 
     Args:
         noise_input_ref: The input ref the subpipeline reads from.  Its
@@ -275,9 +279,16 @@ def get_noise_covariance_subpipeline(
             :class:`CalcCovMatrixStage._num_features` to size the allocation.
         data_variance_factor: Divisor for the covariance estimate to account
             for the variance of differenced vs. raw samples.  Forced to
-            ``1`` for ``ROI_BASED``.
+            ``1`` for ``DARK_IMAGE_BASED`` and ``ROI_BASED``.
         shift_diff_noise_direction: Required for ``IMAGE_CUBE_BASED``;
             ignored otherwise.
+        noise_input_binding_name: Binding name under which ``noise_input_ref``
+            has been registered in the plan's extra bindings.  Used as the
+            stage ``input_binding`` for ``DARK_IMAGE_BASED`` and ``ROI_BASED``
+            so the noise stages read the noise ref rather than
+            ``__task_input__`` (which is typically the source cube).  Ignored
+            for ``IMAGE_CUBE_BASED`` since the shift-difference stage already
+            reads ``__task_input__`` and forwards via ``noise_ref_name``.
 
     Returns:
         A list of :class:`TaskStage` instances to be appended to an
@@ -339,13 +350,23 @@ def get_noise_covariance_subpipeline(
 
         return [noise_stage, mean_stage, cov_stage]
 
+    # DARK_IMAGE_BASED and ROI_BASED both read the noise ref directly (no
+    # intermediate shift-diff stage), so they share the same binding logic.
+    if noise_input_binding_name is not None:
+        noise_input_binding = DataBinding(noise_input_binding_name)
+    else:
+        # No explicit binding name → fall through to the stage default
+        # (``__task_input__``).  Callers should usually provide a binding name
+        # whenever the noise ref is distinct from the task's input ref.
+        noise_input_binding = None
+
     if noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
         noise_plan_meta = DatasetPlanMeta(
             shape=data_meta.shape,
             dtype=np.dtype(np.float64),
         )
 
-        mean_stage = SpectralMeanStage(
+        mean_stage_kwargs: Dict[str, Any] = dict(
             _output_ref_name=noise_mean_ref_name,
             _internal_total_ref_name=noise_total_ref_name,
             _meta_ref=noise_input_ref,
@@ -354,13 +375,17 @@ def get_noise_covariance_subpipeline(
             resource_model=resource_model,
             chunking_scheme_type=SpatialTileScheme,
         )
+        if noise_input_binding is not None:
+            mean_stage_kwargs["input_binding"] = noise_input_binding
+        mean_stage = SpectralMeanStage(**mean_stage_kwargs)
 
-        cov_stage = CalcCovMatrixStage(
+        cov_stage_kwargs: Dict[str, Any] = dict(
             _total_spectra=0,
             _num_features=num_features,
             _output_ref_name=noise_covariance_ref_name,
             _internal_total_ref_name=noise_total_ref_name,
-            _data_variance_factor=data_variance_factor,
+            # Raw noise samples — no differencing — so the variance factor is 1.
+            _data_variance_factor=1.0,
             _meta_ref=noise_input_ref,
             default_executor="process",
             input_plan_meta=noise_plan_meta,
@@ -371,6 +396,9 @@ def get_noise_covariance_subpipeline(
                 "total": DataBinding(noise_total_ref_name),
             },
         )
+        if noise_input_binding is not None:
+            cov_stage_kwargs["input_binding"] = noise_input_binding
+        cov_stage = CalcCovMatrixStage(**cov_stage_kwargs)
 
         return [mean_stage, cov_stage]
 
@@ -383,7 +411,7 @@ def get_noise_covariance_subpipeline(
             dtype=np.dtype(np.float64),
         )
 
-        mean_stage = SpectralMeanStage(
+        mean_stage_kwargs = dict(
             _output_ref_name=noise_mean_ref_name,
             _internal_total_ref_name=noise_total_ref_name,
             _meta_ref=noise_input_ref,
@@ -392,8 +420,11 @@ def get_noise_covariance_subpipeline(
             resource_model=resource_model,
             chunking_scheme_type=SpectraBatchScheme,
         )
+        if noise_input_binding is not None:
+            mean_stage_kwargs["input_binding"] = noise_input_binding
+        mean_stage = SpectralMeanStage(**mean_stage_kwargs)
 
-        cov_stage = CalcCovMatrixStage(
+        cov_stage_kwargs = dict(
             _total_spectra=0,
             _num_features=num_features,
             _output_ref_name=noise_covariance_ref_name,
@@ -410,6 +441,9 @@ def get_noise_covariance_subpipeline(
                 "total": DataBinding(noise_total_ref_name),
             },
         )
+        if noise_input_binding is not None:
+            cov_stage_kwargs["input_binding"] = noise_input_binding
+        cov_stage = CalcCovMatrixStage(**cov_stage_kwargs)
 
         return [mean_stage, cov_stage]
 
@@ -432,6 +466,7 @@ def get_mnf_pipeline(
     shift_diff_noise_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
     noise_input_ref: Optional[DataRef] = None,
     noise_method_type: NoiseMethodType = NoiseMethodType.IMAGE_CUBE_BASED,
+    noise_input_binding_name: Optional[str] = None,
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
@@ -464,6 +499,7 @@ def get_mnf_pipeline(
         num_features=num_features,
         data_variance_factor=data_variance_factor,
         shift_diff_noise_direction=shift_diff_noise_direction,
+        noise_input_binding_name=noise_input_binding_name,
     )
 
     noise_eigendecomposition_stage = EigenDecompositionStage(

@@ -21,6 +21,7 @@ from wiser.utils.primitives import (
     DataRegion,
     DatasetRegionRef,
     ExternalRasterHandle,
+    ExternalRoiHandle,
     NoChunkingScheme,
     NoiseMethodType,
     PriorityClass,
@@ -49,6 +50,7 @@ from wiser.utils.task_stage_utils import (
 from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType
 from wiser.raster.spectrum import Spectrum
 
@@ -531,6 +533,9 @@ def get_mnf_mtmf_pipeline(
     mnf_data_ref_name: str = "mtmf_mnf_data",
     data_variance_factor: float = 2,
     shift_diff_noise_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+    noise_input_ref: Optional[DataRef] = None,
+    noise_method_type: NoiseMethodType = NoiseMethodType.IMAGE_CUBE_BASED,
+    noise_input_binding_name: Optional[str] = None,
 ) -> AlgorithmPipeline:
     """Build the MNF-based MTMF AlgorithmPipeline.
 
@@ -552,7 +557,22 @@ def get_mnf_mtmf_pipeline(
         mnf_whitened_eigen_ref_name:         Ref name for the whitened eigen-decomposition.
         mnf_data_ref_name:                   Ref name for the MNF-transformed data cube output.
         shift_diff_noise_direction:          Spatial direction used by the internal shift-difference
-                                             noise stage.  Defaults to ``ShiftDiffNoiseDirection.DOWN``.
+                                             noise stage.  Only consulted when
+                                             ``noise_method_type == IMAGE_CUBE_BASED``.  Defaults to
+                                             ``ShiftDiffNoiseDirection.DOWN``.
+        noise_input_ref:                     DataRef for the noise input.  Defaults to ``dataset_ref``
+                                             (image-cube shift-difference path).  Set to a dark-image
+                                             dataset ref for ``DARK_IMAGE_BASED``, or to an
+                                             ``ExternalRoiHandle`` (``roi_proxy``) ref for
+                                             ``ROI_BASED``.
+        noise_method_type:                   How the noise covariance is estimated.  See
+                                             :class:`NoiseMethodType`.  Defaults to ``IMAGE_CUBE_BASED``
+                                             (the original shift-difference behaviour).
+        noise_input_binding_name:            Binding name under which ``noise_input_ref`` is registered
+                                             in the task plan's extra bindings (via
+                                             ``extra_plan_bindings``).  Required for ``DARK_IMAGE_BASED``
+                                             and ``ROI_BASED`` so the noise stages know which binding to
+                                             read from; ignored for ``IMAGE_CUBE_BASED``.
 
     Returns:
         An AlgorithmPipeline containing the MNF stages followed by the
@@ -590,6 +610,9 @@ def get_mnf_mtmf_pipeline(
         whitened_eigen_ref_name=mnf_whitened_eigen_ref_name,
         data_variance_factor=data_variance_factor,
         shift_diff_noise_direction=shift_diff_noise_direction,
+        noise_input_ref=noise_input_ref,
+        noise_method_type=noise_method_type,
+        noise_input_binding_name=noise_input_binding_name,
     )
 
     # Step 3 — build full MNF transformation matrix T = A x W
@@ -1214,7 +1237,7 @@ def get_matched_filter_pipeline(
 _MTMF_NOISE_MEAN_NAME = "mtmf_noise_mean"
 _MTMF_NOISE_COV_NAME = "mtmf_noise_covariance"
 _MTMF_INV_COV_NAME = "mtmf_inv_noise_covariance"
-_MTMF_NOISE_PLAN_BINDING = "mtmf_noise_ref"
+_MTMF_NOISE_PLAN_BINDING_NAME = "mtmf_noise_ref"
 
 # ---------------------------------------------------------------------------
 # MTMFSemanticTask
@@ -1236,14 +1259,23 @@ class MTMFSemanticTask(QObject, SemanticTask):
         app_services: Application services used for dataset registration and
             task allocation.
         source_dataset: The hyperspectral image cube to score.
-        noise_dataset: A dataset used to estimate background noise statistics
-            (mean and covariance).  Must have the same spectral bands as
-            ``source_dataset``.
         target_spectra: One or more target reference spectra.  Each spectrum
             must span the *full* band count of ``source_dataset`` (bad-band
             removal is performed internally).
+        noise_method_type: How the noise covariance is estimated.  Controls
+            which of the noise arguments below are required.
         output_ref_name: Storage allocation name for the matched-filter output
             cube.  Defaults to ``"matched_filter_output"``.
+        noise_dataset: Required when ``noise_method_type == DARK_IMAGE_BASED``.
+            A separate dataset whose statistics estimate the background noise.
+        shift_diff_noise_direction: Required when
+            ``noise_method_type == IMAGE_CUBE_BASED``.  Spatial direction for
+            the first-order shift-difference computed on ``source_dataset``.
+        noise_roi: Required when ``noise_method_type == ROI_BASED``.  The
+            region of interest whose deduplicated pixels supply noise samples.
+        noise_roi_source: Required when ``noise_method_type == ROI_BASED``.
+            The :class:`RasterDataSet` the ROI pixels are read from (may be
+            the same object as ``source_dataset``).
 
     Signals:
         result_ready: Emitted in the completion callback with the score array
@@ -1251,10 +1283,11 @@ class MTMFSemanticTask(QObject, SemanticTask):
             :meth:`_load_result_into_wiser` which runs on the Qt main thread.
 
     Note:
-        The task's ``input_ref`` is the **source** image cube.  The noise
-        dataset is supplied through ``extra_plan_bindings`` under
-        ``mtmf_noise_ref`` so the first two pipeline stages can read it while
-        the matched-filter stage uses ``__task_input__`` for the source.
+        The task's ``input_ref`` is the **source** image cube.  For
+        ``DARK_IMAGE_BASED`` and ``ROI_BASED`` the noise ref is supplied
+        through ``extra_plan_bindings`` under ``mtmf_noise_ref`` so the noise
+        stages can read it while the matched-filter stage reads
+        ``__task_input__`` for the source cube.
     """
 
     result_ready = Signal(object)
@@ -1265,24 +1298,32 @@ class MTMFSemanticTask(QObject, SemanticTask):
         app_services: AppServices,
         source_dataset: RasterDataSet,
         target_spectra: List[Spectrum],
+        noise_method_type: NoiseMethodType,
         output_ref_name: str = "matched_filter_output",
         noise_dataset: Optional[RasterDataSet] = None,
         shift_diff_noise_direction: Optional[ShiftDiffNoiseDirection] = None,
+        noise_roi: Optional[RegionOfInterest] = None,
+        noise_roi_source: Optional[RasterDataSet] = None,
     ) -> None:
         QObject.__init__(self)
 
         if not target_spectra:
             raise ValueError("MTMFSemanticTask requires at least one target spectrum.")
 
-        if noise_dataset is None and shift_diff_noise_direction is None:
-            raise ValueError(
-                "MTMFSemanticTask requires either noise_dataset (Dark Image Noise) "
-                "or shift_diff_noise_direction (Image Cube Noise)."
-            )
-        if noise_dataset is not None and shift_diff_noise_direction is not None:
-            raise ValueError(
-                "MTMFSemanticTask: supply noise_dataset or shift_diff_noise_direction, not both."
-            )
+        # Validate that the required noise argument for each method type is present.
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+            if shift_diff_noise_direction is None:
+                raise ValueError("MTMFSemanticTask: IMAGE_CUBE_BASED requires shift_diff_noise_direction.")
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+            if noise_dataset is None:
+                raise ValueError("MTMFSemanticTask: DARK_IMAGE_BASED requires noise_dataset.")
+        elif noise_method_type == NoiseMethodType.ROI_BASED:
+            if noise_roi is None:
+                raise ValueError("MTMFSemanticTask: ROI_BASED requires noise_roi.")
+            if noise_roi_source is None:
+                raise ValueError("MTMFSemanticTask: ROI_BASED requires noise_roi_source.")
+        else:
+            raise ValueError(f"MTMFSemanticTask: unknown noise_method_type {noise_method_type!r}.")
 
         source_ref = app_services.storage_service.register_external(
             ExternalRasterHandle(dataset_obj=source_dataset)
@@ -1312,19 +1353,23 @@ class MTMFSemanticTask(QObject, SemanticTask):
         )
         process_client.write_data(target_spectra_ref, target_array)
 
-        if shift_diff_noise_direction is not None:
-            # Image Cube Noise: shift-difference computed internally from the source cube.
+        extra_bindings: Dict[str, DataRef] = {}
+
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+            # Shift-difference computed internally from the source cube.
             pipeline = get_mnf_mtmf_pipeline(
                 dataset_ref=source_ref,
                 target_spectra_ref=target_spectra_ref,
                 output_ref_name=output_ref_name,
+                noise_input_ref=source_ref,
+                noise_method_type=NoiseMethodType.IMAGE_CUBE_BASED,
                 shift_diff_noise_direction=shift_diff_noise_direction,
             )
             noise_label = f"Image Cube ({shift_diff_noise_direction.name.capitalize()})"
-            extra_bindings: Dict[str, DataRef] = {}
-        else:
-            # Dark Image Noise: external dataset.
-            assert noise_dataset is not None
+
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+            # External dark-image dataset registered and exposed to noise stages
+            # through extra_plan_bindings under _MTMF_NOISE_PLAN_BINDING_NAME.
             noise_ref = app_services.storage_service.register_external(
                 ExternalRasterHandle(dataset_obj=noise_dataset)
             )
@@ -1332,9 +1377,33 @@ class MTMFSemanticTask(QObject, SemanticTask):
                 dataset_ref=source_ref,
                 target_spectra_ref=target_spectra_ref,
                 output_ref_name=output_ref_name,
+                noise_input_ref=noise_ref,
+                noise_method_type=NoiseMethodType.DARK_IMAGE_BASED,
+                noise_input_binding_name=_MTMF_NOISE_PLAN_BINDING_NAME,
             )
             noise_label = noise_dataset.get_name() or "Noise Dataset"
-            extra_bindings = {_MTMF_NOISE_PLAN_BINDING: noise_ref}
+            extra_bindings[_MTMF_NOISE_PLAN_BINDING_NAME] = noise_ref
+
+        else:  # NoiseMethodType.ROI_BASED
+            # Register the ROI source dataset first (register_external is
+            # idempotent if the same object was already registered as source),
+            # then wrap the ROI in an ExternalRoiHandle.
+            app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=noise_roi_source))
+            noise_ref = app_services.storage_service.register_external(
+                ExternalRoiHandle(roi=noise_roi, source_dataset=noise_roi_source)
+            )
+            pipeline = get_mnf_mtmf_pipeline(
+                dataset_ref=source_ref,
+                target_spectra_ref=target_spectra_ref,
+                output_ref_name=output_ref_name,
+                noise_input_ref=noise_ref,
+                noise_method_type=NoiseMethodType.ROI_BASED,
+                noise_input_binding_name=_MTMF_NOISE_PLAN_BINDING_NAME,
+            )
+            roi_name = noise_roi.get_name() or "<unnamed>"
+            roi_source_name = noise_roi_source.get_name() or "Dataset"
+            noise_label = f"ROI [{roi_name}] over {roi_source_name}"
+            extra_bindings[_MTMF_NOISE_PLAN_BINDING_NAME] = noise_ref
 
         SemanticTask.__init__(
             self,
@@ -1767,11 +1836,36 @@ class MTMFDialog(QDialog):
             raise ValueError(self.tr('Select a noise source (not "(no data)").'))
 
         if isinstance(data, tuple) and data[0] == "roi":
-            raise NotImplementedError(self.tr("Region of Interest noise is not yet implemented."))
+            raise ValueError(
+                self.tr("Selected noise source is an ROI; use the ROI-based noise method instead.")
+            )
 
         ds = self._app_state.get_dataset(int(data))
         if ds is None:
             raise ValueError(self.tr("Selected noise dataset is no longer available."))
+        return ds
+
+    def _resolve_noise_roi(self) -> RegionOfInterest:
+        """Return the ROI selected in ``cbox_noise_method_val`` when ROI_BASED is active."""
+        data = self._ui.cbox_noise_method_val.currentData()
+        if data is None:
+            raise ValueError(self.tr('Select a noise ROI (not "(no data)").'))
+        if not (isinstance(data, tuple) and len(data) == 2 and data[0] == "roi"):
+            raise ValueError(self.tr("Selected noise source is not an ROI."))
+        roi = self._app_state.get_roi(id=int(data[1]))
+        if roi is None:
+            raise ValueError(self.tr("Selected ROI is no longer available."))
+        return roi
+
+    def _resolve_roi_source_dataset(self) -> RasterDataSet:
+        """Return the dataset the ROI's pixels should be read from.
+
+        For ROI_BASED noise the extra combo (``cbox_shift_diff_method``) holds
+        the dataset to read pixels from.  See :meth:`get_roi_extra_dataset`.
+        """
+        ds = self.get_roi_extra_dataset()
+        if ds is None:
+            raise ValueError(self.tr('Select a "Dataset For ROI" (not "(no data)").'))
         return ds
 
     def _resolve_target_spectra(self) -> List[Spectrum]:
@@ -1789,25 +1883,35 @@ class MTMFDialog(QDialog):
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
         if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
-            direction = self._resolve_shift_diff_direction()
             task = MTMFSemanticTask(
                 app_state=self._app_state,
                 app_services=self._app_services,
                 source_dataset=source_ds,
                 target_spectra=target_list,
-                shift_diff_noise_direction=direction,
+                noise_method_type=NoiseMethodType.IMAGE_CUBE_BASED,
+                shift_diff_noise_direction=self._resolve_shift_diff_direction(),
             )
         elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
-            noise_ds = self._resolve_noise_dataset()
             task = MTMFSemanticTask(
                 app_state=self._app_state,
                 app_services=self._app_services,
                 source_dataset=source_ds,
                 target_spectra=target_list,
-                noise_dataset=noise_ds,
+                noise_method_type=NoiseMethodType.DARK_IMAGE_BASED,
+                noise_dataset=self._resolve_noise_dataset(),
+            )
+        elif noise_method_type == NoiseMethodType.ROI_BASED:
+            task = MTMFSemanticTask(
+                app_state=self._app_state,
+                app_services=self._app_services,
+                source_dataset=source_ds,
+                target_spectra=target_list,
+                noise_method_type=NoiseMethodType.ROI_BASED,
+                noise_roi=self._resolve_noise_roi(),
+                noise_roi_source=self._resolve_roi_source_dataset(),
             )
         else:
-            raise NotImplementedError(self.tr("ROI-based noise is not yet implemented."))
+            raise ValueError(self.tr(f"Unsupported noise method: {noise_method_type!r}"))
         task_plan = self._app_services.task_planner.plan_semantic_task(task)
         self._app_services.task_manager.register_and_submit_task_plan(
             self._app_services.scheduler,
