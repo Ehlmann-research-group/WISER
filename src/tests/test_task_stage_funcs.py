@@ -2304,7 +2304,6 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
 
     def setUp(self):
         self.test_model = WiserTestModel()
-        self.dataset = _load_jpl_dataset()
         self.app_services = AppServices()
 
     def tearDown(self):
@@ -2318,20 +2317,20 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _assert_mean_close(self, roi, task_id, atol=1e-3):
+    def _assert_mean_close(self, roi, dataset, task_id, atol=1e-3):
         """Run the pipeline and check result vs numpy reference."""
-        from PySide2.QtCore import QPoint
-
         pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
-        expected_mean, _ = _expected_mean_and_cov(pixels, self.dataset)
+        expected_mean, _ = _expected_mean_and_cov(pixels, dataset)
 
-        mean_arr, _ = _run_roi_spectral_mean_pipeline(self.app_services, roi, self.dataset, task_id=task_id)
+        mean_arr, _ = _run_roi_spectral_mean_pipeline(self.app_services, roi, dataset, task_id=task_id)
 
         self.assertEqual(mean_arr.shape[0], 15, "mean should have 15 bands")
         self.assertTrue(
             np.allclose(np.asarray(mean_arr, dtype=np.float64), expected_mean, atol=atol),
-            msg=f"Mean mismatch (max diff "
-            f"{np.max(np.abs(np.asarray(mean_arr, dtype=np.float64) - expected_mean)):.6f})",
+            msg=(
+                f"Mean mismatch (max diff "
+                f"{np.max(np.abs(np.asarray(mean_arr, dtype=np.float64) - expected_mean)):.6f})"
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -2344,10 +2343,11 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
+        dataset = _load_jpl_dataset()
         roi = RegionOfInterest(name="rect_5x4")
         roi.set_id(90001)
         roi.add_selection(RectangleSelection(QPoint(5, 10), QPoint(10, 14)))
-        self._assert_mean_close(roi, task_id=90001)
+        self._assert_mean_close(roi, dataset, task_id=90001)
 
     def test_spectral_mean_roi_two_overlapping_rectangles(self):
         """
@@ -2360,11 +2360,12 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
+        dataset = _load_jpl_dataset()
         roi = RegionOfInterest(name="two_overlap_rects")
         roi.set_id(90002)
         roi.add_selection(RectangleSelection(QPoint(2, 3), QPoint(8, 9)))
         roi.add_selection(RectangleSelection(QPoint(5, 5), QPoint(12, 10)))
-        self._assert_mean_close(roi, task_id=90002)
+        self._assert_mean_close(roi, dataset, task_id=90002)
 
     def test_spectral_mean_roi_rectangle_plus_overlapping_polygon_and_multipixel(self):
         """
@@ -2383,6 +2384,7 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
             MultiPixelSelection,
         )
 
+        dataset = _load_jpl_dataset()
         roi = RegionOfInterest(name="rect_poly_multi")
         roi.set_id(90003)
 
@@ -2412,7 +2414,7 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
             )
         )
 
-        self._assert_mean_close(roi, task_id=90003)
+        self._assert_mean_close(roi, dataset, task_id=90003)
 
 
 class TestRoiCalcCovMatrixStage(unittest.TestCase):
@@ -2425,7 +2427,6 @@ class TestRoiCalcCovMatrixStage(unittest.TestCase):
 
     def setUp(self):
         self.test_model = WiserTestModel()
-        self.dataset = _load_jpl_dataset()
         self.app_services = AppServices()
 
     def tearDown(self):
@@ -2435,12 +2436,12 @@ class TestRoiCalcCovMatrixStage(unittest.TestCase):
         self.test_model.close_app()
         del self.test_model
 
-    def _assert_cov_close(self, roi, task_id, atol=1e-2):
+    def _assert_cov_close(self, roi, dataset, task_id, atol=1e-2):
         """Run the pipeline and check the covariance matrix vs numpy reference."""
         pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
-        _, expected_cov = _expected_mean_and_cov(pixels, self.dataset)
+        _, expected_cov = _expected_mean_and_cov(pixels, dataset)
 
-        cov_arr, _ = _run_roi_cov_pipeline(self.app_services, roi, self.dataset, task_id=task_id)
+        cov_arr, _ = _run_roi_cov_pipeline(self.app_services, roi, dataset, task_id=task_id)
 
         # Pipeline stores covariance as (b, b, 1) — squeeze the trailing dim.
         cov_2d = np.asarray(cov_arr, dtype=np.float64).squeeze(-1)
@@ -2461,10 +2462,11 @@ class TestRoiCalcCovMatrixStage(unittest.TestCase):
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
+        dataset = _load_jpl_dataset()
         roi = RegionOfInterest(name="cov_rect")
         roi.set_id(91001)
         roi.add_selection(RectangleSelection(QPoint(3, 5), QPoint(8, 11)))
-        self._assert_cov_close(roi, task_id=91001)
+        self._assert_cov_close(roi, dataset, task_id=91001)
 
     def test_covariance_roi_two_overlapping_rectangles(self):
         """
@@ -2476,13 +2478,14 @@ class TestRoiCalcCovMatrixStage(unittest.TestCase):
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
+        dataset = _load_jpl_dataset()
         roi = RegionOfInterest(name="cov_two_rects")
         roi.set_id(91002)
         # Rect A: x 0..6, y 0..5
         roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(7, 6)))
         # Rect B: x 4..11, y 3..9 — overlaps A in x 4..6, y 3..5
         roi.add_selection(RectangleSelection(QPoint(4, 3), QPoint(12, 10)))
-        self._assert_cov_close(roi, task_id=91002)
+        self._assert_cov_close(roi, dataset, task_id=91002)
 
 
 if __name__ == "__main__":

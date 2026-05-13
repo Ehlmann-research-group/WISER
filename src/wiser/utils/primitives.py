@@ -497,7 +497,7 @@ class ExternalRoiHandle:
 
     def get_meta(self) -> "DataMeta":
         n_pixels = int(self._prefix_sums[-1])
-        num_bands = self.source_dataset.get_num_bands()
+        num_bands = self.source_dataset.num_bands()
         wavelengths, wavelength_units = _to_wavelength_array_and_unit(self.source_dataset.get_wavelengths())
         nodata = self.source_dataset.get_data_ignore_value()
         bad_bands_raw = self.source_dataset.get_bad_bands()

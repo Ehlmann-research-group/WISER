@@ -126,7 +126,7 @@ class RoiBackedSpectraList:
         i1 = int(i1)
         n_out = i1 - i0
         if n_out <= 0:
-            return np.empty((0, self._source.get_num_bands()), dtype=np.float64)
+            return np.empty((0, self._source.num_bands()), dtype=np.float64)
 
         total = self.total_pixels
         if i0 < 0 or i1 > total:
@@ -169,7 +169,7 @@ class RoiBackedSpectraList:
             result_chunks.append(arr_flat[local_start:local_end, :])
 
         if not result_chunks:
-            return np.empty((0, self._source.get_num_bands()), dtype=np.float64)
+            return np.empty((0, self._source.num_bands()), dtype=np.float64)
         return np.vstack(result_chunks)
 
 
