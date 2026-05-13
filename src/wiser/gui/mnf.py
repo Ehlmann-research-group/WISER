@@ -20,6 +20,7 @@ from wiser.utils.primitives import (
     DataRegion,
     DatasetRegionRef,
     PriorityClass,
+    SpectraBatchScheme,
     SpectraListPlanMeta,
     SpatialTileScheme,
     SpectralBatchDatasetScheme,
@@ -38,6 +39,7 @@ from wiser.utils.task_system import (
     MapStage,
     ResourceModel,
     SemanticTask,
+    TaskStage,
     WriteSpec,
 )
 from wiser.utils.primitives import ExternalRasterHandle
@@ -56,6 +58,27 @@ class ShiftDiffNoiseDirection(IntEnum):
     DOWN = 1
     LEFT = 2
     RIGHT = 3
+
+
+class NoiseMethodType(IntEnum):
+    """How the noise samples for the MNF/MTMF covariance pipeline are obtained.
+
+    - ``ROI_BASED``: noise samples come from the deduplicated pixels of a
+      :class:`RegionOfInterest` over a source dataset (registered as an
+      ``ExternalRoiHandle`` / ``roi_proxy`` ref).  Samples are raw spectra, so
+      ``data_variance_factor`` is forced to ``1``.
+    - ``DARK_IMAGE_BASED``: noise samples come from a separate "dark image"
+      :class:`RasterDataSet`.  Samples are raw noise, so the natural
+      ``data_variance_factor`` is also ``1`` (caller-controlled).
+    - ``IMAGE_CUBE_BASED``: noise samples are computed on-the-fly as
+      first-order spatial shift differences of the input cube.  Differences
+      have ~2x the variance of the underlying noise, so the natural
+      ``data_variance_factor`` is ``2`` (caller-controlled).
+    """
+
+    ROI_BASED = 0
+    DARK_IMAGE_BASED = 1
+    IMAGE_CUBE_BASED = 2
 
 
 def shift_diff_noise_output_shape(
@@ -221,6 +244,198 @@ def get_y_shift_noise(
     )
 
 
+def get_noise_covariance_subpipeline(
+    noise_input_ref: DataRef,
+    noise_method_type: NoiseMethodType,
+    *,
+    noise_ref_name: str,
+    noise_mean_ref_name: str,
+    noise_total_ref_name: str,
+    noise_covariance_ref_name: str,
+    num_features: int,
+    data_variance_factor: float = 1.0,
+    shift_diff_noise_direction: Optional[ShiftDiffNoiseDirection] = None,
+) -> list[TaskStage]:
+    """Build the noise → mean → covariance pipeline tail for MNF/MTMF.
+
+    The returned list of :class:`TaskStage` instances is the per-mode
+    implementation of "compute a noise covariance matrix" used by
+    :func:`get_mnf_pipeline`.
+
+    Per-mode behaviour:
+
+    - ``NoiseMethodType.IMAGE_CUBE_BASED``: ``noise_input_ref`` is the source
+      data cube.  Stages: ``[CalculateShiftYDiffNoise, SpectralMeanStage,
+      CalcCovMatrixStage]``, all on :class:`SpatialTileScheme` over the
+      shift-difference output's :class:`DatasetPlanMeta`.
+      ``shift_diff_noise_direction`` is required.
+    - ``NoiseMethodType.DARK_IMAGE_BASED``: ``noise_input_ref`` is a separate
+      dark-image dataset.  Stages: ``[SpectralMeanStage, CalcCovMatrixStage]``
+      on :class:`SpatialTileScheme` over the noise dataset's
+      :class:`DatasetPlanMeta`.
+    - ``NoiseMethodType.ROI_BASED``: ``noise_input_ref`` is an
+      ``ExternalRoiHandle`` (``roi_proxy``) ref.  Stages:
+      ``[SpectralMeanStage, CalcCovMatrixStage]`` on
+      :class:`SpectraBatchScheme` over the ROI's :class:`SpectraListPlanMeta`.
+      ``data_variance_factor`` is forced to ``1`` (raw samples, not
+      differences).
+
+    Args:
+        noise_input_ref: The input ref the subpipeline reads from.  Its
+            ``DataMeta`` is queried to derive the plan-meta for each stage.
+        noise_method_type: Selector for the per-mode behaviour above.
+        noise_ref_name: Name of the shift-difference intermediate output
+            (only used by ``IMAGE_CUBE_BASED``).
+        noise_mean_ref_name: Output ref-name for the noise spectral mean.
+        noise_total_ref_name: Shared ref-name for the running "valid pixel
+            count" used by both the mean and covariance stages.
+        noise_covariance_ref_name: Output ref-name for the noise covariance
+            matrix.
+        num_features: Pre-resolved feature (good-band) count.  Passed to
+            :class:`CalcCovMatrixStage._num_features` to size the allocation.
+        data_variance_factor: Divisor for the covariance estimate to account
+            for the variance of differenced vs. raw samples.  Forced to
+            ``1`` for ``ROI_BASED``.
+        shift_diff_noise_direction: Required for ``IMAGE_CUBE_BASED``;
+            ignored otherwise.
+
+    Returns:
+        A list of :class:`TaskStage` instances to be appended to an
+        :class:`AlgorithmPipeline`.
+    """
+    storage_client = get_process_storage_client()
+    data_meta = storage_client.get_meta(noise_input_ref)
+
+    resource_model = ResourceModel(
+        fixed_overhead_bytes=0,
+        bytes_per_scalar_in=1,
+        bytes_per_scalar_out=1,
+        scratch_bytes_per_scalar_in=0,
+    )
+
+    if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+        if shift_diff_noise_direction is None:
+            raise ValueError("shift_diff_noise_direction is required for NoiseMethodType.IMAGE_CUBE_BASED")
+
+        height, width, bands = data_meta.shape
+        noise_y, noise_x, noise_b = shift_diff_noise_output_shape(
+            height, width, bands, shift_diff_noise_direction
+        )
+        noise_plan_meta = DatasetPlanMeta(
+            shape=(noise_y, noise_x, noise_b),
+            dtype=np.dtype(np.float64),
+        )
+
+        noise_stage = get_y_shift_noise(noise_input_ref, noise_ref_name, shift_diff_noise_direction)
+
+        mean_stage = SpectralMeanStage(
+            _output_ref_name=noise_mean_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_binding=DataBinding(noise_ref_name),
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+        )
+
+        cov_stage = CalcCovMatrixStage(
+            _total_spectra=0,
+            _num_features=num_features,
+            _output_ref_name=noise_covariance_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _data_variance_factor=data_variance_factor,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_binding=DataBinding(noise_ref_name),
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+            broadcast_input={
+                "mean": DataBinding(noise_mean_ref_name),
+                "total": DataBinding(noise_total_ref_name),
+            },
+        )
+
+        return [noise_stage, mean_stage, cov_stage]
+
+    if noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+        noise_plan_meta = DatasetPlanMeta(
+            shape=data_meta.shape,
+            dtype=np.dtype(np.float64),
+        )
+
+        mean_stage = SpectralMeanStage(
+            _output_ref_name=noise_mean_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+        )
+
+        cov_stage = CalcCovMatrixStage(
+            _total_spectra=0,
+            _num_features=num_features,
+            _output_ref_name=noise_covariance_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _data_variance_factor=data_variance_factor,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+            broadcast_input={
+                "mean": DataBinding(noise_mean_ref_name),
+                "total": DataBinding(noise_total_ref_name),
+            },
+        )
+
+        return [mean_stage, cov_stage]
+
+    if noise_method_type == NoiseMethodType.ROI_BASED:
+        # ExternalRoiHandle.get_meta() yields shape (N, b).
+        n_pixels, n_bands = data_meta.shape
+        noise_plan_meta = SpectraListPlanMeta(
+            num_spectra=n_pixels,
+            spectrum_length=n_bands,
+            dtype=np.dtype(np.float64),
+        )
+
+        mean_stage = SpectralMeanStage(
+            _output_ref_name=noise_mean_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpectraBatchScheme,
+        )
+
+        cov_stage = CalcCovMatrixStage(
+            _total_spectra=0,
+            _num_features=num_features,
+            _output_ref_name=noise_covariance_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            # Raw samples — no differencing — so the variance factor is 1.
+            _data_variance_factor=1.0,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpectraBatchScheme,
+            broadcast_input={
+                "mean": DataBinding(noise_mean_ref_name),
+                "total": DataBinding(noise_total_ref_name),
+            },
+        )
+
+        return [mean_stage, cov_stage]
+
+    raise ValueError(f"Unknown noise method type: {noise_method_type!r}")
+
+
 def get_mnf_pipeline(
     dataset_ref: DataRef,
     num_components: Optional[int] = None,
@@ -235,6 +450,8 @@ def get_mnf_pipeline(
     whitened_eigen_ref_name: str = "mnf_whitened_eigen",
     data_variance_factor: float = 2,
     shift_diff_noise_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+    noise_input_ref: Optional[DataRef] = None,
+    noise_method_type: NoiseMethodType = NoiseMethodType.IMAGE_CUBE_BASED,
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
@@ -243,69 +460,30 @@ def get_mnf_pipeline(
         num_features = np.sum(data_meta.bad_bands)
     else:
         num_features = dataset_plan_meta.bands
-    bands = dataset_plan_meta.bands
     if num_components is None:
         num_components = num_features
     if num_components <= 0 or num_components > num_features:
         raise ValueError(f"num_components must be in [1, {num_features}], got {num_components}")
 
-    noise_y, noise_x, noise_b = shift_diff_noise_output_shape(
-        dataset_plan_meta.height, dataset_plan_meta.width, bands, shift_diff_noise_direction
-    )
-    noise_plan_meta = DatasetPlanMeta(
-        shape=(noise_y, noise_x, noise_b),
-        dtype=dataset_plan_meta.dtype,
-    )
+    # For backward compatibility, IMAGE_CUBE_BASED defaults to using the input
+    # dataset itself as the noise source (shift-difference on the cube).
+    if noise_input_ref is None:
+        noise_input_ref = dataset_ref
 
-    noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name, shift_diff_noise_direction)
-
-    # Manually compute the noise eigen decomposition:
-    #   1) SpectralMeanStage   → noise spectral mean
-    #   2) CalcCovMatrixStage  → noise covariance (uses the mean above)
-    #   3) EigenDecompositionStage → eigen vectors / values + JSON descriptor
-    # The JSON descriptor produced by step 3 is what `noise_whitening_stage`
-    # consumes (it expects `{"eigen": EigenVectorsAndValues}`), matching the
-    # behavior previously provided by AdaptivePcaFitStage.
     noise_mean_ref_name = f"{noise_eigen_ref_name}_mean"
     noise_total_ref_name = f"{noise_eigen_ref_name}_total"
     noise_covariance_ref_name = f"{noise_eigen_ref_name}_covariance"
 
-    noise_mean_stage = SpectralMeanStage(
-        _output_ref_name=noise_mean_ref_name,
-        _internal_total_ref_name=noise_total_ref_name,
-        # The noise dataset inherits bad_bands from the source dataset, so use the
-        # source dataset_ref to size the mean spectrum to num_features (good bands).
-        _meta_ref=dataset_ref,
-        default_executor="process",
-        input_binding=DataBinding(noise_ref_name),
-        input_plan_meta=noise_plan_meta,
-        resource_model=ResourceModel(
-            fixed_overhead_bytes=0,
-            bytes_per_scalar_in=1,
-            bytes_per_scalar_out=1,
-            scratch_bytes_per_scalar_in=0,
-        ),
-    )
-
-    noise_covariance_stage = CalcCovMatrixStage(
-        _total_spectra=0,
-        _num_features=num_features,
-        _output_ref_name=noise_covariance_ref_name,
-        _internal_total_ref_name=noise_total_ref_name,
-        _data_variance_factor=data_variance_factor,
-        default_executor="process",
-        input_binding=DataBinding(noise_ref_name),
-        input_plan_meta=noise_plan_meta,
-        resource_model=ResourceModel(
-            fixed_overhead_bytes=0,
-            bytes_per_scalar_in=1,
-            bytes_per_scalar_out=1,
-            scratch_bytes_per_scalar_in=0,
-        ),
-        broadcast_input={
-            "mean": DataBinding(noise_mean_ref_name),
-            "total": DataBinding(noise_total_ref_name),
-        },
+    noise_subpipeline_stages = get_noise_covariance_subpipeline(
+        noise_input_ref=noise_input_ref,
+        noise_method_type=noise_method_type,
+        noise_ref_name=noise_ref_name,
+        noise_mean_ref_name=noise_mean_ref_name,
+        noise_total_ref_name=noise_total_ref_name,
+        noise_covariance_ref_name=noise_covariance_ref_name,
+        num_features=num_features,
+        data_variance_factor=data_variance_factor,
+        shift_diff_noise_direction=shift_diff_noise_direction,
     )
 
     noise_eigendecomposition_stage = EigenDecompositionStage(
@@ -445,9 +623,7 @@ def get_mnf_pipeline(
 
     return AlgorithmPipeline(
         [
-            noise_stage,
-            noise_mean_stage,
-            noise_covariance_stage,
+            *noise_subpipeline_stages,
             noise_eigendecomposition_stage,
             noise_whitening_stage,
             input_mean_stage,
