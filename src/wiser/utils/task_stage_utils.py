@@ -2104,31 +2104,6 @@ def get_noise_covariance_pipeline(noise_ref: DataRef, output_ref_name: str) -> A
     return AlgorithmPipeline([noise_mean_stage, noise_cov_stage])
 
 
-def _running_mean(
-    input_ref: DataRef,
-    input_region: DataRegion,
-    output_write: "WriteSpec",
-    total: TotalLike,
-) -> None:
-    client = get_process_storage_client()
-    output_ref = output_write.ref
-    running_mean, _ = client.read_data(output_ref)
-    if isinstance(total, DataRef):
-        total = _resolve_total_payload(total)
-    if total <= 0:
-        raise ValueError(f"Spectral mean requires a positive total, got {total}")
-
-    data, data_meta = client.read_region(input_ref, input_region)
-    flattened = _flatten_valid_dataset_rows(data, data_meta)
-    flattened = np.asarray(flattened, dtype=np.float64)
-    if flattened.size == 0:
-        return
-
-    spectra_sum: np.ndarray = flattened.sum(axis=0, dtype=np.float64) / total
-    running_mean += spectra_sum
-    client.write_data(output_ref, running_mean)
-
-
 def _good_band_mask_for_region_meta(region_meta, band_count: int) -> np.ndarray:
     good_band_mask = np.ones((band_count,), dtype=np.bool_)
     if region_meta.bad_bands is None:
@@ -2231,6 +2206,31 @@ def _copy_or_compute_valid_dataset_total(
         return
     client = get_process_storage_client()
     client.write_json_value(total_ref, {"total": int(resolved_total)})
+
+
+def _running_mean(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    total: TotalLike,
+) -> None:
+    client = get_process_storage_client()
+    output_ref = output_write.ref
+    running_mean, _ = client.read_data(output_ref)
+    if isinstance(total, DataRef):
+        total = _resolve_total_payload(total)
+    if total <= 0:
+        raise ValueError(f"Spectral mean requires a positive total, got {total}")
+
+    data, data_meta = client.read_region(input_ref, input_region)
+    flattened = _flatten_valid_dataset_rows(data, data_meta)
+    flattened = np.asarray(flattened, dtype=np.float64)
+    if flattened.size == 0:
+        return
+
+    spectra_sum: np.ndarray = flattened.sum(axis=0, dtype=np.float64) / total
+    running_mean += spectra_sum
+    client.write_data(output_ref, running_mean)
 
 
 def _write_spectral_mean_meta(
