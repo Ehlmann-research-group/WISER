@@ -578,30 +578,47 @@ class StorageClient:
             return np.asarray(arr_by_band).transpose(1, 2, 0)
 
         if params.family == "spectra_list":
-            if params.driver != "envi_sli":
-                raise ValueError(
-                    f"Unsupported spectra_list external driver={params.driver} for ref_id={ref.ref_id}"
-                )
-            path = params.kwargs.get("path")
-            if path is None:
-                raise ValueError(f"Missing 'path' in external_params.kwargs for ref_id={ref.ref_id}")
-            lib = ENVISpectralLibrary(str(path))
-            if not isinstance(region, SpectraBatchRef):
-                raise TypeError(
-                    f"External spectra_list read requires SpectraBatchRef, "
-                    f"got {type(region)} for ref_id={ref.ref_id}"
-                )
-            rows: list[np.ndarray] = []
-            for i in range(region.i0, region.i1):
-                rows.append(np.asarray(lib.get_spectrum(i).get_spectrum()))
-            if not rows:
-                return np.empty((0, region.length), dtype=lib.get_elem_type())
-            stacked = np.stack(rows, axis=0)
-            if stacked.shape[1] != region.length:
-                raise ValueError(
-                    f"Spectra list chunk length mismatch: expected={region.length}, got={stacked.shape[1]}"
-                )
-            return stacked
+            if params.driver == "envi_sli":
+                path = params.kwargs.get("path")
+                if path is None:
+                    raise ValueError(f"Missing 'path' in external_params.kwargs for ref_id={ref.ref_id}")
+                lib = ENVISpectralLibrary(str(path))
+                if not isinstance(region, SpectraBatchRef):
+                    raise TypeError(
+                        f"External spectra_list read requires SpectraBatchRef, "
+                        f"got {type(region)} for ref_id={ref.ref_id}"
+                    )
+                rows: list[np.ndarray] = []
+                for i in range(region.i0, region.i1):
+                    rows.append(np.asarray(lib.get_spectrum(i).get_spectrum()))
+                if not rows:
+                    return np.empty((0, region.length), dtype=lib.get_elem_type())
+                stacked = np.stack(rows, axis=0)
+                if stacked.shape[1] != region.length:
+                    raise ValueError(
+                        f"Spectra list chunk length mismatch: expected={region.length}, "
+                        f"got={stacked.shape[1]}"
+                    )
+                return stacked
+
+            if params.driver == "roi_proxy":
+                if not isinstance(region, SpectraBatchRef):
+                    raise TypeError(
+                        f"roi_proxy external read requires SpectraBatchRef, "
+                        f"got {type(region)} for ref_id={ref.ref_id}"
+                    )
+                helper = self._get_or_build_roi_backed_spectra_list(ref)
+                result = helper.read_batch(region.i0, region.i1)
+                if result.shape[1] != region.length:
+                    raise ValueError(
+                        f"roi_proxy chunk band-count mismatch for ref_id={ref.ref_id}: "
+                        f"expected={region.length}, got={result.shape[1]}"
+                    )
+                return result
+
+            raise ValueError(
+                f"Unsupported spectra_list external driver={params.driver} for ref_id={ref.ref_id}"
+            )
 
         if params.family == "array":
             if params.driver == "memmap":
@@ -623,6 +640,54 @@ class StorageClient:
             raise ValueError(f"Unsupported array external driver={params.driver} for ref_id={ref.ref_id}")
 
         raise ValueError(f"Unsupported external_params.family={params.family} for ref_id={ref.ref_id}")
+
+    def _get_or_build_roi_backed_spectra_list(self, roi_ref: DataRef) -> "RoiBackedSpectraList":
+        """
+        Return a per-process-cached :class:`RoiBackedSpectraList` for ``roi_ref``.
+
+        The helper bundles the precomputed rectangle decomposition with a
+        reconstructed source :class:`RasterDataSet`.  Both are constructed
+        once per worker process (per ROI ref) and reused for every subsequent
+        ``SpectraBatchRef`` tile read.
+
+        Interfaces with:
+          * Step 1 (``ExternalRoiHandle``) — the producer side that built the
+            decomposition in the main process.
+          * Step 1a (``roi_utils``) — supplied the rectangle decomposition.
+          * Step 2 (``_build_external_params``) — emits
+            ``external_params.kwargs`` with ``source_ref_id``, ``rects``,
+            ``prefix_sums`` consumed here.
+        """
+        cached = _ROI_HELPER_CACHE.get(roi_ref.ref_id)
+        if cached is not None:
+            return cached
+
+        params = roi_ref.external_params
+        if params is None or params.driver != "roi_proxy":
+            raise ValueError(
+                f"Expected external_params.driver='roi_proxy' for ref_id={roi_ref.ref_id}, "
+                f"got {None if params is None else params.driver}"
+            )
+
+        source_ref_id = params.kwargs.get("source_ref_id")
+        rects = params.kwargs.get("rects")
+        prefix_sums = params.kwargs.get("prefix_sums")
+        if source_ref_id is None or rects is None or prefix_sums is None:
+            raise ValueError(
+                f"roi_proxy external_params.kwargs is missing required keys "
+                f"(source_ref_id/rects/prefix_sums) for ref_id={roi_ref.ref_id}"
+            )
+
+        source_ref: DataRef = self._rpc_call("get_data_ref_by_id", ref_id=source_ref_id)
+        source_dataset = self._reconstruct_external_dataset(source_ref)
+
+        helper = RoiBackedSpectraList(
+            rects=rects,
+            prefix_sums=prefix_sums,
+            source_dataset=source_dataset,
+        )
+        _ROI_HELPER_CACHE[roi_ref.ref_id] = helper
+        return helper
 
     def _reconstruct_external_dataset(self, ref: DataRef) -> RasterDataSet:
         params = ref.external_params
