@@ -2293,6 +2293,128 @@ def _expected_mean_and_cov(pixels, dataset):
     return mean, cov
 
 
+class TestRoiSpectralMeanStage(unittest.TestCase):
+    """
+    SpectralMeanStage driven by an ExternalRoiHandle over the 15-band
+    40x30 JPL test dataset.
+
+    Ground truth is the per-pixel NumPy mean computed directly from the
+    pixel coordinates in the ROI.
+    """
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        self.dataset = _load_jpl_dataset()
+        self.app_services = AppServices()
+
+    def tearDown(self):
+        release_kept_refs(self.app_services)
+        self.app_services.scheduler.shutdown(wait=True)
+        self.app_services.storage_service.close()
+        self.test_model.close_app()
+        del self.test_model
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _assert_mean_close(self, roi, task_id, atol=1e-3):
+        """Run the pipeline and check result vs numpy reference."""
+        from PySide2.QtCore import QPoint
+
+        pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
+        expected_mean, _ = _expected_mean_and_cov(pixels, self.dataset)
+
+        mean_arr, _ = _run_roi_spectral_mean_pipeline(self.app_services, roi, self.dataset, task_id=task_id)
+
+        self.assertEqual(mean_arr.shape[0], 15, "mean should have 15 bands")
+        self.assertTrue(
+            np.allclose(np.asarray(mean_arr, dtype=np.float64), expected_mean, atol=atol),
+            msg=f"Mean mismatch (max diff "
+            f"{np.max(np.abs(np.asarray(mean_arr, dtype=np.float64) - expected_mean)):.6f})",
+        )
+
+    # ------------------------------------------------------------------
+    # Tests
+    # ------------------------------------------------------------------
+
+    def test_spectral_mean_roi_single_rectangle(self):
+        """Single 5x4 rectangle (x 5..9, y 10..13) — no overlap."""
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        roi = RegionOfInterest(name="rect_5x4")
+        roi.set_id(90001)
+        roi.add_selection(RectangleSelection(QPoint(5, 10), QPoint(10, 14)))
+        self._assert_mean_close(roi, task_id=90001)
+
+    def test_spectral_mean_roi_two_overlapping_rectangles(self):
+        """
+        Two rectangles that overlap by two columns.
+        Rect A: x 2..7, y 3..8     (cols 2-6, rows 3-7 inclusive)
+        Rect B: x 5..11, y 5..9    (cols 5-10, rows 5-8 inclusive)
+        Overlap: x 5..7, y 5..8 — deduplicated by the ROI pixel set.
+        """
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        roi = RegionOfInterest(name="two_overlap_rects")
+        roi.set_id(90002)
+        roi.add_selection(RectangleSelection(QPoint(2, 3), QPoint(8, 9)))
+        roi.add_selection(RectangleSelection(QPoint(5, 5), QPoint(12, 10)))
+        self._assert_mean_close(roi, task_id=90002)
+
+    def test_spectral_mean_roi_rectangle_plus_overlapping_polygon_and_multipixel(self):
+        """
+        Mix of a rectangle, an overlapping polygon, and a multi-pixel
+        selection that partially overlaps both.
+
+        Rectangle: x 1..6, y 1..5  (a 6x5 region)
+        Polygon:   triangle touching the rectangle's right edge
+        MultiPixel: a few scattered pixels, some inside the rectangle
+        """
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import (
+            RectangleSelection,
+            PolygonSelection,
+            MultiPixelSelection,
+        )
+
+        roi = RegionOfInterest(name="rect_poly_multi")
+        roi.set_id(90003)
+
+        # 6-wide x 5-tall rectangle
+        roi.add_selection(RectangleSelection(QPoint(1, 1), QPoint(7, 6)))
+
+        # Triangle whose left vertex is inside the rectangle, right vertex outside
+        roi.add_selection(
+            PolygonSelection(
+                [
+                    QPoint(5, 2),
+                    QPoint(12, 2),
+                    QPoint(12, 5),
+                ]
+            )
+        )
+
+        # A few scattered pixels; pixels (3,3) and (4,4) are inside the rectangle
+        roi.add_selection(
+            MultiPixelSelection(
+                [
+                    QPoint(3, 3),
+                    QPoint(4, 4),
+                    QPoint(15, 15),
+                    QPoint(20, 20),
+                ]
+            )
+        )
+
+        self._assert_mean_close(roi, task_id=90003)
+
+
 if __name__ == "__main__":
     test_stage_funcs = TestTaskStageFuncs()
     test_stage_funcs.setUp()
