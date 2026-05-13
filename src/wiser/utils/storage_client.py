@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from multiprocessing.connection import Client, Connection
 from multiprocessing.shared_memory import SharedMemory
-from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import uuid
 
 import numpy as np
@@ -48,6 +48,129 @@ from .storage_service import (
 
 if TYPE_CHECKING:
     from .task_system import WriteSpec
+
+
+# ---------------------------------------------------------------------------
+# ROI-backed spectra list (roi_proxy driver)
+# ---------------------------------------------------------------------------
+
+# Per-process cache of reconstructed RoiBackedSpectraList helpers, keyed by the
+# ROI ref's ref_id.  A given worker process therefore reopens the source
+# dataset (GDAL handle) at most once per ROI ref, regardless of how many
+# SpectraBatchRef tiles it ends up reading.
+# No lock needed: stages use ProcessPoolExecutor so each worker is a separate
+# process with its own private copy of this dict.
+_ROI_HELPER_CACHE: Dict[str, "RoiBackedSpectraList"] = {}
+
+
+class RoiBackedSpectraList:
+    """
+    Helper that exposes the pixels of a Region-of-Interest as a virtual
+    ``(N, b)`` spectra list backed by a source :class:`RasterDataSet`.
+
+    Constructed lazily in worker processes from the rectangle decomposition
+    sent by the storage service via the ``roi_proxy`` external-params driver.
+    See :class:`wiser.utils.primitives.ExternalRoiHandle` (built in the main
+    process at registration time) for the matching producer side.
+
+    Index space:
+        Spectra are numbered in rectangle-traversal order. Within each
+        rectangle, pixels are enumerated in row-major (y-then-x) order, the
+        same convention used by :meth:`RasterDataSet.get_all_bands_at_rect`
+        after ``transpose(1, 2, 0).reshape(-1, b)``.
+
+    Thread-safety:
+        ``read_batch`` is safe to call from multiple threads concurrently
+        provided the underlying :class:`RasterDataSet` is itself thread-safe.
+    """
+
+    def __init__(
+        self,
+        rects: List[List[int]],
+        prefix_sums: List[int],
+        source_dataset: RasterDataSet,
+    ) -> None:
+        # _rects: shape (R, 4), dtype intp.  Each row is one axis-aligned
+        # rectangle in ABSOLUTE image coordinates:
+        #   col 0 — x_start  (left,   inclusive)
+        #   col 1 — x_end    (right,  inclusive)
+        #   col 2 — y_start  (top,    inclusive)
+        #   col 3 — y_end    (bottom, inclusive)
+        self._rects: np.ndarray = (
+            np.asarray(rects, dtype=np.intp).reshape(-1, 4) if rects else np.empty((0, 4), dtype=np.intp)
+        )
+        # _prefix_sums: shape (R+1,), dtype intp.
+        #   _prefix_sums[r]   = first spectra index belonging to rect r
+        #   _prefix_sums[r+1] = one past the last spectra index of rect r
+        #   _prefix_sums[-1]  = N (total ROI pixel count)
+        self._prefix_sums: np.ndarray = np.asarray(prefix_sums, dtype=np.intp)
+        if self._prefix_sums.size == 0:
+            self._prefix_sums = np.array([0], dtype=np.intp)
+        self._source: RasterDataSet = source_dataset
+
+    @property
+    def total_pixels(self) -> int:
+        return int(self._prefix_sums[-1])
+
+    def read_batch(self, i0: int, i1: int) -> np.ndarray:
+        """
+        Read spectra ``[i0, i1)`` from the source dataset using the
+        precomputed rectangle decomposition.
+
+        Returns an ``(i1 - i0, b)`` ``ndarray`` in source dtype.  Raw values
+        only — masking of nodata/bad-bands is the caller's responsibility
+        (handled by ``_mask_data_ignore_and_bad_bands`` on the
+        :class:`StorageClient` read path).
+        """
+        i0 = int(i0)
+        i1 = int(i1)
+        n_out = i1 - i0
+        if n_out <= 0:
+            return np.empty((0, self._source.get_num_bands()), dtype=np.float64)
+
+        total = self.total_pixels
+        if i0 < 0 or i1 > total:
+            raise IndexError(
+                f"RoiBackedSpectraList batch [{i0}, {i1}) out of range for ROI with {total} pixels"
+            )
+
+        # Binary-search the prefix sums to find the first and last covering rects.
+        first_rect = int(np.searchsorted(self._prefix_sums, i0, side="right")) - 1
+        last_rect = int(np.searchsorted(self._prefix_sums, i1 - 1, side="right")) - 1
+
+        result_chunks: list = []
+        for r in range(first_rect, last_rect + 1):
+            rect = self._rects[r]
+            abs_x_start = int(rect[0])
+            abs_x_end = int(rect[1])
+            abs_y_start = int(rect[2])
+            abs_y_end = int(rect[3])
+            dx = abs_x_end - abs_x_start + 1
+            dy = abs_y_end - abs_y_start + 1
+
+            # GDAL/RasterDataSet read: returns (b, dy, dx).  filter_bad_values
+            # is False so callers downstream see the raw nodata sentinels and
+            # can apply consistent masking via the standard region path.
+            arr_byx = self._source.get_all_bands_at_rect(
+                abs_x_start, abs_y_start, dx, dy, filter_bad_values=False
+            )
+            arr_byx = np.asarray(arr_byx)
+            if arr_byx.ndim == 2:
+                arr_byx = arr_byx[np.newaxis, :, :]
+
+            # (b, dy, dx) -> (dy, dx, b) -> (dy*dx, b) in row-major order.
+            arr_flat = arr_byx.transpose(1, 2, 0).reshape(-1, arr_byx.shape[0])
+
+            rect_start = int(self._prefix_sums[r])
+            rect_end = int(self._prefix_sums[r + 1])
+            local_start = max(i0, rect_start) - rect_start
+            local_end = min(i1, rect_end) - rect_start
+
+            result_chunks.append(arr_flat[local_start:local_end, :])
+
+        if not result_chunks:
+            return np.empty((0, self._source.get_num_bands()), dtype=np.float64)
+        return np.vstack(result_chunks)
 
 
 @dataclass

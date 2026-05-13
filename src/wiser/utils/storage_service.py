@@ -315,6 +315,7 @@ class StorageService:
     def _register_rpc_methods(self) -> None:
         self._rpc_allowlist = {
             "read_data_ref": self.read_data_ref,
+            "get_data_ref_by_id": self.get_data_ref_by_id,
             "get_access": self.get_access,
             "get_meta": self.get_meta,
             "write_meta": self.set_meta,
@@ -897,6 +898,20 @@ class StorageService:
             return self.data_refs[ref.ref_id]
         except KeyError as e:
             raise KeyError(f"Unknown ref_id: {ref.ref_id}") from e
+
+    def get_data_ref_by_id(self, ref_id: str) -> DataRef:
+        """
+        Look up a canonical :class:`DataRef` by its ``ref_id`` string.
+
+        Used by worker processes that hold a string reference (e.g., the
+        ``source_ref_id`` embedded in ``roi_proxy`` external params) and need
+        to obtain the corresponding full ``DataRef`` in order to reconstruct
+        an external object on the client side.
+        """
+        try:
+            return self.data_refs[ref_id]
+        except KeyError as e:
+            raise KeyError(f"Unknown ref_id: {ref_id}") from e
 
     def read_json_value(self, ref: DataRef) -> Any:
         canonical = self.read_data_ref(ref)
