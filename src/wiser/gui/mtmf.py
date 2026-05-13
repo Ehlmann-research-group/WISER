@@ -1475,17 +1475,6 @@ class MTMFDialog(QDialog):
             lambda _i: self._on_noise_method_type_changed()
         )
 
-        self._ui.cbox_shift_diff_method.addItem(
-            self.tr("Shift Difference Down"), ShiftDiffNoiseDirection.DOWN
-        )
-        self._ui.cbox_shift_diff_method.addItem(self.tr("Shift Difference Up"), ShiftDiffNoiseDirection.UP)
-        self._ui.cbox_shift_diff_method.addItem(
-            self.tr("Shift Difference Left"), ShiftDiffNoiseDirection.LEFT
-        )
-        self._ui.cbox_shift_diff_method.addItem(
-            self.tr("Shift Difference Right"), ShiftDiffNoiseDirection.RIGHT
-        )
-
         self._populate_noise_combo()
         self._on_noise_method_type_changed()
         self._populate_target_combo()
@@ -1518,8 +1507,12 @@ class MTMFDialog(QDialog):
         """Refresh dataset-backed combos, preserving current selections."""
         prev_input = self._ui.cbox_input.currentData()
         prev_noise = self._ui.cbox_noise_method_val.currentData()
+        prev_extra = self._ui.cbox_shift_diff_method.currentData()
         self._populate_noise_combo()
         self._populate_input_combo()
+        noise_method_type = self._ui.cbox_noise_method_type.currentData()
+        if noise_method_type == _NoiseMethodType.ROI_BASED:
+            self._populate_noise_method_extra_combo()
         if prev_input is not None:
             idx = self._ui.cbox_input.findData(prev_input)
             if idx >= 0:
@@ -1528,6 +1521,10 @@ class MTMFDialog(QDialog):
             idx = self._ui.cbox_noise_method_val.findData(prev_noise)
             if idx >= 0:
                 self._ui.cbox_noise_method_val.setCurrentIndex(idx)
+        if prev_extra is not None:
+            idx = self._ui.cbox_shift_diff_method.findData(prev_extra)
+            if idx >= 0:
+                self._ui.cbox_shift_diff_method.setCurrentIndex(idx)
 
     def _on_spectra_changed(self, *_args) -> None:
         """Refresh spectrum-backed combos, preserving current selections."""
@@ -1557,17 +1554,35 @@ class MTMFDialog(QDialog):
                     self._ui.cbox_noise_method_val.setCurrentIndex(idx)
 
     def _on_noise_method_type_changed(self) -> None:
-        """Repopulate cbox_noise_method_val and enable/disable the shift diff widgets."""
+        """Repopulate both noise combos and update the extra label/enable state."""
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
-        shift_diff_enabled = noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED
-        self._ui.cbox_shift_diff_method.setEnabled(shift_diff_enabled)
-        self._ui.lbl_shift_diff_method.setEnabled(shift_diff_enabled)
+
+        # The extra row is disabled only for Dark Image Based.
+        extra_enabled = noise_method_type != _NoiseMethodType.DARK_IMAGE_BASED
+        self._ui.lbl_noise_method_extra.setEnabled(extra_enabled)
+        self._ui.cbox_shift_diff_method.setEnabled(extra_enabled)
+
+        # Update the label text to reflect the current mode.
+        if noise_method_type == _NoiseMethodType.ROI_BASED:
+            self._ui.lbl_noise_method_extra.setText(self.tr("Dataset For ROI"))
+        else:
+            self._ui.lbl_noise_method_extra.setText(self.tr("Shift Diff Method"))
+
+        # Repopulate the main noise combo, preserving selection.
         prev_noise = self._ui.cbox_noise_method_val.currentData()
         self._populate_noise_combo()
         if prev_noise is not None:
             idx = self._ui.cbox_noise_method_val.findData(prev_noise)
             if idx >= 0:
                 self._ui.cbox_noise_method_val.setCurrentIndex(idx)
+
+        # Repopulate the extra combo, preserving selection where meaningful.
+        prev_extra = self._ui.cbox_shift_diff_method.currentData()
+        self._populate_noise_method_extra_combo()
+        if prev_extra is not None:
+            idx = self._ui.cbox_shift_diff_method.findData(prev_extra)
+            if idx >= 0:
+                self._ui.cbox_shift_diff_method.setCurrentIndex(idx)
 
     def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
         """Prefer Image Cube mode and select ``dataset_id`` when present."""
@@ -1668,6 +1683,39 @@ class MTMFDialog(QDialog):
                 return
         combo.setCurrentIndex(combo.count() - 1)
 
+    def _populate_noise_method_extra_combo(self) -> None:
+        """Populate cbox_shift_diff_method based on the currently selected noise method type.
+
+        - ROI_BASED      → datasets (the dataset to extract pixel spectra from)
+        - IMAGE_CUBE_BASED → shift difference direction options
+        - DARK_IMAGE_BASED → cleared (the combo is disabled)
+        """
+        combo = self._ui.cbox_shift_diff_method
+        combo.clear()
+        noise_method_type = self._ui.cbox_noise_method_type.currentData()
+
+        if noise_method_type == _NoiseMethodType.ROI_BASED:
+            for ds in self._app_state.get_datasets():
+                did = ds.get_id()
+                if did is None:
+                    continue
+                combo.addItem(ds.get_name() or self.tr("<unnamed>"), did)
+            combo.insertSeparator(combo.count())
+            combo.addItem(self.tr("(no data)"), None)
+            # Auto-select the first real dataset if available.
+            for i in range(combo.count()):
+                if combo.itemData(i) is not None:
+                    combo.setCurrentIndex(i)
+                    return
+            combo.setCurrentIndex(combo.count() - 1)
+
+        elif noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED:
+            combo.addItem(self.tr("Shift Difference Down"), ShiftDiffNoiseDirection.DOWN)
+            combo.addItem(self.tr("Shift Difference Up"), ShiftDiffNoiseDirection.UP)
+            combo.addItem(self.tr("Shift Difference Left"), ShiftDiffNoiseDirection.LEFT)
+            combo.addItem(self.tr("Shift Difference Right"), ShiftDiffNoiseDirection.RIGHT)
+        # DARK_IMAGE_BASED: leave empty; combo is disabled.
+
     def _populate_target_combo(self) -> None:
         pairs = []
         all_spec = self._app_state.get_all_spectra()
@@ -1676,6 +1724,33 @@ class MTMFDialog(QDialog):
             label = sp.get_name() or (self.tr("Spectrum") + f" ({sid})")
             pairs.append((label, sid))
         self._populate_combo_with_separator(self._ui.cbox_target, pairs)
+
+    def get_roi_extra_dataset(self) -> Optional[RasterDataSet]:
+        """Return the dataset chosen in the extra combo when ROI_BASED is active.
+
+        Returns ``None`` if the current noise method type is not ROI_BASED or if
+        no dataset has been selected (i.e. the combo shows "(no data)").
+        """
+        if self._ui.cbox_noise_method_type.currentData() != _NoiseMethodType.ROI_BASED:
+            return None
+        data = self._ui.cbox_shift_diff_method.currentData()
+        if data is None:
+            return None
+        return self._app_state.get_dataset(int(data))
+
+    def get_extra_shift_diff_direction(self) -> Optional[ShiftDiffNoiseDirection]:
+        """Return the shift difference direction chosen in the extra combo when
+        IMAGE_CUBE_BASED is active.
+
+        Returns ``None`` if the current noise method type is not IMAGE_CUBE_BASED
+        or if the combo does not hold a valid :class:`ShiftDiffNoiseDirection`.
+        """
+        if self._ui.cbox_noise_method_type.currentData() != _NoiseMethodType.IMAGE_CUBE_BASED:
+            return None
+        direction = self._ui.cbox_shift_diff_method.currentData()
+        if not isinstance(direction, ShiftDiffNoiseDirection):
+            return None
+        return direction
 
     def _resolve_source_dataset(self) -> RasterDataSet:
         mode = self._ui.cbox_input_type.currentData()
@@ -1690,8 +1765,8 @@ class MTMFDialog(QDialog):
         raise ValueError(self.tr("We currently don't support selecting an input spectra."))
 
     def _resolve_shift_diff_direction(self) -> ShiftDiffNoiseDirection:
-        direction = self._ui.cbox_shift_diff_method.currentData()
-        if not isinstance(direction, ShiftDiffNoiseDirection):
+        direction = self.get_extra_shift_diff_direction()
+        if direction is None:
             raise ValueError(self.tr("Select a shift difference direction."))
         return direction
 

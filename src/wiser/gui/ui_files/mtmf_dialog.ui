@@ -47,7 +47,7 @@
     <widget class="QComboBox" name="cbox_target"/>
    </item>
    <item row="3" column="0">
-    <widget class="QLabel" name="lbl_shift_diff_method">
+    <widget class="QLabel" name="lbl_noise_method_extra">
      <property name="text">
       <string>Shift Diff Method</string>
      </property>
