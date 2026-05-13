@@ -59,6 +59,15 @@ from wiser.utils.task_system import (
 )
 from test_utils.test_model import WiserTestModel
 
+
+from typing import TYPE_CHECKING, Tuple
+
+if TYPE_CHECKING:
+    from wiser.gui.app_services import AppServices
+    from wiser.raster.dataset import RasterDataSet
+    from wiser.raster.roi import RegionOfInterest
+    from wiser.utils.task_system import TaskPlan
+
 pytestmark = [
     pytest.mark.integration,
 ]
@@ -2079,6 +2088,209 @@ class TestTaskStageFuncs(unittest.TestCase):
             np.allclose(product_right, np.eye(5), atol=1e-4),
             msg=f"G @ G⁺ deviates from identity:\n{product_right}",
         )
+
+
+_JPL_DATASET_PATH = (
+    Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_15_40_30.hdr"
+).resolve()
+
+
+def _load_jpl_dataset():
+    """Load the 15-band, 40-row x 30-col ENVI test dataset."""
+    from wiser.raster.dataset_impl import ENVI_GDALRasterDataImpl
+
+    impls = ENVI_GDALRasterDataImpl.try_load_file(str(_JPL_DATASET_PATH), interactive=False)
+    assert impls, f"Could not load {_JPL_DATASET_PATH}"
+    from wiser.raster.dataset import RasterDataSet
+
+    return RasterDataSet(impls[0], data_cache=None)
+
+
+def _run_roi_spectral_mean_pipeline(
+    app_services: "AppServices",
+    roi: "RegionOfInterest",
+    dataset: "RasterDataSet",
+    task_id: int,
+    timeout: int = 30,
+) -> Tuple[np.ndarray, "TaskPlan"]:
+    """
+    Register *dataset* and *roi* as external handles, build a
+    SpectralMeanStage over the ROI-backed spectra list, run through the
+    scheduler, and return (mean_array, task_plan).
+    """
+    from wiser.utils.primitives import (
+        ExternalRoiHandle,
+        SpectraBatchScheme,
+        DeletePolicy,
+    )
+    from wiser.utils.task_system import (
+        AlgorithmPipeline,
+        DatasetPlanMeta,
+        ResourceModel,
+        SemanticTask,
+    )
+
+    # Source dataset must be registered before the ROI handle (Step 2 contract).
+    _ = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+    roi_ref = app_services.storage_service.register_external(
+        ExternalRoiHandle(roi=roi, source_dataset=dataset)
+    )
+
+    n_pixels = roi_ref.shape[0]
+    n_bands = roi_ref.shape[1]
+    mean_output_ref_name = "roi_mean"
+
+    mean_stage = SpectralMeanStage(
+        _output_ref_name=mean_output_ref_name,
+        _meta_ref=roi_ref,
+        default_executor="process",
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=n_pixels,
+            spectrum_length=n_bands,
+            dtype=roi_ref.dtype,
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=SpectraBatchScheme,
+    )
+    mean_stage.set_output_delete_policy(mean_output_ref_name, DeletePolicy.KEEP)
+
+    task = SemanticTask(
+        priority_class=PriorityClass.BACKGROUND,
+        input_ref=roi_ref,
+        algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage]),
+    )
+    task.id = task_id
+
+    task_plan = app_services.task_planner.plan_semantic_task(task)
+    future = app_services.scheduler.run_task_plan(task_plan)
+    future.result(timeout=timeout)
+
+    listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+    storage_client = StorageClient(
+        service=None,  # type: ignore[arg-type]
+        service_address=listener_address,
+        service_authkey=listener_authkey,
+    )
+    try:
+        mean_arr, _ = storage_client.read_data(task_plan.bindings[mean_output_ref_name])
+    finally:
+        storage_client.close()
+
+    return mean_arr, task_plan
+
+
+def _run_roi_cov_pipeline(
+    app_services: "AppServices",
+    roi: "RegionOfInterest",
+    dataset: "RasterDataSet",
+    task_id: int,
+    timeout: int = 30,
+) -> Tuple[np.ndarray, "TaskPlan"]:
+    """
+    Register *dataset* + *roi*, build SpectralMeanStage → CalcCovMatrixStage
+    over the ROI-backed spectra list, run through the scheduler, and return
+    ``(cov_array, task_plan)``.
+    """
+    from wiser.utils.primitives import (
+        ExternalRoiHandle,
+        SpectraBatchScheme,
+        DeletePolicy,
+    )
+    from wiser.utils.task_system import (
+        AlgorithmPipeline,
+        ResourceModel,
+        SemanticTask,
+    )
+
+    _ = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+    roi_ref = app_services.storage_service.register_external(
+        ExternalRoiHandle(roi=roi, source_dataset=dataset)
+    )
+
+    n_pixels = roi_ref.shape[0]
+    n_bands = roi_ref.shape[1]
+    mean_output_ref_name = "roi_cov_mean"
+    cov_output_ref_name = "roi_cov_matrix"
+    plan_meta = SpectraListPlanMeta(
+        num_spectra=n_pixels,
+        spectrum_length=n_bands,
+        dtype=roi_ref.dtype,
+    )
+    resource_model = ResourceModel(
+        fixed_overhead_bytes=0,
+        bytes_per_scalar_in=1,
+        bytes_per_scalar_out=1,
+        scratch_bytes_per_scalar_in=0,
+    )
+
+    mean_stage = SpectralMeanStage(
+        _output_ref_name=mean_output_ref_name,
+        _meta_ref=roi_ref,
+        default_executor="process",
+        input_plan_meta=plan_meta,
+        resource_model=resource_model,
+        chunking_scheme_type=SpectraBatchScheme,
+    )
+
+    cov_stage = CalcCovMatrixStage(
+        _total_spectra=0,
+        _num_features=n_bands,
+        _output_ref_name=cov_output_ref_name,
+        _meta_ref=roi_ref,
+        default_executor="process",
+        input_plan_meta=plan_meta,
+        resource_model=resource_model,
+        chunking_scheme_type=SpectraBatchScheme,
+        broadcast_input={
+            "mean": DataBinding(mean_output_ref_name),
+        },
+    )
+    cov_stage.set_output_delete_policy(cov_output_ref_name, DeletePolicy.KEEP)
+
+    task = SemanticTask(
+        priority_class=PriorityClass.BACKGROUND,
+        input_ref=roi_ref,
+        algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage, cov_stage]),
+    )
+    task.id = task_id
+
+    task_plan = app_services.task_planner.plan_semantic_task(task)
+    future = app_services.scheduler.run_task_plan(task_plan)
+    future.result(timeout=timeout)
+
+    listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+    storage_client = StorageClient(
+        service=None,  # type: ignore[arg-type]
+        service_address=listener_address,
+        service_authkey=listener_authkey,
+    )
+    try:
+        cov_arr, _ = storage_client.read_data(task_plan.bindings[cov_output_ref_name])
+    finally:
+        storage_client.close()
+
+    return cov_arr, task_plan
+
+
+def _expected_mean_and_cov(pixels, dataset):
+    """
+    Given a sorted list of ``(x, y)`` pixel tuples and a RasterDataSet,
+    return ``(mean, cov)`` computed via NumPy as float64 ground truth.
+    ``cov`` has shape ``(b, b)`` — the trailing ``[:, :, np.newaxis]`` stored
+    in the pipeline output is stripped by the test assertion.
+    """
+    cube = np.asarray(dataset.get_image_data(), dtype=np.float64)  # (b, H, W)
+    xs = np.array([p[0] for p in pixels], dtype=np.intp)
+    ys = np.array([p[1] for p in pixels], dtype=np.intp)
+    spectra = cube[:, ys, xs].T  # (N, b)
+    mean = spectra.mean(axis=0)  # (b,)
+    cov = np.cov(spectra, rowvar=False)  # (b, b)
+    return mean, cov
 
 
 if __name__ == "__main__":
