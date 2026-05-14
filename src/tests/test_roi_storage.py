@@ -188,5 +188,67 @@ class TestRoiBackedSpectraListReadBatch(unittest.TestCase):
             helper.read_batch(0, 100)
 
 
+class TestFlattenValidRows2D(unittest.TestCase):
+    """Equivalent 3-D and 2-D inputs flatten to the same ``(K, b_good)``."""
+
+    @staticmethod
+    def _meta(bad_bands):
+        """Minimal stand-in for the ``region_meta`` argument.
+
+        ``_good_band_mask_for_region_meta`` reads only ``.bad_bands`` from the
+        region meta, so a :class:`types.SimpleNamespace` is sufficient.
+        """
+        if bad_bands is None:
+            return types.SimpleNamespace(bad_bands=None)
+        return types.SimpleNamespace(bad_bands=np.asarray(bad_bands, dtype=np.int32))
+
+    def test_2d_matches_3d_with_bad_bands_and_invalid_rows(self):
+        rng = np.random.default_rng(seed=123)
+        b = 6
+        tile_3d = rng.standard_normal((2, 3, b)).astype(np.float64)
+
+        # Inject some invalid rows so the filter actually drops pixels.
+        tile_3d[0, 1, 2] = np.nan
+        tile_3d[1, 2, 4] = np.inf
+
+        # Band 1 is "bad" (0 = bad, 1 = good in the convention used by
+        # _good_band_mask_for_region_meta).
+        bad_bands = [1, 0, 1, 1, 1, 1]
+        meta = self._meta(bad_bands)
+
+        flat_3d = _flatten_valid_rows(tile_3d, meta)
+
+        # Same data viewed as a 2-D spectra-list tile.
+        tile_2d = tile_3d.reshape(-1, b)
+        flat_2d = _flatten_valid_rows(tile_2d, meta)
+
+        np.testing.assert_array_equal(flat_3d, flat_2d)
+        # The good-band mask drops band 1 -> result has b - 1 columns.
+        self.assertEqual(flat_3d.shape[1], b - 1)
+        # All-bad-row count: pixel (0,1) and pixel (1,2) -> 2 dropped of 6.
+        self.assertEqual(flat_3d.shape[0], 2 * 3 - 2)
+
+    def test_2d_no_bad_bands_no_invalid_passes_through(self):
+        b = 4
+        tile_2d = np.arange(5 * b, dtype=np.float64).reshape(5, b)
+
+        flat = _flatten_valid_rows(tile_2d, self._meta(None))
+        self.assertEqual(flat.shape, (5, b))
+        np.testing.assert_array_equal(flat, tile_2d)
+
+    def test_2d_drops_rows_with_masked_values(self):
+        b = 3
+        raw = np.arange(4 * b, dtype=np.float64).reshape(4, b)
+        mask = np.zeros_like(raw, dtype=bool)
+        # Mask row 2 entirely.
+        mask[2, :] = True
+        tile_2d = np.ma.MaskedArray(raw, mask=mask)
+
+        flat = _flatten_valid_rows(tile_2d, self._meta(None))
+        # Row 2 is dropped: 4 - 1 = 3 surviving rows.
+        self.assertEqual(flat.shape, (3, b))
+        np.testing.assert_array_equal(flat, np.delete(raw, 2, axis=0))
+
+
 if __name__ == "__main__":
     unittest.main()
