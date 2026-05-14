@@ -1290,7 +1290,7 @@ class MTMFSemanticTask(QObject, SemanticTask):
         ``__task_input__`` for the source cube.
     """
 
-    result_ready = Signal(object)
+    result_ready = Signal(object, object)
 
     def __init__(
         self,
@@ -1426,40 +1426,58 @@ class MTMFSemanticTask(QObject, SemanticTask):
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
-        """Read the full score cube and emit it for loading on the main thread.
+        """Read the full score and infeasibility cubes and emit them for loading on the main thread.
 
         Args:
             bindings: Mapping of allocation names to resolved :class:`DataRef`
                 objects produced by the task pipeline.
 
         Raises:
-            KeyError: If the expected output binding is not present.
+            KeyError: If an expected output binding is not present.
         """
         output_ref = bindings.get(self._output_ref_name)
         if output_ref is None:
             raise KeyError(f"Missing MTMF output binding: '{self._output_ref_name}'")
 
+        infeasibility_ref_name = f"{self._output_ref_name}_infeasibility"
+        infeasibility_ref = bindings.get(infeasibility_ref_name)
+        if infeasibility_ref is None:
+            raise KeyError(f"Missing MTMF infeasibility output binding: '{infeasibility_ref_name}'")
+
         storage_client = get_process_storage_client()
+
         meta = storage_client.get_meta(output_ref)
         height, width, n_targets = meta.shape
         region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=n_targets)
         scores_data, _ = storage_client.read_region(output_ref, region, filter_data=False)
-        self.result_ready.emit(np.asarray(scores_data, dtype=np.float32))
 
-    @Slot(object)
-    def _load_result_into_wiser(self, scores_data: object) -> None:
-        """Slice the score cube into individual datasets and add them to WISER.
+        inf_meta = storage_client.get_meta(infeasibility_ref)
+        inf_height, inf_width, inf_n_targets = inf_meta.shape
+        inf_region = DatasetRegionRef(y0=0, y1=inf_height, x0=0, x1=inf_width, b0=0, b1=inf_n_targets)
+        infeasibility_data, _ = storage_client.read_region(infeasibility_ref, inf_region, filter_data=False)
 
-        Each band slice ``scores[:, :, i]`` becomes a separate float32 dataset
-        named after its target spectrum.  Pixels that were excluded as nodata
-        during the matched-filter computation are stored as ``NaN``.
+        self.result_ready.emit(
+            np.asarray(scores_data, dtype=np.float32),
+            np.asarray(infeasibility_data, dtype=np.float32),
+        )
+
+    @Slot(object, object)
+    def _load_result_into_wiser(self, scores_data: object, infeasibility_data: object) -> None:
+        """Slice the score and infeasibility cubes into individual datasets and add them to WISER.
+
+        For each target, band slice ``i`` of each cube becomes a separate float32
+        dataset named after its target spectrum.  Pixels that were excluded as
+        nodata during computation are stored as ``NaN``.
 
         Args:
-            scores_data: The ``(H, W, N_targets)`` score array emitted by
-                :meth:`completion_callback`.
+            scores_data: The ``(H, W, N_targets)`` matched-filter score array
+                emitted by :meth:`completion_callback`.
+            infeasibility_data: The ``(H, W, N_targets)`` infeasibility score
+                array emitted by :meth:`completion_callback`.
         """
         target_names = list(self._target_names)
         scores_array = np.asarray(scores_data, dtype=np.float32)  # (H, W, N_targets)
+        infeasibility_array = np.asarray(infeasibility_data, dtype=np.float32)  # (H, W, N_targets)
         names: List[str] = list(target_names)
 
         loader = self._app_state.get_loader()
@@ -1479,6 +1497,20 @@ class MTMFSemanticTask(QObject, SemanticTask):
             score_dataset.set_data_ignore_value(float("nan"))
             score_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
             self._app_state.add_dataset(score_dataset, view_dataset=False)
+
+            infeasibility_band = infeasibility_array[:, :, i : i + 1]  # (H, W, 1)
+            infeasibility_by_band = infeasibility_band.transpose(2, 0, 1)  # (1, H, W)
+
+            infeasibility_dataset = loader.dataset_from_numpy_array(infeasibility_by_band, cache)
+            infeasibility_dataset.set_name(
+                self._app_state.unique_dataset_name(f"IF [{target_name}]: {source_name}")
+            )
+            infeasibility_dataset.set_description(
+                f"Infeasibility score for '{target_name}' against '{source_name}' ({timestamp})"
+            )
+            infeasibility_dataset.set_data_ignore_value(float("nan"))
+            infeasibility_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+            self._app_state.add_dataset(infeasibility_dataset, view_dataset=False)
 
 
 # ---------------------------------------------------------------------------
