@@ -109,5 +109,84 @@ class TestExternalRoiHandle(unittest.TestCase):
         self.assertEqual(meta.shape, (0, 3))
 
 
+class TestRoiBackedSpectraListReadBatch(unittest.TestCase):
+    """``RoiBackedSpectraList.read_batch`` matches direct numpy indexing."""
+
+    @staticmethod
+    def _expected_pixels_for_rects(arr_band_first, rects):
+        """Reconstruct the (N, b) expected order for a list of rects.
+
+        ``arr_band_first`` is ``[b][y][x]``.  Pixels inside each rectangle are
+        enumerated in row-major (y-then-x) order, matching the read path in
+        :meth:`RoiBackedSpectraList.read_batch`.
+        """
+        chunks = []
+        for x0, x1, y0, y1 in rects:
+            for y in range(y0, y1 + 1):
+                for x in range(x0, x1 + 1):
+                    chunks.append(arr_band_first[:, y, x])
+        return np.stack(chunks, axis=0)
+
+    def test_read_batch_full_single_rect(self):
+        # 5-band, 4x4 dataset.
+        arr = np.arange(5 * 4 * 4, dtype=np.float32).reshape(5, 4, 4)
+        dataset = _synthetic_dataset(arr, dataset_id=71001)
+
+        # Single 2x2 rect: x in [1,2], y in [0,1] -> 4 pixels.
+        rects = [[1, 2, 0, 1]]
+        prefix_sums = [0, 4]
+        helper = RoiBackedSpectraList(rects, prefix_sums, dataset)
+
+        self.assertEqual(helper.total_pixels, 4)
+        batch = helper.read_batch(0, helper.total_pixels)
+
+        expected = self._expected_pixels_for_rects(arr, rects)
+        self.assertEqual(batch.shape, (4, 5))
+        np.testing.assert_allclose(batch, expected)
+
+    def test_read_batch_partial_window_spans_two_rects(self):
+        # 3-band, 4x4 dataset.
+        arr = np.arange(3 * 4 * 4, dtype=np.float32).reshape(3, 4, 4)
+        dataset = _synthetic_dataset(arr, dataset_id=71002)
+
+        # Two disjoint single-row rects:
+        #   rect 0: x in [0,1], y=0 -> 2 pixels at indices 0..1
+        #   rect 1: x in [2,3], y=2 -> 2 pixels at indices 2..3
+        rects = [[0, 1, 0, 0], [2, 3, 2, 2]]
+        prefix_sums = [0, 2, 4]
+        helper = RoiBackedSpectraList(rects, prefix_sums, dataset)
+
+        # Window [1, 3) crosses the rect boundary: last pixel of rect 0 +
+        # first pixel of rect 1.
+        batch = helper.read_batch(1, 3)
+        expected = np.stack([arr[:, 0, 1], arr[:, 2, 2]], axis=0)
+        self.assertEqual(batch.shape, (2, 3))
+        np.testing.assert_allclose(batch, expected)
+
+        # Full read should equal the concatenation of both rects.
+        full = helper.read_batch(0, helper.total_pixels)
+        full_expected = self._expected_pixels_for_rects(arr, rects)
+        np.testing.assert_allclose(full, full_expected)
+
+    def test_read_batch_empty_window(self):
+        arr = np.zeros((2, 3, 3), dtype=np.float32)
+        dataset = _synthetic_dataset(arr, dataset_id=71003)
+
+        rects = [[0, 2, 0, 2]]
+        prefix_sums = [0, 9]
+        helper = RoiBackedSpectraList(rects, prefix_sums, dataset)
+
+        empty = helper.read_batch(4, 4)
+        self.assertEqual(empty.shape, (0, 2))
+
+    def test_read_batch_out_of_range_raises(self):
+        arr = np.zeros((2, 3, 3), dtype=np.float32)
+        dataset = _synthetic_dataset(arr, dataset_id=71004)
+
+        helper = RoiBackedSpectraList([[0, 2, 0, 2]], [0, 9], dataset)
+        with self.assertRaises(IndexError):
+            helper.read_batch(0, 100)
+
+
 if __name__ == "__main__":
     unittest.main()
