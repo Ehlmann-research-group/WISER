@@ -250,5 +250,148 @@ class TestFlattenValidRows2D(unittest.TestCase):
         np.testing.assert_array_equal(flat, np.delete(raw, 2, axis=0))
 
 
+def _run_roi_noise_covariance_subpipeline(
+    app_services: "AppServices",
+    roi: "RegionOfInterest",
+    dataset: "RasterDataSet",
+    task_id: int,
+    timeout: int = 120,
+) -> Tuple[np.ndarray, "TaskPlan"]:
+    """Drive :func:`get_noise_covariance_subpipeline` end-to-end for ROI_BASED.
+
+    Registers ``dataset`` and an :class:`ExternalRoiHandle` over ``roi`` in
+    ``app_services.storage_service``, builds the ROI noise-covariance
+    sub-pipeline, runs it through the planner + scheduler, and reads the
+    resulting covariance array back via a fresh :class:`StorageClient`.
+    """
+    _ = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+    roi_ref = app_services.storage_service.register_external(
+        ExternalRoiHandle(roi=roi, source_dataset=dataset)
+    )
+
+    # Resolve num_features from forwarded bad_bands (None -> all good).
+    roi_meta = app_services.storage_service.get_meta(roi_ref)
+    if roi_meta.bad_bands is not None:
+        num_features = int(np.sum(np.asarray(roi_meta.bad_bands) != 0))
+    else:
+        num_features = int(roi_meta.shape[1])
+
+    noise_mean_ref_name = "test_roi_subpipe_mean"
+    noise_total_ref_name = "test_roi_subpipe_total"
+    noise_cov_ref_name = "test_roi_subpipe_cov"
+
+    stages = get_noise_covariance_subpipeline(
+        noise_input_ref=roi_ref,
+        noise_method_type=NoiseMethodType.ROI_BASED,
+        # Unused for ROI_BASED but the kwarg is required.
+        noise_ref_name="test_roi_subpipe_noise",
+        noise_mean_ref_name=noise_mean_ref_name,
+        noise_total_ref_name=noise_total_ref_name,
+        noise_covariance_ref_name=noise_cov_ref_name,
+        num_features=num_features,
+        # noise_input_binding_name=None -> stages read __task_input__, which
+        # is roi_ref itself for this minimal test task.
+    )
+
+    # ROI_BASED returns [mean_stage, cov_stage]; keep the cov output so we
+    # can read it after the scheduler completes.
+    cov_stage = stages[-1]
+    cov_stage.set_output_delete_policy(noise_cov_ref_name, DeletePolicy.KEEP)
+
+    task = SemanticTask(
+        priority_class=PriorityClass.BACKGROUND,
+        input_ref=roi_ref,
+        algorithm_pipeline=AlgorithmPipeline(stages=stages),
+    )
+    task.id = task_id
+
+    task_plan = app_services.task_planner.plan_semantic_task(task)
+    future = app_services.scheduler.run_task_plan(task_plan)
+    future.result(timeout=timeout)
+
+    listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+    storage_client = StorageClient(
+        service=None,  # type: ignore[arg-type]
+        service_address=listener_address,
+        service_authkey=listener_authkey,
+    )
+    try:
+        cov_arr, _ = storage_client.read_data(task_plan.bindings[noise_cov_ref_name])
+    finally:
+        storage_client.close()
+
+    return cov_arr, task_plan
+
+
+def _expected_cov_for_roi(roi: "RegionOfInterest", dataset: "RasterDataSet") -> np.ndarray:
+    """Ground-truth ``np.cov`` over the deduplicated ROI pixel set."""
+    cube = np.asarray(dataset.get_image_data(), dtype=np.float64)  # (b, H, W)
+    pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
+    xs = np.array([p[0] for p in pixels], dtype=np.intp)
+    ys = np.array([p[1] for p in pixels], dtype=np.intp)
+    spectra = cube[:, ys, xs].T  # (N, b)
+    return np.cov(spectra, rowvar=False)
+
+
+class TestNoiseCovarianceSubpipelineRoi(unittest.TestCase):
+    """End-to-end ROI noise-covariance sub-pipeline over jpl_425_7_7."""
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        self.app_services = AppServices()
+
+    def tearDown(self):
+        release_kept_refs(self.app_services)
+        self.app_services.scheduler.shutdown(wait=True)
+        self.app_services.storage_service.close()
+        self.test_model.close_app()
+        del self.test_model
+
+    def _assert_cov_close(self, roi, dataset, task_id, atol=1e-2):
+        expected_cov = _expected_cov_for_roi(roi, dataset)
+
+        cov_arr, _ = _run_roi_noise_covariance_subpipeline(self.app_services, roi, dataset, task_id=task_id)
+        # Pipeline stores covariance as (b, b, 1); squeeze the trailing dim.
+        cov_2d = np.asarray(cov_arr, dtype=np.float64).squeeze(-1)
+
+        self.assertEqual(cov_2d.shape, expected_cov.shape)
+        self.assertTrue(
+            np.allclose(cov_2d, expected_cov, atol=atol),
+            msg=(
+                f"Covariance mismatch (max diff "
+                f"{np.max(np.abs(cov_2d - expected_cov)):.6f})\n"
+                f"pipeline diag (first 5): {np.diag(cov_2d)[:5]}\n"
+                f"numpy    diag (first 5): {np.diag(expected_cov)[:5]}"
+            ),
+        )
+
+    def test_subpipeline_full_image_roi_matches_np_cov(self):
+        """ROI covering all 49 pixels of jpl_425_7_7 -> pipeline cov == np.cov."""
+        dataset = _load_jpl_425_dataset()
+        dataset.set_id(72001)
+
+        roi = RegionOfInterest(name="full_image")
+        roi.set_id(82001)
+        # 7x7 image: RectangleSelection has exclusive endpoints, so use (7,7).
+        roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(7, 7)))
+        self.assertEqual(len(roi.get_all_pixels()), 49)
+
+        self._assert_cov_close(roi, dataset, task_id=72001)
+
+    def test_subpipeline_two_overlapping_rects_matches_np_cov(self):
+        """Overlapping rects: pixels deduped by the ROI set -> matches np.cov."""
+        dataset = _load_jpl_425_dataset()
+        dataset.set_id(72002)
+
+        roi = RegionOfInterest(name="two_overlap_rects")
+        roi.set_id(82002)
+        # Rect A: x in [0..4], y in [0..3]  (5x4 = 20 pixels)
+        roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(5, 4)))
+        # Rect B: x in [2..6], y in [2..6]  (5x5 = 25 pixels) overlaps A.
+        roi.add_selection(RectangleSelection(QPoint(2, 2), QPoint(7, 7)))
+
+        self._assert_cov_close(roi, dataset, task_id=72002)
+
+
 if __name__ == "__main__":
     unittest.main()
