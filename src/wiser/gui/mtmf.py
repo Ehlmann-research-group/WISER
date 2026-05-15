@@ -1517,26 +1517,6 @@ class MTMFSemanticTask(QObject, SemanticTask):
 # MTMF dialog
 # ---------------------------------------------------------------------------
 
-_INPUT_TYPE_SPECTRUM = 0
-_INPUT_TYPE_IMAGE_CUBE = 1
-
-
-def _spectrum_to_single_pixel_dataset(spectrum: Spectrum, app_state: ApplicationState) -> RasterDataSet:
-    """Wrap a spectrum as a 1x1xB raster for cube-based pipelines."""
-    loader = app_state.get_loader()
-    cache = app_state.get_cache()
-    arr = np.asarray(spectrum.get_spectrum(), dtype=np.float32)
-    arr_by_band = arr[:, np.newaxis, np.newaxis]
-    ds = loader.dataset_from_numpy_array(arr_by_band, cache)
-    ds.copy_spectral_metadata(spectrum.get_spectral_metadata())
-    bb = spectrum.get_bad_bands()
-    if bb is not None:
-        ds.set_bad_bands(np.asarray(bb).astype(int).tolist())
-    nodata = getattr(spectrum, "get_data_ignore_value", lambda: None)()
-    if nodata is not None:
-        ds.set_data_ignore_value(nodata)
-    return ds
-
 
 class MTMFDialog(QDialog):
     """Dialog to choose source, noise, and targets for :class:`MTMFSemanticTask`."""
@@ -1555,10 +1535,6 @@ class MTMFDialog(QDialog):
         self._ui = Ui_MTMF_Dialog()
         self._ui.setupUi(self)
 
-        self._ui.cbox_input_type.addItem(self.tr("Spectrum"), _INPUT_TYPE_SPECTRUM)
-        self._ui.cbox_input_type.addItem(self.tr("Image Cube"), _INPUT_TYPE_IMAGE_CUBE)
-        self._ui.cbox_input_type.currentIndexChanged.connect(lambda _i: self._populate_input_combo())
-
         self._ui.cbox_noise_method_type.addItem(self.tr("ROI Based"), NoiseMethodType.ROI_BASED)
         self._ui.cbox_noise_method_type.addItem(self.tr("Dark Image Based"), NoiseMethodType.DARK_IMAGE_BASED)
         self._ui.cbox_noise_method_type.addItem(self.tr("Image Cube Based"), NoiseMethodType.IMAGE_CUBE_BASED)
@@ -1569,7 +1545,6 @@ class MTMFDialog(QDialog):
         self._populate_noise_combo()
         self._on_noise_method_type_changed()
         self._populate_target_combo()
-        self._ui.cbox_input_type.setCurrentIndex(1)
         self._populate_input_combo()
 
     def showEvent(self, event) -> None:
@@ -1619,15 +1594,8 @@ class MTMFDialog(QDialog):
 
     def _on_spectra_changed(self, *_args) -> None:
         """Refresh spectrum-backed combos, preserving current selections."""
-        prev_input = self._ui.cbox_input.currentData()
         prev_target = self._ui.cbox_target.currentData()
         self._populate_target_combo()
-        if self._ui.cbox_input_type.currentData() == _INPUT_TYPE_SPECTRUM:
-            self._populate_input_combo()
-            if prev_input is not None:
-                idx = self._ui.cbox_input.findData(prev_input)
-                if idx >= 0:
-                    self._ui.cbox_input.setCurrentIndex(idx)
         if prev_target is not None:
             idx = self._ui.cbox_target.findData(prev_target)
             if idx >= 0:
@@ -1676,31 +1644,12 @@ class MTMFDialog(QDialog):
                 self._ui.cbox_shift_diff_method.setCurrentIndex(idx)
 
     def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
-        """Prefer Image Cube mode and select ``dataset_id`` when present."""
-        idx = self._ui.cbox_input_type.findData(_INPUT_TYPE_IMAGE_CUBE)
-        if idx >= 0:
-            self._ui.cbox_input_type.setCurrentIndex(idx)
+        """Select ``dataset_id`` in the input combo when present."""
         self._populate_input_combo()
         if dataset_id is not None:
             in_idx = self._ui.cbox_input.findData(dataset_id)
             if in_idx >= 0:
                 self._ui.cbox_input.setCurrentIndex(in_idx)
-
-    def _spectra_for_plot_input(self) -> List[Spectrum]:
-        """Active spectrum first, then collected spectra (unique by id)."""
-        seen: set = set()
-        out: List[Spectrum] = []
-        active = self._app_state.get_active_spectrum()
-        if active is not None and active.get_id() is not None:
-            seen.add(active.get_id())
-            out.append(active)
-        for s in self._app_state.get_collected_spectra():
-            sid = s.get_id()
-            if sid is None or sid in seen:
-                continue
-            seen.add(sid)
-            out.append(s)
-        return out
 
     def _populate_combo_with_separator(self, combo, entries: List[tuple]) -> None:
         """Fill combo with (label, userData) pairs, then separator and (no data)."""
@@ -1711,24 +1660,13 @@ class MTMFDialog(QDialog):
         combo.addItem(self.tr("(no data)"), None)
 
     def _populate_input_combo(self) -> None:
-        mode = self._ui.cbox_input_type.currentData()
-        if mode == _INPUT_TYPE_SPECTRUM:
-            pairs = []
-            for sp in self._spectra_for_plot_input():
-                sid = sp.get_id()
-                if sid is None:
-                    continue
-                name = sp.get_name() or self.tr("<unnamed>")
-                pairs.append((name, sid))
-            self._populate_combo_with_separator(self._ui.cbox_input, pairs)
-        else:
-            pairs = []
-            for ds in self._app_state.get_datasets():
-                did = ds.get_id()
-                if did is None:
-                    continue
-                pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
-            self._populate_combo_with_separator(self._ui.cbox_input, pairs)
+        pairs = []
+        for ds in self._app_state.get_datasets():
+            did = ds.get_id()
+            if did is None:
+                continue
+            pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
+        self._populate_combo_with_separator(self._ui.cbox_input, pairs)
 
     def _add_section_header(self, combo, label: str) -> None:
         """Insert a bold, non-selectable section-header item into *combo*."""
@@ -1844,16 +1782,13 @@ class MTMFDialog(QDialog):
         return direction
 
     def _resolve_source_dataset(self) -> RasterDataSet:
-        mode = self._ui.cbox_input_type.currentData()
         data = self._ui.cbox_input.currentData()
         if data is None:
-            raise ValueError(self.tr('Select an input source (not "(no data)").'))
-        if mode == _INPUT_TYPE_IMAGE_CUBE:
-            ds = self._app_state.get_dataset(int(data))
-            if ds is None:
-                raise ValueError(self.tr("Selected input dataset is no longer available."))
-            return ds
-        raise ValueError(self.tr("We currently don't support selecting an input spectra."))
+            raise ValueError(self.tr('Select an input dataset (not "(no data)").'))
+        ds = self._app_state.get_dataset(int(data))
+        if ds is None:
+            raise ValueError(self.tr("Selected input dataset is no longer available."))
+        return ds
 
     def _resolve_shift_diff_direction(self) -> ShiftDiffNoiseDirection:
         direction = self.get_extra_shift_diff_direction()
