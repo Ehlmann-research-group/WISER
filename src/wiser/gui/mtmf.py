@@ -1909,12 +1909,81 @@ class MTMFDialog(QDialog):
             raise ValueError(self.tr("Selected target spectrum is no longer available."))
         return [sp]
 
+    def _validate_band_counts(
+        self,
+        source_ds: RasterDataSet,
+        target_list: List[Spectrum],
+        noise_method_type: NoiseMethodType,
+        noise_cube_dataset: Optional[RasterDataSet] = None,
+        dark_noise_dataset: Optional[RasterDataSet] = None,
+        noise_roi_source: Optional[RasterDataSet] = None,
+    ) -> None:
+        """Raise ValueError if any input's band count does not match the source dataset.
+
+        Checks the target spectrum and, depending on the noise method, the
+        associated noise dataset against ``source_ds.num_bands()``.
+        """
+        source_bands = source_ds.num_bands()
+        source_name = source_ds.get_name() or "source dataset"
+
+        for spectrum in target_list:
+            target_bands = spectrum.num_bands()
+            if target_bands != source_bands:
+                target_name = spectrum.get_name() or "target spectrum"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{target_name}' has {target_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The target spectrum must have the same number of bands as the input dataset."
+                    )
+                )
+
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED and noise_cube_dataset is not None:
+            cube_bands = noise_cube_dataset.num_bands()
+            if cube_bands != source_bands:
+                cube_name = noise_cube_dataset.get_name() or "noise image cube"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{cube_name}' has {cube_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The noise image cube must have the same number of bands as the input dataset."
+                    )
+                )
+
+        if noise_method_type == NoiseMethodType.DARK_IMAGE_BASED and dark_noise_dataset is not None:
+            noise_bands = dark_noise_dataset.num_bands()
+            if noise_bands != source_bands:
+                noise_name = dark_noise_dataset.get_name() or "dark image"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{noise_name}' has {noise_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The dark image dataset must have the same number of bands as the input dataset."
+                    )
+                )
+
+        if noise_method_type == NoiseMethodType.ROI_BASED and noise_roi_source is not None:
+            roi_source_bands = noise_roi_source.num_bands()
+            if roi_source_bands != source_bands:
+                roi_source_name = noise_roi_source.get_name() or "ROI dataset"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{roi_source_name}' has {roi_source_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The dataset for the ROI must have the same number of bands as the input dataset."
+                    )
+                )
+
     def _perform_mtmf(self) -> None:
         source_ds = self._resolve_source_dataset()
         target_list = self._resolve_target_spectra()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
         if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+            noise_cube_ds = self._resolve_noise_dataset()
+            self._validate_band_counts(
+                source_ds, target_list, noise_method_type, noise_cube_dataset=noise_cube_ds
+            )
             task = MTMFSemanticTask(
                 app_state=self._app_state,
                 app_services=self._app_services,
@@ -1924,15 +1993,26 @@ class MTMFDialog(QDialog):
                 shift_diff_noise_direction=self._resolve_shift_diff_direction(),
             )
         elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+            dark_noise_ds = self._resolve_noise_dataset()
+            self._validate_band_counts(
+                source_ds,
+                target_list,
+                noise_method_type,
+                dark_noise_dataset=dark_noise_ds,
+            )
             task = MTMFSemanticTask(
                 app_state=self._app_state,
                 app_services=self._app_services,
                 source_dataset=source_ds,
                 target_spectra=target_list,
                 noise_method_type=NoiseMethodType.DARK_IMAGE_BASED,
-                noise_dataset=self._resolve_noise_dataset(),
+                noise_dataset=dark_noise_ds,
             )
         elif noise_method_type == NoiseMethodType.ROI_BASED:
+            roi_source_ds = self._resolve_roi_source_dataset()
+            self._validate_band_counts(
+                source_ds, target_list, noise_method_type, noise_roi_source=roi_source_ds
+            )
             task = MTMFSemanticTask(
                 app_state=self._app_state,
                 app_services=self._app_services,
@@ -1940,7 +2020,7 @@ class MTMFDialog(QDialog):
                 target_spectra=target_list,
                 noise_method_type=NoiseMethodType.ROI_BASED,
                 noise_roi=self._resolve_noise_roi(),
-                noise_roi_source=self._resolve_roi_source_dataset(),
+                noise_roi_source=roi_source_ds,
             )
         else:
             raise ValueError(self.tr(f"Unsupported noise method: {noise_method_type!r}"))
