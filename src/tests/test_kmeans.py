@@ -121,7 +121,7 @@ class TestKMeansStage(unittest.TestCase):
             # ------------------------------------------------------------------
             # Assertions
             # ------------------------------------------------------------------
-            labels_array = np.asarray(labels_out)
+            labels_array = np.asarray(labels_out).astype(np.int32)
             centroids_array = np.asarray(centroids_out)
 
             self.assertEqual(labels_array.shape, ref_labels_image.shape)
