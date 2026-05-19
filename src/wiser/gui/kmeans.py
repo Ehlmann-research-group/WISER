@@ -224,6 +224,7 @@ def _run_kmeans(
     centroids_ref: DataRef,
     params: "KMeansParameters",
 ) -> None:
+    print("!@#!@# running kmeans")
     client = get_process_storage_client()
 
     # Read the full dataset as float32 (y, x, b_total)
