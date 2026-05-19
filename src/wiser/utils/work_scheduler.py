@@ -445,14 +445,6 @@ class RecordingWorkScheduler:
 
         for plan_id in plan_ids_in_order:
             plan_events = [event for event in self.events if event.plan_id == plan_id]
-            plan_start = next((event.time for event in plan_events if event.kind == "plan_submitted"), None)
-            plan_end = next(
-                (event.time for event in reversed(plan_events) if event.kind == "plan_completed"), None
-            )
-            plan_duration = (
-                f"{plan_end - plan_start:.6f}s" if plan_start is not None and plan_end is not None else "n/a"
-            )
-            print(f"Plan {plan_id} ({plan_duration})")
 
             stage_ids_in_order = []
             seen_stage_ids: set[str] = set()
@@ -464,22 +456,6 @@ class RecordingWorkScheduler:
 
             for stage_id in stage_ids_in_order:
                 stage_events = [event for event in plan_events if event.stage_id == stage_id]
-                stage_start = next(
-                    (event.time for event in stage_events if event.kind == "stage_enqueued"),
-                    None,
-                )
-                stage_done_times = [
-                    event.time
-                    for event in stage_events
-                    if event.kind == "unit_done" and event.unit_id is not None
-                ]
-                stage_end = max(stage_done_times) if stage_done_times else None
-                stage_duration = (
-                    f"{stage_end - stage_start:.6f}s"
-                    if stage_start is not None and stage_end is not None
-                    else "n/a"
-                )
-                print(f"  Stage {stage_id} ({stage_duration})")
 
                 unit_ids_in_order = []
                 seen_unit_ids: set[str] = set()
@@ -488,30 +464,6 @@ class RecordingWorkScheduler:
                         continue
                     unit_ids_in_order.append(event.unit_id)
                     seen_unit_ids.add(event.unit_id)
-
-                for unit_id in unit_ids_in_order:
-                    unit_submit = next(
-                        (
-                            event.time
-                            for event in stage_events
-                            if event.kind == "unit_submitted" and event.unit_id == unit_id
-                        ),
-                        None,
-                    )
-                    unit_done = next(
-                        (
-                            event.time
-                            for event in stage_events
-                            if event.kind == "unit_done" and event.unit_id == unit_id
-                        ),
-                        None,
-                    )
-                    unit_duration = (
-                        f"{unit_done - unit_submit:.6f}s"
-                        if unit_submit is not None and unit_done is not None
-                        else "n/a"
-                    )
-                    print(f"    Unit {unit_id}: {unit_duration}")
 
 
 def _priority_weight(priority: PriorityClass) -> float:
@@ -751,13 +703,6 @@ class WorkScheduler:
         """Validate, initialize, and enqueue a task plan for staged execution."""
 
         self._validate_task_plan(task_plan)
-        print(
-            f"[WorkScheduler] Plan submitted:"
-            f" id={task_plan.plan_id!r}"
-            f" task={task_plan.semantic_task_id!r}"
-            f" stages={len(task_plan.stage_work_units)}"
-            f" units={len(task_plan.work_units)}"
-        )
         if self._recorder is not None:
             self._recorder.on_plan_submitted(task_plan.plan_id)
         stage_order = self._ordered_stage_ids(task_plan)
@@ -1012,17 +957,6 @@ class WorkScheduler:
                 _req = blocked_candidate.work_unit.ram_peak_est_bytes
                 _hold = self._reserved_hold_bytes()
                 _avail = self._ram_budget_bytes - _hold
-                print(
-                    f"[WorkScheduler] Admission deferred (blocked → reserved, defer threshold exceeded):"
-                    f" unit={blocked_candidate.work_unit.unit_id!r}"
-                    f" plan={blocked_candidate.plan_id!r}"
-                    f" required={_req / 1e6:.1f}MB"
-                    f" in_flight={self._in_flight_ram_bytes / 1e6:.1f}MB"
-                    f" available={_avail / 1e6:.1f}MB"
-                    f" (budget={self._ram_budget_bytes / 1e6:.1f}MB"
-                    f" - reserved_hold={_hold / 1e6:.1f}MB)"
-                    f" defer_count={blocked_candidate.defer_count}"
-                )
 
         for main_candidate in list(main_queue):
             if main_candidate not in main_queue:
@@ -1056,17 +990,6 @@ class WorkScheduler:
                 _req = main_candidate.work_unit.ram_peak_est_bytes
                 _hold = self._reserved_hold_bytes()
                 _avail = self._ram_budget_bytes - _hold
-                print(
-                    f"[WorkScheduler] Admission deferred (main → reserved, defer threshold exceeded):"
-                    f" unit={main_candidate.work_unit.unit_id!r}"
-                    f" plan={main_candidate.plan_id!r}"
-                    f" required={_req / 1e6:.1f}MB"
-                    f" in_flight={self._in_flight_ram_bytes / 1e6:.1f}MB"
-                    f" available={_avail / 1e6:.1f}MB"
-                    f" (budget={self._ram_budget_bytes / 1e6:.1f}MB"
-                    f" - reserved_hold={_hold / 1e6:.1f}MB)"
-                    f" defer_count={main_candidate.defer_count}"
-                )
             else:
                 blocked_queue.append(main_candidate)
                 self._log_queue_transition_locked(
@@ -1084,17 +1007,6 @@ class WorkScheduler:
                 _req = main_candidate.work_unit.ram_peak_est_bytes
                 _hold = self._reserved_hold_bytes()
                 _avail = self._ram_budget_bytes - _hold
-                print(
-                    f"[WorkScheduler] Admission deferred (main → blocked, RAM gate):"
-                    f" unit={main_candidate.work_unit.unit_id!r}"
-                    f" plan={main_candidate.plan_id!r}"
-                    f" required={_req / 1e6:.1f}MB"
-                    f" in_flight={self._in_flight_ram_bytes / 1e6:.1f}MB"
-                    f" available={_avail / 1e6:.1f}MB"
-                    f" (budget={self._ram_budget_bytes / 1e6:.1f}MB"
-                    f" - reserved_hold={_hold / 1e6:.1f}MB)"
-                    f" defer_count={main_candidate.defer_count}"
-                )
         sem.release()
         return False
 
@@ -1276,13 +1188,6 @@ class WorkScheduler:
                             f"Traceback:\n{exc.__traceback__}"
                         )
                         self._finalize_plan_outputs(plan_state, success=False)
-                        print(
-                            f"[WorkScheduler] Plan finished:"
-                            f" id={plan_id!r}"
-                            f" task={plan_state.task_plan.semantic_task_id!r}"
-                            f" success=False (fail-fast)"
-                            f" error={fail_message!r}"
-                        )
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
@@ -1319,13 +1224,6 @@ class WorkScheduler:
                             f"first failure unit={first_unit_id}: {first_exc}"
                         )
                         self._finalize_plan_outputs(plan_state, success=False)
-                        print(
-                            f"[WorkScheduler] Plan finished:"
-                            f" id={plan_id!r}"
-                            f" task={plan_state.task_plan.semantic_task_id!r}"
-                            f" success=False"
-                            f" error={fail_message!r}"
-                        )
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
@@ -1338,12 +1236,6 @@ class WorkScheduler:
                         self._finalize_plan_outputs(plan_state, success=True)
                         if self._task_manager is not None:
                             self._task_manager.task_finished.emit(plan_id)
-                        print(
-                            f"[WorkScheduler] Plan finished:"
-                            f" id={plan_id!r}"
-                            f" task={plan_state.task_plan.semantic_task_id!r}"
-                            f" success=True"
-                        )
                         plan_state.completion_future.set_result(None)
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=True)
