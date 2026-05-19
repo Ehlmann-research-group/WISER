@@ -634,6 +634,14 @@ class WorkScheduler:
 
         service_address, service_authkey = storage_service.get_connection_bootstrap()
 
+        # On Linux, the default 'fork' start method is unsafe when Qt is
+        # running: os.fork() triggers pthread_atfork handlers that try to
+        # acquire Qt's internal mutexes, which may be held by Qt background
+        # threads (especially after a QApplication teardown/recreation between
+        # tests). This causes os.fork() to deadlock indefinitely inside
+        # executor.submit(). 'forkserver' forks from a clean helper process
+        # that has no Qt state, avoiding the deadlock entirely.
+        # Issue # 526
         if sys.platform.startswith("linux"):
             _mp_context = multiprocessing.get_context("forkserver")
         else:
