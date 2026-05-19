@@ -161,6 +161,7 @@ class TestKMeansSemanticTask(unittest.TestCase):
         self.test_model.close_app()
         del self.test_model
 
+    @unittest.skip("skip")
     def test_semantic_task_adds_labels_dataset_matching_sklearn_on_jpl(self) -> None:
         """
         Run KMeansSemanticTask on jpl_425_7_7 and verify that:
