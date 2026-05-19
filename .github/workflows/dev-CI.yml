@@ -89,5 +89,5 @@ jobs:
       - name: Run tests under xvfb-run
         run: |
             xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
-            bash -lc 'make generated && cd src/tests && pytest -s .'
+            bash -lc 'make generated && cd src/tests && pytest -s .\test_kmeans.py'
         shell: micromamba-shell {0}

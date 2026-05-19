@@ -736,6 +736,13 @@ class WorkScheduler:
         """Validate, initialize, and enqueue a task plan for staged execution."""
 
         self._validate_task_plan(task_plan)
+        print(
+            f"[WorkScheduler] Plan submitted:"
+            f" id={task_plan.plan_id!r}"
+            f" task={task_plan.semantic_task_id!r}"
+            f" stages={len(task_plan.stage_work_units)}"
+            f" units={len(task_plan.work_units)}"
+        )
         if self._recorder is not None:
             self._recorder.on_plan_submitted(task_plan.plan_id)
         stage_order = self._ordered_stage_ids(task_plan)
@@ -1212,6 +1219,13 @@ class WorkScheduler:
                             f"Traceback:\n{exc.__traceback__}"
                         )
                         self._finalize_plan_outputs(plan_state, success=False)
+                        print(
+                            f"[WorkScheduler] Plan finished:"
+                            f" id={plan_id!r}"
+                            f" task={plan_state.task_plan.semantic_task_id!r}"
+                            f" success=False (fail-fast)"
+                            f" error={fail_message!r}"
+                        )
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
@@ -1248,6 +1262,13 @@ class WorkScheduler:
                             f"first failure unit={first_unit_id}: {first_exc}"
                         )
                         self._finalize_plan_outputs(plan_state, success=False)
+                        print(
+                            f"[WorkScheduler] Plan finished:"
+                            f" id={plan_id!r}"
+                            f" task={plan_state.task_plan.semantic_task_id!r}"
+                            f" success=False"
+                            f" error={fail_message!r}"
+                        )
                         plan_state.completion_future.set_exception(RuntimeError(fail_message))
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=False, error=fail_message)
@@ -1260,6 +1281,12 @@ class WorkScheduler:
                         self._finalize_plan_outputs(plan_state, success=True)
                         if self._task_manager is not None:
                             self._task_manager.task_finished.emit(plan_id)
+                        print(
+                            f"[WorkScheduler] Plan finished:"
+                            f" id={plan_id!r}"
+                            f" task={plan_state.task_plan.semantic_task_id!r}"
+                            f" success=True"
+                        )
                         plan_state.completion_future.set_result(None)
                         if self._recorder is not None:
                             self._recorder.on_plan_completed(plan_id, success=True)
