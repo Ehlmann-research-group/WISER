@@ -994,6 +994,20 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(blocked_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
+                _req = blocked_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
+                print(
+                    f"[WorkScheduler] Admission deferred (blocked → reserved, defer threshold exceeded):"
+                    f" unit={blocked_candidate.work_unit.unit_id!r}"
+                    f" plan={blocked_candidate.plan_id!r}"
+                    f" required={_req / 1e6:.1f}MB"
+                    f" in_flight={self._in_flight_ram_bytes / 1e6:.1f}MB"
+                    f" available={_avail / 1e6:.1f}MB"
+                    f" (budget={self._ram_budget_bytes / 1e6:.1f}MB"
+                    f" - reserved_hold={_hold / 1e6:.1f}MB)"
+                    f" defer_count={blocked_candidate.defer_count}"
+                )
 
         for main_candidate in list(main_queue):
             if main_candidate not in main_queue:
@@ -1024,6 +1038,20 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(main_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
+                _req = main_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
+                print(
+                    f"[WorkScheduler] Admission deferred (main → reserved, defer threshold exceeded):"
+                    f" unit={main_candidate.work_unit.unit_id!r}"
+                    f" plan={main_candidate.plan_id!r}"
+                    f" required={_req / 1e6:.1f}MB"
+                    f" in_flight={self._in_flight_ram_bytes / 1e6:.1f}MB"
+                    f" available={_avail / 1e6:.1f}MB"
+                    f" (budget={self._ram_budget_bytes / 1e6:.1f}MB"
+                    f" - reserved_hold={_hold / 1e6:.1f}MB)"
+                    f" defer_count={main_candidate.defer_count}"
+                )
             else:
                 blocked_queue.append(main_candidate)
                 self._log_queue_transition_locked(
@@ -1037,6 +1065,20 @@ class WorkScheduler:
                         main_candidate.work_unit.priority_class,
                     ),
                     reason="ram_gate_failed",
+                )
+                _req = main_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
+                print(
+                    f"[WorkScheduler] Admission deferred (main → blocked, RAM gate):"
+                    f" unit={main_candidate.work_unit.unit_id!r}"
+                    f" plan={main_candidate.plan_id!r}"
+                    f" required={_req / 1e6:.1f}MB"
+                    f" in_flight={self._in_flight_ram_bytes / 1e6:.1f}MB"
+                    f" available={_avail / 1e6:.1f}MB"
+                    f" (budget={self._ram_budget_bytes / 1e6:.1f}MB"
+                    f" - reserved_hold={_hold / 1e6:.1f}MB)"
+                    f" defer_count={main_candidate.defer_count}"
                 )
         sem.release()
         return False
