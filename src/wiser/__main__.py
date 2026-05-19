@@ -328,6 +328,5 @@ if __name__ == "__main__":
         # is not able to set the start method to spawn. However, we do use a
         # start context with spawn, so this shouldn't really mater
         logger.debug(f"Start method not set to spawn. Defaulting to {multiprocessing.get_start_method()}")
-        print(f"Start method not set to spawn. Defaulting to {multiprocessing.get_start_method()}")
         pass
     main()
