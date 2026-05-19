@@ -634,13 +634,13 @@ class WorkScheduler:
 
         service_address, service_authkey = storage_service.get_connection_bootstrap()
 
-        if sys.platform.startswith("linux"):
-            _mp_context = multiprocessing.get_context("forkserver")
-        else:
-            _mp_context = multiprocessing.get_context("spawn")
+        # if sys.platform.startswith("linux"):
+        #     _mp_context = multiprocessing.get_context("forkserver")
+        # else:
+        #     _mp_context = multiprocessing.get_context("spawn")
         self._process_executor = ProcessPoolExecutor(
             max_workers=self._process_budget,
-            mp_context=_mp_context,
+            # mp_context=_mp_context,
             initializer=initialize_process_storage_client,
             initargs=(service_address, service_authkey),
         )
