@@ -8,6 +8,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.generated.subdataset_chooser_dialog_ui import Ui_SubdatasetChooser
 from .util import populate_combo_box_with_units
+from wiser.raster.utils import extract_netcdf_wavelengths, extract_netcdf_bad_bands
 from osgeo import gdal, osr
 
 import numpy as np
@@ -79,6 +80,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
         self._spatial_ref_wkt: Optional[str] = None  # Keep raw string until asked for osr object
         self._wavelengths: Optional[np.ndarray] = None
+        self._bad_bands: Optional[List[int]] = None
         self._use_wavelengths: bool = None
         self.netcdf_impl = None  # Of type NetCDF_GDALRasterDataImpl
         self._band_count: int = None
@@ -257,22 +259,11 @@ class SubdatasetFileOpenerDialog(QDialog):
         tbl.setColumnCount(1)
         tbl.setHorizontalHeaderLabels(["Bands List"])
 
-        # Try to extract wavelength array from the NetCDF side first.
-        wavelengths: Optional[List[float]] = None
-        try:
-            sbp_group = self._netcdf_dataset.groups.get("sensor_band_parameters")
-            if sbp_group and "wavelengths" in sbp_group.variables:
-                wl_var = sbp_group["wavelengths"]
-                wavelengths = wl_var[:]
-            else:
-                wl_var = self._netcdf_dataset.variables["wavelengths"]
-                wavelengths = wl_var[:]
-
-        except Exception:
-            # Any failure means we fallback to just the indices
-            wavelengths = None
-
+        # Extract wavelength array from the NetCDF file (searches all groups/
+        # subgroups at any nesting depth).
+        wavelengths, _detected_unit = extract_netcdf_wavelengths(self._netcdf_dataset)
         self._wavelengths = wavelengths
+        self._bad_bands = extract_netcdf_bad_bands(self._netcdf_dataset)
 
         subdataset = self._get_selected_subdataset()
 
@@ -300,6 +291,16 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Disable wavelength-unit selection if we did not manage to extract any.
         self._ui.cbox_wavelength_units.setEnabled(self._use_wavelengths)
+
+        # Enable "Use Good Wavelength Bands" only when we have wavelengths AND a
+        # good-wavelength mask whose length matches the wavelength array.
+        good_wvl_valid = (
+            self._use_wavelengths
+            and self._bad_bands is not None
+            and len(self._bad_bands) == len(self._wavelengths)
+        )
+        self._ui.cbox_good_wvl_bands.setEnabled(good_wvl_valid)
+        self._ui.cbox_good_wvl_bands.setChecked(good_wvl_valid)
 
         tbl.setRowCount(self._band_count)
         for i in range(self._band_count):
@@ -346,6 +347,17 @@ class SubdatasetFileOpenerDialog(QDialog):
     def _get_wavelength_units(self) -> Optional[u.Unit]:
         """Return the currently selected *astropy.units.Unit* or *None*."""
         return self._ui.cbox_wavelength_units.currentData()
+
+    def _get_bad_bands(self) -> Optional[List[int]]:
+        """Return the good-wavelength mask as a bad-bands list, or *None*.
+
+        Returns ``self._bad_bands`` (a list of ``1`` / ``0`` ints where
+        ``1`` = good band, ``0`` = bad band) when the *Use Good Wavelength
+        Bands* checkbox is checked and enabled.  Returns ``None`` otherwise.
+        """
+        if not self._ui.cbox_good_wvl_bands.isChecked():
+            return None
+        return self._bad_bands
 
     def _get_subdataset_choice(self) -> Tuple[str, str]:
         """Return the key for the currently selected sub-dataset."""
@@ -396,6 +408,7 @@ class SubdatasetFileOpenerDialog(QDialog):
             wl_unit,
             wavelengths,
             geotransform,
+            bad_bands=self._get_bad_bands(),
         )
 
         super().accept()
