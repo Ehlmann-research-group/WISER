@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import multiprocessing
 import os
+import sys
 
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -632,8 +634,21 @@ class WorkScheduler:
 
         service_address, service_authkey = storage_service.get_connection_bootstrap()
 
+        # On Linux, the default 'fork' start method is unsafe when Qt is
+        # running: os.fork() triggers pthread_atfork handlers that try to
+        # acquire Qt's internal mutexes, which may be held by Qt background
+        # threads (especially after a QApplication teardown/recreation between
+        # tests). This causes os.fork() to deadlock indefinitely inside
+        # executor.submit(). 'forkserver' forks from a clean helper process
+        # that has no Qt state, avoiding the deadlock entirely.
+        # Issue # 526
+        if sys.platform.startswith("linux"):
+            _mp_context = multiprocessing.get_context("forkserver")
+        else:
+            _mp_context = multiprocessing.get_context("spawn")
         self._process_executor = ProcessPoolExecutor(
             max_workers=self._process_budget,
+            mp_context=_mp_context,
             initializer=initialize_process_storage_client,
             initargs=(service_address, service_authkey),
         )
@@ -987,6 +1002,9 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(blocked_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
+                _req = blocked_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
 
         for main_candidate in list(main_queue):
             if main_candidate not in main_queue:
@@ -1017,6 +1035,9 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(main_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
+                _req = main_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
             else:
                 blocked_queue.append(main_candidate)
                 self._log_queue_transition_locked(
@@ -1031,6 +1052,9 @@ class WorkScheduler:
                     ),
                     reason="ram_gate_failed",
                 )
+                _req = main_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
         sem.release()
         return False
 

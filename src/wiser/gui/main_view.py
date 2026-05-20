@@ -436,7 +436,9 @@ class MainViewWidget(RasterPane):
         dataset_id = None if dataset is None else dataset.get_id()
         dlg = KMeansDialog(self._app_state, self._app_services, parent=self)
         dlg.select_dataset(dataset_id)
-        dlg.exec_()
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
         # If dialog exists and is already visible, just bring it to front
