@@ -2143,6 +2143,251 @@ def get_noise_covariance_pipeline(noise_ref: DataRef, output_ref_name: str) -> A
     return AlgorithmPipeline([noise_mean_stage, noise_cov_stage])
 
 
+def _run_band_subset_tile(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    y_offset: int,
+    x_offset: int,
+    bands: Tuple[int, ...],
+) -> None:
+    """
+    Copy one spatial tile of the selected bands from ``input_ref`` into the
+    band-subset output.
+
+    ``input_region`` is expressed in output (subset) coordinates: its y/x bounds
+    are relative to the requested spatial extent and its band span is the subset
+    band count. The original-dataset region is recovered by adding the extent
+    offsets, and the requested ``bands`` are gathered in the order they were
+    requested.
+    """
+    if not isinstance(input_region, DatasetRegionRef):
+        raise TypeError("Band subset stage requires DatasetRegionRef input_region")
+
+    client = get_process_storage_client()
+    band_lo = min(bands)
+    band_hi = max(bands) + 1
+    source_region = DatasetRegionRef(
+        y0=y_offset + input_region.y0,
+        y1=y_offset + input_region.y1,
+        x0=x_offset + input_region.x0,
+        x1=x_offset + input_region.x1,
+        b0=band_lo,
+        b1=band_hi,
+    )
+    tile, _ = client.read_region(input_ref, source_region, filter_data=False)
+    tile_raw = np.asarray(np.ma.getdata(np.ma.array(tile, copy=False)))
+    relative_band_indices = [band - band_lo for band in bands]
+    subset_tile = tile_raw[:, :, relative_band_indices]
+    if not subset_tile.flags.c_contiguous:
+        subset_tile = np.ascontiguousarray(subset_tile)
+
+    assert output_write.region is not None, "Band subset output_write.region cannot be None"
+    output_write.region.validate_array_shape(subset_tile)
+    client.write_spec(output_write, subset_tile)
+
+
+def _write_band_subset_output_meta(
+    input_ref: DataRef,
+    output_write: "WriteSpec",
+    bands: Tuple[int, ...],
+    y_offset: int,
+    x_offset: int,
+) -> None:
+    client = get_process_storage_client()
+    input_meta = client.get_meta(input_ref)
+    output_meta = client.get_meta(output_write.ref)
+
+    band_index = np.asarray(bands, dtype=np.intp)
+    wavelengths = input_meta.wavelengths
+    if wavelengths is not None:
+        wavelengths = np.asarray(wavelengths)[band_index]
+    bad_bands = input_meta.bad_bands
+    if bad_bands is not None:
+        bad_bands = np.asarray(bad_bands)[band_index]
+
+    subset_meta = replace(
+        output_meta,
+        elem_type=np.dtype(input_meta.elem_type),
+        wavelengths=wavelengths,
+        wavelength_units=input_meta.wavelength_units,
+        nodata=input_meta.nodata,
+        bad_bands=bad_bands,
+        crs_wkt=input_meta.crs_wkt,
+        geotransform=_subset_geotransform(input_meta.geotransform, x_offset, y_offset),
+    )
+    client.write_meta(output_write.ref, subset_meta)
+
+
+@dataclass
+class BandSubsetStage(MapStage):
+    """
+    Copy a spatial extent of an arbitrary set of bands from a dataset into a new
+    sub-dataset.
+
+    The input dataset is assumed to be shaped ``[y][x][b]``. The output is a
+    dataset of shape ``(y_extent, x_extent, len(bands))`` whose bands are the
+    requested band indices in the requested order. Work is tiled spatially so
+    independent tiles can be written to the memmap-backed output in parallel.
+    """
+
+    _output_ref_name: str = "band_subset_dataset"
+    _bands: Tuple[int, ...] = ()
+    _y0: int = 0
+    _y1: int = 0
+    _x0: int = 0
+    _x1: int = 0
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("Band subset stage requires DatasetRegionRef input")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=len(self._bands),
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(input_meta, DatasetPlanMeta), "Band subset stage input_meta must be DatasetPlanMeta"
+        if len(self._bands) == 0:
+            raise ValueError("Band subset stage requires at least one band")
+
+        band_count = len(self._bands)
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="spill_required",
+                size_est=input_meta.height * input_meta.width * band_count * input_meta.dtype.itemsize,
+                shape=(input_meta.height, input_meta.width, band_count),
+                dtype=input_meta.dtype,
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _run_band_subset_tile,
+            input_ref,
+            input_region,
+            output_write,
+            self._y0,
+            self._x0,
+            tuple(self._bands),
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (full_input_region, broadcast_inputs)
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _write_band_subset_output_meta,
+            input_ref,
+            output_write,
+            tuple(self._bands),
+            self._y0,
+            self._x0,
+        )
+
+
+def get_band_subset_pipeline(
+    dataset_ref: DataRef,
+    bands: Sequence[int],
+    output_ref_name: str,
+    y0: Optional[int] = None,
+    y1: Optional[int] = None,
+    x0: Optional[int] = None,
+    x1: Optional[int] = None,
+) -> AlgorithmPipeline:
+    """
+    Build a pipeline that copies a spatial extent of the selected ``bands`` of
+    ``dataset_ref`` into a new memmap-backed sub-dataset.
+
+    The spatial extent defaults to the full image when its bounds are omitted.
+    ``bands`` may contain an arbitrary number of band indices, in any order, and
+    they appear in the output in the order given.
+    """
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    total_rows, total_cols, total_bands = dataset_meta.shape
+    resolved_y0 = 0 if y0 is None else y0
+    resolved_y1 = total_rows if y1 is None else y1
+    resolved_x0 = 0 if x0 is None else x0
+    resolved_x1 = total_cols if x1 is None else x1
+    if not (0 <= resolved_y0 < resolved_y1 <= total_rows):
+        raise ValueError(f"Invalid row extent: ({resolved_y0}, {resolved_y1}) for total_rows={total_rows}")
+    if not (0 <= resolved_x0 < resolved_x1 <= total_cols):
+        raise ValueError(f"Invalid column extent: ({resolved_x0}, {resolved_x1}) for total_cols={total_cols}")
+
+    bands_tuple = tuple(int(band) for band in bands)
+    if len(bands_tuple) == 0:
+        raise ValueError("Band subset requires at least one band")
+    for band in bands_tuple:
+        if not (0 <= band < total_bands):
+            raise ValueError(f"Band index {band} out of range for total_bands={total_bands}")
+
+    subset_shape = (resolved_y1 - resolved_y0, resolved_x1 - resolved_x0, len(bands_tuple))
+    dataset_plan_meta = DatasetPlanMeta(shape=subset_shape, dtype=np.dtype(dataset_meta.elem_type))
+    return AlgorithmPipeline(
+        [
+            BandSubsetStage(
+                _output_ref_name=output_ref_name,
+                _bands=bands_tuple,
+                _y0=resolved_y0,
+                _y1=resolved_y1,
+                _x0=resolved_x0,
+                _x1=resolved_x1,
+                default_executor="process",
+                input_plan_meta=dataset_plan_meta,
+                resource_model=ResourceModel(
+                    fixed_overhead_bytes=0,
+                    bytes_per_scalar_in=1,
+                    bytes_per_scalar_out=1,
+                    scratch_bytes_per_scalar_in=0,
+                ),
+                chunking_scheme_type=SpatialTileScheme,
+            )
+        ]
+    )
+
+
 def _good_band_mask_for_region_meta(region_meta, band_count: int) -> np.ndarray:
     good_band_mask = np.ones((band_count,), dtype=np.bool_)
     if region_meta.bad_bands is None:
