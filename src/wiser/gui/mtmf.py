@@ -1,4 +1,4 @@
-"""Matched target / matched filter (MTMF) task stage for hyperspectral cubes."""
+"""Mixture Tuned Matched Filter (MTMF) task stage for hyperspectral cubes."""
 
 import datetime
 from enum import IntEnum
@@ -214,7 +214,6 @@ def _run_mnf_mahalanobis_tile(
 
     # Λ⁻¹ x t_mnf^T → (num_features, N_targets)
     inv_cov_t = inv_cov @ t_mnf.T
-    # inv_cov_t = t_mnf.T
 
     # Numerator: x_mnf @ (Λ⁻¹ t_mnf^T) → (n_valid, N_targets)
     numerators = flat_valid @ inv_cov_t
@@ -551,6 +550,9 @@ def get_mnf_mtmf_pipeline(
         mnf_whitened_covariance_ref_name:    Ref name for the whitened covariance matrix.
         mnf_whitened_eigen_ref_name:         Ref name for the whitened eigen-decomposition.
         mnf_data_ref_name:                   Ref name for the MNF-transformed data cube output.
+        data_variance_factor:                Scale factor applied to the data covariance when
+                                             selecting the number of MNF components to retain.
+                                             Defaults to ``2``.
         shift_diff_noise_direction:          Spatial direction used by the internal shift-difference
                                              noise stage.  Defaults to ``ShiftDiffNoiseDirection.DOWN``.
 
@@ -592,10 +594,10 @@ def get_mnf_mtmf_pipeline(
         shift_diff_noise_direction=shift_diff_noise_direction,
     )
 
-    # Step 3 — build full MNF transformation matrix T = A x W
-    # A = whitened eigenvectors (num_features x num_features)
-    # W = noise whitening matrix (num_features x num_features)
-    # T = A x W maps a mean-centered input spectrum directly into MNF space
+    # Step 1 — build full MNF transformation matrix T = A × W
+    # A = whitened eigenvectors (num_features × num_features)
+    # W = noise whitening matrix (num_features × num_features)
+    # T = A × W maps a mean-centered input spectrum directly into MNF space
     mnf_transform_matrix_ref_name = "mtmf_mnf_transform_matrix"
     mnf_eigenvectors_ref_name = f"{mnf_whitened_eigen_ref_name}_vectors"
     transform_matrix_stage = MatrixMultiplicationStage(
@@ -622,7 +624,7 @@ def get_mnf_mtmf_pipeline(
         },
     )
 
-    # Step 4 — construct Λ (diagonal covariance of MNF data) from eigenvalues
+    # Step 2 — construct Λ (diagonal covariance of MNF data) from eigenvalues
     # The covariance of MNF-transformed data equals the diagonal matrix of
     # the whitened eigenvalues, i.e. Λ = diag(λ₁, λ₂, ..., λ_N)
     mnf_eigenvalues_ref_name = f"{mnf_whitened_eigen_ref_name}_values"
@@ -645,8 +647,8 @@ def get_mnf_mtmf_pipeline(
         ),
     )
 
-    # Stage 1 — transform target spectra into MNF space
-    # t_mnf = T_mnf x (t - μ_b), with bad bands stripped from t first
+    # Step 3 — transform target spectra into MNF space
+    # t_mnf = T_mnf × (t - μ_b), with bad bands stripped from t first
     target_mnf_ref_name = "mtmf_target_mnf"
     _target_spectra_bc = "mtmf_bc_target_spectra"
     _input_mean_bc = "mtmf_bc_input_mean"
@@ -676,7 +678,7 @@ def get_mnf_mtmf_pipeline(
         },
     )
 
-    # Step 2 — invert Λ to get Λ⁻¹ for the matched filter
+    # Step 4 — invert Λ to get Λ⁻¹ for the matched filter
     inv_lambda_ref_name = "mtmf_inv_lambda"
     inv_lambda_stage = PosSemiDefMatrixInverse(
         _output_ref_name=inv_lambda_ref_name,
@@ -696,7 +698,7 @@ def get_mnf_mtmf_pipeline(
         chunking_scheme_type=NoChunkingScheme,
     )
 
-    # Step 3 — matched filter: score = (t_mnf^T Λ⁻¹ x_mnf) / (t_mnf^T Λ⁻¹ t_mnf)
+    # Step 5 — matched filter: score = (t_mnf^T Λ⁻¹ x_mnf) / (t_mnf^T Λ⁻¹ t_mnf)
     # Primary input: MNF data cube (H, W, num_features), already mean-centered.
     # Broadcast: Λ⁻¹ and t_mnf.  Output: (H, W, N_targets) float32.
     _inv_lambda_bc = "mtmf_bc_inv_lambda"
@@ -722,7 +724,7 @@ def get_mnf_mtmf_pipeline(
         },
     )
 
-    # Step 4 — infeasibility via mixture-tuning residual norm:
+    # Step 6 — infeasibility via mixture-tuning residual norm:
     #   d_k = sqrt(lambda_k) * (1 - alpha) + alpha
     #   I   = ||( x_mnf - alpha * t_mnf ) / d||_2
     # Uses the raw eigenvalue vector (diagonal of Λ), not Λ⁻¹.
@@ -1224,11 +1226,17 @@ _MTMF_NOISE_PLAN_BINDING = "mtmf_noise_ref"
 class MTMFSemanticTask(QObject, SemanticTask):
     """Semantic task that runs the full Mixture Tuned Matched Filter pipeline.
 
-    Registers the source and noise datasets, stacks the target spectra into a
-    single array, builds the four-stage MTMF pipeline (noise mean → noise
-    covariance → pseudoinverse → matched filter), and on completion slices the
+    Registers the source dataset, stacks the target spectra into a single
+    array, builds the MNF-based MTMF pipeline (MNF transform → target
+    projection → matched filter → infeasibility), and on completion slices the
     3-D output ``(H, W, N_targets)`` into individual score-map datasets — one
     per target — and loads them into the WISER application state.
+
+    Exactly one of ``noise_dataset`` or ``shift_diff_noise_direction`` must be
+    provided.  When ``shift_diff_noise_direction`` is given the noise
+    statistics are estimated from the source cube via a shift-difference
+    approach.  When ``noise_dataset`` is given an external dark-image dataset
+    supplies the noise estimate.
 
     Args:
         app_state: The running :class:`ApplicationState` used to register
@@ -1236,25 +1244,23 @@ class MTMFSemanticTask(QObject, SemanticTask):
         app_services: Application services used for dataset registration and
             task allocation.
         source_dataset: The hyperspectral image cube to score.
-        noise_dataset: A dataset used to estimate background noise statistics
-            (mean and covariance).  Must have the same spectral bands as
-            ``source_dataset``.
         target_spectra: One or more target reference spectra.  Each spectrum
             must span the *full* band count of ``source_dataset`` (bad-band
             removal is performed internally).
         output_ref_name: Storage allocation name for the matched-filter output
             cube.  Defaults to ``"matched_filter_output"``.
+        noise_dataset: An external dataset used to estimate background noise
+            statistics.  Must have the same spectral bands as
+            ``source_dataset``.  Mutually exclusive with
+            ``shift_diff_noise_direction``.
+        shift_diff_noise_direction: Spatial direction for the shift-difference
+            noise estimator applied to the source cube.  Mutually exclusive
+            with ``noise_dataset``.
 
     Signals:
-        result_ready: Emitted in the completion callback with the score array
-            ``(H, W, N_targets)`` and the list of target names.  Connected to
+        result_ready: Emitted in the completion callback with the
+            ``(H, W, N_targets)`` float32 score array.  Connected to
             :meth:`_load_result_into_wiser` which runs on the Qt main thread.
-
-    Note:
-        The task's ``input_ref`` is the **source** image cube.  The noise
-        dataset is supplied through ``extra_plan_bindings`` under
-        ``mtmf_noise_ref`` so the first two pipeline stages can read it while
-        the matched-filter stage uses ``__task_input__`` for the source.
     """
 
     result_ready = Signal(object)
@@ -1334,6 +1340,7 @@ class MTMFSemanticTask(QObject, SemanticTask):
                 output_ref_name=output_ref_name,
             )
             noise_label = noise_dataset.get_name() or "Noise Dataset"
+            # Needed so the noise dataset is available to the MTMF pipeline
             extra_bindings = {_MTMF_NOISE_PLAN_BINDING: noise_ref}
 
         SemanticTask.__init__(
