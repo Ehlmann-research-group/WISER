@@ -468,6 +468,14 @@ class RecordingWorkScheduler:
 
         for plan_id in plan_ids_in_order:
             plan_events = [event for event in self.events if event.plan_id == plan_id]
+            plan_start = next((event.time for event in plan_events if event.kind == "plan_submitted"), None)
+            plan_end = next(
+                (event.time for event in reversed(plan_events) if event.kind == "plan_completed"), None
+            )
+            plan_duration = (
+                f"{plan_end - plan_start:.6f}s" if plan_start is not None and plan_end is not None else "n/a"
+            )
+            print(f"Plan {plan_id} ({plan_duration})")
 
             stage_ids_in_order = []
             seen_stage_ids: set[str] = set()
@@ -479,6 +487,22 @@ class RecordingWorkScheduler:
 
             for stage_id in stage_ids_in_order:
                 stage_events = [event for event in plan_events if event.stage_id == stage_id]
+                stage_start = next(
+                    (event.time for event in stage_events if event.kind == "stage_enqueued"),
+                    None,
+                )
+                stage_done_times = [
+                    event.time
+                    for event in stage_events
+                    if event.kind == "unit_done" and event.unit_id is not None
+                ]
+                stage_end = max(stage_done_times) if stage_done_times else None
+                stage_duration = (
+                    f"{stage_end - stage_start:.6f}s"
+                    if stage_start is not None and stage_end is not None
+                    else "n/a"
+                )
+                print(f"  Stage {stage_id} ({stage_duration})")
 
                 unit_ids_in_order = []
                 seen_unit_ids: set[str] = set()
@@ -487,6 +511,30 @@ class RecordingWorkScheduler:
                         continue
                     unit_ids_in_order.append(event.unit_id)
                     seen_unit_ids.add(event.unit_id)
+
+                for unit_id in unit_ids_in_order:
+                    unit_submit = next(
+                        (
+                            event.time
+                            for event in stage_events
+                            if event.kind == "unit_submitted" and event.unit_id == unit_id
+                        ),
+                        None,
+                    )
+                    unit_done = next(
+                        (
+                            event.time
+                            for event in stage_events
+                            if event.kind == "unit_done" and event.unit_id == unit_id
+                        ),
+                        None,
+                    )
+                    unit_duration = (
+                        f"{unit_done - unit_submit:.6f}s"
+                        if unit_submit is not None and unit_done is not None
+                        else "n/a"
+                    )
+                    print(f"    Unit {unit_id}: {unit_duration}")
 
 
 def _priority_weight(priority: PriorityClass) -> float:
