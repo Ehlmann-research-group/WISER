@@ -56,8 +56,8 @@ class SpectralImageComputeFunction(Protocol):
         target_image_arr: np.ndarray,
         target_wavelengths: np.ndarray,
         target_bad_bands: np.ndarray,
-        min_wvl: np.float64,
-        max_wvl: np.float64,
+        min_wvl: np.float32,
+        max_wvl: np.float32,
         reference_spectra: np.ndarray,
         reference_spectra_wvls: np.ndarray,
         reference_spectra_bad_bands: np.ndarray,
@@ -130,15 +130,15 @@ def _prepare_general_spectral_image_inputs(
 
     target_image_cube = target.get_image_data()
     if isinstance(target_image_cube, np.ma.MaskedArray):
-        target_image_arr = np.asarray(target_image_cube.data, dtype=np.float64)
+        target_image_arr = np.asarray(target_image_cube.data, dtype=np.float32)
     else:
-        target_image_arr = np.asarray(target_image_cube, dtype=np.float64)
+        target_image_arr = np.asarray(target_image_cube, dtype=np.float32)
     if not target_image_arr.flags.c_contiguous:
         target_image_arr = np.ascontiguousarray(target_image_arr)
 
     target_wavelengths = np.array(
         [band_info["wavelength"].to(target_unit).value for band_info in target.get_band_info()],
-        dtype=np.float64,
+        dtype=np.float32,
     )
     target_bad_bands_raw = target.get_bad_bands()
     if target_bad_bands_raw is None:
@@ -146,8 +146,8 @@ def _prepare_general_spectral_image_inputs(
     else:
         target_bad_bands = np.asarray(target_bad_bands_raw, dtype=np.bool_)
 
-    new_min_wvl = np.float64(min_wvl.to(target_unit).value)
-    new_max_wvl = np.float64(max_wvl.to(target_unit).value)
+    new_min_wvl = np.float32(min_wvl.to(target_unit).value)
+    new_max_wvl = np.float32(max_wvl.to(target_unit).value)
 
     length_all_references = 0
     ref_offsets = [0]
@@ -156,8 +156,8 @@ def _prepare_general_spectral_image_inputs(
         length_all_references += length_of_ref
         ref_offsets.append(ref_offsets[-1] + length_of_ref)
 
-    new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float64)
-    new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float64)
+    new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+    new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
     new_refs_bad_bands = np.ones((length_all_references,), dtype=np.bool_)
 
     for index, reference in enumerate(references):
@@ -167,10 +167,10 @@ def _prepare_general_spectral_image_inputs(
 
         start = ref_offsets[index]
         end = ref_offsets[index + 1]
-        new_refs_arr[start:end] = np.asarray(reference.get_spectrum(), dtype=np.float64)
+        new_refs_arr[start:end] = np.asarray(reference.get_spectrum(), dtype=np.float32)
         new_refs_wvl[start:end] = np.asarray(
             [wavelength.to(target_unit).value for wavelength in reference.get_wavelengths()],
-            dtype=np.float64,
+            dtype=np.float32,
         )
         reference_bad_bands = reference.get_bad_bands()
         if reference_bad_bands is None:
@@ -178,7 +178,7 @@ def _prepare_general_spectral_image_inputs(
         else:
             new_refs_bad_bands[start:end] = np.asarray(reference_bad_bands, dtype=np.bool_)
 
-    threshold_arr = np.asarray(thresholds, dtype=np.float64)
+    threshold_arr = np.asarray(thresholds, dtype=np.float32)
     ref_offsets_arr = np.asarray(ref_offsets, dtype=np.uint32)
     if threshold_arr.shape[0] != len(references):
         raise ValueError(
@@ -734,7 +734,7 @@ def _run_continuum_removal_tile(
     x_axis, _ = client.read_data(x_axis_ref, filter_data=False)
     bad_bands_arr, _ = client.read_data(bad_bands_ref, filter_data=False)
 
-    image_tile_array = np.asarray(np.ma.getdata(np.ma.array(image_tile, copy=False)), dtype=np.float64)
+    image_tile_array = np.asarray(np.ma.getdata(np.ma.array(image_tile, copy=False)), dtype=np.float32)
     if not image_tile_array.flags.c_contiguous:
         image_tile_array = np.ascontiguousarray(image_tile_array)
 
@@ -744,7 +744,7 @@ def _run_continuum_removal_tile(
     reduced_by_band = continuum_removal_image_numba(
         image_tile_array,
         np.asarray(bad_bands_arr, dtype=np.bool_),
-        np.asarray(np.ma.getdata(x_axis), dtype=np.float64),
+        np.asarray(np.ma.getdata(x_axis), dtype=np.float32),
         rows,
         cols,
         bands,
