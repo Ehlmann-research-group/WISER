@@ -1955,6 +1955,27 @@ def _running_covariance(
     client.write_data(output_ref, running_cov)
 
 
+def _convert_covariance_to_correlation(output_ref: DataRef) -> None:
+    """
+    Normalize an accumulated covariance matrix in place into a correlation matrix.
+
+    Reads the fully accumulated running covariance of shape [b][b][1], divides each
+    entry by the product of the corresponding standard deviations, and writes the
+    result back. Features with zero variance yield zero correlation entries to avoid
+    division by zero.
+    """
+    client = get_process_storage_client()
+    running_cov, _ = client.read_data(output_ref)
+    cov = np.asarray(running_cov, dtype=np.float64)
+    cov_matrix = cov[:, :, 0]
+    standard_deviations = np.sqrt(np.diag(cov_matrix))
+    denominator = np.outer(standard_deviations, standard_deviations)
+    correlation_matrix = np.zeros_like(cov_matrix)
+    valid = denominator > 0
+    correlation_matrix[valid] = cov_matrix[valid] / denominator[valid]
+    client.write_data(output_ref, correlation_matrix[:, :, np.newaxis].astype(running_cov.dtype, copy=False))
+
+
 @dataclass
 class CalcCovMatrixStage(SequentialStage):
     """
@@ -1962,6 +1983,9 @@ class CalcCovMatrixStage(SequentialStage):
     the data has not been mean subtracted. The input_ref data
     is assumed to be of shape [y][x][b] where [y][x] are the
     pixel axis and we want the noise of [b].
+
+    When ``_calc_as_correlation`` is True, the accumulated covariance matrix is
+    normalized into a correlation matrix once all tiles have been processed.
     """
 
     # You must override this
@@ -1971,6 +1995,7 @@ class CalcCovMatrixStage(SequentialStage):
     _num_features: int = -1
     _internal_total_ref_name: str = "_calc_cov_total"
     _data_variance_factor: float = 1
+    _calc_as_correlation: bool = False
     # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
     resource_model: ResourceModel = field(
@@ -2085,6 +2110,20 @@ class CalcCovMatrixStage(SequentialStage):
             total_ref,
             provided_total,
         )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        if not self._calc_as_correlation:
+            # super's post_task_fn is a noop
+            return super().post_task_fn(input_ref, full_input_region, output_writes, broadcast_inputs)
+        _ = (input_ref, full_input_region, broadcast_inputs)
+        output_ref = output_writes[self._output_ref_name].ref
+        return partial(_convert_covariance_to_correlation, output_ref)
 
 
 def get_noise_covariance_pipeline(noise_ref: DataRef, output_ref_name: str) -> AlgorithmPipeline:
