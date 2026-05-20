@@ -1,0 +1,26 @@
+ENVI
+description = {
+  Forward MNF Result [Mon May 11 18:43:30 2026]}
+samples = 30
+lines   = 40
+bands   = 15
+header offset = 0
+file type = ENVI Standard
+data type = 4
+interleave = bsq
+sensor type = Unknown
+byte order = 0
+wavelength units = Unknown
+band names = {
+ MNF Band 1 (jpl_15_40_30), MNF Band 2 (jpl_15_40_30), 
+ MNF Band 3 (jpl_15_40_30), MNF Band 4 (jpl_15_40_30), 
+ MNF Band 5 (jpl_15_40_30), MNF Band 6 (jpl_15_40_30), 
+ MNF Band 7 (jpl_15_40_30), MNF Band 8 (jpl_15_40_30), 
+ MNF Band 9 (jpl_15_40_30), MNF Band 10 (jpl_15_40_30), 
+ MNF Band 11 (jpl_15_40_30), MNF Band 12 (jpl_15_40_30), 
+ MNF Band 13 (jpl_15_40_30), MNF Band 14 (jpl_15_40_30), 
+ MNF Band 15 (jpl_15_40_30)}
+original wavelength = {
+ 1238.119995, 1243.130005, 1248.140015, 1253.150024, 1258.160034, 1263.160034,
+ 1268.170044, 1273.180054, 1278.189941, 1283.199951, 1288.209961, 1293.219971,
+ 1298.229980, 1303.229980, 1308.239990}

@@ -14,6 +14,7 @@ import wiser.gui.generated.resources
 from .export_image import ExportImageDialog
 from .kmeans import KMeansDialog
 from .mnf import MinimumNoiseFractionDialog
+from .mtmf import MTMFDialog
 from .plugin_utils import add_plugin_context_menu_items
 from .rasterpane import RasterPane
 from .rasterview import RasterView
@@ -212,6 +213,9 @@ class MainViewWidget(RasterPane):
 
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mnf_dialog(rv))
+
+        act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mtmf_dialog(rv))
 
         if FLAGS.kmeans:
             act = submenu.addAction(self.tr("K-means"))
@@ -439,6 +443,16 @@ class MainViewWidget(RasterPane):
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()
+
+    def _open_mtmf_dialog(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        dataset_id = None if dataset is None else dataset.get_id()
+        if not hasattr(self, "_mtmf_dialog") or self._mtmf_dialog is None:
+            self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)
+        self._mtmf_dialog.select_image_cube_dataset(dataset_id)
+        self._mtmf_dialog.show()
+        self._mtmf_dialog.raise_()
+        self._mtmf_dialog.activateWindow()
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
         # If dialog exists and is already visible, just bring it to front
