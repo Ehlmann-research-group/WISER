@@ -1,0 +1,15 @@
+ENVI
+description = Create New File Result [Wed Jul 17 08:20:52 2019] [Wed Jul 17 08:24:15 2019]
+samples = 30
+lines = 40
+bands = 15
+header offset = 0
+file type = ENVI Standard
+data type = 4
+interleave = bsq
+byte order = 0
+wavelength units = Nanometers
+wavelength = {
+  1238.119995, 1243.130005, 1248.140015, 1253.150024, 1258.160034,
+  1263.160034, 1268.170044, 1273.180054, 1278.189941, 1283.199951,
+  1288.209961, 1293.219971, 1298.229980, 1303.229980, 1308.239990 }

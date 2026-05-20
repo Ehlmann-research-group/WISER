@@ -222,10 +222,7 @@ class GenericSpectralComputationTool(QDialog):
         ui = self._ui
         ui.SelectTargetData.blockSignals(True)
         ui.SelectTargetData.clear()
-        if FLAGS.sff_sam_image_cube:
-            ui.SelectTargetData.addItems(["Spectrum", "Image Cube"])
-        else:
-            ui.SelectTargetData.addItems(["Spectrum"])
+        ui.SelectTargetData.addItems(["Spectrum", "Image Cube"])
         ui.SelectTargetData.blockSignals(False)
         ui.SelectTargetData.setCurrentText("Spectrum")
         self._on_target_type_changed("Spectrum")
@@ -897,7 +894,10 @@ class GenericSpectralComputationTool(QDialog):
             target.set_color("#000000")
         except Exception:
             pass
-        plot_widget = SpectrumPlotGeneric(self._app_state)
+        plot_widget = SpectrumPlotGeneric(
+            app_state=self._app_state,
+            parent=self.parent(),
+        )
         layout.addWidget(plot_widget)
         plot_widget.add_collected_spectrum(target)
         for rec in rows[:5]:

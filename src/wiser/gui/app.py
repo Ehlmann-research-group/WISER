@@ -76,7 +76,9 @@ from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
 from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
+from wiser.gui.kmeans import KMeansDialog
 from wiser.gui.mnf import MinimumNoiseFractionDialog
+from wiser.gui.mtmf import MTMFDialog
 
 from wiser.config import FLAGS
 
@@ -383,16 +385,21 @@ class DataVisualizerApp(QMainWindow):
         act = submenu.addAction(self.tr("Interactive Scatter Plot"))
         act.triggered.connect(self.show_scatter_plot_dialog)
 
-        if FLAGS.sam:
-            act = submenu.addAction(self.tr("Spectral Angle Mapper"))
-            act.triggered.connect(self.show_spectral_angle_mapper_dialog)
+        act = submenu.addAction(self.tr("Spectral Angle Mapper"))
+        act.triggered.connect(self.show_spectral_angle_mapper_dialog)
 
-        if FLAGS.sff:
-            act = submenu.addAction(self.tr("Spectral Feature Fitting"))
-            act.triggered.connect(self.show_spectral_feature_fitting_dialog)
+        act = submenu.addAction(self.tr("Spectral Feature Fitting"))
+        act.triggered.connect(self.show_spectral_feature_fitting_dialog)
 
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
+
+        act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
+        act.triggered.connect(self.show_mtmf_dialog)
+
+        if FLAGS.kmeans:
+            act = submenu.addAction(self.tr("K-means"))
+            act.triggered.connect(self.show_kmeans_dialog)
 
         act = self._tools_menu.addAction(self.tr("Geo Reference"))
         act.triggered.connect(self.show_geo_reference_dialog)
@@ -1009,6 +1016,21 @@ class DataVisualizerApp(QMainWindow):
         dlg.select_dataset(None)
         if dlg.exec_() == QDialog.Accepted:
             pass
+
+    def show_mtmf_dialog(self):
+        if not hasattr(self, "_mtmf_dialog") or self._mtmf_dialog is None:
+            self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)
+        self._mtmf_dialog.show()
+        self._mtmf_dialog.raise_()
+        self._mtmf_dialog.activateWindow()
+
+    def show_kmeans_dialog(self):
+        if not hasattr(self, "_kmeans_dialog") or self._kmeans_dialog is None:
+            self._kmeans_dialog = KMeansDialog(self._app_state, self._app_services, parent=self)
+            self._kmeans_dialog.select_dataset(None)
+        self._kmeans_dialog.show()
+        self._kmeans_dialog.raise_()
+        self._kmeans_dialog.activateWindow()
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:

@@ -1,5 +1,6 @@
 import datetime
 from dataclasses import dataclass, replace
+from enum import IntEnum
 from functools import partial
 from typing import Callable, Dict, Optional, TYPE_CHECKING
 
@@ -24,7 +25,6 @@ from wiser.utils.primitives import (
     SpectralBatchDatasetScheme,
 )
 from wiser.utils.task_stage_utils import (
-    AdaptivePcaFitStage,
     CalcCovMatrixStage,
     EigenDecompositionStage,
     MatrixMultiplicationStage,
@@ -49,10 +49,42 @@ if TYPE_CHECKING:
 # region MNF
 
 
-def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write: "WriteSpec") -> None:
+class ShiftDiffNoiseDirection(IntEnum):
+    """Spatial shift direction for first-order difference noise (not along band axis)."""
+
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+
+
+def shift_diff_noise_output_shape(
+    height: int, width: int, bands: int, direction: ShiftDiffNoiseDirection
+) -> tuple[int, int, int]:
+    """Return ``(y, x, b)`` shape of shift-difference noise for a full ``(height, width, bands)`` input."""
+    if direction in (ShiftDiffNoiseDirection.DOWN, ShiftDiffNoiseDirection.UP):
+        return max(0, height - 1), width, bands
+    return height, max(0, width - 1), bands
+
+
+def _run_shift_y_diff(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+) -> None:
     storage_client = get_process_storage_client()
     array, array_meta = storage_client.read_region(input_ref, input_region)
-    noise = array[:-1, :, :] - array[1:, :, :]
+    if direction == ShiftDiffNoiseDirection.DOWN:
+        noise = array[:-1, :, :] - array[1:, :, :]
+    elif direction == ShiftDiffNoiseDirection.UP:
+        noise = array[1:, :, :] - array[:-1, :, :]
+    elif direction == ShiftDiffNoiseDirection.LEFT:
+        noise = array[:, :-1, :] - array[:, 1:, :]
+    elif direction == ShiftDiffNoiseDirection.RIGHT:
+        noise = array[:, 1:, :] - array[:, :-1, :]
+    else:
+        raise ValueError(f"Unsupported shift difference direction: {direction!r}")
     if np.ma.isMaskedArray(noise) and array_meta.nodata is not None:
         # If the nodata value is none but the array is still masked, we assume the mask
         # comes from the bad bands. Then we can still mask the bad bands when the next function
@@ -84,8 +116,8 @@ def _write_shift_y_diff_noise_meta(
 @dataclass
 class CalculateShiftYDiffNoise(MapStage):
     _output_ref_name: str = "shift_y_diff_noise"
-
     chunking_scheme_type: type[ChunkingScheme] = SpectralBatchDatasetScheme
+    shift_diff_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
@@ -95,11 +127,20 @@ class CalculateShiftYDiffNoise(MapStage):
             input_region, DatasetRegionRef
         ), "Input region for calculate shift difference noise must be DatasetRegionRef"
 
+        if self.shift_diff_direction in (ShiftDiffNoiseDirection.DOWN, ShiftDiffNoiseDirection.UP):
+            return DatasetRegionRef(
+                y0=input_region.y0,
+                y1=input_region.y1 - 1,
+                x0=input_region.x0,
+                x1=input_region.x1,
+                b0=input_region.b0,
+                b1=input_region.b1,
+            )
         return DatasetRegionRef(
             y0=input_region.y0,
-            y1=input_region.y1 - 1,
+            y1=input_region.y1,
             x0=input_region.x0,
-            x1=input_region.x1,
+            x1=input_region.x1 - 1,
             b0=input_region.b0,
             b1=input_region.b1,
         )
@@ -114,9 +155,9 @@ class CalculateShiftYDiffNoise(MapStage):
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for CalculateShiftYDiffNoise"
 
-        y = max(0, input_meta.height - 1)
-        x = input_meta.width
-        b = input_meta.bands
+        y, x, b = shift_diff_noise_output_shape(
+            input_meta.height, input_meta.width, input_meta.bands, self.shift_diff_direction
+        )
         size_est = y * x * b * input_meta.dtype.itemsize
         alloc_request = AllocationRequest(
             name=self._output_ref_name,
@@ -138,7 +179,13 @@ class CalculateShiftYDiffNoise(MapStage):
     ) -> Callable:
         _ = broadcast_inputs
         output_write = output_writes[self._output_ref_name]
-        return partial(_run_shift_y_diff, input_ref, input_region, output_write)
+        return partial(
+            _run_shift_y_diff,
+            input_ref,
+            input_region,
+            output_write,
+            self.shift_diff_direction,
+        )
 
     def post_task_fn(
         self,
@@ -152,12 +199,17 @@ class CalculateShiftYDiffNoise(MapStage):
         return partial(_write_shift_y_diff_noise_meta, input_ref, full_input_region, output_write)
 
 
-def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateShiftYDiffNoise:
+def get_y_shift_noise(
+    dataset_ref: DataRef,
+    output_ref_name: str,
+    shift_diff_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+) -> CalculateShiftYDiffNoise:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
     plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
     return CalculateShiftYDiffNoise(
         _output_ref_name=output_ref_name,
+        shift_diff_direction=shift_diff_direction,
         default_executor="process",
         input_plan_meta=plan_meta,
         resource_model=ResourceModel(
@@ -171,50 +223,102 @@ def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateSh
 
 def get_mnf_pipeline(
     dataset_ref: DataRef,
-    num_components: int,
-    output_ref_name: str,
+    num_components: Optional[int] = None,
+    output_ref_name: str = "mnf_output",
+    noise_ref_name: str = "mnf_shift_y_noise",
+    noise_eigen_ref_name: str = "mnf_noise_eigen",
+    noise_whitening_matrix_ref_name: str = "mnf_noise_whitening_matrix",
+    input_mean_ref_name: str = "mnf_input_spectral_mean",
+    input_total_ref_name: str = "mnf_input_valid_pixel_total",
+    input_covariance_ref_name: str = "mnf_input_covariance",
+    whitened_covariance_ref_name: str = "mnf_whitened_covariance",
+    whitened_eigen_ref_name: str = "mnf_whitened_eigen",
+    data_variance_factor: float = 2,
+    shift_diff_noise_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
-    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
+    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(np.float64))
     if data_meta.bad_bands is not None:
         num_features = np.sum(data_meta.bad_bands)
     else:
         num_features = dataset_plan_meta.bands
     bands = dataset_plan_meta.bands
+    if num_components is None:
+        num_components = num_features
     if num_components <= 0 or num_components > num_features:
         raise ValueError(f"num_components must be in [1, {num_features}], got {num_components}")
 
-    noise_ref_name = "mnf_shift_y_noise"
-    noise_eigen_ref_name = "mnf_noise_eigen"
-    noise_whitening_matrix_ref_name = "mnf_noise_whitening_matrix"
-    input_mean_ref_name = "mnf_input_spectral_mean"
-    input_total_ref_name = "mnf_input_valid_pixel_total"
-    input_covariance_ref_name = "mnf_input_covariance"
-    whitened_covariance_ref_name = "mnf_whitened_covariance"
-    whitened_eigen_ref_name = "mnf_whitened_eigen"
-
+    noise_y, noise_x, noise_b = shift_diff_noise_output_shape(
+        dataset_plan_meta.height, dataset_plan_meta.width, bands, shift_diff_noise_direction
+    )
     noise_plan_meta = DatasetPlanMeta(
-        shape=(max(0, dataset_plan_meta.height - 1), dataset_plan_meta.width, bands),
+        shape=(noise_y, noise_x, noise_b),
         dtype=dataset_plan_meta.dtype,
     )
 
-    noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
+    noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name, shift_diff_noise_direction)
 
-    noise_ipca_stage = AdaptivePcaFitStage(
-        _num_components=None,
-        _num_features=num_features,
-        _data_variance_factor=2,
-        _output_ref_name=noise_eigen_ref_name,
-        _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
-        _values_ref_name=f"{noise_eigen_ref_name}_values",
-        _covariance_ref_name=f"{noise_eigen_ref_name}_covariance",
-        _mean_ref_name=f"{noise_eigen_ref_name}_mean",
-        _dataset_plan_meta=noise_plan_meta,
-        _resolved_num_components_ref_name=f"{noise_eigen_ref_name}_resolved_num_components",
+    # Manually compute the noise eigen decomposition:
+    #   1) SpectralMeanStage   → noise spectral mean
+    #   2) CalcCovMatrixStage  → noise covariance (uses the mean above)
+    #   3) EigenDecompositionStage → eigen vectors / values + JSON descriptor
+    # The JSON descriptor produced by step 3 is what `noise_whitening_stage`
+    # consumes (it expects `{"eigen": EigenVectorsAndValues}`), matching the
+    # behavior previously provided by AdaptivePcaFitStage.
+    noise_mean_ref_name = f"{noise_eigen_ref_name}_mean"
+    noise_total_ref_name = f"{noise_eigen_ref_name}_total"
+    noise_covariance_ref_name = f"{noise_eigen_ref_name}_covariance"
+
+    noise_mean_stage = SpectralMeanStage(
+        _output_ref_name=noise_mean_ref_name,
+        _internal_total_ref_name=noise_total_ref_name,
+        # The noise dataset inherits bad_bands from the source dataset, so use the
+        # source dataset_ref to size the mean spectrum to num_features (good bands).
+        _dataset_ref=dataset_ref,
         default_executor="process",
         input_binding=DataBinding(noise_ref_name),
         input_plan_meta=noise_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+    )
+
+    noise_covariance_stage = CalcCovMatrixStage(
+        _total_spectra=0,
+        _num_features=num_features,
+        _output_ref_name=noise_covariance_ref_name,
+        _internal_total_ref_name=noise_total_ref_name,
+        _data_variance_factor=data_variance_factor,
+        default_executor="process",
+        input_binding=DataBinding(noise_ref_name),
+        input_plan_meta=noise_plan_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        broadcast_input={
+            "mean": DataBinding(noise_mean_ref_name),
+            "total": DataBinding(noise_total_ref_name),
+        },
+    )
+
+    noise_eigendecomposition_stage = EigenDecompositionStage(
+        _output_ref_name=noise_eigen_ref_name,
+        _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
+        _values_ref_name=f"{noise_eigen_ref_name}_values",
+        default_executor="process",
+        input_binding=DataBinding(noise_covariance_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=num_features,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float64),
+        ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
             bytes_per_scalar_in=1,
@@ -230,7 +334,7 @@ def get_mnf_pipeline(
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -259,6 +363,7 @@ def get_mnf_pipeline(
         _num_features=num_features,
         _output_ref_name=input_covariance_ref_name,
         _internal_total_ref_name=f"{input_covariance_ref_name}_total",
+        _data_variance_factor=data_variance_factor,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
@@ -277,13 +382,13 @@ def get_mnf_pipeline(
         _output_ref_name=whitened_covariance_ref_name,
         _matrix_input_names=("matrix_ref_0", "matrix_ref_1", "matrix_ref_2"),
         _output_shape=(num_features, num_features),
-        _output_dtype=np.dtype(np.float32),
+        _output_dtype=np.dtype(np.float64),
         default_executor="process",
         input_binding=DataBinding(input_covariance_ref_name),
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -307,7 +412,7 @@ def get_mnf_pipeline(
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -341,7 +446,9 @@ def get_mnf_pipeline(
     return AlgorithmPipeline(
         [
             noise_stage,
-            noise_ipca_stage,
+            noise_mean_stage,
+            noise_covariance_stage,
+            noise_eigendecomposition_stage,
             noise_whitening_stage,
             input_mean_stage,
             input_covariance_stage,
@@ -368,7 +475,9 @@ class MNFSemanticTask(QObject, SemanticTask):
             self,
             priority_class=PriorityClass.BACKGROUND,
             input_ref=input_ref,
-            algorithm_pipeline=get_mnf_pipeline(input_ref, num_components, output_ref_name),
+            algorithm_pipeline=get_mnf_pipeline(
+                input_ref, num_components=num_components, output_ref_name=output_ref_name
+            ),
             task_title="Minimum Noise Fraction",
             task_variables={
                 "Num Components": num_components,

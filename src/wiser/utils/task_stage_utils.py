@@ -43,6 +43,9 @@ from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
 PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
+# Eigenvalues below max(λ) * this factor are treated as numerical null space and
+# zeroed before persisting (avoids junk ~1e-15 tails after legitimate small EVs).
+_EIGENDECOMP_RELATIVE_EIGENVALUE_CUTOFF = 1e-14
 TotalLike = Union[int, DataRef]
 NumComponentsLike = Union[int, DataRef]
 
@@ -496,7 +499,7 @@ def _run_compute_pca(
         data_ignore=image_meta.nodata,
     )
 
-    output_array = np.asarray(np.ma.getdata(reduced_image), dtype=np.float32)
+    output_array = np.asarray(np.ma.getdata(reduced_image), dtype=np.float64)
     assert output_write.region is not None, "output_write.region cannot be None for PCA dataset output"
     output_write.region.validate_array_shape(output_array)
     client.write_spec(output_write, output_array)
@@ -517,7 +520,7 @@ def _write_pca_output_meta(
     nodata = input_region_meta.nodata if input_region_meta.nodata is not None else np.nan
     pca_meta = replace(
         output_meta,
-        elem_type=np.dtype(np.float32),
+        elem_type=np.dtype(np.float64),
         nodata=nodata,
         bad_bands=None,
         wavelengths=None,
@@ -578,9 +581,9 @@ class ComputePcaStage(MapStage):
             size_est=input_meta.height
             * input_meta.width
             * self._num_components
-            * np.dtype(np.float32).itemsize,
+            * np.dtype(np.float64).itemsize,
             shape=(input_meta.height, input_meta.width, self._num_components),
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
             delete_policy=self.get_output_delete_policy(self._output_ref_name),
         )
         json_request = AllocationRequest(
@@ -692,16 +695,16 @@ def _prepare_continuum_removal_inputs(
         image_data = np.ascontiguousarray(image_data)
     if np.ma.isMaskedArray(image_data):
         mask = np.ma.getmaskarray(image_data)
-        image_data = np.asarray(np.ma.getdata(image_data), dtype=np.float32)
+        image_data = np.asarray(np.ma.getdata(image_data), dtype=np.float64)
         image_data[mask] = np.nan
     else:
-        image_data = np.asarray(image_data, dtype=np.float32)
+        image_data = np.asarray(image_data, dtype=np.float64)
 
     full_meta = client.get_meta(input_ref)
     if full_meta.wavelengths is not None:
-        x_axis = np.asarray(full_meta.wavelengths[min_band:max_band], dtype=np.float32)
+        x_axis = np.asarray(full_meta.wavelengths[min_band:max_band], dtype=np.float64)
     else:
-        x_axis = np.arange(min_band, max_band, dtype=np.float32)
+        x_axis = np.arange(min_band, max_band, dtype=np.float64)
 
     if full_meta.bad_bands is not None:
         bad_bands_arr = np.logical_not(np.asarray(full_meta.bad_bands, dtype=np.bool_))
@@ -746,7 +749,7 @@ def _run_continuum_removal_tile(
         cols,
         bands,
     )
-    reduced_tile = np.asarray(reduced_by_band, dtype=np.float32).transpose(1, 2, 0)
+    reduced_tile = np.asarray(reduced_by_band, dtype=np.float64).transpose(1, 2, 0)
     assert output_write.region is not None, "Continuum removal output_write.region cannot be None"
     output_write.region.validate_array_shape(reduced_tile)
     client.write_spec(output_write, reduced_tile)
@@ -794,7 +797,7 @@ def _write_continuum_removal_output_meta(
     output_meta = client.get_meta(output_write.ref)
     continuum_meta = replace(
         output_meta,
-        elem_type=np.dtype(np.float32),
+        elem_type=np.dtype(np.float64),
         wavelengths=input_region_meta.wavelengths,
         wavelength_units=input_region_meta.wavelength_units,
         nodata=input_region_meta.nodata,
@@ -864,27 +867,27 @@ class ContinuumRemovalImageStage(MapStage):
                 name=self._output_ref_name,
                 kind="dataset",
                 residency="ram_cacheable",
-                size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float32).itemsize,
+                size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float64).itemsize,
                 shape=input_meta.shape,
-                dtype=np.dtype(np.float32),
+                dtype=np.dtype(np.float64),
                 delete_policy=self.get_output_delete_policy(self._output_ref_name),
             ),
             AllocationRequest(
                 name=self._prepared_subset_ref_name,
                 kind="dataset",
                 residency="ram_cacheable",
-                size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float32).itemsize,
+                size_est=input_meta.height * input_meta.width * bands * np.dtype(np.float64).itemsize,
                 shape=input_meta.shape,
-                dtype=np.dtype(np.float32),
+                dtype=np.dtype(np.float64),
                 delete_policy=self.get_output_delete_policy(self._prepared_subset_ref_name),
             ),
             AllocationRequest(
                 name=self._x_axis_ref_name,
                 kind="array",
                 residency="ram_cacheable",
-                size_est=bands * np.dtype(np.float32).itemsize,
+                size_est=bands * np.dtype(np.float64).itemsize,
                 shape=(bands,),
-                dtype=np.dtype(np.float32),
+                dtype=np.dtype(np.float64),
                 delete_policy=self.get_output_delete_policy(self._x_axis_ref_name),
             ),
             AllocationRequest(
@@ -990,7 +993,7 @@ def get_continuum_removal_image_pipeline(
         raise ValueError(f"Invalid band subset: ({min_band}, {max_band}) for total_bands={total_bands}")
 
     subset_shape = (max_rows - min_rows, max_cols - min_cols, max_band - min_band)
-    dataset_plan_meta = DatasetPlanMeta(shape=subset_shape, dtype=np.dtype(np.float32))
+    dataset_plan_meta = DatasetPlanMeta(shape=subset_shape, dtype=np.dtype(np.float64))
     return AlgorithmPipeline(
         [
             ContinuumRemovalImageStage(
@@ -1057,7 +1060,7 @@ def recombine_dataset_tile_from_good_band_runs(
         )
 
     if base_array is None:
-        combined = np.zeros(original_shape, dtype=np.float32)
+        combined = np.zeros(original_shape, dtype=np.float64)
     else:
         combined = np.array(base_array, copy=True)
         if combined.shape != original_shape:
@@ -1079,7 +1082,7 @@ def recombine_dataset_tile_from_good_band_runs(
 
 def validate_no_unmasked_nonfinite_values(tile: Union[np.ndarray, np.ma.MaskedArray]) -> None:
     tile_array = np.ma.array(tile, copy=False)
-    raw = np.asarray(np.ma.getdata(tile_array), dtype=np.float32)
+    raw = np.asarray(np.ma.getdata(tile_array), dtype=np.float64)
     mask = np.ma.getmaskarray(tile_array)
     nonfinite_mask = ~np.isfinite(raw)
     if np.any(nonfinite_mask & ~mask):
@@ -1139,7 +1142,7 @@ def _run_savgol_filter_dataset_tile(
 
     client = get_process_storage_client()
     input_tile, input_region_meta = client.read_region(input_ref, input_region, filter_data=False)
-    input_tile_raw = np.asarray(input_tile, dtype=np.float32)
+    input_tile_raw = np.asarray(input_tile, dtype=np.float64)
 
     if input_tile_raw.ndim != 3:
         raise ValueError(f"Expected dataset tile shape [y][x][b], got {input_tile_raw.shape}")
@@ -1173,7 +1176,7 @@ def _run_savgol_filter_dataset_tile(
             axis=2,
             mode="interp",
         )
-        filtered_chunks.append(np.asarray(filtered_chunk, dtype=np.float32))
+        filtered_chunks.append(np.asarray(filtered_chunk, dtype=np.float64))
 
     output_tile = recombine_dataset_tile_from_good_band_runs(
         original_shape=input_tile_raw.shape,
@@ -1194,7 +1197,7 @@ def _run_savgol_filter_dataset_tile(
 
     assert output_write.region is not None, "output_write.region cannot be None for Savitzky-Golay output"
     output_write.region.validate_array_shape(output_tile)
-    client.write_spec(output_write, output_tile.astype(np.float32, copy=False))
+    client.write_spec(output_write, output_tile.astype(np.float64, copy=False))
 
 
 def _write_savgol_output_meta(
@@ -1210,7 +1213,7 @@ def _write_savgol_output_meta(
     output_meta = client.get_meta(output_write.ref)
     savgol_meta = replace(
         output_meta,
-        elem_type=np.dtype(np.float32),
+        elem_type=np.dtype(np.float64),
         nodata=input_region_meta.nodata,
         wavelengths=input_region_meta.wavelengths,
         wavelength_units=input_region_meta.wavelength_units,
@@ -1262,9 +1265,9 @@ class SavGolayFilterStage(MapStage):
                 size_est=input_meta.height
                 * input_meta.width
                 * input_meta.bands
-                * np.dtype(np.float32).itemsize,
+                * np.dtype(np.float64).itemsize,
                 shape=(input_meta.height, input_meta.width, input_meta.bands),
-                dtype=np.dtype(np.float32),
+                dtype=np.dtype(np.float64),
                 delete_policy=self.get_output_delete_policy(self._output_ref_name),
             )
         ]
@@ -1579,13 +1582,13 @@ def _nan_aware_linear_ndimage_filtered_output(
     finite mask, then divide (renormalize). Valid for ``uniform_filter`` and
     ``gaussian_filter``; not for ``median_filter``.
     """
-    valid_mask = np.isfinite(work).astype(np.float32, copy=False)
+    valid_mask = np.isfinite(work).astype(np.float64, copy=False)
     values = np.nan_to_num(work, nan=0.0, posinf=0.0, neginf=0.0)
 
-    numerator = np.asarray(ndimage_filter_fn(values, **filter_kwargs), dtype=np.float32, order="C")
-    denominator = np.asarray(ndimage_filter_fn(valid_mask, **filter_kwargs), dtype=np.float32, order="C")
+    numerator = np.asarray(ndimage_filter_fn(values, **filter_kwargs), dtype=np.float64, order="C")
+    denominator = np.asarray(ndimage_filter_fn(valid_mask, **filter_kwargs), dtype=np.float64, order="C")
 
-    output_tile = np.full_like(numerator, np.nan, dtype=np.float32)
+    output_tile = np.full_like(numerator, np.nan, dtype=np.float64)
     with np.errstate(divide="ignore", invalid="ignore"):
         np.divide(numerator, denominator, out=output_tile, where=denominator > 0.0)
     return output_tile
@@ -1604,7 +1607,7 @@ def _write_smoothing_ndimage_output_meta(
     output_meta = client.get_meta(output_write.ref)
     out_meta = replace(
         output_meta,
-        elem_type=np.dtype(np.float32),
+        elem_type=np.dtype(np.float64),
         nodata=input_region_meta.nodata,
         wavelengths=input_region_meta.wavelengths,
         wavelength_units=input_region_meta.wavelength_units,
@@ -1639,7 +1642,7 @@ def _run_smoothing_filter_ndimage_tile(
 
     exclusion = _smoothing_dataset_tile_exclusion_mask(input_tile, region_meta)
 
-    work = np.asarray(input_tile, dtype=np.float32, order="C")
+    work = np.asarray(input_tile, dtype=np.float64, order="C")
     work[exclusion] = np.nan
     work[~np.isfinite(work)] = np.nan
 
@@ -1649,7 +1652,7 @@ def _run_smoothing_filter_ndimage_tile(
         output_tile = _nan_aware_linear_ndimage_filtered_output(work, ndimage_filter_fn, filter_kwargs)
     else:
         filtered = ndimage_filter_fn(work, **filter_kwargs)
-        output_tile = np.asarray(filtered, dtype=np.float32, order="C")
+        output_tile = np.asarray(filtered, dtype=np.float64, order="C")
 
     # Restore original stored values at mask locations so nodata/bad-band
     # semantics stay aligned with metadata.
@@ -1657,7 +1660,7 @@ def _run_smoothing_filter_ndimage_tile(
 
     assert output_write.region is not None, "output_write.region cannot be None for smoothing filter output"
     output_write.region.validate_array_shape(output_tile)
-    client.write_spec(output_write, output_tile.astype(np.float32, copy=False))
+    client.write_spec(output_write, output_tile.astype(np.float64, copy=False))
 
 
 @dataclass
@@ -1733,9 +1736,9 @@ class SmoothingFilterSpatial(MapStage):
                 size_est=input_meta.height
                 * input_meta.width
                 * input_meta.bands
-                * np.dtype(np.float32).itemsize,
+                * np.dtype(np.float64).itemsize,
                 shape=(input_meta.height, input_meta.width, input_meta.bands),
-                dtype=np.dtype(np.float32),
+                dtype=np.dtype(np.float64),
                 delete_policy=self.get_output_delete_policy(self._output_ref_name),
             )
         ]
@@ -1844,9 +1847,9 @@ class SmoothingFilterSpectral(MapStage):
                 size_est=input_meta.height
                 * input_meta.width
                 * input_meta.bands
-                * np.dtype(np.float32).itemsize,
+                * np.dtype(np.float64).itemsize,
                 shape=(input_meta.height, input_meta.width, input_meta.bands),
-                dtype=np.dtype(np.float32),
+                dtype=np.dtype(np.float64),
                 delete_policy=self.get_output_delete_policy(self._output_ref_name),
             )
         ]
@@ -1892,6 +1895,7 @@ def _running_covariance(
     mean_ref: DataRef,
     total: TotalLike,
     num_features: int = -1,
+    data_variance_factor: float = 1,
 ) -> None:
     client = get_process_storage_client()
     if isinstance(total, DataRef):
@@ -1946,6 +1950,7 @@ def _running_covariance(
     sum_outer_product = flattened_noise.T @ flattened_noise
     partial_cov_matrix = sum_outer_product / (total - 1)
     partial_cov_matrix = partial_cov_matrix[:, :, np.newaxis]
+    partial_cov_matrix = partial_cov_matrix / data_variance_factor
     running_cov += partial_cov_matrix
     client.write_data(output_ref, running_cov)
 
@@ -1965,6 +1970,7 @@ class CalcCovMatrixStage(SequentialStage):
     _output_ref_name: str = "cov_running"
     _num_features: int = -1
     _internal_total_ref_name: str = "_calc_cov_total"
+    _data_variance_factor: float = 1
     # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
     resource_model: ResourceModel = field(
@@ -2057,6 +2063,7 @@ class CalcCovMatrixStage(SequentialStage):
             mean,
             total,
             self._num_features,
+            self._data_variance_factor,
         )
 
     def pre_task_fn(
@@ -2097,30 +2104,6 @@ def get_noise_covariance_pipeline(noise_ref: DataRef, output_ref_name: str) -> A
     return AlgorithmPipeline([noise_mean_stage, noise_cov_stage])
 
 
-def _running_mean(
-    input_ref: DataRef,
-    input_region: DataRegion,
-    output_write: "WriteSpec",
-    total: TotalLike,
-) -> None:
-    client = get_process_storage_client()
-    output_ref = output_write.ref
-    running_mean, _ = client.read_data(output_ref)
-    if isinstance(total, DataRef):
-        total = _resolve_total_payload(total)
-    if total <= 0:
-        raise ValueError(f"Spectral mean requires a positive total, got {total}")
-
-    data, data_meta = client.read_region(input_ref, input_region)
-    flattened = _flatten_valid_dataset_rows(data, data_meta)
-    if flattened.size == 0:
-        return
-
-    spectra_sum: np.ndarray = flattened.sum(axis=0, dtype=np.float32) / total
-    running_mean += spectra_sum
-    client.write_data(output_ref, running_mean)
-
-
 def _good_band_mask_for_region_meta(region_meta, band_count: int) -> np.ndarray:
     good_band_mask = np.ones((band_count,), dtype=np.bool_)
     if region_meta.bad_bands is None:
@@ -2140,7 +2123,7 @@ def _flatten_valid_dataset_rows(
     data_meta,
 ) -> np.ndarray:
     data_array = np.ma.array(data, copy=False)
-    data_raw = np.asarray(np.ma.getdata(data_array), dtype=np.float32)
+    data_raw = np.asarray(np.ma.getdata(data_array), dtype=np.float64)
     data_mask = np.ma.getmaskarray(data_array)
 
     if data_raw.ndim != 3:
@@ -2225,6 +2208,31 @@ def _copy_or_compute_valid_dataset_total(
     client.write_json_value(total_ref, {"total": int(resolved_total)})
 
 
+def _running_mean(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    total: TotalLike,
+) -> None:
+    client = get_process_storage_client()
+    output_ref = output_write.ref
+    running_mean, _ = client.read_data(output_ref)
+    if isinstance(total, DataRef):
+        total = _resolve_total_payload(total)
+    if total <= 0:
+        raise ValueError(f"Spectral mean requires a positive total, got {total}")
+
+    data, data_meta = client.read_region(input_ref, input_region)
+    flattened = _flatten_valid_dataset_rows(data, data_meta)
+    flattened = np.asarray(flattened, dtype=np.float64)
+    if flattened.size == 0:
+        return
+
+    spectra_sum: np.ndarray = flattened.sum(axis=0, dtype=np.float64) / total
+    running_mean += spectra_sum
+    client.write_data(output_ref, running_mean)
+
+
 def _write_spectral_mean_meta(
     input_ref: DataRef,
     full_input_region: DataRegion,
@@ -2297,7 +2305,7 @@ class SpectralMeanStage(SequentialStage):
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for SpectralMeanStage"
 
-        np_type = np.float32
+        np_type = np.float64
         feature_count = input_meta.bands
         if self._dataset_ref is not None:
             meta = get_process_storage_client().get_meta(self._dataset_ref)
@@ -2366,11 +2374,25 @@ class SpectralMeanStage(SequentialStage):
         return partial(_write_spectral_mean_meta, input_ref, full_input_region, output_write)
 
 
-def get_spectral_mean_stage(dataset_ref: DataRef, output_ref_name: str) -> SpectralMeanStage:
+def get_spectral_mean_stage(
+    dataset_ref: DataRef,
+    output_ref_name: str,
+    input_binding: Optional[DataBinding] = None,
+) -> SpectralMeanStage:
+    """Build a :class:`SpectralMeanStage` for ``dataset_ref``.
+
+    Args:
+        dataset_ref: Dataset whose meta drives allocation sizes and whose
+            pixels are read at execution time (unless ``input_binding`` points
+            elsewhere).
+        output_ref_name: Name for the mean-spectrum allocation.
+        input_binding: Optional binding for which :class:`DataRef` to read
+            tiles from.  Defaults to ``DataBinding("__task_input__")``.
+    """
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
     plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=data_meta.elem_type)
-    stage = SpectralMeanStage(
+    stage_kwargs: Dict[str, Any] = dict(
         _output_ref_name=output_ref_name,
         default_executor="process",
         input_plan_meta=plan_meta,
@@ -2384,7 +2406,9 @@ def get_spectral_mean_stage(dataset_ref: DataRef, output_ref_name: str) -> Spect
         _dataset_ref=dataset_ref,
         output_bindings=[DataBinding(output_ref_name)],
     )
-    return stage
+    if input_binding is not None:
+        stage_kwargs["input_binding"] = input_binding
+    return SpectralMeanStage(**stage_kwargs)
 
 
 @dataclass(frozen=True)
@@ -2397,6 +2421,8 @@ class EigenVectorsAndValues:
 
     Eigen vectors should be in decreasing order of eigen value from left to right
     Each row should have an eigen vector
+
+    Eigen vectors are in an [N][N] array and eigen vectors are stored in the rows.
     """
 
     eigen_vectors_ref: DataRef
@@ -2451,10 +2477,15 @@ def _write_eigendecomposition(
     eigen_values = np.real_if_close(eigen_values)
     eigen_vectors = np.real_if_close(eigen_vectors)
     sort_desc = np.argsort(eigen_values)[::-1]
-    eigen_values = np.asarray(eigen_values[sort_desc], dtype=np.float32)
+    eigen_values = np.asarray(eigen_values[sort_desc], dtype=np.float64)
     # We transpose because np.linalg.eig gives us eigen vectors in the columns, but
     # we want them in the rows
-    eigen_vectors = np.asarray(eigen_vectors[:, sort_desc].T, dtype=np.float32)
+    eigen_vectors = np.asarray(eigen_vectors[:, sort_desc].T, dtype=np.float64)
+
+    max_ev = float(np.max(eigen_values))
+    if max_ev > 0.0:
+        rel_thresh = max_ev * _EIGENDECOMP_RELATIVE_EIGENVALUE_CUTOFF
+        eigen_values = np.where(eigen_values < rel_thresh, 0.0, eigen_values)
 
     client.write_data(output_vectors_ref, eigen_vectors)
     client.write_data(output_values_ref, eigen_values)
@@ -2472,7 +2503,7 @@ def _write_eigendecomposition(
 class EigenDecompositionStage(SequentialStage):
     """
     Compute eigendecomposition for a square [N][N] matrix and persist:
-      - eigen vectors in an array [N][N],
+      - eigen vectors in an array [N][N] (eigen vectors are in the ),
       - eigen values in an array [N],
       - a lightweight JSON descriptor that references both arrays.
     """
@@ -2491,7 +2522,14 @@ class EigenDecompositionStage(SequentialStage):
     chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
 
     def __post_init__(self):
-        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name, kind="json")]
+        # Declare all three allocations so planners and delete-policy overrides see them
+        # (vectors/values were always allocated in generate_allocation_requests but were
+        # previously omitted here, so KEEP could not apply to those refs).
+        self.output_bindings = self.output_bindings + [
+            DataBinding(self._vectors_ref_name),
+            DataBinding(self._values_ref_name),
+            DataBinding(self._output_ref_name, kind="json"),
+        ]
         self.broadcast_input |= {
             "eigen_vectors_ref": DataBinding(self._vectors_ref_name),
             "eigen_values_ref": DataBinding(self._values_ref_name),
@@ -2516,8 +2554,8 @@ class EigenDecompositionStage(SequentialStage):
             )
 
         n = input_meta.num_spectra
-        vectors_dtype = np.float32
-        values_dtype = np.float32
+        vectors_dtype = np.float64
+        values_dtype = np.float64
         vectors_size_est = n * n * np.dtype(vectors_dtype).itemsize
         values_size_est = n * np.dtype(values_dtype).itemsize
 
@@ -2606,6 +2644,78 @@ def get_eigendecomposition_pipeline(matrix_ref: DataRef, output_ref_name: str) -
     return AlgorithmPipeline([get_eigendecomposition_stage(matrix_ref, output_ref_name)])
 
 
+def _build_diagonal_matrix(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_ref: DataRef,
+) -> None:
+    _ = input_region
+    client = get_process_storage_client()
+    values, _ = client.read_data(input_ref)
+    values_array = np.asarray(np.ma.getdata(values), dtype=np.float64).ravel()
+    diag_matrix = np.diag(values_array).astype(np.float64)
+    client.write_data(output_ref, diag_matrix)
+
+
+@dataclass
+class DiagonalMatrixFromValuesStage(SequentialStage):
+    """Build an (N, N) diagonal matrix from a 1-D vector of N values.
+
+    Reads the primary input as a flat array of length N and writes
+    ``np.diag(values)`` to the output allocation.  Intended for converting
+    a vector of eigenvalues into the diagonal covariance matrix Λ.
+    """
+
+    _output_ref_name: str = "diagonal_matrix"
+    _n: int = 0
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self):
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        n = self._n
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=n * n * np.dtype(np.float64).itemsize,
+                shape=(n, n),
+                dtype=np.dtype(np.float64),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_build_diagonal_matrix, input_ref, input_region, output_write.ref)
+
+
 def _write_whitening_matrix(
     input_ref: DataRef,
     input_region: DataRegion,
@@ -2623,8 +2733,8 @@ def _write_whitening_matrix(
 
     eigen_vectors, _ = client.read_data(descriptor.eigen_vectors_ref)
     eigen_values, _ = client.read_data(descriptor.eigen_values_ref)
-    eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float32)
-    eigen_values_array = np.asarray(np.ma.getdata(eigen_values), dtype=np.float32)
+    eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float64)
+    eigen_values_array = np.asarray(np.ma.getdata(eigen_values), dtype=np.float64)
 
     if eigen_vectors_array.ndim != 2:
         raise ValueError(f"Expected eigen vectors with 2D shape [n][d], got {eigen_vectors_array.shape}")
@@ -2641,12 +2751,12 @@ def _write_whitening_matrix(
 
     # Zero eigen values correspond to non-invertible directions, so keep their
     # whitening scale at 0 instead of dividing by 0.
-    inverse_sqrt_values = np.zeros_like(eigen_values_array, dtype=np.float32)
+    inverse_sqrt_values = np.zeros_like(eigen_values_array, dtype=np.float64)
     nonzero_mask = eigen_values_array > 0
     inverse_sqrt_values[nonzero_mask] = 1.0 / np.sqrt(eigen_values_array[nonzero_mask])
     inverse_sqrt_eigen_values = np.diag(inverse_sqrt_values)
     whitening_matrix = eigen_vectors_array.T @ inverse_sqrt_eigen_values @ eigen_vectors_array
-    client.write_data(output_ref, whitening_matrix.astype(np.float32, copy=False))
+    client.write_data(output_ref, whitening_matrix.astype(np.float64, copy=False))
 
 
 @dataclass
@@ -2688,7 +2798,7 @@ class WhiteningMatrixStage(SequentialStage):
             input_meta, SpectraListPlanMeta
         ), "input_meta must be of type SpectraListPlanMeta for WhiteningMatrixStage"
 
-        dtype = np.float32
+        dtype = np.float64
         size_est = input_meta.num_spectra * input_meta.spectrum_length * np.dtype(dtype).itemsize
         alloc_request = AllocationRequest(
             name=self._output_ref_name,
@@ -2733,7 +2843,7 @@ def get_whitening_matrix_stage(
     input_meta = SpectraListPlanMeta(
         num_spectra=descriptor.num_vectors,
         spectrum_length=descriptor.vector_dimension,
-        dtype=np.dtype(np.float32),
+        dtype=np.dtype(np.float64),
     )
     return WhiteningMatrixStage(
         _output_ref_name=output_ref_name,
@@ -2767,7 +2877,7 @@ def _multiply_matrix_refs(
     product: Optional[np.ndarray] = None
     for i, matrix_ref in enumerate(matrix_refs):
         matrix, _ = client.read_data(matrix_ref)
-        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float64)
         if matrix_array.ndim == 3:
             if matrix_array.shape[-1] != 1:
                 raise ValueError(
@@ -2788,7 +2898,7 @@ def _multiply_matrix_refs(
             )
         product = product @ matrix_array
     assert product is not None, "product must not be None after validating matrix_refs"
-    client.write_data(output_ref, product.astype(np.float32, copy=False))
+    client.write_data(output_ref, product.astype(np.float64, copy=False))
 
 
 @dataclass
@@ -2801,7 +2911,7 @@ class MatrixMultiplicationStage(SequentialStage):
     _matrix_refs: Optional[Sequence[DataRef]] = None
     _matrix_input_names: Sequence[str] = ()
     _output_shape: Optional[tuple[int, int]] = None
-    _output_dtype: np.dtype = np.dtype(np.float32)
+    _output_dtype: np.dtype = np.dtype(np.float64)
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -2924,7 +3034,7 @@ def get_matrix_multiplication_stage(
         _output_ref_name=output_ref_name,
         _matrix_refs=matrix_refs,
         _output_shape=output_shape,
-        _output_dtype=np.dtype(np.float32),
+        _output_dtype=np.dtype(np.float64),
         default_executor="process",
         input_plan_meta=input_meta,
         resource_model=ResourceModel(
@@ -2958,14 +3068,14 @@ def _apply_matrix_to_dataset(
     if data_tile_array.ndim != 3:
         raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_array.shape}")
 
-    flattened = data_tile_array.reshape(-1, data_tile_array.shape[2]).astype(np.float32, copy=False)
+    flattened = data_tile_array.reshape(-1, data_tile_array.shape[2]).astype(np.float64, copy=False)
     current_bands = flattened.shape[1]
 
     # Left matrices act on each spectrum as a column vector. With flattened rows, that is:
     #   x_col -> L @ x_col  ===  x_row -> x_row @ L.T
     for i, matrix_ref in enumerate(left_multiply_matrices):
         matrix, _ = client.read_data(matrix_ref)
-        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float64)
         if matrix_array.ndim == 3:
             if matrix_array.shape[-1] != 1:
                 raise ValueError(
@@ -2987,7 +3097,7 @@ def _apply_matrix_to_dataset(
     #   x_row -> x_row @ R
     for i, matrix_ref in enumerate(right_multiply_matrices):
         matrix, _ = client.read_data(matrix_ref)
-        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float64)
         if matrix_array.ndim == 3:
             if matrix_array.shape[-1] != 1:
                 raise ValueError(
@@ -3217,7 +3327,7 @@ def _prepare_dataset_rows_for_pca(
     bad_bands: Optional[np.ndarray],
 ) -> tuple[np.ndarray, np.ndarray]:
     arr = np.ma.array(dataset_block, copy=False)
-    raw = np.asarray(np.ma.getdata(arr), dtype=np.float32)
+    raw = np.asarray(np.ma.getdata(arr), dtype=np.float64)
     if raw.ndim != 3:
         raise ValueError(f"Expected dataset block shape [y][x][b], got {raw.shape}")
 
@@ -3264,13 +3374,13 @@ def _expand_pca_outputs_to_full_bands(
     good_band_mask: np.ndarray,
     full_band_count: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    eigen_vectors = np.zeros((eigen_vectors_good.shape[0], full_band_count), dtype=np.float32)
+    eigen_vectors = np.zeros((eigen_vectors_good.shape[0], full_band_count), dtype=np.float64)
     eigen_vectors[:, good_band_mask] = eigen_vectors_good
 
-    covariance = np.zeros((full_band_count, full_band_count), dtype=np.float32)
+    covariance = np.zeros((full_band_count, full_band_count), dtype=np.float64)
     covariance[np.ix_(good_band_mask, good_band_mask)] = covariance_good
 
-    mean = np.zeros((full_band_count,), dtype=np.float32)
+    mean = np.zeros((full_band_count,), dtype=np.float64)
     mean[good_band_mask] = mean_good
     return eigen_vectors, covariance, mean
 
@@ -3294,8 +3404,8 @@ def _pad_pca_eigen_outputs(
     if eigen_vectors.shape[0] == num_components:
         return eigen_vectors, eigen_values
 
-    padded_vectors = np.zeros((num_components, eigen_vectors.shape[1]), dtype=np.float32)
-    padded_values = np.zeros((num_components,), dtype=np.float32)
+    padded_vectors = np.zeros((num_components, eigen_vectors.shape[1]), dtype=np.float64)
+    padded_values = np.zeros((num_components,), dtype=np.float64)
     padded_vectors[: eigen_vectors.shape[0], :] = eigen_vectors
     padded_values[: eigen_values.shape[0]] = eigen_values
     return padded_vectors, padded_values
@@ -3324,8 +3434,8 @@ def _zero_small_pca_eigen_components(
     if not np.any(zero_mask):
         return eigen_vectors, eigen_values
 
-    filtered_vectors = np.array(eigen_vectors, copy=True, dtype=np.float32)
-    filtered_values = np.array(eigen_values, copy=True, dtype=np.float32)
+    filtered_vectors = np.array(eigen_vectors, copy=True, dtype=np.float64)
+    filtered_values = np.array(eigen_values, copy=True, dtype=np.float64)
     filtered_vectors[zero_mask, :] = 0.0
     filtered_values[zero_mask] = 0.0
     return filtered_vectors, filtered_values
@@ -3405,7 +3515,7 @@ def _fit_dataset_pca_adaptive(
 
     if dataset_size_bytes <= PCA_MEMORY_CUTOFF_BYTES and test_full_pca:
         dataset, _ = client.read_region(input_ref, full_region)
-        dataset_array = np.asarray(np.ma.getdata(dataset), dtype=np.float32)
+        dataset_array = np.asarray(np.ma.getdata(dataset), dtype=np.float64)
         if dataset_array.ndim != 3:
             raise ValueError(f"Expected dataset shape [m][n][b], got {dataset_array.shape}")
         if dataset_array.shape[2] != bands:
@@ -3413,6 +3523,8 @@ def _fit_dataset_pca_adaptive(
                 f"Band mismatch in dataset for PCA: dataset_bands={dataset_array.shape[2]}, expected={bands}"
             )
 
+        # Drops bad-band columns and nodata rows; `good_band_mask` keeps the
+        # mapping back to original band positions for later expansion.
         flattened, good_band_mask = _prepare_dataset_rows_for_pca(dataset, bad_bands)
         if num_features != -1:
             _validate_prepared_pca_feature_count(flattened=flattened, num_features=num_features)
@@ -3420,22 +3532,31 @@ def _fit_dataset_pca_adaptive(
         if total_rows <= 1:
             raise ValueError("PCA requires at least 2 samples to derive eigen values")
 
+        # sklearn caps at min(samples, features); we may end up with fewer
+        # components than requested. The `_pad_pca_eigen_outputs` call below
+        # squares this back up to the allocated row count.
         actual_components = min(num_components, flattened.shape[0], flattened.shape[1])
         pca = PCA(n_components=actual_components)
         pca.fit(flattened)
-        eigen_values = np.asarray(pca.explained_variance_, dtype=np.float32)
+        eigen_values = np.asarray(pca.explained_variance_, dtype=np.float64)
         if num_features != -1:
-            eigen_vectors = np.asarray(pca.components_, dtype=np.float32)
-            covariance = np.asarray(pca.get_covariance(), dtype=np.float32)
-            mean = np.asarray(pca.mean_, dtype=np.float32)
+            # Caller pre-stripped bad bands, so PCA's own outputs are already
+            # in the canonical feature layout the rest of the pipeline expects.
+            eigen_vectors = np.asarray(pca.components_, dtype=np.float64)
+            covariance = np.asarray(pca.get_covariance(), dtype=np.float64)
+            mean = np.asarray(pca.mean_, dtype=np.float64)
         else:
+            # Caller passed full-band data; PCA fit only good-band columns, so
+            # scatter the results back into full-band space (zeros at bad-band
+            # indices)
             eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
-                eigen_vectors_good=np.asarray(pca.components_, dtype=np.float32),
-                covariance_good=np.asarray(pca.get_covariance(), dtype=np.float32),
-                mean_good=np.asarray(pca.mean_, dtype=np.float32),
+                eigen_vectors_good=np.asarray(pca.components_, dtype=np.float64),
+                covariance_good=np.asarray(pca.get_covariance(), dtype=np.float64),
+                mean_good=np.asarray(pca.mean_, dtype=np.float64),
                 good_band_mask=good_band_mask,
                 full_band_count=bands,
             )
+        # Pad trailing rows with zeros so the array shape matches what the AllocationRequest reserved
         eigen_vectors, eigen_values = _pad_pca_eigen_outputs(
             eigen_vectors=eigen_vectors,
             eigen_values=eigen_values,
@@ -3455,7 +3576,7 @@ def _fit_dataset_pca_adaptive(
         good_band_mask: Optional[np.ndarray] = None
         for tile_region in tile_scheme.iter_chunks(dataset_plan_meta):
             tile, _ = client.read_region(input_ref, tile_region)
-            tile_array = np.asarray(np.ma.getdata(tile), dtype=np.float32)
+            tile_array = np.asarray(np.ma.getdata(tile), dtype=np.float64)
             if tile_array.ndim != 3:
                 raise ValueError(f"Expected dataset tile shape [m][n][b], got {tile_array.shape}")
             if tile_array.shape[2] != bands:
@@ -3522,17 +3643,17 @@ def _fit_dataset_pca_adaptive(
                 f"samples={total_rows}, num_components={actual_components}"
             )
 
-        singular_values = np.asarray(ipca.singular_values_, dtype=np.float32)
+        singular_values = np.asarray(ipca.singular_values_, dtype=np.float64)
         eigen_values = (singular_values**2) / (total_rows - 1)
         if num_features != -1:
-            eigen_vectors = np.asarray(ipca.components_, dtype=np.float32)
-            covariance = np.asarray(ipca.get_covariance(), dtype=np.float32)
-            mean = np.asarray(ipca.mean_, dtype=np.float32)
+            eigen_vectors = np.asarray(ipca.components_, dtype=np.float64)
+            covariance = np.asarray(ipca.get_covariance(), dtype=np.float64)
+            mean = np.asarray(ipca.mean_, dtype=np.float64)
         else:
             eigen_vectors, covariance, mean = _expand_pca_outputs_to_full_bands(
-                eigen_vectors_good=np.asarray(ipca.components_, dtype=np.float32),
-                covariance_good=np.asarray(ipca.get_covariance(), dtype=np.float32),
-                mean_good=np.asarray(ipca.mean_, dtype=np.float32),
+                eigen_vectors_good=np.asarray(ipca.components_, dtype=np.float64),
+                covariance_good=np.asarray(ipca.get_covariance(), dtype=np.float64),
+                mean_good=np.asarray(ipca.mean_, dtype=np.float64),
                 good_band_mask=good_band_mask,
                 full_band_count=bands,
             )
@@ -3551,8 +3672,8 @@ def _fit_dataset_pca_adaptive(
     )
 
     client.write_data(output_vectors_ref, eigen_vectors)
-    client.write_data(output_values_ref, eigen_values / data_variance_factor)
-    client.write_data(output_covariance_ref, covariance / data_variance_factor)
+    client.write_data(output_values_ref, eigen_values)  #  / data_variance_factor)
+    client.write_data(output_covariance_ref, covariance)  # / data_variance_factor)
     client.write_data(output_mean_ref, mean)
     client.write_data(output_good_band_mask_ref, np.asarray(good_band_mask, dtype=np.bool_))
     descriptor = EigenVectorsAndValues(
@@ -3602,7 +3723,13 @@ class AdaptivePcaFitStage(SequentialStage):
     test_full_pca: bool = True
 
     def __post_init__(self):
+        # Include covariance/mean so planners and KEEP delete-policy overrides
+        # see them (they are allocated in generate_allocation_requests).
         self.output_bindings = self.output_bindings + [
+            DataBinding(self._vectors_ref_name),
+            DataBinding(self._values_ref_name),
+            DataBinding(self._covariance_ref_name),
+            DataBinding(self._mean_ref_name),
             DataBinding(self._output_ref_name, kind="json"),
             DataBinding(self._good_band_mask_ref_name, kind="array"),
         ]
@@ -3641,10 +3768,10 @@ class AdaptivePcaFitStage(SequentialStage):
                 f"features={feature_count}"
             )
 
-        vectors_dtype = np.float32
-        values_dtype = np.float32
-        covariance_dtype = np.float32
-        mean_dtype = np.float32
+        vectors_dtype = np.float64
+        values_dtype = np.float64
+        covariance_dtype = np.float64
+        mean_dtype = np.float64
         mask_dtype = np.bool_
         vectors_size_est = allocated_components * feature_count * np.dtype(vectors_dtype).itemsize
         values_size_est = allocated_components * np.dtype(values_dtype).itemsize
@@ -3850,9 +3977,9 @@ def _project_dataset_onto_eigenvectors(
 
     eigen_vectors, _ = client.read_data(descriptor.eigen_vectors_ref)
     data_tile_array = np.ma.array(data_tile, copy=False)
-    data_tile_raw = np.asarray(np.ma.getdata(data_tile_array), dtype=np.float32)
+    data_tile_raw = np.asarray(np.ma.getdata(data_tile_array), dtype=np.float64)
     data_tile_mask = np.ma.getmaskarray(data_tile_array)
-    eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float32)
+    eigen_vectors_array = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float64)
 
     if data_tile_raw.ndim != 3:
         raise ValueError(f"Expected dataset tile shape [m][n][b], got {data_tile_raw.shape}")
@@ -3893,10 +4020,10 @@ def _project_dataset_onto_eigenvectors(
             f"num_components={num_components}, available={eigen_vectors_array.shape[0]}"
         )
 
-    projection_matrix = np.asarray(eigen_vectors_array[:num_components, :], dtype=np.float32)
+    projection_matrix = np.asarray(eigen_vectors_array[:num_components, :], dtype=np.float64)
     for i, matrix_ref in enumerate(eigenvector_multiply_matrices):
         matrix, _ = client.read_data(matrix_ref)
-        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float32)
+        matrix_array = np.asarray(np.ma.getdata(matrix), dtype=np.float64)
         if matrix_array.ndim == 3:
             if matrix_array.shape[-1] != 1:
                 raise ValueError(
@@ -3919,7 +4046,7 @@ def _project_dataset_onto_eigenvectors(
     )
     if spectral_mean_ref is not None:
         spectral_mean, _ = client.read_data(spectral_mean_ref)
-        spectral_mean_array = np.asarray(np.ma.getdata(spectral_mean), dtype=np.float32)
+        spectral_mean_array = np.asarray(np.ma.getdata(spectral_mean), dtype=np.float64)
         if spectral_mean_array.ndim != 1:
             raise ValueError(f"Expected spectral mean shape [b], got {spectral_mean_array.shape}")
         if spectral_mean_array.shape[0] == bands:
@@ -4172,3 +4299,258 @@ def get_project_onto_eigenvectors_pipeline(
             )
         ]
     )
+
+
+# ---------------------------------------------------------------------------
+# Positive Semi-Definite Matrix Inverse (SVD pseudoinverse)
+# ---------------------------------------------------------------------------
+
+
+def _compute_psd_matrix_inverse(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_ref: DataRef,
+    rcond: Optional[float],
+) -> None:
+    """Worker: compute the Moore-Penrose pseudoinverse of a PSD matrix via SVD.
+
+    Singular values smaller than ``rcond * sigma_max`` are treated as zero,
+    making this a numerically stable pseudoinverse for rank-deficient or
+    near-singular matrices.
+
+    Args:
+        input_ref: DataRef for the input square PSD matrix of shape ``(N, N)``.
+        input_region: Unused; present for framework compatibility.
+        output_ref: DataRef to write the pseudoinverse result into.
+        rcond: Relative threshold for singular-value truncation.  Singular
+            values ``s[i] < rcond * s[0]`` are treated as zero.  When
+            ``None``, defaults to ``eps * N`` where ``eps`` is the machine
+            epsilon for float64 and ``N`` is the matrix side length.
+
+    Raises:
+        ValueError: If the input is not a 2-D square matrix.
+    """
+    _ = input_region
+    client = get_process_storage_client()
+
+    raw, _ = client.read_data(input_ref)
+    matrix = np.asarray(np.ma.getdata(raw), dtype=np.float64)
+
+    if matrix.ndim == 3 and matrix.shape[2] == 1:
+        matrix = matrix[:, :, 0]
+    if matrix.ndim != 2:
+        raise ValueError(f"Expected a 2-D square matrix, got shape {matrix.shape}")
+    if matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"Expected a square matrix for pseudoinverse, got shape {matrix.shape}")
+
+    n = matrix.shape[0]
+    effective_rcond = rcond if rcond is not None else np.finfo(np.float64).eps * n
+
+    U, s, Vh = np.linalg.svd(matrix, full_matrices=False)
+
+    # Truncate singular values below the threshold
+    threshold = effective_rcond * s[0]
+    s_inv = np.where(s > threshold, 1.0 / s, 0.0)
+
+    # Pseudoinverse: V @ diag(s_inv) @ U^T
+    pseudoinverse = (Vh.T * s_inv) @ U.T
+    client.write_data(output_ref, pseudoinverse.astype(np.float64, copy=False))
+
+
+@dataclass
+class PosSemiDefMatrixInverse(SequentialStage):
+    """Task stage that computes the pseudoinverse of a positive semi-definite matrix.
+
+    Uses a truncated Singular Value Decomposition (SVD) to compute the
+    Moore-Penrose pseudoinverse, which is numerically stable for rank-deficient
+    or near-singular matrices.
+
+    Given a PSD matrix ``M`` with SVD ``M = U @ diag(s) @ Vᴴ``, the
+    pseudoinverse is:
+
+    .. code-block:: text
+
+        M⁺ = V @ diag(s_inv) @ Uᵀ
+
+    where ``s_inv[i] = 1 / s[i]`` when ``s[i] > rcond * s[0]``, and
+    ``s_inv[i] = 0`` otherwise.  Singular values below the threshold
+    correspond to numerically zero directions and are left uninverted.
+
+    The stage reads the full matrix in one shot (``NoChunkingScheme``) and
+    writes a float64 result of the same shape.
+
+    Attributes:
+        _output_ref_name: Allocation name for the pseudoinverse output array.
+            Defaults to ``"psd_matrix_inverse"``.
+        _rcond: Relative singular-value threshold.  Singular values smaller
+            than ``rcond * sigma_max`` are treated as zero.  When ``None``
+            (default), the threshold is set to ``eps * N`` at runtime, where
+            ``eps`` is the float64 machine epsilon and ``N`` is the matrix
+            side length.
+
+    Note:
+        The input must be registered as an array ``DataRef`` with shape
+        ``(N, N)``.  The stage validates squareness in the factory function
+        ``get_pos_semi_def_matrix_inverse_stage`` before construction.  Use
+        that factory rather than instantiating this class directly.
+    """
+
+    _output_ref_name: str = "psd_matrix_inverse"
+    _rcond: Optional[float] = None
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=8,
+            bytes_per_scalar_out=0,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = NoChunkingScheme
+
+    def __post_init__(self) -> None:
+        self.output_bindings = list(self.output_bindings) + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        assert isinstance(
+            input_region, SpectraBatchRef
+        ), "Input region for PosSemiDefMatrixInverse must be SpectraBatchRef"
+        return None
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        """Allocate a single ``(N, N)`` float64 output array.
+
+        Args:
+            input_meta: Must be a ``SpectraListPlanMeta`` describing the
+                ``(N, N)`` input matrix.
+            chosen_scheme: Unused; present for interface compatibility.
+
+        Returns:
+            A one-element list containing the ``AllocationRequest`` for the
+            pseudoinverse output.
+
+        Raises:
+            AssertionError: If ``input_meta`` is not a ``SpectraListPlanMeta``.
+        """
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, SpectraListPlanMeta
+        ), "PosSemiDefMatrixInverse requires SpectraListPlanMeta input_meta"
+        n = input_meta.num_spectra
+        size_est = n * n * np.dtype(np.float64).itemsize
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=size_est,
+                shape=(n, n),
+                dtype=np.dtype(np.float64),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            )
+        ]
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        """Return the worker callable for this stage.
+
+        Args:
+            input_ref: DataRef for the input PSD matrix.
+            input_region: Region descriptor (unused for ``NoChunkingScheme``).
+            output_writes: Mapping from output name to ``WriteSpec``.
+            broadcast_inputs: Unused; present for interface compatibility.
+
+        Returns:
+            A ``partial`` wrapping ``_compute_psd_matrix_inverse``.
+        """
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(
+            _compute_psd_matrix_inverse,
+            input_ref,
+            input_region,
+            output_write.ref,
+            self._rcond,
+        )
+
+
+def get_pos_semi_def_matrix_inverse_stage(
+    matrix_ref: DataRef,
+    output_ref_name: str = "psd_matrix_inverse",
+    rcond: Optional[float] = None,
+) -> PosSemiDefMatrixInverse:
+    """Build a :class:`PosSemiDefMatrixInverse` stage from a matrix ``DataRef``.
+
+    Validates that the input is a 2-D square array before constructing the
+    stage, so any shape errors surface at planning time rather than at runtime.
+
+    Args:
+        matrix_ref: DataRef for the input PSD matrix of shape ``(N, N)``.
+        output_ref_name: Allocation name for the pseudoinverse output.
+            Defaults to ``"psd_matrix_inverse"``.
+        rcond: Relative singular-value truncation threshold.  Singular values
+            smaller than ``rcond * sigma_max`` are treated as zero.  Pass
+            ``None`` to use the automatic default ``eps * N``.
+
+    Returns:
+        A fully configured :class:`PosSemiDefMatrixInverse` stage.
+
+    Raises:
+        ValueError: If the input ``DataRef`` does not describe a 2-D square
+            array.
+    """
+    storage_client = get_process_storage_client()
+    matrix_meta = storage_client.get_meta(matrix_ref)
+
+    shape = matrix_meta.shape
+    if len(shape) == 3 and shape[2] == 1:
+        shape = shape[:2]
+    if len(shape) != 2:
+        raise ValueError(f"Expected a 2-D square matrix for pseudoinverse, got shape {matrix_meta.shape}")
+    if shape[0] != shape[1]:
+        raise ValueError(f"Expected a square matrix for pseudoinverse, got shape {matrix_meta.shape}")
+
+    n = int(shape[0])
+    input_meta = SpectraListPlanMeta(
+        num_spectra=n,
+        spectrum_length=n,
+        dtype=np.dtype(matrix_meta.elem_type),
+    )
+    return PosSemiDefMatrixInverse(
+        _output_ref_name=output_ref_name,
+        _rcond=rcond,
+        default_executor="process",
+        input_plan_meta=input_meta,
+        chunking_scheme_type=NoChunkingScheme,
+    )
+
+
+def get_pos_semi_def_matrix_inverse_pipeline(
+    matrix_ref: DataRef,
+    output_ref_name: str = "psd_matrix_inverse",
+    rcond: Optional[float] = None,
+) -> AlgorithmPipeline:
+    """Return a single-stage pipeline that pseudoinverts a PSD matrix.
+
+    Args:
+        matrix_ref: DataRef for the input PSD matrix of shape ``(N, N)``.
+        output_ref_name: Allocation name for the pseudoinverse output.
+            Defaults to ``"psd_matrix_inverse"``.
+        rcond: Relative singular-value truncation threshold passed through to
+            :func:`get_pos_semi_def_matrix_inverse_stage`.  ``None`` uses the
+            automatic default.
+
+    Returns:
+        An :class:`AlgorithmPipeline` containing a single
+        :class:`PosSemiDefMatrixInverse` stage.
+    """
+    return AlgorithmPipeline([get_pos_semi_def_matrix_inverse_stage(matrix_ref, output_ref_name, rcond)])

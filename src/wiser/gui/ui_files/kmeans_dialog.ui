@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>KMeansDialog</class>
+ <widget class="QDialog" name="KMeansDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>398</width>
+    <height>348</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>K-means Dialog</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,1,0,0">
+   <item>
+    <layout class="QHBoxLayout" name="hlayout_input_dataset">
+     <item>
+      <widget class="QLabel" name="lbl_input_dataset">
+       <property name="text">
+        <string>Input Dataset</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="cbox_input_dataset"/>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="hlayout_k_clusters">
+     <item>
+      <widget class="QLabel" name="lbl_k_clusters">
+       <property name="text">
+        <string>K clusters</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="ledit_k_clusters"/>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_advanced_options">
+     <property name="text">
+      <string>PushButton</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="wdgt_advanced_options" native="true">
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_init_method">
+        <item>
+         <widget class="QLabel" name="lbl_init_method">
+          <property name="text">
+           <string>Initialization Method</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbox_init_method"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QTableWidget" name="tbl_wdgt_init_spectra"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_num_inits">
+        <item>
+         <widget class="QLabel" name="lbl_num_inits">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The number of times K-means is run with different initial centroids. The best result is kept. This is mainly relevant for randomized initialization methods; in scikit-learn (the backend), &lt;span style=&quot; font-family:'Courier New';&quot;&gt;n_init='auto'&lt;/span&gt; uses 10 runs for &lt;span style=&quot; font-family:'Courier New';&quot;&gt;random&lt;/span&gt; (and callable init) and 1 run for &lt;span style=&quot; font-family:'Courier New';&quot;&gt;k-means++&lt;/span&gt; or user-provided initial centers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Number of Initializations</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="ledit_num_inits"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_max_iter">
+        <item>
+         <widget class="QLabel" name="lbl_max_iter">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The maximum number of iterations for a single K-means run. In each iteration, samples are assigned to the nearest centroid and the centroids are updated. The run stops early if convergence is reached before this limit.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Max Iterations</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="ledit_max_iter"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_tol">
+        <item>
+         <widget class="QLabel" name="lbl_tol">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The relative convergence tolerance for a single K-means run. The run stops when the change in the cluster centers between consecutive iterations is small enough; in scikit-learn, this is defined using the Frobenius norm of the difference between the cluster centers of two consecutive iterations.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Convergence Tolerance</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="ledit_tol"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_seed">
+        <item>
+         <widget class="QLabel" name="lbl_seed">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls the random number generator used by K-means. Using the same integer value makes randomized parts of the algorithm reproducible, including centroid initialization and the sequence of starts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Random Seed</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="ledit_seed"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_algo">
+        <item>
+         <widget class="QLabel" name="lbl_algo">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The K-means algorithm to use. &lt;span style=&quot; font-family:'Courier New';&quot;&gt;lloyd&lt;/span&gt; is the classical EM-style K-means algorithm. &lt;span style=&quot; font-family:'Courier New';&quot;&gt;elkan&lt;/span&gt; can be more efficient on some datasets with well-defined clusters by using the triangle inequality, but it is more memory-intensive because it allocates an extra array of shape &lt;span style=&quot; font-family:'Courier New';&quot;&gt;(n_samples, n_clusters)&lt;/span&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Algorithm</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbox_algo"/>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="hlayout_button_box">
+     <item>
+      <widget class="QPushButton" name="btn_view_centroids">
+       <property name="text">
+        <string>View Centroids</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="hspacer_bottom">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QDialogButtonBox" name="buttonBox">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="standardButtons">
+        <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>KMeansDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>KMeansDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

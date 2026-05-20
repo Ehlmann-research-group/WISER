@@ -26,6 +26,7 @@ from wiser.utils.task_stage_utils import (
     get_good_band_runs,
     get_matrix_multiplication_stage,
     get_noise_covariance_pipeline,
+    get_pos_semi_def_matrix_inverse_stage,
     get_project_onto_eigenvectors_stage,
     get_savgol_filter_pipeline,
     recombine_dataset_tile_from_good_band_runs,
@@ -1942,6 +1943,142 @@ class TestTaskStageFuncs(unittest.TestCase):
             release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+    def _run_psd_inverse_pipeline(
+        self,
+        matrix: np.ndarray,
+        output_ref_name: str,
+        task_id: int,
+    ) -> np.ndarray:
+        """Allocate *matrix*, run :class:`PosSemiDefMatrixInverse`, and return the result.
+
+        Args:
+            matrix: The input square float32 PSD matrix to invert.
+            output_ref_name: Unique allocation name for the pseudoinverse output.
+            task_id: Unique integer ID for the :class:`SemanticTask`.
+
+        Returns:
+            The pseudoinverse as a float32 numpy array of the same shape as *matrix*.
+        """
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            process_storage_client = get_process_storage_client()
+
+            input_ref = app_services.storage_service.allocate_data(
+                AllocationRequest(
+                    name=f"{output_ref_name}_input",
+                    kind="array",
+                    residency="ram_cacheable",
+                    size_est=matrix.size * matrix.dtype.itemsize,
+                    shape=matrix.shape,
+                    dtype=matrix.dtype,
+                )
+            )
+            process_storage_client.write_data(input_ref, matrix)
+
+            stage = get_pos_semi_def_matrix_inverse_stage(input_ref, output_ref_name)
+            self._keep_outputs(stage, output_ref_name)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[stage]),
+            )
+            task.id = task_id
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=15)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_ref = task_plan.bindings[output_ref_name]
+            result, _ = storage_client.read_data(output_ref)
+            return np.asarray(result, dtype=np.float32)
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_pos_semi_def_matrix_inverse_identity_matrix_inverts_to_itself(self) -> None:
+        """The pseudoinverse of the 3x3 identity matrix is itself."""
+        identity = np.eye(3, dtype=np.float32)
+
+        result = self._run_psd_inverse_pipeline(
+            matrix=identity,
+            output_ref_name="psd_inv_identity",
+            task_id=2001,
+        )
+
+        self.assertEqual(result.shape, (3, 3))
+        self.assertTrue(
+            np.allclose(result, identity, atol=1e-5),
+            msg=f"Expected identity, got:\n{result}",
+        )
+
+    def test_pos_semi_def_matrix_inverse_known_2x2_psd_matrix(self) -> None:
+        """The pseudoinverse of a known full-rank 2x2 PSD matrix matches the analytic inverse.
+
+        For M = [[5, 2], [2, 3]], det(M) = 11, so
+        M⁻¹ = (1/11) * [[3, -2], [-2, 5]].
+        """
+        matrix = np.array([[5.0, 2.0], [2.0, 3.0]], dtype=np.float32)
+        expected_inverse = np.array(
+            [[3.0 / 11.0, -2.0 / 11.0], [-2.0 / 11.0, 5.0 / 11.0]],
+            dtype=np.float32,
+        )
+
+        result = self._run_psd_inverse_pipeline(
+            matrix=matrix,
+            output_ref_name="psd_inv_2x2",
+            task_id=2002,
+        )
+
+        self.assertEqual(result.shape, (2, 2))
+        self.assertTrue(
+            np.allclose(result, expected_inverse, atol=1e-5),
+            msg=f"Expected:\n{expected_inverse}\nGot:\n{result}",
+        )
+
+    def test_pos_semi_def_matrix_inverse_gram_matrix_times_inverse_is_identity(self) -> None:
+        """G⁺ @ G ≈ I for a full-rank 5x5 Gram matrix G = AᵀA.
+
+        A random (7, 5) matrix A has rank 5 with probability 1, so G = AᵀA is
+        symmetric positive definite and its pseudoinverse is a true inverse.
+        Multiplying G by G⁺ should recover the 5x5 identity.
+        """
+        rng = np.random.default_rng(42)
+        A = rng.standard_normal((7, 5)).astype(np.float32)
+        gram = (A.T @ A).astype(np.float32)  # (5, 5), symmetric PD
+
+        result = self._run_psd_inverse_pipeline(
+            matrix=gram,
+            output_ref_name="psd_inv_gram_5x5",
+            task_id=2003,
+        )
+
+        self.assertEqual(result.shape, (5, 5))
+
+        # G⁺ @ G should equal the identity within the column space
+        product = result.astype(np.float64) @ gram.astype(np.float64)
+        self.assertTrue(
+            np.allclose(product, np.eye(5), atol=1e-4),
+            msg=f"G⁺ @ G deviates from identity:\n{product}",
+        )
+
+        # G @ G⁺ should also equal the identity
+        product_right = gram.astype(np.float64) @ result.astype(np.float64)
+        self.assertTrue(
+            np.allclose(product_right, np.eye(5), atol=1e-4),
+            msg=f"G @ G⁺ deviates from identity:\n{product_right}",
+        )
 
 
 if __name__ == "__main__":
