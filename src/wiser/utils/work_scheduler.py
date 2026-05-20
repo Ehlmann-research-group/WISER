@@ -1026,9 +1026,6 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(blocked_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
-                _req = blocked_candidate.work_unit.ram_peak_est_bytes
-                _hold = self._reserved_hold_bytes()
-                _avail = self._ram_budget_bytes - _hold
 
         for main_candidate in list(main_queue):
             if main_candidate not in main_queue:
@@ -1059,9 +1056,6 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(main_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
-                _req = main_candidate.work_unit.ram_peak_est_bytes
-                _hold = self._reserved_hold_bytes()
-                _avail = self._ram_budget_bytes - _hold
             else:
                 blocked_queue.append(main_candidate)
                 self._log_queue_transition_locked(
@@ -1076,9 +1070,6 @@ class WorkScheduler:
                     ),
                     reason="ram_gate_failed",
                 )
-                _req = main_candidate.work_unit.ram_peak_est_bytes
-                _hold = self._reserved_hold_bytes()
-                _avail = self._ram_budget_bytes - _hold
         sem.release()
         return False
 
