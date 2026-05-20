@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING, Any, Optional, List, Dict, Tuple
 from enum import IntEnum
+from typing import TYPE_CHECKING, Any, Optional, List, Dict, Tuple
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-
+from PySide2.QtCore import Qt, Signal
+from PySide2.QtGui import QDoubleValidator, QIntValidator
 from PySide2.QtWidgets import (
     QDialog,
     QLabel,
@@ -21,13 +18,13 @@ from PySide2.QtWidgets import (
     QTableWidgetItem,
     QAbstractItemView,
 )
-
-from PySide2.QtGui import QDoubleValidator, QIntValidator
-from PySide2.QtCore import Qt, Signal
-
-from .util import populate_combo_box_with_units
+from matplotlib.axes import Axes
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from .util import populate_combo_box_with_units
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -138,21 +135,20 @@ class DynamicInputDialog(QDialog):
         Create and execute a dynamic input dialog.
 
         Args:
-            inputs:
-                A list of tuples defining the requested inputs:
-                [
-                    ("<display name>", "<return_key>", DynamicInputType, [<combo_items> or None]),
-                    ...
-                ]
+            inputs: A list of tuples defining the requested inputs::
 
-                - For DynamicInputType.COMBO_BOX:
-                    Provide a 4th element: a list of items for the combo box.
-                    No other DynamicInputTypes need this.
+                    [
+                        ("<display name>", "<return_key>", DynamicInputType, [<combo_items> or None]),
+                        ...
+                    ]
+
+                For ``DynamicInputType.COMBO_BOX``, provide a 4th element: a list
+                of items for the combo box. No other ``DynamicInputType`` values
+                need this element.
 
         Returns:
-            Optional[Dict]:
-                - On Accepted: { "<return_key>": value, ... }
-                - On Rejected: None
+            Optional[Dict]: ``{"<return_key>": value, ...}`` on Accept, or
+            ``None`` on Cancel/Reject.
         """
 
         self._return_dict = {}

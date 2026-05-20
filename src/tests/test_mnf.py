@@ -105,7 +105,9 @@ class TestMnf(unittest.TestCase):
             )
             num_components = 3
             output_ref_name = "mnf_data"
-            mnf_pipeline = get_mnf_pipeline(dataset_ref, num_components, output_ref_name)
+            mnf_pipeline = get_mnf_pipeline(
+                dataset_ref, num_components=num_components, output_ref_name=output_ref_name
+            )
             mnf_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
@@ -162,7 +164,7 @@ class TestMnf(unittest.TestCase):
                 ExternalRasterHandle(dataset_obj=dataset)
             )
             output_ref_name = "mnf_data_ignore_output"
-            mnf_pipeline = get_mnf_pipeline(dataset_ref, 3, output_ref_name)
+            mnf_pipeline = get_mnf_pipeline(dataset_ref, num_components=3, output_ref_name=output_ref_name)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,
                 input_ref=dataset_ref,
@@ -200,7 +202,9 @@ class TestMnf(unittest.TestCase):
                     "count_valid_dataset_pixels should not run during get_mnf_pipeline"
                 ),
             ):
-                mnf_pipeline = get_mnf_pipeline(dataset_ref, 3, "mnf_planning_only")
+                mnf_pipeline = get_mnf_pipeline(
+                    dataset_ref, num_components=3, output_ref_name="mnf_planning_only"
+                )
                 self.assertIsNotNone(mnf_pipeline)
         finally:
             release_kept_refs(app_services)
@@ -241,7 +245,9 @@ class TestMnf(unittest.TestCase):
             )
             num_components = 2
             output_ref_name = "mnf_bad_bands_invalid_pixels"
-            mnf_pipeline = get_mnf_pipeline(dataset_ref, num_components, output_ref_name)
+            mnf_pipeline = get_mnf_pipeline(
+                dataset_ref, num_components=num_components, output_ref_name=output_ref_name
+            )
             mnf_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
             task = SemanticTask(
                 priority_class=PriorityClass.BACKGROUND,

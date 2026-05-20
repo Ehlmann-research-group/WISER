@@ -40,6 +40,8 @@ if TYPE_CHECKING:
 
 Number = Union[int, float]
 
+PRE_POST_FN_DEFAULT_RAM = 1028
+
 
 def _noop_post_task() -> None:
     """Default no-op post-task hook for stages that do not need post processing."""
@@ -420,8 +422,9 @@ class TaskPlanner:
         plan.task_title = semantic_task.task_title
         plan.task_input_variables = semantic_task.task_variables
 
-        # 1) init bindings
-        bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
+        # 1) init bindings (extras first so __task_input__ always wins)
+        bindings: Dict[str, DataRef] = dict(semantic_task.get_extra_plan_bindings())
+        bindings["__task_input__"] = semantic_task.input_ref
 
         plan.bindings.update(bindings)
         plan.completion_callback = semantic_task.completion_callback
@@ -506,12 +509,7 @@ class TaskPlanner:
                     output_writes=pre_unit_meta.output_writes,
                     broadcast_inputs=pre_unit_meta.broadcast_inputs,
                 ),
-                ram_peak_est_bytes=self._estimate_ram(
-                    stage.resource_model,
-                    full_input_region,
-                    pre_output_writes,
-                    input_meta,
-                ),
+                ram_peak_est_bytes=PRE_POST_FN_DEFAULT_RAM,
                 deps=tuple(prev_stage_unit_ids),
             )
 
@@ -586,12 +584,7 @@ class TaskPlanner:
                     output_writes=post_unit_meta.output_writes,
                     broadcast_inputs=post_unit_meta.broadcast_inputs,
                 ),
-                ram_peak_est_bytes=self._estimate_ram(
-                    stage.resource_model,
-                    full_input_region,
-                    post_output_writes,
-                    input_meta,
-                ),
+                ram_peak_est_bytes=PRE_POST_FN_DEFAULT_RAM,
                 deps=tuple(chunk_unit_ids if len(chunk_unit_ids) > 0 else [pre_unit_id]),
             )
 
@@ -769,6 +762,7 @@ class SemanticTask:
         algorithm_pipeline: AlgorithmPipeline,
         task_title: str = "Generic Task Title",
         task_variables: Optional[Dict[str, str]] = None,
+        extra_plan_bindings: Optional[Dict[str, DataRef]] = None,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
@@ -780,6 +774,15 @@ class SemanticTask:
 
         self._task_title = task_title
         self._task_variables = task_variables or dict()
+        self._extra_plan_bindings: Dict[str, DataRef] = dict(extra_plan_bindings or ())
+
+    def get_extra_plan_bindings(self) -> Dict[str, DataRef]:
+        """Additional :class:`DataRef` entries merged into the task plan before planning.
+
+        The reserved key ``__task_input__`` always maps to :attr:`input_ref` and
+        overrides any duplicate key from this mapping.
+        """
+        return self._extra_plan_bindings
 
     @property
     def task_title(self) -> str:

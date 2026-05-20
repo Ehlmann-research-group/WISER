@@ -1,23 +1,46 @@
-# WISER:  The Workbench for Imaging Spectroscopy Exploration and Research
+# WISER: The Workbench for Imaging Spectroscopy Exploration and Research
 
 WISER is an open-source, extensible tool for visualizing and analyzing spectral
-imaging data that may include many different frequency bands.  It is written in
-Python, and leverages the [Qt 5](https://www.qt.io/) platform with the
-[PySide2](https://wiki.qt.io/Qt_for_Python) Python bindings to provide a
-cross-platform GUI.  [GDAL](https://gdal.org/) is used to load and save spectral
-data, so that many different data formats may be supported.  Internally, the
-software uses [NumPy](https://numpy.org) for representing and manipulating
-spectral data.
+imaging data. It is written in Python and provides a cross-platform GUI built
+on Qt 5 with PySide2. GDAL is used for loading and saving spectral data, and
+NumPy for internal data representation.
 
-Currently, WISER is supported on MacOSX and Windows platforms.  Distributable
-packages or installers are provided for these platforms.
+WISER is supported on macOS (ARM and Intel), Windows 10/11, and Linux.
 
-Linux support will be added in the near future.
+## Documentation
 
-## Development Environment
+- **[WISER Documentation](https://ehlmann-research-group.github.io/WISER/)** —
+  User manual, developer guide, and plugin API reference
+- **[Plugin Repository](https://github.com/Ehlmann-research-group/WISER-Plugin-Repository)** —
+  Community-contributed plugins
 
-If you are interested in setting up a development environment on Windows or
-MacOSX, please see these documents:
+## Quick Start (Development)
 
-*   [MacOSX Environment Setup](./doc/devenv-mac.md)
-*   [Windows Environment Setup](./doc/devenv-win.md)
+```bash
+# Clone the repo and set up the dev environment
+cd etc
+make install-dev-env        # macOS/Linux
+# On Mac, specify architecture: make install-dev-env ENV=arm (or ENV=intel)
+
+# Activate and run
+conda activate wiser-dev
+cd ../src
+python -m wiser
+```
+
+For full setup instructions, see the
+[Developer Environment Setup](doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md)
+guide.
+
+## Reporting Issues
+
+If you find a bug or want to request a feature, please
+[open a GitHub Issue](https://github.com/Ehlmann-research-group/WISER/issues/new/choose).
+
+## License
+
+Copyright 2019–2026, California Institute of Technology (Caltech) and
+Regents of the University of Colorado. All rights reserved.
+
+See [LICENSE](LICENSE) for the full license text.
+

@@ -448,6 +448,19 @@ class StorageService:
         return ref
 
     def _build_external_params(self, handle: ExternalHandle) -> Optional[ExternalParams]:
+        """
+        Inspect an ExternalHandle and produce the ExternalParams descriptor that
+        encodes how a worker process can reconstruct the
+        same disk-backed object without holding a live Python reference.
+
+        Called by register_external immediately after a new external handle is
+        admitted to the registry. The returned ExternalParams is stored on the
+        resulting DataRef so that the storage client can later re-open the
+        underlying file on demand (e.g., when spilling data to a worker or
+        serializing refs for IPC).
+
+        Spectrum handles are not yet disk-reconstructable and always return None.
+        """
         if handle.kind == "dataset" and hasattr(handle, "dataset_obj"):
             dataset_obj: RasterDataSet = getattr(handle, "dataset_obj")
             serialized = dataset_obj.get_serialized_form()

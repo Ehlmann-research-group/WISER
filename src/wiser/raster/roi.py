@@ -1,12 +1,8 @@
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from .selection import (
     Selection,
-    RectangleSelection,
-    PolygonSelection,
-    MultiPixelSelection,
     selection_from_pyrep,
-    SelectionType,
 )
 
 from PySide2.QtCore import QRect
