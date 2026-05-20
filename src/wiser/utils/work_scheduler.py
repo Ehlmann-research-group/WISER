@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import multiprocessing
 import os
+import sys
 
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -466,14 +468,6 @@ class RecordingWorkScheduler:
 
         for plan_id in plan_ids_in_order:
             plan_events = [event for event in self.events if event.plan_id == plan_id]
-            plan_start = next((event.time for event in plan_events if event.kind == "plan_submitted"), None)
-            plan_end = next(
-                (event.time for event in reversed(plan_events) if event.kind == "plan_completed"), None
-            )
-            plan_duration = (
-                f"{plan_end - plan_start:.6f}s" if plan_start is not None and plan_end is not None else "n/a"
-            )
-            print(f"Plan {plan_id} ({plan_duration})")
 
             stage_ids_in_order = []
             seen_stage_ids: set[str] = set()
@@ -485,22 +479,6 @@ class RecordingWorkScheduler:
 
             for stage_id in stage_ids_in_order:
                 stage_events = [event for event in plan_events if event.stage_id == stage_id]
-                stage_start = next(
-                    (event.time for event in stage_events if event.kind == "stage_enqueued"),
-                    None,
-                )
-                stage_done_times = [
-                    event.time
-                    for event in stage_events
-                    if event.kind == "unit_done" and event.unit_id is not None
-                ]
-                stage_end = max(stage_done_times) if stage_done_times else None
-                stage_duration = (
-                    f"{stage_end - stage_start:.6f}s"
-                    if stage_start is not None and stage_end is not None
-                    else "n/a"
-                )
-                print(f"  Stage {stage_id} ({stage_duration})")
 
                 unit_ids_in_order = []
                 seen_unit_ids: set[str] = set()
@@ -509,30 +487,6 @@ class RecordingWorkScheduler:
                         continue
                     unit_ids_in_order.append(event.unit_id)
                     seen_unit_ids.add(event.unit_id)
-
-                for unit_id in unit_ids_in_order:
-                    unit_submit = next(
-                        (
-                            event.time
-                            for event in stage_events
-                            if event.kind == "unit_submitted" and event.unit_id == unit_id
-                        ),
-                        None,
-                    )
-                    unit_done = next(
-                        (
-                            event.time
-                            for event in stage_events
-                            if event.kind == "unit_done" and event.unit_id == unit_id
-                        ),
-                        None,
-                    )
-                    unit_duration = (
-                        f"{unit_done - unit_submit:.6f}s"
-                        if unit_submit is not None and unit_done is not None
-                        else "n/a"
-                    )
-                    print(f"    Unit {unit_id}: {unit_duration}")
 
 
 def _priority_weight(priority: PriorityClass) -> float:
@@ -655,8 +609,21 @@ class WorkScheduler:
 
         service_address, service_authkey = storage_service.get_connection_bootstrap()
 
+        # On Linux, the default 'fork' start method is unsafe when Qt is
+        # running: os.fork() triggers pthread_atfork handlers that try to
+        # acquire Qt's internal mutexes, which may be held by Qt background
+        # threads (especially after a QApplication teardown/recreation between
+        # tests). This causes os.fork() to deadlock indefinitely inside
+        # executor.submit(). 'forkserver' forks from a clean helper process
+        # that has no Qt state, avoiding the deadlock entirely.
+        # Issue # 526
+        if sys.platform.startswith("linux"):
+            _mp_context = multiprocessing.get_context("forkserver")
+        else:
+            _mp_context = multiprocessing.get_context("spawn")
         self._process_executor = ProcessPoolExecutor(
             max_workers=self._process_budget,
+            mp_context=_mp_context,
             initializer=initialize_process_storage_client,
             initargs=(service_address, service_authkey),
         )
@@ -1011,6 +978,9 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(blocked_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
+                _req = blocked_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
 
         for main_candidate in list(main_queue):
             if main_candidate not in main_queue:
@@ -1041,6 +1011,9 @@ class WorkScheduler:
                     to_queue=self._reserved_queue_name(main_candidate.work_unit.priority_class),
                     reason="defer_threshold_exceeded",
                 )
+                _req = main_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
             else:
                 blocked_queue.append(main_candidate)
                 self._log_queue_transition_locked(
@@ -1055,6 +1028,9 @@ class WorkScheduler:
                     ),
                     reason="ram_gate_failed",
                 )
+                _req = main_candidate.work_unit.ram_peak_est_bytes
+                _hold = self._reserved_hold_bytes()
+                _avail = self._ram_budget_bytes - _hold
         sem.release()
         return False
 

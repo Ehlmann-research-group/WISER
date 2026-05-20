@@ -1,8 +1,9 @@
-# The logger in sphinx.ext.autodoc v9.1.0 broke enum_tools.autoenum
-sphinx==8.2.3
+# sphinx 9.1+ breaks enum_tools.autoenum (kept for future reference)
+sphinx>=7.4
 pydata-sphinx-theme
 myst-parser
 sphinx-autodoc-typehints
 sphinx-autodoc2
 enum-tools[sphinx]
 sphinx-book-theme
+# PySide2 no longer needed — autodoc2 uses AST analysis, not imports

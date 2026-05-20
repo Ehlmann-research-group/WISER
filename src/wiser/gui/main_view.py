@@ -440,7 +440,9 @@ class MainViewWidget(RasterPane):
         dataset_id = None if dataset is None else dataset.get_id()
         dlg = KMeansDialog(self._app_state, self._app_services, parent=self)
         dlg.select_dataset(dataset_id)
-        dlg.exec_()
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def _open_mtmf_dialog(self, rasterview):
         dataset = rasterview.get_raster_data()
