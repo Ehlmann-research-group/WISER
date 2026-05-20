@@ -29,6 +29,13 @@ pytestmark = [
 ]
 
 _JPL_HDR = Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+_CALTECH_DATA_IGNORE_HDR = (
+    Path(__file__).resolve().parent
+    / ".."
+    / "test_utils"
+    / "test_datasets"
+    / "caltech_425_6_6_data_ignore.hdr"
+)
 
 _K = 5
 _SEED = 42
@@ -248,6 +255,53 @@ class TestKMeansSemanticTask(unittest.TestCase):
             ref_centroids,
             atol=1e-5,
             err_msg="Stored centroids do not match sklearn reference.",
+        )
+
+    def test_semantic_task_data_ignore_pixel_reads_as_nan(self) -> None:
+        # Guard against regression where labels stored as int32 caused np.nan
+        # to be silently truncated to 0, making data-ignore pixels appear as
+        # cluster 0 instead of NaN when queried via get_all_bands_at.
+        app_state = self.test_model.app_state
+        app_services = self.test_model.app_services
+
+        dataset = self.test_model.load_dataset(str(_CALTECH_DATA_IGNORE_HDR))
+        dataset_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=dataset)
+        )
+
+        params = KMeansParameters(
+            dataset_id=dataset.get_id(),
+            k=_K,
+            init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
+            num_inits=3,
+            max_iter=100,
+            tol=1e-4,
+            seed=_SEED,
+            algorithm=KMeansAlgorithm.LLOYD,
+        )
+
+        kmeans_task = KMeansSemanticTask(
+            app_state=app_state,
+            source_dataset=dataset,
+            input_ref=dataset_ref,
+            params=params,
+        )
+
+        task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
+        future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+        future.result(timeout=180)
+        self.test_model.app.processEvents()
+
+        datasets_after = app_state.get_datasets()
+        labels_ds = datasets_after[-1]
+
+        # Pixel (0, 0) is a data-ignore pixel in caltech_425_6_6_data_ignore.
+        # With float32 labels the nodata sentinel -1 round-trips through NaN
+        # correctly; with the old int32 labels it silently became 0.
+        data_ignore_pixel_value = labels_ds.get_all_bands_at(0, 0)
+        self.assertTrue(
+            np.isnan(data_ignore_pixel_value[0]),
+            f"Expected NaN for data-ignore pixel (0, 0) but got {data_ignore_pixel_value[0]}",
         )
 
 
