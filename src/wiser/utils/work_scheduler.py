@@ -1110,12 +1110,6 @@ class WorkScheduler:
                 executor_kind=item.work_unit.executor_kind,
                 priority_class=item.work_unit.priority_class,
             )
-        # print(
-        #     f"[scheduler] submitting unit_id={item.work_unit.unit_id!r}"
-        #     f"  stage_id={item.stage_id!r}"
-        #     f"  priority_class={item.work_unit.priority_class.value!r}"
-        #     f"  executor_kind={item.work_unit.executor_kind!r}"
-        # )
         executor = (
             self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
         )
@@ -1218,13 +1212,6 @@ class WorkScheduler:
 
                     stage_state = plan_state.stage_states[stage_id]
                     exc = fut.exception()
-                    # status = "ok" if exc is None else "error"
-                    # print(
-                    #     f"[scheduler] finished  unit_id={unit_id!r}"
-                    #     f"  stage_id={stage_id!r}"
-                    #     f"  executor_kind={executor_kind!r}"
-                    #     f"  status={status!r}"
-                    # )
 
                     if exc is None:
                         stage_state.succeeded_unit_ids.add(unit_id)
