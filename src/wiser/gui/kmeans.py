@@ -53,7 +53,7 @@ from wiser.raster.spectrum import NumPyArraySpectrum
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
 
-import time
+_KMEANS_DATA_IGNORE = -1
 
 
 class KMeansInitMethod(Enum):
@@ -304,7 +304,7 @@ def _run_kmeans(
     labels_valid = kmeans.fit_predict(flat_valid)  # (n_valid,) int64
 
     # Scatter labels back to (y*x,), filling nodata pixels with -1
-    labels_flat = np.full((y * x,), fill_value=-1, dtype=np.float32)
+    labels_flat = np.full((y * x,), fill_value=_KMEANS_DATA_IGNORE, dtype=np.float32)
     labels_flat[valid_indices] = labels_valid.astype(np.float32)
     labels_image = labels_flat.reshape(y, x, 1)  # (y, x, 1)
 
@@ -551,7 +551,7 @@ class KMeansSemanticTask(QObject, SemanticTask):
         k = self._params.get_k()
         labels_dataset.set_name(self._app_state.unique_dataset_name(f"K-Means Labels (k={k}): {source_name}"))
         labels_dataset.set_description(f"K-Means cluster label image (k={k}): {source_name} ({timestamp})")
-        labels_dataset.set_data_ignore_value(-1)
+        labels_dataset.set_data_ignore_value(_KMEANS_DATA_IGNORE)
 
         if self._source_dataset.get_spatial_metadata().get_spatial_ref():
             labels_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
