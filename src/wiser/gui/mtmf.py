@@ -38,10 +38,8 @@ from wiser.utils.task_system import (
     WriteSpec,
 )
 from wiser.utils.task_stage_utils import (
-    CalcCovMatrixStage,
     DiagonalMatrixFromValuesStage,
     get_good_band_runs,
-    get_spectral_mean_stage,
     MatrixMultiplicationStage,
     PosSemiDefMatrixInverse,
     split_dataset_tile_by_good_band_runs,
@@ -49,7 +47,6 @@ from wiser.utils.task_stage_utils import (
 from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.dataset import RasterDataSet
-from wiser.raster.selection import SelectionType
 from wiser.raster.spectrum import Spectrum
 
 
@@ -1213,9 +1210,6 @@ def get_matched_filter_pipeline(
 # Full MTMF pipeline: noise stats → inverse covariance → matched filter
 # ---------------------------------------------------------------------------
 
-_MTMF_NOISE_MEAN_NAME = "mtmf_noise_mean"
-_MTMF_NOISE_COV_NAME = "mtmf_noise_covariance"
-_MTMF_INV_COV_NAME = "mtmf_inv_noise_covariance"
 _MTMF_NOISE_PLAN_BINDING = "mtmf_noise_ref"
 
 # ---------------------------------------------------------------------------
@@ -1431,23 +1425,6 @@ class _NoiseMethodType(IntEnum):
     ROI_BASED = 0
     DARK_IMAGE_BASED = 1
     IMAGE_CUBE_BASED = 2
-
-
-def _spectrum_to_single_pixel_dataset(spectrum: Spectrum, app_state: ApplicationState) -> RasterDataSet:
-    """Wrap a spectrum as a 1x1xB raster for cube-based pipelines."""
-    loader = app_state.get_loader()
-    cache = app_state.get_cache()
-    arr = np.asarray(spectrum.get_spectrum(), dtype=np.float32)
-    arr_by_band = arr[:, np.newaxis, np.newaxis]
-    ds = loader.dataset_from_numpy_array(arr_by_band, cache)
-    ds.copy_spectral_metadata(spectrum.get_spectral_metadata())
-    bb = spectrum.get_bad_bands()
-    if bb is not None:
-        ds.set_bad_bands(np.asarray(bb).astype(int).tolist())
-    nodata = getattr(spectrum, "get_data_ignore_value", lambda: None)()
-    if nodata is not None:
-        ds.set_data_ignore_value(nodata)
-    return ds
 
 
 class MTMFDialog(QDialog):

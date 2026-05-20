@@ -92,41 +92,6 @@ class RegionOfInterest:
 
         return all_pixels
 
-    def get_pixel_data(self, dataset: "RasterDataSet") -> np.ndarray:
-        """
-        Return a 2-D numpy array of shape ``(N, b)`` containing the spectral
-        data for every deduplicated pixel in this ROI.
-
-        ``N`` is the number of unique pixels across all selections and ``b`` is
-        the number of bands in *dataset*.  Pixels are in an arbitrary but
-        deterministic order (sorted by (y, x)).
-
-        The full image cube is read once and then indexed in a vectorised
-        fashion, so this is efficient even for large ROIs.
-
-        Parameters
-        ----------
-        dataset:
-            The raster dataset to read spectral values from.  Pixel
-            coordinates in the ROI's selections are assumed to refer to this
-            dataset's pixel grid.
-        """
-        pixels = self.get_all_pixels()  # Set[Tuple[x, y]]
-        if not pixels:
-            b = dataset.get_image_data().shape[0]
-            return np.empty((0, b), dtype=np.float64)
-
-        # cube shape: (b, H, W), indexed as cube[band, row, col]
-        cube = dataset.get_image_data()
-
-        # Sort for a stable, reproducible row order: primary key y, secondary x
-        sorted_pixels = sorted(pixels, key=lambda p: (p[1], p[0]))
-        xs = np.array([p[0] for p in sorted_pixels], dtype=np.intp)
-        ys = np.array([p[1] for p in sorted_pixels], dtype=np.intp)
-
-        # cube[:, ys, xs] → shape (b, N); transpose to (N, b)
-        return np.asarray(cube[:, ys, xs]).T
-
     def get_bounding_box(self) -> QRect:
         all_pixels = self.get_all_pixels()
         xs = [p[0] for p in all_pixels]
