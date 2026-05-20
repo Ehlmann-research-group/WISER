@@ -250,6 +250,13 @@ class TestWorkScheduler(unittest.TestCase):
                 service.close()
 
     def test_queue_transition_log_shows_main_blocked_reserved_flow(self) -> None:
+        """Verifies the full queue transition log for a unit that exhausts the RAM budget.
+
+        Schedules 5 process units (u2 requires all 5000 bytes of RAM budget) so u2 initially
+        fails the RAM gate and lands in the blocked queue. After exceeding the defer threshold,
+        it is promoted to the reserved queue where it waits for exclusive RAM admission.
+        Asserts exact to_queue, from_queue, and reason sequences across all five transitions.
+        """
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
             scheduler = WorkScheduler(
@@ -371,7 +378,7 @@ class TestWorkScheduler(unittest.TestCase):
                 )
 
                 u2_defer_counts = [event.defer_count for event in u2_events]
-                self.assertEqual(u2_defer_counts, [0, 1, 3, 3, 0])
+                self.assertEqual(u2_defer_counts, [0, 1, 3, 5, 0])
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
