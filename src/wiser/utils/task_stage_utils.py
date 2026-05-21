@@ -4585,6 +4585,372 @@ def get_project_onto_eigenvectors_pipeline(
     )
 
 
+def _build_decorrelation_transformation_matrix(
+    eigen_descriptor_ref: DataRef,
+    transformation_matrix_ref: DataRef,
+) -> None:
+    """
+    Build the decorrelation-stretch transformation matrix ``T = R^T s R`` and
+    persist it.
+
+    ``R`` is the eigenvector matrix (one eigenvector per row, descending by
+    eigenvalue) and ``s = diag(1 / sqrt(lambda))`` is the reciprocal square root
+    of the eigenvalues. Eigenvalues that are zero (or non-positive after the
+    eigendecomposition's null-space cutoff) contribute a zero scaling so the
+    corresponding degenerate direction is dropped instead of producing infinities.
+    """
+    client = get_process_storage_client()
+    envelope_payload = client.read_json_value(eigen_descriptor_ref)
+    if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
+        raise ValueError("Expected JSON payload with key 'eigen' for decorrelation stretch input")
+    descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+    if not isinstance(descriptor, EigenVectorsAndValues):
+        raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
+
+    eigen_vectors, _ = client.read_data(descriptor.eigen_vectors_ref)
+    eigen_values, _ = client.read_data(descriptor.eigen_values_ref)
+    rotation = np.asarray(np.ma.getdata(eigen_vectors), dtype=np.float64)
+    values = np.asarray(np.ma.getdata(eigen_values), dtype=np.float64)
+    if rotation.ndim != 2 or rotation.shape[0] != rotation.shape[1]:
+        raise ValueError(f"Expected square eigenvector matrix [N][N], got shape={rotation.shape}")
+    if values.shape != (rotation.shape[0],):
+        raise ValueError(
+            f"Eigenvalue count must match eigenvector count: "
+            f"values shape={values.shape}, vectors={rotation.shape}"
+        )
+
+    reciprocal_sqrt = np.where(values > 0.0, 1.0 / np.sqrt(values), 0.0)
+    transformation_matrix = rotation.T @ (reciprocal_sqrt[:, np.newaxis] * rotation)
+    client.write_data(transformation_matrix_ref, transformation_matrix)
+
+
+def _run_decorrelation_stretch_tile(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    transformation_matrix_ref: DataRef,
+    spectral_mean_ref: Optional[DataRef],
+) -> None:
+    """
+    Apply the precomputed decorrelation-stretch transform to one spatial tile.
+
+    For each pixel spectrum ``x`` the output is ``(x - mean) @ T + mean`` (the
+    mean terms are dropped when no mean is supplied). ``T`` is symmetric, so the
+    left/right multiply orientation does not matter. The output keeps the same
+    band count as the input tile; bad bands are passed through unchanged and
+    nodata pixels are restored after the transform.
+    """
+    if not isinstance(input_region, DatasetRegionRef):
+        raise TypeError("Decorrelation stretch stage requires DatasetRegionRef input_region")
+
+    client = get_process_storage_client()
+    data_tile, data_tile_meta = client.read_region(input_ref, input_region)
+    transformation_matrix, _ = client.read_data(transformation_matrix_ref)
+    transformation_array = np.asarray(np.ma.getdata(transformation_matrix), dtype=np.float64)
+
+    data_tile_array = np.ma.array(data_tile, copy=False)
+    data_tile_raw = np.asarray(np.ma.getdata(data_tile_array), dtype=np.float64)
+    data_tile_mask = np.ma.getmaskarray(data_tile_array)
+    if data_tile_raw.ndim != 3:
+        raise ValueError(f"Expected dataset tile shape [y][x][b], got {data_tile_raw.shape}")
+    if transformation_array.ndim != 2 or transformation_array.shape[0] != transformation_array.shape[1]:
+        raise ValueError(
+            f"Expected square transformation matrix [g][g], got shape={transformation_array.shape}"
+        )
+
+    bands = data_tile_raw.shape[2]
+    good_band_mask = np.ones((bands,), dtype=np.bool_)
+    if data_tile_meta.bad_bands is not None:
+        bad_bands_array = np.asarray(data_tile_meta.bad_bands)
+        if bad_bands_array.shape != (bands,):
+            raise ValueError(
+                f"Bad bands shape must match dataset tile bands: "
+                f"bad_bands shape={bad_bands_array.shape}, tile_bands={bands}"
+            )
+        good_band_mask = bad_bands_array != 0
+        if not np.any(good_band_mask):
+            raise ValueError("Decorrelation stretch cannot run because all input bands are marked bad")
+
+    filtered_data_tile = data_tile_raw[:, :, good_band_mask]
+    filtered_data_tile_mask = data_tile_mask[:, :, good_band_mask]
+    filtered_band_count = filtered_data_tile.shape[2]
+    if transformation_array.shape[1] != filtered_band_count:
+        raise ValueError(
+            f"Band mismatch between filtered dataset tile and transformation matrix: "
+            f"filtered_bands={filtered_band_count}, matrix_width={transformation_array.shape[1]}"
+        )
+
+    flattened = filtered_data_tile.reshape(-1, filtered_band_count)
+    invalid_pixels = np.any(filtered_data_tile_mask, axis=2) | np.any(
+        ~np.isfinite(filtered_data_tile), axis=2
+    )
+
+    spectral_mean_array: Optional[np.ndarray] = None
+    if spectral_mean_ref is not None:
+        spectral_mean, _ = client.read_data(spectral_mean_ref)
+        spectral_mean_array = np.asarray(np.ma.getdata(spectral_mean), dtype=np.float64)
+        if spectral_mean_array.ndim != 1:
+            raise ValueError(f"Expected spectral mean shape [b], got {spectral_mean_array.shape}")
+        if spectral_mean_array.shape[0] == bands:
+            spectral_mean_array = spectral_mean_array[good_band_mask]
+        elif spectral_mean_array.shape[0] != filtered_band_count:
+            raise ValueError(
+                f"Band mismatch between filtered dataset tile and spectral mean: "
+                f"filtered_bands={filtered_band_count}, spectral_mean_bands={spectral_mean_array.shape[0]}"
+            )
+        flattened = flattened - spectral_mean_array[np.newaxis, :]
+
+    stretched_flattened = flattened @ transformation_array
+    if spectral_mean_array is not None:
+        stretched_flattened = stretched_flattened + spectral_mean_array[np.newaxis, :]
+
+    # Output keeps the full band count of the input tile, so transformed good
+    # bands are written back into a copy that preserves any bad-band values.
+    output_tile = data_tile_raw.copy()
+    output_tile[:, :, good_band_mask] = stretched_flattened.reshape(
+        data_tile_raw.shape[0], data_tile_raw.shape[1], filtered_band_count
+    )
+    if data_tile_meta.nodata is not None and np.any(invalid_pixels):
+        output_tile[invalid_pixels, :] = data_tile_meta.nodata
+
+    assert output_write.region is not None, "Decorrelation stretch output_write.region cannot be None"
+    output_write.region.validate_array_shape(output_tile)
+    client.write_spec(output_write, output_tile.astype(data_tile_raw.dtype, copy=False))
+
+
+def _write_decorrelation_stretch_meta(
+    input_ref: DataRef,
+    full_input_region: DataRegion,
+    output_write: "WriteSpec",
+) -> None:
+    client = get_process_storage_client()
+    input_region_meta = client.get_region_meta(input_ref, full_input_region)
+    output_meta = client.get_meta(output_write.ref)
+    stretched_meta = replace(
+        output_meta,
+        elem_type=input_region_meta.elem_type,
+        nodata=input_region_meta.nodata,
+        wavelengths=input_region_meta.wavelengths,
+        wavelength_units=input_region_meta.wavelength_units,
+        bad_bands=input_region_meta.bad_bands,
+        crs_wkt=input_region_meta.crs_wkt,
+        geotransform=input_region_meta.geotransform,
+    )
+    client.write_meta(output_write.ref, stretched_meta)
+
+
+@dataclass
+class DecorrelationStretchStage(MapStage):
+    """
+    Apply a decorrelation stretch to a [y][x][b] dataset, producing an output of
+    the same size.
+
+    The transformation matrix ``T = R^T s R`` (``R`` = eigenvector matrix,
+    ``s = diag(1 / sqrt(lambda))``) is built once from the
+    :class:`EigenDecompositionStage` output, then each spatial tile is multiplied
+    by it in parallel.
+    """
+
+    _output_ref_name: str = "decorrelation_stretched_dataset"
+    _eigen_descriptor_ref: Optional[DataRef] = None
+    _spectral_mean_ref: Optional[DataRef] = None
+    # The transformation matrix is allocated as its own data binding (referenced
+    # via broadcast_input) but is intentionally NOT added to output_bindings.
+    # That leaves it on the default DELETE_WHEN_RELEASABLE policy, so it is
+    # reclaimed once the stage finishes. It is kept as a distinct, named binding
+    # only so a future stage/caller can opt in to inspecting or persisting the
+    # matrix (e.g. by promoting it to an output or overriding its delete policy).
+    _transformation_matrix_ref_name: str = "_decorrelation_transformation_matrix"
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self):
+        if "eigen_descriptor_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"eigen_descriptor_ref": self._eigen_descriptor_ref}
+        if "spectral_mean_ref" not in self.broadcast_input:
+            self.broadcast_input |= {"spectral_mean_ref": self._spectral_mean_ref}
+        if "transformation_matrix_ref" not in self.broadcast_input:
+            self.broadcast_input |= {
+                "transformation_matrix_ref": DataBinding(self._transformation_matrix_ref_name)
+            }
+        self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("Decorrelation stretch stage requires DatasetRegionRef input")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=input_region.b0,
+            b1=input_region.b1,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> list[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(
+            input_meta, DatasetPlanMeta
+        ), "input_meta must be of type DatasetPlanMeta for DecorrelationStretchStage"
+
+        feature_count = input_meta.bands
+        matrix_size_est = feature_count * feature_count * np.dtype(np.float64).itemsize
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=input_meta.height * input_meta.width * feature_count * input_meta.dtype.itemsize,
+                shape=(input_meta.height, input_meta.width, feature_count),
+                dtype=input_meta.dtype,
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            ),
+            # Internal scratch binding for the transformation matrix (see class
+            # docstring): allocated and named, but not an output, so it is freed
+            # by default once no longer referenced.
+            AllocationRequest(
+                name=self._transformation_matrix_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=matrix_size_est,
+                shape=(feature_count, feature_count),
+                dtype=np.dtype(np.float64),
+                delete_policy=self.get_output_delete_policy(self._transformation_matrix_ref_name),
+            ),
+        ]
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = (input_ref, full_input_region, output_writes)
+        eigen_descriptor_ref: DataRef = broadcast_inputs["eigen_descriptor_ref"]
+        transformation_matrix_ref: DataRef = broadcast_inputs["transformation_matrix_ref"]
+        return partial(
+            _build_decorrelation_transformation_matrix,
+            eigen_descriptor_ref,
+            transformation_matrix_ref,
+        )
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        output_write = output_writes[self._output_ref_name]
+        transformation_matrix_ref: DataRef = broadcast_inputs["transformation_matrix_ref"]
+        spectral_mean_ref: Optional[DataRef] = broadcast_inputs["spectral_mean_ref"]
+        return partial(
+            _run_decorrelation_stretch_tile,
+            input_ref,
+            input_region,
+            output_write,
+            transformation_matrix_ref,
+            spectral_mean_ref,
+        )
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable:
+        _ = broadcast_inputs
+        output_write = output_writes[self._output_ref_name]
+        return partial(_write_decorrelation_stretch_meta, input_ref, full_input_region, output_write)
+
+
+def get_decorrelation_stretch_stage(
+    dataset_ref: DataRef,
+    eigen_descriptor_ref: DataRef,
+    output_ref_name: str,
+    spectral_mean_ref: Optional[DataRef] = None,
+) -> DecorrelationStretchStage:
+    storage_client = get_process_storage_client()
+    dataset_meta = storage_client.get_meta(dataset_ref)
+    if len(dataset_meta.shape) != 3:
+        raise ValueError(f"Expected input dataset shape [y][x][b], got {dataset_meta.shape}")
+
+    expected_input_width = dataset_meta.shape[2]
+    if dataset_meta.bad_bands is not None:
+        bad_bands_array = np.asarray(dataset_meta.bad_bands)
+        if bad_bands_array.shape != (dataset_meta.shape[2],):
+            raise ValueError(
+                f"Dataset bad bands shape must match input bands: "
+                f"bad_bands shape={bad_bands_array.shape}, bands={dataset_meta.shape[2]}"
+            )
+        expected_input_width = int(np.count_nonzero(bad_bands_array != 0))
+
+    envelope_payload = storage_client.read_json_value(eigen_descriptor_ref)
+    if not isinstance(envelope_payload, dict) or "eigen" not in envelope_payload:
+        raise ValueError("Expected JSON payload with key 'eigen' for decorrelation stretch input")
+    descriptor: EigenVectorsAndValues = envelope_payload["eigen"]
+    if not isinstance(descriptor, EigenVectorsAndValues):
+        raise TypeError("Expected payload['eigen'] to be an EigenVectorsAndValues instance")
+    if descriptor.vector_dimension != expected_input_width:
+        raise ValueError(
+            f"Eigen vector dimension must match filtered input bands: "
+            f"vector_dimension={descriptor.vector_dimension}, expected={expected_input_width}"
+        )
+    if descriptor.num_vectors != descriptor.vector_dimension:
+        raise ValueError(
+            f"Decorrelation stretch requires a full-rank eigen basis, got "
+            f"num_vectors={descriptor.num_vectors}, vector_dimension={descriptor.vector_dimension}"
+        )
+
+    input_meta = DatasetPlanMeta(shape=dataset_meta.shape, dtype=np.dtype(dataset_meta.elem_type))
+    return DecorrelationStretchStage(
+        _output_ref_name=output_ref_name,
+        _eigen_descriptor_ref=eigen_descriptor_ref,
+        _spectral_mean_ref=spectral_mean_ref,
+        default_executor="process",
+        input_plan_meta=input_meta,
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=SpatialTileScheme,
+    )
+
+
+def get_decorrelation_stretch_pipeline(
+    dataset_ref: DataRef,
+    eigen_descriptor_ref: DataRef,
+    output_ref_name: str,
+    spectral_mean_ref: Optional[DataRef] = None,
+) -> AlgorithmPipeline:
+    return AlgorithmPipeline(
+        [
+            get_decorrelation_stretch_stage(
+                dataset_ref,
+                eigen_descriptor_ref,
+                output_ref_name,
+                spectral_mean_ref,
+            )
+        ]
+    )
+
+
 # ---------------------------------------------------------------------------
 # Positive Semi-Definite Matrix Inverse (SVD pseudoinverse)
 # ---------------------------------------------------------------------------
