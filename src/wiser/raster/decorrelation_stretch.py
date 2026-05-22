@@ -198,6 +198,12 @@ class DecorrelationStretchSemanticTask(QObject, SemanticTask):
         self._decorr_callback = decorr_callback
         self._output_ref_name = output_ref_name
 
+        # Holds the stretched (height, width, 3) result once the pipeline
+        # completes. This is populated inside completion_callback (which the
+        # scheduler runs *before* resolving the plan's completion future), so a
+        # caller that blocks on that future can read this attribute directly
+        self._result: Optional[np.ndarray] = None
+
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
         output_ref = bindings.get(self._output_ref_name)
         if output_ref is None:
@@ -208,7 +214,18 @@ class DecorrelationStretchSemanticTask(QObject, SemanticTask):
         height, width, bands = output_meta.shape
         output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
         stretched_data, _ = storage_client.read_region(output_ref, output_region, filter_data=False)
-        self.result_ready.emit(np.asarray(stretched_data))
+        result = np.asarray(stretched_data)
+
+        # Store the result by value before emitting. A blocking caller reads
+        # self._result after the completion future resolves; the signal remains
+        # for non-blocking callers.
+        self._result = result
+        self.result_ready.emit(result)
+
+    def get_result(self) -> Optional[np.ndarray]:
+        """Return the stretched (height, width, 3) array, or None if the task
+        has not completed yet."""
+        return self._result
 
     @Slot(object)
     def _load_result_into_wiser(self, stretched_data: object) -> None:
