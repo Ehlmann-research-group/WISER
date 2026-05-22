@@ -9,8 +9,10 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
+from wiser.raster.decorrelation_stretch import compute_decorrelation_stretch
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
+from wiser.utils.primitives import ExternalRasterHandle
 
 import numpy as np
 import numpy.ma as ma
@@ -313,6 +315,8 @@ class ChannelStretchWidget(QWidget):
             StretchLog2,
             StretchLog2UsingNumba,
             StretchComposite,
+            StretchDecorrelation,
+            StretchDecorrelationUsingNumba,
         )
 
         if stretch is not None and not isinstance(stretch, valid_stretches):
@@ -341,6 +345,8 @@ class ChannelStretchWidget(QWidget):
             self.set_stretch_type(StretchType.LINEAR_STRETCH)
         elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
             self.set_stretch_type(StretchType.EQUALIZE_STRETCH)
+        elif isinstance(stretch, (StretchDecorrelation, StretchDecorrelationUsingNumba)):
+            self.set_stretch_type(StretchType.DECORRELATION_STRETCH)
         elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
             self.set_conditioner_type(ConditionerType.SQRT_CONDITIONER)
         elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
@@ -796,12 +802,27 @@ class StretchConfigWidget(QWidget):
         self._ui = Ui_StretchConfigWidget()
         self._ui.setupUi(self)
 
+        # The "Decorrelation Stretch" option is not part of the generated .ui;
+        # add it here, parented to the same widget as the other stretch radio
+        # buttons so they remain mutually exclusive. It is only meaningful for
+        # 3-band (RGB) display, so it is disabled by default and enabled by the
+        # dialog via set_decorrelation_enabled().
+        self._ui.rb_stretch_decorrelation = QRadioButton(self._ui.gridLayoutWidget_2)
+        self._ui.rb_stretch_decorrelation.setObjectName("rb_stretch_decorrelation")
+        self._ui.rb_stretch_decorrelation.setText(self.tr("Decorrelation Stretch"))
+        self._ui.rb_stretch_decorrelation.setToolTip(
+            self.tr("Apply a decorrelation stretch across the three display bands")
+        )
+        self._ui.rb_stretch_decorrelation.setEnabled(False)
+        self._ui.grid_layout_stretch.addWidget(self._ui.rb_stretch_decorrelation, 5, 0, 1, 3)
+
         self._ui.rb_stretch_none.setChecked(True)
         self._ui.rb_cond_none.setChecked(True)
 
         self._ui.rb_stretch_none.clicked.connect(self._on_stretch_radio_button)
         self._ui.rb_stretch_linear.clicked.connect(self._on_stretch_radio_button)
         self._ui.rb_stretch_equalize.clicked.connect(self._on_stretch_radio_button)
+        self._ui.rb_stretch_decorrelation.clicked.connect(self._on_stretch_radio_button)
 
         self._ui.rb_cond_none.clicked.connect(self._on_conditioner_radio_button)
         self._ui.rb_cond_sqrt.clicked.connect(self._on_conditioner_radio_button)
@@ -817,8 +838,18 @@ class StretchConfigWidget(QWidget):
             return StretchType.LINEAR_STRETCH
         elif self._ui.rb_stretch_equalize.isChecked():
             return StretchType.EQUALIZE_STRETCH
+        elif self._ui.rb_stretch_decorrelation.isChecked():
+            return StretchType.DECORRELATION_STRETCH
         else:
             raise ValueError("Unrecognized stretch-type UI state:  No buttons checked!")
+
+    def set_decorrelation_enabled(self, enabled):
+        """
+        Enable or disable the decorrelation-stretch option. Decorrelation is a
+        multi-band operation that only applies to 3-band (RGB) display, so the
+        dialog disables it for grayscale.
+        """
+        self._ui.rb_stretch_decorrelation.setEnabled(enabled)
 
     def get_conditioner_type(self):
         if self._ui.rb_cond_none.isChecked():
@@ -855,7 +886,7 @@ class StretchBuilderDialog(QDialog):
     #     display-band tuple length
     stretch_changed = Signal(int, tuple, list)
 
-    def __init__(self, parent=None, app_state=None):
+    def __init__(self, parent=None, app_state=None, app_services=None):
         super().__init__(parent=parent)
 
         self.setWindowTitle(self.tr("Contrast Stretch Configuration"))
@@ -871,6 +902,14 @@ class StretchBuilderDialog(QDialog):
         """
 
         self._app_state = app_state
+        self._app_services = app_services
+
+        # Memoized decorrelation-stretch result, keyed by (dataset_id,
+        # display_bands). The pipeline is expensive and get_stretches() runs on
+        # every stretch/conditioner change, so we compute the (H, W, 3) result
+        # once per (dataset, bands) selection and reuse it across the 3 channels.
+        self._decorr_cache = None
+        self._decorr_cache_key = None
 
         self._num_active_channels = 0
 
@@ -994,6 +1033,11 @@ class StretchBuilderDialog(QDialog):
             return StretchLinearUsingNumba if useJIT else StretchLinear
         elif stretch_conditioner_type == StretchType.EQUALIZE_STRETCH:
             return StretchHistEqualizeUsingNumba if useJIT else StretchHistEqualize
+        elif stretch_conditioner_type == StretchType.DECORRELATION_STRETCH:
+            # Decorrelation always uses the numba class. apply() is a trivial
+            # array copy, so there is no python/numba performance difference. When
+            # numba is unavailable, the plain StretchDecorrelation is used.
+            return StretchDecorrelationUsingNumba
         elif stretch_conditioner_type == StretchType.NO_STRETCH:
             return StretchBaseUsingNumba if useJIT else StretchBase
         elif stretch_conditioner_type == ConditionerType.SQRT_CONDITIONER:
@@ -1044,6 +1088,19 @@ class StretchBuilderDialog(QDialog):
             bins, edges = channel.get_histogram()
             stretch = self._get_channel_stretch_type(channel, stretch_type)(bins, edges)
 
+        elif stretch_type == StretchType.DECORRELATION_STRETCH:
+            # The decorrelation result is computed jointly across all display
+            # bands and cached; here we just take this channel's precomputed,
+            # normalized (H, W) slice. apply() will copy it into the band data at
+            # render time, ignoring the incoming values.
+            result = self._get_decorrelation_result()
+            band_slice = np.ascontiguousarray(result[..., channel_no], dtype=np.float32)
+            stretch = self._get_channel_stretch_type(channel, stretch_type)(band_slice)
+
+            # Decorrelation is a self-contained transform; conditioners do not
+            # apply, so return without composite wrapping.
+            return stretch
+
         else:
             # No stretch
             assert stretch_type == StretchType.NO_STRETCH
@@ -1064,6 +1121,81 @@ class StretchBuilderDialog(QDialog):
             assert conditioner_type == ConditionerType.NO_CONDITIONER
 
         return stretch
+
+    def _get_decorrelation_result(self):
+        """
+        Return the decorrelation-stretch result as an (H, W, 3) float32 array
+        with each band independently normalized to [0, 1]. Memoized per
+        (dataset_id, display_bands); recomputed only when those change.
+
+        This blocks the GUI thread while the decorrelation pipeline runs. That
+        is acceptable here: the user is performing a configuration action, not
+        rendering an animation frame.
+        """
+        key = (self._dataset.get_id(), tuple(self._display_bands))
+        if self._decorr_cache is None or self._decorr_cache_key != key:
+            self._decorr_cache = self._run_decorrelation_blocking()
+            self._decorr_cache_key = key
+        return self._decorr_cache
+
+    def _resolve_app_services(self):
+        """
+        Return the AppServices to use for the decorrelation pipeline.
+
+        Prefer the instance passed to the constructor, but fall back to resolving
+        it lazily from app_state. The RasterPane that creates this dialog may be
+        built before ``app_state._app`` is wired up, in which case the
+        constructor receives ``None``; resolving here defers the lookup until the
+        services actually exist.
+        """
+        if self._app_services is not None:
+            return self._app_services
+
+        app = getattr(self._app_state, "_app", None)
+        app_services = getattr(app, "_app_services", None)
+        if app_services is None:
+            raise RuntimeError(
+                "Decorrelation stretch requires app_services to run its pipeline, "
+                "but it could not be resolved from app_state"
+            )
+        # Cache for subsequent runs.
+        self._app_services = app_services
+        return app_services
+
+    def _run_decorrelation_blocking(self):
+        app_services = self._resolve_app_services()
+
+        input_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=self._dataset)
+        )
+        raw = compute_decorrelation_stretch(
+            app_state=self._app_state,
+            app_services=app_services,
+            source_dataset=self._dataset,
+            input_ref=input_ref,
+            bands=self._display_bands,
+        )
+        return self._normalize_decorrelation_result(raw)
+
+    @staticmethod
+    def _normalize_decorrelation_result(raw):
+        """
+        Normalize each band of an (H, W, 3) decorrelation result independently to
+        [0, 1] using its own min/max, returning a C-contiguous float32 array.
+        Bands with zero range collapse to 0.
+        """
+        result = np.empty(raw.shape, dtype=np.float32)
+        for b in range(raw.shape[2]):
+            band = raw[..., b].astype(np.float32)
+            band_min = float(np.nanmin(band))
+            band_max = float(np.nanmax(band))
+            span = band_max - band_min
+            if span > 0.0:
+                result[..., b] = (band - band_min) / span
+            else:
+                result[..., b] = 0.0
+        np.clip(result, 0.0, 1.0, out=result)
+        return result
 
     def get_stretches(self):
         """
@@ -1245,6 +1377,10 @@ class StretchBuilderDialog(QDialog):
             self._stretch_config._ui.rb_stretch_equalize.setChecked(True)
             if not part_of_composite:
                 self._stretch_config._ui.rb_cond_none.setChecked(True)
+        elif isinstance(stretch, (StretchDecorrelation, StretchDecorrelationUsingNumba)):
+            self._stretch_config._ui.rb_stretch_decorrelation.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_cond_none.setChecked(True)
         elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
             self._stretch_config._ui.rb_cond_sqrt.setChecked(True)
             if not part_of_composite:
@@ -1279,6 +1415,9 @@ class StretchBuilderDialog(QDialog):
         self._display_bands = display_bands
 
         self._num_active_channels = len(display_bands)
+
+        # Decorrelation stretch is a multi-band transform; only offer it for RGB.
+        self._stretch_config.set_decorrelation_enabled(len(display_bands) == 3)
 
         if len(display_bands) == 3:
             # Initialize RGB stretch building
