@@ -22,10 +22,13 @@ from wiser.utils.task_system import AlgorithmPipeline, ResourceModel, SemanticTa
 from wiser.utils.worker_runtime import get_process_storage_client
 
 if TYPE_CHECKING:
+    from wiser.gui.app_services import AppServices
     from wiser.gui.app_state import ApplicationState
     from wiser.raster.dataset import RasterDataSet
 
 NUM_STRETCH_BANDS = 3
+
+DEFAULT_DECORRELATION_TIMEOUT_SECONDS = 300.0
 
 
 def _default_resource_model() -> ResourceModel:
@@ -230,3 +233,53 @@ class DecorrelationStretchSemanticTask(QObject, SemanticTask):
     @Slot(object)
     def _load_result_into_wiser(self, stretched_data: object) -> None:
         self._decorr_callback(np.asarray(stretched_data))
+
+
+def compute_decorrelation_stretch(
+    app_state: "ApplicationState",
+    app_services: "AppServices",
+    source_dataset: "RasterDataSet",
+    input_ref: DataRef,
+    bands: Sequence[int],
+    timeout: Optional[float] = DEFAULT_DECORRELATION_TIMEOUT_SECONDS,
+    output_ref_name: str = "decorrelation_stretch_output",
+) -> np.ndarray:
+    """
+    Run the decorrelation-stretch pipeline synchronously and return the
+    stretched ``(height, width, 3)`` array.
+
+    The caller is responsible for registering ``source_dataset`` and passing the
+    resulting ``input_ref``.
+
+    This blocks the calling thread until the pipeline completes. The work
+    scheduler runs on its own threads / process pool, so blocking here does not
+    stall the computation -- only the calling (GUI) thread waits. Because that
+    thread is blocked, the task's ``result_ready`` Qt signal is not delivered;
+    we read the result by value via
+    :meth:`DecorrelationStretchSemanticTask.get_result` instead.
+
+    Raises:
+        concurrent.futures.TimeoutError: if the pipeline does not finish within
+            ``timeout`` seconds.
+        RuntimeError: if the pipeline completes but produced no result.
+    """
+    task = DecorrelationStretchSemanticTask(
+        app_state=app_state,
+        source_dataset=source_dataset,
+        input_ref=input_ref,
+        bands=bands,
+        decorr_callback=lambda _data: None,
+        output_ref_name=output_ref_name,
+    )
+
+    task_plan = app_services.task_planner.plan_semantic_task(task)
+    future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+
+    # Blocks until the plan's completion future resolves. future.result()
+    # re-raises any exception captured during pipeline execution.
+    future.result(timeout=timeout)
+
+    result = task.get_result()
+    if result is None:
+        raise RuntimeError("Decorrelation stretch completed without producing a result")
+    return result
