@@ -19,7 +19,7 @@ from wiser.raster.dataset import (
     GeographicLinkState,
     reference_pixel_to_target_pixel_ds,
 )
-from wiser.raster.stretch import StretchBase, is_decorrelation_stretch
+from wiser.raster.stretch import StretchBase
 
 from wiser.gui.app_state import ApplicationState
 
@@ -785,22 +785,6 @@ class RasterView(QWidget):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
 
-                    stretches = [None, None]
-                    if i < len(self._stretches) and self._stretches[i]:
-                        stretches = self._stretches[i].get_stretches()
-
-                    if i < len(self._stretches) and is_decorrelation_stretch(self._stretches[i]):
-                        # Decorrelation stretches ignore the source band data --
-                        # apply() overwrites it with a precomputed slice -- so skip
-                        # the get_band_data_normalized() fetch and hand
-                        # make_channel_image a correctly-shaped scratch buffer.
-                        band_data = np.empty(
-                            (self._raster_data.get_height(), self._raster_data.get_width()),
-                            dtype=np.float32,
-                        )
-                        self._display_data[i] = make_channel_image(band_data, stretches[0], stretches[1])
-                        continue
-
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
 
                     band_data = arr
@@ -808,6 +792,9 @@ class RasterView(QWidget):
                     if isinstance(arr, np.ma.masked_array):
                         band_data = arr.data
                         band_mask = arr.mask
+                    stretches = [None, None]
+                    if i < len(self._stretches) and self._stretches[i]:
+                        stretches = self._stretches[i].get_stretches()
                     new_data = make_channel_image(band_data, stretches[0], stretches[1])
 
                     new_arr = new_data

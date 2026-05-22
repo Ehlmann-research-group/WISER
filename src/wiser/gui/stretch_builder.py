@@ -1178,22 +1178,38 @@ class StretchBuilderDialog(QDialog):
         return self._normalize_decorrelation_result(raw)
 
     @staticmethod
-    def _normalize_decorrelation_result(raw):
+    def _normalize_decorrelation_result(raw: np.ma.masked_array):
         """
         Normalize each band of an (H, W, 3) decorrelation result independently to
         [0, 1] using its own min/max, returning a C-contiguous float32 array.
-        Bands with zero range collapse to 0.
+
+        ``raw`` is expected to be a masked array: the decorrelation task masks
+        nodata and bad-band pixels (the pipeline restores the data-ignore value,
+        e.g. -9999, into them). Those masked pixels -- and any non-finite pixels
+        -- are excluded from each band's min/max, so an ignore value cannot
+        dominate the range and wash the valid data out to near 1.0. Excluded
+        pixels are left at 0 in the output; they are masked out at render time
+        via the source band's mask. Bands with zero valid range collapse to 0.
         """
-        result = np.empty(raw.shape, dtype=np.float32)
-        for b in range(raw.shape[2]):
-            band = raw[..., b].astype(np.float32)
-            band_min = float(np.nanmin(band))
-            band_max = float(np.nanmax(band))
+        raw_data = np.asarray(np.ma.getdata(raw), dtype=np.float32)
+        mask = np.ma.getmaskarray(raw)
+
+        # A pixel is invalid if it is masked or non-finite in any band.
+        invalid = np.any(mask, axis=2) | np.any(~np.isfinite(raw_data), axis=2)
+        valid = ~invalid
+
+        result = np.zeros(raw_data.shape, dtype=np.float32)
+        for b in range(raw_data.shape[2]):
+            band = raw_data[..., b]
+            valid_values = band[valid]
+            if valid_values.size == 0:
+                continue
+            band_min = float(np.min(valid_values))
+            band_max = float(np.max(valid_values))
             span = band_max - band_min
             if span > 0.0:
-                result[..., b] = (band - band_min) / span
-            else:
-                result[..., b] = 0.0
+                band_result = result[..., b]
+                band_result[valid] = (band[valid] - band_min) / span
         np.clip(result, 0.0, 1.0, out=result)
         return result
 

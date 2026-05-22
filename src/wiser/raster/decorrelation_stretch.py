@@ -216,12 +216,13 @@ class DecorrelationStretchSemanticTask(QObject, SemanticTask):
         output_meta = storage_client.get_meta(output_ref)
         height, width, bands = output_meta.shape
         output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
-        stretched_data, _ = storage_client.read_region(output_ref, output_region, filter_data=False)
-        result = np.asarray(stretched_data)
+        # Read with masking enabled so nodata and bad-band pixels come back masked.
+        stretched_data, _ = storage_client.read_region(output_ref, output_region, filter_data=True)
+        result = np.ma.asarray(stretched_data)
 
         # Store the result by value before emitting. A blocking caller reads
-        # self._result after the completion future resolves; the signal remains
-        # for non-blocking callers.
+        # self._result (a masked array) after the completion future resolves; the
+        # signal remains for non-blocking callers.
         self._result = result
         self.result_ready.emit(result)
 
