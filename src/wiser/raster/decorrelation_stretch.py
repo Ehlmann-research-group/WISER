@@ -106,7 +106,7 @@ def get_decorrelation_stretch_pipeline(
 
     correlation_stage = CalcCovMatrixStage(
         _num_features=NUM_STRETCH_BANDS,
-        _calc_as_correlation=True,
+        _calc_as_correlation=False,
         _output_ref_name=correlation_ref_name,
         default_executor="process",
         input_binding=DataBinding(subdataset_ref_name),
