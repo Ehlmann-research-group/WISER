@@ -9,7 +9,7 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
-from wiser.raster.decorrelation_stretch import compute_decorrelation_stretch
+from wiser.raster.decorrelation_stretch import compute_decorrelation_stretch_numba
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.utils.primitives import ExternalRasterHandle
@@ -1163,16 +1163,8 @@ class StretchBuilderDialog(QDialog):
         return app_services
 
     def _run_decorrelation_blocking(self):
-        app_services = self._resolve_app_services()
-
-        input_ref = app_services.storage_service.register_external(
-            ExternalRasterHandle(dataset_obj=self._dataset)
-        )
-        raw = compute_decorrelation_stretch(
-            app_state=self._app_state,
-            app_services=app_services,
+        raw = compute_decorrelation_stretch_numba(
             source_dataset=self._dataset,
-            input_ref=input_ref,
             bands=self._display_bands,
         )
         return self._normalize_decorrelation_result(raw)

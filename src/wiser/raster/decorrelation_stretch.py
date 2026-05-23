@@ -1,7 +1,10 @@
-from typing import Callable, Dict, Optional, Sequence, TYPE_CHECKING
+from typing import Callable, Dict, Optional, Sequence, Tuple, TYPE_CHECKING
 
+from numba import types
 import numpy as np
 from PySide2.QtCore import QObject, Signal, Slot
+
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 from wiser.utils.primitives import (
     DataBinding,
@@ -284,3 +287,101 @@ def compute_decorrelation_stretch(
     if result is None:
         raise RuntimeError("Decorrelation stretch completed without producing a result")
     return result
+
+
+def decor_numpy(band0: np.ndarray, band1: np.ndarray, band2: np.ndarray) -> np.ndarray:
+    """
+    Pure NumPy decorrelation stretch on three [y][x] float64 band arrays.
+    Returns [y][x][3] float64.
+    """
+    height, width = band0.shape
+    flat = np.stack([band0.ravel(), band1.ravel(), band2.ravel()], axis=1)
+
+    mean = flat.mean(axis=0)
+    centered = flat - mean
+    n = flat.shape[0]
+
+    cov = centered.T @ centered / (n - 1)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    R = eigenvectors.T
+    reciprocal_sqrt = np.where(eigenvalues > 0.0, 1.0 / np.sqrt(eigenvalues), 0.0)
+    T = R.T @ (reciprocal_sqrt[:, np.newaxis] * R)
+
+    return (centered @ T + mean).reshape(height, width, 3)
+
+
+_decor_sig = types.float64[:, :, :](types.float64[:, :], types.float64[:, :], types.float64[:, :])
+
+
+@numba_njit_wrapper(non_njit_func=decor_numpy, signature=_decor_sig, cache=True)
+def decor_numba(band0: np.ndarray, band1: np.ndarray, band2: np.ndarray) -> np.ndarray:
+    """
+    Numba-compiled decorrelation stretch on three [y][x] float64 band arrays.
+
+    Implements (x - mean) @ T + mean where T = R^T @ diag(1/sqrt(lambda)) @ R,
+    eigendecomposing the sample covariance matrix. Returns [y][x][3] float64.
+    Falls back to decor_numpy when numba is unavailable.
+    """
+    height, width = band0.shape
+    n = height * width
+
+    flat = np.empty((n, 3), dtype=np.float64)
+    k = 0
+    for i in range(height):
+        for j in range(width):
+            flat[k, 0] = band0[i, j]
+            flat[k, 1] = band1[i, j]
+            flat[k, 2] = band2[i, j]
+            k += 1
+
+    mean = np.zeros(3, dtype=np.float64)
+    for i in range(n):
+        mean[0] += flat[i, 0]
+        mean[1] += flat[i, 1]
+        mean[2] += flat[i, 2]
+    mean /= n
+
+    centered = flat - mean
+    cov = np.dot(centered.T, centered) / (n - 1)
+
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    R = eigenvectors.T  # one eigenvector per row
+
+    recip_sqrt = np.zeros(3, dtype=np.float64)
+    for i in range(3):
+        if eigenvalues[i] > 0.0:
+            recip_sqrt[i] = 1.0 / np.sqrt(eigenvalues[i])
+
+    scaled_R = recip_sqrt.reshape(3, 1) * R
+    T = np.dot(R.T, scaled_R)
+
+    result_flat = np.dot(centered, T) + mean
+    return result_flat.reshape(height, width, 3)
+
+
+def compute_decorrelation_stretch_numba(
+    source_dataset: "RasterDataSet",
+    bands: Tuple[int, int, int],
+) -> np.ndarray:
+    """
+    Compute decorrelation stretch using the numba-compiled kernel.
+
+    Extracts ``bands`` (0-indexed) from ``source_dataset`` and returns the
+    stretched [y][x][3] float64 array.
+    """
+    byx = np.asarray(source_dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float64)
+    return decor_numba(byx[bands[0]], byx[bands[1]], byx[bands[2]])
+
+
+def compute_decorrelation_stretch_numpy(
+    source_dataset: "RasterDataSet",
+    bands: Tuple[int, int, int],
+) -> np.ndarray:
+    """
+    Compute decorrelation stretch using the pure NumPy implementation.
+
+    Extracts ``bands`` (0-indexed) from ``source_dataset`` and returns the
+    stretched [y][x][3] float64 array.
+    """
+    byx = np.asarray(source_dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float64)
+    return decor_numpy(byx[bands[0]], byx[bands[1]], byx[bands[2]])
