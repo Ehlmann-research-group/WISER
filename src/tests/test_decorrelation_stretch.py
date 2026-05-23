@@ -8,7 +8,12 @@ import pytest
 import tests.context  # noqa: F401
 
 from test_utils.memory_cleanup import release_kept_refs
-from wiser.raster.decorrelation_stretch import get_decorrelation_stretch_pipeline
+from wiser.raster.decorrelation_stretch import (
+    get_decorrelation_stretch_pipeline,
+    compute_decorrelation_stretch,
+    compute_decorrelation_stretch_numba,
+    compute_decorrelation_stretch_numpy,
+)
 from wiser.utils.task_stage_utils import (
     EigenVectorsAndValues,
     get_decorrelation_stretch_stage,
@@ -106,6 +111,38 @@ class TestDecorrelationStretchStage(unittest.TestCase):
         finally:
             if storage_client is not None:
                 storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_all_decorrelation_compute_functions_return_same_result(self) -> None:
+        dataset_path = (
+            Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_15_7_7.hdr"
+        ).resolve()
+        dataset = self.test_model.load_dataset(str(dataset_path))
+        app_services = self.test_model.app_services
+        app_state = self.test_model.app_state
+        bands = (14, 11, 0)
+        try:
+            result_numba = compute_decorrelation_stretch_numba(dataset, bands)
+            result_numpy = compute_decorrelation_stretch_numpy(dataset, bands)
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            result_pipeline = np.asarray(
+                compute_decorrelation_stretch(
+                    app_state=app_state,
+                    app_services=app_services,
+                    source_dataset=dataset,
+                    input_ref=dataset_ref,
+                    bands=bands,
+                )
+            )
+            self.assertEqual(result_numba.shape, result_numpy.shape)
+            self.assertEqual(result_numba.shape, result_pipeline.shape)
+            self.assertTrue(np.allclose(result_numba, result_numpy, atol=1e-10))
+            self.assertTrue(np.allclose(result_numba, result_pipeline, atol=1e-3))
+        finally:
             release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
