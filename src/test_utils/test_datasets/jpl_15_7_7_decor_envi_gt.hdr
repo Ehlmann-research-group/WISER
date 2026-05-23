@@ -1,0 +1,11 @@
+ENVI
+samples = 7
+lines   = 7
+bands   = 3
+data type = 4
+interleave = bsq
+file type = ENVI Standard
+header offset = 0
+byte order = 0
+band names = {
+ Decor (Band 15), Decor (Band 12), Decor (Band 1)}
