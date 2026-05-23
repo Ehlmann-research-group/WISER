@@ -262,6 +262,9 @@ def compute_decorrelation_stretch(
     we read the result by value via
     :meth:`DecorrelationStretchSemanticTask.get_result` instead.
 
+    Currently not used until we find a good way to make the stretch builder
+    perform calculations in the background.
+
     Raises:
         concurrent.futures.TimeoutError: if the pipeline does not finish within
             ``timeout`` seconds.
