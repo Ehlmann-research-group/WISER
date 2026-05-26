@@ -770,16 +770,18 @@ class RasterView(QWidget):
         should take the joint multi-band path.
 
         Returns ``(joint_stretch, conditioners)``:
-        - ``joint_stretch``: the shared joint stretch instance (e.g. a
-          decorrelation stretch) if every active channel agrees on the same
-          one, else ``None``.
+        - ``joint_stretch``: a joint stretch (e.g. a decorrelation stretch) if
+          every active channel agrees on an equal one, else ``None``. The
+          returned instance is the one from channel 0; any equal instance from
+          another channel would behave identically.
         - ``conditioners``: a list parallel to ``self._display_bands`` of the
           per-channel conditioner (the non-joint half of a ``StretchComposite``,
           or ``None`` if no conditioner). Meaningful only when
           ``joint_stretch`` is not ``None``.
 
-        Channels disagree (different joint instances, or some channels joint
-        and others not) fall back to the per-band path with a logged warning.
+        Channels disagree (different joint stretches by value, or some
+        channels joint and others not) fall back to the per-band path with a
+        logged warning.
         """
         n = len(self._display_bands)
         joint = None
@@ -787,7 +789,6 @@ class RasterView(QWidget):
         for i in range(n):
             s = self._stretches[i] if i < len(self._stretches) else None
             if s is None:
-                # A channel without a stretch can't be in joint mode.
                 if joint is not None:
                     logger.warning(
                         "Joint-stretch detection: channel %d has no stretch but "
@@ -804,10 +805,10 @@ class RasterView(QWidget):
                 ch_joint, cond = None, None
             if i == 0:
                 joint = ch_joint
-            elif ch_joint is not joint:
+            elif ch_joint != joint:
                 logger.warning(
                     "Joint-stretch detection: channel %d disagrees with channel "
-                    "0 on joint stretch identity; falling back to per-band path.",
+                    "0 on the joint stretch; falling back to per-band path.",
                     i,
                 )
                 return None, None

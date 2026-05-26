@@ -709,42 +709,76 @@ class StretchLog2UsingNumba:
 
 class StretchDecorrelation(StretchBase):
     """
-    A stretch that emits a precomputed, per-band decorrelation-stretched image.
+    Joint, multi-band decorrelation stretch.
 
-    Unlike the other stretches, the result does not depend on the band data
-    passed to apply(). A decorrelation stretch is a multi-band operation: the
-    (height, width) slice for this display band was computed up front, jointly
-    across all three display bands, then normalized to [0, 1]. apply() therefore
-    ignores its input and copies the stored slice into it.
+    Decorrelation is fundamentally a cross-band transform: it needs all display
+    bands together to compute the covariance matrix and eigendecompose it.
+    This class is a marker stretch -- the renderer detects it via
+    ``requires_all_bands()`` and routes through ``apply_multi`` instead of the
+    per-channel ``apply`` path.
 
-    The stored data must have the same (height, width) shape as the full-
-    resolution band that apply() receives at render time.
+    ``apply_multi`` consumes the renderer's already-conditioned, normalized
+    (H, W, N) band stack, runs the joint transform, per-band-normalizes the
+    output, and writes it back into the same buffer.
 
-    This class does not use numba.
+    No numba variant exists: a jitclass cannot carry Python references, and
+    all the heavy math happens inside ``decor_numba`` (which already picks the
+    numba-compiled kernel with a numpy fallback).
     """
 
-    # Constructor
-    def __init__(self, data):
+    def __init__(self):
         super().__init__("Decorrelation")
-        # (height, width) float32 array, already normalized to [0, 1].
-        self._data = data
 
     def __str__(self):
         return "StretchDecorrelation"
 
+    def requires_all_bands(self) -> bool:
+        return True
+
     def apply(self, a):
-        # The precomputed result replaces whatever band data was passed in.
-        np.copyto(a, self._data)
+        # Joint stretch; the per-channel path is never taken for this class.
+        pass
+
+    def apply_multi(self, bands):
+        """
+        Mutate ``bands`` in place with the decorrelation-stretched, per-band-
+        normalized result.
+
+        ``bands`` is an ``(H, W, N)`` float32 array of the conditioned input
+        bands. After this call each ``bands[..., i]`` carries float32 values in
+        ``[0, 1]``, with non-finite pixels (e.g. ones that came from a
+        data-ignore value) zeroed.
+        """
+        # Local import to avoid a module-level cycle between stretch.py and
+        # decorrelation_stretch.py.
+        from wiser.raster.decorrelation_stretch import decor_numba
+
+        b0 = np.ascontiguousarray(bands[..., 0], dtype=np.float64)
+        b1 = np.ascontiguousarray(bands[..., 1], dtype=np.float64)
+        b2 = np.ascontiguousarray(bands[..., 2], dtype=np.float64)
+        joint = decor_numba(b0, b1, b2)  # (H, W, 3) float64
+
+        for b in range(joint.shape[2]):
+            band = joint[..., b].astype(np.float32, copy=False)
+            finite = np.isfinite(band)
+            if not finite.any():
+                bands[..., b] = 0.0
+                continue
+            band_min = float(np.min(band[finite]))
+            band_max = float(np.max(band[finite]))
+            span = band_max - band_min
+            if span > 0.0:
+                normalized = np.zeros_like(band)
+                normalized[finite] = (band[finite] - band_min) / span
+                bands[..., b] = normalized
+            else:
+                bands[..., b] = 0.0
 
     def get_stretches(self):
         return [self, None]
 
     def get_hash_tuple(self):
-        # The dataset id and display bands are already part of the render-cache
-        # key, and the decorrelation result is deterministic for a given
-        # (dataset, bands) pair, so name + shape uniquely identifies this stretch
-        # within a cache key without hashing the full image.
-        return (self._name, self._data.shape[0], self._data.shape[1])
+        return (self._name,)
 
     def __hash__(self):
         return hash(self.get_hash_tuple())
@@ -752,7 +786,7 @@ class StretchDecorrelation(StretchBase):
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return self._name == other._name and self._data.shape == other._data.shape
+        return self._name == other._name
 
 
 # Class specification in numpy; the trailing 2 marks _data as a 2-D array, which

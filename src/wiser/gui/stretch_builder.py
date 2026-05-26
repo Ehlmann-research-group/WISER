@@ -9,7 +9,6 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
-from wiser.raster.decorrelation_stretch import compute_decorrelation_stretch_numba
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.utils.primitives import ExternalRasterHandle
@@ -316,7 +315,6 @@ class ChannelStretchWidget(QWidget):
             StretchLog2UsingNumba,
             StretchComposite,
             StretchDecorrelation,
-            StretchDecorrelationUsingNumba,
         )
 
         if stretch is not None and not isinstance(stretch, valid_stretches):
@@ -345,7 +343,7 @@ class ChannelStretchWidget(QWidget):
             self.set_stretch_type(StretchType.LINEAR_STRETCH)
         elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
             self.set_stretch_type(StretchType.EQUALIZE_STRETCH)
-        elif isinstance(stretch, (StretchDecorrelation, StretchDecorrelationUsingNumba)):
+        elif isinstance(stretch, StretchDecorrelation):
             self.set_stretch_type(StretchType.DECORRELATION_STRETCH)
         elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
             self.set_conditioner_type(ConditionerType.SQRT_CONDITIONER)
@@ -886,7 +884,7 @@ class StretchBuilderDialog(QDialog):
     #     display-band tuple length
     stretch_changed = Signal(int, tuple, list)
 
-    def __init__(self, parent=None, app_state=None, app_services=None):
+    def __init__(self, parent=None, app_state=None):
         super().__init__(parent=parent)
 
         self.setWindowTitle(self.tr("Contrast Stretch Configuration"))
@@ -902,14 +900,6 @@ class StretchBuilderDialog(QDialog):
         """
 
         self._app_state = app_state
-        self._app_services = app_services
-
-        # Memoized decorrelation-stretch result, keyed by (dataset_id,
-        # display_bands). The pipeline is expensive and get_stretches() runs on
-        # every stretch/conditioner change, so we compute the (H, W, 3) result
-        # once per (dataset, bands) selection and reuse it across the 3 channels.
-        self._decorr_cache = None
-        self._decorr_cache_key = None
 
         self._num_active_channels = 0
 
@@ -1034,10 +1024,11 @@ class StretchBuilderDialog(QDialog):
         elif stretch_conditioner_type == StretchType.EQUALIZE_STRETCH:
             return StretchHistEqualizeUsingNumba if useJIT else StretchHistEqualize
         elif stretch_conditioner_type == StretchType.DECORRELATION_STRETCH:
-            # Decorrelation always uses the numba class. apply() is a trivial
-            # array copy, so there is no python/numba performance difference. When
-            # numba is unavailable, the plain StretchDecorrelation is used.
-            return StretchDecorrelationUsingNumba
+            # Decorrelation is a joint multi-band stretch; the renderer routes
+            # through apply_multi rather than per-channel apply. There is no
+            # numba variant -- the jitclass form can't hold the Python state a
+            # joint stretch needs, and the heavy math runs inside decor_numba.
+            return StretchDecorrelation
         elif stretch_conditioner_type == StretchType.NO_STRETCH:
             return StretchBaseUsingNumba if useJIT else StretchBase
         elif stretch_conditioner_type == ConditionerType.SQRT_CONDITIONER:
@@ -1089,13 +1080,10 @@ class StretchBuilderDialog(QDialog):
             stretch = self._get_channel_stretch_type(channel, stretch_type)(bins, edges)
 
         elif stretch_type == StretchType.DECORRELATION_STRETCH:
-            # The decorrelation result is computed jointly across all display
-            # bands and cached; here we just take this channel's precomputed,
-            # normalized (H, W) slice. apply() will copy it into the band data at
-            # render time, ignoring the incoming values.
-            result = self._get_decorrelation_result()
-            band_slice = np.ascontiguousarray(result[..., channel_no], dtype=np.float32)
-            stretch = self._get_channel_stretch_type(channel, stretch_type)(band_slice)
+            # Joint multi-band stretch. The instance carries no per-channel
+            # state -- the renderer detects joint mode by value-equality across
+            # channels and runs the pipeline lazily inside apply_multi.
+            stretch = self._get_channel_stretch_type(channel, stretch_type)
 
         else:
             # No stretch
@@ -1117,89 +1105,6 @@ class StretchBuilderDialog(QDialog):
             assert conditioner_type == ConditionerType.NO_CONDITIONER
 
         return stretch
-
-    def _get_decorrelation_result(self):
-        """
-        Return the decorrelation-stretch result as an (H, W, 3) float32 array
-        with each band independently normalized to [0, 1]. Memoized per
-        (dataset_id, display_bands); recomputed only when those change.
-
-        This blocks the GUI thread while the decorrelation pipeline runs. That
-        is acceptable here: the user is performing a configuration action, not
-        rendering an animation frame.
-        """
-        key = (self._dataset.get_id(), tuple(self._display_bands))
-        if self._decorr_cache is None or self._decorr_cache_key != key:
-            self._decorr_cache = self._run_decorrelation_blocking()
-            self._decorr_cache_key = key
-        return self._decorr_cache
-
-    def _resolve_app_services(self):
-        """
-        Return the AppServices to use for the decorrelation pipeline.
-
-        Prefer the instance passed to the constructor, but fall back to resolving
-        it lazily from app_state. The RasterPane that creates this dialog may be
-        built before ``app_state._app`` is wired up, in which case the
-        constructor receives ``None``; resolving here defers the lookup until the
-        services actually exist.
-        """
-        if self._app_services is not None:
-            return self._app_services
-
-        app = getattr(self._app_state, "_app", None)
-        app_services = getattr(app, "_app_services", None)
-        if app_services is None:
-            raise RuntimeError(
-                "Decorrelation stretch requires app_services to run its pipeline, "
-                "but it could not be resolved from app_state"
-            )
-        # Cache for subsequent runs.
-        self._app_services = app_services
-        return app_services
-
-    def _run_decorrelation_blocking(self):
-        raw = compute_decorrelation_stretch_numba(
-            source_dataset=self._dataset,
-            bands=self._display_bands,
-        )
-        return self._normalize_decorrelation_result(raw)
-
-    @staticmethod
-    def _normalize_decorrelation_result(raw: np.ma.masked_array):
-        """
-        Normalize each band of an (H, W, 3) decorrelation result independently to
-        [0, 1] using its own min/max, returning a C-contiguous float32 array.
-
-        ``raw`` is expected to be a masked array: the decorrelation task masks
-        nodata and bad-band pixels (the pipeline restores the data-ignore value,
-        e.g. -9999, into them). Those masked pixels -- and any non-finite pixels
-        -- are excluded from each band's min/max, so an ignore value cannot
-        dominate the range and wash the valid data out to near 1.0. Excluded
-        pixels are left at 0 in the output; they are masked out at render time
-        via the source band's mask. Bands with zero valid range collapse to 0.
-        """
-        raw_data = np.asarray(np.ma.getdata(raw), dtype=np.float32)
-        mask = np.ma.getmaskarray(raw)
-
-        # A pixel is invalid if it is masked or non-finite in any band.
-        invalid = np.any(mask, axis=2) | np.any(~np.isfinite(raw_data), axis=2)
-        valid = ~invalid
-
-        result = np.zeros(raw_data.shape, dtype=np.float32)
-        for b in range(raw_data.shape[2]):
-            band = raw_data[..., b]
-            valid_values = band[valid]
-            if valid_values.size == 0:
-                continue
-            band_min = float(np.min(valid_values))
-            band_max = float(np.max(valid_values))
-            span = band_max - band_min
-            if span > 0.0:
-                band_result = result[..., b]
-                band_result[valid] = (band[valid] - band_min) / span
-        np.clip(result, 0.0, 1.0, out=result)
-        return result
 
     def get_stretches(self):
         """
@@ -1381,7 +1286,7 @@ class StretchBuilderDialog(QDialog):
             self._stretch_config._ui.rb_stretch_equalize.setChecked(True)
             if not part_of_composite:
                 self._stretch_config._ui.rb_cond_none.setChecked(True)
-        elif isinstance(stretch, (StretchDecorrelation, StretchDecorrelationUsingNumba)):
+        elif isinstance(stretch, StretchDecorrelation):
             self._stretch_config._ui.rb_stretch_decorrelation.setChecked(True)
             if not part_of_composite:
                 self._stretch_config._ui.rb_cond_none.setChecked(True)
