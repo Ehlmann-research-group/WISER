@@ -1097,10 +1097,6 @@ class StretchBuilderDialog(QDialog):
             band_slice = np.ascontiguousarray(result[..., channel_no], dtype=np.float32)
             stretch = self._get_channel_stretch_type(channel, stretch_type)(band_slice)
 
-            # Decorrelation is a self-contained transform; conditioners do not
-            # apply, so return without composite wrapping.
-            return stretch
-
         else:
             # No stretch
             assert stretch_type == StretchType.NO_STRETCH
