@@ -114,6 +114,23 @@ class StretchBase:
         """
         pass
 
+    def requires_all_bands(self) -> bool:
+        """
+        Whether this stretch is a joint, multi-band transform that must see all
+        display bands together. The renderer uses this to dispatch into the
+        multi-band path (``apply_multi``) instead of the per-channel ``apply``.
+        Default: per-band stretch.
+        """
+        return False
+
+    def apply_multi(self, bands):
+        """
+        Joint, multi-band stretch entry point. ``bands`` is an (H, W, N) float32
+        array of N already-conditioned display bands; mutate in place. Only
+        called when ``requires_all_bands()`` returns True. Default: no-op.
+        """
+        pass
+
     def get_stretches(self):
         return [None, None]
 
