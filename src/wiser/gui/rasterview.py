@@ -850,7 +850,17 @@ class RasterView(QWidget):
         for i in range(n):
             arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
             if isinstance(arr, np.ma.masked_array):
-                bands[..., i] = arr.data.astype(np.float32, copy=False)
+                # Copy so we can zero masked pixels without mutating the
+                # dataset's cached array (astype with copy=False may alias).
+                band_data = arr.data.astype(np.float32, copy=True)
+                mask = np.ma.getmaskarray(arr)
+                # Normalized ignore-value pixels are wild (large negative) and
+                # would become NaN/-inf under sqrt/log, which decor_numba then
+                # rejects. Zero them so the conditioner stays in its valid
+                # domain; the mask is preserved in masks[i] for Phase 3.
+                if mask.any():
+                    band_data[mask] = 0.0
+                bands[..., i] = band_data
                 masks.append(arr.mask)
             else:
                 bands[..., i] = arr.astype(np.float32, copy=False)

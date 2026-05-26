@@ -1083,7 +1083,7 @@ class StretchBuilderDialog(QDialog):
             # Joint multi-band stretch. The instance carries no per-channel
             # state -- the renderer detects joint mode by value-equality across
             # channels and runs the pipeline lazily inside apply_multi.
-            stretch = self._get_channel_stretch_type(channel, stretch_type)
+            stretch = self._get_channel_stretch_type(channel, stretch_type)()
 
         else:
             # No stretch

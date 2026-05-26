@@ -945,6 +945,7 @@ class RasterDataSet(Serializable):
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
             if self._data_cache:
+                # TODO (Joshua G-K): Add filter data ignore to cache key
                 cache.add_cache_item(key, arr)
         return arr
 

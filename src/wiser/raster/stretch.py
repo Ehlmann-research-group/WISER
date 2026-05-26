@@ -789,69 +789,6 @@ class StretchDecorrelation(StretchBase):
         return self._name == other._name
 
 
-# Class specification in numpy; the trailing 2 marks _data as a 2-D array, which
-# numba_wrapper maps to float32[:, :].
-decorrelation_spec = [
-    ("_name", np.str_),
-    ("_data", np.ndarray, 2),  # (height, width) float32 in [0, 1]
-]
-
-
-@numba_jitclass_wrapper(decorrelation_spec, nonjit_class=StretchDecorrelation)
-class StretchDecorrelationUsingNumba:
-    """
-    Decorrelation stretch. See :class:`StretchDecorrelation`.
-
-    This class does use numba.
-    """
-
-    # Constructor
-    def __init__(self, data):
-        self._name = "Decorrelation"
-        self._data = data
-
-    def __str__(self):
-        return "StretchDecorrelationUsingNumba"
-
-    def apply(self, a):
-        # The precomputed result replaces whatever band data was passed in.
-        for i in range(a.shape[0]):
-            for j in range(a.shape[1]):
-                a[i, j] = self._data[i, j]
-
-    def get_stretches(self):
-        return [self, None]
-
-    def get_hash_tuple(self):
-        return (self._name, self._data.shape[0], self._data.shape[1])
-
-    def __hash__(self):
-        return hash(self.get_hash_tuple())
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return False
-        return self._name == other._name and self._data.shape == other._data.shape
-
-
-def is_decorrelation_stretch(stretch) -> bool:
-    """
-    Return True if ``stretch`` is a decorrelation stretch (either the plain or
-    the numba variant).
-
-    Decorrelation stretches ignore the band data passed to apply(), so callers
-    can use this to skip fetching/normalizing the source band before rendering.
-    When numba is unavailable, ``StretchDecorrelationUsingNumba`` is the same
-    object as ``StretchDecorrelation``; the duplicate in the tuple is harmless.
-    """
-    try:
-        return isinstance(stretch, (StretchDecorrelation, StretchDecorrelationUsingNumba))
-    except TypeError:
-        # Guard against environments where the numba jitclass type cannot be
-        # used as an isinstance argument.
-        return isinstance(stretch, StretchDecorrelation)
-
-
 class StretchComposite:
     """This class implements a stretch composed from a pair of stretches."""
 
