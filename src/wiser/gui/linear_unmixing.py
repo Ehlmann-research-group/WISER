@@ -36,6 +36,8 @@ class LinearUnmixingDialog(QDialog):
         self.setModal(False)
         self._app_state = app_state
         self._app_services = app_services
+        # Remembered so that showEvent can re-select the right dataset if the
+        # dialog is hidden and shown again after datasets have changed.
         self._selected_dataset_id: Optional[int] = None
 
         self._ui = Ui_LinearUnmixingDialog()
@@ -49,32 +51,45 @@ class LinearUnmixingDialog(QDialog):
         app_state.dataset_removed.connect(self._on_datasets_changed)
 
     def show_linear_unmixing(self, dataset_id: Optional[int] = None) -> None:
+        """Rebuild the dataset combo box and pre-select `dataset_id` if given."""
         cbox = self._ui.cbox_input_ds
         cbox.clear()
+        # Sentinel item: userData=-1 means "nothing selected". We check for
+        # this in get_selected_dataset() to avoid passing junk to the backend.
         cbox.addItem(self.tr("(no data)"), -1)
         for dataset in self._app_state.get_datasets():
             cbox.addItem(dataset.get_name(), dataset.get_id())
 
         if dataset_id is not None:
             index = cbox.findData(dataset_id)
+            # Fall back to index 0 ("no data") if the requested ID disappeared
+            # (e.g., the dataset was removed between calls).
             cbox.setCurrentIndex(index if index >= 0 else 0)
         else:
             cbox.setCurrentIndex(0)
 
     def showEvent(self, event):
+        # Re-populate the combo box on every show so it reflects any datasets
+        # added or removed while the dialog was hidden.
         self.show_linear_unmixing(dataset_id=self._selected_dataset_id)
         super().showEvent(event)
 
     def select_dataset(self, dataset_id: Optional[int]) -> None:
+        """Called externally (e.g., from the context menu) to pre-select a dataset."""
         self._selected_dataset_id = dataset_id
         self.show_linear_unmixing(dataset_id=dataset_id)
 
     def _on_datasets_changed(self, *_args) -> None:
+        # Try to preserve whatever the user had selected before the change.
+        # currentData() returns -1 for the sentinel "no data" item, so we
+        # treat anything < 0 as "no selection" and let show_linear_unmixing
+        # fall back to index 0.
         current_id = self._ui.cbox_input_ds.currentData()
         preserve_id = current_id if (current_id is not None and int(current_id) >= 0) else None
         self.show_linear_unmixing(dataset_id=preserve_id)
 
     def get_selected_dataset(self):
+        """Return the currently selected dataset, or None if the sentinel is selected."""
         dataset_id = self._ui.cbox_input_ds.currentData()
         if dataset_id is None or int(dataset_id) < 0:
             return None
@@ -88,6 +103,8 @@ class LinearUnmixingDialog(QDialog):
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         table.setSelectionMode(QAbstractItemView.NoSelection)
         header = table.horizontalHeader()
+        # Name column takes all available horizontal space; remove button only
+        # claims what it needs so it stays compact.
         header.setSectionResizeMode(_ENDMEMBER_NAME_COL, QHeaderView.Stretch)
         header.setSectionResizeMode(_ENDMEMBER_REMOVE_COL, QHeaderView.ResizeToContents)
 
@@ -107,11 +124,14 @@ class LinearUnmixingDialog(QDialog):
         )
         filedlg.setFileMode(QFileDialog.ExistingFile)
         filedlg.setAcceptMode(QFileDialog.AcceptOpen)
+        # WindowModal blocks interaction with this dialog but not the whole app,
+        # which is appropriate for a child file picker.
         filedlg.setWindowModality(Qt.WindowModal)
         if filedlg.exec_() != QDialog.Accepted:
             return
         path = filedlg.selectedFiles()[0]
 
+        # Update the working directory so future file pickers open in the same place.
         self._app_state.update_cwd_from_path(path)
         dlg = ImportSpectraTextDialog(path, parent=self)
         dlg.setWindowModality(Qt.WindowModal)
@@ -121,6 +141,10 @@ class LinearUnmixingDialog(QDialog):
         if not specs:
             return
 
+        # Wrap the imported spectra in a ListSpectralLibrary so they are
+        # registered with the app and appear in the spectrum chooser. This also
+        # triggers set_id() on the library, which assigns compound tuple IDs
+        # (library_id, index) to each spectrum — see _add_endmember_row.
         lib = ListSpectralLibrary(specs, path=path)
         self._app_state.add_spectral_library(lib)
 
@@ -128,10 +152,19 @@ class LinearUnmixingDialog(QDialog):
             self._add_endmember_row(spec)
 
     def _add_endmember_row(self, spec: Spectrum) -> None:
+        # Spectra collected in-app already have an integer ID assigned by
+        # take_next_id(). Spectra from a spectral library get a compound
+        # (library_id, index) tuple ID when the library is registered — see
+        # ListSpectralLibrary.set_id(). The only case where get_id() is None
+        # is a brand-new Spectrum that hasn't been added to the app yet.
         if spec.get_id() is None:
             spec.set_id(self._app_state.take_next_id())
+        # Do NOT cast to int here, library spectra have tuple IDs, and int()
+        # on a tuple raises TypeError. Keep the raw value; tuples are hashable
+        # and compare correctly with ==, so everything downstream still works.
         spec_id = spec.get_id()
 
+        # Deduplicate: if this spectrum is already in the table, silently ignore.
         if self._find_endmember_row(spec_id) is not None:
             return
 
@@ -140,18 +173,25 @@ class LinearUnmixingDialog(QDialog):
         table.insertRow(row)
 
         name_item = QTableWidgetItem(spec.get_name() or self.tr("<unnamed>"))
+        # Store the ID in UserRole so _find_endmember_row and _remove_endmember
+        # can look up the row by identity rather than by display name (which
+        # could collide if two spectra share a name).
         name_item.setData(Qt.UserRole, spec_id)
         table.setItem(row, _ENDMEMBER_NAME_COL, name_item)
 
         remove_button = build_trash_button(
             self,
+            # Default argument binding (sid=spec_id) captures the current value
+            # of spec_id rather than a closure over the loop variable, which
+            # would give every button the same ID by the time it's clicked.
             lambda checked=False, sid=spec_id: self._remove_endmember(sid),
             tooltip=self.tr("Remove endmember"),
             fallback_text=self.tr("Remove"),
         )
         table.setCellWidget(row, _ENDMEMBER_REMOVE_COL, remove_button)
 
-    def _find_endmember_row(self, spec_id: int) -> Optional[int]:
+    def _find_endmember_row(self, spec_id) -> Optional[int]:
+        """Return the row index for the given spectrum ID, or None if not present."""
         table = self._ui.tbl_wdgt_endmembers
         for row in range(table.rowCount()):
             item = table.item(row, _ENDMEMBER_NAME_COL)
@@ -159,7 +199,7 @@ class LinearUnmixingDialog(QDialog):
                 return row
         return None
 
-    def _remove_endmember(self, spec_id: int) -> None:
+    def _remove_endmember(self, spec_id) -> None:
         row = self._find_endmember_row(spec_id)
         if row is not None:
             self._ui.tbl_wdgt_endmembers.removeRow(row)
