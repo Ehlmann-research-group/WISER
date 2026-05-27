@@ -12,7 +12,6 @@ from PySide2.QtWidgets import (
     QMessageBox,
     QPushButton,
     QProgressBar,
-    QStyle,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -20,6 +19,7 @@ from PySide2.QtWidgets import (
 )
 
 from wiser.gui.generated.activity_monitor_ui import Ui_ActivityMonitor
+from wiser.gui.utils import build_trash_button
 from wiser.utils.task_system import ProgressUpdate
 
 
@@ -249,16 +249,12 @@ class ActivityMonitorDialog(QDialog):
         return container, controls
 
     def _build_remove_button(self, callback: Callable) -> QPushButton:
-        button = QPushButton()
-        button.setToolTip(self.tr("Remove task from view"))
-        trash_icon_enum = getattr(QStyle, "SP_TrashIcon", None)
-        icon = self.style().standardIcon(trash_icon_enum) if trash_icon_enum is not None else None
-        if icon is None or icon.isNull():
-            button.setText(self.tr("Remove"))
-        else:
-            button.setIcon(icon)
-        button.clicked.connect(callback)
-        return button
+        return build_trash_button(
+            self,
+            callback,
+            tooltip=self.tr("Remove task from view"),
+            fallback_text=self.tr("Remove"),
+        )
 
     def _insert_task_row(
         self,

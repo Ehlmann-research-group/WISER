@@ -1,18 +1,17 @@
-from typing import Callable, Optional
+from typing import Optional
 
 from PySide2.QtCore import Qt
 from PySide2.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHeaderView,
-    QPushButton,
-    QStyle,
     QTableWidgetItem,
 )
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialog
+from wiser.gui.utils import build_trash_button
 
 
 _ENDMEMBER_NAME_COL = 0
@@ -106,8 +105,11 @@ class LinearUnmixingDialog(QDialog):
         name_item.setData(Qt.UserRole, spec_id)
         table.setItem(row, _ENDMEMBER_NAME_COL, name_item)
 
-        remove_button = self._build_remove_button(
-            lambda checked=False, sid=spec_id: self._remove_endmember(sid)
+        remove_button = build_trash_button(
+            self,
+            lambda checked=False, sid=spec_id: self._remove_endmember(sid),
+            tooltip=self.tr("Remove endmember"),
+            fallback_text=self.tr("Remove"),
         )
         table.setCellWidget(row, _ENDMEMBER_REMOVE_COL, remove_button)
 
@@ -123,15 +125,3 @@ class LinearUnmixingDialog(QDialog):
         row = self._find_endmember_row(spec_id)
         if row is not None:
             self._ui.tbl_wdgt_endmembers.removeRow(row)
-
-    def _build_remove_button(self, callback: Callable) -> QPushButton:
-        button = QPushButton()
-        button.setToolTip(self.tr("Remove endmember"))
-        trash_icon_enum = getattr(QStyle, "SP_TrashIcon", None)
-        icon = self.style().standardIcon(trash_icon_enum) if trash_icon_enum is not None else None
-        if icon is None or icon.isNull():
-            button.setText(self.tr("Remove"))
-        else:
-            button.setIcon(icon)
-        button.clicked.connect(callback)
-        return button
