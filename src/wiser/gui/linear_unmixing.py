@@ -1,6 +1,9 @@
 import os
-from typing import Optional
+from dataclasses import dataclass, field
+from functools import partial
+from typing import Any, Callable, Dict, List, Optional
 
+import numpy as np
 from PySide2.QtCore import Qt
 from PySide2.QtWidgets import (
     QAbstractItemView,
@@ -18,6 +21,23 @@ from wiser.gui.util import StateChange
 from wiser.gui.utils import build_trash_button
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import Spectrum
+from wiser.utils.primitives import (
+    AllocationRequest,
+    ChunkingScheme,
+    DataBinding,
+    DataRef,
+    DataRegion,
+    DatasetRegionRef,
+    SpatialTileScheme,
+)
+from wiser.utils.task_system import (
+    AlgorithmPipeline,
+    BasePlanMeta,
+    DatasetPlanMeta,
+    MapStage,
+    ResourceModel,
+    WriteSpec,
+)
 
 
 _ENDMEMBER_NAME_COL = 0
@@ -240,3 +260,198 @@ class LinearUnmixingDialog(QDialog):
             item = table.item(row, _ENDMEMBER_NAME_COL)
             if item is not None and predicate(item.data(Qt.UserRole)):
                 table.removeRow(row)
+
+
+# ---------------------------------------------------------------------------
+# Backend: unconstrained linear-unmixing task stage and pipeline builder.
+#
+# Solve y = X @ a per pixel via the normal equations a = (X^T X)^{-1} X^T y,
+# where X is the (L, M) endmember matrix and y is the L-band pixel spectrum.
+# Output is (H, W, M+1): M abundance bands (in endmember-list order) followed
+# by one RMSE band over good bands.
+# ---------------------------------------------------------------------------
+
+_ENDMEMBERS_BROADCAST_KEY = "linear_unmix_endmembers"
+
+
+def _linear_unmix_pre_task_stub(*_args: Any, **_kwargs: Any) -> None:
+    # PR 2 will: read endmembers (M, L), build augmented X if sum_to_unity is
+    # set, compute C = X^T X, invert to C_inv, write C_inv to its allocation.
+    raise NotImplementedError("LinearUnmixingStage.pre_task_fn is implemented in PR 2")
+
+
+def _linear_unmix_task_stub(*_args: Any, **_kwargs: Any) -> None:
+    # PR 2 will: read input tile, read endmembers + C_inv, compute
+    # A_tile = C_inv @ X^T @ Y_tile, compute RMSE over good bands, write
+    # (h, w, M+1) to the output region.
+    raise NotImplementedError("LinearUnmixingStage.task_fn is implemented in PR 2")
+
+
+def _linear_unmix_post_task_stub(*_args: Any, **_kwargs: Any) -> None:
+    # PR 2 will: propagate spatial metadata (CRS, geotransform, nodata) from
+    # the input dataset onto the abundance output ref.
+    raise NotImplementedError("LinearUnmixingStage.post_task_fn is implemented in PR 2")
+
+
+@dataclass
+class LinearUnmixingStage(MapStage):
+    """Per-tile unconstrained linear unmixing via the normal equations.
+
+    Outputs ``(H, W, M+1)`` float32: ``M`` abundance bands (indexed to match the
+    endmember-list order passed in by the caller) followed by one RMSE band.
+    RMSE is the reconstruction residual computed over good bands only.
+
+    Optional sum-to-unity weighting (augmented-matrix trick): when
+    ``_sum_to_unity`` is True, ``pre_task_fn`` appends a row of
+    ``_sum_to_unity_weight`` to ``X`` before computing ``C = X^T X``, and
+    ``task_fn`` appends the same weight to each pixel ``y``. The implementation
+    lives in PR 2 — this stage just carries the configuration.
+    """
+
+    _output_ref_name: str = "linear_unmix_abundances"
+    _endmembers_ref_name: str = _ENDMEMBERS_BROADCAST_KEY
+    _c_inv_ref_name: str = "linear_unmix_c_inv"
+    _num_endmembers: int = 0
+    _sum_to_unity: bool = False
+    _sum_to_unity_weight: float = 1.0
+
+    resource_model: ResourceModel = field(
+        default_factory=lambda: ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=1,
+        )
+    )
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
+
+    def __post_init__(self) -> None:
+        if self._endmembers_ref_name not in self.broadcast_input:
+            raise ValueError(f"LinearUnmixingStage requires '{self._endmembers_ref_name}' in broadcast_input")
+        if self._num_endmembers <= 0:
+            raise ValueError("LinearUnmixingStage requires _num_endmembers > 0")
+        self.output_bindings = list(self.output_bindings) + [
+            DataBinding(self._output_ref_name),
+            # C_inv is allocated here so pre_task_fn has somewhere to write it
+            # and task_fn can read it back via output_writes[c_inv_name].ref.
+            # Treated as an internal intermediate; consumers should ignore it.
+            DataBinding(self._c_inv_ref_name),
+        ]
+
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        if not isinstance(input_region, DatasetRegionRef):
+            raise TypeError("LinearUnmixingStage expects a DatasetRegionRef input region")
+        return DatasetRegionRef(
+            y0=input_region.y0,
+            y1=input_region.y1,
+            x0=input_region.x0,
+            x1=input_region.x1,
+            b0=0,
+            b1=self._num_endmembers + 1,
+        )
+
+    def generate_allocation_requests(
+        self,
+        *,
+        input_meta: BasePlanMeta,
+        chosen_scheme: Optional[ChunkingScheme],
+    ) -> List[AllocationRequest]:
+        _ = chosen_scheme
+        assert isinstance(input_meta, DatasetPlanMeta), "LinearUnmixingStage requires DatasetPlanMeta"
+        n_out_bands = self._num_endmembers + 1
+        out_size = input_meta.height * input_meta.width * n_out_bands * np.dtype(np.float32).itemsize
+        c_inv_size = self._num_endmembers * self._num_endmembers * np.dtype(np.float64).itemsize
+        return [
+            AllocationRequest(
+                name=self._output_ref_name,
+                kind="dataset",
+                residency="ram_cacheable",
+                size_est=out_size,
+                shape=(input_meta.height, input_meta.width, n_out_bands),
+                dtype=np.dtype(np.float32),
+                delete_policy=self.get_output_delete_policy(self._output_ref_name),
+            ),
+            AllocationRequest(
+                name=self._c_inv_ref_name,
+                kind="array",
+                residency="ram_cacheable",
+                size_est=c_inv_size,
+                shape=(self._num_endmembers, self._num_endmembers),
+                dtype=np.dtype(np.float64),
+                delete_policy=self.get_output_delete_policy(self._c_inv_ref_name),
+            ),
+        ]
+
+    def pre_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
+        return partial(_linear_unmix_pre_task_stub)
+
+    def task_fn(
+        self,
+        input_ref: DataRef,
+        input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        _ = (input_ref, input_region, output_writes, broadcast_inputs)
+        return partial(_linear_unmix_task_stub)
+
+    def post_task_fn(
+        self,
+        input_ref: DataRef,
+        full_input_region: DataRegion,
+        output_writes: Dict[str, "WriteSpec"],
+        broadcast_inputs: Dict[str, Any] = {},
+    ) -> Callable[..., None]:
+        _ = (input_ref, full_input_region, output_writes, broadcast_inputs)
+        return partial(_linear_unmix_post_task_stub)
+
+
+def get_linear_unmixing_pipeline(
+    dataset_ref: DataRef,
+    endmembers_ref: DataRef,
+    num_endmembers: int,
+    output_ref_name: str = "linear_unmix_abundances",
+    *,
+    sum_to_unity: bool = False,
+    sum_to_unity_weight: float = 1.0,
+) -> AlgorithmPipeline:
+    """Build the linear-unmixing pipeline (single stage).
+
+    Parameters
+    ----------
+    dataset_ref
+        Source hyperspectral cube, shape ``(H, W, L)``.
+    endmembers_ref
+        Pre-allocated ref holding the endmember matrix of shape
+        ``(M, L)`` (float32), already resampled to the dataset's wavelength
+        grid. Resampling is the caller's responsibility — typically the
+        ``LinearUnmixingSemanticTask`` (added in a later PR) handles it via
+        ``scipy.interpolate.interp1d``.
+    num_endmembers
+        ``M``. Must equal the first dimension of ``endmembers_ref``.
+    output_ref_name
+        Name of the abundance output binding. Output cube is
+        ``(H, W, M+1)`` float32: ``M`` abundance bands followed by RMSE.
+    sum_to_unity
+        If True, softly enforce ``sum(abundances) == 1`` via the
+        augmented-matrix trick (PR 2).
+    sum_to_unity_weight
+        Augmented-row weight ``W``. Larger ``W`` produces a stronger penalty
+        for abundances that don't sum to one.
+    """
+    stage = LinearUnmixingStage(
+        _output_ref_name=output_ref_name,
+        _num_endmembers=num_endmembers,
+        _sum_to_unity=sum_to_unity,
+        _sum_to_unity_weight=sum_to_unity_weight,
+        broadcast_input={_ENDMEMBERS_BROADCAST_KEY: endmembers_ref},
+    )
+    _ = dataset_ref  # consumed by the planner via SemanticTask.input_ref, not the stage itself
+    return AlgorithmPipeline([stage])
