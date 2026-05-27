@@ -1,9 +1,11 @@
+import os
 from typing import Optional
 
 from PySide2.QtCore import Qt
 from PySide2.QtWidgets import (
     QAbstractItemView,
     QDialog,
+    QFileDialog,
     QHeaderView,
     QTableWidgetItem,
 )
@@ -11,7 +13,10 @@ from PySide2.QtWidgets import (
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialog
+from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.utils import build_trash_button
+from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster.spectrum import Spectrum
 
 
 _ENDMEMBER_NAME_COL = 0
@@ -38,6 +43,7 @@ class LinearUnmixingDialog(QDialog):
 
         self._configure_endmember_table()
         self._ui.btn_add_collected_spec.clicked.connect(self._on_add_collected_spec)
+        self._ui.btn_import_spec.clicked.connect(self._on_import_spec)
 
         app_state.dataset_added.connect(self._on_datasets_changed)
         app_state.dataset_removed.connect(self._on_datasets_changed)
@@ -89,10 +95,42 @@ class LinearUnmixingDialog(QDialog):
         spec = self._app_state.choose_spectrum_ui()
         if spec is None:
             return
+        self._add_endmember_row(spec)
 
+    def _on_import_spec(self) -> None:
+        start_dir = self._app_state.get_current_dir() or os.path.expanduser("~")
+        filedlg = QFileDialog(
+            self,
+            self.tr("Import Spectra from Text File"),
+            start_dir,
+            self.tr("Text files (*.txt);;All Files (*)"),
+        )
+        filedlg.setFileMode(QFileDialog.ExistingFile)
+        filedlg.setAcceptMode(QFileDialog.AcceptOpen)
+        filedlg.setWindowModality(Qt.WindowModal)
+        if filedlg.exec_() != QDialog.Accepted:
+            return
+        path = filedlg.selectedFiles()[0]
+
+        self._app_state.update_cwd_from_path(path)
+        dlg = ImportSpectraTextDialog(path, parent=self)
+        dlg.setWindowModality(Qt.WindowModal)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        specs = dlg.get_spectra()
+        if not specs:
+            return
+
+        lib = ListSpectralLibrary(specs, path=path)
+        self._app_state.add_spectral_library(lib)
+
+        for spec in specs:
+            self._add_endmember_row(spec)
+
+    def _add_endmember_row(self, spec: Spectrum) -> None:
         if spec.get_id() is None:
             spec.set_id(self._app_state.take_next_id())
-        spec_id = int(spec.get_id())
+        spec_id = spec.get_id()
 
         if self._find_endmember_row(spec_id) is not None:
             return
