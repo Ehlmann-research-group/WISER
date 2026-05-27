@@ -14,6 +14,7 @@ from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialog
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
+from wiser.gui.util import StateChange
 from wiser.gui.utils import build_trash_button
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import Spectrum
@@ -49,6 +50,14 @@ class LinearUnmixingDialog(QDialog):
 
         app_state.dataset_added.connect(self._on_datasets_changed)
         app_state.dataset_removed.connect(self._on_datasets_changed)
+
+        # Keep the endmember table in sync with the app's spectrum store: if a
+        # collected spectrum is discarded, or a spectral library is removed,
+        # drop any rows referencing them. (No name-change signal exists, so we
+        # can't reactively update display names — they'll just stay stale until
+        # the row is removed.)
+        app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
+        app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
 
     def show_linear_unmixing(self, dataset_id: Optional[int] = None) -> None:
         """Rebuild the dataset combo box and pre-select `dataset_id` if given."""
@@ -203,3 +212,31 @@ class LinearUnmixingDialog(QDialog):
         row = self._find_endmember_row(spec_id)
         if row is not None:
             self._ui.tbl_wdgt_endmembers.removeRow(row)
+
+    def _on_collected_spectra_changed(self, state_change, _index: int, spec_id) -> None:
+        # We only care about removals here. Additions don't implicitly add a
+        # spectrum to the endmember table — the user has to choose it.
+        if state_change != StateChange.ITEM_REMOVED:
+            return
+        if spec_id == -1:
+            # "Remove all collected spectra" sentinel (see app_state.remove_all_collected_spectra).
+            # Drop every row whose ID is a plain int — those came from the
+            # collected-spectra pool. Library spectra have tuple IDs and are
+            # untouched by this signal.
+            self._remove_rows_matching(lambda sid: not isinstance(sid, tuple))
+        else:
+            self._remove_endmember(spec_id)
+
+    def _on_spectral_library_removed(self, lib_id: int) -> None:
+        # Library spectra have compound IDs of the form (lib_id, index). Drop
+        # every row whose tuple's first element matches the removed library.
+        self._remove_rows_matching(lambda sid: isinstance(sid, tuple) and len(sid) >= 1 and sid[0] == lib_id)
+
+    def _remove_rows_matching(self, predicate) -> None:
+        # Iterate in reverse so row-index shifting from removeRow() doesn't
+        # skip rows we still need to visit.
+        table = self._ui.tbl_wdgt_endmembers
+        for row in range(table.rowCount() - 1, -1, -1):
+            item = table.item(row, _ENDMEMBER_NAME_COL)
+            if item is not None and predicate(item.data(Qt.UserRole)):
+                table.removeRow(row)
