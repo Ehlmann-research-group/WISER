@@ -11,6 +11,7 @@ from PySide2.QtWidgets import (
     QDialog,
     QFileDialog,
     QHeaderView,
+    QMessageBox,
     QTableWidgetItem,
 )
 
@@ -271,6 +272,65 @@ class LinearUnmixingDialog(QDialog):
             item = table.item(row, _ENDMEMBER_NAME_COL)
             if item is not None and predicate(item.data(Qt.UserRole)):
                 table.removeRow(row)
+
+    def _collect_endmember_spectra(self) -> List[Spectrum]:
+        """Return the ordered list of endmember spectra from the table widget.
+
+        Raises:
+            ValueError: If the table is empty.
+            KeyError: If a collected spectrum or spectral library has been
+                removed from the app state since it was added to the table.
+        """
+        table = self._ui.tbl_wdgt_endmembers
+        if table.rowCount() == 0:
+            raise ValueError(self.tr("Add at least one endmember spectrum before running."))
+
+        spectra: List[Spectrum] = []
+        for row in range(table.rowCount()):
+            item = table.item(row, _ENDMEMBER_NAME_COL)
+            if item is None:
+                continue
+            spec_id = item.data(Qt.UserRole)
+            if isinstance(spec_id, tuple):
+                # Library spectrum: (library_id, index)
+                lib_id, index = spec_id
+                spec = self._app_state.get_spectral_library(lib_id).get_spectrum(index)
+            else:
+                # Collected spectrum: plain integer ID
+                spec = self._app_state.get_spectrum(spec_id)
+            spectra.append(spec)
+        return spectra
+
+    def _perform_linear_unmixing(self) -> None:
+        source_dataset = self.get_selected_dataset()
+        if source_dataset is None:
+            raise ValueError(self.tr("Select an input dataset before running."))
+
+        endmember_spectra = self._collect_endmember_spectra()
+
+        task = LinearUnmixingSemanticTask(
+            app_state=self._app_state,
+            app_services=self._app_services,
+            source_dataset=source_dataset,
+            endmember_spectra=endmember_spectra,
+        )
+        task_plan = self._app_services.task_planner.plan_semantic_task(task)
+        self._app_services.task_manager.register_and_submit_task_plan(
+            self._app_services.scheduler,
+            task_plan,
+        )
+
+    def accept(self) -> None:
+        try:
+            self._perform_linear_unmixing()
+        except (ValueError, KeyError) as exc:
+            QMessageBox.warning(self, self.tr("Linear Unmixing"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.tr("Linear Unmixing"),
+            self.tr("Linear unmixing is running in the background."),
+        )
 
 
 # ---------------------------------------------------------------------------
