@@ -33,6 +33,12 @@ PRIORITY_LANE_COUNT = 3
 # scheduler's RAM budget (or otherwise cannot ever be admitted).
 MAX_DEFER_COUNT = 42
 
+# The below should add up to 1.0. Currently, we don't have any interactive
+# or render budgets so we put most into background.
+INTERACTIVE_EXECUTOR_BUDGET_WEIGHT = 0.125
+RENDER_EXECUTOR_BUDGET_WEIGHT = 0.125
+BACKGROUND_EXECUTOR_BUDGET_WEIGHT = 0.75
+
 
 @dataclass
 class SchedulerConfig:
@@ -539,10 +545,10 @@ class RecordingWorkScheduler:
 
 def _priority_weight(priority: PriorityClass) -> float:
     if priority == PriorityClass.INTERACTIVE:
-        return 1.0 / 2.0
+        return INTERACTIVE_EXECUTOR_BUDGET_WEIGHT
     if priority == PriorityClass.RENDER:
-        return 1.0 / 3.0
-    return 1.0 / 6.0
+        return RENDER_EXECUTOR_BUDGET_WEIGHT
+    return BACKGROUND_EXECUTOR_BUDGET_WEIGHT
 
 
 def _allocate_priority_tokens(budget: int) -> Dict[PriorityClass, int]:

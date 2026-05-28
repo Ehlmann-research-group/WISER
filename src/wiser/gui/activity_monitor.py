@@ -19,7 +19,7 @@ from PySide2.QtWidgets import (
 )
 
 from wiser.gui.generated.activity_monitor_ui import Ui_ActivityMonitor
-from wiser.gui.utils import build_trash_button
+from wiser.gui.util import build_trash_button
 from wiser.utils.task_system import ProgressUpdate
 
 

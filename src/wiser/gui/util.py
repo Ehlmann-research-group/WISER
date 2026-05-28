@@ -2,7 +2,7 @@ import os
 import random
 import string
 
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -20,6 +20,10 @@ import math
 import enum
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper
+
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
+    from wiser.raster.spectrum import Spectrum
 
 
 class StateChange(enum.Enum):
@@ -1225,3 +1229,79 @@ def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str
         help_btn.setToolTip(tooltip_message)
 
     help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"{link}")))
+
+
+def build_trash_button(
+    parent: QWidget,
+    callback: Callable,
+    tooltip: str = "Remove",
+    fallback_text: str = "Remove",
+) -> QPushButton:
+    """Build a QPushButton showing the standard trash icon, falling back to text."""
+    button = QPushButton()
+    button.setToolTip(tooltip)
+    trash_icon_enum = getattr(QStyle, "SP_TrashIcon", None)
+    icon = parent.style().standardIcon(trash_icon_enum) if trash_icon_enum is not None else None
+    if icon is None or icon.isNull():
+        button.setText(fallback_text)
+    else:
+        button.setIcon(icon)
+    button.clicked.connect(callback)
+    return button
+
+
+class CollectedSpectrumChooserDialog(QDialog):
+    """Chooser that lists only the collected spectra in the app.
+
+    The standard :class:`~wiser.gui.ui_library.SpectrumChooserDialog` pulls
+    from ``get_all_spectra`` which includes the active (currently-hovered /
+    selected) spectrum.  This dialog offers only persistently collected spectra
+    so the user picks deliberately saved measurements, not whatever pixel the
+    cursor happens to be over.
+
+    Note: inherits from :class:`QDialog` directly (rather than
+    :class:`~wiser.gui.ui_library.SingleItemChooserDialog`) to avoid a circular
+    import — ``ui_library`` already imports from this module.
+    """
+
+    def __init__(self, app_state: "ApplicationState", parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setWindowTitle(self.tr("Select Collected Spectrum"))
+
+        self._app_state = app_state
+        self._accepted = False
+
+        layout = QGridLayout(self)
+        layout.addWidget(QLabel(self.tr("Collected Spectrum"), self), 0, 0)
+
+        self._cbox = QComboBox(self)
+        for spec in app_state.get_collected_spectra():
+            self._cbox.addItem(spec.get_name() or self.tr("<unnamed>"), spec.get_id())
+        layout.addWidget(self._cbox, 0, 1)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            parent=self,
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box, 1, 0, 1, 2)
+
+        self.setLayout(layout)
+
+    def accept(self) -> None:
+        self._accepted = True
+        super().accept()
+
+    def reject(self) -> None:
+        self._accepted = False
+        super().reject()
+
+    def get_chosen_object(self) -> "Optional[Spectrum]":
+        if not self._accepted:
+            return None
+        spec_id = self._cbox.currentData()
+        try:
+            return self._app_state.get_spectrum(spec_id)
+        except KeyError:
+            return None

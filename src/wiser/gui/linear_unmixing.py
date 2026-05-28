@@ -20,7 +20,7 @@ from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialog
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.util import StateChange
-from wiser.gui.utils import build_trash_button
+from wiser.gui.util import CollectedSpectrumChooserDialog, build_trash_button
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import Spectrum
@@ -164,7 +164,11 @@ class LinearUnmixingDialog(QDialog):
         header.setSectionResizeMode(_ENDMEMBER_REMOVE_COL, QHeaderView.ResizeToContents)
 
     def _on_add_collected_spec(self) -> None:
-        spec = self._app_state.choose_spectrum_ui()
+        dlg = CollectedSpectrumChooserDialog(self._app_state, parent=self)
+        dlg.setWindowModality(Qt.WindowModal)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        spec = dlg.get_chosen_object()
         if spec is None:
             return
         self._add_endmember_row(spec)
@@ -474,11 +478,14 @@ def _linear_unmix_pre_task(
     good_band_runs = _combined_good_band_runs(input_meta.bad_bands, endmember_meta.bad_bands, num_bands)
 
     endmembers_good = _read_endmembers_good(endmembers_ref, good_band_runs)
+    print(f"endmembers_good.shape: {endmembers_good.shape}")
     if sum_to_unity:
         weight_col = np.full((endmembers_good.shape[0], 1), sum_to_unity_weight, dtype=np.float64)
         endmembers_aug = np.concatenate([endmembers_good, weight_col], axis=1)
     else:
         endmembers_aug = endmembers_good
+
+    print(f"endmembers_aug.shape: {endmembers_aug.shape}")
 
     c = endmembers_aug @ endmembers_aug.T  # (M, M)
     c_inv = np.linalg.inv(c)
@@ -543,6 +550,12 @@ def _linear_unmix_tile(
         )
     else:
         endmembers_solve, pixels_solve = endmembers_good, flat_valid
+
+    print(f"!@# flat_valid.shape: {flat_valid.shape}")
+    print(f"!@# pixels_solve.shape: {pixels_solve.shape}")
+
+    print(f"!@# endmembers_good.shape: {endmembers_good.shape}")
+    print(f"!@# endmembers_solve.shape: {endmembers_solve.shape}")
 
     abundances_valid = pixels_solve @ endmembers_solve.T @ c_inv  # (N_valid, M)
 
