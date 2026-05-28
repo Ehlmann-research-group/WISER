@@ -674,12 +674,17 @@ def get_linear_unmixing_pipeline(
         Augmented-row weight ``W``. Larger ``W`` produces a stronger penalty
         for abundances that don't sum to one.
     """
+    storage_client = get_process_storage_client()
+    data_meta = storage_client.get_meta(dataset_ref)
+    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
+
     stage = LinearUnmixingStage(
+        default_executor="process",
+        input_plan_meta=dataset_plan_meta,
         _output_ref_name=output_ref_name,
         _num_endmembers=num_endmembers,
         _sum_to_unity=sum_to_unity,
         _sum_to_unity_weight=sum_to_unity_weight,
         broadcast_input={_ENDMEMBERS_BROADCAST_KEY: endmembers_ref},
     )
-    _ = dataset_ref  # consumed by the planner via SemanticTask.input_ref, not the stage itself
     return AlgorithmPipeline([stage])
