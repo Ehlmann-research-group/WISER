@@ -985,7 +985,7 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
         num_em = len(self._endmember_names)
         em_str = f"{num_em} endmember{'s' if num_em != 1 else ''}"
         prefix = self._prefix_name if self._prefix_name else "Linear Unmix"
-        full_name = f"{prefix}: {source_name}, {em_str}"
+        full_name = f"{prefix}: {source_name}, {em_str} (Run {self.id})"
 
         timestamp = datetime.datetime.now().isoformat(timespec="seconds")
         result_dataset.set_name(self._app_state.unique_dataset_name(full_name))
