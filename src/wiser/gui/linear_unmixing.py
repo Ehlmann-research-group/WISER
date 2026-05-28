@@ -80,6 +80,16 @@ class LinearUnmixingDialog(QDialog):
         self._ui.btn_add_collected_spec.clicked.connect(self._on_add_collected_spec)
         self._ui.btn_import_spec.clicked.connect(self._on_import_spec)
 
+        # Sum-to-unity controls: spin box starts hidden (checkbox unchecked).
+        # Using setVisible keeps the checkbox in the same horizontal position
+        # because it is to the LEFT of the spin box in the HBoxLayout — hiding
+        # the spin box only removes space from the right.
+        self._ui.sbox_sum_unity.setMinimum(1)
+        self._ui.sbox_sum_unity.setMaximum(9999)
+        self._ui.sbox_sum_unity.setValue(1)
+        self._ui.sbox_sum_unity.setVisible(False)
+        self._ui.checkbox_sum_unity.toggled.connect(self._on_sum_to_unity_toggled)
+
         app_state.dataset_added.connect(self._on_datasets_changed)
         app_state.dataset_removed.connect(self._on_datasets_changed)
 
@@ -135,6 +145,10 @@ class LinearUnmixingDialog(QDialog):
         if dataset_id is None or int(dataset_id) < 0:
             return None
         return self._app_state.get_dataset(int(dataset_id))
+
+    def _on_sum_to_unity_toggled(self, checked: bool) -> None:
+        """Show or hide the weight spin box depending on the checkbox state."""
+        self._ui.sbox_sum_unity.setVisible(checked)
 
     def _configure_endmember_table(self) -> None:
         table = self._ui.tbl_wdgt_endmembers
@@ -308,11 +322,19 @@ class LinearUnmixingDialog(QDialog):
 
         endmember_spectra = self._collect_endmember_spectra()
 
+        sum_to_unity = self._ui.checkbox_sum_unity.isChecked()
+        # The weight is only meaningful when the checkbox is checked; use 1.0 as
+        # a safe no-op default when the constraint is disabled so the value the
+        # user typed doesn't inadvertently influence a future run.
+        sum_to_unity_weight = float(self._ui.sbox_sum_unity.value()) if sum_to_unity else 1.0
+
         task = LinearUnmixingSemanticTask(
             app_state=self._app_state,
             app_services=self._app_services,
             source_dataset=source_dataset,
             endmember_spectra=endmember_spectra,
+            sum_to_unity=sum_to_unity,
+            sum_to_unity_weight=sum_to_unity_weight,
         )
         task_plan = self._app_services.task_planner.plan_semantic_task(task)
         self._app_services.task_manager.register_and_submit_task_plan(
@@ -803,6 +825,8 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
         source_dataset: RasterDataSet,
         endmember_spectra: List[Spectrum],
         output_ref_name: str = "linear_unmix_abundances",
+        sum_to_unity: bool = False,
+        sum_to_unity_weight: float = 1.0,
         *,
         name: str = "",
     ) -> None:
@@ -872,11 +896,14 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
             ),
         )
 
+        # If sum_to_unity is False, the weight is not actually used
         pipeline = get_linear_unmixing_pipeline(
             dataset_ref=source_ref,
             endmembers_ref=endmembers_ref,
             num_endmembers=num_endmembers,
             output_ref_name=output_ref_name,
+            sum_to_unity=sum_to_unity,
+            sum_to_unity_weight=sum_to_unity_weight,
         )
 
         source_name = source_dataset.get_name() or "Dataset"
