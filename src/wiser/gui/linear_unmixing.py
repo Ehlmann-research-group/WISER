@@ -478,14 +478,11 @@ def _linear_unmix_pre_task(
     good_band_runs = _combined_good_band_runs(input_meta.bad_bands, endmember_meta.bad_bands, num_bands)
 
     endmembers_good = _read_endmembers_good(endmembers_ref, good_band_runs)
-    print(f"endmembers_good.shape: {endmembers_good.shape}")
     if sum_to_unity:
         weight_col = np.full((endmembers_good.shape[0], 1), sum_to_unity_weight, dtype=np.float64)
         endmembers_aug = np.concatenate([endmembers_good, weight_col], axis=1)
     else:
         endmembers_aug = endmembers_good
-
-    print(f"endmembers_aug.shape: {endmembers_aug.shape}")
 
     c = endmembers_aug @ endmembers_aug.T  # (M, M)
     c_inv = np.linalg.inv(c)
@@ -550,12 +547,6 @@ def _linear_unmix_tile(
         )
     else:
         endmembers_solve, pixels_solve = endmembers_good, flat_valid
-
-    print(f"!@# flat_valid.shape: {flat_valid.shape}")
-    print(f"!@# pixels_solve.shape: {pixels_solve.shape}")
-
-    print(f"!@# endmembers_good.shape: {endmembers_good.shape}")
-    print(f"!@# endmembers_solve.shape: {endmembers_solve.shape}")
 
     abundances_valid = pixels_solve @ endmembers_solve.T @ c_inv  # (N_valid, M)
 
