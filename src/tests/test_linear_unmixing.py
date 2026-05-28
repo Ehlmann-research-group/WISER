@@ -336,11 +336,10 @@ class TestLinearUnmixing(unittest.TestCase):
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
 
-    unittest.skip(
+    @unittest.skip(
         "Currently this test does not match ENVI, but the pipeline"
         "does do a good sum to unit constraint anyways, will revist this test later"
     )
-
     def test_constrained_unmixing_weight_5_matches_envi_gt_on_caltech_15_20_20(self) -> None:
         """Sum-to-unity constrained unmixing (weight=5) matches ENVI's output.
 
