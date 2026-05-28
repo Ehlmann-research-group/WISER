@@ -2,7 +2,7 @@ import datetime
 import os
 from dataclasses import dataclass, field, replace
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from PySide2.QtCore import QObject, Qt, Signal, Slot
@@ -10,9 +10,14 @@ from PySide2.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFileDialog,
+    QHBoxLayout,
     QHeaderView,
+    QLabel,
     QMessageBox,
+    QPushButton,
+    QTableWidget,
     QTableWidgetItem,
+    QVBoxLayout,
 )
 
 from wiser.gui.app_services import AppServices
@@ -23,7 +28,7 @@ from wiser.gui.util import StateChange
 from wiser.gui.util import CollectedSpectrumChooserDialog, build_trash_button
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectral_library import ListSpectralLibrary
-from wiser.raster.spectrum import Spectrum
+from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -89,6 +94,12 @@ class LinearUnmixingDialog(QDialog):
         self._ui.sbox_sum_unity.setValue(1)
         self._ui.sbox_sum_unity.setVisible(False)
         self._ui.checkbox_sum_unity.toggled.connect(self._on_sum_to_unity_toggled)
+
+        # Past runs viewer — lazily created on first click and kept alive on
+        # this dialog so reopening it preserves scroll position / collapsed
+        # state.  The underlying history itself lives on ApplicationState.
+        self._history_dialog: Optional[LinearUnmixingHistoryDialog] = None
+        self._ui.btn_view_past_runs.clicked.connect(self._on_view_past_runs)
 
         app_state.dataset_added.connect(self._on_datasets_changed)
         app_state.dataset_removed.connect(self._on_datasets_changed)
@@ -340,6 +351,8 @@ class LinearUnmixingDialog(QDialog):
             sum_to_unity=sum_to_unity,
             sum_to_unity_weight=sum_to_unity_weight,
         )
+        # Record the run in the application-level history once it finishes.
+        task.run_recorded.connect(self._app_state.get_linear_unmix_history().add_record)
         task_plan = self._app_services.task_planner.plan_semantic_task(task)
         self._app_services.task_manager.register_and_submit_task_plan(
             self._app_services.scheduler,
@@ -357,6 +370,14 @@ class LinearUnmixingDialog(QDialog):
             self.tr("Linear Unmixing"),
             self.tr("Linear unmixing is running in the background."),
         )
+
+    def _on_view_past_runs(self) -> None:
+        """Open (or surface) the past-runs viewer for linear unmixing."""
+        if self._history_dialog is None:
+            self._history_dialog = LinearUnmixingHistoryDialog(self._app_state, parent=self)
+        self._history_dialog.show()
+        self._history_dialog.raise_()
+        self._history_dialog.activateWindow()
 
 
 # ---------------------------------------------------------------------------
@@ -781,6 +802,111 @@ def get_linear_unmixing_pipeline(
 
 
 # ---------------------------------------------------------------------------
+# Run history (application state) — record + manager
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LinearUnmixingRunRecord:
+    """Immutable record of one completed linear-unmixing run.
+
+    Holds enough information to revisit the run later: the IDs of the input
+    and output datasets, plus deep snapshots of the endmember spectra used
+    (so the run remains viewable even after the original spectra are
+    discarded).  Dataset cubes are *not* snapshotted because they can be
+    large; if the user closes a referenced dataset, the run will be moved
+    into a "closed runs" section instead.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    output_dataset_id: int
+    # Snapshotted names so the table can still show something meaningful
+    # after the live dataset is closed.
+    input_dataset_name_snapshot: str
+    output_dataset_name_snapshot: str
+    # endmember_snapshots[i] is the spectrum used to produce abundance band i.
+    endmember_snapshots: Tuple[NumPyArraySpectrum, ...]
+    sum_to_unity: bool
+    sum_to_unity_weight: float
+
+
+class LinearUnmixingHistoryManager(QObject):
+    """Owns the in-memory list of completed linear-unmixing runs.
+
+    Lives on :class:`~wiser.gui.app_state.ApplicationState` so the history
+    persists across closing and reopening the linear-unmixing dialog.
+
+    Subscribes to ``ApplicationState.dataset_removed`` and re-emits
+    ``records_changed`` so any open history dialog re-renders with updated
+    liveness state — records are never silently dropped on dataset removal,
+    they just move into the "closed runs" section.
+    """
+
+    records_changed = Signal()
+
+    def __init__(self, app_state: ApplicationState) -> None:
+        super().__init__()
+        self._app_state = app_state
+        self._records: List[LinearUnmixingRunRecord] = []
+        # Any dataset removal could change the liveness label of any record,
+        # so just re-emit unconditionally.  Re-rendering N rows for typical
+        # N < 100 is cheap.
+        app_state.dataset_removed.connect(self._on_dataset_removed)
+
+    # ----- mutation -----
+
+    def add_record(self, record: LinearUnmixingRunRecord) -> None:
+        self._records.append(record)
+        self.records_changed.emit()
+
+    def remove_record(self, run_id: int) -> None:
+        before = len(self._records)
+        self._records = [r for r in self._records if r.run_id != run_id]
+        if len(self._records) != before:
+            self.records_changed.emit()
+
+    # ----- read -----
+
+    def get_records(self) -> List[LinearUnmixingRunRecord]:
+        return list(self._records)
+
+    def is_input_alive(self, record: LinearUnmixingRunRecord) -> bool:
+        try:
+            self._app_state.get_dataset(record.input_dataset_id)
+            return True
+        except KeyError:
+            return False
+
+    def is_output_alive(self, record: LinearUnmixingRunRecord) -> bool:
+        try:
+            self._app_state.get_dataset(record.output_dataset_id)
+            return True
+        except KeyError:
+            return False
+
+    def is_fully_alive(self, record: LinearUnmixingRunRecord) -> bool:
+        return self.is_input_alive(record) and self.is_output_alive(record)
+
+    def get_status_text(self, record: LinearUnmixingRunRecord) -> str:
+        input_alive = self.is_input_alive(record)
+        output_alive = self.is_output_alive(record)
+        if input_alive and output_alive:
+            return "Available"
+        if not input_alive and not output_alive:
+            return "Input + output datasets closed"
+        if not input_alive:
+            return "Input dataset closed"
+        return "Output dataset closed"
+
+    # ----- signal slots -----
+
+    def _on_dataset_removed(self, _removed_id: int) -> None:
+        self.records_changed.emit()
+
+
+# ---------------------------------------------------------------------------
 # Semantic task
 # ---------------------------------------------------------------------------
 
@@ -821,6 +947,10 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
     """
 
     result_ready = Signal(object)
+    # Emitted in _load_result_into_wiser after the output dataset is registered.
+    # Payload is a LinearUnmixingRunRecord (declared above).  The dialog connects
+    # this to app_state.get_linear_unmix_history().add_record at task creation.
+    run_recorded = Signal(object)
 
     def __init__(
         self,
@@ -900,6 +1030,31 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
             ),
         )
 
+        source_name = source_dataset.get_name() or "Dataset"
+
+        # Snapshot each endmember spectrum into a fresh NumPyArraySpectrum so
+        # the past-runs viewer can re-display it even after the source
+        # spectrum is discarded (collected spectra) or the library is removed.
+        # The wavelengths come from the first spectrum's grid because the
+        # whole stage assumes a shared grid (asserted above).
+        wavelengths_for_snapshots = (
+            list(first_spec.get_wavelengths()) if first_spec.has_wavelengths() else None
+        )
+        endmember_snapshots: List[NumPyArraySpectrum] = []
+        for arr, snap_name in zip(spectrum_arrays, endmember_names):
+            snap = NumPyArraySpectrum(
+                arr=arr.copy(),
+                name=snap_name,
+                source_name=source_name,
+                wavelengths=wavelengths_for_snapshots,
+                editable=False,
+                discardable=False,
+            )
+            if em_bad_bands is not None:
+                # NumPyArraySpectrum expects a 1D bool_ array matching its band count.
+                snap.set_bad_bands(em_bad_bands.astype(np.bool_, copy=False))
+            endmember_snapshots.append(snap)
+
         # If sum_to_unity is False, the weight is not actually used
         pipeline = get_linear_unmixing_pipeline(
             dataset_ref=source_ref,
@@ -910,7 +1065,6 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
             sum_to_unity_weight=sum_to_unity_weight,
         )
 
-        source_name = source_dataset.get_name() or "Dataset"
         SemanticTask.__init__(
             self,
             priority_class=PriorityClass.BACKGROUND,
@@ -928,6 +1082,10 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
         self._output_ref_name = output_ref_name
         self._endmember_names: List[str] = endmember_names
         self._prefix_name: str = name
+        # Stashed for the run record emitted from _load_result_into_wiser.
+        self._endmember_snapshots: Tuple[NumPyArraySpectrum, ...] = tuple(endmember_snapshots)
+        self._sum_to_unity = sum_to_unity
+        self._sum_to_unity_weight = sum_to_unity_weight
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
@@ -998,3 +1156,262 @@ class LinearUnmixingSemanticTask(QObject, SemanticTask):
         result_dataset.set_band_descriptions(band_descriptions)
 
         self._app_state.add_dataset(result_dataset, view_dataset=False)
+
+        # Record the completed run in the application-level history so the
+        # past-runs dialog can revisit it.  The history manager is shared and
+        # outlives this task.
+        self.run_recorded.emit(
+            LinearUnmixingRunRecord(
+                run_id=self.id,
+                timestamp=datetime.datetime.now(),
+                input_dataset_id=self._source_dataset.get_id(),
+                output_dataset_id=result_dataset.get_id(),
+                input_dataset_name_snapshot=source_name,
+                output_dataset_name_snapshot=result_dataset.get_name(),
+                endmember_snapshots=self._endmember_snapshots,
+                sum_to_unity=self._sum_to_unity,
+                sum_to_unity_weight=self._sum_to_unity_weight,
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# Run history dialog
+# ---------------------------------------------------------------------------
+
+
+# Column indices for the past-runs tables.  Shared between active + closed.
+_RUN_COL_RUN = 0
+_RUN_COL_TIME = 1
+_RUN_COL_INPUT = 2
+_RUN_COL_OUTPUT = 3
+_RUN_COL_NUM_EMS = 4
+_RUN_COL_STATUS = 5
+_RUN_COL_VIEW = 6
+_RUN_COL_DELETE = 7
+_RUN_COL_COUNT = 8
+
+# Unicode arrows for the Closed Runs toggle button (mirrors activity monitor).
+_ARROW_EXPANDED = "▼"
+_ARROW_COLLAPSED = "▶"
+
+
+class LinearUnmixingHistoryDialog(QDialog):
+    """Non-modal viewer for past linear-unmixing runs.
+
+    Lays out two tables — Active and Closed — that re-render whenever the
+    shared :class:`LinearUnmixingHistoryManager` emits ``records_changed``.
+    A record is "active" iff both its input and output datasets still
+    resolve in the application state; otherwise it appears in the Closed
+    section with its View button disabled and a status string explaining
+    which dataset is gone.
+
+    The Closed section is collapsible via the same arrow-button pattern the
+    activity monitor uses for its Finished Tasks section.
+    """
+
+    def __init__(self, app_state: ApplicationState, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setWindowTitle(self.tr("Linear Unmixing — Past Runs"))
+        self.setModal(False)
+        self.resize(800, 500)
+
+        self._app_state = app_state
+        self._history = app_state.get_linear_unmix_history()
+        self._closed_expanded = False
+
+        outer = QVBoxLayout(self)
+
+        outer.addWidget(QLabel(self.tr("Active Runs"), self))
+        self._tbl_active = self._make_table()
+        outer.addWidget(self._tbl_active)
+
+        self._btn_toggle_closed = QPushButton(self)
+        self._btn_toggle_closed.clicked.connect(self._toggle_closed_section)
+        outer.addWidget(self._btn_toggle_closed)
+
+        self._tbl_closed = self._make_table()
+        self._tbl_closed.setVisible(self._closed_expanded)
+        outer.addWidget(self._tbl_closed)
+
+        btn_close = QPushButton(self.tr("Close"), self)
+        btn_close.clicked.connect(self.close)
+        bottom = QHBoxLayout()
+        bottom.addStretch(1)
+        bottom.addWidget(btn_close)
+        outer.addLayout(bottom)
+
+        self._history.records_changed.connect(self._rebuild_tables)
+        self._rebuild_tables()
+
+    # ----- helpers -----
+
+    def _make_table(self) -> QTableWidget:
+        table = QTableWidget(self)
+        table.setColumnCount(_RUN_COL_COUNT)
+        table.setHorizontalHeaderLabels(
+            [
+                self.tr("Run"),
+                self.tr("Time"),
+                self.tr("Input dataset"),
+                self.tr("Output dataset"),
+                self.tr("# EMs"),
+                self.tr("Status"),
+                self.tr(""),
+                self.tr(""),
+            ]
+        )
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QAbstractItemView.NoSelection)
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(_RUN_COL_INPUT, QHeaderView.Stretch)
+        header.setSectionResizeMode(_RUN_COL_OUTPUT, QHeaderView.Stretch)
+        header.setSectionResizeMode(_RUN_COL_STATUS, QHeaderView.Stretch)
+        for col in (_RUN_COL_RUN, _RUN_COL_TIME, _RUN_COL_NUM_EMS, _RUN_COL_VIEW, _RUN_COL_DELETE):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        return table
+
+    def _toggle_closed_section(self) -> None:
+        self._closed_expanded = not self._closed_expanded
+        self._tbl_closed.setVisible(self._closed_expanded)
+        self._sync_closed_toggle_button()
+
+    def _sync_closed_toggle_button(self) -> None:
+        arrow = _ARROW_EXPANDED if self._closed_expanded else _ARROW_COLLAPSED
+        count = self._tbl_closed.rowCount()
+        self._btn_toggle_closed.setText(self.tr(f"Closed Runs ({count}) {arrow}"))
+
+    # ----- rendering -----
+
+    @Slot()
+    def _rebuild_tables(self) -> None:
+        self._tbl_active.setRowCount(0)
+        self._tbl_closed.setRowCount(0)
+        for record in self._history.get_records():
+            if self._history.is_fully_alive(record):
+                self._append_row(self._tbl_active, record, fully_alive=True)
+            else:
+                self._append_row(self._tbl_closed, record, fully_alive=False)
+        self._sync_closed_toggle_button()
+
+    def _append_row(
+        self,
+        table: QTableWidget,
+        record: LinearUnmixingRunRecord,
+        *,
+        fully_alive: bool,
+    ) -> None:
+        row = table.rowCount()
+        table.insertRow(row)
+
+        table.setItem(row, _RUN_COL_RUN, QTableWidgetItem(str(record.run_id)))
+        table.setItem(
+            row,
+            _RUN_COL_TIME,
+            QTableWidgetItem(record.timestamp.strftime("%Y-%m-%d %H:%M:%S")),
+        )
+
+        table.setItem(
+            row,
+            _RUN_COL_INPUT,
+            self._make_dataset_item(
+                record.input_dataset_id,
+                record.input_dataset_name_snapshot,
+                alive=self._history.is_input_alive(record),
+            ),
+        )
+        table.setItem(
+            row,
+            _RUN_COL_OUTPUT,
+            self._make_dataset_item(
+                record.output_dataset_id,
+                record.output_dataset_name_snapshot,
+                alive=self._history.is_output_alive(record),
+            ),
+        )
+
+        table.setItem(
+            row,
+            _RUN_COL_NUM_EMS,
+            QTableWidgetItem(str(len(record.endmember_snapshots))),
+        )
+        table.setItem(
+            row,
+            _RUN_COL_STATUS,
+            QTableWidgetItem(self._history.get_status_text(record)),
+        )
+
+        btn_view = QPushButton(self.tr("View"), table)
+        btn_view.setEnabled(fully_alive)
+        rid = record.run_id
+        btn_view.clicked.connect(lambda checked=False, r=rid: self._on_view_clicked(r))
+        table.setCellWidget(row, _RUN_COL_VIEW, btn_view)
+
+        btn_delete = QPushButton(self.tr("Delete"), table)
+        btn_delete.clicked.connect(lambda checked=False, r=rid: self._history.remove_record(r))
+        table.setCellWidget(row, _RUN_COL_DELETE, btn_delete)
+
+    def _make_dataset_item(
+        self,
+        dataset_id: int,
+        snapshot_name: str,
+        *,
+        alive: bool,
+    ) -> QTableWidgetItem:
+        if alive:
+            ds = self._app_state.get_dataset(dataset_id)
+            item = QTableWidgetItem(ds.get_name() or snapshot_name)
+        else:
+            item = QTableWidgetItem(f"{snapshot_name} (closed)")
+            # Greyed-out italic for closed dataset cells.
+            font = item.font()
+            font.setItalic(True)
+            item.setFont(font)
+            item.setForeground(Qt.gray)
+        return item
+
+    # ----- View click -----
+
+    def _on_view_clicked(self, run_id: int) -> None:
+        record = next(
+            (r for r in self._history.get_records() if r.run_id == run_id),
+            None,
+        )
+        if record is None or not self._history.is_fully_alive(record):
+            # Liveness can change between the click and the slot firing.
+            # If a dataset disappeared in that window, the next records_changed
+            # render will disable the button; bail silently here.
+            return
+
+        # Build renamed clones so the original snapshots stay untouched.
+        # Naming format is per the spec: "Band Index <i> - <original name>".
+        clones: List[NumPyArraySpectrum] = []
+        for i, snap in enumerate(record.endmember_snapshots):
+            clone = NumPyArraySpectrum(
+                arr=snap.get_spectrum().copy(),
+                name=f"Band Index {i} - {snap.get_name() or 'Endmember'}",
+                source_name=snap.get_source_name(),
+                wavelengths=(list(snap.get_wavelengths()) if snap.has_wavelengths() else None),
+                editable=False,
+                discardable=False,
+            )
+            bad_bands = snap.get_bad_bands()
+            if bad_bands is not None:
+                clone.set_bad_bands(np.asarray(bad_bands).copy())
+            clones.append(clone)
+
+        self._app_state.show_spectra_in_plot(
+            clones,
+            plot_title=f"Linear Unmix Run {run_id} — Endmembers",
+            parent=self,
+        )
+
+        # Surface the input + output datasets in the main view if they aren't
+        # already shown.  Uses the same "is_showing_dataset → show_dataset"
+        # pattern as app.show_dataset_coords.
+        main_view = self._app_state._app._main_view
+        for ds_id in (record.input_dataset_id, record.output_dataset_id):
+            ds = self._app_state.get_dataset(ds_id)
+            if main_view.is_showing_dataset(ds) is None:
+                main_view.show_dataset(ds)
