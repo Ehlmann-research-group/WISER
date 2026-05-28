@@ -1,10 +1,11 @@
+import datetime
 import os
 from dataclasses import dataclass, field, replace
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
-from PySide2.QtCore import Qt
+from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -19,15 +20,19 @@ from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialo
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.util import StateChange
 from wiser.gui.utils import build_trash_button
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import Spectrum
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
     DataBinding,
+    DataMeta,
     DataRef,
     DataRegion,
     DatasetRegionRef,
+    ExternalRasterHandle,
+    PriorityClass,
     SpatialTileScheme,
 )
 from wiser.utils.task_stage_utils import (
@@ -40,6 +45,7 @@ from wiser.utils.task_system import (
     DatasetPlanMeta,
     MapStage,
     ResourceModel,
+    SemanticTask,
     WriteSpec,
 )
 from wiser.utils.worker_runtime import get_process_storage_client
@@ -658,10 +664,8 @@ def get_linear_unmixing_pipeline(
         Source hyperspectral cube, shape ``(H, W, L)``.
     endmembers_ref
         Pre-allocated ref holding the endmember matrix of shape
-        ``(M, L)`` (float32), already resampled to the dataset's wavelength
-        grid. Resampling is the caller's responsibility — typically the
-        ``LinearUnmixingSemanticTask`` (added in a later PR) handles it via
-        ``scipy.interpolate.interp1d``.
+        ``(M, L)`` (float32), on the same wavelength grid as the dataset.
+        Ensuring grid alignment is the caller's responsibility.
     num_endmembers
         ``M``. Must equal the first dimension of ``endmembers_ref``.
     output_ref_name
@@ -688,3 +692,218 @@ def get_linear_unmixing_pipeline(
         broadcast_input={_ENDMEMBERS_BROADCAST_KEY: endmembers_ref},
     )
     return AlgorithmPipeline([stage])
+
+
+# ---------------------------------------------------------------------------
+# Semantic task
+# ---------------------------------------------------------------------------
+
+
+class LinearUnmixingSemanticTask(QObject, SemanticTask):
+    """Semantic task that runs the full linear unmixing pipeline.
+
+    Registers the source dataset, stacks the endmember spectra into a
+    ``(M, L)`` float32 array, allocates a storage ref for the endmember
+    matrix, and builds the single-stage ``LinearUnmixingStage`` pipeline.
+
+    On completion, the ``(H, W, M+1)`` output cube is read back and emitted
+    via ``result_ready``, which is connected to ``_load_result_into_wiser``.
+    That slot creates a new dataset whose bands are named after the endmember
+    spectra (in order) with the final band named "RMSE", then adds it to the
+    WISER application state.
+
+    Args:
+        app_state: The running :class:`~wiser.gui.app_state.ApplicationState`.
+        app_services: Application services used for dataset registration and
+            task allocation.
+        source_dataset: The hyperspectral image cube to unmix.
+        endmember_spectra: Ordered list of endmember spectra.  Each must span
+            the full band count of ``source_dataset`` and be on the same
+            wavelength grid (bad-band removal is handled internally by the
+            stage).
+        output_ref_name: Storage allocation name for the abundance output cube.
+            Defaults to ``"linear_unmix_abundances"``.
+        name: Optional prefix prepended to the output dataset name.  When
+            non-empty, the dataset is named ``"<name>: <source>, <M> endmembers"``;
+            when empty, the prefix defaults to ``"Linear Unmix"``.  Must be
+            supplied as a keyword argument.
+
+    Signals:
+        result_ready: Emitted in ``completion_callback`` with the
+            ``(H, W, M+1)`` float32 abundance cube.  Connected to
+            ``_load_result_into_wiser``.
+    """
+
+    result_ready = Signal(object)
+
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        app_services: AppServices,
+        source_dataset: RasterDataSet,
+        endmember_spectra: List[Spectrum],
+        output_ref_name: str = "linear_unmix_abundances",
+        *,
+        name: str = "",
+    ) -> None:
+        QObject.__init__(self)
+
+        if not endmember_spectra:
+            raise ValueError("LinearUnmixingSemanticTask requires at least one endmember spectrum.")
+
+        source_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=source_dataset)
+        )
+
+        # Build the endmember names list and the (M, L) float32 matrix.
+        # Spectra are assumed to already be on the dataset's wavelength grid
+        # (e.g. picked via SpectrumAtPoint or pre-aligned by the caller).
+        endmember_names: List[str] = []
+        spectrum_arrays: List[np.ndarray] = []
+        for i, spec in enumerate(endmember_spectra):
+            spec_name = spec.get_name()
+            endmember_names.append(spec_name if spec_name else f"Endmember {i + 1}")
+            spectrum_arrays.append(np.asarray(spec.get_spectrum(), dtype=np.float32))
+
+        endmember_matrix = np.stack(spectrum_arrays, axis=0)  # (M, L)
+        num_endmembers = endmember_matrix.shape[0]
+
+        process_client = get_process_storage_client()
+        endmembers_ref = app_services.storage_service.allocate_data(
+            AllocationRequest(
+                name="lu_endmembers",
+                kind="array",
+                residency="ram_cacheable",
+                size_est=int(endmember_matrix.size * endmember_matrix.dtype.itemsize),
+                shape=endmember_matrix.shape,
+                dtype=endmember_matrix.dtype,
+            )
+        )
+        process_client.write_data(endmembers_ref, endmember_matrix)
+
+        # Write spectrum metadata to the endmembers ref so the stage's
+        # _combined_good_band_runs can AND the endmember bad-band mask with the
+        # dataset's bad-band mask.
+        #
+        # ASSUMPTION: all endmember spectra share the same wavelength grid and
+        # bad-band mask.  We read both from the first spectrum only.
+        first_spec = endmember_spectra[0]
+
+        raw_bad_bands = first_spec.get_bad_bands()
+        em_bad_bands: Optional[np.ndarray] = (
+            np.asarray(raw_bad_bands, dtype=np.int8) if raw_bad_bands is not None else None
+        )
+
+        em_wavelengths: Optional[np.ndarray] = None
+        em_wavelength_units = None
+        if first_spec.has_wavelengths():
+            wl_list = first_spec.get_wavelengths()
+            em_wavelength_units = first_spec.get_wavelength_units()
+            em_wavelengths = np.array([w.to(em_wavelength_units).value for w in wl_list], dtype=np.float64)
+
+        em_meta: DataMeta = process_client.get_meta(endmembers_ref)
+        process_client.write_meta(
+            endmembers_ref,
+            replace(
+                em_meta,
+                bad_bands=em_bad_bands,
+                wavelengths=em_wavelengths,
+                wavelength_units=em_wavelength_units,
+            ),
+        )
+
+        pipeline = get_linear_unmixing_pipeline(
+            dataset_ref=source_ref,
+            endmembers_ref=endmembers_ref,
+            num_endmembers=num_endmembers,
+            output_ref_name=output_ref_name,
+        )
+
+        source_name = source_dataset.get_name() or "Dataset"
+        SemanticTask.__init__(
+            self,
+            priority_class=PriorityClass.BACKGROUND,
+            input_ref=source_ref,
+            algorithm_pipeline=pipeline,
+            task_title="Linear Unmixing",
+            task_variables={
+                "Source": source_name,
+                "Endmembers": num_endmembers,
+            },
+        )
+        self.id = app_state.take_next_id()
+        self._app_state = app_state
+        self._source_dataset = source_dataset
+        self._output_ref_name = output_ref_name
+        self._endmember_names: List[str] = endmember_names
+        self._prefix_name: str = name
+        self.result_ready.connect(self._load_result_into_wiser)
+
+    def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
+        """Read the full abundance cube and emit it for loading on the main thread.
+
+        Runs in the worker process after all tiles finish.  Emits the full
+        ``(H, W, M+1)`` float32 cube via ``result_ready`` so the Qt main
+        thread can create a dataset from it.
+
+        Args:
+            bindings: Mapping of allocation names to resolved
+                :class:`~wiser.utils.primitives.DataRef` objects produced by
+                the task pipeline.
+
+        Raises:
+            KeyError: If the expected output binding is not present.
+        """
+        output_ref = bindings.get(self._output_ref_name)
+        if output_ref is None:
+            raise KeyError(f"Missing linear unmixing output binding: '{self._output_ref_name}'")
+
+        storage_client = get_process_storage_client()
+        meta = storage_client.get_meta(output_ref)
+        height, width, n_bands = meta.shape
+        region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=n_bands)
+        output_data, _ = storage_client.read_region(output_ref, region, filter_data=False)
+        self.result_ready.emit(np.asarray(output_data, dtype=np.float32))
+
+    @Slot(object)
+    def _load_result_into_wiser(self, abundance_data: object) -> None:
+        """Create a WISER dataset from the abundance cube and add it to the app.
+
+        Runs on the Qt main thread (via the ``result_ready`` signal).
+
+        The output dataset has ``M + 1`` bands: one abundance band per
+        endmember (in the same order as ``endmember_spectra``) followed by
+        one RMSE band.  Band descriptions are set to the endmember names /
+        "RMSE".  Spatial metadata (CRS, geotransform) is copied from the
+        source dataset.  The nodata value is NaN so that pixels that were
+        skipped during unmixing (input nodata pixels) round-trip correctly.
+
+        Args:
+            abundance_data: The ``(H, W, M+1)`` float32 array emitted by
+                :meth:`completion_callback`.
+        """
+        abundance_array = np.asarray(abundance_data, dtype=np.float32)  # (H, W, M+1)
+        # dataset_from_numpy_array expects (bands, height, width)
+        abundance_by_band = abundance_array.transpose(2, 0, 1)  # (M+1, H, W)
+
+        loader = self._app_state.get_loader()
+        cache = self._app_state.get_cache()
+        result_dataset = loader.dataset_from_numpy_array(abundance_by_band, cache)
+
+        source_name = self._source_dataset.get_name() or "Dataset"
+        num_em = len(self._endmember_names)
+        em_str = f"{num_em} endmember{'s' if num_em != 1 else ''}"
+        prefix = self._prefix_name if self._prefix_name else "Linear Unmix"
+        full_name = f"{prefix}: {source_name}, {em_str}"
+
+        timestamp = datetime.datetime.now().isoformat(timespec="seconds")
+        result_dataset.set_name(self._app_state.unique_dataset_name(full_name))
+        result_dataset.set_description(f"Linear unmixing of '{source_name}' with {em_str} ({timestamp})")
+        result_dataset.set_data_ignore_value(float("nan"))
+        result_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+
+        # Name each band: M abundance bands (one per endmember) + RMSE.
+        band_descriptions = list(self._endmember_names) + ["RMSE"]
+        result_dataset.set_band_descriptions(band_descriptions)
+
+        self._app_state.add_dataset(result_dataset, view_dataset=False)
