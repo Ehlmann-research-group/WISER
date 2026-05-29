@@ -25,7 +25,7 @@ from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialog
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.util import StateChange
-from wiser.gui.util import CollectedSpectrumChooserDialog, build_trash_button
+from wiser.gui.util import GenericMultiSelectDialog, build_trash_button
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
@@ -195,14 +195,29 @@ class LinearUnmixingDialog(QDialog):
         header.setSectionResizeMode(_ENDMEMBER_REMOVE_COL, QHeaderView.ResizeToContents)
 
     def _on_add_collected_spec(self) -> None:
-        dlg = CollectedSpectrumChooserDialog(self._app_state, parent=self)
+        collected_spectra = self._app_state.get_collected_spectra()
+        if not collected_spectra:
+            QMessageBox.information(
+                self,
+                self.tr("Add Collected Spectra"),
+                self.tr("There are no collected spectra to add."),
+            )
+            return
+
+        names = [spec.get_name() or self.tr("<unnamed>") for spec in collected_spectra]
+        dlg = GenericMultiSelectDialog(
+            names=names,
+            data_items=list(collected_spectra),
+            item_column_name=self.tr("Collected Spectrum"),
+            title=self.tr("Add Collected Spectra"),
+            parent=self,
+        )
         dlg.setWindowModality(Qt.WindowModal)
         if dlg.exec_() != QDialog.Accepted:
             return
-        spec = dlg.get_chosen_object()
-        if spec is None:
-            return
-        self._add_endmember_row(spec)
+        _, selected_specs = dlg.get_selected()
+        for spec in selected_specs:
+            self._add_endmember_row(spec)
 
     def _on_import_spec(self) -> None:
         start_dir = self._app_state.get_current_dir() or os.path.expanduser("~")
