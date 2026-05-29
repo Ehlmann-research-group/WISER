@@ -1,0 +1,19 @@
+ENVI
+description = {
+  Unmixing Result [Wed May 27 11:16:19 2026]}
+samples = 20
+lines   = 20
+bands   = 3
+header offset = 0
+file type = ENVI Standard
+data type = 4
+interleave = bsq
+sensor type = Unknown
+byte order = 0
+map info = {UTM, 1.000, 1.000, 395438.353, 3778497.720, 2.0000000000e+00, 2.0000000000e+00, 11, North, WGS_1984, units=Meters, rotation=-2.00000000}
+coordinate system string = {PROJCS["UTM_Zone_11N",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["false_easting",500000.0],PARAMETER["false_northing",0.0],PARAMETER["central_meridian",-117.0],PARAMETER["scale_factor",0.9996],PARAMETER["latitude_of_origin",0.0],UNIT["Meter",1.0]]}
+wavelength units = Unknown
+band names = {
+ Unmix (caltech_15_20_20_data_ignore_bb) EM:caltech_15_20_20_data_ignore_bb (19;19), 
+ Unmix (caltech_15_20_20_data_ignore_bb) EM:caltech_15_20_20_data_ignore_bb (19;0), 
+ RMS Error}

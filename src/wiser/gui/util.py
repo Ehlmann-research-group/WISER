@@ -2,7 +2,7 @@ import os
 import random
 import string
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -1225,3 +1225,142 @@ def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str
         help_btn.setToolTip(tooltip_message)
 
     help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"{link}")))
+
+
+def build_trash_button(
+    parent: QWidget,
+    callback: Callable,
+    tooltip: str = "Remove",
+    fallback_text: str = "Remove",
+) -> QPushButton:
+    """Build a QPushButton showing the standard trash icon, falling back to text."""
+    button = QPushButton()
+    button.setToolTip(tooltip)
+    trash_icon_enum = getattr(QStyle, "SP_TrashIcon", None)
+    icon = parent.style().standardIcon(trash_icon_enum) if trash_icon_enum is not None else None
+    if icon is None or icon.isNull():
+        button.setText(fallback_text)
+    else:
+        button.setIcon(icon)
+    button.clicked.connect(callback)
+    return button
+
+
+class GenericMultiSelectDialog(QDialog):
+    """Multi-select dialog with an Include column and a list of items.
+
+    Mirrors the band-include UI used elsewhere in WISER but is generic over
+    the items shown.  The caller passes parallel lists of display names and
+    arbitrary data objects; the dialog presents one row per item with an
+    Include checkbox and a name cell.  "Include All Items" and
+    "Exclude All Items" buttons toggle every row at once.
+
+    On OK, the caller retrieves the selected names + data objects via
+    :meth:`get_selected`.  All rows start checked (the natural default for
+    a "pick what to add" picker).
+
+    The dialog uses :meth:`exec_` like a modal picker — callers do
+    ``if dlg.exec_() == QDialog.Accepted: names, items = dlg.get_selected()``.
+    """
+
+    _COL_INCLUDE = 0
+    _COL_NAME = 1
+
+    def __init__(
+        self,
+        names: List[str],
+        data_items: List[Any],
+        *,
+        item_column_name: str = "Item",
+        title: str = "Select Items",
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        if len(names) != len(data_items):
+            raise ValueError(
+                "GenericMultiSelectDialog requires len(names) == len(data_items); "
+                f"got {len(names)} vs {len(data_items)}."
+            )
+        super().__init__(parent=parent)
+        self.setWindowTitle(title)
+
+        # Hold a reference so get_selected() can return the original objects
+        # rather than re-parsing whatever we put in the table cells.
+        self._data_items: List[Any] = list(data_items)
+        self._accepted = False
+
+        layout = QVBoxLayout(self)
+
+        # Top button row: Include All / Exclude All.
+        select_btns = QHBoxLayout()
+        btn_include_all = QPushButton(self.tr("Include All Items"), self)
+        btn_include_all.clicked.connect(self._on_include_all)
+        btn_exclude_all = QPushButton(self.tr("Exclude All Items"), self)
+        btn_exclude_all.clicked.connect(self._on_exclude_all)
+        select_btns.addWidget(btn_include_all)
+        select_btns.addWidget(btn_exclude_all)
+        select_btns.addStretch(1)
+        layout.addLayout(select_btns)
+
+        # Table: row per item, Include checkbox + name cell.
+        self._table = QTableWidget(len(names), 2, self)
+        self._table.setHorizontalHeaderLabels([self.tr("Include"), self.tr(item_column_name)])
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionMode(QAbstractItemView.NoSelection)
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(self._COL_INCLUDE, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self._COL_NAME, QHeaderView.Stretch)
+
+        for row, name in enumerate(names):
+            include_item = QTableWidgetItem()
+            # Checkable but not text-editable; default to checked (all-include
+            # is the natural starting point for a "pick what to add" picker).
+            include_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            include_item.setCheckState(Qt.Checked)
+            self._table.setItem(row, self._COL_INCLUDE, include_item)
+            self._table.setItem(row, self._COL_NAME, QTableWidgetItem(name))
+
+        layout.addWidget(self._table)
+
+        # OK / Cancel.
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            parent=self,
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def _set_all_check_states(self, state: "Qt.CheckState") -> None:
+        for row in range(self._table.rowCount()):
+            self._table.item(row, self._COL_INCLUDE).setCheckState(state)
+
+    def _on_include_all(self) -> None:
+        self._set_all_check_states(Qt.Checked)
+
+    def _on_exclude_all(self) -> None:
+        self._set_all_check_states(Qt.Unchecked)
+
+    def accept(self) -> None:
+        self._accepted = True
+        super().accept()
+
+    def reject(self) -> None:
+        self._accepted = False
+        super().reject()
+
+    def get_selected(self) -> Tuple[List[str], List[Any]]:
+        """Return ``(names, data_items)`` for rows whose Include box is checked.
+
+        Returns two empty lists if the dialog was cancelled.  The two lists
+        are parallel: ``names[i]`` was the display name paired with
+        ``data_items[i]`` at construction time.
+        """
+        if not self._accepted:
+            return [], []
+        names: List[str] = []
+        items: List[Any] = []
+        for row in range(self._table.rowCount()):
+            if self._table.item(row, self._COL_INCLUDE).checkState() == Qt.Checked:
+                names.append(self._table.item(row, self._COL_NAME).text())
+                items.append(self._data_items[row])
+        return names, items

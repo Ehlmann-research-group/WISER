@@ -77,6 +77,7 @@ from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.gui.kmeans import KMeansDialog
+from wiser.gui.linear_unmixing import LinearUnmixingDialog
 from wiser.gui.mnf import MinimumNoiseFractionDialog
 from wiser.gui.mtmf import MTMFDialog
 
@@ -396,6 +397,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
         act.triggered.connect(self.show_mtmf_dialog)
+
+        act = submenu.addAction(self.tr("Linear Unmixing"))
+        act.triggered.connect(self.show_linear_unmixing_dialog)
 
         if FLAGS.kmeans:
             act = submenu.addAction(self.tr("K-means"))
@@ -1029,6 +1033,16 @@ class DataVisualizerApp(QMainWindow):
         self._kmeans_dialog.show()
         self._kmeans_dialog.raise_()
         self._kmeans_dialog.activateWindow()
+
+    def show_linear_unmixing_dialog(self):
+        if not hasattr(self, "_linear_unmixing_dialog") or self._linear_unmixing_dialog is None:
+            self._linear_unmixing_dialog = LinearUnmixingDialog(
+                self._app_state, self._app_services, parent=self
+            )
+            self._linear_unmixing_dialog.select_dataset(None)
+        self._linear_unmixing_dialog.show()
+        self._linear_unmixing_dialog.raise_()
+        self._linear_unmixing_dialog.activateWindow()
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:
