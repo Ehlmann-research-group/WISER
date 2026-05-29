@@ -136,6 +136,26 @@ class LinearUnmixingDialog(QDialog):
         self.show_linear_unmixing(dataset_id=self._selected_dataset_id)
         super().showEvent(event)
 
+    def hideEvent(self, event):
+        # The dialog instance is cached by the launcher and reused on every
+        # open (see app.py:show_linear_unmixing_dialog and
+        # main_view._open_linear_unmixing_dialog).  Without this reset, the
+        # endmember table, sum-to-unity controls, and previously-selected
+        # dataset would all persist into the next opening.  Wiping on hide
+        # rather than show lets external launchers still pre-select a
+        # dataset via select_dataset() before calling show().
+        self._reset_form_state()
+        super().hideEvent(event)
+
+    def _reset_form_state(self) -> None:
+        """Clear all user-entered form state (does not touch the history)."""
+        self._selected_dataset_id = None
+        self._ui.tbl_wdgt_endmembers.setRowCount(0)
+        # Toggling the checkbox fires _on_sum_to_unity_toggled, which hides
+        # the spin box.
+        self._ui.checkbox_sum_unity.setChecked(False)
+        self._ui.sbox_sum_unity.setValue(1)
+
     def select_dataset(self, dataset_id: Optional[int]) -> None:
         """Called externally (e.g., from the context menu) to pre-select a dataset."""
         self._selected_dataset_id = dataset_id
