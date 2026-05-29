@@ -1022,16 +1022,14 @@ class DataVisualizerApp(QMainWindow):
             pass
 
     def show_mtmf_dialog(self):
-        if not hasattr(self, "_mtmf_dialog") or self._mtmf_dialog is None:
-            self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)
+        self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)
         self._mtmf_dialog.show()
         self._mtmf_dialog.raise_()
         self._mtmf_dialog.activateWindow()
 
     def show_kmeans_dialog(self):
-        if not hasattr(self, "_kmeans_dialog") or self._kmeans_dialog is None:
-            self._kmeans_dialog = KMeansDialog(self._app_state, self._app_services, parent=self)
-            self._kmeans_dialog.select_dataset(None)
+        self._kmeans_dialog = KMeansDialog(self._app_state, self._app_services, parent=self)
+        self._kmeans_dialog.select_dataset(None)
         self._kmeans_dialog.show()
         self._kmeans_dialog.raise_()
         self._kmeans_dialog.activateWindow()
