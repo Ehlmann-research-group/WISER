@@ -13,6 +13,7 @@ import wiser.gui.generated.resources
 
 from .export_image import ExportImageDialog
 from .kmeans import KMeansDialog
+from .linear_unmixing import LinearUnmixingDialog
 from .mnf import MinimumNoiseFractionDialog
 from .mtmf import MTMFDialog
 from .plugin_utils import add_plugin_context_menu_items
@@ -216,6 +217,11 @@ class MainViewWidget(RasterPane):
 
         act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mtmf_dialog(rv))
+
+        act = submenu.addAction(self.tr("Linear Unmixing"))
+        act.triggered.connect(
+            lambda checked=False, rv=rasterview, **kwargs: self._open_linear_unmixing_dialog(rv)
+        )
 
         if FLAGS.kmeans:
             act = submenu.addAction(self.tr("K-means"))
@@ -453,6 +459,18 @@ class MainViewWidget(RasterPane):
         self._mtmf_dialog.show()
         self._mtmf_dialog.raise_()
         self._mtmf_dialog.activateWindow()
+
+    def _open_linear_unmixing_dialog(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        dataset_id = None if dataset is None else dataset.get_id()
+        if not hasattr(self, "_linear_unmixing_dialog") or self._linear_unmixing_dialog is None:
+            self._linear_unmixing_dialog = LinearUnmixingDialog(
+                self._app_state, self._app_services, parent=self
+            )
+        self._linear_unmixing_dialog.select_dataset(dataset_id)
+        self._linear_unmixing_dialog.show()
+        self._linear_unmixing_dialog.raise_()
+        self._linear_unmixing_dialog.activateWindow()
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
         # If dialog exists and is already visible, just bring it to front

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LinearUnmixingDialog</class>
+ <widget class="QDialog" name="LinearUnmixingDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>365</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Linear Unmixing Dialog</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,0">
+   <item row="3" column="1">
+    <layout class="QHBoxLayout" name="hlayout_add_spec">
+     <item>
+      <widget class="QPushButton" name="btn_add_collected_spec">
+       <property name="text">
+        <string>Add Collected Spectrum</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="hspacer_add_spec">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_import_spec">
+       <property name="text">
+        <string>Import Spectrum</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="0" column="1">
+    <widget class="QComboBox" name="cbox_input_ds"/>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="lbl_sum_unity">
+     <property name="text">
+      <string>Sum to Unity</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QCheckBox" name="checkbox_sum_unity">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="sbox_sum_unity"/>
+     </item>
+    </layout>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="lbl_input_ds">
+     <property name="text">
+      <string>Input Dataset</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="lbl_end_members">
+     <property name="text">
+      <string>Endmembers</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QTableWidget" name="tbl_wdgt_endmembers"/>
+   </item>
+   <item row="4" column="0">
+    <widget class="QPushButton" name="btn_view_past_runs">
+     <property name="text">
+      <string>View Past Runs</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>LinearUnmixingDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>LinearUnmixingDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
