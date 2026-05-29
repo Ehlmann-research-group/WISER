@@ -32,7 +32,10 @@ import tests.context  # noqa: F401 sets up sys.path
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.linear_unmixing import get_linear_unmixing_pipeline
+from wiser.gui.linear_unmixing import (
+    LinearUnmixingSemanticTask,
+    get_linear_unmixing_pipeline,
+)
 from wiser.raster.spectrum import SpectrumAtPoint
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -494,6 +497,89 @@ class TestLinearUnmixing(unittest.TestCase):
             app_services.storage_service.close()
 
 
+class TestLinearUnmixingSemanticTask(unittest.TestCase):
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def test_semantic_task_adds_dataset_matching_envi_gt_on_jpl_425_7_7(self) -> None:
+        """Run LinearUnmixingSemanticTask on jpl_425_7_7 and verify that:
+
+        - exactly one new dataset is added to WISER after the task completes
+        - the loaded output dataset's cube matches ENVI's unconstrained-unmix
+          ground truth band-for-band
+        - the dataset's data_ignore_value is NaN
+        """
+        app_state = self.test_model.app_state
+        app_services = self.test_model.app_services
+
+        dataset = self.test_model.load_dataset(str(_JPL_PATH))
+        gt_dataset = self.test_model.load_dataset(str(_JPL_GT_PATH))
+
+        em_top_left = SpectrumAtPoint(dataset, (0, 0))
+        em_bottom_right = SpectrumAtPoint(dataset, (6, 6))
+
+        datasets_before = len(app_state.get_datasets())
+
+        unmix_task = LinearUnmixingSemanticTask(
+            app_state=app_state,
+            app_services=app_services,
+            source_dataset=dataset,
+            endmember_spectra=[em_top_left, em_bottom_right],
+        )
+
+        task_plan = app_services.task_planner.plan_semantic_task(unmix_task)
+        future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+        future.result(timeout=180)
+        self.test_model.app.processEvents()
+
+        datasets_after = app_state.get_datasets()
+        self.assertEqual(
+            len(datasets_after),
+            datasets_before + 1,
+            "Expected exactly one new dataset to be added by the semantic task",
+        )
+
+        output_ds = datasets_after[-1]
+
+        self.assertTrue(np.isnan(output_ds.get_data_ignore_value()))
+
+        # get_image_data returns [b][y][x]; reorder to [y][x][b].
+        our_arr = np.asarray(output_ds.get_image_data(filter_data_ignore_value=False), dtype=np.float64)
+        our_cube = our_arr.transpose(1, 2, 0)  # (7, 7, 3)
+
+        gt_arr = np.asarray(gt_dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float64)
+        gt_cube = gt_arr.transpose(1, 2, 0)  # (7, 7, 3)
+
+        self.assertEqual(our_cube.shape, gt_cube.shape, "output cube shape mismatch")
+
+        np.testing.assert_allclose(
+            our_cube[0, 0],
+            [1.0, 0.0, 0.0],
+            rtol=0,
+            atol=1e-5,
+            err_msg="Abundance at top-left endmember pixel must be (1, 0, 0).",
+        )
+        np.testing.assert_allclose(
+            our_cube[6, 6],
+            [0.0, 1.0, 0.0],
+            rtol=0,
+            atol=1e-5,
+            err_msg="Abundance at bottom-right endmember pixel must be (0, 1, 0).",
+        )
+
+        np.testing.assert_allclose(
+            our_cube,
+            gt_cube,
+            rtol=1e-3,
+            atol=1e-4,
+            err_msg="Semantic-task linear unmixing output does not match ENVI ground truth",
+        )
+
+
 if __name__ == "__main__":
     t = TestLinearUnmixing()
     t.setUp()
@@ -503,3 +589,10 @@ if __name__ == "__main__":
         t.test_constrained_unmixing_weight_5_matches_envi_gt_on_caltech_15_20_20()
     finally:
         t.tearDown()
+
+    t2 = TestLinearUnmixingSemanticTask()
+    t2.setUp()
+    try:
+        t2.test_semantic_task_adds_dataset_matching_envi_gt_on_jpl_425_7_7()
+    finally:
+        t2.tearDown()
