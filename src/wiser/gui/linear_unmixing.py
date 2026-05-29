@@ -341,13 +341,16 @@ class LinearUnmixingDialog(QDialog):
         """Return the ordered list of endmember spectra from the table widget.
 
         Raises:
-            ValueError: If the table is empty.
+            ValueError: If the table has fewer than two endmembers.  Linear
+                unmixing needs at least two endmembers to do anything
+                meaningful — with one, the "abundance" is just a per-pixel
+                scale factor.
             KeyError: If a collected spectrum or spectral library has been
                 removed from the app state since it was added to the table.
         """
         table = self._ui.tbl_wdgt_endmembers
-        if table.rowCount() == 0:
-            raise ValueError(self.tr("Add at least one endmember spectrum before running."))
+        if table.rowCount() < 2:
+            raise ValueError(self.tr("Add at least two endmember spectra before running linear unmixing."))
 
         spectra: List[Spectrum] = []
         for row in range(table.rowCount()):
