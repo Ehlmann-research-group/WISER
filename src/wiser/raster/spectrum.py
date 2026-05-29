@@ -210,49 +210,26 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spect
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a rectangular area of the specified dataset.
-    The calculation mode can be specified with the mode argument.
+    Reads the whole rectangle in one block, then averages across pixels.
 
     The rect argument is expected to be a QRect object.
     """
-    points = [(rect.left() + dx, rect.top() + dy) for dx, dy in np.ndindex(rect.width(), rect.height())]
+    try:
+        block = dataset.get_all_bands_at_rect(rect.left(), rect.top(), rect.width(), rect.height())
+    except BaseException:
+        return np.full((dataset.num_bands(),), np.nan)
 
-    return calc_spectrum(dataset, points, mode)
+    # block is (bands, H, W) for normal datasets; reshape collapses the spatial
+    # dims so we can aggregate per band in a single call. -1 also handles the
+    # case where an underlying impl returns (bands, N) for a 1-thick rectangle.
+    spectra = block.reshape(block.shape[0], -1)
 
-
-def calc_spectrum(dataset: RasterDataSet, points: List[QPoint], mode=SpectrumAverageMode.MEAN):
-    """
-    Calculate a spectrum over a collection of points from the specified dataset.
-    The calculation mode can be specified with the mode argument.
-
-    The points argument can be any iterable that produces coordinates for this
-    function to use.
-    """
-
-    n = 0
-    spectra = []
-
-    # Collect the spectra that we need for the calculation
-    for p in points:
-        n += 1
-        s = dataset.get_all_bands_at(p[0], p[1])
-        spectra.append(s)
-
-    if len(spectra) > 1:
-        # Need to compute mean/median/... of the collection of spectra
-        if mode == SpectrumAverageMode.MEAN:
-            spectrum = np.mean(spectra, axis=0)
-
-        elif mode == SpectrumAverageMode.MEDIAN:
-            spectrum = np.median(spectra, axis=0)
-
-        else:
-            raise ValueError(f"Unrecognized average type {mode}")
-
+    if mode == SpectrumAverageMode.MEAN:
+        return np.nanmean(spectra, axis=1)
+    elif mode == SpectrumAverageMode.MEDIAN:
+        return np.nanmedian(spectra, axis=1)
     else:
-        # Only one spectrum, don't need to compute mean/median
-        spectrum = spectra[0]
-
-    return spectrum
+        raise ValueError(f"Unrecognized average type {mode}")
 
 
 def get_all_spectra_in_roi(
