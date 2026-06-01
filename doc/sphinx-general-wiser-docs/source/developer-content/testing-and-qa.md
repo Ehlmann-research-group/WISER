@@ -81,6 +81,54 @@ To propose a new marker:
 2. Open a PR explaining why existing markers are insufficient.
 3. Add a descriptive entry for the marker in `pyproject.toml`.
 
+## Test Timeouts
+
+To prevent hung or deadlocked tests from burning CI compute, two layers of
+timeout protection are in place.
+
+### Per-test timeout (`pytest-timeout`)
+
+Every test has a default budget of **240 seconds**, configured in the root
+`pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+timeout = 240
+timeout_method = "thread"
+```
+
+When a test exceeds the budget, the watchdog thread dumps the stacks of every
+thread (useful for diagnosing deadlocks) and aborts the test with
+`Failed: Timeout >240s`. The suite continues with the next test.
+
+If a test legitimately needs longer (e.g. an expensive multi-stage pipeline),
+override the budget on that test:
+
+```python
+import pytest
+
+@pytest.mark.timeout(600)
+def test_long_running_pipeline():
+    ...
+```
+
+You can also apply the override at module level via `pytestmark`:
+
+```python
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.timeout(600),
+]
+```
+
+### Job-level timeout (GitHub Actions)
+
+As a last-resort kill switch, the `tests:` job in
+`.github/workflows/dev-CI.yml` sets `timeout-minutes: 60`. This catches
+anything `pytest-timeout` cannot interrupt — hangs during pytest collection,
+hangs in `make generated`, or native-code freezes the watchdog thread cannot
+preempt.
+
 ## Running Tests
 
 ### Local
