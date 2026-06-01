@@ -545,9 +545,55 @@ class MinimumNoiseFractionDialog(QDialog):
         self._ui = Ui_MNFDialog()
         self._ui.setupUi(self)
 
+        # Keep the component-count spin box in sync with whichever dataset is
+        # picked: max changes per dataset (depends on its dimensions), and we
+        # default to the max so the user can see the ceiling at a glance.
+        self._ui.comboBox.currentIndexChanged.connect(self._refresh_component_limits)
+
+    @staticmethod
+    def _compute_max_components(dataset) -> int:
+        """Maximum components the MNF pipeline will accept for this dataset.
+
+        Matches the ceiling enforced inside ``get_mnf_pipeline``: the pipeline
+        only accepts ``num_components in [1, num_features]`` where
+        ``num_features`` is the count of *good* bands (see mnf.py:242-250).
+        Also bounded by the shift-difference noise pixel count so a small
+        image can't request more components than there are noise samples.
+        """
+        bad_bands = dataset.get_bad_bands()
+        if bad_bands is not None:
+            num_features = int(np.sum(bad_bands))
+        else:
+            num_features = dataset.num_bands()
+        height = dataset.get_height()
+        width = dataset.get_width()
+        data_pixels = height * width
+        noise_pixels = max(0, height - 1) * width
+        return min(num_features, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+
+    def _refresh_component_limits(self) -> None:
+        """Set spin-box min/max/value based on the currently selected dataset."""
+        sbox = self._ui.sbox_component
+        sbox.setMinimum(1)
+        dataset = self.get_selected_dataset()
+        if dataset is None:
+            # No dataset chosen yet; leave a generous ceiling and a sane floor
+            # so the spin box is interactable but won't accept an invalid value
+            # (perform_mnf will recompute the true cap on submit).
+            sbox.setMaximum(10_000)
+            sbox.setValue(1)
+            return
+        max_components = max(1, self._compute_max_components(dataset))
+        sbox.setMaximum(max_components)
+        sbox.setValue(max_components)
+
     def show_mnf(self, dataset_id: Optional[int] = None) -> None:
         cbox_dataset = self._ui.comboBox
         datasets = self._app_state.get_datasets()
+        # Block signals while repopulating so currentIndexChanged doesn't fire
+        # for every intermediate addItem — we call _refresh_component_limits
+        # once at the end.
+        cbox_dataset.blockSignals(True)
         cbox_dataset.clear()
         cbox_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
@@ -561,11 +607,9 @@ class MinimumNoiseFractionDialog(QDialog):
                 cbox_dataset.setCurrentIndex(0)
         else:
             cbox_dataset.setCurrentIndex(0)
+        cbox_dataset.blockSignals(False)
 
-        self._ui.sbox_component.setMinimum(1)
-        self._ui.sbox_component.setMaximum(10_000)
-        if self._ui.sbox_component.value() < 1:
-            self._ui.sbox_component.setValue(1)
+        self._refresh_component_limits()
 
     def showEvent(self, event):
         self.show_mnf(dataset_id=self._selected_dataset_id)
@@ -600,12 +644,10 @@ class MinimumNoiseFractionDialog(QDialog):
         dataset_ref = self._app_services.storage_service.register_external(
             ExternalRasterHandle(dataset_obj=selected_dataset)
         )
-        storage_client = get_process_storage_client()
-        data_meta = storage_client.get_meta(dataset_ref)
-        height, width, bands = data_meta.shape
-        data_pixels = height * width
-        noise_pixels = max(0, height - 1) * width
-        max_components = min(bands, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+        # Cap to the pipeline's accepted range (good-band count + noise-pixel
+        # ceiling) using the same helper that drives the spin box, so the
+        # dialog's display and the submission agree.
+        max_components = self._compute_max_components(selected_dataset)
         num_components = min(self.get_num_components(), max_components)
         if num_components <= 0:
             raise ValueError("No valid MNF component count for selected dataset")

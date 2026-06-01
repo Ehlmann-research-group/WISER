@@ -120,6 +120,7 @@ class PCAPlugin(plugins.ContextMenuPlugin):
 
         pca_dialog._ui.sbox_num_components.setMinimum(1)
         pca_dialog._ui.sbox_num_components.setMaximum(num_valid_bands)
+        pca_dialog._ui.sbox_num_components.setValue(num_valid_bands)
 
         for est in ESTIMATOR_TYPES:
             pca_dialog._ui.cbox_estimator.addItem(est.value, est)
