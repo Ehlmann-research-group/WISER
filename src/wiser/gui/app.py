@@ -470,7 +470,6 @@ class DataVisualizerApp(QMainWindow):
         # cool plugins are made)
         permanent_plugins = [
             ("ContinuumRemovalPlugin", ContinuumRemovalPlugin()),
-            ("PCAPlugin", PCAPlugin()),
             ("SavGolayPlugin", SavGolayPlugin()),
         ]
         for pc_name, plugin_class in permanent_plugins:
