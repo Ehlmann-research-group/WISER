@@ -14,6 +14,7 @@ from sklearn.decomposition import PCA
 
 from wiser import plugins
 from wiser.gui.run_history import EigenScreeRunHistoryDialog, RunHistoryManagerBase
+from wiser.gui.scree_plot import build_scree_plot_figure
 from wiser.gui.generated.pca_dialog_ui import Ui_PCA_Dialog
 from wiser.raster import RasterDataLoader, RasterDataSet
 from wiser.raster.utils import compute_PCA_on_image, create_pca_metadata_widget
@@ -162,6 +163,24 @@ class PCAPluginTask(QObject, SemanticTask):
         # into a fresh array so the record is independent of sklearn's
         # internal storage.
         eigenvalues = np.asarray(pca.explained_variance_, dtype=np.float64).copy()
+
+        # Pop the scree plot up alongside the PCA metadata widget so the user
+        # immediately sees the eigenvalue spectrum that justifies (or doesn't)
+        # the component count they picked.  The same plot is reachable later
+        # via the past-runs dialog — this is just the on-completion surface.
+        scree_title = f"PCA Run {self.id} — Scree Plot ({source_name})"
+        scree_description = (
+            f"PCA run {self.id} on '{source_name}' — "
+            f"{self._num_components_chosen} of {self._max_components_available} components kept."
+        )
+        figure, axes = build_scree_plot_figure(eigenvalues, title=scree_title)
+        self._app_state.show_matplotlib_display_widget(
+            figure=figure,
+            axes=axes,
+            window_title=scree_title,
+            description=scree_description,
+        )
+
         self.run_recorded.emit(
             PCARunRecord(
                 run_id=self.id,
