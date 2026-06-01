@@ -484,7 +484,18 @@ def get_mnf_pipeline(
 
 
 class MNFSemanticTask(QObject, SemanticTask):
-    result_ready = Signal(object)
+    # (reduced_data, eigenvalues) — second arg is the full whitened-noise
+    # eigenvalue spectrum, snapshotted in completion_callback before the
+    # ref it lived in goes out of scope.
+    result_ready = Signal(object, object)
+    # Emitted from _load_result_into_wiser; payload is an MNFRunRecord.
+    run_recorded = Signal(object)
+
+    # Allocation name that EigenDecompositionStage registers for the whitened
+    # eigenvalues, derived from `whitened_eigen_ref_name="mnf_whitened_eigen"`
+    # in get_mnf_pipeline.  Kept as a class constant so the binding lookup
+    # below isn't a magic string.
+    _WHITENED_EIGEN_VALUES_REF_NAME = "mnf_whitened_eigen_values"
 
     def __init__(
         self,
@@ -492,6 +503,7 @@ class MNFSemanticTask(QObject, SemanticTask):
         source_dataset: "RasterDataSet",
         input_ref: DataRef,
         num_components: int,
+        max_components_available: int,
         output_ref_name: str = "mnf_data",
     ):
         QObject.__init__(self)
@@ -512,6 +524,8 @@ class MNFSemanticTask(QObject, SemanticTask):
         self._app_state = app_state
         self._source_dataset = source_dataset
         self._output_ref_name = output_ref_name
+        self._num_components_chosen = num_components
+        self._max_components_available = max_components_available
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
@@ -524,10 +538,21 @@ class MNFSemanticTask(QObject, SemanticTask):
         height, width, bands = data_meta.shape
         output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
         reduced_data, _ = storage_client.read_region(output_ref, output_region)
-        self.result_ready.emit(np.asarray(reduced_data))
 
-    @Slot(object)
-    def _load_result_into_wiser(self, reduced_data: object) -> None:
+        # Snapshot the full whitened-noise eigenvalue spectrum so the scree
+        # plot in the past-runs viewer survives after the underlying ref is
+        # released.  EigenDecompositionStage stores values descending, which
+        # is what the scree plot expects.
+        eigen_values_ref = bindings.get(self._WHITENED_EIGEN_VALUES_REF_NAME)
+        if eigen_values_ref is None:
+            raise KeyError(f"Missing MNF eigenvalues binding: {self._WHITENED_EIGEN_VALUES_REF_NAME}")
+        eigen_values_raw, _ = storage_client.read_data(eigen_values_ref)
+        eigenvalues = np.asarray(np.ma.getdata(eigen_values_raw), dtype=np.float64).ravel().copy()
+
+        self.result_ready.emit(np.asarray(reduced_data), eigenvalues)
+
+    @Slot(object, object)
+    def _load_result_into_wiser(self, reduced_data: object, eigenvalues: object) -> None:
         reduced_array = np.asarray(reduced_data)
         reduced_array_by_band = reduced_array.transpose(2, 0, 1)
 
@@ -542,6 +567,18 @@ class MNFSemanticTask(QObject, SemanticTask):
         reduced_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
         reduced_dataset.set_data_ignore_value(self._source_dataset.get_data_ignore_value())
         self._app_state.add_dataset(reduced_dataset, view_dataset=False)
+
+        self.run_recorded.emit(
+            MNFRunRecord(
+                run_id=self.id,
+                timestamp=datetime.datetime.now(),
+                input_dataset_id=self._source_dataset.get_id(),
+                input_dataset_name_snapshot=source_name,
+                num_components_chosen=self._num_components_chosen,
+                max_components_available=self._max_components_available,
+                eigenvalues=np.asarray(eigenvalues, dtype=np.float64),
+            )
+        )
 
 
 class MinimumNoiseFractionDialog(QDialog):
@@ -681,7 +718,11 @@ class MinimumNoiseFractionDialog(QDialog):
             source_dataset=selected_dataset,
             input_ref=dataset_ref,
             num_components=num_components,
+            max_components_available=max_components,
         )
+        # Record the run in the application-level history once the task
+        # finishes loading its result into the app (mirrors linear_unmixing.py:393).
+        mnf_task.run_recorded.connect(self._app_state.get_mnf_history().add_record)
 
         task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
         future = self._app_services.task_manager.register_and_submit_task_plan(
