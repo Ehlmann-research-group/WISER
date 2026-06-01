@@ -605,6 +605,7 @@ class MinimumNoiseFractionDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent=parent)
+        self.setModal(False)
         self._app_state = app_state
         self._app_services = app_services
         self._selected_dataset_id: Optional[int] = None
