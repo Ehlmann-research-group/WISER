@@ -11,6 +11,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
+from wiser.gui.eigen_run_history import EigenRunHistoryManagerBase
 from wiser.gui.generated.mnf_dialog_ui import Ui_MNFDialog
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -45,6 +46,29 @@ from wiser.utils.worker_runtime import get_process_storage_client
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
+
+
+@dataclass(frozen=True)
+class MNFRunRecord:
+    """Immutable record of one completed MNF run.
+
+    ``eigenvalues`` is the full eigenvalue spectrum produced by the whitened
+    eigendecomposition (length equal to the number of good bands), regardless
+    of how many components the user asked the pipeline to project onto.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    input_dataset_name_snapshot: str
+    num_components_chosen: int
+    max_components_available: int
+    eigenvalues: np.ndarray
+
+
+class MNFHistoryManager(EigenRunHistoryManagerBase[MNFRunRecord]):
+    """Owns the in-memory list of completed MNF runs."""
+
 
 # region MNF
 

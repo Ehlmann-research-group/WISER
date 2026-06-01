@@ -1,6 +1,8 @@
 from __future__ import division
 
+import datetime
 from concurrent.futures import Future
+from dataclasses import dataclass
 import logging
 from enum import Enum
 from typing import Dict, TYPE_CHECKING, Optional
@@ -10,6 +12,7 @@ from PySide2.QtCore import QObject, Signal, Slot
 from PySide2.QtWidgets import QDialog
 
 from wiser import plugins
+from wiser.gui.eigen_run_history import EigenRunHistoryManagerBase
 from wiser.gui.generated.pca_dialog_ui import Ui_PCA_Dialog
 from wiser.raster import RasterDataLoader, RasterDataSet
 from wiser.raster.utils import compute_PCA_on_image, create_pca_metadata_widget
@@ -22,6 +25,32 @@ from wiser.utils.worker_runtime import get_process_storage_client
 if TYPE_CHECKING:
     from wiser.gui.app_services import AppServices
     from wiser.gui.app_state import ApplicationState
+
+
+@dataclass(frozen=True)
+class PCARunRecord:
+    """Immutable record of one completed PCA run.
+
+    Snapshots the eigenvalue array (sklearn's ``pca.explained_variance_``)
+    so the scree plot is still viewable after the input dataset is closed
+    or the sklearn ``PCA`` object is gone.
+
+    ``eigenvalues`` has length ``num_components_chosen`` — sklearn only
+    retains the top-N components it was asked for, so this is necessarily
+    a subset of the full spectrum.  That is acceptable for the scree plot.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    input_dataset_name_snapshot: str
+    num_components_chosen: int
+    max_components_available: int
+    eigenvalues: np.ndarray
+
+
+class PCAHistoryManager(EigenRunHistoryManagerBase[PCARunRecord]):
+    """Owns the in-memory list of completed PCA runs."""
 
 
 class ESTIMATOR_TYPES(Enum):
