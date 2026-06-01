@@ -24,6 +24,7 @@ from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.linear_unmixing_dialog_ui import Ui_LinearUnmixingDialog
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
+from wiser.gui.run_history import RunHistoryManagerBase
 from wiser.gui.util import StateChange
 from wiser.gui.util import GenericMultiSelectDialog, build_trash_button
 from wiser.raster.dataset import RasterDataSet
@@ -870,52 +871,17 @@ class LinearUnmixingRunRecord:
     sum_to_unity_weight: float
 
 
-class LinearUnmixingHistoryManager(QObject):
+class LinearUnmixingHistoryManager(RunHistoryManagerBase[LinearUnmixingRunRecord]):
     """Owns the in-memory list of completed linear-unmixing runs.
 
     Lives on :class:`~wiser.gui.app_state.ApplicationState` so the history
     persists across closing and reopening the linear-unmixing dialog.
 
-    Subscribes to ``ApplicationState.dataset_removed`` and re-emits
-    ``records_changed`` so any open history dialog re-renders with updated
-    liveness state — records are never silently dropped on dataset removal,
-    they just move into the "closed runs" section.
+    Extends the shared base with output-dataset liveness — unlike PCA/MNF, a
+    linear-unmix run produces a separate output dataset (the abundance cube)
+    whose presence the past-runs viewer also cares about (the View button
+    surfaces the input + output datasets in the main view).
     """
-
-    records_changed = Signal()
-
-    def __init__(self, app_state: ApplicationState) -> None:
-        super().__init__()
-        self._app_state = app_state
-        self._records: List[LinearUnmixingRunRecord] = []
-        # Any dataset removal could change the liveness label of any record,
-        # so just re-emit unconditionally.  Re-rendering N rows for typical
-        # N < 100 is cheap.
-        app_state.dataset_removed.connect(self._on_dataset_removed)
-
-    # ----- mutation -----
-
-    def add_record(self, record: LinearUnmixingRunRecord) -> None:
-        self._records.append(record)
-        self.records_changed.emit()
-
-    def remove_record(self, run_id: int) -> None:
-        before = len(self._records)
-        self._records = [r for r in self._records if r.run_id != run_id]
-        if len(self._records) != before:
-            self.records_changed.emit()
-
-    # ----- read -----
-
-    def get_records(self) -> List[LinearUnmixingRunRecord]:
-        return list(self._records)
-
-    def is_input_alive(self, record: LinearUnmixingRunRecord) -> bool:
-        try:
-            self._app_state.get_dataset(record.input_dataset_id)
-            return True
-        except KeyError:
-            return False
 
     def is_output_alive(self, record: LinearUnmixingRunRecord) -> bool:
         try:
@@ -937,11 +903,6 @@ class LinearUnmixingHistoryManager(QObject):
         if not input_alive:
             return "Input dataset closed"
         return "Output dataset closed"
-
-    # ----- signal slots -----
-
-    def _on_dataset_removed(self, _removed_id: int) -> None:
-        self.records_changed.emit()
 
 
 # ---------------------------------------------------------------------------

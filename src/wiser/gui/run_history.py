@@ -1,12 +1,13 @@
-"""Shared base class for PCA/MNF (and future eigen-decomposition) run history.
+"""Shared base class for per-task-type completed-run histories.
 
-PCA and MNF each have their own concrete record type so the two histories are
-never accidentally conflated, but the manager logic — store records, emit
-``records_changed`` on add/remove/dataset_removed, expose liveness/status of
-the input dataset — is identical between them.  This module factors that
-shared logic into :class:`EigenRunHistoryManagerBase` so the per-task-type
-managers (see :mod:`wiser.gui.pca_history` and :mod:`wiser.gui.mnf_history`)
-are tiny shells declaring their record type.
+PCA, MNF, and linear unmixing each have their own concrete record type so the
+histories are never accidentally conflated, but the manager logic — store
+records, emit ``records_changed`` on add/remove/dataset_removed, expose
+liveness/status of the input dataset — is identical between them.  This
+module factors that shared logic into :class:`RunHistoryManagerBase` so the
+per-task-type managers (see :mod:`wiser.gui.permanent_plugins.pca_plugin`,
+:mod:`wiser.gui.mnf`, :mod:`wiser.gui.linear_unmixing`) are tiny shells
+declaring their record type and overriding only what differs.
 """
 
 from __future__ import annotations
@@ -29,12 +30,14 @@ class _HasRunIdAndInputDataset(Protocol):
 R = TypeVar("R", bound=_HasRunIdAndInputDataset)
 
 
-class EigenRunHistoryManagerBase(QObject, Generic[R]):
-    """Generic in-memory list of completed eigen-decomposition runs.
+class RunHistoryManagerBase(QObject, Generic[R]):
+    """Generic in-memory list of completed task runs.
 
     Subclass and bind ``R`` to your concrete record type.  The subclass
     typically doesn't need to override anything — just inherit and
-    instantiate.
+    instantiate.  Override :meth:`get_status_text` (and add accessors like
+    ``is_output_alive``) if your task tracks more liveness than just the
+    input dataset.
     """
 
     records_changed = Signal()

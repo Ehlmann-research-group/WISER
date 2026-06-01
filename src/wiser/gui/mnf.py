@@ -11,7 +11,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
-from wiser.gui.eigen_run_history import EigenRunHistoryManagerBase
+from wiser.gui.run_history import RunHistoryManagerBase
 from wiser.gui.generated.mnf_dialog_ui import Ui_MNFDialog
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -66,7 +66,7 @@ class MNFRunRecord:
     eigenvalues: np.ndarray
 
 
-class MNFHistoryManager(EigenRunHistoryManagerBase[MNFRunRecord]):
+class MNFHistoryManager(RunHistoryManagerBase[MNFRunRecord]):
     """Owns the in-memory list of completed MNF runs."""
 
 

@@ -12,7 +12,7 @@ from PySide2.QtCore import QObject, Signal, Slot
 from PySide2.QtWidgets import QDialog
 
 from wiser import plugins
-from wiser.gui.eigen_run_history import EigenRunHistoryManagerBase
+from wiser.gui.run_history import RunHistoryManagerBase
 from wiser.gui.generated.pca_dialog_ui import Ui_PCA_Dialog
 from wiser.raster import RasterDataLoader, RasterDataSet
 from wiser.raster.utils import compute_PCA_on_image, create_pca_metadata_widget
@@ -49,7 +49,7 @@ class PCARunRecord:
     eigenvalues: np.ndarray
 
 
-class PCAHistoryManager(EigenRunHistoryManagerBase[PCARunRecord]):
+class PCAHistoryManager(RunHistoryManagerBase[PCARunRecord]):
     """Owns the in-memory list of completed PCA runs."""
 
 
