@@ -115,6 +115,16 @@ def attach_scree_click_inspector(
     )
     readout.set_visible(False)
 
+    # Dotted crosshair through the snapped point — matches the style used by
+    # SpectrumPlotGeneric's point selection (see CROSSHAIR_WIDTH in
+    # spectrum_plot.py).  axvline / axhline span the full axes regardless of
+    # data range so the lines extend across the whole plot.  Initial x/y are
+    # placeholders; the click handler moves them.
+    vline = axes.axvline(x=0, linestyle="dotted", color="black", linewidth=0.5, zorder=1)
+    hline = axes.axhline(y=0, linestyle="dotted", color="black", linewidth=0.5, zorder=1)
+    vline.set_visible(False)
+    hline.set_visible(False)
+
     def _on_click(event):
         # Ignore clicks outside the scree axes (toolbar, figure margins,
         # other axes) — event.xdata is None in those cases too, but the
@@ -125,8 +135,16 @@ def attach_scree_click_inspector(
         # range so clicks outside the data still produce a sensible label.
         idx = int(round(event.xdata)) - 1
         idx = max(0, min(values.size - 1, idx))
-        readout.set_text(f"PC{idx + 1}: {values[idx]:.4g}")
+        x = idx + 1
+        y = values[idx]
+        readout.set_text(f"PC{x}: {y:.4g}")
         readout.set_visible(True)
+        # set_xdata on an axvline expects a 2-element sequence (the line's
+        # two endpoints share the same x); same for axhline with y.
+        vline.set_xdata([x, x])
+        hline.set_ydata([y, y])
+        vline.set_visible(True)
+        hline.set_visible(True)
         figure.canvas.draw_idle()
 
     figure.canvas.mpl_connect("button_press_event", _on_click)
