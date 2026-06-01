@@ -18,5 +18,6 @@ pyyaml=6.0.2
 ruff=0.1.*
 conda-lock=3.0.4
 myst-parser=3.0.1
+pytest-timeout=2.3.*
 pip:
 pre-commit==4.3.*
