@@ -5,11 +5,11 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 import logging
 from enum import Enum
-from typing import Dict, TYPE_CHECKING, Optional
+from typing import Callable, Dict, TYPE_CHECKING, Optional
 
 import numpy as np
-from PySide2.QtCore import QObject, Qt, Signal, Slot
-from PySide2.QtWidgets import QDialog
+from PySide2.QtCore import QObject, Signal, Slot
+from PySide2.QtWidgets import QDialog, QMessageBox
 from sklearn.decomposition import PCA
 
 from wiser import plugins
@@ -175,31 +175,113 @@ class PCAPluginTask(QObject, SemanticTask):
         )
 
 
-class PCAPlugin(plugins.ContextMenuPlugin):
-    def __init__(self):
-        logging.info("PCA Initializing")
-        # Cached so reopening the past-runs viewer preserves scroll position
-        # and the Closed Runs toggle state.  Re-parented on each open in
-        # case the previous parent dialog was destroyed.
-        self._past_runs_dialog: Optional[PCAHistoryDialog] = None
+class PCADialog(QDialog):
+    """Non-modal dialog for configuring and launching a PCA task.
 
-    def _open_past_runs_dialog(self, app_state: "ApplicationState", *, parent) -> None:
+    A persistent instance is owned by :class:`PCAPlugin` and reused across
+    every "PCA" right-click invocation; we just re-bind it to whichever
+    dataset the user clicked on via :meth:`configure_for_dataset`.
+
+    Being non-modal matters: while a PCA run is being configured the user
+    may want to open the past-runs viewer and inspect a scree plot, which
+    appears as its own top-level matplotlib window.  An ``exec()``-style
+    modal dialog would block input to that scree plot.
+    """
+
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        run_callback: Callable[[RasterDataSet, int, "ESTIMATOR_TYPES", int], None],
+        parent=None,
+    ) -> None:
+        super().__init__(parent=parent)
+        self.setModal(False)
+        self._app_state = app_state
+        self._run_callback = run_callback
+        # Tracked as a plain id (not a dataset object) so we can detect when
+        # the underlying dataset is removed from the app while we're still
+        # showing — see :meth:`_on_dataset_removed`.
+        self._dataset_id: Optional[int] = None
+
+        self._ui = Ui_PCA_Dialog()
+        self._ui.setupUi(self)
+
+        self._ui.sbox_num_components.setMinimum(1)
+        for est in ESTIMATOR_TYPES:
+            self._ui.cbox_estimator.addItem(est.value, est)
+        if self._ui.cbox_estimator.count() == 1:
+            self._ui.cbox_estimator.setEnabled(False)
+
+        # Past-runs viewer — lazily created on first click and kept alive on
+        # this dialog so reopening preserves scroll position / closed-runs
+        # toggle state.  The records themselves live on app_state.
+        self._past_runs_dialog: Optional[PCAHistoryDialog] = None
+        self._ui.btn_past_results.clicked.connect(self._on_view_past_runs)
+
+        app_state.dataset_removed.connect(self._on_dataset_removed)
+
+    def configure_for_dataset(self, dataset: RasterDataSet) -> None:
+        """Bind this dialog to a specific dataset and reset the form."""
+        self._dataset_id = dataset.get_id()
+        self.setWindowTitle(self.tr(f"PCA: {dataset.get_name() or 'Dataset'}"))
+        # max() guards against datasets where every band is bad (0 good
+        # bands); spin-box max must be ≥ min (1) or Qt rejects the setter.
+        max_components = max(1, compute_max_pca_components(dataset))
+        self._ui.sbox_num_components.setMaximum(max_components)
+        self._ui.sbox_num_components.setValue(max_components)
+
+    def accept(self) -> None:
+        # The selected dataset may have been removed between the context-menu
+        # click and the user pressing OK.  Bail with a warning rather than
+        # submit a task against a stale id.
+        if self._dataset_id is None:
+            return
+        try:
+            dataset = self._app_state.get_dataset(self._dataset_id)
+        except KeyError:
+            QMessageBox.warning(
+                self,
+                self.tr("PCA"),
+                self.tr("The dataset this PCA dialog was bound to is no longer available."),
+            )
+            return
+
+        num_components = self._ui.sbox_num_components.value()
+        estimator: "ESTIMATOR_TYPES" = self._ui.cbox_estimator.currentData()
+        # The spin-box maximum was set in configure_for_dataset to the true
+        # max — reuse it here so the run record reports the same value the
+        # user saw in the dialog.
+        max_components = self._ui.sbox_num_components.maximum()
+
+        self._run_callback(dataset, num_components, estimator, max_components)
+        super().accept()
+
+    def _on_view_past_runs(self) -> None:
         if self._past_runs_dialog is None:
             self._past_runs_dialog = PCAHistoryDialog(
-                app_state=app_state,
-                manager=app_state.get_pca_history(),
-                parent=parent,
+                app_state=self._app_state,
+                manager=self._app_state.get_pca_history(),
+                parent=self,
             )
-        else:
-            # Reparent in case the previous parent (an old pca_dialog) was
-            # destroyed when the user dismissed it last time.
-            self._past_runs_dialog.setParent(parent)
-            # setParent on a top-level widget strips its window flags — put
-            # the Window flag back so it shows as its own window again.
-            self._past_runs_dialog.setWindowFlag(Qt.Window, True)
         self._past_runs_dialog.show()
         self._past_runs_dialog.raise_()
         self._past_runs_dialog.activateWindow()
+
+    def _on_dataset_removed(self, removed_id: int) -> None:
+        # If the dataset we were configured against goes away, close quietly.
+        # Submitting PCA against a deleted dataset would fail downstream, and
+        # leaving the dialog open with a stale binding is confusing.
+        if self._dataset_id is not None and int(removed_id) == int(self._dataset_id):
+            self.close()
+
+
+class PCAPlugin(plugins.ContextMenuPlugin):
+    def __init__(self):
+        logging.info("PCA Initializing")
+        # Persistent dialog reused across context-menu invocations.  Created
+        # lazily because the plugin is constructed before app_state /
+        # app_services exist.
+        self._dialog: Optional[PCADialog] = None
 
     def add_context_menu_items(self, context_type: plugins.types.ContextMenuType, context_menu, context):
         if context_type == plugins.ContextMenuType.RASTER_VIEW:
@@ -207,43 +289,35 @@ class PCAPlugin(plugins.ContextMenuPlugin):
             act1.triggered.connect(lambda checked=False: self.show_pca(context=context))
 
     def show_pca(self, context: Dict):
-        pca_dialog = QDialog()
-        pca_dialog._ui = Ui_PCA_Dialog()
-        pca_dialog._ui.setupUi(pca_dialog)
-
         dataset: RasterDataSet = context["dataset"]
-        max_components = compute_max_pca_components(dataset)
-
-        pca_dialog._ui.sbox_num_components.setMinimum(1)
-        pca_dialog._ui.sbox_num_components.setMaximum(max_components)
-        pca_dialog._ui.sbox_num_components.setValue(max_components)
-
-        for est in ESTIMATOR_TYPES:
-            pca_dialog._ui.cbox_estimator.addItem(est.value, est)
-
-        if pca_dialog._ui.cbox_estimator.count() == 1:
-            pca_dialog._ui.cbox_estimator.setEnabled(False)
-
-        # Past-runs viewer.  The dialog is non-modal so the user can leave it
-        # open while still interacting with the modal PCA dialog above it;
-        # records live on app_state so they persist across PCA dialog opens
-        # regardless of whether this widget is cached.
         app_state: "ApplicationState" = context["wiser"]
-        pca_dialog._ui.btn_past_results.clicked.connect(
-            lambda checked=False: self._open_past_runs_dialog(app_state, parent=pca_dialog)
-        )
+        app_services: "AppServices" = context.get("app_services")
 
-        if pca_dialog.exec() == QDialog.Accepted:
-            num_components = pca_dialog._ui.sbox_num_components.value()
-            estimator: ESTIMATOR_TYPES = pca_dialog._ui.cbox_estimator.currentData()
-            self.run_pca(
-                dataset=dataset,
-                num_components=num_components,
-                max_components_available=max_components,
-                estimator=estimator,
-                app_state=context["wiser"],
-                app_services=context.get("app_services"),
-            )
+        if self._dialog is None:
+            # Capture app_state + app_services in the callback closure so the
+            # dialog stays decoupled from the plugin; both are singletons
+            # within a WISER session so capturing once is safe.
+            def _submit(
+                ds: RasterDataSet,
+                num_components: int,
+                estimator: "ESTIMATOR_TYPES",
+                max_components_available: int,
+            ) -> None:
+                self.run_pca(
+                    dataset=ds,
+                    num_components=num_components,
+                    estimator=estimator,
+                    app_state=app_state,
+                    app_services=app_services,
+                    max_components_available=max_components_available,
+                )
+
+            self._dialog = PCADialog(app_state=app_state, run_callback=_submit)
+
+        self._dialog.configure_for_dataset(dataset)
+        self._dialog.show()
+        self._dialog.raise_()
+        self._dialog.activateWindow()
 
     def run_pca(
         self,

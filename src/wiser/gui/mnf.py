@@ -623,6 +623,21 @@ class MinimumNoiseFractionDialog(QDialog):
         self._past_runs_dialog: Optional[MNFHistoryDialog] = None
         self._ui.btn_past_results.clicked.connect(self._on_view_past_runs)
 
+        # Keep the dataset combo box in sync with the application's dataset
+        # list while this dialog is open.  Without this the combo would only
+        # refresh on showEvent — datasets added/removed while the dialog is
+        # already up (it's non-modal) would be invisible to the user.
+        app_state.dataset_added.connect(self._on_datasets_changed)
+        app_state.dataset_removed.connect(self._on_datasets_changed)
+
+    def _on_datasets_changed(self, *_args) -> None:
+        # Preserve the currently selected dataset if it still exists; the
+        # sentinel "(no data)" item uses currentData() == -1, so treat
+        # anything < 0 as "no selection".
+        current_id = self._ui.comboBox.currentData()
+        preserve_id = current_id if (current_id is not None and int(current_id) >= 0) else None
+        self.show_mnf(dataset_id=preserve_id)
+
     def _on_view_past_runs(self) -> None:
         if self._past_runs_dialog is None:
             self._past_runs_dialog = MNFHistoryDialog(
