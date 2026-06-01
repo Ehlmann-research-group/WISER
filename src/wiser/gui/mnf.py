@@ -11,7 +11,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
-from wiser.gui.run_history import RunHistoryManagerBase
+from wiser.gui.run_history import EigenScreeRunHistoryDialog, RunHistoryManagerBase
 from wiser.gui.generated.mnf_dialog_ui import Ui_MNFDialog
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -68,6 +68,12 @@ class MNFRunRecord:
 
 class MNFHistoryManager(RunHistoryManagerBase[MNFRunRecord]):
     """Owns the in-memory list of completed MNF runs."""
+
+
+class MNFHistoryDialog(EigenScreeRunHistoryDialog[MNFRunRecord]):
+    """Non-modal viewer for past MNF runs.  See base class for behavior."""
+
+    task_label = "MNF"
 
 
 # region MNF
