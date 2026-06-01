@@ -33,7 +33,7 @@ from PySide2.QtWidgets import (
     QVBoxLayout,
 )
 
-from wiser.gui.scree_plot import build_scree_plot_figure
+from wiser.gui.scree_plot import attach_scree_click_inspector, build_scree_plot_figure
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -344,3 +344,7 @@ class EigenScreeRunHistoryDialog(QDialog, Generic[ER]):
             window_title=title,
             description=description,
         )
+        # Must be attached AFTER show_matplotlib_display_widget — that call
+        # wraps the figure in a fresh Qt FigureCanvas, replacing any canvas
+        # that existed before and discarding earlier mpl_connect handlers.
+        attach_scree_click_inspector(figure, axes, record.eigenvalues)

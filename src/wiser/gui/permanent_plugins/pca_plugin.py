@@ -14,7 +14,7 @@ from sklearn.decomposition import PCA
 
 from wiser import plugins
 from wiser.gui.run_history import EigenScreeRunHistoryDialog, RunHistoryManagerBase
-from wiser.gui.scree_plot import build_scree_plot_figure
+from wiser.gui.scree_plot import attach_scree_click_inspector, build_scree_plot_figure
 from wiser.gui.generated.pca_dialog_ui import Ui_PCA_Dialog
 from wiser.raster import RasterDataLoader, RasterDataSet
 from wiser.raster.utils import compute_PCA_on_image, create_pca_metadata_widget
@@ -180,6 +180,10 @@ class PCAPluginTask(QObject, SemanticTask):
             window_title=scree_title,
             description=scree_description,
         )
+        # Must be attached AFTER show_matplotlib_display_widget — that call
+        # wraps the figure in a fresh Qt FigureCanvas, replacing any canvas
+        # that existed before and discarding earlier mpl_connect handlers.
+        attach_scree_click_inspector(figure, axes, eigenvalues)
 
         self.run_recorded.emit(
             PCARunRecord(

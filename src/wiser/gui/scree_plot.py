@@ -77,6 +77,61 @@ def build_scree_plot_figure(
     return figure, axes
 
 
+def attach_scree_click_inspector(
+    figure: Figure,
+    axes: Axes,
+    eigenvalues: np.ndarray,
+) -> None:
+    """Make the scree plot click-inspectable.
+
+    On every click inside ``axes``, snaps to the nearest component along the
+    x-axis (1-indexed) and writes ``PC{idx}: {value}`` into a small readout
+    pinned to the top-left corner of the plot.  Subsequent clicks update the
+    same readout in place rather than stacking annotations.
+
+    Must be called *after* the figure has been wrapped in its final Qt
+    canvas (i.e. after
+    :meth:`wiser.gui.app_state.ApplicationState.show_matplotlib_display_widget`).
+    Constructing a new ``FigureCanvas`` around the figure replaces
+    ``figure.canvas`` and silently discards any earlier ``mpl_connect``
+    bindings, so connecting too early is a no-op at runtime.
+    """
+    values = np.asarray(eigenvalues, dtype=np.float64).ravel()
+    if values.size == 0:
+        return
+
+    # Pinned readout in axes-fraction coordinates so it stays in the top-left
+    # corner regardless of pan/zoom.  Created hidden so the box only appears
+    # after the user actually clicks something.
+    readout = axes.text(
+        0.02,
+        0.98,
+        "",
+        transform=axes.transAxes,
+        ha="left",
+        va="top",
+        fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.5", alpha=0.9),
+    )
+    readout.set_visible(False)
+
+    def _on_click(event):
+        # Ignore clicks outside the scree axes (toolbar, figure margins,
+        # other axes) — event.xdata is None in those cases too, but the
+        # axes check is the more readable guard.
+        if event.inaxes is not axes or event.xdata is None:
+            return
+        # Snap to the nearest 1-indexed component, clamped to the available
+        # range so clicks outside the data still produce a sensible label.
+        idx = int(round(event.xdata)) - 1
+        idx = max(0, min(values.size - 1, idx))
+        readout.set_text(f"PC{idx + 1}: {values[idx]:.4g}")
+        readout.set_visible(True)
+        figure.canvas.draw_idle()
+
+    figure.canvas.mpl_connect("button_press_event", _on_click)
+
+
 if __name__ == "__main__":
     # Smoke test: synthetic decaying spectrum to eyeball that the plot renders.
     import matplotlib
@@ -85,8 +140,9 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     synthetic = np.array([100.0, 30.0, 9.0, 3.0, 1.0, 0.3, 0.1, 0.03])
-    fig, _ = build_scree_plot_figure(synthetic, title="Synthetic scree plot")
-    # In the smoke test we just want to see the figure — in production the
-    # MatplotlibDisplayWidget owns the canvas instead.
+    fig, ax = build_scree_plot_figure(synthetic, title="Synthetic scree plot")
+    # pyplot.show() will give the figure a real canvas; attach the inspector
+    # after that so the click handler is bound to the live canvas.
     plt.figure(fig.number)
+    attach_scree_click_inspector(fig, ax, synthetic)
     plt.show()
