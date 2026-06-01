@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Dict, TYPE_CHECKING, Optional
 
 import numpy as np
-from PySide2.QtCore import QObject, Signal, Slot
+from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtWidgets import QDialog
 from sklearn.decomposition import PCA
 
@@ -178,6 +178,28 @@ class PCAPluginTask(QObject, SemanticTask):
 class PCAPlugin(plugins.ContextMenuPlugin):
     def __init__(self):
         logging.info("PCA Initializing")
+        # Cached so reopening the past-runs viewer preserves scroll position
+        # and the Closed Runs toggle state.  Re-parented on each open in
+        # case the previous parent dialog was destroyed.
+        self._past_runs_dialog: Optional[PCAHistoryDialog] = None
+
+    def _open_past_runs_dialog(self, app_state: "ApplicationState", *, parent) -> None:
+        if self._past_runs_dialog is None:
+            self._past_runs_dialog = PCAHistoryDialog(
+                app_state=app_state,
+                manager=app_state.get_pca_history(),
+                parent=parent,
+            )
+        else:
+            # Reparent in case the previous parent (an old pca_dialog) was
+            # destroyed when the user dismissed it last time.
+            self._past_runs_dialog.setParent(parent)
+            # setParent on a top-level widget strips its window flags — put
+            # the Window flag back so it shows as its own window again.
+            self._past_runs_dialog.setWindowFlag(Qt.Window, True)
+        self._past_runs_dialog.show()
+        self._past_runs_dialog.raise_()
+        self._past_runs_dialog.activateWindow()
 
     def add_context_menu_items(self, context_type: plugins.types.ContextMenuType, context_menu, context):
         if context_type == plugins.ContextMenuType.RASTER_VIEW:
@@ -201,6 +223,15 @@ class PCAPlugin(plugins.ContextMenuPlugin):
 
         if pca_dialog._ui.cbox_estimator.count() == 1:
             pca_dialog._ui.cbox_estimator.setEnabled(False)
+
+        # Past-runs viewer.  The dialog is non-modal so the user can leave it
+        # open while still interacting with the modal PCA dialog above it;
+        # records live on app_state so they persist across PCA dialog opens
+        # regardless of whether this widget is cached.
+        app_state: "ApplicationState" = context["wiser"]
+        pca_dialog._ui.btn_past_results.clicked.connect(
+            lambda checked=False: self._open_past_runs_dialog(app_state, parent=pca_dialog)
+        )
 
         if pca_dialog.exec() == QDialog.Accepted:
             num_components = pca_dialog._ui.sbox_num_components.value()

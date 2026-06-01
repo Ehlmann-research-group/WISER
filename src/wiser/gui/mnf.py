@@ -617,6 +617,23 @@ class MinimumNoiseFractionDialog(QDialog):
         # default to the max so the user can see the ceiling at a glance.
         self._ui.comboBox.currentIndexChanged.connect(self._refresh_component_limits)
 
+        # Past-runs viewer is lazily created on first click and kept alive on
+        # this dialog so reopening it preserves scroll position / closed-runs
+        # toggle state.  The records themselves live on app_state.
+        self._past_runs_dialog: Optional[MNFHistoryDialog] = None
+        self._ui.btn_past_results.clicked.connect(self._on_view_past_runs)
+
+    def _on_view_past_runs(self) -> None:
+        if self._past_runs_dialog is None:
+            self._past_runs_dialog = MNFHistoryDialog(
+                app_state=self._app_state,
+                manager=self._app_state.get_mnf_history(),
+                parent=self,
+            )
+        self._past_runs_dialog.show()
+        self._past_runs_dialog.raise_()
+        self._past_runs_dialog.activateWindow()
+
     @staticmethod
     def _compute_max_components(dataset) -> int:
         """Maximum components the MNF pipeline will accept for this dataset.
