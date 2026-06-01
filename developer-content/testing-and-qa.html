@@ -380,6 +380,11 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-markers">Test Markers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-timeouts">Test Timeouts</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#per-test-timeout-pytest-timeout">Per-test timeout (<code class="docutils literal notranslate"><span class="pre">pytest-timeout</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#job-level-timeout-github-actions">Job-level timeout (GitHub Actions)</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests">Running Tests</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
@@ -499,6 +504,48 @@ inherit from <code class="docutils literal notranslate"><span class="pre">unitte
 <li><p>Open a PR explaining why existing markers are insufficient.</p></li>
 <li><p>Add a descriptive entry for the marker in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>.</p></li>
 </ol>
+</section>
+<section id="test-timeouts">
+<h2>Test Timeouts<a class="headerlink" href="#test-timeouts" title="Link to this heading">#</a></h2>
+<p>To prevent hung or deadlocked tests from burning CI compute, two layers of
+timeout protection are in place.</p>
+<section id="per-test-timeout-pytest-timeout">
+<h3>Per-test timeout (<code class="docutils literal notranslate"><span class="pre">pytest-timeout</span></code>)<a class="headerlink" href="#per-test-timeout-pytest-timeout" title="Link to this heading">#</a></h3>
+<p>Every test has a default budget of <strong>240 seconds</strong>, configured in the root
+<code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[tool.pytest.ini_options]</span>
+<span class="n">timeout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">240</span>
+<span class="n">timeout_method</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;thread&quot;</span>
+</pre></div>
+</div>
+<p>When a test exceeds the budget, the watchdog thread dumps the stacks of every
+thread (useful for diagnosing deadlocks) and aborts the test with
+<code class="docutils literal notranslate"><span class="pre">Failed:</span> <span class="pre">Timeout</span> <span class="pre">&gt;240s</span></code>. The suite continues with the next test.</p>
+<p>If a test legitimately needs longer (e.g. an expensive multi-stage pipeline),
+override the budget on that test:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mi">600</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_long_running_pipeline</span><span class="p">():</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+<p>You can also apply the override at module level via <code class="docutils literal notranslate"><span class="pre">pytestmark</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pytestmark</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">integration</span><span class="p">,</span>
+    <span class="n">pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mi">600</span><span class="p">),</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="job-level-timeout-github-actions">
+<h3>Job-level timeout (GitHub Actions)<a class="headerlink" href="#job-level-timeout-github-actions" title="Link to this heading">#</a></h3>
+<p>As a last-resort kill switch, the <code class="docutils literal notranslate"><span class="pre">tests:</span></code> job in
+<code class="docutils literal notranslate"><span class="pre">.github/workflows/dev-CI.yml</span></code> sets <code class="docutils literal notranslate"><span class="pre">timeout-minutes:</span> <span class="pre">60</span></code>. This catches
+anything <code class="docutils literal notranslate"><span class="pre">pytest-timeout</span></code> cannot interrupt — hangs during pytest collection,
+hangs in <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">generated</span></code>, or native-code freezes the watchdog thread cannot
+preempt.</p>
+</section>
 </section>
 <section id="running-tests">
 <h2>Running Tests<a class="headerlink" href="#running-tests" title="Link to this heading">#</a></h2>
@@ -811,6 +858,11 @@ to individual values.</p></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-markers">Test Markers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-timeouts">Test Timeouts</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#per-test-timeout-pytest-timeout">Per-test timeout (<code class="docutils literal notranslate"><span class="pre">pytest-timeout</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#job-level-timeout-github-actions">Job-level timeout (GitHub Actions)</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests">Running Tests</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
