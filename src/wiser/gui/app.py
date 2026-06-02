@@ -398,6 +398,9 @@ class DataVisualizerApp(QMainWindow):
         act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
         act.triggered.connect(self.show_mtmf_dialog)
 
+        act = submenu.addAction(self.tr("Principal Component Analysis"))
+        act.triggered.connect(self.show_pca_dialog)
+
         act = submenu.addAction(self.tr("Linear Unmixing"))
         act.triggered.connect(self.show_linear_unmixing_dialog)
 
@@ -467,7 +470,6 @@ class DataVisualizerApp(QMainWindow):
         # cool plugins are made)
         permanent_plugins = [
             ("ContinuumRemovalPlugin", ContinuumRemovalPlugin()),
-            ("PCAPlugin", PCAPlugin()),
             ("SavGolayPlugin", SavGolayPlugin()),
         ]
         for pc_name, plugin_class in permanent_plugins:
@@ -1028,6 +1030,20 @@ class DataVisualizerApp(QMainWindow):
         self._mtmf_dialog.show()
         self._mtmf_dialog.raise_()
         self._mtmf_dialog.activateWindow()
+
+    def show_pca_dialog(self):
+        rasterview = self._main_view.get_rasterview()
+        dataset = rasterview.get_raster_data() if rasterview is not None else None
+        if dataset is None:
+            return
+        self._pca_plugin = PCAPlugin()
+        self._pca_plugin.show_pca(
+            context={
+                "dataset": dataset,
+                "wiser": self._app_state,
+                "app_services": self._app_services,
+            }
+        )
 
     def show_kmeans_dialog(self):
         self._kmeans_dialog = KMeansDialog(self._app_state, self._app_services, parent=self)
