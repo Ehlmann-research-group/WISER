@@ -1019,9 +1019,11 @@ class DataVisualizerApp(QMainWindow):
 
     def show_mnf_dialog(self):
         dlg = MinimumNoiseFractionDialog(self._app_state, self._app_services, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.select_dataset(None)
-        if dlg.exec_() == QDialog.Accepted:
-            pass
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def show_mtmf_dialog(self):
         self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)

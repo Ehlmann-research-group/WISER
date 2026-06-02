@@ -441,9 +441,11 @@ class MainViewWidget(RasterPane):
         dataset_id = None if dataset is None else dataset.get_id()
         app_services = self._app_services
         dlg = MinimumNoiseFractionDialog(self._app_state, app_services, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.select_dataset(dataset_id)
-        if dlg.exec_() == QDialog.Accepted:
-            pass
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def _open_kmeans_dialog(self, rasterview):
         dataset = rasterview.get_raster_data()
