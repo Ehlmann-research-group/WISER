@@ -5,8 +5,13 @@ import multiprocessing
 import os
 import sys
 
-from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
-from concurrent.futures.process import BrokenProcessPool
+from concurrent.futures import (
+    BrokenExecutor,
+    Executor,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+)
 from dataclasses import dataclass, field
 from collections import Counter, deque
 from threading import Lock, Semaphore
@@ -634,6 +639,64 @@ def list_tracked_segments(smm):
         conn.close()
 
 
+class _RestartableExecutor:
+    """An executor that rebuilds itself when it breaks.
+
+    `concurrent.futures` executors can become permanently unusable: a
+    `ProcessPoolExecutor` raises `BrokenProcessPool` once a worker process dies
+    abruptly (OOM kill, segfault, native crash), and a `ThreadPoolExecutor`
+    raises `BrokenThreadPool` if a worker fails to initialize. In both cases
+    every subsequent `submit()` raises a `BrokenExecutor`, wedging the pool for
+    the rest of the process lifetime.
+
+    This wrapper builds a fresh executor from `factory` and retries the submit
+    once, so a single break is recovered transparently. A second `BrokenExecutor`
+    on a freshly built executor indicates a fatal environment problem and is
+    propagated to the caller.
+
+    Thread-safe on its own: submit and restart are serialized by an internal
+    lock, so callers do not need to hold any external lock.
+    """
+
+    def __init__(self, name: str, factory: Callable[[], Executor]) -> None:
+        self._name = name
+        self._factory = factory
+        self._lock = Lock()
+        self._executor = factory()
+
+    @property
+    def executor(self) -> Executor:
+        """The current underlying executor (primarily for tests/introspection)."""
+        return self._executor
+
+    def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
+        with self._lock:
+            try:
+                return self._executor.submit(fn, *args, **kwargs)
+            except BrokenExecutor:
+                self._restart_locked()
+                return self._executor.submit(fn, *args, **kwargs)
+
+    def shutdown(self, wait: bool = True) -> None:
+        with self._lock:
+            self._executor.shutdown(wait=wait)
+
+    def _restart_locked(self) -> None:
+        """Swap in a fresh executor and tear down the broken one. Caller holds `_lock`.
+
+        Futures already dispatched to the broken executor keep their
+        `BrokenExecutor` result; their existing done-callbacks still fire, so any
+        capacity accounting the owner attached to them self-heals.
+        """
+        broken_executor = self._executor
+        self._executor = self._factory()
+        logger.warning("%s was broken; restarted with a fresh executor.", self._name)
+        try:
+            broken_executor.shutdown(wait=False, cancel_futures=True)
+        except Exception:
+            logger.exception("Error shutting down broken %s", self._name)
+
+
 class WorkScheduler:
     def __init__(
         self,
@@ -667,7 +730,7 @@ class WorkScheduler:
 
         # Retain the bootstrap so a broken ProcessPoolExecutor can be rebuilt
         # in place with an identical worker initializer (see
-        # `_restart_process_executor_locked`).
+        # `_create_process_executor` / `_RestartableExecutor`).
         self._service_address, self._service_authkey = storage_service.get_connection_bootstrap()
 
         # On Linux, the default 'fork' start method is unsafe when Qt is
@@ -682,11 +745,10 @@ class WorkScheduler:
             self._mp_context = multiprocessing.get_context("forkserver")
         else:
             self._mp_context = multiprocessing.get_context("spawn")
-        self._process_executor = self._create_process_executor()
-        self._thread_executor = ThreadPoolExecutor(
-            max_workers=self._thread_budget,
-            initializer=initialize_thread_worker,
-        )
+        # Both pools are self-healing: if a worker dies (process) or fails to
+        # initialize (thread), the wrapper rebuilds the pool on the next submit.
+        self._process_pool = _RestartableExecutor("ProcessPoolExecutor", self._create_process_executor)
+        self._thread_pool = _RestartableExecutor("ThreadPoolExecutor", self._create_thread_executor)
 
         if self._config._process_priority_tokens is not None:
             self._process_tokens = _normalize_explicit_priority_tokens(
@@ -744,7 +806,7 @@ class WorkScheduler:
     ) -> Future[Any]:
         sem = self._process_semaphores[priority]
         sem.acquire()
-        future = self._process_executor.submit(fn, *args, **kwargs)
+        future = self._process_pool.submit(fn, *args, **kwargs)
         future.add_done_callback(lambda _f: sem.release())
         return future
 
@@ -757,15 +819,14 @@ class WorkScheduler:
     ) -> Future[Any]:
         sem = self._thread_semaphores[priority]
         sem.acquire()
-        future = self._thread_executor.submit(fn, *args, **kwargs)
+        future = self._thread_pool.submit(fn, *args, **kwargs)
         future.add_done_callback(lambda _f: sem.release())
         return future
 
     def _create_process_executor(self) -> ProcessPoolExecutor:
-        """Build a ProcessPoolExecutor with the scheduler's worker initializer.
+        """Factory for a ProcessPoolExecutor with the scheduler's worker initializer.
 
-        Used both for the initial pool and when restarting a pool that has
-        broken (`_restart_process_executor_locked`).
+        Used by `_process_pool` for both the initial pool and every restart.
         """
         return ProcessPoolExecutor(
             max_workers=self._process_budget,
@@ -774,47 +835,16 @@ class WorkScheduler:
             initargs=(self._service_address, self._service_authkey),
         )
 
-    def _restart_process_executor_locked(self) -> None:
-        """Replace a broken ProcessPoolExecutor with a fresh one.
-
-        A `ProcessPoolExecutor` becomes permanently unusable once any worker
-        process dies abruptly (OOM kill, segfault, native crash): every later
-        `submit()` raises `BrokenProcessPool`. We swap in a brand-new pool so
-        the scheduler keeps functioning.
-
-        Caller must hold `_state_lock` (every submit path does), which makes the
-        executor swap safe. Futures already dispatched to the dead pool keep
-        their `BrokenProcessPool` exception; their existing done-callbacks still
-        fire `_on_unit_done`, releasing semaphores and decrementing
-        `_in_flight_ram_bytes`, so capacity accounting self-heals.
-        """
-        broken_executor = self._process_executor
-        self._process_executor = self._create_process_executor()
-        logger.warning("ProcessPoolExecutor was broken; restarted with a fresh pool.")
-        try:
-            broken_executor.shutdown(wait=False, cancel_futures=True)
-        except Exception:
-            logger.exception("Error shutting down broken ProcessPoolExecutor")
-
-    def _submit_work_unit_with_recovery_locked(self, work_unit: WorkUnit, executor: Any) -> Future[Any]:
-        """Submit a work unit, restarting a broken process pool once on failure.
-
-        Caller must hold `_state_lock`. On the common case (a process pool that
-        broke once) the restart succeeds and the retried submit goes through
-        transparently. A second `BrokenProcessPool` on a freshly created pool
-        indicates a fatal environment problem and is propagated.
-        """
-        try:
-            return executor.submit(self._execute_work_unit, work_unit)
-        except BrokenProcessPool:
-            if work_unit.executor_kind != "process":
-                raise
-            self._restart_process_executor_locked()
-            return self._process_executor.submit(self._execute_work_unit, work_unit)
+    def _create_thread_executor(self) -> ThreadPoolExecutor:
+        """Factory for a ThreadPoolExecutor. Used by `_thread_pool` on init and restart."""
+        return ThreadPoolExecutor(
+            max_workers=self._thread_budget,
+            initializer=initialize_thread_worker,
+        )
 
     def shutdown(self, wait: bool = True) -> None:
-        self._thread_executor.shutdown(wait=wait)
-        self._process_executor.shutdown(wait=wait)
+        self._thread_pool.shutdown(wait=wait)
+        self._process_pool.shutdown(wait=wait)
 
     def process_tokens(self) -> Dict[PriorityClass, int]:
         return dict(self._process_tokens)
@@ -1158,16 +1188,15 @@ class WorkScheduler:
 
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
         stage_state = plan_state.stage_states[item.stage_id]
-        executor = (
-            self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
-        )
-        # Submit before mutating in-flight bookkeeping: a broken process pool is
-        # restarted and the submit retried, but if the retry still fails we must
-        # not leave phantom RAM/unit accounting behind. Release the held token
-        # and re-raise so the caller never accounts for work that never started.
+        pool = self._process_pool if item.work_unit.executor_kind == "process" else self._thread_pool
+        # Submit before mutating in-flight bookkeeping: a broken pool is restarted
+        # and the submit retried inside `pool.submit`, but if the retry still
+        # fails we must not leave phantom RAM/unit accounting behind. Release the
+        # held token and re-raise so the caller never accounts for work that
+        # never started.
         try:
-            future = self._submit_work_unit_with_recovery_locked(item.work_unit, executor)
-        except BrokenProcessPool:
+            future = pool.submit(self._execute_work_unit, item.work_unit)
+        except BrokenExecutor:
             sem.release()
             raise
         # Mark as submitted after dispatch so stage accounting reflects in-flight work.

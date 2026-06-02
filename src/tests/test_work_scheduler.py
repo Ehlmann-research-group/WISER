@@ -2,6 +2,7 @@ import os
 import tempfile
 import time
 import unittest
+from concurrent.futures import BrokenExecutor, Future
 from io import StringIO
 from functools import partial
 from multiprocessing.shared_memory import SharedMemory
@@ -22,7 +23,12 @@ from wiser.utils.primitives import (
 )
 from wiser.utils.storage_service import StorageService, shared_mem_exists
 from wiser.utils.task_system import TaskPlan, WorkUnit
-from wiser.utils.work_scheduler import RecordingWorkScheduler, SchedulerConfig, WorkScheduler
+from wiser.utils.work_scheduler import (
+    RecordingWorkScheduler,
+    SchedulerConfig,
+    WorkScheduler,
+    _RestartableExecutor,
+)
 
 import pytest
 
@@ -798,28 +804,63 @@ class TestWorkScheduler(unittest.TestCase):
                 service.close()
 
 
+class _FakeBreakingExecutor:
+    """Test double that raises BrokenExecutor on its first submit, then works.
+
+    Used to exercise `_RestartableExecutor`'s recovery path deterministically,
+    without killing real worker processes/threads.
+    """
+
+    def __init__(self, *, breaks_on_first_submit: bool) -> None:
+        self.breaks_on_first_submit = breaks_on_first_submit
+        self.submit_count = 0
+        self.shutdown_calls: list[tuple[bool, bool]] = []
+
+    def submit(self, fn, *args, **kwargs) -> Future:
+        self.submit_count += 1
+        if self.breaks_on_first_submit and self.submit_count == 1:
+            raise BrokenExecutor("simulated broken pool")
+        future: Future = Future()
+        future.set_result(fn(*args, **kwargs))
+        return future
+
+    def shutdown(self, wait: bool = True, cancel_futures: bool = False) -> None:
+        self.shutdown_calls.append((wait, cancel_futures))
+
+
+class TestRestartableExecutor(unittest.TestCase):
+    """Unit tests for the generic self-healing executor wrapper (process + thread)."""
+
+    def test_submit_restarts_once_on_broken_executor_and_retries(self) -> None:
+        created: list[_FakeBreakingExecutor] = []
+
+        def factory() -> _FakeBreakingExecutor:
+            # Only the very first executor simulates a break.
+            executor = _FakeBreakingExecutor(breaks_on_first_submit=len(created) == 0)
+            created.append(executor)
+            return executor
+
+        pool = _RestartableExecutor("FakePool", factory)
+        result = pool.submit(lambda value: value, "payload").result(timeout=5)
+
+        self.assertEqual(result, "payload")
+        self.assertEqual(len(created), 2, "the broken executor should have been replaced exactly once")
+        self.assertIs(pool.executor, created[1])
+        # The broken executor was torn down without blocking and cancelling backlog.
+        self.assertEqual(created[0].shutdown_calls, [(False, True)])
+
+    def test_submit_propagates_when_fresh_executor_also_breaks(self) -> None:
+        # Every executor this factory produces breaks: recovery must give up
+        # rather than loop forever.
+        pool = _RestartableExecutor(
+            "AlwaysBroken", lambda: _FakeBreakingExecutor(breaks_on_first_submit=True)
+        )
+        with self.assertRaises(BrokenExecutor):
+            pool.submit(lambda: "never runs")
+
+
 class TestWorkSchedulerBrokenPoolRecovery(unittest.TestCase):
-    """Recovery behavior when the ProcessPoolExecutor breaks (issue: BrokenProcessPool)."""
-
-    def test_restart_process_executor_swaps_in_fresh_pool(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            service = StorageService(root_dir=tmp_dir)
-            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
-            try:
-                old_executor = scheduler._process_executor
-                with scheduler._state_lock:
-                    scheduler._restart_process_executor_locked()
-                new_executor = scheduler._process_executor
-
-                self.assertIsNot(new_executor, old_executor)
-                # The replaced pool was shut down; it no longer accepts work.
-                with self.assertRaises(RuntimeError):
-                    old_executor.submit(_ok_process_a)
-                # The fresh pool is usable.
-                self.assertEqual(new_executor.submit(_ok_process_a).result(timeout=15), "ok-process-a")
-            finally:
-                scheduler.shutdown(wait=True)
-                service.close()
+    """End-to-end recovery when the scheduler's ProcessPoolExecutor breaks."""
 
     def test_recovers_after_worker_kills_process_pool(self) -> None:
         """A killed worker breaks the pool; the next plan must transparently restart it."""
@@ -844,7 +885,7 @@ class TestWorkSchedulerBrokenPoolRecovery(unittest.TestCase):
                 with self.assertRaises(Exception):
                     scheduler.run_task_plan(kill_plan).result(timeout=30)
 
-                broken_executor = scheduler._process_executor
+                broken_executor = scheduler._process_pool.executor
 
                 # Plan 2: ordinary process work that must succeed on a restarted pool.
                 recover_unit = _make_work_unit(
@@ -863,9 +904,11 @@ class TestWorkSchedulerBrokenPoolRecovery(unittest.TestCase):
                 with self.assertLogs("wiser.utils.work_scheduler", level="WARNING") as log_ctx:
                     scheduler.run_task_plan(recover_plan).result(timeout=30)
 
-                # The pool was replaced and the restart was logged.
-                self.assertIsNot(scheduler._process_executor, broken_executor)
-                self.assertTrue(any("restarted with a fresh pool" in message for message in log_ctx.output))
+                # The underlying pool was replaced and the restart was logged.
+                self.assertIsNot(scheduler._process_pool.executor, broken_executor)
+                self.assertTrue(
+                    any("restarted with a fresh executor" in message for message in log_ctx.output)
+                )
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
