@@ -19,6 +19,8 @@ markers = [
 testpaths = [
   "src/tests",
 ]
+timeout = 240
+timeout_method = "thread"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

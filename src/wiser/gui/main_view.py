@@ -16,6 +16,7 @@ from .kmeans import KMeansDialog
 from .linear_unmixing import LinearUnmixingDialog
 from .mnf import MinimumNoiseFractionDialog
 from .mtmf import MTMFDialog
+from .permanent_plugins.pca_plugin import PCAPlugin
 from .plugin_utils import add_plugin_context_menu_items
 from .rasterpane import RasterPane
 from .rasterview import RasterView
@@ -217,6 +218,9 @@ class MainViewWidget(RasterPane):
 
         act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_mtmf_dialog(rv))
+
+        act = submenu.addAction(self.tr("Principal Component Analysis"))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_pca_dialog(rv))
 
         act = submenu.addAction(self.tr("Linear Unmixing"))
         act.triggered.connect(
@@ -437,9 +441,11 @@ class MainViewWidget(RasterPane):
         dataset_id = None if dataset is None else dataset.get_id()
         app_services = self._app_services
         dlg = MinimumNoiseFractionDialog(self._app_state, app_services, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.select_dataset(dataset_id)
-        if dlg.exec_() == QDialog.Accepted:
-            pass
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def _open_kmeans_dialog(self, rasterview):
         dataset = rasterview.get_raster_data()
@@ -458,6 +464,19 @@ class MainViewWidget(RasterPane):
         self._mtmf_dialog.show()
         self._mtmf_dialog.raise_()
         self._mtmf_dialog.activateWindow()
+
+    def _open_pca_dialog(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        if dataset is None:
+            return
+        self._pca_plugin = PCAPlugin()
+        self._pca_plugin.show_pca(
+            context={
+                "dataset": dataset,
+                "wiser": self._app_state,
+                "app_services": self._app_services,
+            }
+        )
 
     def _open_linear_unmixing_dialog(self, rasterview):
         dataset = rasterview.get_raster_data()

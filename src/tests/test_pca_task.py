@@ -9,7 +9,12 @@ import numpy as np
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.permanent_plugins.pca_plugin import ESTIMATOR_TYPES, PCAPlugin, PCAPluginTask
+from wiser.gui.permanent_plugins.pca_plugin import (
+    ESTIMATOR_TYPES,
+    PCAPlugin,
+    PCAPluginTask,
+    compute_max_pca_components,
+)
 from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
@@ -152,6 +157,7 @@ class TestPcaTask(unittest.TestCase):
                 source_dataset=dataset,
                 input_ref=dataset_ref,
                 num_components=3,
+                max_components_available=compute_max_pca_components(dataset),
             )
 
             task_plan = app_services.task_planner.plan_semantic_task(task)

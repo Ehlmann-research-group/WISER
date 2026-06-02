@@ -126,12 +126,15 @@ def create_pca_metadata_widget(pca, dataset, parent=None) -> QWidget:
         def _fmt_array(self, arr, indent="    "):
             # Nicely format numpy arrays with indentation
             arr = np.asarray(arr)
+            # Use numpy's default truncation threshold (~1000 elements) so big
+            # learned attributes like components_ — which is (N, N) for an
+            # all-components fit — don't blow Qt's text layout with O(N²)
+            # formatted floats.  Power users can still pickle ``pca`` directly.
             arr_str = np.array2string(
                 arr,
                 precision=4,
                 suppress_small=True,
                 max_line_width=120,
-                threshold=arr.size,
             )
             return "\n".join(indent + line for line in arr_str.splitlines())
 

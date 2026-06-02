@@ -11,6 +11,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
+from wiser.gui.run_history import EigenScreeRunHistoryDialog, RunHistoryManagerBase
 from wiser.gui.generated.mnf_dialog_ui import Ui_MNFDialog
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -45,6 +46,35 @@ from wiser.utils.worker_runtime import get_process_storage_client
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
+
+
+@dataclass(frozen=True)
+class MNFRunRecord:
+    """Immutable record of one completed MNF run.
+
+    ``eigenvalues`` is the full eigenvalue spectrum produced by the whitened
+    eigendecomposition (length equal to the number of good bands), regardless
+    of how many components the user asked the pipeline to project onto.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    input_dataset_name_snapshot: str
+    num_components_chosen: int
+    max_components_available: int
+    eigenvalues: np.ndarray
+
+
+class MNFHistoryManager(RunHistoryManagerBase[MNFRunRecord]):
+    """Owns the in-memory list of completed MNF runs."""
+
+
+class MNFHistoryDialog(EigenScreeRunHistoryDialog[MNFRunRecord]):
+    """Non-modal viewer for past MNF runs.  See base class for behavior."""
+
+    task_label = "MNF"
+
 
 # region MNF
 
@@ -460,7 +490,18 @@ def get_mnf_pipeline(
 
 
 class MNFSemanticTask(QObject, SemanticTask):
-    result_ready = Signal(object)
+    # (reduced_data, eigenvalues) — second arg is the full whitened-noise
+    # eigenvalue spectrum, snapshotted in completion_callback before the
+    # ref it lived in goes out of scope.
+    result_ready = Signal(object, object)
+    # Emitted from _load_result_into_wiser; payload is an MNFRunRecord.
+    run_recorded = Signal(object)
+
+    # Allocation name that EigenDecompositionStage registers for the whitened
+    # eigenvalues, derived from `whitened_eigen_ref_name="mnf_whitened_eigen"`
+    # in get_mnf_pipeline.  Kept as a class constant so the binding lookup
+    # below isn't a magic string.
+    _WHITENED_EIGEN_VALUES_REF_NAME = "mnf_whitened_eigen_values"
 
     def __init__(
         self,
@@ -468,6 +509,7 @@ class MNFSemanticTask(QObject, SemanticTask):
         source_dataset: "RasterDataSet",
         input_ref: DataRef,
         num_components: int,
+        max_components_available: int,
         output_ref_name: str = "mnf_data",
     ):
         QObject.__init__(self)
@@ -488,6 +530,8 @@ class MNFSemanticTask(QObject, SemanticTask):
         self._app_state = app_state
         self._source_dataset = source_dataset
         self._output_ref_name = output_ref_name
+        self._num_components_chosen = num_components
+        self._max_components_available = max_components_available
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
@@ -500,10 +544,21 @@ class MNFSemanticTask(QObject, SemanticTask):
         height, width, bands = data_meta.shape
         output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
         reduced_data, _ = storage_client.read_region(output_ref, output_region)
-        self.result_ready.emit(np.asarray(reduced_data))
 
-    @Slot(object)
-    def _load_result_into_wiser(self, reduced_data: object) -> None:
+        # Snapshot the full whitened-noise eigenvalue spectrum so the scree
+        # plot in the past-runs viewer survives after the underlying ref is
+        # released.  EigenDecompositionStage stores values descending, which
+        # is what the scree plot expects.
+        eigen_values_ref = bindings.get(self._WHITENED_EIGEN_VALUES_REF_NAME)
+        if eigen_values_ref is None:
+            raise KeyError(f"Missing MNF eigenvalues binding: {self._WHITENED_EIGEN_VALUES_REF_NAME}")
+        eigen_values_raw, _ = storage_client.read_data(eigen_values_ref)
+        eigenvalues = np.asarray(np.ma.getdata(eigen_values_raw), dtype=np.float64).ravel().copy()
+
+        self.result_ready.emit(np.asarray(reduced_data), eigenvalues)
+
+    @Slot(object, object)
+    def _load_result_into_wiser(self, reduced_data: object, eigenvalues: object) -> None:
         reduced_array = np.asarray(reduced_data)
         reduced_array_by_band = reduced_array.transpose(2, 0, 1)
 
@@ -518,6 +573,18 @@ class MNFSemanticTask(QObject, SemanticTask):
         reduced_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
         reduced_dataset.set_data_ignore_value(self._source_dataset.get_data_ignore_value())
         self._app_state.add_dataset(reduced_dataset, view_dataset=False)
+
+        self.run_recorded.emit(
+            MNFRunRecord(
+                run_id=self.id,
+                timestamp=datetime.datetime.now(),
+                input_dataset_id=self._source_dataset.get_id(),
+                input_dataset_name_snapshot=source_name,
+                num_components_chosen=self._num_components_chosen,
+                max_components_available=self._max_components_available,
+                eigenvalues=np.asarray(eigenvalues, dtype=np.float64),
+            )
+        )
 
 
 class MinimumNoiseFractionDialog(QDialog):
@@ -538,6 +605,7 @@ class MinimumNoiseFractionDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent=parent)
+        self.setModal(False)
         self._app_state = app_state
         self._app_services = app_services
         self._selected_dataset_id: Optional[int] = None
@@ -545,9 +613,87 @@ class MinimumNoiseFractionDialog(QDialog):
         self._ui = Ui_MNFDialog()
         self._ui.setupUi(self)
 
+        # Keep the component-count spin box in sync with whichever dataset is
+        # picked: max changes per dataset (depends on its dimensions), and we
+        # default to the max so the user can see the ceiling at a glance.
+        self._ui.comboBox.currentIndexChanged.connect(self._refresh_component_limits)
+
+        # Past-runs viewer is lazily created on first click and kept alive on
+        # this dialog so reopening it preserves scroll position / closed-runs
+        # toggle state.  The records themselves live on app_state.
+        self._past_runs_dialog: Optional[MNFHistoryDialog] = None
+        self._ui.btn_past_results.clicked.connect(self._on_view_past_runs)
+
+        # Keep the dataset combo box in sync with the application's dataset
+        # list while this dialog is open.  Without this the combo would only
+        # refresh on showEvent — datasets added/removed while the dialog is
+        # already up (it's non-modal) would be invisible to the user.
+        app_state.dataset_added.connect(self._on_datasets_changed)
+        app_state.dataset_removed.connect(self._on_datasets_changed)
+
+    def _on_datasets_changed(self, *_args) -> None:
+        # Preserve the currently selected dataset if it still exists; the
+        # sentinel "(no data)" item uses currentData() == -1, so treat
+        # anything < 0 as "no selection".
+        current_id = self._ui.comboBox.currentData()
+        preserve_id = current_id if (current_id is not None and int(current_id) >= 0) else None
+        self.show_mnf(dataset_id=preserve_id)
+
+    def _on_view_past_runs(self) -> None:
+        if self._past_runs_dialog is None:
+            self._past_runs_dialog = MNFHistoryDialog(
+                app_state=self._app_state,
+                manager=self._app_state.get_mnf_history(),
+                parent=self,
+            )
+        self._past_runs_dialog.show()
+        self._past_runs_dialog.raise_()
+        self._past_runs_dialog.activateWindow()
+
+    @staticmethod
+    def _compute_max_components(dataset) -> int:
+        """Maximum components the MNF pipeline will accept for this dataset.
+
+        Matches the ceiling enforced inside ``get_mnf_pipeline``: the pipeline
+        only accepts ``num_components in [1, num_features]`` where
+        ``num_features`` is the count of *good* bands (see mnf.py:242-250).
+        Also bounded by the shift-difference noise pixel count so a small
+        image can't request more components than there are noise samples.
+        """
+        bad_bands = dataset.get_bad_bands()
+        if bad_bands is not None:
+            num_features = int(np.sum(bad_bands))
+        else:
+            num_features = dataset.num_bands()
+        height = dataset.get_height()
+        width = dataset.get_width()
+        data_pixels = height * width
+        noise_pixels = max(0, height - 1) * width
+        return min(num_features, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+
+    def _refresh_component_limits(self) -> None:
+        """Set spin-box min/max/value based on the currently selected dataset."""
+        sbox = self._ui.sbox_component
+        sbox.setMinimum(1)
+        dataset = self.get_selected_dataset()
+        if dataset is None:
+            # No dataset chosen yet; leave a generous ceiling and a sane floor
+            # so the spin box is interactable but won't accept an invalid value
+            # (perform_mnf will recompute the true cap on submit).
+            sbox.setMaximum(10_000)
+            sbox.setValue(1)
+            return
+        max_components = max(1, self._compute_max_components(dataset))
+        sbox.setMaximum(max_components)
+        sbox.setValue(max_components)
+
     def show_mnf(self, dataset_id: Optional[int] = None) -> None:
         cbox_dataset = self._ui.comboBox
         datasets = self._app_state.get_datasets()
+        # Block signals while repopulating so currentIndexChanged doesn't fire
+        # for every intermediate addItem — we call _refresh_component_limits
+        # once at the end.
+        cbox_dataset.blockSignals(True)
         cbox_dataset.clear()
         cbox_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
@@ -561,11 +707,9 @@ class MinimumNoiseFractionDialog(QDialog):
                 cbox_dataset.setCurrentIndex(0)
         else:
             cbox_dataset.setCurrentIndex(0)
+        cbox_dataset.blockSignals(False)
 
-        self._ui.sbox_component.setMinimum(1)
-        self._ui.sbox_component.setMaximum(10_000)
-        if self._ui.sbox_component.value() < 1:
-            self._ui.sbox_component.setValue(1)
+        self._refresh_component_limits()
 
     def showEvent(self, event):
         self.show_mnf(dataset_id=self._selected_dataset_id)
@@ -600,12 +744,10 @@ class MinimumNoiseFractionDialog(QDialog):
         dataset_ref = self._app_services.storage_service.register_external(
             ExternalRasterHandle(dataset_obj=selected_dataset)
         )
-        storage_client = get_process_storage_client()
-        data_meta = storage_client.get_meta(dataset_ref)
-        height, width, bands = data_meta.shape
-        data_pixels = height * width
-        noise_pixels = max(0, height - 1) * width
-        max_components = min(bands, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+        # Cap to the pipeline's accepted range (good-band count + noise-pixel
+        # ceiling) using the same helper that drives the spin box, so the
+        # dialog's display and the submission agree.
+        max_components = self._compute_max_components(selected_dataset)
         num_components = min(self.get_num_components(), max_components)
         if num_components <= 0:
             raise ValueError("No valid MNF component count for selected dataset")
@@ -615,7 +757,11 @@ class MinimumNoiseFractionDialog(QDialog):
             source_dataset=selected_dataset,
             input_ref=dataset_ref,
             num_components=num_components,
+            max_components_available=max_components,
         )
+        # Record the run in the application-level history once the task
+        # finishes loading its result into the app (mirrors linear_unmixing.py:393).
+        mnf_task.run_recorded.connect(self._app_state.get_mnf_history().add_record)
 
         task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
         future = self._app_services.task_manager.register_and_submit_task_plan(
