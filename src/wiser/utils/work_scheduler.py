@@ -1158,7 +1158,19 @@ class WorkScheduler:
 
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
         stage_state = plan_state.stage_states[item.stage_id]
-        # Mark as submitted before dispatch so stage accounting reflects in-flight work.
+        executor = (
+            self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
+        )
+        # Submit before mutating in-flight bookkeeping: a broken process pool is
+        # restarted and the submit retried, but if the retry still fails we must
+        # not leave phantom RAM/unit accounting behind. Release the held token
+        # and re-raise so the caller never accounts for work that never started.
+        try:
+            future = self._submit_work_unit_with_recovery_locked(item.work_unit, executor)
+        except BrokenProcessPool:
+            sem.release()
+            raise
+        # Mark as submitted after dispatch so stage accounting reflects in-flight work.
         stage_state.submitted_unit_ids.add(item.work_unit.unit_id)
         self._in_flight_ram_bytes += required_ram_bytes
         if self._recorder is not None:
@@ -1169,10 +1181,6 @@ class WorkScheduler:
                 executor_kind=item.work_unit.executor_kind,
                 priority_class=item.work_unit.priority_class,
             )
-        executor = (
-            self._process_executor if item.work_unit.executor_kind == "process" else self._thread_executor
-        )
-        future = executor.submit(self._execute_work_unit, item.work_unit)
         # Defer callback attachment until after lock release to avoid immediate
         # callback re-entry (`add_done_callback` can invoke synchronously).
         self._pending_done_callbacks.append(
