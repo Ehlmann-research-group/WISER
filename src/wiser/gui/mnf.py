@@ -582,7 +582,7 @@ class MNFSemanticTask(QObject, SemanticTask):
                 input_dataset_name_snapshot=source_name,
                 num_components_chosen=self._num_components_chosen,
                 max_components_available=self._max_components_available,
-                eigenvalues=np.asarray(eigenvalues, dtype=np.float64),
+                eigenvalues=np.asarray(eigenvalues, dtype=np.float64)[: self._num_components_chosen],
             )
         )
 
