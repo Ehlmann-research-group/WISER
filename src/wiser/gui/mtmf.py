@@ -1404,7 +1404,9 @@ class MTMFSemanticTask(QObject, SemanticTask):
             score_by_band = score_band.transpose(2, 0, 1)  # (1, H, W)
 
             score_dataset = loader.dataset_from_numpy_array(score_by_band, cache)
-            score_dataset.set_name(self._app_state.unique_dataset_name(f"MF [{target_name}]: {source_name}"))
+            score_dataset.set_name(
+                self._app_state.unique_dataset_name(f"MTMF [{target_name}]: {source_name}")
+            )
             score_dataset.set_description(
                 f"Matched filter score for '{target_name}' against '{source_name}' ({timestamp})"
             )
