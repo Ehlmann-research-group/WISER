@@ -14,6 +14,7 @@ from PySide2.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -21,6 +22,7 @@ from PySide2.QtWidgets import (
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.kmeans_dialog_ui import Ui_KMeansDialog
+from wiser.gui.spectra_table import SpectraTableController
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -677,6 +679,16 @@ class KMeansDialog(QDialog):
         self._init_validators()
         self._ui.cbox_init_method.currentIndexChanged.connect(self._on_init_method_changed)
 
+        self._spectra_table = SpectraTableController(
+            self._ui.tbl_wdgt_init_spectra,
+            app_state,
+            self,
+            name_column_label=self.tr("Spectrum"),
+            remove_tooltip=self.tr("Remove init spectrum"),
+        )
+        self._ui.btn_add_collected_spec.clicked.connect(self._spectra_table.on_add_collected_clicked)
+        self._ui.btn_import_spec.clicked.connect(self._spectra_table.on_import_clicked)
+
         app_state.dataset_added.connect(self._on_datasets_changed)
         app_state.dataset_removed.connect(self._on_datasets_changed)
 
@@ -685,7 +697,8 @@ class KMeansDialog(QDialog):
         cbox.clear()
         for method in KMeansInitMethod:
             cbox.addItem(method.value, method)
-        self._ui.tbl_wdgt_init_spectra.setVisible(False)
+        # Manual-init widgets start hidden; shown only when init method is manual.
+        self._set_manual_init_widgets_visible(False)
 
     def _init_cbox_algo(self) -> None:
         cbox = self._ui.cbox_algo
@@ -707,11 +720,31 @@ class KMeansDialog(QDialog):
         pos_float_validator.setNotation(QDoubleValidator.ScientificNotation)
         self._ui.ledit_tol.setValidator(pos_float_validator)
 
+    def _set_manual_init_widgets_visible(self, visible: bool) -> None:
+        """Show or hide the manual-init spectra widgets as a group.
+
+        Qt layouts and spacer items have no ``setVisible``; to keep the "Add
+        Collected Spectrum"/"Import Spectrum" row from leaving an empty gap when
+        the init method isn't manual, we hide the two buttons and collapse the
+        expanding spacer between them, then invalidate the row's layout so it
+        recomputes its geometry.
+        """
+        self._ui.tbl_wdgt_init_spectra.setVisible(visible)
+        self._ui.btn_add_collected_spec.setVisible(visible)
+        self._ui.btn_import_spec.setVisible(visible)
+        if visible:
+            self._ui.hspacer_add_spec.changeSize(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        else:
+            self._ui.hspacer_add_spec.changeSize(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self._ui.hlayout_add_spec.invalidate()
+
     def _on_init_method_changed(self, index: int) -> None:
         method = self._ui.cbox_init_method.itemData(index)
         is_manual = method is KMeansInitMethod.MANUAL
 
-        self._ui.tbl_wdgt_init_spectra.setVisible(is_manual)
+        # Manual-init spectra entry (table + add/import buttons + spacer) only
+        # applies when the user supplies the initial centroids by hand.
+        self._set_manual_init_widgets_visible(is_manual)
 
         # Disable num_inits and seed when manual (centroid positions are fixed)
         self._ui.ledit_num_inits.setEnabled(not is_manual)
