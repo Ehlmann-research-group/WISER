@@ -357,6 +357,7 @@ class PCAPlugin(plugins.ContextMenuPlugin):
             app = getattr(app_state, "_app", None)
             app_services = getattr(app, "_app_services", None)
 
+        # Fall back to synchronous calculation
         if test_mode or app_services is None:
             image_arr = dataset.get_image_data()
             masked_arr, pca = compute_PCA_on_image(

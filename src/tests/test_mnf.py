@@ -18,6 +18,13 @@ from wiser.utils.storage_client import StorageClient
 from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_system import AlgorithmPipeline, SemanticTask
 
+from tests.utils import (
+    NAN_INF_BAD_BANDS,
+    NAN_INF_DATA_IGNORE_VALUE,
+    assert_reduction_drops_invalid_pixels,
+    build_unmasked_nan_inf_cube,
+)
+
 pytestmark = [
     pytest.mark.integration,
 ]
@@ -292,6 +299,52 @@ class TestMnf(unittest.TestCase):
                 # I can't find the actual problem because the divisor is the same and the
                 # X data should be the same
                 self.assertTrue(np.allclose(np.abs(ours), np.abs(theirs), atol=3e-1))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_get_mnf_pipeline_handles_unmasked_nan_and_inf(self) -> None:
+        # Synthetic cube with a bad band, a nodata sentinel, and unmasked
+        # NaN/+Inf/-Inf in good bands. MNF must drop those spectra (via the shared
+        # finite_unmasked_row_mask cleaning) and write the nodata fill at them.
+        dataset = RasterDataLoader().dataset_from_numpy_array(build_unmasked_nan_inf_cube())
+        dataset.set_bad_bands(NAN_INF_BAD_BANDS)
+        dataset.set_data_ignore_value(NAN_INF_DATA_IGNORE_VALUE)
+
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            num_components = 2
+            output_ref_name = "mnf_nan_output"
+            mnf_pipeline = get_mnf_pipeline(
+                dataset_ref, num_components=num_components, output_ref_name=output_ref_name
+            )
+            mnf_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=mnf_pipeline,
+            )
+            task.id = 2005
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=180)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output, _ = storage_client.read_data(task_plan.bindings[output_ref_name])
+            assert_reduction_drops_invalid_pixels(self, output, num_components)
         finally:
             if storage_client is not None:
                 storage_client.close()

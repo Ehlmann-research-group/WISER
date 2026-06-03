@@ -1,8 +1,64 @@
+import numpy as np
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from PySide2 import QtCore, QtWidgets, QtTest, QtGui
+
+
+# Shared fixture for the PCA/MNF "unmasked NaN/Inf" regression tests in
+# test_pca_task.py and test_mnf.py. The cube carries one bad band, a nodata
+# sentinel at fully-masked pixels, and unmasked NaN/+Inf/-Inf in good bands —
+# the case that made PCA feed NaN into sklearn before the cleaning fix.
+NAN_INF_BANDS, NAN_INF_HEIGHT, NAN_INF_WIDTH = 5, 12, 12
+NAN_INF_DATA_IGNORE_VALUE = -9999.0
+# Band 2 is bad -> 4 good bands remain.
+NAN_INF_BAD_BANDS = [1, 1, 0, 1, 1]
+# (y, x) pixels cleaning must drop; the reduction output must carry the nodata
+# fill at exactly these locations.
+NAN_INF_INVALID_YX = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]
+
+
+def build_unmasked_nan_inf_cube() -> np.ndarray:
+    """Return a ``[b][y][x]`` float32 cube for the NaN/Inf regression tests.
+
+    Pixels (0,0) and (1,1) are fully nodata (every band is the sentinel, so they
+    are masked at read time). Good-band pixels (2,2)/(3,3)/(4,4) carry an unmasked
+    NaN/+Inf/-Inf respectively, so neither bad-band nor nodata masking removes
+    them. Pair with :data:`NAN_INF_BAD_BANDS` and :data:`NAN_INF_DATA_IGNORE_VALUE`
+    via ``dataset.set_bad_bands`` / ``dataset.set_data_ignore_value``.
+    """
+    rng = np.random.default_rng(0)
+    cube = (
+        rng.standard_normal((NAN_INF_BANDS, NAN_INF_HEIGHT, NAN_INF_WIDTH)).astype(np.float32) * 50.0 + 1000.0
+    )
+    cube[:, 0, 0] = NAN_INF_DATA_IGNORE_VALUE
+    cube[:, 1, 1] = NAN_INF_DATA_IGNORE_VALUE
+    cube[0, 2, 2] = np.nan
+    cube[1, 3, 3] = np.inf
+    cube[3, 4, 4] = -np.inf
+    return cube
+
+
+def assert_reduction_drops_invalid_pixels(test_case, output, num_components: int) -> None:
+    """Assert a PCA/MNF reduction wrote the nodata fill at every invalid pixel and
+    finite components everywhere else.
+
+    ``output`` is the ``[y][x][component]`` cube read back from the pipeline.
+    """
+    out = np.asarray(np.ma.getdata(output))
+    test_case.assertEqual(out.shape, (NAN_INF_HEIGHT, NAN_INF_WIDTH, num_components))
+
+    valid_mask = np.ones((NAN_INF_HEIGHT, NAN_INF_WIDTH), dtype=bool)
+    for y, x in NAN_INF_INVALID_YX:
+        valid_mask[y, x] = False
+        test_case.assertTrue(
+            np.allclose(out[y, x, :], NAN_INF_DATA_IGNORE_VALUE),
+            f"Invalid pixel {(y, x)} should carry the nodata fill, got {out[y, x, :]}",
+        )
+    # Every surviving pixel produced finite components (no NaN/Inf leaked through).
+    test_case.assertTrue(np.all(np.isfinite(out[valid_mask])))
 
 
 def are_pixels_close(pixel1, pixel2) -> bool:
