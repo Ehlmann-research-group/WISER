@@ -4,19 +4,13 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from PySide2 import QtCore, QtWidgets, QtTest, QtGui
-
 
 # Shared fixture for the PCA/MNF "unmasked NaN/Inf" regression tests in
-# test_pca_task.py and test_mnf.py. The cube carries one bad band, a nodata
-# sentinel at fully-masked pixels, and unmasked NaN/+Inf/-Inf in good bands —
-# the case that made PCA feed NaN into sklearn before the cleaning fix.
+# test_pca_task.py and test_mnf.py
 NAN_INF_BANDS, NAN_INF_HEIGHT, NAN_INF_WIDTH = 5, 12, 12
 NAN_INF_DATA_IGNORE_VALUE = -9999.0
-# Band 2 is bad -> 4 good bands remain.
 NAN_INF_BAD_BANDS = [1, 1, 0, 1, 1]
-# (y, x) pixels cleaning must drop; the reduction output must carry the nodata
-# fill at exactly these locations.
+# (y, x) pixels cleaning must drop by nodata value
 NAN_INF_INVALID_YX = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]
 
 
