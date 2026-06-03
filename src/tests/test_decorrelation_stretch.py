@@ -13,6 +13,8 @@ from wiser.raster.decorrelation_stretch import (
     compute_decorrelation_stretch,
     compute_decorrelation_stretch_numba,
     compute_decorrelation_stretch_numpy,
+    decor_numba,
+    decor_numpy,
 )
 from wiser.utils.task_stage_utils import (
     EigenVectorsAndValues,
@@ -146,6 +148,49 @@ class TestDecorrelationStretchStage(unittest.TestCase):
             release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+
+class TestDecorrelationStretchNanResistance(unittest.TestCase):
+    """The kernels must tolerate unmasked NaN/Inf pixels: one bad pixel must not
+    poison the transform for every other pixel. Pre-fix, the covariance went
+    non-finite and numba's eigh raised LinAlgError (aborting the GUI render);
+    the NumPy path produced all-NaN output (black image)."""
+
+    @staticmethod
+    def _make_correlated_bands():
+        rng = np.random.default_rng(0)
+        height, width = 8, 9
+        b0 = rng.standard_normal((height, width)) * 10.0 + 100.0
+        # Correlate b1/b2 with b0 so the covariance is non-degenerate.
+        b1 = 0.5 * b0 + rng.standard_normal((height, width)) * 5.0 + 50.0
+        b2 = 0.3 * b0 + rng.standard_normal((height, width)) * 2.0 + 20.0
+        return b0, b1, b2
+
+    def test_kernels_tolerate_unmasked_nan_and_inf(self) -> None:
+        b0, b1, b2 = self._make_correlated_bands()
+        # Inject non-finite values at distinct pixels across the three bands.
+        invalid_pixels = [(0, 0), (3, 4), (7, 8)]
+        b0[0, 0] = np.nan
+        b1[3, 4] = np.inf
+        b2[7, 8] = -np.inf
+
+        result_numpy = decor_numpy(b0, b1, b2)
+        result_numba = decor_numba(b0, b1, b2)
+
+        self.assertEqual(result_numpy.shape, (8, 9, 3))
+        self.assertEqual(result_numba.shape, (8, 9, 3))
+
+        # A pixel is valid iff all three input bands are finite there.
+        valid = np.isfinite(b0) & np.isfinite(b1) & np.isfinite(b2)
+        for y, x in invalid_pixels:
+            self.assertFalse(valid[y, x])
+
+        # Every valid pixel produced finite output (pre-fix: all-NaN / LinAlgError).
+        self.assertTrue(np.all(np.isfinite(result_numpy[valid])))
+        self.assertTrue(np.all(np.isfinite(result_numba[valid])))
+
+        # numba and numpy agree at the valid pixels.
+        self.assertTrue(np.allclose(result_numpy[valid], result_numba[valid], atol=1e-10))
 
 
 if __name__ == "__main__":

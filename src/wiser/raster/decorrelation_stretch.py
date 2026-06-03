@@ -296,21 +296,35 @@ def decor_numpy(band0: np.ndarray, band1: np.ndarray, band2: np.ndarray) -> np.n
     """
     Pure NumPy decorrelation stretch on three [y][x] float64 band arrays.
     Returns [y][x][3] float64.
+
+    Fits the transform (mean, covariance, eigendecomposition) on the finite
+    pixels only: a single NaN/Inf pixel otherwise poisons the mean/covariance and
+    makes ``eigh`` fail. This mirrors how the PCA/MNF pipelines drop non-finite
+    spectra before building their covariance (see
+    ``_flatten_valid_dataset_rows`` in task_stage_utils.py). The transform is then
+    applied to every pixel; non-finite inputs yield non-finite outputs, which the
+    caller (``StretchDecorrelation.apply_multi``) already zeroes out.
     """
     height, width = band0.shape
     flat = np.stack([band0.ravel(), band1.ravel(), band2.ravel()], axis=1)
 
-    mean = flat.mean(axis=0)
-    centered = flat - mean
-    n = flat.shape[0]
+    # A pixel is usable only if all three bands are finite there.
+    valid = np.all(np.isfinite(flat), axis=1)
+    valid_flat = flat[valid]
+    n = valid_flat.shape[0]
+    if n < 2:
+        # Too few finite pixels to estimate a covariance; nothing to stretch.
+        return np.zeros((height, width, 3), dtype=np.float64)
 
-    cov = centered.T @ centered / (n - 1)
+    mean = valid_flat.mean(axis=0)
+    centered_valid = valid_flat - mean
+    cov = centered_valid.T @ centered_valid / (n - 1)
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
     R = eigenvectors.T
     reciprocal_sqrt = np.where(eigenvalues > 0.0, 1.0 / np.sqrt(eigenvalues), 0.0)
     T = R.T @ (reciprocal_sqrt[:, np.newaxis] * R)
 
-    return (centered @ T + mean).reshape(height, width, 3)
+    return ((flat - mean) @ T + mean).reshape(height, width, 3)
 
 
 _decor_sig = types.float64[:, :, :](types.float64[:, :], types.float64[:, :], types.float64[:, :])
@@ -337,15 +351,48 @@ def decor_numba(band0: np.ndarray, band1: np.ndarray, band2: np.ndarray) -> np.n
             flat[k, 2] = band2[i, j]
             k += 1
 
+    # Accumulate the mean over finite pixels only -- a single NaN/Inf pixel
+    # otherwise poisons the mean/covariance and makes eigh raise LinAlgError.
+    # Mirrors the finite-row masking in decor_numpy (kept inline so the kernel
+    # stays njit-compilable and bit-compatible with the NumPy fallback).
     mean = np.zeros(3, dtype=np.float64)
+    n_valid = 0
     for i in range(n):
-        mean[0] += flat[i, 0]
-        mean[1] += flat[i, 1]
-        mean[2] += flat[i, 2]
-    mean /= n
+        v0 = flat[i, 0]
+        v1 = flat[i, 1]
+        v2 = flat[i, 2]
+        if np.isfinite(v0) and np.isfinite(v1) and np.isfinite(v2):
+            mean[0] += v0
+            mean[1] += v1
+            mean[2] += v2
+            n_valid += 1
 
-    centered = flat - mean
-    cov = np.dot(centered.T, centered) / (n - 1)
+    if n_valid < 2:
+        # Too few finite pixels to estimate a covariance; nothing to stretch.
+        return np.zeros((height, width, 3), dtype=np.float64)
+
+    mean /= n_valid
+
+    # Covariance over finite pixels only.
+    cov = np.zeros((3, 3), dtype=np.float64)
+    for i in range(n):
+        v0 = flat[i, 0]
+        v1 = flat[i, 1]
+        v2 = flat[i, 2]
+        if np.isfinite(v0) and np.isfinite(v1) and np.isfinite(v2):
+            c0 = v0 - mean[0]
+            c1 = v1 - mean[1]
+            c2 = v2 - mean[2]
+            cov[0, 0] += c0 * c0
+            cov[0, 1] += c0 * c1
+            cov[0, 2] += c0 * c2
+            cov[1, 0] += c1 * c0
+            cov[1, 1] += c1 * c1
+            cov[1, 2] += c1 * c2
+            cov[2, 0] += c2 * c0
+            cov[2, 1] += c2 * c1
+            cov[2, 2] += c2 * c2
+    cov /= n_valid - 1
 
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
     R = eigenvectors.T  # one eigenvector per row
@@ -358,6 +405,9 @@ def decor_numba(band0: np.ndarray, band1: np.ndarray, band2: np.ndarray) -> np.n
     scaled_R = recip_sqrt.reshape(3, 1) * R
     T = np.dot(R.T, scaled_R)
 
+    # Apply to every pixel; non-finite inputs propagate to non-finite outputs,
+    # which the caller zeroes. eigh above only saw the clean covariance.
+    centered = flat - mean
     result_flat = np.dot(centered, T) + mean
     return result_flat.reshape(height, width, 3)
 
