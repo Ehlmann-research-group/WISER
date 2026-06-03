@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Tuple
 
 import numpy as np
@@ -5,6 +6,8 @@ from PySide2.QtWidgets import QDialog
 
 from wiser.raster import RasterDataSet
 from .generated.pixel_value_widget_ui import Ui_PixelValueWidget
+
+logger = logging.getLogger(__name__)
 
 
 class PixelValueWidget(QDialog):
@@ -91,7 +94,8 @@ class PixelValueWidget(QDialog):
         # is actually shown on screen.
         try:
             all_values = self._dataset.get_all_bands_at(x, y, filter_bad_values=False)
-        except Exception:
+        except (IndexError, ValueError, RuntimeError, Exception) as exc:
+            logger.exception("Failed to read pixel values at (%d, %d): %s", x, y, exc)
             self._ui.lbl_display_values.setText("—")
             self._ui.lbl_display_values.setVisible(True)
             return
@@ -125,7 +129,7 @@ class PixelValueWidget(QDialog):
                 if np.isnan(v):
                     return "nan"
                 # Use up to 4 significant figures, stripping trailing zeros.
-                return f"{v:.3g}"
+                return f"{v:.4g}"
             return str(v)
 
         if len(display_bands) == 3:
