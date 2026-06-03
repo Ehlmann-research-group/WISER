@@ -43,13 +43,3 @@ values indicate a stronger match.
      the ROI will be pulled from
 3. **Target** — choose the reference spectrum to detect.
 4. Click **OK**. The run proceeds in the background.
-
-<!-- PICTURE: Screenshot of the MTMF dialog labeling the Input type + Input
-     dataset row, the Noise method type + value row, the Shift Diff Method
-     (direction) row, the Target row, and the OK / Cancel buttons. -->
-
-<!-- PICTURE: The dialog in "Image Cube Based" mode, highlighting the
-     Shift Difference direction dropdown that becomes relevant. -->
-
-<!-- PICTURE: Example matched-filter score image, with high-scoring (likely
-     target) pixels standing out brightly against the darker background. -->

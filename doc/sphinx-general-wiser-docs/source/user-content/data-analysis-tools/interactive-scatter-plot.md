@@ -72,18 +72,3 @@ The strip just below the toolbar:
 
 The standard Matplotlib navigation toolbar (pan, zoom, save image) sits above
 the strip.
-
-<!-- PICTURE: Screenshot of the full Interactive Scatter Plot window: the
-     density plot up top with its colorbar, the control strip (count, Clear,
-     Create ROI, Color Map, Axes Limits, To Scatter, Highlight), and the bottom
-     X/Y band + Render Onto + Create Plot controls all labeled. -->
-
-<!-- PICTURE: A polygon drawn around a cluster of points on the plot, with the
-     matching pixels highlighted on the Render Onto image beside it —
-     illustrating the feature-space ↔ image-space link. -->
-
-<!-- PICTURE: The same data shown as a density plot vs. a plain scatter plot,
-     side by side, to show what the To Scatter / To Density toggle does. -->
-
-<!-- PICTURE: The Color Map chooser dialog showing the colormap dropdown and its
-     preview swatch. -->

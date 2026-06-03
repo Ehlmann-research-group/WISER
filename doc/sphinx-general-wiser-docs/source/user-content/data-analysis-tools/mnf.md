@@ -31,11 +31,3 @@ that ceiling is visible at a glance.
 Click **View Past Results** to reopen any previous run and view its scree plot
 (eigenvalue vs. component index), which helps you judge how many components are
 worth keeping.
-
-<!-- PICTURE: Screenshot of the MNF dialog showing the Num Components spin box,
-     the Choose Dataset dropdown, and the View Past Results / OK / Cancel
-     buttons. Label each control. -->
-
-<!-- PICTURE: Example scree plot from View Past Results, showing eigenvalues on
-     a log y-axis dropping off sharply, with the "elbow" annotated to indicate
-     where added components stop contributing meaningful signal. -->

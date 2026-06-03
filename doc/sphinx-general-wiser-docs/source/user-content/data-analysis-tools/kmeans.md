@@ -38,14 +38,3 @@ are used when blank):
 - **Random Seed** — fix for reproducible results.
 - **Algorithm** — `lloyd` (classic) or `elkan` (faster on well-separated
   clusters, more memory).
-
-<!-- PICTURE: Screenshot of the K-Means dialog with the Input Dataset dropdown,
-     the K clusters field, the Advanced Options toggle (collapsed), and the
-     View Centroids / OK / Cancel buttons labeled. -->
-
-<!-- PICTURE: Screenshot of the dialog with Advanced Options expanded, showing
-     the Initialization Method dropdown and the Number of Initializations, Max
-     Iterations, Convergence Tolerance, Random Seed, and Algorithm fields. -->
-
-<!-- PICTURE: Example label-image output rendered with a categorical color map,
-     plus the centroid spectrum plot opened from View Centroids. -->

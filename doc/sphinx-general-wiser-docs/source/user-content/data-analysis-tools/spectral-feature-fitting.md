@@ -49,14 +49,3 @@ Inputs work the same way as [Spectral Angle Mapper](spectral-angle-mapper.md):
    threshold but individually overridable.
 4. Click **Run SFF**. Image-cube runs proceed in the background; spectrum runs
    open a ranked details table with a comparison plot.
-
-<!-- PICTURE: Screenshot of the SFF dialog labeling the Target type + selector,
-     the wavelength range + units, the reference library/spectrum rows with
-     their per-row threshold spin boxes, and the Run SFF button. -->
-
-<!-- PICTURE: Before/after plot of a spectrum and its continuum removal —
-     original spectrum with the fitted continuum line, then the continuum-
-     removed result isolating the absorption feature. -->
-
-<!-- PICTURE: Example SFF outputs side by side: the RMSE image (dark = good
-     fit), the Scale image (feature depth), and the boolean classification. -->

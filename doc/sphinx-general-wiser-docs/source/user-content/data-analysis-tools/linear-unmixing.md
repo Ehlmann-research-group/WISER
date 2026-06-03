@@ -32,15 +32,3 @@ The result is added as a new dataset named `Linear Unmix: <source>, N endmembers
 
 Click **View Past Runs** to revisit a previous run — it re-plots that run's
 endmembers and resurfaces its input and output datasets.
-
-<!-- PICTURE: Screenshot of the Linear Unmixing dialog with the Input Dataset
-     dropdown, the Sum to Unity checkbox + weight spin box, the Endmembers table
-     with a couple of rows and their trash buttons, and the Add Collected
-     Spectrum / Import Spectrum / View Past Runs / OK / Cancel buttons labeled. -->
-
-<!-- PICTURE: Example abundance output dataset, showing one abundance band per
-     endmember plus the trailing RMSE band in the band list. -->
-
-<!-- PICTURE: The Past Runs viewer, showing the Active and (collapsed) Closed
-     Runs tables with the Run / Time / Input / Output / # EMs / Status columns
-     and the View / Delete buttons. -->

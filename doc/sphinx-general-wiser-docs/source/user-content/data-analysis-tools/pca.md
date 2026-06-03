@@ -26,14 +26,3 @@ When the run finishes, a PCA metadata widget and a **scree plot** (eigenvalue
 vs. component index) open automatically. Click **View Past Results** to reopen
 the scree plot for any earlier run; it helps you judge how many components are
 worth keeping.
-
-<!-- PICTURE: Screenshot of the right-click context menu on a raster view with
-     the "PCA" action highlighted. -->
-
-<!-- PICTURE: Screenshot of the PCA dialog showing the Number of Components spin
-     box, the (disabled) Estimator Matrix dropdown, and the View Past Results /
-     OK / Cancel buttons. Label each control. -->
-
-<!-- PICTURE: Example scree plot, showing eigenvalues on a log y-axis dropping
-     off sharply, with the "elbow" annotated to indicate where added components
-     stop contributing meaningful variance. -->

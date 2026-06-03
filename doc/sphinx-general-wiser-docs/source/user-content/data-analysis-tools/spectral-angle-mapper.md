@@ -44,13 +44,3 @@ Inputs work the same way as [Spectral Feature Fitting](spectral-feature-fitting.
    the method threshold but individually overridable.
 4. Click **Run SAM**. Image-cube runs proceed in the background; spectrum runs
    open a ranked details table with a comparison plot.
-
-<!-- PICTURE: Screenshot of the SAM dialog labeling the Target type + selector,
-     the wavelength range + units, the reference library/spectrum rows with
-     their per-row threshold spin boxes, and the Run SAM button. -->
-
-<!-- PICTURE: Diagram showing two spectra as vectors with the angle between
-     them, illustrating that scaling (brightness) leaves the angle unchanged. -->
-
-<!-- PICTURE: Example SAM Angle output image (dark = small angle = good match)
-     alongside the boolean SAM CLS classification image. -->
