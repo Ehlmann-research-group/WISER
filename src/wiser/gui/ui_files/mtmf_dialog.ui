@@ -41,7 +41,11 @@
     <widget class="QComboBox" name="cbox_input"/>
    </item>
    <item row="0" column="0">
-    <widget class="QComboBox" name="cbox_input_type"/>
+    <widget class="QLabel" name="lbl_input_type">
+     <property name="text">
+      <string>Select Image Cube</string>
+     </property>
+    </widget>
    </item>
    <item row="4" column="2">
     <widget class="QComboBox" name="cbox_target"/>
