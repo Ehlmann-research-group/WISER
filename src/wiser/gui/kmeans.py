@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
 from sklearn.cluster import KMeans as SklearnKMeans
@@ -50,7 +50,7 @@ from wiser.utils.task_system import (
 )
 from wiser.utils.worker_runtime import get_process_storage_client
 
-from wiser.raster.spectrum import NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
@@ -685,6 +685,7 @@ class KMeansDialog(QDialog):
             self,
             name_column_label=self.tr("Spectrum"),
             remove_tooltip=self.tr("Remove init spectrum"),
+            add_filter=self._filter_spectra_by_band_count,
         )
         self._ui.btn_add_collected_spec.clicked.connect(self._spectra_table.on_add_collected_clicked)
         self._ui.btn_import_spec.clicked.connect(self._spectra_table.on_import_clicked)
@@ -737,6 +738,40 @@ class KMeansDialog(QDialog):
         else:
             self._ui.hspacer_add_spec.changeSize(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
         self._ui.hlayout_add_spec.invalidate()
+
+    def _filter_spectra_by_band_count(self, specs: List[Spectrum]) -> List[Spectrum]:
+        """Drop spectra whose band count doesn't match the selected dataset.
+
+        Used as the SpectraTableController's ``add_filter``, so it runs over the
+        whole batch before any rows are created.  When no dataset is selected we
+        can't validate, so every spectrum is accepted — the run-time check in
+        :meth:`perform_kmeans` is the backstop.  Mismatched spectra are skipped
+        and reported together in a single warning.
+        """
+        dataset = self.get_selected_dataset()
+        if dataset is None:
+            return specs
+
+        expected = dataset.num_bands()
+        matching: List[Spectrum] = []
+        mismatched: List[Spectrum] = []
+        for spec in specs:
+            (matching if spec.num_bands() == expected else mismatched).append(spec)
+
+        if mismatched:
+            details = "\n".join(
+                self.tr("• {0}: {1} bands").format(spec.get_name() or self.tr("<unnamed>"), spec.num_bands())
+                for spec in mismatched
+            )
+            QMessageBox.warning(
+                self,
+                self.tr("Band Count Mismatch"),
+                self.tr(
+                    "These spectra were skipped because their band count does not "
+                    "match the input dataset ({0} bands):\n\n{1}"
+                ).format(expected, details),
+            )
+        return matching
 
     def _on_init_method_changed(self, index: int) -> None:
         method = self._ui.cbox_init_method.itemData(index)
