@@ -39,7 +39,10 @@ from wiser.utils.task_system import (
     WriteSpec,
 )
 from wiser.utils.worker_runtime import get_process_storage_client
-from wiser.raster.utils import compute_PCA_on_image
+from wiser.raster.utils import (
+    compute_PCA_on_image,
+    finite_unmasked_row_mask,
+)
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
 PCA_MEMORY_CUTOFF_BYTES = 4 * 1024**3
@@ -2417,10 +2420,11 @@ def _flatten_valid_dataset_rows(
     filtered_data = data_raw[:, :, good_band_mask]
     filtered_mask = data_mask[:, :, good_band_mask]
     flattened = filtered_data.reshape(-1, filtered_data.shape[2])
+    flattened_mask = filtered_mask.reshape(-1, filtered_mask.shape[2])
     # Drop any pixel whose surviving bands still contain masked, NaN, or Inf values.
-    invalid_rows = np.any(filtered_mask.reshape(-1, filtered_mask.shape[2]), axis=1)
-    invalid_rows |= np.any(~np.isfinite(flattened), axis=1)
-    return flattened[~invalid_rows]
+    # Shared with compute_PCA_on_image so PCA and MNF apply identical row validity.
+    valid_rows = finite_unmasked_row_mask(flattened, flattened_mask)
+    return flattened[valid_rows]
 
 
 def count_valid_dataset_pixels(dataset_ref: DataRef) -> int:
