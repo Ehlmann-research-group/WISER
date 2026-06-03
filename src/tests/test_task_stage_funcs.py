@@ -60,6 +60,15 @@ from wiser.utils.task_system import (
 )
 from test_utils.test_model import WiserTestModel
 
+
+from typing import TYPE_CHECKING, Tuple
+
+if TYPE_CHECKING:
+    from wiser.gui.app_services import AppServices
+    from wiser.raster.dataset import RasterDataSet
+    from wiser.raster.roi import RegionOfInterest
+    from wiser.utils.task_system import TaskPlan
+
 pytestmark = [
     pytest.mark.integration,
 ]
@@ -340,7 +349,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             stage = SpectralMeanStage(
                 _output_ref_name="spectral_mean_with_total",
                 _internal_total_ref_name="spectral_mean_with_total_ref",
-                _dataset_ref=input_ref,
+                _meta_ref=input_ref,
                 default_executor="process",
                 input_plan_meta=DatasetPlanMeta(shape=(2, 2, 2), dtype=np.dtype(np.float32)),
                 resource_model=ResourceModel(
@@ -609,7 +618,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             mean_stage = SpectralMeanStage(
                 _output_ref_name="cov_reuse_mean",
                 _internal_total_ref_name="shared_total_ref",
-                _dataset_ref=input_ref,
+                _meta_ref=input_ref,
                 default_executor="process",
                 input_plan_meta=DatasetPlanMeta(shape=(2, 2, 3), dtype=np.dtype(np.float32)),
                 resource_model=ResourceModel(
@@ -2216,6 +2225,404 @@ class TestTaskStageFuncs(unittest.TestCase):
             np.allclose(product_right, np.eye(5), atol=1e-4),
             msg=f"G @ G⁺ deviates from identity:\n{product_right}",
         )
+
+
+_JPL_DATASET_PATH = (
+    Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_15_40_30.hdr"
+).resolve()
+
+
+def _load_jpl_dataset():
+    """Load the 15-band, 40-row x 30-col ENVI test dataset."""
+    from wiser.raster.dataset_impl import ENVI_GDALRasterDataImpl
+
+    impls = ENVI_GDALRasterDataImpl.try_load_file(str(_JPL_DATASET_PATH), interactive=False)
+    assert impls, f"Could not load {_JPL_DATASET_PATH}"
+    from wiser.raster.dataset import RasterDataSet
+
+    return RasterDataSet(impls[0], data_cache=None)
+
+
+def _run_roi_spectral_mean_pipeline(
+    app_services: "AppServices",
+    roi: "RegionOfInterest",
+    dataset: "RasterDataSet",
+    task_id: int,
+    timeout: int = 30,
+) -> Tuple[np.ndarray, "TaskPlan"]:
+    """
+    Register *dataset* and *roi* as external handles, build a
+    SpectralMeanStage over the ROI-backed spectra list, run through the
+    scheduler, and return (mean_array, task_plan).
+    """
+    from wiser.utils.primitives import (
+        ExternalRoiHandle,
+        SpectraBatchScheme,
+        DeletePolicy,
+    )
+    from wiser.utils.task_system import (
+        AlgorithmPipeline,
+        DatasetPlanMeta,
+        ResourceModel,
+        SemanticTask,
+    )
+
+    # Source dataset must be registered before the ROI handle (Step 2 contract).
+    _ = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+    roi_ref = app_services.storage_service.register_external(
+        ExternalRoiHandle(roi=roi, source_dataset=dataset)
+    )
+
+    n_pixels = roi_ref.shape[0]
+    n_bands = roi_ref.shape[1]
+    mean_output_ref_name = "roi_mean"
+
+    mean_stage = SpectralMeanStage(
+        _output_ref_name=mean_output_ref_name,
+        _meta_ref=roi_ref,
+        default_executor="process",
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=n_pixels,
+            spectrum_length=n_bands,
+            dtype=roi_ref.dtype,
+        ),
+        resource_model=ResourceModel(
+            fixed_overhead_bytes=0,
+            bytes_per_scalar_in=1,
+            bytes_per_scalar_out=1,
+            scratch_bytes_per_scalar_in=0,
+        ),
+        chunking_scheme_type=SpectraBatchScheme,
+    )
+    mean_stage.set_output_delete_policy(mean_output_ref_name, DeletePolicy.KEEP)
+
+    task = SemanticTask(
+        priority_class=PriorityClass.BACKGROUND,
+        input_ref=roi_ref,
+        algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage]),
+    )
+    task.id = task_id
+
+    task_plan = app_services.task_planner.plan_semantic_task(task)
+    future = app_services.scheduler.run_task_plan(task_plan)
+    future.result(timeout=timeout)
+
+    listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+    storage_client = StorageClient(
+        service=None,  # type: ignore[arg-type]
+        service_address=listener_address,
+        service_authkey=listener_authkey,
+    )
+    try:
+        mean_arr, _ = storage_client.read_data(task_plan.bindings[mean_output_ref_name])
+    finally:
+        storage_client.close()
+
+    return mean_arr, task_plan
+
+
+def _run_roi_cov_pipeline(
+    app_services: "AppServices",
+    roi: "RegionOfInterest",
+    dataset: "RasterDataSet",
+    task_id: int,
+    timeout: int = 30,
+) -> Tuple[np.ndarray, "TaskPlan"]:
+    """
+    Register *dataset* + *roi*, build SpectralMeanStage → CalcCovMatrixStage
+    over the ROI-backed spectra list, run through the scheduler, and return
+    ``(cov_array, task_plan)``.
+    """
+    from wiser.utils.primitives import (
+        ExternalRoiHandle,
+        SpectraBatchScheme,
+        DeletePolicy,
+    )
+    from wiser.utils.task_system import (
+        AlgorithmPipeline,
+        ResourceModel,
+        SemanticTask,
+    )
+
+    _ = app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=dataset))
+    roi_ref = app_services.storage_service.register_external(
+        ExternalRoiHandle(roi=roi, source_dataset=dataset)
+    )
+
+    n_pixels = roi_ref.shape[0]
+    n_bands = roi_ref.shape[1]
+    mean_output_ref_name = "roi_cov_mean"
+    cov_output_ref_name = "roi_cov_matrix"
+    plan_meta = SpectraListPlanMeta(
+        num_spectra=n_pixels,
+        spectrum_length=n_bands,
+        dtype=roi_ref.dtype,
+    )
+    resource_model = ResourceModel(
+        fixed_overhead_bytes=0,
+        bytes_per_scalar_in=1,
+        bytes_per_scalar_out=1,
+        scratch_bytes_per_scalar_in=0,
+    )
+
+    mean_stage = SpectralMeanStage(
+        _output_ref_name=mean_output_ref_name,
+        _meta_ref=roi_ref,
+        default_executor="process",
+        input_plan_meta=plan_meta,
+        resource_model=resource_model,
+        chunking_scheme_type=SpectraBatchScheme,
+    )
+
+    cov_stage = CalcCovMatrixStage(
+        _total_spectra=0,
+        _num_features=n_bands,
+        _output_ref_name=cov_output_ref_name,
+        _meta_ref=roi_ref,
+        default_executor="process",
+        input_plan_meta=plan_meta,
+        resource_model=resource_model,
+        chunking_scheme_type=SpectraBatchScheme,
+        broadcast_input={
+            "mean": DataBinding(mean_output_ref_name),
+        },
+    )
+    cov_stage.set_output_delete_policy(cov_output_ref_name, DeletePolicy.KEEP)
+
+    task = SemanticTask(
+        priority_class=PriorityClass.BACKGROUND,
+        input_ref=roi_ref,
+        algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage, cov_stage]),
+    )
+    task.id = task_id
+
+    task_plan = app_services.task_planner.plan_semantic_task(task)
+    future = app_services.scheduler.run_task_plan(task_plan)
+    future.result(timeout=timeout)
+
+    listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+    storage_client = StorageClient(
+        service=None,  # type: ignore[arg-type]
+        service_address=listener_address,
+        service_authkey=listener_authkey,
+    )
+    try:
+        cov_arr, _ = storage_client.read_data(task_plan.bindings[cov_output_ref_name])
+    finally:
+        storage_client.close()
+
+    return cov_arr, task_plan
+
+
+def _expected_mean_and_cov(pixels, dataset):
+    """
+    Given a sorted list of ``(x, y)`` pixel tuples and a RasterDataSet,
+    return ``(mean, cov)`` computed via NumPy as float64 ground truth.
+    ``cov`` has shape ``(b, b)`` — the trailing ``[:, :, np.newaxis]`` stored
+    in the pipeline output is stripped by the test assertion.
+    """
+    cube = np.asarray(dataset.get_image_data(), dtype=np.float64)  # (b, H, W)
+    xs = np.array([p[0] for p in pixels], dtype=np.intp)
+    ys = np.array([p[1] for p in pixels], dtype=np.intp)
+    spectra = cube[:, ys, xs].T  # (N, b)
+    mean = spectra.mean(axis=0)  # (b,)
+    cov = np.cov(spectra, rowvar=False)  # (b, b)
+    return mean, cov
+
+
+class TestRoiSpectralMeanStage(unittest.TestCase):
+    """
+    SpectralMeanStage driven by an ExternalRoiHandle over the 15-band
+    40x30 JPL test dataset.
+
+    Ground truth is the per-pixel NumPy mean computed directly from the
+    pixel coordinates in the ROI.
+    """
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        self.app_services = AppServices()
+
+    def tearDown(self):
+        release_kept_refs(self.app_services)
+        self.app_services.scheduler.shutdown(wait=True)
+        self.app_services.storage_service.close()
+        self.test_model.close_app()
+        del self.test_model
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _assert_mean_close(self, roi, dataset, task_id, atol=1e-3):
+        """Run the pipeline and check result vs numpy reference."""
+        pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
+        expected_mean, _ = _expected_mean_and_cov(pixels, dataset)
+
+        mean_arr, _ = _run_roi_spectral_mean_pipeline(self.app_services, roi, dataset, task_id=task_id)
+
+        self.assertEqual(mean_arr.shape[0], 15, "mean should have 15 bands")
+        self.assertTrue(
+            np.allclose(np.asarray(mean_arr, dtype=np.float64), expected_mean, atol=atol),
+            msg=(
+                f"Mean mismatch (max diff "
+                f"{np.max(np.abs(np.asarray(mean_arr, dtype=np.float64) - expected_mean)):.6f})"
+            ),
+        )
+
+    # ------------------------------------------------------------------
+    # Tests
+    # ------------------------------------------------------------------
+
+    def test_spectral_mean_roi_single_rectangle(self):
+        """Single 5x4 rectangle (x 5..9, y 10..13) — no overlap."""
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        dataset = _load_jpl_dataset()
+        roi = RegionOfInterest(name="rect_5x4")
+        roi.set_id(90001)
+        roi.add_selection(RectangleSelection(QPoint(5, 10), QPoint(10, 14)))
+        self._assert_mean_close(roi, dataset, task_id=90001)
+
+    def test_spectral_mean_roi_two_overlapping_rectangles(self):
+        """
+        Two rectangles that overlap by two columns.
+        Rect A: x 2..7, y 3..8     (cols 2-6, rows 3-7 inclusive)
+        Rect B: x 5..11, y 5..9    (cols 5-10, rows 5-8 inclusive)
+        Overlap: x 5..7, y 5..8 — deduplicated by the ROI pixel set.
+        """
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        dataset = _load_jpl_dataset()
+        roi = RegionOfInterest(name="two_overlap_rects")
+        roi.set_id(90002)
+        roi.add_selection(RectangleSelection(QPoint(2, 3), QPoint(8, 9)))
+        roi.add_selection(RectangleSelection(QPoint(5, 5), QPoint(12, 10)))
+        self._assert_mean_close(roi, dataset, task_id=90002)
+
+    def test_spectral_mean_roi_rectangle_plus_overlapping_polygon_and_multipixel(self):
+        """
+        Mix of a rectangle, an overlapping polygon, and a multi-pixel
+        selection that partially overlaps both.
+
+        Rectangle: x 1..6, y 1..5  (a 6x5 region)
+        Polygon:   triangle touching the rectangle's right edge
+        MultiPixel: a few scattered pixels, some inside the rectangle
+        """
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import (
+            RectangleSelection,
+            PolygonSelection,
+            MultiPixelSelection,
+        )
+
+        dataset = _load_jpl_dataset()
+        roi = RegionOfInterest(name="rect_poly_multi")
+        roi.set_id(90003)
+
+        # 6-wide x 5-tall rectangle
+        roi.add_selection(RectangleSelection(QPoint(1, 1), QPoint(7, 6)))
+
+        # Triangle whose left vertex is inside the rectangle, right vertex outside
+        roi.add_selection(
+            PolygonSelection(
+                [
+                    QPoint(5, 2),
+                    QPoint(12, 2),
+                    QPoint(12, 5),
+                ]
+            )
+        )
+
+        # A few scattered pixels; pixels (3,3) and (4,4) are inside the rectangle
+        roi.add_selection(
+            MultiPixelSelection(
+                [
+                    QPoint(3, 3),
+                    QPoint(4, 4),
+                    QPoint(15, 15),
+                    QPoint(20, 20),
+                ]
+            )
+        )
+
+        self._assert_mean_close(roi, dataset, task_id=90003)
+
+
+class TestRoiCalcCovMatrixStage(unittest.TestCase):
+    """
+    CalcCovMatrixStage driven by an ExternalRoiHandle over the 15-band
+    40x30 JPL test dataset.
+
+    Ground truth is ``np.cov`` computed directly from the ROI pixel spectra.
+    """
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        self.app_services = AppServices()
+
+    def tearDown(self):
+        release_kept_refs(self.app_services)
+        self.app_services.scheduler.shutdown(wait=True)
+        self.app_services.storage_service.close()
+        self.test_model.close_app()
+        del self.test_model
+
+    def _assert_cov_close(self, roi, dataset, task_id, atol=1e-2):
+        """Run the pipeline and check the covariance matrix vs numpy reference."""
+        pixels = sorted(roi.get_all_pixels(), key=lambda p: (p[1], p[0]))
+        _, expected_cov = _expected_mean_and_cov(pixels, dataset)
+
+        cov_arr, _ = _run_roi_cov_pipeline(self.app_services, roi, dataset, task_id=task_id)
+
+        # Pipeline stores covariance as (b, b, 1) — squeeze the trailing dim.
+        cov_2d = np.asarray(cov_arr, dtype=np.float64).squeeze(-1)
+        self.assertEqual(cov_2d.shape, (15, 15), "covariance must be 15x15")
+        self.assertTrue(
+            np.allclose(cov_2d, expected_cov, atol=atol),
+            msg=(
+                f"Covariance mismatch (max diff "
+                f"{np.max(np.abs(cov_2d - expected_cov)):.6f})\n"
+                f"pipeline diagonal: {np.diag(cov_2d)}\n"
+                f"numpy   diagonal: {np.diag(expected_cov)}"
+            ),
+        )
+
+    def test_covariance_roi_single_rectangle(self):
+        """5x6 rectangle — ground truth via np.cov."""
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        dataset = _load_jpl_dataset()
+        roi = RegionOfInterest(name="cov_rect")
+        roi.set_id(91001)
+        roi.add_selection(RectangleSelection(QPoint(3, 5), QPoint(8, 11)))
+        self._assert_cov_close(roi, dataset, task_id=91001)
+
+    def test_covariance_roi_two_overlapping_rectangles(self):
+        """
+        Two overlapping rectangles.  Overlap pixels appear only once in the
+        pixel set, so the pipeline covariance must match np.cov over the
+        deduplicated set.
+        """
+        from PySide2.QtCore import QPoint
+        from wiser.raster.roi import RegionOfInterest
+        from wiser.raster.selection import RectangleSelection
+
+        dataset = _load_jpl_dataset()
+        roi = RegionOfInterest(name="cov_two_rects")
+        roi.set_id(91002)
+        # Rect A: x 0..6, y 0..5
+        roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(7, 6)))
+        # Rect B: x 4..11, y 3..9 — overlaps A in x 4..6, y 3..5
+        roi.add_selection(RectangleSelection(QPoint(4, 3), QPoint(12, 10)))
+        self._assert_cov_close(roi, dataset, task_id=91002)
 
 
 if __name__ == "__main__":

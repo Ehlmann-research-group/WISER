@@ -3,7 +3,6 @@ import enum
 import os
 from typing import List, Optional, Tuple, Union, Dict
 
-from collections import deque
 
 from PySide2.QtCore import *
 
@@ -15,6 +14,12 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet, SpectralMetadata
 from wiser.raster.roi import RegionOfInterest
+from wiser.raster.roi_utils import (
+    array_to_qrects,
+    create_raster_from_roi,
+    raster_to_combined_rectangles_x_axis,
+    raster_to_combined_rectangles_y_axis,
+)
 from wiser.raster.selection import SelectionType
 from wiser.raster.serializable import Serializable, SerializedForm
 
@@ -40,108 +45,6 @@ AVG_MODE_NAMES = {
     SpectrumAverageMode.MEAN: "Mean",
     SpectrumAverageMode.MEDIAN: "Median",
 }
-
-
-def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
-    rectangles = []
-    start = None
-
-    for x in range(len(row)):
-        if row[x] == 1 and start is None:
-            start = x  # Start of a new rectangle
-        elif row[x] == 0 and start is not None:
-            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
-            start = None
-
-    # If the row ends and a rectangle was still open
-    if start is not None:
-        rectangles.append(np.array([start, len(row) - 1, y, y]))
-
-    return rectangles
-
-
-def raster_to_combined_rectangles_x_axis(raster):
-    rectangles = []
-    previous_row_rectangles = deque()
-    # prev_row_rect_to_keep = []
-
-    for y in range(raster.shape[0]):  # For each row (y-coordinate)
-        row = raster[y]
-        current_row_rectangles = find_rectangles_in_row(row, y)
-
-        # Get all of the previous rectangles (from previous row or continued on from farther back rows)
-        # Since we haven't yet added the previous row's rectangles to our final set of rectangles, if there
-        # are no matches with a current rectangle then it is safe to add it in with the final set of rects
-        for i in range(len(previous_row_rectangles)):
-            prev_rect = previous_row_rectangles.pop()
-            prev_x_start, prev_x_end, prev_y_start, prev_y_end = prev_rect
-
-            merged = False
-            # Get all of the rectangles in the current row, we will compare each previous rectangle
-            # with all the rectangles in the current row. If there is a match in x and y values
-            # between the previous rectangle and a current row rectangle, then we update the current
-            # row rectangle's size to expand. Then when we add this rectangle to previous row rectangles
-            # it will have carried over.
-            # If there isn't a merge, we add the previous rect to rectangles.
-            for curr_rect in current_row_rectangles:
-                x_start, x_end, y_start, y_end = curr_rect
-
-                # If the current rectangle does match with a previous rectangle
-                if prev_x_start == x_start and prev_x_end == x_end and prev_y_end == y - 1:
-                    # Merge the current rectangle with the previous one
-                    curr_rect[-2] = prev_y_start
-                    merged = True
-                    break
-
-            # If the previous rectangle here does not continue from a current rows, we
-            # immediately add it to rectangles which we can do because we know it
-            # won't show up again
-            if not merged:
-                rectangles.append(np.array(prev_rect))
-
-        # We make the previous row rectangles the be the current row to "move on" from this row
-        # The current rectangles are updated to get merged into the previous ones and nothing is doubly added
-        previous_row_rectangles = current_row_rectangles
-
-    # For the last row it is never treated as a previous row (which would let it be added to
-    # rectangles), so we just add it to rectangles
-    rectangles += list(previous_row_rectangles)  # Accumulate merged rectangles
-
-    return np.array(rectangles)
-
-
-def raster_to_combined_rectangles_y_axis(raster_y: np.ndarray):
-    raster_x = raster_y.T
-    rectangles_x = raster_to_combined_rectangles_x_axis(raster_x)
-    rectangles_y = rectangles_x[:, [0, 1, 2, 3]] = rectangles_x[:, [2, 3, 0, 1]]
-    return rectangles_y
-
-
-def array_to_qrects(array):
-    qrects = []
-    for row in array:
-        x1, x2, y1, y2 = row
-        # QRect takes (x, y, width, height), so calculate width and height
-        width = x2 - x1 + 1
-        height = y2 - y1 + 1
-        qrects.append(QRect(x1, y1, width, height))
-    return qrects
-
-
-def create_raster_from_roi(roi: RegionOfInterest) -> np.ndarray:
-    bbox = roi.get_bounding_box()
-    pixels = roi.get_all_pixels()
-
-    xmin = bbox.topLeft().x()
-    ymin = bbox.topLeft().y()
-
-    raster = np.zeros((bbox.height(), bbox.width()), dtype=np.uint8)
-
-    for pixel in pixels:
-        pixel_x, pixel_y = pixel[0], pixel[1]
-        pixel_index_x, pixel_index_y = pixel_x - xmin, pixel_y - ymin
-        raster[pixel_index_y][pixel_index_x] = 1
-    return raster
 
 
 def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN):

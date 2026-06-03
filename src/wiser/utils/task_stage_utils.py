@@ -1900,6 +1900,16 @@ def _running_covariance(
     num_features: int = -1,
     data_variance_factor: float = 1,
 ) -> None:
+    """
+    Accumulate one tile's contribution to the noise covariance matrix.
+
+    Works for both 3-D dataset tiles ([y][x][b]) and 2-D spectra-list tiles
+    ([i][b]) — the shape-handling is delegated to ``_flatten_valid_rows``,
+    which also drops bad bands and any row containing masked / NaN / Inf
+    values.  Invalid rows are *dropped* (not zeroed); the ``total`` produced
+    by the matching pre-task already counts only the surviving rows, so
+    division by ``total - 1`` lines up.
+    """
     client = get_process_storage_client()
     if isinstance(total, DataRef):
         total = _resolve_total_payload(total)
@@ -1908,49 +1918,40 @@ def _running_covariance(
     noise, _ = client.read_region(input_ref, input_region)
     mean_arr, _ = client.read_data(mean_ref)
     input_region_meta = client.get_region_meta(input_ref, input_region)
-    # We do the below because masked arrays have trouble with matrix multiplications
-    if np.ma.isMaskedArray(noise):
-        # Essentiall removes all the nodata and bad bands affects
-        noise_raw = np.ma.getdata(noise.filled(0))
-    else:
-        noise_raw = np.asarray(noise)
-    noise_raw = np.asarray(noise_raw)
-    invalid_pixels = np.any(~np.isfinite(noise_raw), axis=2)
-    noise_raw[invalid_pixels, :] = 0
+
+    # (K, b_good) — masked / nodata / bad-band rows already dropped.
+    flat = _flatten_valid_rows(noise, input_region_meta)
+    if flat.size == 0:
+        return
+
     if np.ma.isMaskedArray(mean_arr):
         mean_arr_raw = np.ma.getdata(mean_arr)
     else:
         mean_arr_raw = np.asarray(mean_arr)
-    assert noise_raw.ndim == 3, "noise_raw should have 3 dimensions"
     assert mean_arr_raw.ndim == 1, "mean_arr_raw should have 1 dimension"
-    band_count = noise_raw.shape[2]
-    good_band_mask = np.ones((band_count,), dtype=bool)
-    if input_region_meta.bad_bands is not None:
-        bad_bands_array = np.asarray(input_region_meta.bad_bands)
-        if bad_bands_array.shape != (band_count,):
-            raise ValueError(
-                f"Bad bands shape must match dataset band count: "
-                f"bad_bands shape={bad_bands_array.shape}, bands={band_count}"
-            )
-        good_band_mask = bad_bands_array != 0
 
-    noise_raw = noise_raw[:, :, good_band_mask]
-    if mean_arr_raw.shape[0] == band_count:
-        mean_arr_raw = mean_arr_raw[good_band_mask]
-    elif mean_arr_raw.shape[0] != noise_raw.shape[2]:
-        raise ValueError(
-            f"Filtered covariance mean width does not match filtered band count: "
-            f"mean_width={mean_arr_raw.shape[0]}, filtered_bands={noise_raw.shape[2]}"
-        )
-    if num_features != -1 and noise_raw.shape[2] != num_features:
+    # The mean ref may carry either the full band count or only the good bands
+    # (depending on whether _write_spectral_mean_meta persisted bad_bands).
+    # Filter it to match the flattened tile width if necessary.
+    if mean_arr_raw.shape[0] != flat.shape[1]:
+        if input_region_meta.bad_bands is not None:
+            bad_bands_array = np.asarray(input_region_meta.bad_bands)
+            if mean_arr_raw.shape[0] == bad_bands_array.shape[0]:
+                mean_arr_raw = mean_arr_raw[bad_bands_array != 0]
+        if mean_arr_raw.shape[0] != flat.shape[1]:
+            raise ValueError(
+                f"Filtered covariance mean width does not match filtered band count: "
+                f"mean_width={mean_arr_raw.shape[0]}, filtered_bands={flat.shape[1]}"
+            )
+
+    if num_features != -1 and flat.shape[1] != num_features:
         raise ValueError(
             f"Filtered covariance feature count does not match requested num_features: "
-            f"filtered_features={noise_raw.shape[2]}, requested={num_features}"
+            f"filtered_features={flat.shape[1]}, requested={num_features}"
         )
-    mean_arr_raw = mean_arr_raw[np.newaxis, np.newaxis, :]
-    mean_centered_noise = noise_raw - mean_arr_raw
-    flattened_noise = mean_centered_noise.reshape(-1, mean_centered_noise.shape[2])
-    sum_outer_product = flattened_noise.T @ flattened_noise
+
+    flat = flat - mean_arr_raw[np.newaxis, :]
+    sum_outer_product = flat.T @ flat
     partial_cov_matrix = sum_outer_product / (total - 1)
     partial_cov_matrix = partial_cov_matrix[:, :, np.newaxis]
     partial_cov_matrix = partial_cov_matrix / data_variance_factor
@@ -2001,6 +2002,10 @@ class CalcCovMatrixStage(SequentialStage):
     _calc_as_correlation: bool = False
     # You must either override this or put it in broadcast_input
     _mean_ref: DataRef = None
+    # Optional ref whose ``DataMeta.bad_bands`` should shrink the allocated
+    # covariance shape when ``_num_features`` is not explicitly set.  For
+    # ROI-backed noise this is the ``roi_proxy`` ref itself.
+    _meta_ref: Optional[DataRef] = None
     resource_model: ResourceModel = field(
         default_factory=lambda: ResourceModel(
             fixed_overhead_bytes=0,
@@ -2025,13 +2030,14 @@ class CalcCovMatrixStage(SequentialStage):
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         """
-        The input region will be something like [k][m][b] where k < y and m < x.
-        We want to write to a covarianec matrix of [b][b], so out output region
-        should be [b][b]
+        The input region will be either a spatial tile ([k][m][b]) or a
+        spectra batch ([i][b]).  In both cases this stage writes into the
+        running covariance allocation rather than a region of the input, so
+        ``None`` is returned.
         """
-        assert isinstance(
-            input_region, DatasetRegionRef
-        ), "Input region for calculate shift difference noise must be DatasetRegionRef"
+        assert isinstance(input_region, (DatasetRegionRef, SpectraBatchRef)), (
+            "Input region for CalcCovMatrixStage must be DatasetRegionRef or " "SpectraBatchRef"
+        )
 
         return None
 
@@ -2044,11 +2050,20 @@ class CalcCovMatrixStage(SequentialStage):
         """
         This stage will just allocate data for the covariance matrix. We
         will be writing to this array.
+
+        Accepts ``DatasetPlanMeta`` (3-D inputs) and ``SpectraListPlanMeta``
+        (2-D inputs such as ROI-backed spectra lists).  Feature count is
+        resolved via :func:`_feature_count_from_plan_meta` so bad bands on
+        ``self._meta_ref`` (if provided) shrink the allocation.
         """
-        assert isinstance(
-            input_meta, DatasetPlanMeta
-        ), "input_meta must be of type DatasetPlanMeta for CalculateCovarianceMatrix"
-        feature_count = self._num_features if self._num_features != -1 else input_meta.bands
+        assert isinstance(input_meta, (DatasetPlanMeta, SpectraListPlanMeta)), (
+            "input_meta must be DatasetPlanMeta or SpectraListPlanMeta for " "CalcCovMatrixStage"
+        )
+
+        if self._num_features != -1:
+            feature_count = self._num_features
+        else:
+            feature_count = _feature_count_from_plan_meta(input_meta, self._meta_ref)
 
         if feature_count <= 0:
             raise ValueError(f"num_features must be positive when provided, got {self._num_features}")
@@ -2405,32 +2420,77 @@ def _good_band_mask_for_region_meta(region_meta, band_count: int) -> np.ndarray:
     return bad_bands_array != 0
 
 
-def _flatten_valid_dataset_rows(
+def _flatten_valid_rows(
     data: Union[np.ndarray, np.ma.MaskedArray],
     data_meta,
 ) -> np.ndarray:
+    """
+    Flatten a tile of spectra into a 2-D ``(K, b_good)`` ``float64`` array
+    containing only valid rows (no masked / NaN / Inf values), with bad bands
+    dropped according to ``data_meta.bad_bands``.
+
+    Accepts both 3-D dataset tiles (``[y][x][b]``) and 2-D spectra-list tiles
+    (``[i][b]``).  ROI-backed reads via the ``roi_proxy`` driver land here as
+    the latter shape.
+
+    """
     data_array = np.ma.array(data, copy=False)
     data_raw = np.asarray(np.ma.getdata(data_array), dtype=np.float64)
     data_mask = np.ma.getmaskarray(data_array)
 
-    if data_raw.ndim != 3:
-        raise ValueError(f"Expected dataset tile shape [y][x][b], got {data_raw.shape}")
+    if data_raw.ndim == 3:
+        # [y][x][b] dataset tile.
+        band_count = data_raw.shape[2]
+        flat = data_raw.reshape(-1, band_count)
+        mask_flat = data_mask.reshape(-1, band_count)
+    elif data_raw.ndim == 2:
+        # [i][b] spectra-list tile (e.g., roi_proxy batch).
+        band_count = data_raw.shape[1]
+        flat = data_raw
+        mask_flat = data_mask
+    else:
+        raise ValueError(f"Expected tile shape [y][x][b] or [i][b], got {data_raw.shape}")
 
-    good_band_mask = _good_band_mask_for_region_meta(data_meta, data_raw.shape[2])
-    filtered_data = data_raw[:, :, good_band_mask]
-    filtered_mask = data_mask[:, :, good_band_mask]
-    flattened = filtered_data.reshape(-1, filtered_data.shape[2])
-    flattened_mask = filtered_mask.reshape(-1, filtered_mask.shape[2])
+    good_band_mask = _good_band_mask_for_region_meta(data_meta, band_count)
+    flattened_data = flat[:, good_band_mask]
+    flattened_mask = mask_flat[:, good_band_mask]
     # Drop any pixel whose surviving bands still contain masked, NaN, or Inf values.
     # Shared with compute_PCA_on_image so PCA and MNF apply identical row validity.
-    valid_rows = finite_unmasked_row_mask(flattened, flattened_mask)
-    return flattened[valid_rows]
+    valid_rows = finite_unmasked_row_mask(flattened_data, flattened_mask)
+    return flattened_data[valid_rows]
 
 
 def count_valid_dataset_pixels(dataset_ref: DataRef) -> int:
     client = get_process_storage_client()
     data, data_meta = client.read_data(dataset_ref)
-    return int(_flatten_valid_dataset_rows(data, data_meta).shape[0])
+    return int(_flatten_valid_rows(data, data_meta).shape[0])
+
+
+def _feature_count_from_plan_meta(
+    input_meta: "BasePlanMeta",
+    meta_ref: Optional[DataRef] = None,
+) -> int:
+    """
+    Return the spectral-feature count implied by a planning meta.
+
+    When ``meta_ref`` is provided, its :class:`DataMeta` is consulted first so
+    that ``bad_bands`` can shrink the feature count (mirrors the previous
+    ``SpectralMeanStage._dataset_ref`` lookup, but works for both dataset and
+    spectra-list inputs).  Falls back to ``input_meta.bands`` for
+    :class:`DatasetPlanMeta` and ``input_meta.spectrum_length`` for
+    :class:`SpectraListPlanMeta`.
+    """
+    if meta_ref is not None:
+        meta = get_process_storage_client().get_meta(meta_ref)
+        if meta.bad_bands is not None:
+            return int(np.count_nonzero(np.asarray(meta.bad_bands) != 0))
+
+    if isinstance(input_meta, DatasetPlanMeta):
+        return input_meta.bands
+    if isinstance(input_meta, SpectraListPlanMeta):
+        return input_meta.spectrum_length
+
+    raise TypeError(f"Cannot derive feature count from plan meta type {type(input_meta).__name__}")
 
 
 def _resolve_total_payload(total_like: TotalLike) -> int:
@@ -2448,34 +2508,49 @@ def _write_valid_dataset_total(
     full_input_region: DataRegion,
     total_ref: DataRef,
 ) -> None:
-    if not isinstance(full_input_region, DatasetRegionRef):
-        raise TypeError("Valid dataset total pre-task requires a DatasetRegionRef full_input_region")
-
     client = get_process_storage_client()
-    region_meta = client.get_region_meta(input_ref, full_input_region)
-    dataset_plan_meta = DatasetPlanMeta(
-        shape=(
-            full_input_region.y1 - full_input_region.y0,
-            full_input_region.x1 - full_input_region.x0,
-            full_input_region.b1 - full_input_region.b0,
-        ),
-        dtype=np.dtype(region_meta.elem_type),
-    )
 
-    total = 0
-    for tile_region in SpatialTileScheme(tile_h=32, tile_w=32).iter_chunks(dataset_plan_meta):
-        tile_region = DatasetRegionRef(
-            y0=full_input_region.y0 + tile_region.y0,
-            y1=full_input_region.y0 + tile_region.y1,
-            x0=full_input_region.x0 + tile_region.x0,
-            x1=full_input_region.x0 + tile_region.x1,
-            b0=full_input_region.b0 + tile_region.b0,
-            b1=full_input_region.b0 + tile_region.b1,
+    if isinstance(full_input_region, DatasetRegionRef):
+        region_meta = client.get_region_meta(input_ref, full_input_region)
+        dataset_plan_meta = DatasetPlanMeta(
+            shape=(
+                full_input_region.y1 - full_input_region.y0,
+                full_input_region.x1 - full_input_region.x0,
+                full_input_region.b1 - full_input_region.b0,
+            ),
+            dtype=np.dtype(region_meta.elem_type),
         )
-        data_tile, data_tile_meta = client.read_region(input_ref, tile_region)
-        total += _flatten_valid_dataset_rows(data_tile, data_tile_meta).shape[0]
 
-    client.write_json_value(total_ref, {"total": int(total)})
+        total = 0
+        for tile_region in SpatialTileScheme(tile_h=32, tile_w=32).iter_chunks(dataset_plan_meta):
+            tile_region = DatasetRegionRef(
+                y0=full_input_region.y0 + tile_region.y0,
+                y1=full_input_region.y0 + tile_region.y1,
+                x0=full_input_region.x0 + tile_region.x0,
+                x1=full_input_region.x0 + tile_region.x1,
+                b0=full_input_region.b0 + tile_region.b0,
+                b1=full_input_region.b0 + tile_region.b1,
+            )
+            data_tile, data_tile_meta = client.read_region(input_ref, tile_region)
+            total += _flatten_valid_rows(data_tile, data_tile_meta).shape[0]
+
+        client.write_json_value(total_ref, {"total": int(total)})
+        return
+
+    if isinstance(full_input_region, SpectraBatchRef):
+        # Spectra-list / ROI-backed input: there is no spatial tiling to walk.
+        # The whole ROI is small enough to count in one read (the rectangle
+        # decomposition behind roi_proxy already minimises GDAL calls), and the
+        # post-flatten count is what the covariance step needs anyway.
+        data, data_meta = client.read_region(input_ref, full_input_region)
+        total = int(_flatten_valid_rows(data, data_meta).shape[0])
+        client.write_json_value(total_ref, {"total": total})
+        return
+
+    raise TypeError(
+        "Valid dataset total pre-task requires a DatasetRegionRef or SpectraBatchRef "
+        f"full_input_region; got {type(full_input_region).__name__}"
+    )
 
 
 def _copy_or_compute_valid_dataset_total(
@@ -2511,7 +2586,7 @@ def _running_mean(
         raise ValueError(f"Spectral mean requires a positive total, got {total}")
 
     data, data_meta = client.read_region(input_ref, input_region)
-    flattened = _flatten_valid_dataset_rows(data, data_meta)
+    flattened = _flatten_valid_rows(data, data_meta)
     flattened = np.asarray(flattened, dtype=np.float64)
     if flattened.size == 0:
         return
@@ -2526,16 +2601,22 @@ def _write_spectral_mean_meta(
     full_input_region: DataRegion,
     output_write: "WriteSpec",
 ) -> None:
-    if not isinstance(full_input_region, DatasetRegionRef):
-        raise TypeError("Spectral mean metadata write requires a DatasetRegionRef full_input_region")
+    if isinstance(full_input_region, DatasetRegionRef):
+        band_count = full_input_region.b1 - full_input_region.b0
+    elif isinstance(full_input_region, SpectraBatchRef):
+        # Spectra-list / ROI-backed input: the band axis is region.length.
+        band_count = full_input_region.length
+    else:
+        raise TypeError(
+            "Spectral mean metadata write requires a DatasetRegionRef or "
+            f"SpectraBatchRef full_input_region; got {type(full_input_region).__name__}"
+        )
 
     client = get_process_storage_client()
     input_region_meta = client.get_region_meta(input_ref, full_input_region)
     output_meta = client.get_meta(output_write.ref)
     output_bands = output_meta.shape[0]
-    good_band_mask = _good_band_mask_for_region_meta(
-        input_region_meta, full_input_region.b1 - full_input_region.b0
-    )
+    good_band_mask = _good_band_mask_for_region_meta(input_region_meta, band_count)
     wavelengths = input_region_meta.wavelengths
     if wavelengths is not None and len(wavelengths) == len(good_band_mask):
         wavelengths = np.asarray(wavelengths)[good_band_mask]
@@ -2560,7 +2641,11 @@ class SpectralMeanStage(SequentialStage):
     # You should override this
     _output_ref_name: str = "spectral_mean_1"
     _internal_total_ref_name: str = "_internal_total"
-    _dataset_ref: Optional[DataRef] = None
+    # Optional ref whose ``DataMeta.bad_bands`` is consulted to size the mean
+    # allocation.  For dataset inputs this is the dataset ref; for ROI-backed
+    # inputs this is the ``roi_proxy`` ref itself (its DataMeta is derived
+    # from the source dataset).
+    _meta_ref: Optional[DataRef] = None
 
     def __post_init__(self):
         if "internal_total_ref" not in self.broadcast_input:
@@ -2571,11 +2656,13 @@ class SpectralMeanStage(SequentialStage):
 
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
         """
-        We just accumulate in one input ref, so we don't need the a data region slice
+        We just accumulate into the mean allocation, so no output region slice
+        is needed.  Accepts both spatial tiles (datasets) and spectra batches
+        (spectra-list / ROI-backed inputs).
         """
-        assert isinstance(
-            input_region, DatasetRegionRef
-        ), "Input region for calculate shift difference noise must be DatasetRegionRef"
+        assert isinstance(input_region, (DatasetRegionRef, SpectraBatchRef)), (
+            "Input region for SpectralMeanStage must be DatasetRegionRef or " "SpectraBatchRef"
+        )
 
         return None
 
@@ -2586,19 +2673,19 @@ class SpectralMeanStage(SequentialStage):
         chosen_scheme: Optional[ChunkingScheme],
     ) -> list[AllocationRequest]:
         """
-        This stage will just allocate data for the mean spectrum. We
-        will be writing to this array.
+        Allocate the running mean spectrum.
+
+        Accepts ``DatasetPlanMeta`` (3-D inputs) and ``SpectraListPlanMeta``
+        (2-D inputs such as ROI-backed spectra lists).  Feature count comes
+        from :func:`_feature_count_from_plan_meta` which honors
+        ``self._meta_ref.bad_bands`` when set.
         """
-        assert isinstance(
-            input_meta, DatasetPlanMeta
-        ), "input_meta must be of type DatasetPlanMeta for SpectralMeanStage"
+        assert isinstance(input_meta, (DatasetPlanMeta, SpectraListPlanMeta)), (
+            "input_meta must be DatasetPlanMeta or SpectraListPlanMeta for " "SpectralMeanStage"
+        )
 
         np_type = np.float64
-        feature_count = input_meta.bands
-        if self._dataset_ref is not None:
-            meta = get_process_storage_client().get_meta(self._dataset_ref)
-            if meta.bad_bands is not None:
-                feature_count = int(np.count_nonzero(np.asarray(meta.bad_bands) != 0))
+        feature_count = _feature_count_from_plan_meta(input_meta, self._meta_ref)
 
         return [
             AllocationRequest(
@@ -2691,7 +2778,7 @@ def get_spectral_mean_stage(
             scratch_bytes_per_scalar_in=0,
         ),
         chunking_scheme_type=SpatialTileScheme,
-        _dataset_ref=dataset_ref,
+        _meta_ref=dataset_ref,
         output_bindings=[DataBinding(output_ref_name)],
     )
     if input_binding is not None:

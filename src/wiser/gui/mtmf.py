@@ -1,7 +1,6 @@
 """Mixture Tuned Matched Filter (MTMF) task stage for hyperspectral cubes."""
 
 import datetime
-from enum import IntEnum
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
@@ -22,7 +21,9 @@ from wiser.utils.primitives import (
     DataRegion,
     DatasetRegionRef,
     ExternalRasterHandle,
+    ExternalRoiHandle,
     NoChunkingScheme,
+    NoiseMethodType,
     PriorityClass,
     SpectraListPlanMeta,
     SpatialTileScheme,
@@ -47,6 +48,7 @@ from wiser.utils.task_stage_utils import (
 from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.roi import RegionOfInterest
 from wiser.raster.spectrum import Spectrum
 
 
@@ -527,6 +529,9 @@ def get_mnf_mtmf_pipeline(
     mnf_data_ref_name: str = "mtmf_mnf_data",
     data_variance_factor: float = 2,
     shift_diff_noise_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+    noise_input_ref: Optional[DataRef] = None,
+    noise_method_type: NoiseMethodType = NoiseMethodType.IMAGE_CUBE_BASED,
+    noise_input_binding_name: Optional[str] = None,
 ) -> AlgorithmPipeline:
     """Build the MNF-based MTMF AlgorithmPipeline.
 
@@ -551,7 +556,22 @@ def get_mnf_mtmf_pipeline(
                                              selecting the number of MNF components to retain.
                                              Defaults to ``2``.
         shift_diff_noise_direction:          Spatial direction used by the internal shift-difference
-                                             noise stage.  Defaults to ``ShiftDiffNoiseDirection.DOWN``.
+                                             noise stage.  Only consulted when
+                                             ``noise_method_type == IMAGE_CUBE_BASED``.  Defaults to
+                                             ``ShiftDiffNoiseDirection.DOWN``.
+        noise_input_ref:                     DataRef for the noise input.  Defaults to ``dataset_ref``
+                                             (image-cube shift-difference path).  Set to a dark-image
+                                             dataset ref for ``DARK_IMAGE_BASED``, or to an
+                                             ``ExternalRoiHandle`` (``roi_proxy``) ref for
+                                             ``ROI_BASED``.
+        noise_method_type:                   How the noise covariance is estimated.  See
+                                             :class:`NoiseMethodType`.  Defaults to ``IMAGE_CUBE_BASED``
+                                             (the original shift-difference behaviour).
+        noise_input_binding_name:            Binding name under which ``noise_input_ref`` is registered
+                                             in the task plan's extra bindings (via
+                                             ``extra_plan_bindings``).  Required for ``DARK_IMAGE_BASED``
+                                             and ``ROI_BASED`` so the noise stages know which binding to
+                                             read from; ignored for ``IMAGE_CUBE_BASED``.
 
     Returns:
         An AlgorithmPipeline containing the MNF stages followed by the
@@ -589,6 +609,9 @@ def get_mnf_mtmf_pipeline(
         whitened_eigen_ref_name=mnf_whitened_eigen_ref_name,
         data_variance_factor=data_variance_factor,
         shift_diff_noise_direction=shift_diff_noise_direction,
+        noise_input_ref=noise_input_ref,
+        noise_method_type=noise_method_type,
+        noise_input_binding_name=noise_input_binding_name,
     )
 
     # Step 1 — build full MNF transformation matrix T = A × W
@@ -1210,6 +1233,7 @@ def get_matched_filter_pipeline(
 # Full MTMF pipeline: noise stats → inverse covariance → matched filter
 # ---------------------------------------------------------------------------
 
+_MTMF_NOISE_PLAN_BINDING_NAME = "mtmf_noise_ref"
 _MTMF_NOISE_PLAN_BINDING = "mtmf_noise_ref"
 
 # ---------------------------------------------------------------------------
@@ -1241,23 +1265,35 @@ class MTMFSemanticTask(QObject, SemanticTask):
         target_spectra: One or more target reference spectra.  Each spectrum
             must span the *full* band count of ``source_dataset`` (bad-band
             removal is performed internally).
+        noise_method_type: How the noise covariance is estimated.  Controls
+            which of the noise arguments below are required.
         output_ref_name: Storage allocation name for the matched-filter output
             cube.  Defaults to ``"matched_filter_output"``.
-        noise_dataset: An external dataset used to estimate background noise
-            statistics.  Must have the same spectral bands as
-            ``source_dataset``.  Mutually exclusive with
-            ``shift_diff_noise_direction``.
-        shift_diff_noise_direction: Spatial direction for the shift-difference
-            noise estimator applied to the source cube.  Mutually exclusive
-            with ``noise_dataset``.
+        noise_dataset: Required when ``noise_method_type == DARK_IMAGE_BASED``.
+            A separate dataset whose statistics estimate the background noise.
+        shift_diff_noise_direction: Required when
+            ``noise_method_type == IMAGE_CUBE_BASED``.  Spatial direction for
+            the first-order shift-difference computed on ``source_dataset``.
+        noise_roi: Required when ``noise_method_type == ROI_BASED``.  The
+            region of interest whose deduplicated pixels supply noise samples.
+        noise_roi_source: Required when ``noise_method_type == ROI_BASED``.
+            The :class:`RasterDataSet` the ROI pixels are read from (may be
+            the same object as ``source_dataset``).
 
     Signals:
         result_ready: Emitted in the completion callback with the
             ``(H, W, N_targets)`` float32 score array.  Connected to
             :meth:`_load_result_into_wiser` which runs on the Qt main thread.
+
+    Note:
+        The task's ``input_ref`` is the **source** image cube.  For
+        ``DARK_IMAGE_BASED`` and ``ROI_BASED`` the noise ref is supplied
+        through ``extra_plan_bindings`` under ``mtmf_noise_ref`` so the noise
+        stages can read it while the matched-filter stage reads
+        ``__task_input__`` for the source cube.
     """
 
-    result_ready = Signal(object)
+    result_ready = Signal(object, object)
 
     def __init__(
         self,
@@ -1265,24 +1301,32 @@ class MTMFSemanticTask(QObject, SemanticTask):
         app_services: AppServices,
         source_dataset: RasterDataSet,
         target_spectra: List[Spectrum],
+        noise_method_type: NoiseMethodType,
         output_ref_name: str = "matched_filter_output",
         noise_dataset: Optional[RasterDataSet] = None,
         shift_diff_noise_direction: Optional[ShiftDiffNoiseDirection] = None,
+        noise_roi: Optional[RegionOfInterest] = None,
+        noise_roi_source: Optional[RasterDataSet] = None,
     ) -> None:
         QObject.__init__(self)
 
         if not target_spectra:
             raise ValueError("MTMFSemanticTask requires at least one target spectrum.")
 
-        if noise_dataset is None and shift_diff_noise_direction is None:
-            raise ValueError(
-                "MTMFSemanticTask requires either noise_dataset (Dark Image Noise) "
-                "or shift_diff_noise_direction (Image Cube Noise)."
-            )
-        if noise_dataset is not None and shift_diff_noise_direction is not None:
-            raise ValueError(
-                "MTMFSemanticTask: supply noise_dataset or shift_diff_noise_direction, not both."
-            )
+        # Validate that the required noise argument for each method type is present.
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+            if shift_diff_noise_direction is None:
+                raise ValueError("MTMFSemanticTask: IMAGE_CUBE_BASED requires shift_diff_noise_direction.")
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+            if noise_dataset is None:
+                raise ValueError("MTMFSemanticTask: DARK_IMAGE_BASED requires noise_dataset.")
+        elif noise_method_type == NoiseMethodType.ROI_BASED:
+            if noise_roi is None:
+                raise ValueError("MTMFSemanticTask: ROI_BASED requires noise_roi.")
+            if noise_roi_source is None:
+                raise ValueError("MTMFSemanticTask: ROI_BASED requires noise_roi_source.")
+        else:
+            raise ValueError(f"MTMFSemanticTask: unknown noise_method_type {noise_method_type!r}.")
 
         source_ref = app_services.storage_service.register_external(
             ExternalRasterHandle(dataset_obj=source_dataset)
@@ -1312,19 +1356,23 @@ class MTMFSemanticTask(QObject, SemanticTask):
         )
         process_client.write_data(target_spectra_ref, target_array)
 
-        if shift_diff_noise_direction is not None:
-            # Image Cube Noise: shift-difference computed internally from the source cube.
+        extra_bindings: Dict[str, DataRef] = {}
+
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+            # Shift-difference computed internally from the source cube.
             pipeline = get_mnf_mtmf_pipeline(
                 dataset_ref=source_ref,
                 target_spectra_ref=target_spectra_ref,
                 output_ref_name=output_ref_name,
+                noise_input_ref=source_ref,
+                noise_method_type=NoiseMethodType.IMAGE_CUBE_BASED,
                 shift_diff_noise_direction=shift_diff_noise_direction,
             )
             noise_label = f"Image Cube ({shift_diff_noise_direction.name.capitalize()})"
-            extra_bindings: Dict[str, DataRef] = {}
-        else:
-            # Dark Image Noise: external dataset.
-            assert noise_dataset is not None
+
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+            # External dark-image dataset registered and exposed to noise stages
+            # through extra_plan_bindings under _MTMF_NOISE_PLAN_BINDING_NAME.
             noise_ref = app_services.storage_service.register_external(
                 ExternalRasterHandle(dataset_obj=noise_dataset)
             )
@@ -1332,10 +1380,33 @@ class MTMFSemanticTask(QObject, SemanticTask):
                 dataset_ref=source_ref,
                 target_spectra_ref=target_spectra_ref,
                 output_ref_name=output_ref_name,
+                noise_input_ref=noise_ref,
+                noise_method_type=NoiseMethodType.DARK_IMAGE_BASED,
+                noise_input_binding_name=_MTMF_NOISE_PLAN_BINDING_NAME,
             )
             noise_label = noise_dataset.get_name() or "Noise Dataset"
-            # Needed so the noise dataset is available to the MTMF pipeline
-            extra_bindings = {_MTMF_NOISE_PLAN_BINDING: noise_ref}
+            extra_bindings[_MTMF_NOISE_PLAN_BINDING_NAME] = noise_ref
+
+        else:  # NoiseMethodType.ROI_BASED
+            # Register the ROI source dataset first (register_external is
+            # idempotent if the same object was already registered as source),
+            # then wrap the ROI in an ExternalRoiHandle.
+            app_services.storage_service.register_external(ExternalRasterHandle(dataset_obj=noise_roi_source))
+            noise_ref = app_services.storage_service.register_external(
+                ExternalRoiHandle(roi=noise_roi, source_dataset=noise_roi_source)
+            )
+            pipeline = get_mnf_mtmf_pipeline(
+                dataset_ref=source_ref,
+                target_spectra_ref=target_spectra_ref,
+                output_ref_name=output_ref_name,
+                noise_input_ref=noise_ref,
+                noise_method_type=NoiseMethodType.ROI_BASED,
+                noise_input_binding_name=_MTMF_NOISE_PLAN_BINDING_NAME,
+            )
+            roi_name = noise_roi.get_name() or "<unnamed>"
+            roi_source_name = noise_roi_source.get_name() or "Dataset"
+            noise_label = f"ROI [{roi_name}] over {roi_source_name}"
+            extra_bindings[_MTMF_NOISE_PLAN_BINDING_NAME] = noise_ref
 
         SemanticTask.__init__(
             self,
@@ -1358,40 +1429,58 @@ class MTMFSemanticTask(QObject, SemanticTask):
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
-        """Read the full score cube and emit it for loading on the main thread.
+        """Read the full score and infeasibility cubes and emit them for loading on the main thread.
 
         Args:
             bindings: Mapping of allocation names to resolved :class:`DataRef`
                 objects produced by the task pipeline.
 
         Raises:
-            KeyError: If the expected output binding is not present.
+            KeyError: If an expected output binding is not present.
         """
         output_ref = bindings.get(self._output_ref_name)
         if output_ref is None:
             raise KeyError(f"Missing MTMF output binding: '{self._output_ref_name}'")
 
+        infeasibility_ref_name = f"{self._output_ref_name}_infeasibility"
+        infeasibility_ref = bindings.get(infeasibility_ref_name)
+        if infeasibility_ref is None:
+            raise KeyError(f"Missing MTMF infeasibility output binding: '{infeasibility_ref_name}'")
+
         storage_client = get_process_storage_client()
+
         meta = storage_client.get_meta(output_ref)
         height, width, n_targets = meta.shape
         region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=n_targets)
         scores_data, _ = storage_client.read_region(output_ref, region, filter_data=False)
-        self.result_ready.emit(np.asarray(scores_data, dtype=np.float32))
 
-    @Slot(object)
-    def _load_result_into_wiser(self, scores_data: object) -> None:
-        """Slice the score cube into individual datasets and add them to WISER.
+        inf_meta = storage_client.get_meta(infeasibility_ref)
+        inf_height, inf_width, inf_n_targets = inf_meta.shape
+        inf_region = DatasetRegionRef(y0=0, y1=inf_height, x0=0, x1=inf_width, b0=0, b1=inf_n_targets)
+        infeasibility_data, _ = storage_client.read_region(infeasibility_ref, inf_region, filter_data=False)
 
-        Each band slice ``scores[:, :, i]`` becomes a separate float32 dataset
-        named after its target spectrum.  Pixels that were excluded as nodata
-        during the matched-filter computation are stored as ``NaN``.
+        self.result_ready.emit(
+            np.asarray(scores_data, dtype=np.float32),
+            np.asarray(infeasibility_data, dtype=np.float32),
+        )
+
+    @Slot(object, object)
+    def _load_result_into_wiser(self, scores_data: object, infeasibility_data: object) -> None:
+        """Slice the score and infeasibility cubes into individual datasets and add them to WISER.
+
+        For each target, band slice ``i`` of each cube becomes a separate float32
+        dataset named after its target spectrum.  Pixels that were excluded as
+        nodata during computation are stored as ``NaN``.
 
         Args:
-            scores_data: The ``(H, W, N_targets)`` score array emitted by
-                :meth:`completion_callback`.
+            scores_data: The ``(H, W, N_targets)`` matched-filter score array
+                emitted by :meth:`completion_callback`.
+            infeasibility_data: The ``(H, W, N_targets)`` infeasibility score
+                array emitted by :meth:`completion_callback`.
         """
         target_names = list(self._target_names)
         scores_array = np.asarray(scores_data, dtype=np.float32)  # (H, W, N_targets)
+        infeasibility_array = np.asarray(infeasibility_data, dtype=np.float32)  # (H, W, N_targets)
         names: List[str] = list(target_names)
 
         loader = self._app_state.get_loader()
@@ -1414,19 +1503,24 @@ class MTMFSemanticTask(QObject, SemanticTask):
             score_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
             self._app_state.add_dataset(score_dataset, view_dataset=False)
 
+            infeasibility_band = infeasibility_array[:, :, i : i + 1]  # (H, W, 1)
+            infeasibility_by_band = infeasibility_band.transpose(2, 0, 1)  # (1, H, W)
+
+            infeasibility_dataset = loader.dataset_from_numpy_array(infeasibility_by_band, cache)
+            infeasibility_dataset.set_name(
+                self._app_state.unique_dataset_name(f"IF [{target_name}]: {source_name}")
+            )
+            infeasibility_dataset.set_description(
+                f"Infeasibility score for '{target_name}' against '{source_name}' ({timestamp})"
+            )
+            infeasibility_dataset.set_data_ignore_value(float("nan"))
+            infeasibility_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
+            self._app_state.add_dataset(infeasibility_dataset, view_dataset=False)
+
 
 # ---------------------------------------------------------------------------
 # MTMF dialog
 # ---------------------------------------------------------------------------
-
-_INPUT_TYPE_SPECTRUM = 0
-_INPUT_TYPE_IMAGE_CUBE = 1
-
-
-class _NoiseMethodType(IntEnum):
-    ROI_BASED = 0
-    DARK_IMAGE_BASED = 1
-    IMAGE_CUBE_BASED = 2
 
 
 class MTMFDialog(QDialog):
@@ -1446,17 +1540,9 @@ class MTMFDialog(QDialog):
         self._ui = Ui_MTMF_Dialog()
         self._ui.setupUi(self)
 
-        self._ui.cbox_input_type.addItem(self.tr("Spectrum"), _INPUT_TYPE_SPECTRUM)
-        self._ui.cbox_input_type.addItem(self.tr("Image Cube"), _INPUT_TYPE_IMAGE_CUBE)
-        self._ui.cbox_input_type.currentIndexChanged.connect(lambda _i: self._populate_input_combo())
-
-        self._ui.cbox_noise_method_type.addItem(self.tr("ROI Based"), _NoiseMethodType.ROI_BASED)
-        self._ui.cbox_noise_method_type.addItem(
-            self.tr("Dark Image Based"), _NoiseMethodType.DARK_IMAGE_BASED
-        )
-        self._ui.cbox_noise_method_type.addItem(
-            self.tr("Image Cube Based"), _NoiseMethodType.IMAGE_CUBE_BASED
-        )
+        self._ui.cbox_noise_method_type.addItem(self.tr("ROI Based"), NoiseMethodType.ROI_BASED)
+        self._ui.cbox_noise_method_type.addItem(self.tr("Dark Image Based"), NoiseMethodType.DARK_IMAGE_BASED)
+        self._ui.cbox_noise_method_type.addItem(self.tr("Image Cube Based"), NoiseMethodType.IMAGE_CUBE_BASED)
         self._ui.cbox_noise_method_type.currentIndexChanged.connect(
             lambda _i: self._on_noise_method_type_changed()
         )
@@ -1464,7 +1550,6 @@ class MTMFDialog(QDialog):
         self._populate_noise_combo()
         self._on_noise_method_type_changed()
         self._populate_target_combo()
-        self._ui.cbox_input_type.setCurrentIndex(1)
         self._populate_input_combo()
 
     def showEvent(self, event) -> None:
@@ -1497,7 +1582,7 @@ class MTMFDialog(QDialog):
         self._populate_noise_combo()
         self._populate_input_combo()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             self._populate_noise_method_extra_combo()
         if prev_input is not None:
             idx = self._ui.cbox_input.findData(prev_input)
@@ -1514,15 +1599,8 @@ class MTMFDialog(QDialog):
 
     def _on_spectra_changed(self, *_args) -> None:
         """Refresh spectrum-backed combos, preserving current selections."""
-        prev_input = self._ui.cbox_input.currentData()
         prev_target = self._ui.cbox_target.currentData()
         self._populate_target_combo()
-        if self._ui.cbox_input_type.currentData() == _INPUT_TYPE_SPECTRUM:
-            self._populate_input_combo()
-            if prev_input is not None:
-                idx = self._ui.cbox_input.findData(prev_input)
-                if idx >= 0:
-                    self._ui.cbox_input.setCurrentIndex(idx)
         if prev_target is not None:
             idx = self._ui.cbox_target.findData(prev_target)
             if idx >= 0:
@@ -1531,7 +1609,7 @@ class MTMFDialog(QDialog):
     def _on_rois_changed(self, *_args) -> None:
         """Refresh noise combo when ROIs are added or removed."""
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             prev_noise = self._ui.cbox_noise_method_val.currentData()
             self._populate_noise_combo()
             if prev_noise is not None:
@@ -1544,12 +1622,12 @@ class MTMFDialog(QDialog):
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
         # The extra row is disabled only for Dark Image Based.
-        extra_enabled = noise_method_type != _NoiseMethodType.DARK_IMAGE_BASED
+        extra_enabled = noise_method_type != NoiseMethodType.DARK_IMAGE_BASED
         self._ui.lbl_noise_method_extra.setEnabled(extra_enabled)
         self._ui.cbox_shift_diff_method.setEnabled(extra_enabled)
 
         # Update the label text to reflect the current mode.
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             self._ui.lbl_noise_method_extra.setText(self.tr("Dataset For ROI"))
         else:
             self._ui.lbl_noise_method_extra.setText(self.tr("Shift Diff Method"))
@@ -1571,31 +1649,12 @@ class MTMFDialog(QDialog):
                 self._ui.cbox_shift_diff_method.setCurrentIndex(idx)
 
     def select_image_cube_dataset(self, dataset_id: Optional[int]) -> None:
-        """Prefer Image Cube mode and select ``dataset_id`` when present."""
-        idx = self._ui.cbox_input_type.findData(_INPUT_TYPE_IMAGE_CUBE)
-        if idx >= 0:
-            self._ui.cbox_input_type.setCurrentIndex(idx)
+        """Select ``dataset_id`` in the input combo when present."""
         self._populate_input_combo()
         if dataset_id is not None:
             in_idx = self._ui.cbox_input.findData(dataset_id)
             if in_idx >= 0:
                 self._ui.cbox_input.setCurrentIndex(in_idx)
-
-    def _spectra_for_plot_input(self) -> List[Spectrum]:
-        """Active spectrum first, then collected spectra (unique by id)."""
-        seen: set = set()
-        out: List[Spectrum] = []
-        active = self._app_state.get_active_spectrum()
-        if active is not None and active.get_id() is not None:
-            seen.add(active.get_id())
-            out.append(active)
-        for s in self._app_state.get_collected_spectra():
-            sid = s.get_id()
-            if sid is None or sid in seen:
-                continue
-            seen.add(sid)
-            out.append(s)
-        return out
 
     def _populate_combo_with_separator(self, combo, entries: List[tuple]) -> None:
         """Fill combo with (label, userData) pairs, then separator and (no data)."""
@@ -1606,24 +1665,13 @@ class MTMFDialog(QDialog):
         combo.addItem(self.tr("(no data)"), None)
 
     def _populate_input_combo(self) -> None:
-        mode = self._ui.cbox_input_type.currentData()
-        if mode == _INPUT_TYPE_SPECTRUM:
-            pairs = []
-            for sp in self._spectra_for_plot_input():
-                sid = sp.get_id()
-                if sid is None:
-                    continue
-                name = sp.get_name() or self.tr("<unnamed>")
-                pairs.append((name, sid))
-            self._populate_combo_with_separator(self._ui.cbox_input, pairs)
-        else:
-            pairs = []
-            for ds in self._app_state.get_datasets():
-                did = ds.get_id()
-                if did is None:
-                    continue
-                pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
-            self._populate_combo_with_separator(self._ui.cbox_input, pairs)
+        pairs = []
+        for ds in self._app_state.get_datasets():
+            did = ds.get_id()
+            if did is None:
+                continue
+            pairs.append((ds.get_name() or self.tr("<unnamed>"), did))
+        self._populate_combo_with_separator(self._ui.cbox_input, pairs)
 
     def _add_section_header(self, combo, label: str) -> None:
         """Insert a bold, non-selectable section-header item into *combo*."""
@@ -1641,11 +1689,11 @@ class MTMFDialog(QDialog):
         combo.clear()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             for roi in self._app_state.get_rois():
                 rid = roi.get_id()
                 combo.addItem(roi.get_name() or self.tr("<unnamed>"), ("roi", rid))
-        elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
             for ds in self._app_state.get_datasets():
                 did = ds.get_id()
                 if did is None:
@@ -1680,7 +1728,7 @@ class MTMFDialog(QDialog):
         combo.clear()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        if noise_method_type == _NoiseMethodType.ROI_BASED:
+        if noise_method_type == NoiseMethodType.ROI_BASED:
             for ds in self._app_state.get_datasets():
                 did = ds.get_id()
                 if did is None:
@@ -1695,7 +1743,7 @@ class MTMFDialog(QDialog):
                     return
             combo.setCurrentIndex(combo.count() - 1)
 
-        elif noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED:
+        elif noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
             combo.addItem(self.tr("Shift Difference Down"), ShiftDiffNoiseDirection.DOWN)
             combo.addItem(self.tr("Shift Difference Up"), ShiftDiffNoiseDirection.UP)
             combo.addItem(self.tr("Shift Difference Left"), ShiftDiffNoiseDirection.LEFT)
@@ -1717,7 +1765,7 @@ class MTMFDialog(QDialog):
         Returns ``None`` if the current noise method type is not ROI_BASED or if
         no dataset has been selected (i.e. the combo shows "(no data)").
         """
-        if self._ui.cbox_noise_method_type.currentData() != _NoiseMethodType.ROI_BASED:
+        if self._ui.cbox_noise_method_type.currentData() != NoiseMethodType.ROI_BASED:
             return None
         data = self._ui.cbox_shift_diff_method.currentData()
         if data is None:
@@ -1731,7 +1779,7 @@ class MTMFDialog(QDialog):
         Returns ``None`` if the current noise method type is not IMAGE_CUBE_BASED
         or if the combo does not hold a valid :class:`ShiftDiffNoiseDirection`.
         """
-        if self._ui.cbox_noise_method_type.currentData() != _NoiseMethodType.IMAGE_CUBE_BASED:
+        if self._ui.cbox_noise_method_type.currentData() != NoiseMethodType.IMAGE_CUBE_BASED:
             return None
         direction = self._ui.cbox_shift_diff_method.currentData()
         if not isinstance(direction, ShiftDiffNoiseDirection):
@@ -1739,16 +1787,13 @@ class MTMFDialog(QDialog):
         return direction
 
     def _resolve_source_dataset(self) -> RasterDataSet:
-        mode = self._ui.cbox_input_type.currentData()
         data = self._ui.cbox_input.currentData()
         if data is None:
-            raise ValueError(self.tr('Select an input source (not "(no data)").'))
-        if mode == _INPUT_TYPE_IMAGE_CUBE:
-            ds = self._app_state.get_dataset(int(data))
-            if ds is None:
-                raise ValueError(self.tr("Selected input dataset is no longer available."))
-            return ds
-        raise ValueError(self.tr("We currently don't support selecting an input spectra."))
+            raise ValueError(self.tr('Select an input dataset (not "(no data)").'))
+        ds = self._app_state.get_dataset(int(data))
+        if ds is None:
+            raise ValueError(self.tr("Selected input dataset is no longer available."))
+        return ds
 
     def _resolve_shift_diff_direction(self) -> ShiftDiffNoiseDirection:
         direction = self.get_extra_shift_diff_direction()
@@ -1763,11 +1808,36 @@ class MTMFDialog(QDialog):
             raise ValueError(self.tr('Select a noise source (not "(no data)").'))
 
         if isinstance(data, tuple) and data[0] == "roi":
-            raise NotImplementedError(self.tr("Region of Interest noise is not yet implemented."))
+            raise ValueError(
+                self.tr("Selected noise source is an ROI; use the ROI-based noise method instead.")
+            )
 
         ds = self._app_state.get_dataset(int(data))
         if ds is None:
             raise ValueError(self.tr("Selected noise dataset is no longer available."))
+        return ds
+
+    def _resolve_noise_roi(self) -> RegionOfInterest:
+        """Return the ROI selected in ``cbox_noise_method_val`` when ROI_BASED is active."""
+        data = self._ui.cbox_noise_method_val.currentData()
+        if data is None:
+            raise ValueError(self.tr('Select a noise ROI (not "(no data)").'))
+        if not (isinstance(data, tuple) and len(data) == 2 and data[0] == "roi"):
+            raise ValueError(self.tr("Selected noise source is not an ROI."))
+        roi = self._app_state.get_roi(id=int(data[1]))
+        if roi is None:
+            raise ValueError(self.tr("Selected ROI is no longer available."))
+        return roi
+
+    def _resolve_roi_source_dataset(self) -> RasterDataSet:
+        """Return the dataset the ROI's pixels should be read from.
+
+        For ROI_BASED noise the extra combo (``cbox_shift_diff_method``) holds
+        the dataset to read pixels from.  See :meth:`get_roi_extra_dataset`.
+        """
+        ds = self.get_roi_extra_dataset()
+        if ds is None:
+            raise ValueError(self.tr('Select a "Dataset For ROI" (not "(no data)").'))
         return ds
 
     def _resolve_target_spectra(self) -> List[Spectrum]:
@@ -1779,31 +1849,121 @@ class MTMFDialog(QDialog):
             raise ValueError(self.tr("Selected target spectrum is no longer available."))
         return [sp]
 
+    def _validate_band_counts(
+        self,
+        source_ds: RasterDataSet,
+        target_list: List[Spectrum],
+        noise_method_type: NoiseMethodType,
+        noise_cube_dataset: Optional[RasterDataSet] = None,
+        dark_noise_dataset: Optional[RasterDataSet] = None,
+        noise_roi_source: Optional[RasterDataSet] = None,
+    ) -> None:
+        """Raise ValueError if any input's band count does not match the source dataset.
+
+        Checks the target spectrum and, depending on the noise method, the
+        associated noise dataset against ``source_ds.num_bands()``.
+        """
+        source_bands = source_ds.num_bands()
+        source_name = source_ds.get_name() or "source dataset"
+
+        for spectrum in target_list:
+            target_bands = spectrum.num_bands()
+            if target_bands != source_bands:
+                target_name = spectrum.get_name() or "target spectrum"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{target_name}' has {target_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The target spectrum must have the same number of bands as the input dataset."
+                    )
+                )
+
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED and noise_cube_dataset is not None:
+            cube_bands = noise_cube_dataset.num_bands()
+            if cube_bands != source_bands:
+                cube_name = noise_cube_dataset.get_name() or "noise image cube"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{cube_name}' has {cube_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The noise image cube must have the same number of bands as the input dataset."
+                    )
+                )
+
+        if noise_method_type == NoiseMethodType.DARK_IMAGE_BASED and dark_noise_dataset is not None:
+            noise_bands = dark_noise_dataset.num_bands()
+            if noise_bands != source_bands:
+                noise_name = dark_noise_dataset.get_name() or "dark image"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{noise_name}' has {noise_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The dark image dataset must have the same number of bands as the input dataset."
+                    )
+                )
+
+        if noise_method_type == NoiseMethodType.ROI_BASED and noise_roi_source is not None:
+            roi_source_bands = noise_roi_source.num_bands()
+            if roi_source_bands != source_bands:
+                roi_source_name = noise_roi_source.get_name() or "ROI dataset"
+                raise ValueError(
+                    self.tr(
+                        f"Band count mismatch: '{roi_source_name}' has {roi_source_bands} band(s) "
+                        f"but '{source_name}' has {source_bands} band(s). "
+                        f"The dataset for the ROI must have the same number of bands as the input dataset."
+                    )
+                )
+
     def _perform_mtmf(self) -> None:
         source_ds = self._resolve_source_dataset()
         target_list = self._resolve_target_spectra()
         noise_method_type = self._ui.cbox_noise_method_type.currentData()
 
-        if noise_method_type == _NoiseMethodType.IMAGE_CUBE_BASED:
-            direction = self._resolve_shift_diff_direction()
-            task = MTMFSemanticTask(
-                app_state=self._app_state,
-                app_services=self._app_services,
-                source_dataset=source_ds,
-                target_spectra=target_list,
-                shift_diff_noise_direction=direction,
+        if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+            noise_cube_ds = self._resolve_noise_dataset()
+            self._validate_band_counts(
+                source_ds, target_list, noise_method_type, noise_cube_dataset=noise_cube_ds
             )
-        elif noise_method_type == _NoiseMethodType.DARK_IMAGE_BASED:
-            noise_ds = self._resolve_noise_dataset()
             task = MTMFSemanticTask(
                 app_state=self._app_state,
                 app_services=self._app_services,
                 source_dataset=source_ds,
                 target_spectra=target_list,
-                noise_dataset=noise_ds,
+                noise_method_type=NoiseMethodType.IMAGE_CUBE_BASED,
+                shift_diff_noise_direction=self._resolve_shift_diff_direction(),
+            )
+        elif noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+            dark_noise_ds = self._resolve_noise_dataset()
+            self._validate_band_counts(
+                source_ds,
+                target_list,
+                noise_method_type,
+                dark_noise_dataset=dark_noise_ds,
+            )
+            task = MTMFSemanticTask(
+                app_state=self._app_state,
+                app_services=self._app_services,
+                source_dataset=source_ds,
+                target_spectra=target_list,
+                noise_method_type=NoiseMethodType.DARK_IMAGE_BASED,
+                noise_dataset=dark_noise_ds,
+            )
+        elif noise_method_type == NoiseMethodType.ROI_BASED:
+            roi_source_ds = self._resolve_roi_source_dataset()
+            self._validate_band_counts(
+                source_ds, target_list, noise_method_type, noise_roi_source=roi_source_ds
+            )
+            task = MTMFSemanticTask(
+                app_state=self._app_state,
+                app_services=self._app_services,
+                source_dataset=source_ds,
+                target_spectra=target_list,
+                noise_method_type=NoiseMethodType.ROI_BASED,
+                noise_roi=self._resolve_noise_roi(),
+                noise_roi_source=roi_source_ds,
             )
         else:
-            raise NotImplementedError(self.tr("ROI-based noise is not yet implemented."))
+            raise ValueError(self.tr(f"Unsupported noise method: {noise_method_type!r}"))
         task_plan = self._app_services.task_planner.plan_semantic_task(task)
         self._app_services.task_manager.register_and_submit_task_plan(
             self._app_services.scheduler,

@@ -315,6 +315,7 @@ class StorageService:
     def _register_rpc_methods(self) -> None:
         self._rpc_allowlist = {
             "read_data_ref": self.read_data_ref,
+            "get_data_ref_by_id": self.get_data_ref_by_id,
             "get_access": self.get_access,
             "get_meta": self.get_meta,
             "write_meta": self.set_meta,
@@ -535,6 +536,30 @@ class StorageService:
                         kwargs={"path": filepaths[0]},
                     )
             return None
+
+        if handle.kind == "spectra_list" and hasattr(handle, "roi") and hasattr(handle, "_rects"):
+            # ExternalRoiHandle: store the precomputed rectangle decomposition alongside
+            # a reference to the already-registered source dataset.  The source dataset
+            # MUST be registered before the ROI (call
+            # register_external(ExternalRasterHandle(source_dataset)) first).
+            source_ref_id = self._find_external_ref_id_for_dataset(handle.source_dataset)
+            if source_ref_id is None:
+                raise ValueError(
+                    "ExternalRoiHandle requires the source dataset to be registered in the "
+                    "StorageService before the ROI handle is registered.  Call "
+                    "register_external(ExternalRasterHandle(source_dataset)) first."
+                )
+            rects = handle._rects
+            prefix_sums = handle._prefix_sums
+            return ExternalParams(
+                family="spectra_list",
+                driver="roi_proxy",
+                kwargs={
+                    "source_ref_id": source_ref_id,
+                    "rects": rects.tolist() if rects is not None else [],
+                    "prefix_sums": prefix_sums.tolist() if prefix_sums is not None else [0],
+                },
+            )
 
         # External spectrum refs are currently RAM/no-disk reconstruction only.
         return None
@@ -874,6 +899,20 @@ class StorageService:
         except KeyError as e:
             raise KeyError(f"Unknown ref_id: {ref.ref_id}") from e
 
+    def get_data_ref_by_id(self, ref_id: str) -> DataRef:
+        """
+        Look up a canonical :class:`DataRef` by its ``ref_id`` string.
+
+        Used by worker processes that hold a string reference (e.g., the
+        ``source_ref_id`` embedded in ``roi_proxy`` external params) and need
+        to obtain the corresponding full ``DataRef`` in order to reconstruct
+        an external object on the client side.
+        """
+        try:
+            return self.data_refs[ref_id]
+        except KeyError as e:
+            raise KeyError(f"Unknown ref_id: {ref_id}") from e
+
     def read_json_value(self, ref: DataRef) -> Any:
         canonical = self.read_data_ref(ref)
         if canonical.disk_format != "json":
@@ -1014,6 +1053,32 @@ class StorageService:
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
+    def _find_external_ref_id_for_dataset(self, dataset: "RasterDataSet") -> Optional[str]:
+        """
+        Return the ``ref_id`` of the first registered :class:`ExternalHandle`
+        whose ``dataset_obj`` attribute matches *dataset*.
+
+        Matching is tried first by object identity (fast path), then by
+        :meth:`RasterDataSet.get_id` equality (handles re-wrapped references
+        with the same underlying file).  Returns ``None`` if no registered
+        handle owns this dataset.
+
+        Used by :meth:`_build_external_params` to locate the source-dataset
+        ref that an ``ExternalRoiHandle`` depends on.
+        """
+        ds_id: Optional[str] = dataset.get_id() if hasattr(dataset, "get_id") else None
+        for ref_id, h in self.external_handles.items():
+            h_ds = getattr(h, "dataset_obj", None)
+            if h_ds is None:
+                continue
+            if h_ds is dataset:
+                return ref_id
+            if ds_id is not None:
+                h_id: Optional[str] = h_ds.get_id() if hasattr(h_ds, "get_id") else None
+                if h_id is not None and h_id == ds_id:
+                    return ref_id
+        return None
+
     def _choose_disk_format(self, desc: AllocationRequest) -> DiskFormat:
         if desc.kind == "json":
             return "json"
