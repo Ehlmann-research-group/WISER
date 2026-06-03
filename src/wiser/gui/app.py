@@ -7,7 +7,7 @@ import traceback
 import webbrowser
 from functools import partial
 
-from PySide2.QtCore import QKeySequence
+from PySide2.QtGui import QKeySequence
 
 from test_utils.test_event_loop_functions import TestingWidget
 from wiser import bandmath
