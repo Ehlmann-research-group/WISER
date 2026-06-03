@@ -1,3 +1,4 @@
+from typing import Tuple
 import unittest
 from pathlib import Path
 
@@ -9,14 +10,15 @@ import tests.context  # noqa: F401 – adds src/ to sys.path
 
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
-from wiser.gui.app_services import AppServices
 from wiser.gui.kmeans import (
     KMeansAlgorithm,
+    KMeansCentroids,
     KMeansInitMethod,
     KMeansParameters,
     KMeansSemanticTask,
     get_kmeans_pipeline,
 )
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
 from wiser.utils.primitives import DeletePolicy, ExternalRasterHandle, PriorityClass
 from wiser.utils.storage_client import StorageClient
@@ -27,6 +29,13 @@ pytestmark = [
 ]
 
 _JPL_HDR = Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets" / "jpl_425_7_7.hdr"
+_CALTECH_DATA_IGNORE_HDR = (
+    Path(__file__).resolve().parent
+    / ".."
+    / "test_utils"
+    / "test_datasets"
+    / "caltech_425_6_6_data_ignore.hdr"
+)
 
 _K = 5
 _SEED = 42
@@ -54,6 +63,29 @@ class TestKMeansStage(unittest.TestCase):
             dataset_ref = app_services.storage_service.register_external(
                 ExternalRasterHandle(dataset_obj=dataset)
             )
+
+            # ------------------------------------------------------------------
+            # Reference: jpl_425_7_7 has no bad bands and no nodata, so simply
+            # flatten, cluster, and reshape back.
+            # ------------------------------------------------------------------
+            image_yxb = np.asarray(
+                dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float32
+            ).transpose(1, 2, 0)  # (y, x, b)
+            y, x, b = image_yxb.shape
+            flat = image_yxb.reshape(y * x, b)
+
+            ref_kmeans = SklearnKMeans(
+                n_clusters=_K,
+                init="k-means++",
+                n_init=3,
+                max_iter=100,
+                tol=1e-4,
+                random_state=_SEED,
+                algorithm="lloyd",
+            )
+            ref_labels_flat = ref_kmeans.fit_predict(flat).astype(np.int32)
+            ref_labels_image = ref_labels_flat.reshape(y, x, 1)
+            ref_centroids = ref_kmeans.cluster_centers_.astype(np.float32)  # (k, b)
 
             params = KMeansParameters(
                 dataset_id=0,  # dataset not registered in app_state; use sentinel
@@ -94,32 +126,9 @@ class TestKMeansStage(unittest.TestCase):
             centroids_out, _ = storage_client.read_data(centroids_ref)
 
             # ------------------------------------------------------------------
-            # Reference: jpl_425_7_7 has no bad bands and no nodata, so simply
-            # flatten, cluster, and reshape back.
-            # ------------------------------------------------------------------
-            image_yxb = np.asarray(
-                dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float32
-            ).transpose(1, 2, 0)  # (y, x, b)
-            y, x, b = image_yxb.shape
-            flat = image_yxb.reshape(y * x, b)
-
-            ref_kmeans = SklearnKMeans(
-                n_clusters=_K,
-                init="k-means++",
-                n_init=3,
-                max_iter=100,
-                tol=1e-4,
-                random_state=_SEED,
-                algorithm="lloyd",
-            )
-            ref_labels_flat = ref_kmeans.fit_predict(flat).astype(np.int32)
-            ref_labels_image = ref_labels_flat.reshape(y, x, 1)
-            ref_centroids = ref_kmeans.cluster_centers_.astype(np.float32)  # (k, b)
-
-            # ------------------------------------------------------------------
             # Assertions
             # ------------------------------------------------------------------
-            labels_array = np.asarray(labels_out)
+            labels_array = np.asarray(labels_out).astype(np.int32)
             centroids_array = np.asarray(centroids_out)
 
             self.assertEqual(labels_array.shape, ref_labels_image.shape)
@@ -248,6 +257,53 @@ class TestKMeansSemanticTask(unittest.TestCase):
             err_msg="Stored centroids do not match sklearn reference.",
         )
 
+    def test_semantic_task_data_ignore_pixel_reads_as_nan(self) -> None:
+        # Guard against regression where labels stored as int32 caused np.nan
+        # to be silently truncated to 0, making data-ignore pixels appear as
+        # cluster 0 instead of NaN when queried via get_all_bands_at.
+        app_state = self.test_model.app_state
+        app_services = self.test_model.app_services
+
+        dataset = self.test_model.load_dataset(str(_CALTECH_DATA_IGNORE_HDR))
+        dataset_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=dataset)
+        )
+
+        params = KMeansParameters(
+            dataset_id=dataset.get_id(),
+            k=_K,
+            init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
+            num_inits=3,
+            max_iter=100,
+            tol=1e-4,
+            seed=_SEED,
+            algorithm=KMeansAlgorithm.LLOYD,
+        )
+
+        kmeans_task = KMeansSemanticTask(
+            app_state=app_state,
+            source_dataset=dataset,
+            input_ref=dataset_ref,
+            params=params,
+        )
+
+        task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
+        future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+        future.result(timeout=180)
+        self.test_model.app.processEvents()
+
+        datasets_after = app_state.get_datasets()
+        labels_ds = datasets_after[-1]
+
+        # Pixel (0, 0) is a data-ignore pixel in caltech_425_6_6_data_ignore.
+        # With float32 labels the nodata sentinel -1 round-trips through NaN
+        # correctly; with the old int32 labels it silently became 0.
+        data_ignore_pixel_value = labels_ds.get_all_bands_at(0, 0)
+        self.assertTrue(
+            np.isnan(data_ignore_pixel_value[0]),
+            f"Expected NaN for data-ignore pixel (0, 0) but got {data_ignore_pixel_value[0]}",
+        )
+
 
 class TestKMeansSemanticTaskParameters(unittest.TestCase):
     """
@@ -272,7 +328,7 @@ class TestKMeansSemanticTaskParameters(unittest.TestCase):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _submit_task(self, dataset, params):
+    def _submit_task(self, dataset, params) -> Tuple[RasterDataSet, KMeansCentroids]:
         """Register *dataset*, submit KMeansSemanticTask, process events.
 
         Returns ``(labels_ds, centroids)`` after asserting a new dataset was added.

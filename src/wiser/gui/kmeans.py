@@ -53,6 +53,8 @@ from wiser.raster.spectrum import NumPyArraySpectrum
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
 
+_KMEANS_DATA_IGNORE = -1
+
 
 class KMeansInitMethod(Enum):
     KMEANS_PLUS_PLUS = "k-means++"
@@ -223,6 +225,7 @@ def _run_kmeans(
     params: "KMeansParameters",
 ) -> None:
     client = get_process_storage_client()
+    _ = input_region
 
     # Read the full dataset as float32 (y, x, b_total)
     image_data, region_meta = client.read_data(input_ref, filter_data=False)
@@ -301,8 +304,8 @@ def _run_kmeans(
     labels_valid = kmeans.fit_predict(flat_valid)  # (n_valid,) int64
 
     # Scatter labels back to (y*x,), filling nodata pixels with -1
-    labels_flat = np.full((y * x,), fill_value=-1, dtype=np.int32)
-    labels_flat[valid_indices] = labels_valid.astype(np.int32)
+    labels_flat = np.full((y * x,), fill_value=_KMEANS_DATA_IGNORE, dtype=np.float32)
+    labels_flat[valid_indices] = labels_valid.astype(np.float32)
     labels_image = labels_flat.reshape(y, x, 1)  # (y, x, 1)
 
     # Write labels
@@ -313,7 +316,7 @@ def _run_kmeans(
     # Expand centroids from (k, b_good) back to (k, b_total) by scattering good bands
     # back to their original positions; bad-band columns remain zero.
     centroids_compact = kmeans.cluster_centers_.astype(np.float32)  # (k, b_good)
-    centroids_full = np.zeros((params.get_k(), b_total), dtype=np.float32)
+    centroids_full = np.full((params.get_k(), b_total), fill_value=np.nan, dtype=np.float32)
     band_offset = 0
     for start, end in good_band_runs:
         run_length = end - start
@@ -385,7 +388,7 @@ class KMeansStage(SequentialStage):
         b = input_meta.bands
         k = self._params.get_k()
 
-        labels_size_est = y * x * 1 * np.dtype(np.int32).itemsize
+        labels_size_est = y * x * 1 * np.dtype(np.float32).itemsize
         centroids_size_est = k * b * np.dtype(np.float32).itemsize
 
         return [
@@ -395,7 +398,7 @@ class KMeansStage(SequentialStage):
                 residency="ram_cacheable",
                 size_est=labels_size_est,
                 shape=(y, x, 1),
-                dtype=np.dtype(np.int32),
+                dtype=np.dtype(np.float32),
                 delete_policy=self.get_output_delete_policy(self._labels_ref_name),
             ),
             AllocationRequest(
@@ -548,7 +551,7 @@ class KMeansSemanticTask(QObject, SemanticTask):
         k = self._params.get_k()
         labels_dataset.set_name(self._app_state.unique_dataset_name(f"K-Means Labels (k={k}): {source_name}"))
         labels_dataset.set_description(f"K-Means cluster label image (k={k}): {source_name} ({timestamp})")
-        labels_dataset.set_data_ignore_value(-1)
+        labels_dataset.set_data_ignore_value(_KMEANS_DATA_IGNORE)
 
         if self._source_dataset.get_spatial_metadata().get_spatial_ref():
             labels_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())

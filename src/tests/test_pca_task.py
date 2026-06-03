@@ -9,13 +9,26 @@ import numpy as np
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.permanent_plugins.pca_plugin import ESTIMATOR_TYPES, PCAPlugin, PCAPluginTask
+from wiser.gui.permanent_plugins.pca_plugin import (
+    ESTIMATOR_TYPES,
+    PCAPlugin,
+    PCAPluginTask,
+    compute_max_pca_components,
+)
+from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import compute_PCA_on_image
 from wiser.utils.primitives import DeletePolicy, PriorityClass
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.primitives import ExternalRasterHandle
 from wiser.utils.task_stage_utils import get_pca_pipeline
 from wiser.utils.task_system import SemanticTask
+
+from tests.utils import (
+    NAN_INF_BAD_BANDS,
+    NAN_INF_DATA_IGNORE_VALUE,
+    assert_reduction_drops_invalid_pixels,
+    build_unmasked_nan_inf_cube,
+)
 
 
 class TestPcaTask(unittest.TestCase):
@@ -152,6 +165,7 @@ class TestPcaTask(unittest.TestCase):
                 source_dataset=dataset,
                 input_ref=dataset_ref,
                 num_components=3,
+                max_components_available=compute_max_pca_components(dataset),
             )
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
@@ -196,6 +210,58 @@ class TestPcaTask(unittest.TestCase):
             self.assertTrue(hasattr(plugin, "_last_pca_task"))
             self.assertTrue(hasattr(plugin._last_pca_task, "_pca_widget"))
         finally:
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_pca_pipeline_handles_unmasked_nan_and_inf(self) -> None:
+        # Synthetic cube with a bad band, a nodata sentinel, and unmasked
+        # NaN/+Inf/-Inf in good bands. Before the shared finite_unmasked_row_mask
+        # cleaning fix, the PCA pipeline fed those into sklearn and raised
+        # "Input X contains NaN".
+        dataset = RasterDataLoader().dataset_from_numpy_array(build_unmasked_nan_inf_cube())
+        dataset.set_bad_bands(NAN_INF_BAD_BANDS)
+        dataset.set_data_ignore_value(NAN_INF_DATA_IGNORE_VALUE)
+
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            num_components = 3
+            output_ref_name = "pca_nan_output"
+            pca_json_ref_name = "pca_nan_model"
+            pca_pipeline = get_pca_pipeline(
+                dataset_ref=dataset_ref,
+                num_components=num_components,
+                output_ref_name=output_ref_name,
+                pca_json_ref_name=pca_json_ref_name,
+            )
+            pca_pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
+            pca_pipeline.stages[-1].set_output_delete_policy(pca_json_ref_name, DeletePolicy.KEEP)
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=pca_pipeline,
+            )
+            task.id = 3002
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=180)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output, _ = storage_client.read_data(task_plan.bindings[output_ref_name])
+            assert_reduction_drops_invalid_pixels(self, output, num_components)
+        finally:
+            if storage_client is not None:
+                storage_client.close()
             release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()

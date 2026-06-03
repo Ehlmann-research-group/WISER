@@ -638,6 +638,8 @@ class RasterView(QWidget):
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
         self._stretches = stretches
+        # Conditioner or stretch identity changed; joint result is no longer valid.
+        self._joint_render_cache = None
         self.update_display_image()
 
     def _clear_members(self):
@@ -656,6 +658,13 @@ class RasterView(QWidget):
 
         self._display_data = [None, None, None]
         self._img_data = None
+
+        # Cached result of the most recent joint multi-band stretch (e.g. a
+        # decorrelation stretch). Stored as ``(cache_key, float32 array size (H, W, 3))``
+        # so subsequent renders of the same (dataset, bands, conditioner) can
+        # skip the expensive joint pipeline. Invalidated by ``_clear_members``
+        # and by setters that change any input the joint result depends on.
+        self._joint_render_cache: Optional[Tuple] = None
 
         # The image generated from the raw raster data.
         self._image = None
@@ -748,10 +757,137 @@ class RasterView(QWidget):
 
         self._display_bands = display_bands
         self._colormap = colormap
+        # Display-band selection feeds the joint stretch input; invalidate.
+        self._joint_render_cache = None
         self.update_display_image(colors=changed)
 
     def get_colormap(self) -> Optional[str]:
         return self._colormap
+
+    def _detect_joint_stretch(self):
+        """
+        Inspect the per-channel stretches and decide whether the current render
+        should take the joint multi-band path.
+
+        Returns ``(joint_stretch, conditioners)``:
+        - ``joint_stretch``: a joint stretch (e.g. a decorrelation stretch) if
+          every active channel agrees on an equal one, else ``None``. The
+          returned instance is the one from channel 0; any equal instance from
+          another channel would behave identically.
+        - ``conditioners``: a list parallel to ``self._display_bands`` of the
+          per-channel conditioner (the non-joint half of a ``StretchComposite``,
+          or ``None`` if no conditioner). Meaningful only when
+          ``joint_stretch`` is not ``None``.
+
+        Channels disagree (different joint stretches by value, or some
+        channels joint and others not) fall back to the per-band path with a
+        logged warning.
+        """
+        n = len(self._display_bands)
+        joint = None
+        conditioners = []
+        for i in range(n):
+            s = self._stretches[i] if i < len(self._stretches) else None
+            if s is None:
+                if joint is not None:
+                    logger.warning(
+                        "Joint-stretch detection: channel %d has no stretch but "
+                        "other channels do; falling back to per-band path.",
+                        i,
+                    )
+                return None, None
+            s0, s1 = s.get_stretches()
+            if s1 is not None and s1.requires_all_bands():
+                ch_joint, cond = s1, s0
+            elif s0 is not None and s0.requires_all_bands():
+                ch_joint, cond = s0, None
+            else:
+                ch_joint, cond = None, None
+            if i == 0:
+                joint = ch_joint
+            elif ch_joint != joint:
+                logger.warning(
+                    "Joint-stretch detection: channel %d disagrees with channel "
+                    "0 on the joint stretch; falling back to per-band path.",
+                    i,
+                )
+                return None, None
+            conditioners.append(cond)
+        if joint is None:
+            return None, None
+        return joint, conditioners
+
+    def _render_joint_channels(self, joint_stretch, conditioners):
+        """
+        Render all display channels via a joint multi-band stretch.
+
+        Phase 1 gathers each band's normalized data, applies its per-band
+        conditioner (if any) in place. Phase 2 consults
+        ``self._joint_render_cache``; on miss, calls
+        ``joint_stretch.apply_multi`` on the stacked bands and caches the
+        result. Phase 3 clips, scales to ``uint8``, restores masks, and
+        populates ``self._display_data``.
+        """
+        n = len(self._display_bands)
+        height = self._raster_data.get_height()
+        width = self._raster_data.get_width()
+
+        # Cache key includes everything the joint result depends on. Setters
+        # that change any of these invalidate the cache up front, but we
+        # double-check here so a stale cache from another code path can't leak.
+        cond_signature = tuple(
+            (type(c).__name__, c.get_hash_tuple()) if c is not None else None for c in conditioners
+        )
+        cache_key = (
+            self._raster_data.get_id(),
+            tuple(self._display_bands),
+            cond_signature,
+        )
+
+        # Phase 1: gather + per-band conditioner.
+        bands = np.empty((height, width, n), dtype=np.float32)
+        masks = []
+        for i in range(n):
+            arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
+            if isinstance(arr, np.ma.masked_array):
+                # Copy so we can zero masked pixels without mutating the
+                # dataset's cached array (astype with copy=False may alias).
+                band_data = arr.data.astype(np.float32, copy=True)
+                mask = np.ma.getmaskarray(arr)
+                # Normalized ignore-value pixels are wild (large negative) and
+                # would become NaN/-inf under sqrt/log, which decor_numba then
+                # rejects. Zero them so the conditioner stays in its valid
+                # domain; the mask is preserved in masks[i] for Phase 3.
+                if mask.any():
+                    band_data[mask] = 0.0
+                bands[..., i] = band_data
+                masks.append(arr.mask)
+            else:
+                bands[..., i] = arr.astype(np.float32, copy=False)
+                masks.append(None)
+            if conditioners[i] is not None:
+                view = bands[..., i]
+                conditioners[i].apply(view)
+
+        # Phase 2: joint compute (cached).
+        if self._joint_render_cache is not None and self._joint_render_cache[0] == cache_key:
+            joint_result = self._joint_render_cache[1]
+        else:
+            joint_stretch.apply_multi(bands)
+            joint_result = bands
+            self._joint_render_cache = (cache_key, joint_result)
+
+        # Phase 3: per-channel clip, scale, store. Do not mutate joint_result
+        # in place -- it is held by the cache for subsequent renders.
+        for i in range(n):
+            clipped = np.clip(joint_result[..., i], 0.0, 1.0)
+            scaled = (clipped * 255.0).astype(np.uint8)
+            if masks[i] is not None:
+                arr_out = np.ma.masked_array(scaled, mask=masks[i])
+                arr_out.data[masks[i]] = 0
+                self._display_data[i] = arr_out
+            else:
+                self._display_data[i] = scaled
 
     def update_display_image(self, colors=ImageColors.RGB):
         img_data = None
@@ -781,28 +917,40 @@ class RasterView(QWidget):
         elif len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
-            for i in range(len(self._display_bands)):
-                if self._display_data[i] is None or color_indexes[i] in colors:
-                    # Compute the contents of this color channel.
+            joint_stretch, joint_conditioners = self._detect_joint_stretch()
+            if joint_stretch is not None:
+                # Joint path: a multi-band stretch (e.g. decorrelation) needs
+                # all bands together. The transform produces all channels at
+                # once, so if any channel is dirty we recompute the whole set.
+                any_dirty = any(
+                    self._display_data[i] is None or color_indexes[i] in colors
+                    for i in range(len(self._display_bands))
+                )
+                if any_dirty:
+                    self._render_joint_channels(joint_stretch, joint_conditioners)
+            else:
+                for i in range(len(self._display_bands)):
+                    if self._display_data[i] is None or color_indexes[i] in colors:
+                        # Compute the contents of this color channel.
 
-                    arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
+                        arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
 
-                    band_data = arr
-                    band_mask = None
-                    if isinstance(arr, np.ma.masked_array):
-                        band_data = arr.data
-                        band_mask = arr.mask
-                    stretches = [None, None]
-                    if i < len(self._stretches) and self._stretches[i]:
-                        stretches = self._stretches[i].get_stretches()
-                    new_data = make_channel_image(band_data, stretches[0], stretches[1])
+                        band_data = arr
+                        band_mask = None
+                        if isinstance(arr, np.ma.masked_array):
+                            band_data = arr.data
+                            band_mask = arr.mask
+                        stretches = [None, None]
+                        if i < len(self._stretches) and self._stretches[i]:
+                            stretches = self._stretches[i].get_stretches()
+                        new_data = make_channel_image(band_data, stretches[0], stretches[1])
 
-                    new_arr = new_data
-                    if isinstance(arr, np.ma.masked_array):
-                        new_arr = np.ma.masked_array(new_data, mask=band_mask)
-                        new_arr.data[band_mask] = 0
+                        new_arr = new_data
+                        if isinstance(arr, np.ma.masked_array):
+                            new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                            new_arr.data[band_mask] = 0
 
-                    self._display_data[i] = new_arr
+                        self._display_data[i] = new_arr
 
             time_2 = time.perf_counter()
 

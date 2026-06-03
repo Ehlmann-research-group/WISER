@@ -126,12 +126,15 @@ def create_pca_metadata_widget(pca, dataset, parent=None) -> QWidget:
         def _fmt_array(self, arr, indent="    "):
             # Nicely format numpy arrays with indentation
             arr = np.asarray(arr)
+            # Use numpy's default truncation threshold (~1000 elements) so big
+            # learned attributes like components_ — which is (N, N) for an
+            # all-components fit — don't blow Qt's text layout with O(N²)
+            # formatted floats.  Power users can still pickle ``pca`` directly.
             arr_str = np.array2string(
                 arr,
                 precision=4,
                 suppress_small=True,
                 max_line_width=120,
-                threshold=arr.size,
             )
             return "\n".join(indent + line for line in arr_str.splitlines())
 
@@ -213,6 +216,27 @@ def create_pca_metadata_widget(pca, dataset, parent=None) -> QWidget:
     return PcaMetadataWidget(pca, dataset, parent)
 
 
+def finite_unmasked_row_mask(
+    flattened_data: np.ndarray,
+    flattened_mask: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """Boolean ``[N]`` selecting usable rows of a ``[N][bands]`` spectra list.
+
+    A row is usable iff every band is finite (no NaN/Inf) and — when a mask is
+    supplied — every band is unmasked. A single bad feature invalidates the whole
+    spectrum, so callers (PCA fit, MNF mean/covariance) drop the entire row.
+
+    This is the single source of truth for "is this spectrum analysis-ready",
+    shared by :func:`compute_PCA_on_image` and the pipeline's
+    ``_flatten_valid_dataset_rows`` so PCA and MNF clean identically.
+    """
+    data = np.asarray(flattened_data)
+    valid = np.all(np.isfinite(data), axis=1)
+    if flattened_mask is not None:
+        valid &= ~np.any(np.asarray(flattened_mask, dtype=bool), axis=1)
+    return valid
+
+
 def compute_PCA_on_image(
     image_arr: Union[np.ndarray, np.ma.masked_array],
     num_components: int,
@@ -265,14 +289,17 @@ def compute_PCA_on_image(
     # [y][x][2] --> [y*x][2]
     coords = coords.reshape((coords.shape[0] * coords.shape[1], coords.shape[2]))
 
-    if isinstance(image_arr, np.ma.MaskedArray):
-        # It is possible for the masked array to not have a mask
-        if image_arr.mask is not np.ma.nomask:
-            mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
-            image_arr = image_arr.data[mask_1d, :]
-            coords = coords[mask_1d, :]
-            if not np.isfinite(image_arr).all():
-                raise ValueError("Array contains a non-numeric value after cleaning!")
+    # Drop any spectrum that is masked (nodata / bad-band sentinel) or holds a
+    # non-finite value (NaN/Inf) in any kept band before fitting. sklearn's PCA
+    # rejects NaN/Inf outright, and a single bad feature makes the whole spectrum
+    # unusable.
+    row_data = np.asarray(np.ma.getdata(image_arr))
+    row_mask = np.ma.getmaskarray(image_arr) if isinstance(image_arr, np.ma.MaskedArray) else None
+    valid_rows = finite_unmasked_row_mask(row_data, row_mask)
+    image_arr = row_data[valid_rows, :]
+    coords = coords[valid_rows, :]
+    if image_arr.shape[0] == 0:
+        raise ValueError("No valid spectra remain for PCA after removing masked/non-finite pixels")
 
     pca = PCA(n_components=num_components)
 
@@ -307,6 +334,212 @@ def build_band_info_from_wavelengths(
             }
         )
     return band_info
+
+
+# ============================================================================
+# NETCDF WAVELENGTH EXTRACTION
+
+
+# Variable-name fragments that suggest a variable holds wavelength data.
+# All comparisons are done case-insensitively as a substring search.
+_WAVELENGTH_VAR_SUBSTRINGS: frozenset = frozenset(
+    {"wavelength", "wavelengths", "wvl", "wlen", "lambda", "bands"}
+)
+
+
+def parse_unit_from_string(s: Optional[str]) -> Optional[u.Unit]:
+    """Parse an astropy unit from a plain string.
+
+    Tries the astropy parser first, then falls back to a hand-written mapping
+    that covers common spectral unit spellings.  Returns ``None`` for
+    unitless / unrecognised strings.
+    """
+    if not s:
+        return None
+    t = s.strip().lower().replace("µ", "u")
+    if t in {"unitless", "dimensionless", "1"}:
+        return None
+    try:
+        return u.Unit(t)
+    except Exception:
+        pass
+    mapping: Dict[str, u.Unit] = {
+        "nm": u.nanometer,
+        "nanometer": u.nanometer,
+        "nanometers": u.nanometer,
+        "um": u.micrometer,
+        "micrometer": u.micrometer,
+        "micrometers": u.micrometer,
+        "mm": u.millimeter,
+        "millimeter": u.millimeter,
+        "millimeters": u.millimeter,
+        "cm": u.centimeter,
+        "centimeter": u.centimeter,
+        "centimeters": u.centimeter,
+        "m": u.meter,
+        "meter": u.meter,
+        "meters": u.meter,
+        "angstrom": u.angstrom,
+        "å": u.angstrom,
+        "cm-1": u.cm**-1,
+        "cm^-1": u.cm**-1,
+        "1/cm": u.cm**-1,
+        "wavenumber": u.cm**-1,
+        "ghz": u.GHz,
+        "mhz": u.MHz,
+    }
+    if t in mapping:
+        return mapping[t]
+    for key, unit in mapping.items():
+        if key in t:
+            return unit
+    return None
+
+
+def _is_wavelength_var_name(name: str) -> bool:
+    """Return ``True`` if *name* contains any wavelength-related keyword."""
+    lower = name.lower()
+    return any(kw in lower for kw in _WAVELENGTH_VAR_SUBSTRINGS)
+
+
+def _collect_wavelength_candidates(
+    group,
+) -> List[Tuple[np.ndarray, Optional[u.Unit]]]:
+    """Recursively walk *group* and all sub-groups, returning candidates.
+
+    A candidate is any variable whose name passes :func:`_is_wavelength_var_name`
+    and whose data is a 1-D numeric array.  Each candidate is a
+    ``(data_array, unit_or_None)`` tuple.
+
+    Traversal order: variables in the current group first (in iteration
+    order), then sub-groups depth-first.  This means shallower / earlier
+    variables take priority when selection is applied later.
+    """
+    candidates: List[Tuple[np.ndarray, Optional[u.Unit]]] = []
+
+    for var_name, var in group.variables.items():
+        if not _is_wavelength_var_name(var_name):
+            continue
+        try:
+            data = np.asarray(var[:])
+            if data.ndim != 1 or not np.issubdtype(data.dtype, np.number):
+                continue
+        except Exception:
+            continue
+        unit = parse_unit_from_string(getattr(var, "units", None))
+        candidates.append((data, unit))
+
+    for sub_group in group.groups.values():
+        candidates.extend(_collect_wavelength_candidates(sub_group))
+
+    return candidates
+
+
+def extract_netcdf_wavelengths(
+    netcdf_dataset,
+) -> Tuple[Optional[np.ndarray], Optional[u.Unit]]:
+    """Search a ``netCDF4.Dataset`` for wavelength data at any nesting depth.
+
+    All groups and sub-groups are visited recursively.  Variable names are
+    matched case-insensitively against the substrings ``wavelength``,
+    ``wavelengths``, ``wvl``, ``wlen``, ``lambda``, and ``bands``. Nasa
+    netcdf products use CF conventions. While these conventions where
+    a wavelength variable should be specified and contain units.
+
+    Selection
+    ---------
+    1. Return the **first** candidate (in depth-first, declaration order) that
+       has **both** a 1-D numeric data array *and* a recognised unit.
+    2. If no candidate has both, return the first available data array paired
+       with the first available unit — either may be ``None``.
+
+    Returns
+    -------
+    ``(wavelengths, unit)`` where *wavelengths* is a :class:`numpy.ndarray`
+    or ``None``, and *unit* is an :class:`astropy.units.Unit` or ``None``.
+    """
+    candidates = _collect_wavelength_candidates(netcdf_dataset)
+
+    if not candidates:
+        return None, None
+
+    # Priority 1: first candidate with both data and unit
+    for data, unit in candidates:
+        if data is not None and unit is not None:
+            return data, unit
+
+    # Priority 2: independently pick the first data and the first unit
+    first_data = next((d for d, _ in candidates if d is not None), None)
+    first_unit = next((unit for _, unit in candidates if unit is not None), None)
+    return first_data, first_unit
+
+
+_GOOD_WAVELENGTH_VAR_SUBSTRINGS: frozenset = frozenset(
+    {"good_wavelengths", "good_wavelength", "bbl", "bad_band_list"}
+)
+
+
+def _is_good_wavelength_var_name(name: str) -> bool:
+    """Return ``True`` if *name* matches a good-wavelength variable."""
+    lower = name.lower()
+    return any(kw in lower for kw in _GOOD_WAVELENGTH_VAR_SUBSTRINGS)
+
+
+def _collect_good_wavelength_candidates(group) -> List[np.ndarray]:
+    """Recursively collect good-wavelength masks, walking *group* and all
+    sub-groups depth-first.
+
+    Each candidate is a 1-D ``int`` array where ``1`` means the band is good
+    and ``0`` means bad.  Any element whose raw value equals the variable's
+    ``_FillValue`` is forced to ``0`` before the array is appended.
+    """
+    candidates: List[np.ndarray] = []
+
+    for var_name, var in group.variables.items():
+        if not _is_good_wavelength_var_name(var_name):
+            continue
+        try:
+            raw = np.asarray(var[:])
+            if raw.ndim != 1 or not np.issubdtype(raw.dtype, np.number):
+                continue
+        except Exception:
+            continue
+
+        data = raw.astype(int)
+
+        fill_value = getattr(var, "_FillValue", None)
+        if fill_value is not None:
+            try:
+                data[raw == fill_value] = 0
+            except Exception:
+                pass
+
+        candidates.append(data)
+
+    for sub_group in group.groups.values():
+        candidates.extend(_collect_good_wavelength_candidates(sub_group))
+
+    return candidates
+
+
+def extract_netcdf_bad_bands(netcdf_dataset) -> Optional[List[int]]:
+    """Search a ``netCDF4.Dataset`` for a good-wavelength mask at any depth.
+
+    All groups and sub-groups are visited recursively.  Variable names are
+    matched case-insensitively against the substrings ``good_wavelength`` and
+    ``good_wavelengths``.
+
+    Values are interpreted as ``1`` = good band, ``0`` = bad band.  Any
+    element whose raw value equals the variable's ``_FillValue`` is treated as
+    a bad band (set to ``0``).
+
+    The first matching array is returned as a :class:`numpy.ndarray` of
+    ``numpy.bool_``.  Returns ``None`` if no matching variable is found.
+    """
+    candidates = _collect_good_wavelength_candidates(netcdf_dataset)
+    if not candidates:
+        return None
+    return [int(v) for v in candidates[0]]
 
 
 def get_netCDF_reflectance_path(file_path):

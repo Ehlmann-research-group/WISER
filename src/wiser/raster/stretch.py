@@ -72,6 +72,8 @@ class StretchType(Enum):
 
     EQUALIZE_STRETCH = 2
 
+    DECORRELATION_STRETCH = 3
+
 
 class ConditionerType(Enum):
     """
@@ -109,6 +111,23 @@ class StretchBase:
     def apply(self, input):
         """
         Apply this class' stretch operation to the input numpy array, in-place.
+        """
+        pass
+
+    def requires_all_bands(self) -> bool:
+        """
+        Whether this stretch is a joint, multi-band transform that must see all
+        display bands together. The renderer uses this to dispatch into the
+        multi-band path (``apply_multi``) instead of the per-channel ``apply``.
+        Default: per-band stretch.
+        """
+        return False
+
+    def apply_multi(self, bands):
+        """
+        Joint, multi-band stretch entry point. ``bands`` is an (H, W, N) float32
+        array of N already-conditioned display bands; mutate in place. Only
+        called when ``requires_all_bands()`` returns True. Default: no-op.
         """
         pass
 
@@ -685,6 +704,88 @@ class StretchLog2UsingNumba:
         return hash(self.get_hash_tuple())
 
     def __eq__(self, other):
+        return self._name == other._name
+
+
+class StretchDecorrelation(StretchBase):
+    """
+    Joint, multi-band decorrelation stretch.
+
+    Decorrelation is fundamentally a cross-band transform: it needs all display
+    bands together to compute the covariance matrix and eigendecompose it.
+    This class is a marker stretch -- the renderer detects it via
+    ``requires_all_bands()`` and routes through ``apply_multi`` instead of the
+    per-channel ``apply`` path.
+
+    ``apply_multi`` consumes the renderer's already-conditioned, normalized
+    (H, W, N) band stack, runs the joint transform, per-band-normalizes the
+    output, and writes it back into the same buffer.
+
+    No numba variant exists: a jitclass cannot carry Python references, and
+    all the heavy math happens inside ``decor_numba`` (which already picks the
+    numba-compiled kernel with a numpy fallback).
+    """
+
+    def __init__(self):
+        super().__init__("Decorrelation")
+
+    def __str__(self):
+        return "StretchDecorrelation"
+
+    def requires_all_bands(self) -> bool:
+        return True
+
+    def apply(self, a):
+        # Joint stretch; the per-channel path is never taken for this class.
+        pass
+
+    def apply_multi(self, bands):
+        """
+        Mutate ``bands`` in place with the decorrelation-stretched, per-band-
+        normalized result.
+
+        ``bands`` is an ``(H, W, N)`` float32 array of the conditioned input
+        bands. After this call each ``bands[..., i]`` carries float32 values in
+        ``[0, 1]``, with non-finite pixels (e.g. ones that came from a
+        data-ignore value) zeroed.
+        """
+        # Local import to avoid a module-level cycle between stretch.py and
+        # decorrelation_stretch.py.
+        from wiser.raster.decorrelation_stretch import decor_numba
+
+        b0 = np.ascontiguousarray(bands[..., 0], dtype=np.float64)
+        b1 = np.ascontiguousarray(bands[..., 1], dtype=np.float64)
+        b2 = np.ascontiguousarray(bands[..., 2], dtype=np.float64)
+        joint = decor_numba(b0, b1, b2)  # (H, W, 3) float64
+
+        for b in range(joint.shape[2]):
+            band = joint[..., b].astype(np.float32, copy=False)
+            finite = np.isfinite(band)
+            if not finite.any():
+                bands[..., b] = 0.0
+                continue
+            band_min = float(np.min(band[finite]))
+            band_max = float(np.max(band[finite]))
+            span = band_max - band_min
+            if span > 0.0:
+                normalized = np.zeros_like(band)
+                normalized[finite] = (band[finite] - band_min) / span
+                bands[..., b] = normalized
+            else:
+                bands[..., b] = 0.0
+
+    def get_stretches(self):
+        return [self, None]
+
+    def get_hash_tuple(self):
+        return (self._name,)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
         return self._name == other._name
 
 

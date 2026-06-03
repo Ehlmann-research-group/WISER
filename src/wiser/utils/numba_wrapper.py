@@ -36,12 +36,15 @@ try:
         Args:
             numpy_spec (List[Tuple[str, type]]):
                 A list of tuples where each tuple contains a field name (str) and a NumPy type.
+                For ``np.ndarray`` fields an optional third element specifies the array
+                dimensionality (defaults to 1 for backward compatibility).
                 Example:
                     [
                         ('field1', np.int32),
                         ('field2', np.float64),
-                        ('field3', np.ndarray),
-                        ('field4', np.str_)
+                        ('field3', np.ndarray),       # 1-D array
+                        ('field4', np.ndarray, 2),    # 2-D array
+                        ('field5', np.str_)
                     ]
             default_array_dtype (type, optional):
                 The default Numba array data type to use for NumPy arrays. This should be a Numba
@@ -55,7 +58,8 @@ try:
                         ('field1', int32),
                         ('field2', float64),
                         ('field3', float32[:]),
-                        ('field4', types.unicode_type)
+                        ('field4', float32[:, :]),
+                        ('field5', types.unicode_type)
                     ]
         """
         numpy_to_numba_mapping = {
@@ -74,11 +78,24 @@ try:
         }
 
         numba_spec = []
-        for name, typ in numpy_spec:
+        for entry in numpy_spec:
+            # Each entry is (name, type) or, for arrays, (name, np.ndarray, ndim).
+            name = entry[0]
+            typ = entry[1]
+            ndim = entry[2] if len(entry) > 2 else 1
+
             if typ == np.str_:
                 numba_type = types.unicode_type
             elif typ == np.ndarray:
-                numba_type = default_array_dtype[:]
+                # Build an ndim-dimensional Numba array type, e.g. float32[:] for
+                # ndim == 1, float32[:, :] for ndim == 2, etc. ndim == 1 keeps the
+                # exact pre-existing behavior for 2-tuple specs.
+                if ndim < 1:
+                    raise ValueError(f"Array field {name!r} must have ndim >= 1, got {ndim}")
+                if ndim == 1:
+                    numba_type = default_array_dtype[:]
+                else:
+                    numba_type = default_array_dtype[(slice(None),) * ndim]
             elif issubclass(typ, np.generic):
                 numba_type = numpy_to_numba_mapping.get(typ, typ)
             else:

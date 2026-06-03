@@ -45,6 +45,9 @@ from wiser.gui.util import StateChange
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
     from wiser.gui.kmeans import KMeansParameters, KMeansCentroids
+    from wiser.gui.linear_unmixing import LinearUnmixingHistoryManager
+    from wiser.gui.permanent_plugins.pca_plugin import PCAHistoryManager
+    from wiser.gui.mnf import MNFHistoryManager
 
 
 def make_unique_name(candidate: str, used_names: str) -> str:
@@ -188,6 +191,36 @@ class ApplicationState(QObject):
 
         # The set of matplotlib display widgets that users can make for their plugins
         self._matplotlib_display_widgets: set[MatplotlibDisplayWidget] = set()
+
+        # Linear-unmix run history is application state, not dialog state — it
+        # persists across opens/closes of the LinearUnmixingDialog so users can
+        # always revisit past runs.  Local import to avoid an import cycle with
+        # linear_unmixing.py (which transitively imports from this module).
+        from wiser.gui.linear_unmixing import LinearUnmixingHistoryManager
+
+        self._linear_unmix_history = LinearUnmixingHistoryManager(self)
+
+        # PCA and MNF histories follow the same pattern — application state
+        # so the past-runs viewer survives across dialog open/close cycles.
+        # Local imports for the same reason as above (the modules they live in
+        # transitively import from this one).
+        from wiser.gui.permanent_plugins.pca_plugin import PCAHistoryManager
+        from wiser.gui.mnf import MNFHistoryManager
+
+        self._pca_history = PCAHistoryManager(self)
+        self._mnf_history = MNFHistoryManager(self)
+
+    def get_linear_unmix_history(self) -> "LinearUnmixingHistoryManager":
+        """Return the application-wide linear-unmixing run history manager."""
+        return self._linear_unmix_history
+
+    def get_pca_history(self) -> "PCAHistoryManager":
+        """Return the application-wide PCA run history manager."""
+        return self._pca_history
+
+    def get_mnf_history(self) -> "MNFHistoryManager":
+        """Return the application-wide MNF run history manager."""
+        return self._mnf_history
 
     def add_running_process(self, process_manager: ProcessManager):
         process_manager_id = process_manager.get_process_manager_id()

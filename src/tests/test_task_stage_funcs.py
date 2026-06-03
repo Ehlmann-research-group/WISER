@@ -28,6 +28,7 @@ from wiser.utils.task_stage_utils import (
     get_noise_covariance_pipeline,
     get_pos_semi_def_matrix_inverse_stage,
     get_project_onto_eigenvectors_stage,
+    get_band_subset_pipeline,
     get_savgol_filter_pipeline,
     recombine_dataset_tile_from_good_band_runs,
     get_spectral_mean_stage,
@@ -1946,6 +1947,142 @@ class TestTaskStageFuncs(unittest.TestCase):
                 self.assertGreater(expected_norm, 0.0)
                 alignment = abs(float(np.dot(stage_vec / stage_norm, expected_vec / expected_norm)))
                 self.assertTrue(np.isclose(alignment, 1.0, atol=1e-4))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_covariance_stage_computes_correlation_matrix_with_expected_properties(self) -> None:
+        # RasterDataLoader expects [band][y][x]. The three bands have differing
+        # scales so a covariance matrix and a correlation matrix differ clearly,
+        # which exercises the unit-variance normalization.
+        array_3x2x2 = np.array(
+            [
+                [[1.0, 2.0], [3.0, 5.0]],
+                [[10.0, 40.0], [20.0, 15.0]],
+                [[7.0, 1.0], [9.0, 4.0]],
+            ],
+            dtype=np.float32,
+        )
+        corr_matrix_gt = np.array(
+            [
+                [1.0, -0.12987483, -0.09759001],
+                [-0.12987483, 1.0, -0.69709671],
+                [-0.09759001, -0.69709671, 1.0],
+            ]
+        )
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_3x2x2)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            mean_output_ref_name = "corr_mean"
+            corr_output_ref_name = "corr_matrix"
+            num_pixels = 4
+
+            mean_stage = get_spectral_mean_stage(input_ref, mean_output_ref_name)
+            corr_stage = CalcCovMatrixStage(
+                _total_spectra=num_pixels,
+                _output_ref_name=corr_output_ref_name,
+                _calc_as_correlation=True,
+                default_executor="process",
+                input_plan_meta=mean_stage.input_plan_meta,
+                broadcast_input={"mean": DataBinding(mean_output_ref_name)},
+            )
+            self._keep_outputs(corr_stage, corr_output_ref_name)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=AlgorithmPipeline(stages=[mean_stage, corr_stage]),
+            )
+            task.id = 10024
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            output_ref = task_plan.bindings[corr_output_ref_name]
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            output_corr, _ = storage_client.read_data(output_ref)
+
+            dataset_yxb = array_3x2x2.transpose(1, 2, 0)
+            flattened = dataset_yxb.reshape(-1, dataset_yxb.shape[2])
+            expected_corr = np.corrcoef(flattened, rowvar=False).astype(np.float64)[..., None]
+
+            self.assertEqual(output_corr.shape, (3, 3, 1))
+            self.assertTrue(np.allclose(output_corr, expected_corr, atol=1e-5))
+
+            correlation_matrix = np.asarray(output_corr, dtype=np.float64)[:, :, 0]
+            # Correlation matrices have unit diagonal, are symmetric, and have
+            # every entry within [-1, 1].
+            self.assertTrue(np.allclose(np.diag(correlation_matrix), 1.0, atol=1e-5))
+            self.assertTrue(np.allclose(correlation_matrix, correlation_matrix.T, atol=1e-6))
+            self.assertTrue(np.all(correlation_matrix <= 1.0 + 1e-6))
+            self.assertTrue(np.all(correlation_matrix >= -1.0 - 1e-6))
+            self.assertTrue(np.allclose(correlation_matrix, corr_matrix_gt))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
+
+    def test_band_subset_pipeline_copies_selected_bands_in_requested_order(self) -> None:
+        # RasterDataLoader expects [band][y][x]; five distinct bands let us verify
+        # both selection and reordering.
+        array_5x2x2 = np.arange(5 * 2 * 2, dtype=np.float32).reshape(5, 2, 2)
+        dataset = RasterDataLoader().dataset_from_numpy_array(array_5x2x2)
+
+        app_services = AppServices()
+        storage_client = None
+        try:
+            input_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+
+            output_ref_name = "band_subset"
+            requested_bands = [3, 0, 4]
+            pipeline = get_band_subset_pipeline(input_ref, requested_bands, output_ref_name)
+            pipeline.stages[-1].set_output_delete_policy(output_ref_name, DeletePolicy.KEEP)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=input_ref,
+                algorithm_pipeline=pipeline,
+            )
+            task.id = 10025
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            future.result(timeout=10)
+
+            output_ref = task_plan.bindings[output_ref_name]
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            subset_data, _ = storage_client.read_data(output_ref)
+
+            dataset_yxb = array_5x2x2.transpose(1, 2, 0)
+            expected = dataset_yxb[:, :, requested_bands]
+            self.assertEqual(subset_data.shape, (2, 2, len(requested_bands)))
+            self.assertTrue(np.allclose(subset_data, expected, atol=1e-6))
         finally:
             if storage_client is not None:
                 storage_client.close()
