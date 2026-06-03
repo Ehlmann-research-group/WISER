@@ -11,6 +11,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
+from wiser.utils.primitives import ExternalRasterHandle
 
 import numpy as np
 import numpy.ma as ma
@@ -313,6 +314,7 @@ class ChannelStretchWidget(QWidget):
             StretchLog2,
             StretchLog2UsingNumba,
             StretchComposite,
+            StretchDecorrelation,
         )
 
         if stretch is not None and not isinstance(stretch, valid_stretches):
@@ -341,6 +343,8 @@ class ChannelStretchWidget(QWidget):
             self.set_stretch_type(StretchType.LINEAR_STRETCH)
         elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
             self.set_stretch_type(StretchType.EQUALIZE_STRETCH)
+        elif isinstance(stretch, StretchDecorrelation):
+            self.set_stretch_type(StretchType.DECORRELATION_STRETCH)
         elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
             self.set_conditioner_type(ConditionerType.SQRT_CONDITIONER)
         elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
@@ -796,12 +800,27 @@ class StretchConfigWidget(QWidget):
         self._ui = Ui_StretchConfigWidget()
         self._ui.setupUi(self)
 
+        # The "Decorrelation Stretch" option is not part of the generated .ui;
+        # add it here, parented to the same widget as the other stretch radio
+        # buttons so they remain mutually exclusive. It is only meaningful for
+        # 3-band (RGB) display, so it is disabled by default and enabled by the
+        # dialog via set_decorrelation_enabled().
+        self._ui.rb_stretch_decorrelation = QRadioButton(self._ui.gridLayoutWidget_2)
+        self._ui.rb_stretch_decorrelation.setObjectName("rb_stretch_decorrelation")
+        self._ui.rb_stretch_decorrelation.setText(self.tr("Decorrelation Stretch"))
+        self._ui.rb_stretch_decorrelation.setToolTip(
+            self.tr("Apply a decorrelation stretch across the three display bands")
+        )
+        self._ui.rb_stretch_decorrelation.setEnabled(False)
+        self._ui.grid_layout_stretch.addWidget(self._ui.rb_stretch_decorrelation, 5, 0, 1, 3)
+
         self._ui.rb_stretch_none.setChecked(True)
         self._ui.rb_cond_none.setChecked(True)
 
         self._ui.rb_stretch_none.clicked.connect(self._on_stretch_radio_button)
         self._ui.rb_stretch_linear.clicked.connect(self._on_stretch_radio_button)
         self._ui.rb_stretch_equalize.clicked.connect(self._on_stretch_radio_button)
+        self._ui.rb_stretch_decorrelation.clicked.connect(self._on_stretch_radio_button)
 
         self._ui.rb_cond_none.clicked.connect(self._on_conditioner_radio_button)
         self._ui.rb_cond_sqrt.clicked.connect(self._on_conditioner_radio_button)
@@ -817,8 +836,18 @@ class StretchConfigWidget(QWidget):
             return StretchType.LINEAR_STRETCH
         elif self._ui.rb_stretch_equalize.isChecked():
             return StretchType.EQUALIZE_STRETCH
+        elif self._ui.rb_stretch_decorrelation.isChecked():
+            return StretchType.DECORRELATION_STRETCH
         else:
             raise ValueError("Unrecognized stretch-type UI state:  No buttons checked!")
+
+    def set_decorrelation_enabled(self, enabled):
+        """
+        Enable or disable the decorrelation-stretch option. Decorrelation is a
+        multi-band operation that only applies to 3-band (RGB) display, so the
+        dialog disables it for grayscale.
+        """
+        self._ui.rb_stretch_decorrelation.setEnabled(enabled)
 
     def get_conditioner_type(self):
         if self._ui.rb_cond_none.isChecked():
@@ -994,6 +1023,12 @@ class StretchBuilderDialog(QDialog):
             return StretchLinearUsingNumba if useJIT else StretchLinear
         elif stretch_conditioner_type == StretchType.EQUALIZE_STRETCH:
             return StretchHistEqualizeUsingNumba if useJIT else StretchHistEqualize
+        elif stretch_conditioner_type == StretchType.DECORRELATION_STRETCH:
+            # Decorrelation is a joint multi-band stretch; the renderer routes
+            # through apply_multi rather than per-channel apply. There is no
+            # numba variant -- the jitclass form can't hold the Python state a
+            # joint stretch needs, and the heavy math runs inside decor_numba.
+            return StretchDecorrelation
         elif stretch_conditioner_type == StretchType.NO_STRETCH:
             return StretchBaseUsingNumba if useJIT else StretchBase
         elif stretch_conditioner_type == ConditionerType.SQRT_CONDITIONER:
@@ -1043,6 +1078,12 @@ class StretchBuilderDialog(QDialog):
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()
             stretch = self._get_channel_stretch_type(channel, stretch_type)(bins, edges)
+
+        elif stretch_type == StretchType.DECORRELATION_STRETCH:
+            # Joint multi-band stretch. The instance carries no per-channel
+            # state -- the renderer detects joint mode by value-equality across
+            # channels and runs the pipeline lazily inside apply_multi.
+            stretch = self._get_channel_stretch_type(channel, stretch_type)()
 
         else:
             # No stretch
@@ -1245,6 +1286,10 @@ class StretchBuilderDialog(QDialog):
             self._stretch_config._ui.rb_stretch_equalize.setChecked(True)
             if not part_of_composite:
                 self._stretch_config._ui.rb_cond_none.setChecked(True)
+        elif isinstance(stretch, StretchDecorrelation):
+            self._stretch_config._ui.rb_stretch_decorrelation.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_cond_none.setChecked(True)
         elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
             self._stretch_config._ui.rb_cond_sqrt.setChecked(True)
             if not part_of_composite:
@@ -1279,6 +1324,9 @@ class StretchBuilderDialog(QDialog):
         self._display_bands = display_bands
 
         self._num_active_channels = len(display_bands)
+
+        # Decorrelation stretch is a multi-band transform; only offer it for RGB.
+        self._stretch_config.set_decorrelation_enabled(len(display_bands) == 3)
 
         if len(display_bands) == 3:
             # Initialize RGB stretch building

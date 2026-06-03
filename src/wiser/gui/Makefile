@@ -31,7 +31,9 @@ FILENAMES=\
 	import_wavelengths_ui.py \
 	interactive_scatter_plot_ui.py \
 	kmeans_dialog_ui.py \
+	linear_unmixing_dialog_ui.py \
 	mnf_dialog_ui.py \
+	mtmf_dialog_ui.py \
 	pca_dialog_ui.py \
 	pixel_value_widget_ui.py \
 	reference_system_creator_ui.py \

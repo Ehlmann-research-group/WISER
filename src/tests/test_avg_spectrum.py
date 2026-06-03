@@ -1,19 +1,28 @@
-"""Unit tests for ROI average spectrum calculations and ROI raster transformations.
+"""Unit tests for average spectrum calculations (ROI and point-centered) and
+ROI raster transformations.
 
 This module verifies:
 - The correctness of region-based spectrum calculations in the WISER GUI.
+- The correctness of point-centered rectangular-window spectrum averaging
+  (``SpectrumAtPoint`` with an expanded area).
 - The behavior of raster-to-rectangle compression algorithms.
 - The accuracy of raster masks created from compound ROIs.
 
-Tests include GUI-based and non-GUI validation for datasets represented as NumPy arrays.
+Tests include GUI-based and non-GUI validation for datasets represented as
+NumPy arrays and ENVI files on disk.
 """
 import unittest
+from pathlib import Path
 
 import numpy as np
+
+import tests.context  # noqa: F401 – adds src/ to sys.path
 
 from wiser.raster.spectrum import (
     raster_to_combined_rectangles_x_axis,
     create_raster_from_roi,
+    SpectrumAtPoint,
+    SpectrumAverageMode,
 )
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import (
@@ -42,6 +51,11 @@ pytestmark = [
     pytest.mark.functional,
     pytest.mark.smoke,
 ]
+
+
+_DATASETS = Path(__file__).resolve().parent / ".." / "test_utils" / "test_datasets"
+_JPL_HDR = (_DATASETS / "jpl_425_7_7.hdr").resolve()
+_CALTECH_BB_HDR = (_DATASETS / "caltech_15_20_20_data_ignore_bb.hdr").resolve()
 
 
 class TestRoiAvgSpectrum(unittest.TestCase):
@@ -345,3 +359,67 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             ]
         )
         np.testing.assert_equal(raster, ground_truth)
+
+
+class TestPointSpecAvg(unittest.TestCase):
+    """
+    Validates ``SpectrumAtPoint`` area-averaging against ground truth computed
+    directly from the dataset's image cube. Covers both the clean case (no bad
+    bands, no data-ignore pixels) and the case where bad bands and
+    data-ignore-value pixels must be excluded from the mean.
+    """
+
+    def test_full_coverage_odd_dims_jpl(self):
+        """7x7 dataset, 7x7 window centered at (3, 3) — the window covers the
+        entire raster, so the result must equal the per-band mean over all 49
+        pixels."""
+        dataset = RasterDataLoader().load_from_file(str(_JPL_HDR))[0]
+
+        # No bad bands, no data ignore value → plain mean over (b, y, x).
+        image = np.asarray(dataset.get_image_data(filter_data_ignore_value=False))
+        assert image.shape == (425, 7, 7)
+        expected = image.mean(axis=(1, 2))
+
+        spec = SpectrumAtPoint(dataset, point=(3, 3), area=(7, 7), avg_mode=SpectrumAverageMode.MEAN)
+        spec._calculate_spectrum()
+        actual = spec._spectrum
+
+        assert actual.shape == (425,)
+        np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=1e-6)
+
+    def test_max_odd_window_even_dims_caltech_with_bb_and_nodata(self):
+        """20x20 dataset has even sides, so the largest odd window that fits is
+        19x19. Centered at (9, 9) the window covers pixels (0..18, 0..18). Bands
+        8 and 9 are bad (NaN) and the rows 0-3 cols 0-2 block holds the
+        data-ignore value (-9999) — both must be excluded from the mean."""
+        dataset = RasterDataLoader().load_from_file(str(_CALTECH_BB_HDR))[0]
+
+        bad_bands = np.array(dataset.get_bad_bands(), dtype=np.int8)
+        ignore_val = dataset.get_data_ignore_value()
+        assert bad_bands.tolist() == [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1]
+        assert ignore_val == -9999
+
+        # Build ground truth: float copy with -9999 → NaN and bad bands → NaN,
+        # then nanmean over the 19x19 window starting at (0, 0).
+        image = np.asarray(dataset.get_image_data(filter_data_ignore_value=False), dtype=np.float64)
+        assert image.shape == (15, 20, 20)
+        image[image == ignore_val] = np.nan
+        image[bad_bands == 0, :, :] = np.nan
+        window = image[:, 0:19, 0:19]
+        # Bands 8 and 9 are entirely NaN → nanmean of an all-NaN slice warns and
+        # returns NaN; suppress just the expected warning.
+        with np.errstate(invalid="ignore"):
+            expected = np.nanmean(window, axis=(1, 2))
+
+        spec = SpectrumAtPoint(dataset, point=(9, 9), area=(19, 19), avg_mode=SpectrumAverageMode.MEAN)
+        spec._calculate_spectrum()
+        actual = spec._spectrum
+
+        assert actual.shape == (15,)
+        # Bands 8 and 9 are NaN in both actual and expected; equal_nan handles that.
+        np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=1e-6, equal_nan=True)
+        assert np.isnan(actual[8]) and np.isnan(actual[9])
+        # And the good bands really do reflect a partial (non-NaN) average,
+        # i.e. they survived the data-ignore pixels.
+        good_idx = np.where(bad_bands == 1)[0]
+        assert np.all(np.isfinite(actual[good_idx]))

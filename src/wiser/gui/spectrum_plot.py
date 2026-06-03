@@ -497,10 +497,12 @@ class SpectrumPlotGeneric(QWidget):
     closed = Signal()
 
     def __init__(self, app_state, parent=None):
-        super().__init__(parent=parent)
+        super().__init__(parent=parent, f=Qt.Window)
 
         # =====================================================================
         # General configuration for the spectrum plot
+
+        self.setWindowTitle(self.tr("Plot"))
 
         self._app_state: "ApplicationState" = app_state
 

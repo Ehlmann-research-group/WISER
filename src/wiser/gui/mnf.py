@@ -1,7 +1,8 @@
 import datetime
 from dataclasses import dataclass, replace
+from enum import IntEnum
 from functools import partial
-from typing import Callable, Dict, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
 import numpy as np
 from PySide2.QtCore import *
@@ -10,6 +11,7 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
+from wiser.gui.run_history import EigenScreeRunHistoryDialog, RunHistoryManagerBase
 from wiser.gui.generated.mnf_dialog_ui import Ui_MNFDialog
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -18,13 +20,14 @@ from wiser.utils.primitives import (
     DataRef,
     DataRegion,
     DatasetRegionRef,
+    NoiseMethodType,
     PriorityClass,
+    SpectraBatchScheme,
     SpectraListPlanMeta,
     SpatialTileScheme,
     SpectralBatchDatasetScheme,
 )
 from wiser.utils.task_stage_utils import (
-    AdaptivePcaFitStage,
     CalcCovMatrixStage,
     EigenDecompositionStage,
     MatrixMultiplicationStage,
@@ -38,6 +41,7 @@ from wiser.utils.task_system import (
     MapStage,
     ResourceModel,
     SemanticTask,
+    TaskStage,
     WriteSpec,
 )
 from wiser.utils.primitives import ExternalRasterHandle
@@ -46,13 +50,74 @@ from wiser.utils.worker_runtime import get_process_storage_client
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
 
+
+@dataclass(frozen=True)
+class MNFRunRecord:
+    """Immutable record of one completed MNF run.
+
+    ``eigenvalues`` is the full eigenvalue spectrum produced by the whitened
+    eigendecomposition (length equal to the number of good bands), regardless
+    of how many components the user asked the pipeline to project onto.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    input_dataset_name_snapshot: str
+    num_components_chosen: int
+    max_components_available: int
+    eigenvalues: np.ndarray
+
+
+class MNFHistoryManager(RunHistoryManagerBase[MNFRunRecord]):
+    """Owns the in-memory list of completed MNF runs."""
+
+
+class MNFHistoryDialog(EigenScreeRunHistoryDialog[MNFRunRecord]):
+    """Non-modal viewer for past MNF runs.  See base class for behavior."""
+
+    task_label = "MNF"
+
+
 # region MNF
 
 
-def _run_shift_y_diff(input_ref: DataRef, input_region: DataRegion, output_write: "WriteSpec") -> None:
+class ShiftDiffNoiseDirection(IntEnum):
+    """Spatial shift direction for first-order difference noise (not along band axis)."""
+
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+
+
+def shift_diff_noise_output_shape(
+    height: int, width: int, bands: int, direction: ShiftDiffNoiseDirection
+) -> tuple[int, int, int]:
+    """Return ``(y, x, b)`` shape of shift-difference noise for a full ``(height, width, bands)`` input."""
+    if direction in (ShiftDiffNoiseDirection.DOWN, ShiftDiffNoiseDirection.UP):
+        return max(0, height - 1), width, bands
+    return height, max(0, width - 1), bands
+
+
+def _run_shift_y_diff(
+    input_ref: DataRef,
+    input_region: DataRegion,
+    output_write: "WriteSpec",
+    direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+) -> None:
     storage_client = get_process_storage_client()
     array, array_meta = storage_client.read_region(input_ref, input_region)
-    noise = array[:-1, :, :] - array[1:, :, :]
+    if direction == ShiftDiffNoiseDirection.DOWN:
+        noise = array[:-1, :, :] - array[1:, :, :]
+    elif direction == ShiftDiffNoiseDirection.UP:
+        noise = array[1:, :, :] - array[:-1, :, :]
+    elif direction == ShiftDiffNoiseDirection.LEFT:
+        noise = array[:, :-1, :] - array[:, 1:, :]
+    elif direction == ShiftDiffNoiseDirection.RIGHT:
+        noise = array[:, 1:, :] - array[:, :-1, :]
+    else:
+        raise ValueError(f"Unsupported shift difference direction: {direction!r}")
     if np.ma.isMaskedArray(noise) and array_meta.nodata is not None:
         # If the nodata value is none but the array is still masked, we assume the mask
         # comes from the bad bands. Then we can still mask the bad bands when the next function
@@ -84,8 +149,8 @@ def _write_shift_y_diff_noise_meta(
 @dataclass
 class CalculateShiftYDiffNoise(MapStage):
     _output_ref_name: str = "shift_y_diff_noise"
-
     chunking_scheme_type: type[ChunkingScheme] = SpectralBatchDatasetScheme
+    shift_diff_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN
 
     def __post_init__(self):
         self.output_bindings = self.output_bindings + [DataBinding(self._output_ref_name)]
@@ -95,11 +160,20 @@ class CalculateShiftYDiffNoise(MapStage):
             input_region, DatasetRegionRef
         ), "Input region for calculate shift difference noise must be DatasetRegionRef"
 
+        if self.shift_diff_direction in (ShiftDiffNoiseDirection.DOWN, ShiftDiffNoiseDirection.UP):
+            return DatasetRegionRef(
+                y0=input_region.y0,
+                y1=input_region.y1 - 1,
+                x0=input_region.x0,
+                x1=input_region.x1,
+                b0=input_region.b0,
+                b1=input_region.b1,
+            )
         return DatasetRegionRef(
             y0=input_region.y0,
-            y1=input_region.y1 - 1,
+            y1=input_region.y1,
             x0=input_region.x0,
-            x1=input_region.x1,
+            x1=input_region.x1 - 1,
             b0=input_region.b0,
             b1=input_region.b1,
         )
@@ -114,9 +188,9 @@ class CalculateShiftYDiffNoise(MapStage):
             input_meta, DatasetPlanMeta
         ), "input_meta must be of type DatasetPlanMeta for CalculateShiftYDiffNoise"
 
-        y = max(0, input_meta.height - 1)
-        x = input_meta.width
-        b = input_meta.bands
+        y, x, b = shift_diff_noise_output_shape(
+            input_meta.height, input_meta.width, input_meta.bands, self.shift_diff_direction
+        )
         size_est = y * x * b * input_meta.dtype.itemsize
         alloc_request = AllocationRequest(
             name=self._output_ref_name,
@@ -138,7 +212,13 @@ class CalculateShiftYDiffNoise(MapStage):
     ) -> Callable:
         _ = broadcast_inputs
         output_write = output_writes[self._output_ref_name]
-        return partial(_run_shift_y_diff, input_ref, input_region, output_write)
+        return partial(
+            _run_shift_y_diff,
+            input_ref,
+            input_region,
+            output_write,
+            self.shift_diff_direction,
+        )
 
     def post_task_fn(
         self,
@@ -152,12 +232,17 @@ class CalculateShiftYDiffNoise(MapStage):
         return partial(_write_shift_y_diff_noise_meta, input_ref, full_input_region, output_write)
 
 
-def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateShiftYDiffNoise:
+def get_y_shift_noise(
+    dataset_ref: DataRef,
+    output_ref_name: str,
+    shift_diff_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+) -> CalculateShiftYDiffNoise:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
     plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
     return CalculateShiftYDiffNoise(
         _output_ref_name=output_ref_name,
+        shift_diff_direction=shift_diff_direction,
         default_executor="process",
         input_plan_meta=plan_meta,
         resource_model=ResourceModel(
@@ -169,52 +254,295 @@ def get_y_shift_noise(dataset_ref: DataRef, output_ref_name: str) -> CalculateSh
     )
 
 
+def get_noise_covariance_subpipeline(
+    noise_input_ref: DataRef,
+    noise_method_type: NoiseMethodType,
+    *,
+    noise_ref_name: str,
+    noise_mean_ref_name: str,
+    noise_total_ref_name: str,
+    noise_covariance_ref_name: str,
+    num_features: int,
+    data_variance_factor: float = 1.0,
+    shift_diff_noise_direction: Optional[ShiftDiffNoiseDirection] = None,
+    noise_input_binding_name: Optional[str] = None,
+) -> list[TaskStage]:
+    """Build the noise → mean → covariance pipeline tail for MNF/MTMF.
+
+    The returned list of :class:`TaskStage` instances is the per-mode
+    implementation of "compute a noise covariance matrix" used by
+    :func:`get_mnf_pipeline`.
+
+    Per-mode behaviour:
+
+    - ``NoiseMethodType.IMAGE_CUBE_BASED``: ``noise_input_ref`` is the source
+      data cube (assumed to be bound as ``__task_input__``).  Stages:
+      ``[CalculateShiftYDiffNoise, SpectralMeanStage, CalcCovMatrixStage]``,
+      all on :class:`SpatialTileScheme` over the shift-difference output's
+      :class:`DatasetPlanMeta`.  ``shift_diff_noise_direction`` is required.
+    - ``NoiseMethodType.DARK_IMAGE_BASED``: ``noise_input_ref`` is a separate
+      dark-image dataset.  Stages: ``[SpectralMeanStage, CalcCovMatrixStage]``
+      on :class:`SpatialTileScheme` over the noise dataset's
+      :class:`DatasetPlanMeta`.  ``data_variance_factor`` is forced to ``1``
+      (raw samples, not differences).  ``noise_input_binding_name`` should
+      name the extra-plan-binding pointing to ``noise_input_ref`` so the
+      stages read from it instead of ``__task_input__``.
+    - ``NoiseMethodType.ROI_BASED``: ``noise_input_ref`` is an
+      ``ExternalRoiHandle`` (``roi_proxy``) ref.  Stages:
+      ``[SpectralMeanStage, CalcCovMatrixStage]`` on
+      :class:`SpectraBatchScheme` over the ROI's :class:`SpectraListPlanMeta`.
+      ``data_variance_factor`` is forced to ``1``.  Same
+      ``noise_input_binding_name`` convention as ``DARK_IMAGE_BASED``.
+
+    Args:
+        noise_input_ref: The input ref the subpipeline reads from.  Its
+            ``DataMeta`` is queried to derive the plan-meta for each stage.
+        noise_method_type: Selector for the per-mode behaviour above.
+        noise_ref_name: Name of the shift-difference intermediate output
+            (only used by ``IMAGE_CUBE_BASED``).
+        noise_mean_ref_name: Output ref-name for the noise spectral mean.
+        noise_total_ref_name: Shared ref-name for the running "valid pixel
+            count" used by both the mean and covariance stages.
+        noise_covariance_ref_name: Output ref-name for the noise covariance
+            matrix.
+        num_features: Pre-resolved feature (good-band) count.  Passed to
+            :class:`CalcCovMatrixStage._num_features` to size the allocation.
+        data_variance_factor: Divisor for the covariance estimate to account
+            for the variance of differenced vs. raw samples.  Forced to
+            ``1`` for ``DARK_IMAGE_BASED`` and ``ROI_BASED``.
+        shift_diff_noise_direction: Required for ``IMAGE_CUBE_BASED``;
+            ignored otherwise.
+        noise_input_binding_name: Binding name under which ``noise_input_ref``
+            has been registered in the plan's extra bindings.  Used as the
+            stage ``input_binding`` for ``DARK_IMAGE_BASED`` and ``ROI_BASED``
+            so the noise stages read the noise ref rather than
+            ``__task_input__`` (which is typically the source cube).  Ignored
+            for ``IMAGE_CUBE_BASED`` since the shift-difference stage already
+            reads ``__task_input__`` and forwards via ``noise_ref_name``.
+
+    Returns:
+        A list of :class:`TaskStage` instances to be appended to an
+        :class:`AlgorithmPipeline`.
+    """
+    storage_client = get_process_storage_client()
+    data_meta = storage_client.get_meta(noise_input_ref)
+
+    resource_model = ResourceModel(
+        fixed_overhead_bytes=0,
+        bytes_per_scalar_in=1,
+        bytes_per_scalar_out=1,
+        scratch_bytes_per_scalar_in=0,
+    )
+
+    if noise_method_type == NoiseMethodType.IMAGE_CUBE_BASED:
+        if shift_diff_noise_direction is None:
+            raise ValueError("shift_diff_noise_direction is required for NoiseMethodType.IMAGE_CUBE_BASED")
+
+        height, width, bands = data_meta.shape
+        noise_y, noise_x, noise_b = shift_diff_noise_output_shape(
+            height, width, bands, shift_diff_noise_direction
+        )
+        noise_plan_meta = DatasetPlanMeta(
+            shape=(noise_y, noise_x, noise_b),
+            dtype=np.dtype(np.float64),
+        )
+
+        noise_stage = get_y_shift_noise(noise_input_ref, noise_ref_name, shift_diff_noise_direction)
+
+        mean_stage = SpectralMeanStage(
+            _output_ref_name=noise_mean_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_binding=DataBinding(noise_ref_name),
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+        )
+
+        cov_stage = CalcCovMatrixStage(
+            _total_spectra=0,
+            _num_features=num_features,
+            _output_ref_name=noise_covariance_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _data_variance_factor=data_variance_factor,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_binding=DataBinding(noise_ref_name),
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+            broadcast_input={
+                "mean": DataBinding(noise_mean_ref_name),
+                "total": DataBinding(noise_total_ref_name),
+            },
+        )
+
+        return [noise_stage, mean_stage, cov_stage]
+
+    # DARK_IMAGE_BASED and ROI_BASED both read the noise ref directly (no
+    # intermediate shift-diff stage), so they share the same binding logic.
+    if noise_input_binding_name is not None:
+        noise_input_binding = DataBinding(noise_input_binding_name)
+    else:
+        # No explicit binding name → fall through to the stage default
+        # (``__task_input__``).  Callers should usually provide a binding name
+        # whenever the noise ref is distinct from the task's input ref.
+        noise_input_binding = None
+
+    if noise_method_type == NoiseMethodType.DARK_IMAGE_BASED:
+        noise_plan_meta = DatasetPlanMeta(
+            shape=data_meta.shape,
+            dtype=np.dtype(np.float64),
+        )
+
+        mean_stage_kwargs: Dict[str, Any] = dict(
+            _output_ref_name=noise_mean_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+        )
+        if noise_input_binding is not None:
+            mean_stage_kwargs["input_binding"] = noise_input_binding
+        mean_stage = SpectralMeanStage(**mean_stage_kwargs)
+
+        cov_stage_kwargs: Dict[str, Any] = dict(
+            _total_spectra=0,
+            _num_features=num_features,
+            _output_ref_name=noise_covariance_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            # Raw noise samples — no differencing — so the variance factor is 1.
+            _data_variance_factor=1.0,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpatialTileScheme,
+            broadcast_input={
+                "mean": DataBinding(noise_mean_ref_name),
+                "total": DataBinding(noise_total_ref_name),
+            },
+        )
+        if noise_input_binding is not None:
+            cov_stage_kwargs["input_binding"] = noise_input_binding
+        cov_stage = CalcCovMatrixStage(**cov_stage_kwargs)
+
+        return [mean_stage, cov_stage]
+
+    if noise_method_type == NoiseMethodType.ROI_BASED:
+        # ExternalRoiHandle.get_meta() yields shape (N, b).
+        n_pixels, n_bands = data_meta.shape
+        noise_plan_meta = SpectraListPlanMeta(
+            num_spectra=n_pixels,
+            spectrum_length=n_bands,
+            dtype=np.dtype(np.float64),
+        )
+
+        mean_stage_kwargs = dict(
+            _output_ref_name=noise_mean_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpectraBatchScheme,
+        )
+        if noise_input_binding is not None:
+            mean_stage_kwargs["input_binding"] = noise_input_binding
+        mean_stage = SpectralMeanStage(**mean_stage_kwargs)
+
+        cov_stage_kwargs = dict(
+            _total_spectra=0,
+            _num_features=num_features,
+            _output_ref_name=noise_covariance_ref_name,
+            _internal_total_ref_name=noise_total_ref_name,
+            # Raw samples — no differencing — so the variance factor is 1.
+            _data_variance_factor=1.0,
+            _meta_ref=noise_input_ref,
+            default_executor="process",
+            input_plan_meta=noise_plan_meta,
+            resource_model=resource_model,
+            chunking_scheme_type=SpectraBatchScheme,
+            broadcast_input={
+                "mean": DataBinding(noise_mean_ref_name),
+                "total": DataBinding(noise_total_ref_name),
+            },
+        )
+        if noise_input_binding is not None:
+            cov_stage_kwargs["input_binding"] = noise_input_binding
+        cov_stage = CalcCovMatrixStage(**cov_stage_kwargs)
+
+        return [mean_stage, cov_stage]
+
+    raise ValueError(f"Unknown noise method type: {noise_method_type!r}")
+
+
 def get_mnf_pipeline(
     dataset_ref: DataRef,
-    num_components: int,
-    output_ref_name: str,
+    num_components: Optional[int] = None,
+    output_ref_name: str = "mnf_output",
+    noise_ref_name: str = "mnf_shift_y_noise",
+    noise_eigen_ref_name: str = "mnf_noise_eigen",
+    noise_whitening_matrix_ref_name: str = "mnf_noise_whitening_matrix",
+    input_mean_ref_name: str = "mnf_input_spectral_mean",
+    input_total_ref_name: str = "mnf_input_valid_pixel_total",
+    input_covariance_ref_name: str = "mnf_input_covariance",
+    whitened_covariance_ref_name: str = "mnf_whitened_covariance",
+    whitened_eigen_ref_name: str = "mnf_whitened_eigen",
+    data_variance_factor: float = 2,
+    shift_diff_noise_direction: ShiftDiffNoiseDirection = ShiftDiffNoiseDirection.DOWN,
+    noise_input_ref: Optional[DataRef] = None,
+    noise_method_type: NoiseMethodType = NoiseMethodType.IMAGE_CUBE_BASED,
+    noise_input_binding_name: Optional[str] = None,
 ) -> AlgorithmPipeline:
     storage_client = get_process_storage_client()
     data_meta = storage_client.get_meta(dataset_ref)
-    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(data_meta.elem_type))
+    dataset_plan_meta = DatasetPlanMeta(shape=data_meta.shape, dtype=np.dtype(np.float64))
     if data_meta.bad_bands is not None:
         num_features = np.sum(data_meta.bad_bands)
     else:
         num_features = dataset_plan_meta.bands
-    bands = dataset_plan_meta.bands
+    if num_components is None:
+        num_components = num_features
     if num_components <= 0 or num_components > num_features:
         raise ValueError(f"num_components must be in [1, {num_features}], got {num_components}")
 
-    noise_ref_name = "mnf_shift_y_noise"
-    noise_eigen_ref_name = "mnf_noise_eigen"
-    noise_whitening_matrix_ref_name = "mnf_noise_whitening_matrix"
-    input_mean_ref_name = "mnf_input_spectral_mean"
-    input_total_ref_name = "mnf_input_valid_pixel_total"
-    input_covariance_ref_name = "mnf_input_covariance"
-    whitened_covariance_ref_name = "mnf_whitened_covariance"
-    whitened_eigen_ref_name = "mnf_whitened_eigen"
+    # For backward compatibility, IMAGE_CUBE_BASED defaults to using the input
+    # dataset itself as the noise source (shift-difference on the cube).
+    if noise_input_ref is None:
+        noise_input_ref = dataset_ref
 
-    noise_plan_meta = DatasetPlanMeta(
-        shape=(max(0, dataset_plan_meta.height - 1), dataset_plan_meta.width, bands),
-        dtype=dataset_plan_meta.dtype,
+    noise_mean_ref_name = f"{noise_eigen_ref_name}_mean"
+    noise_total_ref_name = f"{noise_eigen_ref_name}_total"
+    noise_covariance_ref_name = f"{noise_eigen_ref_name}_covariance"
+
+    noise_subpipeline_stages = get_noise_covariance_subpipeline(
+        noise_input_ref=noise_input_ref,
+        noise_method_type=noise_method_type,
+        noise_ref_name=noise_ref_name,
+        noise_mean_ref_name=noise_mean_ref_name,
+        noise_total_ref_name=noise_total_ref_name,
+        noise_covariance_ref_name=noise_covariance_ref_name,
+        num_features=num_features,
+        data_variance_factor=data_variance_factor,
+        shift_diff_noise_direction=shift_diff_noise_direction,
+        noise_input_binding_name=noise_input_binding_name,
     )
 
-    noise_stage = get_y_shift_noise(dataset_ref, noise_ref_name)
-
-    noise_ipca_stage = AdaptivePcaFitStage(
-        _num_components=None,
-        _num_features=num_features,
-        _data_variance_factor=2,
+    noise_eigendecomposition_stage = EigenDecompositionStage(
         _output_ref_name=noise_eigen_ref_name,
         _vectors_ref_name=f"{noise_eigen_ref_name}_vectors",
         _values_ref_name=f"{noise_eigen_ref_name}_values",
-        _covariance_ref_name=f"{noise_eigen_ref_name}_covariance",
-        _mean_ref_name=f"{noise_eigen_ref_name}_mean",
-        _dataset_plan_meta=noise_plan_meta,
-        _resolved_num_components_ref_name=f"{noise_eigen_ref_name}_resolved_num_components",
         default_executor="process",
-        input_binding=DataBinding(noise_ref_name),
-        input_plan_meta=noise_plan_meta,
+        input_binding=DataBinding(noise_covariance_ref_name),
+        input_plan_meta=SpectraListPlanMeta(
+            num_spectra=num_features,
+            spectrum_length=num_features,
+            dtype=np.dtype(np.float64),
+        ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
             bytes_per_scalar_in=1,
@@ -230,7 +558,7 @@ def get_mnf_pipeline(
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -243,7 +571,7 @@ def get_mnf_pipeline(
     input_mean_stage = SpectralMeanStage(
         _output_ref_name=input_mean_ref_name,
         _internal_total_ref_name=input_total_ref_name,
-        _dataset_ref=dataset_ref,
+        _meta_ref=dataset_ref,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
@@ -259,6 +587,7 @@ def get_mnf_pipeline(
         _num_features=num_features,
         _output_ref_name=input_covariance_ref_name,
         _internal_total_ref_name=f"{input_covariance_ref_name}_total",
+        _data_variance_factor=data_variance_factor,
         default_executor="process",
         input_plan_meta=dataset_plan_meta,
         resource_model=ResourceModel(
@@ -277,13 +606,13 @@ def get_mnf_pipeline(
         _output_ref_name=whitened_covariance_ref_name,
         _matrix_input_names=("matrix_ref_0", "matrix_ref_1", "matrix_ref_2"),
         _output_shape=(num_features, num_features),
-        _output_dtype=np.dtype(np.float32),
+        _output_dtype=np.dtype(np.float64),
         default_executor="process",
         input_binding=DataBinding(input_covariance_ref_name),
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -307,7 +636,7 @@ def get_mnf_pipeline(
         input_plan_meta=SpectraListPlanMeta(
             num_spectra=num_features,
             spectrum_length=num_features,
-            dtype=np.dtype(np.float32),
+            dtype=np.dtype(np.float64),
         ),
         resource_model=ResourceModel(
             fixed_overhead_bytes=0,
@@ -340,8 +669,8 @@ def get_mnf_pipeline(
 
     return AlgorithmPipeline(
         [
-            noise_stage,
-            noise_ipca_stage,
+            *noise_subpipeline_stages,
+            noise_eigendecomposition_stage,
             noise_whitening_stage,
             input_mean_stage,
             input_covariance_stage,
@@ -353,7 +682,18 @@ def get_mnf_pipeline(
 
 
 class MNFSemanticTask(QObject, SemanticTask):
-    result_ready = Signal(object)
+    # (reduced_data, eigenvalues) — second arg is the full whitened-noise
+    # eigenvalue spectrum, snapshotted in completion_callback before the
+    # ref it lived in goes out of scope.
+    result_ready = Signal(object, object)
+    # Emitted from _load_result_into_wiser; payload is an MNFRunRecord.
+    run_recorded = Signal(object)
+
+    # Allocation name that EigenDecompositionStage registers for the whitened
+    # eigenvalues, derived from `whitened_eigen_ref_name="mnf_whitened_eigen"`
+    # in get_mnf_pipeline.  Kept as a class constant so the binding lookup
+    # below isn't a magic string.
+    _WHITENED_EIGEN_VALUES_REF_NAME = "mnf_whitened_eigen_values"
 
     def __init__(
         self,
@@ -361,6 +701,7 @@ class MNFSemanticTask(QObject, SemanticTask):
         source_dataset: "RasterDataSet",
         input_ref: DataRef,
         num_components: int,
+        max_components_available: int,
         output_ref_name: str = "mnf_data",
     ):
         QObject.__init__(self)
@@ -368,7 +709,9 @@ class MNFSemanticTask(QObject, SemanticTask):
             self,
             priority_class=PriorityClass.BACKGROUND,
             input_ref=input_ref,
-            algorithm_pipeline=get_mnf_pipeline(input_ref, num_components, output_ref_name),
+            algorithm_pipeline=get_mnf_pipeline(
+                input_ref, num_components=num_components, output_ref_name=output_ref_name
+            ),
             task_title="Minimum Noise Fraction",
             task_variables={
                 "Num Components": num_components,
@@ -379,6 +722,8 @@ class MNFSemanticTask(QObject, SemanticTask):
         self._app_state = app_state
         self._source_dataset = source_dataset
         self._output_ref_name = output_ref_name
+        self._num_components_chosen = num_components
+        self._max_components_available = max_components_available
         self.result_ready.connect(self._load_result_into_wiser)
 
     def completion_callback(self, bindings: Dict[str, DataRef]) -> None:
@@ -391,10 +736,21 @@ class MNFSemanticTask(QObject, SemanticTask):
         height, width, bands = data_meta.shape
         output_region = DatasetRegionRef(y0=0, y1=height, x0=0, x1=width, b0=0, b1=bands)
         reduced_data, _ = storage_client.read_region(output_ref, output_region)
-        self.result_ready.emit(np.asarray(reduced_data))
 
-    @Slot(object)
-    def _load_result_into_wiser(self, reduced_data: object) -> None:
+        # Snapshot the full whitened-noise eigenvalue spectrum so the scree
+        # plot in the past-runs viewer survives after the underlying ref is
+        # released.  EigenDecompositionStage stores values descending, which
+        # is what the scree plot expects.
+        eigen_values_ref = bindings.get(self._WHITENED_EIGEN_VALUES_REF_NAME)
+        if eigen_values_ref is None:
+            raise KeyError(f"Missing MNF eigenvalues binding: {self._WHITENED_EIGEN_VALUES_REF_NAME}")
+        eigen_values_raw, _ = storage_client.read_data(eigen_values_ref)
+        eigenvalues = np.asarray(np.ma.getdata(eigen_values_raw), dtype=np.float64).ravel().copy()
+
+        self.result_ready.emit(np.asarray(reduced_data), eigenvalues)
+
+    @Slot(object, object)
+    def _load_result_into_wiser(self, reduced_data: object, eigenvalues: object) -> None:
         reduced_array = np.asarray(reduced_data)
         reduced_array_by_band = reduced_array.transpose(2, 0, 1)
 
@@ -409,6 +765,18 @@ class MNFSemanticTask(QObject, SemanticTask):
         reduced_dataset.copy_spatial_metadata(self._source_dataset.get_spatial_metadata())
         reduced_dataset.set_data_ignore_value(self._source_dataset.get_data_ignore_value())
         self._app_state.add_dataset(reduced_dataset, view_dataset=False)
+
+        self.run_recorded.emit(
+            MNFRunRecord(
+                run_id=self.id,
+                timestamp=datetime.datetime.now(),
+                input_dataset_id=self._source_dataset.get_id(),
+                input_dataset_name_snapshot=source_name,
+                num_components_chosen=self._num_components_chosen,
+                max_components_available=self._max_components_available,
+                eigenvalues=np.asarray(eigenvalues, dtype=np.float64)[: self._num_components_chosen],
+            )
+        )
 
 
 class MinimumNoiseFractionDialog(QDialog):
@@ -429,6 +797,7 @@ class MinimumNoiseFractionDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent=parent)
+        self.setModal(False)
         self._app_state = app_state
         self._app_services = app_services
         self._selected_dataset_id: Optional[int] = None
@@ -436,9 +805,87 @@ class MinimumNoiseFractionDialog(QDialog):
         self._ui = Ui_MNFDialog()
         self._ui.setupUi(self)
 
+        # Keep the component-count spin box in sync with whichever dataset is
+        # picked: max changes per dataset (depends on its dimensions), and we
+        # default to the max so the user can see the ceiling at a glance.
+        self._ui.comboBox.currentIndexChanged.connect(self._refresh_component_limits)
+
+        # Past-runs viewer is lazily created on first click and kept alive on
+        # this dialog so reopening it preserves scroll position / closed-runs
+        # toggle state.  The records themselves live on app_state.
+        self._past_runs_dialog: Optional[MNFHistoryDialog] = None
+        self._ui.btn_past_results.clicked.connect(self._on_view_past_runs)
+
+        # Keep the dataset combo box in sync with the application's dataset
+        # list while this dialog is open.  Without this the combo would only
+        # refresh on showEvent — datasets added/removed while the dialog is
+        # already up (it's non-modal) would be invisible to the user.
+        app_state.dataset_added.connect(self._on_datasets_changed)
+        app_state.dataset_removed.connect(self._on_datasets_changed)
+
+    def _on_datasets_changed(self, *_args) -> None:
+        # Preserve the currently selected dataset if it still exists; the
+        # sentinel "(no data)" item uses currentData() == -1, so treat
+        # anything < 0 as "no selection".
+        current_id = self._ui.comboBox.currentData()
+        preserve_id = current_id if (current_id is not None and int(current_id) >= 0) else None
+        self.show_mnf(dataset_id=preserve_id)
+
+    def _on_view_past_runs(self) -> None:
+        if self._past_runs_dialog is None:
+            self._past_runs_dialog = MNFHistoryDialog(
+                app_state=self._app_state,
+                manager=self._app_state.get_mnf_history(),
+                parent=self,
+            )
+        self._past_runs_dialog.show()
+        self._past_runs_dialog.raise_()
+        self._past_runs_dialog.activateWindow()
+
+    @staticmethod
+    def _compute_max_components(dataset) -> int:
+        """Maximum components the MNF pipeline will accept for this dataset.
+
+        Matches the ceiling enforced inside ``get_mnf_pipeline``: the pipeline
+        only accepts ``num_components in [1, num_features]`` where
+        ``num_features`` is the count of *good* bands (see mnf.py:242-250).
+        Also bounded by the shift-difference noise pixel count so a small
+        image can't request more components than there are noise samples.
+        """
+        bad_bands = dataset.get_bad_bands()
+        if bad_bands is not None:
+            num_features = int(np.sum(bad_bands))
+        else:
+            num_features = dataset.num_bands()
+        height = dataset.get_height()
+        width = dataset.get_width()
+        data_pixels = height * width
+        noise_pixels = max(0, height - 1) * width
+        return min(num_features, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+
+    def _refresh_component_limits(self) -> None:
+        """Set spin-box min/max/value based on the currently selected dataset."""
+        sbox = self._ui.sbox_component
+        sbox.setMinimum(1)
+        dataset = self.get_selected_dataset()
+        if dataset is None:
+            # No dataset chosen yet; leave a generous ceiling and a sane floor
+            # so the spin box is interactable but won't accept an invalid value
+            # (perform_mnf will recompute the true cap on submit).
+            sbox.setMaximum(10_000)
+            sbox.setValue(1)
+            return
+        max_components = max(1, self._compute_max_components(dataset))
+        sbox.setMaximum(max_components)
+        sbox.setValue(max_components)
+
     def show_mnf(self, dataset_id: Optional[int] = None) -> None:
         cbox_dataset = self._ui.comboBox
         datasets = self._app_state.get_datasets()
+        # Block signals while repopulating so currentIndexChanged doesn't fire
+        # for every intermediate addItem — we call _refresh_component_limits
+        # once at the end.
+        cbox_dataset.blockSignals(True)
         cbox_dataset.clear()
         cbox_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
@@ -452,11 +899,9 @@ class MinimumNoiseFractionDialog(QDialog):
                 cbox_dataset.setCurrentIndex(0)
         else:
             cbox_dataset.setCurrentIndex(0)
+        cbox_dataset.blockSignals(False)
 
-        self._ui.sbox_component.setMinimum(1)
-        self._ui.sbox_component.setMaximum(10_000)
-        if self._ui.sbox_component.value() < 1:
-            self._ui.sbox_component.setValue(1)
+        self._refresh_component_limits()
 
     def showEvent(self, event):
         self.show_mnf(dataset_id=self._selected_dataset_id)
@@ -491,12 +936,10 @@ class MinimumNoiseFractionDialog(QDialog):
         dataset_ref = self._app_services.storage_service.register_external(
             ExternalRasterHandle(dataset_obj=selected_dataset)
         )
-        storage_client = get_process_storage_client()
-        data_meta = storage_client.get_meta(dataset_ref)
-        height, width, bands = data_meta.shape
-        data_pixels = height * width
-        noise_pixels = max(0, height - 1) * width
-        max_components = min(bands, max(0, data_pixels - 1), max(0, noise_pixels - 1))
+        # Cap to the pipeline's accepted range (good-band count + noise-pixel
+        # ceiling) using the same helper that drives the spin box, so the
+        # dialog's display and the submission agree.
+        max_components = self._compute_max_components(selected_dataset)
         num_components = min(self.get_num_components(), max_components)
         if num_components <= 0:
             raise ValueError("No valid MNF component count for selected dataset")
@@ -506,7 +949,11 @@ class MinimumNoiseFractionDialog(QDialog):
             source_dataset=selected_dataset,
             input_ref=dataset_ref,
             num_components=num_components,
+            max_components_available=max_components,
         )
+        # Record the run in the application-level history once the task
+        # finishes loading its result into the app (mirrors linear_unmixing.py:393).
+        mnf_task.run_recorded.connect(self._app_state.get_mnf_history().add_record)
 
         task_plan = self._app_services.task_planner.plan_semantic_task(mnf_task)
         future = self._app_services.task_manager.register_and_submit_task_plan(

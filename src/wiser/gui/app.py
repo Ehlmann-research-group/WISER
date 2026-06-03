@@ -21,7 +21,9 @@ from wiser.bandmath.utils import (
 from wiser.config import FLAGS
 from wiser.gui.app_services import AppServices
 from wiser.gui.kmeans import KMeansDialog
+from wiser.gui.linear_unmixing import LinearUnmixingDialog
 from wiser.gui.mnf import MinimumNoiseFractionDialog
+from wiser.gui.mtmf import MTMFDialog
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
 from wiser.gui.sav_golay import SavGolayPlugin
@@ -377,6 +379,15 @@ class DataVisualizerApp(QMainWindow):
         act = submenu.addAction(self.tr("Minimum Noise Fraction"))
         act.triggered.connect(self.show_mnf_dialog)
 
+        act = submenu.addAction(self.tr("Mixture Tuned Matched Filter"))
+        act.triggered.connect(self.show_mtmf_dialog)
+
+        act = submenu.addAction(self.tr("Principal Component Analysis"))
+        act.triggered.connect(self.show_pca_dialog)
+
+        act = submenu.addAction(self.tr("Linear Unmixing"))
+        act.triggered.connect(self.show_linear_unmixing_dialog)
+
         if FLAGS.kmeans:
             act = submenu.addAction(self.tr("K-means"))
             act.triggered.connect(self.show_kmeans_dialog)
@@ -443,7 +454,6 @@ class DataVisualizerApp(QMainWindow):
         # cool plugins are made)
         permanent_plugins = [
             ("ContinuumRemovalPlugin", ContinuumRemovalPlugin()),
-            ("PCAPlugin", PCAPlugin()),
             ("SavGolayPlugin", SavGolayPlugin()),
         ]
         for pc_name, plugin_class in permanent_plugins:
@@ -994,15 +1004,48 @@ class DataVisualizerApp(QMainWindow):
 
     def show_mnf_dialog(self):
         dlg = MinimumNoiseFractionDialog(self._app_state, self._app_services, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.select_dataset(None)
-        if dlg.exec_() == QDialog.Accepted:
-            pass
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
+    def show_mtmf_dialog(self):
+        self._mtmf_dialog = MTMFDialog(self._app_state, self._app_services, parent=self)
+        self._mtmf_dialog.show()
+        self._mtmf_dialog.raise_()
+        self._mtmf_dialog.activateWindow()
+
+    def show_pca_dialog(self):
+        rasterview = self._main_view.get_rasterview()
+        dataset = rasterview.get_raster_data() if rasterview is not None else None
+        if dataset is None:
+            return
+        self._pca_plugin = PCAPlugin()
+        self._pca_plugin.show_pca(
+            context={
+                "dataset": dataset,
+                "wiser": self._app_state,
+                "app_services": self._app_services,
+            }
+        )
 
     def show_kmeans_dialog(self):
-        dlg = KMeansDialog(self._app_state, self._app_services, parent=self)
-        dlg.select_dataset(None)
-        if dlg.exec_() == QDialog.Accepted:
-            pass
+        self._kmeans_dialog = KMeansDialog(self._app_state, self._app_services, parent=self)
+        self._kmeans_dialog.select_dataset(None)
+        self._kmeans_dialog.show()
+        self._kmeans_dialog.raise_()
+        self._kmeans_dialog.activateWindow()
+
+    def show_linear_unmixing_dialog(self):
+        if not hasattr(self, "_linear_unmixing_dialog") or self._linear_unmixing_dialog is None:
+            self._linear_unmixing_dialog = LinearUnmixingDialog(
+                self._app_state, self._app_services, parent=self
+            )
+            self._linear_unmixing_dialog.select_dataset(None)
+        self._linear_unmixing_dialog.show()
+        self._linear_unmixing_dialog.raise_()
+        self._linear_unmixing_dialog.activateWindow()
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:

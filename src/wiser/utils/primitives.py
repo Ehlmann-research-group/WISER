@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field as dataclass_field
 from abc import ABC
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Any, Dict, Literal, Optional, Tuple, Iterable, Protocol, TYPE_CHECKING, ClassVar
 import tempfile
 from pathlib import Path
@@ -16,6 +16,27 @@ if TYPE_CHECKING:
     from wiser.raster.spectral_library import SpectralLibrary
     from wiser.raster.spectrum import Spectrum
     from wiser.raster.serializable import SerializedForm
+
+
+class NoiseMethodType(IntEnum):
+    """How noise samples for the MNF/MTMF covariance pipeline are obtained.
+
+    - ``ROI_BASED``: noise samples come from the deduplicated pixels of a
+      :class:`RegionOfInterest` over a source dataset (registered as an
+      ``ExternalRoiHandle`` / ``roi_proxy`` ref).  Samples are raw spectra, so
+      ``data_variance_factor`` is forced to ``1``.
+    - ``DARK_IMAGE_BASED``: noise samples come from a separate "dark image"
+      :class:`RasterDataSet`.  Samples are raw noise, so the natural
+      ``data_variance_factor`` is also ``1`` (caller-controlled).
+    - ``IMAGE_CUBE_BASED``: noise samples are computed on-the-fly as
+      first-order spatial shift differences of the input cube.  Differences
+      have ~2x the variance of the underlying noise, so the natural
+      ``data_variance_factor`` is ``2`` (caller-controlled).
+    """
+
+    ROI_BASED = 0
+    DARK_IMAGE_BASED = 1
+    IMAGE_CUBE_BASED = 2
 
 
 class PriorityClass(Enum):
@@ -74,9 +95,11 @@ ExternalParamsDriver = Literal[
     "envi_sli",
     "memmap",
     "zarr",
+    "roi_proxy",
 ]
 
 if TYPE_CHECKING:
+    from wiser.raster.roi import RegionOfInterest
     from wiser.utils.task_system import BasePlanMeta
 
 DEFAULT_FLOAT_TYPE = np.float64
@@ -125,20 +148,54 @@ def _derive_region_meta(meta: DataMeta, region: DataRegion) -> RegionMeta:
 
 
 class ExternalHandle(Protocol):
-    """Read-only adapter for externally loaded data objects."""
+    """
+    Read-only adapter that bridges an externally owned data object (e.g., an
+    already-open RasterDataSet or SpectralLibrary) into the StorageService
+    ref-tracking system.
+
+    Callers pass a concrete ExternalHandle implementation to
+    StorageService.register_external, which returns a DataRef that the rest of
+    the pipeline can treat like any other managed ref. The StorageService
+    interacts with the underlying object exclusively through this protocol, so
+    it never needs to know the concrete type of the external object.
+
+    Concrete implementations live in this module:
+        - ExternalRasterHandle  - wraps a RasterDataSet
+        - ExternalSpectraListHandle - wraps a SpectralLibrary / ENVISpectralLibrary
+        - ExternalSpectrumHandle - wraps a single Spectrum
+    """
 
     kind: InputKind
 
     def read_region(self, region: DataRegion) -> np.ndarray:
+        """
+        Read and return a sub-region of the underlying data as a NumPy array.
+
+        Called by StorageService when it needs to materialize external data
+        into shared memory (e.g., to hand it off to a worker process). The
+        returned array layout must match the StorageService convention for the
+        data kind: datasets use [y, x, band] axis order.
+        """
         ...
 
     def get_meta(self) -> DataMeta:
+        """
+        Return a DataMeta snapshot describing the full extent and properties of
+        the underlying data (shape, dtype, wavelengths, CRS, etc.).
+        """
         ...
 
     def get_region_meta(self, region: DataRegion) -> RegionMeta:
+        """
+        Return a RegionMeta for a specific sub-region of the underlying data.
+        """
         ...
 
     def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        """
+        Return True if ``other`` refers to the same underlying external object
+        as this handle.
+        """
         ...
 
     def get_serialized_object_form(self) -> "SerializedForm":
@@ -316,6 +373,188 @@ class ExternalSpectralLibraryHandle:
         )
 
 
+@dataclass(eq=False)
+class ExternalRoiHandle:
+    """
+    External handle that exposes the pixels of a :class:`RegionOfInterest` as a
+    ``(N, b)`` spectra list backed by a source :class:`RasterDataSet`.
+
+    On construction the ROI's pixel set is rasterised into a binary grid and
+    decomposed into a minimal set of axis-aligned rectangles (greedy RLE).
+    These rectangles are stored in absolute image coordinates alongside a
+    prefix-sum array that maps a contiguous spectral-batch index range
+    ``[i0, i1)`` onto the covering rectangles in O(log R) time.
+
+    **Index space**: spectra are numbered in rectangle-traversal order (each
+    rectangle's pixels enumerated in row-major / y-then-x order).  The order
+    is deterministic but does NOT match a global (y, x) pixel sort when
+    rectangles span multiple rows and are interleaved.  For mean/covariance
+    computation this is irrelevant because the statistics are order-independent.
+    """
+
+    roi: "RegionOfInterest"
+    source_dataset: "RasterDataSet"
+    kind: InputKind = "spectra_list"
+
+    # Computed in __post_init__ — excluded from repr/comparison to avoid
+    # expensive array equality checks.
+    #
+    # _rects: shape (R, 4), dtype intp
+    #   Each row is one axis-aligned rectangle in absolute image coordinates:
+    #     col 0 — x_start  (left edge, inclusive)
+    #     col 1 — x_end    (right edge, inclusive)
+    #     col 2 — y_start  (top edge, inclusive)
+    #     col 3 — y_end    (bottom edge, inclusive)
+    _rects: np.ndarray = dataclass_field(init=False, repr=False, default=None)
+    # _prefix_sums: shape (R+1,), dtype intp
+    #   Cumulative pixel counts across rectangles.
+    #   _prefix_sums[r]   = index of the first pixel belonging to rect r.
+    #   _prefix_sums[r+1] = index one past the last pixel of rect r.
+    #   Pixel count of rect r = _prefix_sums[r+1] - _prefix_sums[r]
+    #   _prefix_sums[-1]  = N, the total number of pixels in the ROI.
+    #   Used with np.searchsorted for O(log R) batch-to-rectangle lookup.
+    _prefix_sums: np.ndarray = dataclass_field(init=False, repr=False, default=None)
+
+    def __post_init__(self) -> None:
+        from wiser.raster.roi_utils import (
+            create_raster_from_roi,
+            raster_to_combined_rectangles_x_axis,
+            raster_to_combined_rectangles_y_axis,
+        )
+
+        pixels = self.roi.get_all_pixels()  # Set[Tuple[x, y]]
+
+        if not pixels:
+            self._rects = np.empty((0, 4), dtype=np.intp)
+            self._prefix_sums = np.array([0], dtype=np.intp)
+            return
+
+        bbox = self.roi.get_bounding_box()
+        raster = create_raster_from_roi(self.roi)
+
+        rects_x = raster_to_combined_rectangles_x_axis(raster)
+        rects_y = raster_to_combined_rectangles_y_axis(raster)
+        rects_local = rects_x if len(rects_x) <= len(rects_y) else rects_y
+
+        # Convert local raster coordinates to absolute image coordinates.
+        rects_abs = rects_local.copy().astype(np.intp)
+        rects_abs[:, :2] += bbox.left()  # x_start, x_end
+        rects_abs[:, 2:] += bbox.top()  # y_start, y_end
+
+        dx = rects_abs[:, 1] - rects_abs[:, 0] + 1
+        dy = rects_abs[:, 3] - rects_abs[:, 2] + 1
+        pixel_counts = (dx * dy).astype(np.intp)
+
+        self._rects = rects_abs
+        self._prefix_sums = np.concatenate([[0], np.cumsum(pixel_counts)]).astype(np.intp)
+
+    # ------------------------------------------------------------------
+    # ExternalHandle protocol
+    # ------------------------------------------------------------------
+
+    def read_region(self, region: "SpectraBatchRef") -> np.ndarray:  # type: ignore[override]
+        """
+        Read spectra ``[i0, i1)`` from the source dataset using the
+        precomputed rectangle decomposition.
+
+        This method satisfies the :class:`ExternalHandle` protocol and is used
+        by the storage service when it materialises the handle into RAM-backed
+        shared memory.  In normal pipeline operation the ``roi_proxy`` driver
+        path in the storage *client* calls the same rectangle-read logic
+        directly (see ``storage_client._read_external_region``).
+        """
+        if not isinstance(region, SpectraBatchRef):
+            raise TypeError(f"ExternalRoiHandle.read_region requires SpectraBatchRef, got {type(region)}")
+
+        i0, i1 = int(region.i0), int(region.i1)
+        n_out = i1 - i0
+        if n_out <= 0:
+            return np.empty((0, region.length), dtype=np.float64)
+
+        total = int(self._prefix_sums[-1])
+        if i0 < 0 or i1 > total:
+            raise IndexError(f"Batch [{i0}, {i1}) is out of range for ROI with {total} pixels")
+
+        # Binary-search the prefix sums to find the first and last covering rects.
+        first_rect = int(np.searchsorted(self._prefix_sums, i0, side="right")) - 1
+        last_rect = int(np.searchsorted(self._prefix_sums, i1 - 1, side="right")) - 1
+
+        result_chunks: list = []
+        for r in range(first_rect, last_rect + 1):
+            rect = self._rects[r]
+            abs_x_start = int(rect[0])
+            abs_x_end = int(rect[1])
+            abs_y_start = int(rect[2])
+            abs_y_end = int(rect[3])
+            dx = abs_x_end - abs_x_start + 1
+            dy = abs_y_end - abs_y_start + 1
+
+            # GDAL read: returns (b, dy, dx)
+            arr_byx = self.source_dataset.get_all_bands_at_rect(
+                abs_x_start, abs_y_start, dx, dy, filter_bad_values=False
+            )
+            arr_byx = np.asarray(arr_byx)
+            if arr_byx.ndim == 2:
+                arr_byx = arr_byx[np.newaxis, :, :]  # guard for single-band datasets
+
+            # (b, dy, dx) → (dy, dx, b) → (dy*dx, b) in row-major order
+            arr_flat = arr_byx.transpose(1, 2, 0).reshape(-1, arr_byx.shape[0])
+
+            rect_start = int(self._prefix_sums[r])
+            rect_end = int(self._prefix_sums[r + 1])
+            local_start = max(i0, rect_start) - rect_start
+            local_end = min(i1, rect_end) - rect_start
+
+            result_chunks.append(arr_flat[local_start:local_end, :])
+
+        if not result_chunks:
+            return np.empty((0, region.length), dtype=np.float64)
+        result = np.vstack(result_chunks)
+        if result.shape[1] != region.length:
+            raise ValueError(
+                f"ExternalRoiHandle band mismatch: expected {region.length}, got {result.shape[1]}"
+            )
+        return result
+
+    def get_meta(self) -> "DataMeta":
+        n_pixels = int(self._prefix_sums[-1])
+        num_bands = self.source_dataset.num_bands()
+        wavelengths, wavelength_units = _to_wavelength_array_and_unit(self.source_dataset.get_wavelengths())
+        nodata = self.source_dataset.get_data_ignore_value()
+        bad_bands_raw = self.source_dataset.get_bad_bands()
+        return DataMeta(
+            kind="spectra_list",
+            shape=(n_pixels, num_bands),
+            elem_type=_safe_np_dtype(self.source_dataset.get_elem_type()),
+            wavelengths=wavelengths,
+            wavelength_units=wavelength_units or self.source_dataset.get_band_unit(),
+            nodata=nodata,
+            bad_bands=np.asarray(bad_bands_raw) if bad_bands_raw is not None else None,
+        )
+
+    def get_region_meta(self, region: "DataRegion") -> "RegionMeta":
+        return _derive_region_meta(self.get_meta(), region)
+
+    def is_same_external_handle(self, other: "ExternalHandle") -> bool:
+        if not isinstance(other, ExternalRoiHandle):
+            return False
+        roi_id = self.roi.get_id()
+        other_roi_id = other.roi.get_id()
+        if roi_id is None or other_roi_id is None:
+            return False
+        ds_id = self.source_dataset.get_id()
+        other_ds_id = other.source_dataset.get_id()
+        if ds_id is None or other_ds_id is None:
+            return False
+        return roi_id == other_roi_id and ds_id == other_ds_id
+
+    def get_serialized_object_form(self) -> "SerializedForm":
+        raise NotImplementedError(
+            "ExternalRoiHandle does not support serialized object transfer; "
+            "the roi_proxy client path reconstructs the source dataset separately."
+        )
+
+
 @dataclass(frozen=True)
 class BasePlanMeta:
     """Minimal, cheap-to-compute planning metadata needed to chunk data"""
@@ -377,7 +616,29 @@ class SpectraListPlanMeta(BasePlanMeta):
 @dataclass(frozen=True)
 class ExternalParams:
     """
-    Reconstruction contract for external disk-backed refs.
+    Reconstruction contract for an externally registered, disk-backed data ref.
+
+    When a caller registers an external object (e.g., an open RasterDataSet or
+    spectral library) with the StorageService via register_external, the service
+    tries to derive an ExternalParams from the handle. This descriptor is then
+    attached to the resulting DataRef so that any code that later holds only a
+    DataRef—such as a worker process receiving a serialized ref over IPC, or a
+    storage client that needs to re-open the backing file—can reconstruct the
+    full object without a live Python reference to the original handle.
+
+    Attributes:
+        family: Broad category of data (``"dataset"``, ``"spectra_list"``, or
+            ``"array"``), mirroring the DataRef kind hierarchy.
+        driver: The specific file format / reader to use when reopening the
+            data. Each driver string corresponds to a concrete loader (e.g.,
+            ``"envi_gdal"`` for ENVI binary files read via GDAL, ``"netcdf_gdal"``
+            for NetCDF via GDAL, ``"envi_sli"`` for ENVI spectral libraries).
+        kwargs: Driver-specific keyword arguments forwarded verbatim to the
+            loader. At minimum this contains ``"path"``; some drivers include
+            additional keys such as ``"subdataset_name"`` for NetCDF.
+
+    An ExternalParams of None on a DataRef means the ref cannot be
+    reconstructed from disk and is treated as having no disk materialization.
     """
 
     family: ExternalParamsFamily
