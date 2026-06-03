@@ -216,6 +216,27 @@ def create_pca_metadata_widget(pca, dataset, parent=None) -> QWidget:
     return PcaMetadataWidget(pca, dataset, parent)
 
 
+def finite_unmasked_row_mask(
+    flattened_data: np.ndarray,
+    flattened_mask: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """Boolean ``[N]`` selecting usable rows of a ``[N][bands]`` spectra list.
+
+    A row is usable iff every band is finite (no NaN/Inf) and — when a mask is
+    supplied — every band is unmasked. A single bad feature invalidates the whole
+    spectrum, so callers (PCA fit, MNF mean/covariance) drop the entire row.
+
+    This is the single source of truth for "is this spectrum analysis-ready",
+    shared by :func:`compute_PCA_on_image` and the pipeline's
+    ``_flatten_valid_dataset_rows`` so PCA and MNF clean identically.
+    """
+    data = np.asarray(flattened_data)
+    valid = np.all(np.isfinite(data), axis=1)
+    if flattened_mask is not None:
+        valid &= ~np.any(np.asarray(flattened_mask, dtype=bool), axis=1)
+    return valid
+
+
 def compute_PCA_on_image(
     image_arr: Union[np.ndarray, np.ma.masked_array],
     num_components: int,
@@ -268,14 +289,17 @@ def compute_PCA_on_image(
     # [y][x][2] --> [y*x][2]
     coords = coords.reshape((coords.shape[0] * coords.shape[1], coords.shape[2]))
 
-    if isinstance(image_arr, np.ma.MaskedArray):
-        # It is possible for the masked array to not have a mask
-        if image_arr.mask is not np.ma.nomask:
-            mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
-            image_arr = image_arr.data[mask_1d, :]
-            coords = coords[mask_1d, :]
-            if not np.isfinite(image_arr).all():
-                raise ValueError("Array contains a non-numeric value after cleaning!")
+    # Drop any spectrum that is masked (nodata / bad-band sentinel) or holds a
+    # non-finite value (NaN/Inf) in any kept band before fitting. sklearn's PCA
+    # rejects NaN/Inf outright, and a single bad feature makes the whole spectrum
+    # unusable.
+    row_data = np.asarray(np.ma.getdata(image_arr))
+    row_mask = np.ma.getmaskarray(image_arr) if isinstance(image_arr, np.ma.MaskedArray) else None
+    valid_rows = finite_unmasked_row_mask(row_data, row_mask)
+    image_arr = row_data[valid_rows, :]
+    coords = coords[valid_rows, :]
+    if image_arr.shape[0] == 0:
+        raise ValueError("No valid spectra remain for PCA after removing masked/non-finite pixels")
 
     pca = PCA(n_components=num_components)
 
