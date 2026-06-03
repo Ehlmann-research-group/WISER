@@ -2433,8 +2433,6 @@ def _flatten_valid_rows(
     (``[i][b]``).  ROI-backed reads via the ``roi_proxy`` driver land here as
     the latter shape.
 
-    The 3-D path preserves the previous ``_flatten_valid_dataset_rows``
-    behaviour byte-for-byte.
     """
     data_array = np.ma.array(data, copy=False)
     data_raw = np.asarray(np.ma.getdata(data_array), dtype=np.float64)
@@ -2443,21 +2441,23 @@ def _flatten_valid_rows(
     if data_raw.ndim == 3:
         # [y][x][b] dataset tile.
         band_count = data_raw.shape[2]
+        flat = data_raw.reshape(-1, band_count)
+        mask_flat = data_mask.reshape(-1, band_count)
     elif data_raw.ndim == 2:
         # [i][b] spectra-list tile (e.g., roi_proxy batch).
         band_count = data_raw.shape[1]
+        flat = data_raw
+        mask_flat = data_mask
     else:
         raise ValueError(f"Expected tile shape [y][x][b] or [i][b], got {data_raw.shape}")
 
     good_band_mask = _good_band_mask_for_region_meta(data_meta, band_count)
-    filtered_data = data_raw[:, :, good_band_mask]
-    filtered_mask = data_mask[:, :, good_band_mask]
-    flattened = filtered_data.reshape(-1, filtered_data.shape[2])
-    flattened_mask = filtered_mask.reshape(-1, filtered_mask.shape[2])
+    flattened_data = flat[:, good_band_mask]
+    flattened_mask = mask_flat[:, good_band_mask]
     # Drop any pixel whose surviving bands still contain masked, NaN, or Inf values.
     # Shared with compute_PCA_on_image so PCA and MNF apply identical row validity.
-    valid_rows = finite_unmasked_row_mask(flattened, flattened_mask)
-    return flattened[valid_rows]
+    valid_rows = finite_unmasked_row_mask(flattened_data, flattened_mask)
+    return flattened_data[valid_rows]
 
 
 def count_valid_dataset_pixels(dataset_ref: DataRef) -> int:
