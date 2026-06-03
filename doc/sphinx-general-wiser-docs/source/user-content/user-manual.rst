@@ -26,6 +26,8 @@ What's in This Manual
   toolbars, spectral plot, and display controls
 - :doc:`Working with Data <working-with-data>` — loading files, navigating
   bands, ROIs, analysis tools, and exporting results
+- :doc:`Data Analysis Tools <data-analysis-tools/data-analysis-tools>` —
+  transforming, classifying, detecting, unmixing, and visualizing imagery
 - :doc:`Spatial Tools <spatial-tools>` — georeferencing and coordinate system
   management
 
@@ -34,5 +36,6 @@ What's in This Manual
 
    interface-overview
    working-with-data
+   data-analysis-tools/data-analysis-tools
    spatial-tools
 
