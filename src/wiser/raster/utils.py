@@ -10,6 +10,7 @@ from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
+    from wiser.raster.spectrum import Spectrum
 
 from PySide2.QtWidgets import (
     QWidget,
@@ -612,6 +613,32 @@ def get_band_values(input_bands: List[u.Quantity], to_unit: Optional[u.Unit] = N
         to_unit = input_bands[0].unit
 
     return [convert_spectral(v, to_unit).value for v in input_bands]
+
+
+def convert_spectrum_wavelengths(spectrum: "Spectrum", to_unit: u.Unit) -> np.ndarray:
+    """Return a spectrum's per-band wavelengths as a float array in ``to_unit``.
+
+    Conversion goes through :func:`convert_spectral`, which applies spectral
+    equivalencies, so wavelength, frequency, and wavenumber grids all convert
+    correctly.  For a bare list of band wavelengths (e.g. a dataset's grid),
+    call :func:`get_band_values` directly.
+
+    Args:
+        spectrum: The :class:`~wiser.raster.spectrum.Spectrum` to read
+            wavelengths from.
+        to_unit: The astropy unit to express the wavelengths in.
+
+    Returns:
+        A 1-D ``float64`` array of the per-band wavelength values in ``to_unit``.
+
+    Raises:
+        ValueError: If ``spectrum`` has no wavelengths.
+        astropy.units.UnitConversionError: If the wavelengths cannot be
+            converted to ``to_unit``.
+    """
+    if not spectrum.has_wavelengths():
+        raise ValueError("Spectrum has no wavelengths to convert.")
+    return np.asarray(get_band_values(spectrum.get_wavelengths(), to_unit), dtype=np.float64)
 
 
 def set_band(arr: np.ndarray, band_index: int, value) -> None:
