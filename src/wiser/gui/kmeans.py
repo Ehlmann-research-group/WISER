@@ -5,6 +5,7 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
+from astropy import units as u
 from sklearn.cluster import KMeans as SklearnKMeans
 from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtGui import QIntValidator, QDoubleValidator
@@ -51,6 +52,7 @@ from wiser.utils.task_system import (
 from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
+from wiser.raster.utils import convert_spectrum_wavelengths, get_band_values
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
@@ -859,6 +861,112 @@ class KMeansDialog(QDialog):
             return None
         return self._app_state.get_dataset(int(dataset_id))
 
+    def _collect_manual_init_spectra(self, dataset, k: int) -> List[np.ndarray]:
+        """Return the staged manual-init centroids as full-band arrays.
+
+        Re-validates the table against this run (the add-time filter only checks
+        band counts when a dataset was selected, and the selection or table may
+        have changed since): the number of spectra must equal ``k`` because
+        scikit-learn requires ``init.shape[0] == n_clusters``, and every spectrum
+        must match the dataset's band count because ``_run_kmeans`` treats each
+        as a full-band centroid.  When the dataset carries wavelengths, each
+        spectrum must also sit on the dataset's exact wavelength grid once its
+        own wavelengths are cast into the dataset's units (see
+        :meth:`_validate_spectra_on_dataset_grid`); when it doesn't, the user is
+        warned and bands are matched positionally.
+
+        Raises:
+            ValueError: If the count differs from ``k``, a band count mismatches,
+                or a spectrum is off the dataset's wavelength grid.  Surfaced to
+                the user as a warning by :meth:`accept`.
+            KeyError: If a staged collected spectrum/library has since been
+                removed from app state (propagated from ``collect_spectra``).
+        """
+        specs = self._spectra_table.collect_spectra()
+        if len(specs) != k:
+            raise ValueError(
+                self.tr(
+                    "Manual initialization requires exactly k={0} spectra, but {1} are staged. "
+                    "Add or remove spectra so the count matches k."
+                ).format(k, len(specs))
+            )
+
+        expected_bands = dataset.num_bands()
+        mismatched = [s for s in specs if s.num_bands() != expected_bands]
+        if mismatched:
+            details = "\n".join(
+                self.tr("• {0}: {1} bands").format(s.get_name() or self.tr("<unnamed>"), s.num_bands())
+                for s in mismatched
+            )
+            raise ValueError(
+                self.tr(
+                    "These manual spectra don't match the input dataset's band count " "({0} bands):\n\n{1}"
+                ).format(expected_bands, details)
+            )
+
+        # Wavelength-unit handling: when the dataset carries wavelengths, each
+        # manual spectrum must already sit on the dataset's grid once its own
+        # wavelengths are cast into the dataset's units (no interpolation — we
+        # never silently alter centroid values).
+        if dataset.has_wavelengths():
+            self._validate_spectra_on_dataset_grid(dataset, specs)
+        else:
+            QMessageBox.warning(
+                self,
+                self.tr("K-Means"),
+                self.tr(
+                    "The input dataset has no wavelength units, so K-Means will match the "
+                    "manual spectra to bands by position without casting units."
+                ),
+            )
+
+        return [np.asarray(s.get_spectrum(), dtype=np.float32) for s in specs]
+
+    def _validate_spectra_on_dataset_grid(self, dataset, specs: List[Spectrum]) -> None:
+        """Require each manual spectrum to lie on the dataset's exact wavelength grid.
+
+        Each spectrum's wavelengths are converted into the dataset's units and
+        compared element-wise against the dataset's grid (band counts are already
+        known to match).  Spectra with no wavelengths, units that can't convert,
+        or a differing grid are collected and reported together in one
+        ``ValueError`` (surfaced as a warning by :meth:`accept`).  Nothing is
+        resampled — centroid values are used exactly as entered.
+        """
+        target_unit = dataset.get_wavelength_units()
+        target_wvls = np.asarray(get_band_values(dataset.get_wavelengths(), target_unit), dtype=np.float64)
+
+        problems = []  # list[tuple[Spectrum, str]]
+        for s in specs:
+            try:
+                spec_wvls = convert_spectrum_wavelengths(s, target_unit)
+            except ValueError:
+                problems.append((s, self.tr("has no wavelengths to verify against the dataset's grid")))
+                continue
+            except u.UnitConversionError:
+                problems.append(
+                    (
+                        s,
+                        self.tr("wavelength units are not convertible to the dataset's units ({0})").format(
+                            target_unit
+                        ),
+                    )
+                )
+                continue
+            if not np.allclose(spec_wvls, target_wvls, rtol=0.0, atol=1e-9):
+                problems.append((s, self.tr("wavelengths do not match the dataset's grid")))
+
+        if problems:
+            details = "\n".join(
+                self.tr("• {0}: {1}").format(s.get_name() or self.tr("<unnamed>"), reason)
+                for s, reason in problems
+            )
+            raise ValueError(
+                self.tr(
+                    "These manual spectra are not on the input dataset's wavelength grid "
+                    "(in {0}). Re-collect or re-import them so they match the dataset:\n\n{1}"
+                ).format(target_unit, details)
+            )
+
     def perform_kmeans(self):
         selected_dataset = self.get_selected_dataset()
         if selected_dataset is None:
@@ -868,15 +976,25 @@ class KMeansDialog(QDialog):
         if k is None:
             raise ValueError("K (number of clusters) must be specified")
 
+        init_method = self.get_init_method()
+        # For manual init, gather the staged spectra as full-band centroids and
+        # validate them against this run. Other init methods don't use them.
+        manual_spectra = (
+            self._collect_manual_init_spectra(selected_dataset, k)
+            if init_method == KMeansInitMethod.MANUAL
+            else None
+        )
+
         params = KMeansParameters(
             dataset_id=selected_dataset.get_id(),
             k=k,
-            init_method=self.get_init_method(),
+            init_method=init_method,
             num_inits=self.get_num_inits(),
             max_iter=self.get_max_iter(),
             tol=self.get_tol(),
             seed=self.get_seed(),
             algorithm=self.get_algorithm(),
+            _manual_spectra=manual_spectra,
         )
 
         dataset_ref = self._app_services.storage_service.register_external(
@@ -897,5 +1015,9 @@ class KMeansDialog(QDialog):
         return future
 
     def accept(self):
-        self.perform_kmeans()
-        QMessageBox.information(self, "K-Means", "K-Means is running in the background.")
+        try:
+            self.perform_kmeans()
+        except (ValueError, KeyError) as exc:
+            QMessageBox.warning(self, self.tr("K-Means"), str(exc))
+            return
+        QMessageBox.information(self, self.tr("K-Means"), self.tr("K-Means is running in the background."))
