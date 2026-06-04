@@ -5,6 +5,7 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+from astropy import units as u
 from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtWidgets import (
     QAbstractItemView,
@@ -30,6 +31,7 @@ from wiser.gui.util import GenericMultiSelectDialog, build_trash_button
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
+from wiser.raster.utils import convert_spectrum_wavelengths, get_band_values
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -369,12 +371,94 @@ class LinearUnmixingDialog(QDialog):
             spectra.append(spec)
         return spectra
 
+    def _validate_endmembers_against_dataset(self, dataset, spectra: List[Spectrum]) -> None:
+        """Validate endmembers against the input dataset before launching.
+
+        The backend assumes every endmember spans the dataset's full band count
+        and sits on its wavelength grid (it reads wavelengths/bad-bands from the
+        first spectrum only).  This check enforces that up front so a mismatch
+        surfaces as a friendly warning rather than a worker-process error:
+
+        * **Band count** — each endmember's ``num_bands()`` must equal the
+          dataset's.
+        * **Wavelength grid** — when the dataset exposes a wavelength unit, each
+          endmember's wavelengths are cast into that unit and must match the
+          dataset's grid element-wise (no resampling — values are used as-is).
+          When the dataset has no usable wavelength unit, the wavelength check is
+          skipped (with a warning) and bands are matched positionally.
+
+        Raises:
+            ValueError: If any endmember's band count or wavelength grid does not
+                match the dataset.  Surfaced as a warning by :meth:`accept`.
+        """
+        expected_bands = dataset.num_bands()
+        mismatched = [s for s in spectra if s.num_bands() != expected_bands]
+        if mismatched:
+            details = "\n".join(
+                self.tr("• {0}: {1} bands").format(s.get_name() or self.tr("<unnamed>"), s.num_bands())
+                for s in mismatched
+            )
+            raise ValueError(
+                self.tr(
+                    "These endmember spectra don't match the input dataset's band count "
+                    "({0} bands):\n\n{1}"
+                ).format(expected_bands, details)
+            )
+
+        # has_wavelengths() only checks that the band-info key is present;
+        # get_band_unit() can still be None, so gate on the unit itself.
+        target_unit = dataset.get_band_unit() if dataset.has_wavelengths() else None
+        if target_unit is None:
+            QMessageBox.warning(
+                self,
+                self.tr("Linear Unmixing"),
+                self.tr(
+                    "The input dataset has no wavelength units, so endmembers will be matched "
+                    "to bands by position without casting units."
+                ),
+            )
+            return
+
+        target_wvls = np.asarray(get_band_values(dataset.get_wavelengths(), target_unit), dtype=np.float64)
+        problems = []  # list[tuple[Spectrum, str]]
+        for s in spectra:
+            try:
+                spec_wvls = convert_spectrum_wavelengths(s, target_unit)
+            except ValueError:
+                problems.append((s, self.tr("has no wavelengths to verify against the dataset's grid")))
+                continue
+            except u.UnitConversionError:
+                problems.append(
+                    (
+                        s,
+                        self.tr("wavelength units are not convertible to the dataset's units ({0})").format(
+                            target_unit
+                        ),
+                    )
+                )
+                continue
+            if not np.allclose(spec_wvls, target_wvls, rtol=0.0, atol=1e-9):
+                problems.append((s, self.tr("wavelengths do not match the dataset's grid")))
+
+        if problems:
+            details = "\n".join(
+                self.tr("• {0}: {1}").format(s.get_name() or self.tr("<unnamed>"), reason)
+                for s, reason in problems
+            )
+            raise ValueError(
+                self.tr(
+                    "These endmember spectra are not on the input dataset's wavelength grid "
+                    "(in {0}). Re-collect or re-import them so they match the dataset:\n\n{1}"
+                ).format(target_unit, details)
+            )
+
     def _perform_linear_unmixing(self) -> None:
         source_dataset = self.get_selected_dataset()
         if source_dataset is None:
             raise ValueError(self.tr("Select an input dataset before running."))
 
         endmember_spectra = self._collect_endmember_spectra()
+        self._validate_endmembers_against_dataset(source_dataset, endmember_spectra)
 
         sum_to_unity = self._ui.checkbox_sum_unity.isChecked()
         # The weight is only meaningful when the checkbox is checked; use 1.0 as
