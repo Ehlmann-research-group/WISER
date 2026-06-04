@@ -904,12 +904,16 @@ class KMeansDialog(QDialog):
                 ).format(expected_bands, details)
             )
 
-        # Wavelength-unit handling: when the dataset carries wavelengths, each
-        # manual spectrum must already sit on the dataset's grid once its own
-        # wavelengths are cast into the dataset's units (no interpolation — we
-        # never silently alter centroid values).
-        if dataset.has_wavelengths():
-            self._validate_spectra_on_dataset_grid(dataset, specs)
+        # Wavelength-unit handling: when the dataset exposes a wavelength unit,
+        # each manual spectrum must already sit on the dataset's grid once its
+        # own wavelengths are cast into that unit (no interpolation — we never
+        # silently alter centroid values). Without a usable unit we can't align
+        # by wavelength, so warn and fall back to matching bands by position.
+        # (has_wavelengths() only checks that the band-info key is present;
+        # get_band_unit() can still be None, so gate on the unit itself.)
+        target_unit = dataset.get_band_unit() if dataset.has_wavelengths() else None
+        if target_unit is not None:
+            self._validate_spectra_on_dataset_grid(dataset, specs, target_unit)
         else:
             QMessageBox.warning(
                 self,
@@ -922,17 +926,17 @@ class KMeansDialog(QDialog):
 
         return [np.asarray(s.get_spectrum(), dtype=np.float32) for s in specs]
 
-    def _validate_spectra_on_dataset_grid(self, dataset, specs: List[Spectrum]) -> None:
+    def _validate_spectra_on_dataset_grid(self, dataset, specs: List[Spectrum], target_unit: u.Unit) -> None:
         """Require each manual spectrum to lie on the dataset's exact wavelength grid.
 
-        Each spectrum's wavelengths are converted into the dataset's units and
-        compared element-wise against the dataset's grid (band counts are already
-        known to match).  Spectra with no wavelengths, units that can't convert,
-        or a differing grid are collected and reported together in one
-        ``ValueError`` (surfaced as a warning by :meth:`accept`).  Nothing is
-        resampled — centroid values are used exactly as entered.
+        Each spectrum's wavelengths are converted into ``target_unit`` (the
+        dataset's wavelength unit) and compared element-wise against the
+        dataset's grid (band counts are already known to match).  Spectra with
+        no wavelengths, units that can't convert, or a differing grid are
+        collected and reported together in one ``ValueError`` (surfaced as a
+        warning by :meth:`accept`).  Nothing is resampled — centroid values are
+        used exactly as entered.
         """
-        target_unit = dataset.get_wavelength_units()
         target_wvls = np.asarray(get_band_values(dataset.get_wavelengths(), target_unit), dtype=np.float64)
 
         problems = []  # list[tuple[Spectrum, str]]
