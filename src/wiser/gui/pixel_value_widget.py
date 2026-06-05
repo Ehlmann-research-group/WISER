@@ -28,7 +28,7 @@ class PixelValueWidget(QDialog):
         self._ui = Ui_PixelValueWidget()
         self._ui.setupUi(self)
 
-        self._ui.lbl_display_values.setText("—")
+        self.setVisible(False)
 
         # Remembered state so we can refresh if display bands change.
         self._dataset: Optional[RasterDataSet] = None
@@ -67,11 +67,11 @@ class PixelValueWidget(QDialog):
         self._update_internal()
 
     def clear(self):
-        """Reset the value label to placeholder (e.g. when the dataset is closed)."""
+        """Hide the widget (e.g. when the dataset is closed)."""
         self._dataset = None
         self._pixel_coords = None
         self._display_bands = None
-        self._ui.lbl_display_values.setText("—")
+        self.setVisible(False)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -79,7 +79,7 @@ class PixelValueWidget(QDialog):
 
     def _update_internal(self):
         if self._dataset is None or self._pixel_coords is None or self._display_bands is None:
-            self._ui.lbl_display_values.setText("—")
+            self.setVisible(False)
             return
 
         x, y = int(self._pixel_coords[0]), int(self._pixel_coords[1])
@@ -92,11 +92,12 @@ class PixelValueWidget(QDialog):
             all_values = self._dataset.get_all_bands_at(x, y, filter_bad_values=True)
         except Exception as exc:
             logger.exception("Failed to read pixel values at (%d, %d): %s", x, y, exc)
-            self._ui.lbl_display_values.setText("—")
+            self.setVisible(False)
             return
 
         text = self._format_values(all_values, self._display_bands)
         self._ui.lbl_display_values.setText(text)
+        self.setVisible(True)
 
     @staticmethod
     def _format_values(all_values: np.ndarray, display_bands: Tuple) -> str:

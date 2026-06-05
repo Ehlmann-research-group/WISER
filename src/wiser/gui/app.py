@@ -1306,6 +1306,7 @@ class DataVisualizerApp(QMainWindow):
             return
 
         self._update_image_coords(ds, ds_point)
+        self._update_pixel_values(ds, ds_point, rasterview_position)
 
         # If the spectrum-plot window has a specific dataset to pull spectra
         # from, use that dataset instead of the raster-view's dataset.
