@@ -220,6 +220,27 @@ class ReservedTracker:
         self._recompute_hold_bytes()
         return True
 
+    def _iter_candidate_slots(self):
+        """Yield ``(slot_index, head_candidate)`` for each populated slot in
+        round-robin scan order starting at the cursor.
+
+        Each populated slot yields the head of that priority's FIFO queue, so a
+        priority whose window spans multiple slots yields its head once per
+        populated slot; callers that only test admissibility can treat the
+        repeats idempotently. This is the iteration primitive behind both the
+        single-candidate `_next_candidate_with_slot` and the full
+        head-of-line-avoiding scan in `next_admissible_reserved_unit`.
+        """
+        if not self._reservation_slots_in_order:
+            return
+        total_slots = len(self._reservation_slots_in_order)
+        for scanned_slots in range(total_slots):
+            slot_index = (self._next_reservation_slot_index + scanned_slots) % total_slots
+            priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
+            reserved_queue = self._reserved_queue_by_priority[priority_class]
+            if slot_offset < len(reserved_queue):
+                yield slot_index, reserved_queue[0]
+
     def _next_candidate_with_slot(self) -> Optional[tuple[int, QueuedWorkUnit]]:
         """
         Return current round-robin candidate.
@@ -227,18 +248,7 @@ class ReservedTracker:
         We scan at most one full slot cycle and pick the first slot that is
         currently populated in its class queue.
         """
-        if not self._reservation_slots_in_order:
-            return None
-        total_slots = len(self._reservation_slots_in_order)
-        for scanned_slots in range(total_slots):
-            slot_index = (self._next_reservation_slot_index + scanned_slots) % total_slots
-            priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
-            reserved_queue = self._reserved_queue_by_priority[priority_class]
-            if slot_offset < len(reserved_queue):
-                # We use the slot_index to know what priority class to use. Then
-                # we just get the first item in the queue.
-                return slot_index, reserved_queue[0]
-        return None
+        return next(self._iter_candidate_slots(), None)
 
     def next_admissible_reserved_unit(
         self,
@@ -259,27 +269,39 @@ class ReservedTracker:
           3) then BACKGROUND slots 0..k-1,
         and the tracker remembers the last served slot to continue fairly.
 
-        Strict fairness rule:
-          - only the current round-robin candidate slot is eligible now.
-          - if that candidate does not fit, this method returns None (no fallback scanning).
+        Head-of-line avoidance:
+          - we scan candidates in round-robin order and return the first that
+            fits, so an un-admittable head (e.g. an over-budget unit) in one
+            priority queue does not starve fittable units in the others.
+          - FIFO within a priority is preserved: only each queue's head is a
+            candidate, never a unit behind a stuck head in the same queue.
 
-        The candidate is admissible when:
-            candidate.ram_peak_est_bytes + in_flight_ram_bytes < scheduler_ram_cap_bytes
+        Fallbacks when nothing fits:
+          - run-alone override: if nothing is in flight, waiting can never free
+            more RAM, so the current round-robin head is admitted anyway (the
+            scheduler logs a warning at submission).
+          - otherwise the head's defer counter is advanced (toward the eventual
+            plan abort) and None is returned.
+
+        A candidate is admissible when:
+            candidate.ram_peak_est_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes
         """
-        candidate_with_slot = self._next_candidate_with_slot()
-        if candidate_with_slot is None:
+        head_with_slot: Optional[tuple[int, QueuedWorkUnit]] = None
+        for slot_index, candidate in self._iter_candidate_slots():
+            if head_with_slot is None:
+                head_with_slot = (slot_index, candidate)
+            if candidate.work_unit.ram_peak_est_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
+                return slot_index, candidate
+
+        if head_with_slot is None:
             return None
-        slot_index, candidate = candidate_with_slot
-        candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
-        if candidate_ram_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
-            return slot_index, candidate
         if in_flight_ram_bytes == 0:
-            # Run-alone override: nothing else is using RAM, so waiting can never
-            # make this candidate fit. Admit it (the scheduler logs a warning at
-            # submission) instead of deferring forever toward a plan abort.
-            return slot_index, candidate
-        candidate.defer_count += 1
-        self._maybe_signal_defer_exceeded(candidate)
+            # Run-alone override on the current round-robin head: nothing else is
+            # using RAM, so no amount of waiting will make anything fit.
+            return head_with_slot
+        _, head_candidate = head_with_slot
+        head_candidate.defer_count += 1
+        self._maybe_signal_defer_exceeded(head_candidate)
         return None
 
     def advance_reservation_cursor(self, served_slot_index: int) -> None:
