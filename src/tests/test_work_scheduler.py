@@ -106,6 +106,75 @@ def _make_work_unit(
     )
 
 
+def _make_reserved_round_robin_plan() -> TaskPlan:
+    """Build a single-stage plan that forces six units into the reserved queue.
+
+    A blocker unit holds the entire RAM budget while the initial drain runs, so
+    every candidate fails RAM admission once and (with defer threshold 0) is
+    promoted straight to the reserved queue. Each candidate also needs the whole
+    budget, so once the blocker finishes they are admitted strictly one at a time
+    — making the `reserved_admitted` order in the transition log the scheduler's
+    real reserved-admission order, free of timing races.
+
+    The INTERACTIVE main queue is ``[blocker, int-1, int-2, int-3]``, so after the
+    blocker is admitted the reserved queues are I=[int-1, int-2, int-3],
+    R=[ren-1, ren-2], B=[bg-1].
+    """
+    blocker = _make_work_unit(
+        unit_id="blocker",
+        stage_id="s00",
+        priority=PriorityClass.INTERACTIVE,
+        executor_kind="thread",
+        fn=partial(_sleep_then_return, "blocker", 0.2),
+        ram_peak_est_bytes=1_000,
+    )
+    candidate_specs = (
+        ("int-1", PriorityClass.INTERACTIVE),
+        ("int-2", PriorityClass.INTERACTIVE),
+        ("int-3", PriorityClass.INTERACTIVE),
+        ("ren-1", PriorityClass.RENDER),
+        ("ren-2", PriorityClass.RENDER),
+        ("bg-1", PriorityClass.BACKGROUND),
+    )
+    candidates = [
+        _make_work_unit(
+            unit_id=unit_id,
+            stage_id="s00",
+            priority=priority,
+            executor_kind="thread",
+            fn=partial(_sleep_then_return, unit_id, 0.05),
+            ram_peak_est_bytes=1_000,
+        )
+        for unit_id, priority in candidate_specs
+    ]
+    units = [blocker, *candidates]
+    return TaskPlan(
+        plan_id="plan-reserved-round-robin",
+        semantic_task_id="semantic-reserved-round-robin",
+        work_units={unit.unit_id: unit for unit in units},
+        stage_work_units={"s00": [unit.unit_id for unit in units]},
+        fail_fast=True,
+    )
+
+
+def _make_reserved_round_robin_scheduler(service: StorageService) -> WorkScheduler:
+    """Scheduler tuned so reserved admission is serialized by a 1-unit RAM budget."""
+    return WorkScheduler(
+        SchedulerConfig(
+            _process_budget=3,
+            _thread_budget=15,
+            _ram_budget=1_000,
+            _defer_to_reserved_threshold=0,
+            _thread_priority_tokens={
+                PriorityClass.INTERACTIVE: 5,
+                PriorityClass.RENDER: 5,
+                PriorityClass.BACKGROUND: 5,
+            },
+        ),
+        service,
+    )
+
+
 class TestWorkScheduler(unittest.TestCase):
     def test_recording_work_scheduler_prints_timing_summary(self) -> None:
         clock_times = iter([0.0, 1.0, 2.0, 5.5, 6.0, 7.5, 8.0])
@@ -395,6 +464,65 @@ class TestWorkScheduler(unittest.TestCase):
 
                 u2_defer_counts = [event.defer_count for event in u2_events]
                 self.assertEqual(u2_defer_counts, [0, 1, 3, 5, 0])
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_reserved_admission_rotates_across_priorities_round_robin(self) -> None:
+        """Reserved units across priorities are admitted in weighted round-robin
+        order, read straight from the real scheduler's queue transition log.
+
+        With the cursor advance in place the admission order interleaves
+        priorities (I, I, R, B, I, R) rather than draining all INTERACTIVE first.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = _make_reserved_round_robin_scheduler(service)
+            try:
+                scheduler.run_task_plan(_make_reserved_round_robin_plan()).result(timeout=30)
+
+                admitted_order = [
+                    event.unit_id
+                    for event in scheduler.get_queue_transition_log()
+                    if event.reason == "reserved_admitted"
+                ]
+                self.assertEqual(
+                    admitted_order,
+                    ["int-1", "int-2", "ren-1", "bg-1", "int-3", "ren-2"],
+                )
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_reserved_admission_without_cursor_advance_is_strict_priority(self) -> None:
+        """Regression guard: disabling the cursor advance (the pre-fix behavior)
+        collapses reserved admission to strict highest-priority-first, starving
+        RENDER/BACKGROUND until INTERACTIVE drains. Run against the same workload
+        as the round-robin test, this proves that assertion actually depends on
+        the advance rather than on incidental ordering.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = _make_reserved_round_robin_scheduler(service)
+            try:
+                # Patch the real tracker instance's advance to a no-op so the
+                # round-robin cursor stays pinned at slot 0.
+                with patch.object(
+                    scheduler._reserved_tracker,
+                    "advance_reservation_cursor",
+                    lambda served_slot_index: None,
+                ):
+                    scheduler.run_task_plan(_make_reserved_round_robin_plan()).result(timeout=30)
+
+                admitted_order = [
+                    event.unit_id
+                    for event in scheduler.get_queue_transition_log()
+                    if event.reason == "reserved_admitted"
+                ]
+                self.assertEqual(
+                    admitted_order,
+                    ["int-1", "int-2", "int-3", "ren-1", "ren-2", "bg-1"],
+                )
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
