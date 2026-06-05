@@ -350,6 +350,9 @@ class TestWorkScheduler(unittest.TestCase):
                     _thread_budget=3,
                     _ram_budget=5_000,
                     _defer_to_reserved_threshold=2,
+                    # This test asserts the exact defer-count sequence, which extra
+                    # watchdog drains would perturb. Disable the watchdog here.
+                    _watchdog_interval_seconds=0,
                     _process_priority_tokens={
                         PriorityClass.INTERACTIVE: 5,
                         PriorityClass.RENDER: 1,
@@ -527,6 +530,111 @@ class TestWorkScheduler(unittest.TestCase):
                 scheduler.shutdown(wait=True)
                 service.close()
 
+    def test_reserved_head_of_line_does_not_starve_fittable_lower_priority(self) -> None:
+        """An un-admittable (over-budget) reserved head must not starve a fittable
+        reserved unit in another priority queue.
+
+        Plan A holds 800/1000 bytes with a long + short holder. Plan B's oversized
+        INTERACTIVE unit (5000) and fittable RENDER unit (300) both fail admission
+        at in_flight=800 and land in the reserved queue. When the short holder
+        frees RAM (in_flight -> 400) the RENDER unit fits (400+300) but the
+        oversized INTERACTIVE head does not. The scan must look past the stuck head
+        and admit RENDER. The oversized unit only runs later, alone, once the long
+        holder finishes (in_flight -> 0, run-alone override).
+
+        Asserts RENDER is admitted from the reserved queue *before* the oversized
+        unit; before the head-of-line fix the head blocked the scan and RENDER was
+        starved until in_flight hit zero, reversing the order.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=15,
+                    _ram_budget=1_000,
+                    _defer_to_reserved_threshold=0,
+                    _thread_priority_tokens={
+                        PriorityClass.INTERACTIVE: 5,
+                        PriorityClass.RENDER: 5,
+                        PriorityClass.BACKGROUND: 5,
+                    },
+                ),
+                service,
+            )
+            try:
+                holder_keep = _make_work_unit(
+                    unit_id="holder-keep",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=partial(_sleep_then_return, "holder-keep", 0.8),
+                    ram_peak_est_bytes=400,
+                )
+                holder_temp = _make_work_unit(
+                    unit_id="holder-temp",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=partial(_sleep_then_return, "holder-temp", 0.4),
+                    ram_peak_est_bytes=400,
+                )
+                plan_a = TaskPlan(
+                    plan_id="plan-holders",
+                    semantic_task_id="semantic-holders",
+                    work_units={holder_keep.unit_id: holder_keep, holder_temp.unit_id: holder_temp},
+                    stage_work_units={"s00": [holder_keep.unit_id, holder_temp.unit_id]},
+                    fail_fast=True,
+                )
+
+                oversized = _make_work_unit(
+                    unit_id="oversized",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                    ram_peak_est_bytes=5_000,
+                )
+                render = _make_work_unit(
+                    unit_id="render",
+                    stage_id="s00",
+                    priority=PriorityClass.RENDER,
+                    executor_kind="thread",
+                    fn=partial(_sleep_then_return, "render", 0.1),
+                    ram_peak_est_bytes=300,
+                )
+                plan_b = TaskPlan(
+                    plan_id="plan-headofline",
+                    semantic_task_id="semantic-headofline",
+                    work_units={oversized.unit_id: oversized, render.unit_id: render},
+                    stage_work_units={"s00": [oversized.unit_id, render.unit_id]},
+                    fail_fast=True,
+                )
+
+                # Plan A drains synchronously, so both holders are in flight
+                # (in_flight=800) before plan B is submitted.
+                future_a = scheduler.run_task_plan(plan_a)
+                future_b = scheduler.run_task_plan(plan_b)
+
+                with self.assertLogs("wiser.utils.work_scheduler", level="WARNING") as log_ctx:
+                    future_b.result(timeout=15)
+                    future_a.result(timeout=15)
+
+                self.assertTrue(
+                    any("exceeds the scheduler RAM budget" in message for message in log_ctx.output),
+                    "expected the oversized unit to be admitted run-alone with a warning",
+                )
+
+                reserved_admitted_order = [
+                    event.unit_id
+                    for event in scheduler.get_queue_transition_log()
+                    if event.reason == "reserved_admitted"
+                ]
+                self.assertEqual(reserved_admitted_order, ["render", "oversized"])
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
     def test_oversized_lone_unit_runs_alone_instead_of_hanging(self) -> None:
         """A unit whose RAM estimate exceeds the whole budget, with no siblings to
         drive the defer/abort machinery, must be admitted to run alone (with a
@@ -636,6 +744,87 @@ class TestWorkScheduler(unittest.TestCase):
                 # from reserved once the filler freed it (in_flight back to zero).
                 self.assertIn("defer_threshold_exceeded", reasons)
                 self.assertIn("reserved_admitted", reasons)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_watchdog_periodically_drains_and_stops_on_shutdown(self) -> None:
+        """The watchdog re-drives the scheduler on its interval while running, and
+        stops doing so once the scheduler is shut down.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=3,
+                    _watchdog_interval_seconds=0.05,
+                ),
+                service,
+            )
+            real_drain = scheduler._drain_queues_locked
+            drain_calls = {"count": 0}
+
+            def counting_drain() -> None:
+                drain_calls["count"] += 1
+                real_drain()
+
+            try:
+                # No plans are submitted, so every drain observed here is the
+                # watchdog ticking (nothing else calls it on an idle scheduler).
+                with patch.object(scheduler, "_drain_queues_locked", counting_drain):
+                    time.sleep(0.3)  # ~6 intervals
+                    ticks_while_running = drain_calls["count"]
+
+                self.assertGreaterEqual(ticks_while_running, 2, "watchdog should re-drive on its interval")
+
+                scheduler.shutdown(wait=True)
+                self.assertIsNone(scheduler._watchdog_thread)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_watchdog_recovers_stranded_plan_after_missed_drain(self) -> None:
+        """If the drain that `run_task_plan` normally performs is missed, the unit
+        is enqueued but never submitted. The watchdog must re-drive the stranded
+        queue so the plan still completes.
+
+        The missed drain is simulated by suppressing only the initial submit-time
+        drain; the real watchdog and real `_drain_queues_locked` then recover it.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=3,
+                    _watchdog_interval_seconds=0.05,
+                ),
+                service,
+            )
+            try:
+                unit = _make_work_unit(
+                    unit_id="u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-stranded",
+                    semantic_task_id="semantic-stranded",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    fail_fast=True,
+                )
+
+                # Suppress the submit-time drain: the unit lands in the main queue
+                # with no drain scheduled, exactly like a lost wakeup.
+                with patch.object(scheduler, "_drain_queues_locked", lambda: None):
+                    future = scheduler.run_task_plan(plan)
+
+                # Only the watchdog can re-drive the stranded queue now.
+                future.result(timeout=5)
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()

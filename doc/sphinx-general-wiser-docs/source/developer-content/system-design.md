@@ -144,6 +144,11 @@ Dispatch order is:
 `QueuedWorkUnit.defer_count` is incremented when RAM admission fails. If this count exceeds a threshold, the unit is
 promoted into `ReservedTracker`.
 
+Dispatch is normally **edge-triggered**: queues are drained when a plan is submitted and when a unit completes. A
+periodic background **watchdog** thread (`_watchdog_loop`, interval configured by `SchedulerConfig._watchdog_interval_seconds`)
+re-drains the queues as a safety net, so work that was left parked cannot wedge forever if a normal drain trigger is
+missed. Draining when nothing is admissible is a cheap no-op.
+
 #### RAM and hold-byte model (high level)
 
 The scheduler tracks:
@@ -157,6 +162,12 @@ For reserved units, admission uses full cap (`cap`).
 This prevents non-reserved work from continually consuming all slack while still allowing reserved units to run once
 feasible.
 
+**Run-alone override:** when nothing is in flight (`in_flight == 0`), a unit that still does not fit — most importantly
+one whose `ram_peak_est_bytes` exceeds the whole budget — is admitted anyway, since waiting can never free more RAM.
+The over-budget admission is logged as a warning (running such a unit may exceed available memory). This guarantees a
+single oversized unit with no siblings (e.g. an unchunked stage over a large dataset) runs alone instead of hanging the
+plan forever.
+
 #### ReservedTracker (high level)
 
 `ReservedTracker` keeps per-priority FIFO queues and computes hold bytes from configurable windows (currently
@@ -164,7 +175,11 @@ interactive/render/background = 3/2/1).
 
 It provides:
 
-- deterministic reserved candidate selection,
+- weighted round-robin candidate selection across the priority windows, using a cursor that advances past each served
+  slot (so admission rotates fairly across priorities rather than always draining the highest priority first),
+- head-of-line avoidance: admission scans past an un-admittable head (e.g. an over-budget unit) to serve a fittable
+  candidate in another priority queue, while preserving FIFO order *within* a priority,
+- a run-alone override consistent with the scheduler's RAM model (admit the current head when nothing is in flight),
 - FIFO ownership for reserved units,
 - hold-byte totals used by scheduler RAM admission.
 
@@ -176,9 +191,12 @@ The main methods to understand runtime behavior are:
 - `_enqueue_stage_locked(...)` - places stage units into main queues.
 - `_drain_queues_locked(...)` - main dispatch loop (reserved, blocked, main).
 - `_attempt_submit_reserved_locked(...)` - reserved admission path.
+- `ReservedTracker.next_admissible_reserved_unit(...)` / `advance_reservation_cursor(...)` - round-robin reserved
+  selection (with head-of-line scan and run-alone override) and the cursor advance that keeps it fair.
 - `_submit_non_reserved_from_queues_locked(...)` - blocked/main admission path.
-- `_submit_runnable_item_locked(...)` - final executor submission + in-flight accounting.
+- `_submit_runnable_item_locked(...)` - final executor submission + in-flight accounting (logs over-budget run-alone admissions).
 - `_on_unit_done(...)` - completion accounting, stage progression, and re-dispatch.
+- `_watchdog_loop(...)` - periodic safety-net re-drain so parked work cannot wedge if a drain trigger is missed.
 
 ## Planning Flow
 
