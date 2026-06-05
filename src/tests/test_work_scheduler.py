@@ -106,6 +106,75 @@ def _make_work_unit(
     )
 
 
+def _make_reserved_round_robin_plan() -> TaskPlan:
+    """Build a single-stage plan that forces six units into the reserved queue.
+
+    A blocker unit holds the entire RAM budget while the initial drain runs, so
+    every candidate fails RAM admission once and (with defer threshold 0) is
+    promoted straight to the reserved queue. Each candidate also needs the whole
+    budget, so once the blocker finishes they are admitted strictly one at a time
+    — making the `reserved_admitted` order in the transition log the scheduler's
+    real reserved-admission order, free of timing races.
+
+    The INTERACTIVE main queue is ``[blocker, int-1, int-2, int-3]``, so after the
+    blocker is admitted the reserved queues are I=[int-1, int-2, int-3],
+    R=[ren-1, ren-2], B=[bg-1].
+    """
+    blocker = _make_work_unit(
+        unit_id="blocker",
+        stage_id="s00",
+        priority=PriorityClass.INTERACTIVE,
+        executor_kind="thread",
+        fn=partial(_sleep_then_return, "blocker", 0.2),
+        ram_peak_est_bytes=1_000,
+    )
+    candidate_specs = (
+        ("int-1", PriorityClass.INTERACTIVE),
+        ("int-2", PriorityClass.INTERACTIVE),
+        ("int-3", PriorityClass.INTERACTIVE),
+        ("ren-1", PriorityClass.RENDER),
+        ("ren-2", PriorityClass.RENDER),
+        ("bg-1", PriorityClass.BACKGROUND),
+    )
+    candidates = [
+        _make_work_unit(
+            unit_id=unit_id,
+            stage_id="s00",
+            priority=priority,
+            executor_kind="thread",
+            fn=partial(_sleep_then_return, unit_id, 0.05),
+            ram_peak_est_bytes=1_000,
+        )
+        for unit_id, priority in candidate_specs
+    ]
+    units = [blocker, *candidates]
+    return TaskPlan(
+        plan_id="plan-reserved-round-robin",
+        semantic_task_id="semantic-reserved-round-robin",
+        work_units={unit.unit_id: unit for unit in units},
+        stage_work_units={"s00": [unit.unit_id for unit in units]},
+        fail_fast=True,
+    )
+
+
+def _make_reserved_round_robin_scheduler(service: StorageService) -> WorkScheduler:
+    """Scheduler tuned so reserved admission is serialized by a 1-unit RAM budget."""
+    return WorkScheduler(
+        SchedulerConfig(
+            _process_budget=3,
+            _thread_budget=15,
+            _ram_budget=1_000,
+            _defer_to_reserved_threshold=0,
+            _thread_priority_tokens={
+                PriorityClass.INTERACTIVE: 5,
+                PriorityClass.RENDER: 5,
+                PriorityClass.BACKGROUND: 5,
+            },
+        ),
+        service,
+    )
+
+
 class TestWorkScheduler(unittest.TestCase):
     def test_recording_work_scheduler_prints_timing_summary(self) -> None:
         clock_times = iter([0.0, 1.0, 2.0, 5.5, 6.0, 7.5, 8.0])
@@ -395,6 +464,178 @@ class TestWorkScheduler(unittest.TestCase):
 
                 u2_defer_counts = [event.defer_count for event in u2_events]
                 self.assertEqual(u2_defer_counts, [0, 1, 3, 5, 0])
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_reserved_admission_rotates_across_priorities_round_robin(self) -> None:
+        """Reserved units across priorities are admitted in weighted round-robin
+        order, read straight from the real scheduler's queue transition log.
+
+        With the cursor advance in place the admission order interleaves
+        priorities (I, I, R, B, I, R) rather than draining all INTERACTIVE first.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = _make_reserved_round_robin_scheduler(service)
+            try:
+                scheduler.run_task_plan(_make_reserved_round_robin_plan()).result(timeout=30)
+
+                admitted_order = [
+                    event.unit_id
+                    for event in scheduler.get_queue_transition_log()
+                    if event.reason == "reserved_admitted"
+                ]
+                self.assertEqual(
+                    admitted_order,
+                    ["int-1", "int-2", "ren-1", "bg-1", "int-3", "ren-2"],
+                )
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_reserved_admission_without_cursor_advance_is_strict_priority(self) -> None:
+        """Regression guard: disabling the cursor advance (the pre-fix behavior)
+        collapses reserved admission to strict highest-priority-first, starving
+        RENDER/BACKGROUND until INTERACTIVE drains. Run against the same workload
+        as the round-robin test, this proves that assertion actually depends on
+        the advance rather than on incidental ordering.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = _make_reserved_round_robin_scheduler(service)
+            try:
+                # Patch the real tracker instance's advance to a no-op so the
+                # round-robin cursor stays pinned at slot 0.
+                with patch.object(
+                    scheduler._reserved_tracker,
+                    "advance_reservation_cursor",
+                    lambda served_slot_index: None,
+                ):
+                    scheduler.run_task_plan(_make_reserved_round_robin_plan()).result(timeout=30)
+
+                admitted_order = [
+                    event.unit_id
+                    for event in scheduler.get_queue_transition_log()
+                    if event.reason == "reserved_admitted"
+                ]
+                self.assertEqual(
+                    admitted_order,
+                    ["int-1", "int-2", "int-3", "ren-1", "ren-2", "bg-1"],
+                )
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_oversized_lone_unit_runs_alone_instead_of_hanging(self) -> None:
+        """A unit whose RAM estimate exceeds the whole budget, with no siblings to
+        drive the defer/abort machinery, must be admitted to run alone (with a
+        warning) rather than parking forever in the blocked queue.
+
+        Before the run-alone override this plan's completion future never
+        resolved; the assertion is simply that it completes within the timeout.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(_process_budget=3, _thread_budget=3, _ram_budget=1_000),
+                service,
+            )
+            try:
+                oversized = _make_work_unit(
+                    unit_id="oversized",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                    ram_peak_est_bytes=5_000,  # 5x the RAM budget
+                )
+                plan = TaskPlan(
+                    plan_id="plan-oversized-lone",
+                    semantic_task_id="semantic-oversized-lone",
+                    work_units={oversized.unit_id: oversized},
+                    stage_work_units={"s00": [oversized.unit_id]},
+                    fail_fast=True,
+                )
+
+                with self.assertLogs("wiser.utils.work_scheduler", level="WARNING") as log_ctx:
+                    scheduler.run_task_plan(plan).result(timeout=15)
+
+                self.assertTrue(
+                    any("exceeds the scheduler RAM budget" in message for message in log_ctx.output),
+                    "expected a run-alone over-budget admission warning",
+                )
+
+                oversized_to_queues = [
+                    event.to_queue for event in scheduler.get_queue_transition_log_for_unit("oversized")
+                ]
+                self.assertIn("in_flight:thread", oversized_to_queues)
+                self.assertIn("done", oversized_to_queues)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_oversized_unit_runs_alone_via_reserved_after_fillers_drain(self) -> None:
+        """An over-budget unit that gets promoted to the reserved queue while a
+        filler holds RAM is admitted via the reserved run-alone override once the
+        filler finishes and nothing is in flight — exercising the override on the
+        reserved path (not just the main-queue path).
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=9,
+                    _ram_budget=1_000,
+                    _defer_to_reserved_threshold=0,  # straight to reserved on first miss
+                    _thread_priority_tokens={
+                        PriorityClass.INTERACTIVE: 3,
+                        PriorityClass.RENDER: 3,
+                        PriorityClass.BACKGROUND: 3,
+                    },
+                ),
+                service,
+            )
+            try:
+                filler = _make_work_unit(
+                    unit_id="filler",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=partial(_sleep_then_return, "filler", 0.2),
+                    ram_peak_est_bytes=1_000,  # holds the entire budget
+                )
+                oversized = _make_work_unit(
+                    unit_id="oversized",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                    ram_peak_est_bytes=5_000,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-oversized-reserved",
+                    semantic_task_id="semantic-oversized-reserved",
+                    work_units={filler.unit_id: filler, oversized.unit_id: oversized},
+                    stage_work_units={"s00": [filler.unit_id, oversized.unit_id]},
+                    fail_fast=True,
+                )
+
+                with self.assertLogs("wiser.utils.work_scheduler", level="WARNING") as log_ctx:
+                    scheduler.run_task_plan(plan).result(timeout=15)
+
+                self.assertTrue(
+                    any("exceeds the scheduler RAM budget" in message for message in log_ctx.output),
+                    "expected a run-alone over-budget admission warning",
+                )
+
+                oversized_events = scheduler.get_queue_transition_log_for_unit("oversized")
+                reasons = [event.reason for event in oversized_events]
+                # It was promoted to reserved while the filler held RAM, then admitted
+                # from reserved once the filler freed it (in_flight back to zero).
+                self.assertIn("defer_threshold_exceeded", reasons)
+                self.assertIn("reserved_admitted", reasons)
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
