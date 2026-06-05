@@ -527,6 +527,119 @@ class TestWorkScheduler(unittest.TestCase):
                 scheduler.shutdown(wait=True)
                 service.close()
 
+    def test_oversized_lone_unit_runs_alone_instead_of_hanging(self) -> None:
+        """A unit whose RAM estimate exceeds the whole budget, with no siblings to
+        drive the defer/abort machinery, must be admitted to run alone (with a
+        warning) rather than parking forever in the blocked queue.
+
+        Before the run-alone override this plan's completion future never
+        resolved; the assertion is simply that it completes within the timeout.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(_process_budget=3, _thread_budget=3, _ram_budget=1_000),
+                service,
+            )
+            try:
+                oversized = _make_work_unit(
+                    unit_id="oversized",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                    ram_peak_est_bytes=5_000,  # 5x the RAM budget
+                )
+                plan = TaskPlan(
+                    plan_id="plan-oversized-lone",
+                    semantic_task_id="semantic-oversized-lone",
+                    work_units={oversized.unit_id: oversized},
+                    stage_work_units={"s00": [oversized.unit_id]},
+                    fail_fast=True,
+                )
+
+                with self.assertLogs("wiser.utils.work_scheduler", level="WARNING") as log_ctx:
+                    scheduler.run_task_plan(plan).result(timeout=15)
+
+                self.assertTrue(
+                    any("exceeds the scheduler RAM budget" in message for message in log_ctx.output),
+                    "expected a run-alone over-budget admission warning",
+                )
+
+                oversized_to_queues = [
+                    event.to_queue for event in scheduler.get_queue_transition_log_for_unit("oversized")
+                ]
+                self.assertIn("in_flight:thread", oversized_to_queues)
+                self.assertIn("done", oversized_to_queues)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_oversized_unit_runs_alone_via_reserved_after_fillers_drain(self) -> None:
+        """An over-budget unit that gets promoted to the reserved queue while a
+        filler holds RAM is admitted via the reserved run-alone override once the
+        filler finishes and nothing is in flight — exercising the override on the
+        reserved path (not just the main-queue path).
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=9,
+                    _ram_budget=1_000,
+                    _defer_to_reserved_threshold=0,  # straight to reserved on first miss
+                    _thread_priority_tokens={
+                        PriorityClass.INTERACTIVE: 3,
+                        PriorityClass.RENDER: 3,
+                        PriorityClass.BACKGROUND: 3,
+                    },
+                ),
+                service,
+            )
+            try:
+                filler = _make_work_unit(
+                    unit_id="filler",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=partial(_sleep_then_return, "filler", 0.2),
+                    ram_peak_est_bytes=1_000,  # holds the entire budget
+                )
+                oversized = _make_work_unit(
+                    unit_id="oversized",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                    ram_peak_est_bytes=5_000,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-oversized-reserved",
+                    semantic_task_id="semantic-oversized-reserved",
+                    work_units={filler.unit_id: filler, oversized.unit_id: oversized},
+                    stage_work_units={"s00": [filler.unit_id, oversized.unit_id]},
+                    fail_fast=True,
+                )
+
+                with self.assertLogs("wiser.utils.work_scheduler", level="WARNING") as log_ctx:
+                    scheduler.run_task_plan(plan).result(timeout=15)
+
+                self.assertTrue(
+                    any("exceeds the scheduler RAM budget" in message for message in log_ctx.output),
+                    "expected a run-alone over-budget admission warning",
+                )
+
+                oversized_events = scheduler.get_queue_transition_log_for_unit("oversized")
+                reasons = [event.reason for event in oversized_events]
+                # It was promoted to reserved while the filler held RAM, then admitted
+                # from reserved once the filler freed it (in_flight back to zero).
+                self.assertIn("defer_threshold_exceeded", reasons)
+                self.assertIn("reserved_admitted", reasons)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
     def test_run_task_plan_two_stages_records_expected_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = StorageService(root_dir=tmp_dir)
