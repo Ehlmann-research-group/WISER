@@ -28,8 +28,7 @@ class PixelValueWidget(QDialog):
         self._ui = Ui_PixelValueWidget()
         self._ui.setupUi(self)
 
-        # Initially hide the value label until we have a real value to show.
-        self._ui.lbl_display_values.setVisible(False)
+        self._ui.lbl_display_values.setText("—")
 
         # Remembered state so we can refresh if display bands change.
         self._dataset: Optional[RasterDataSet] = None
@@ -68,11 +67,11 @@ class PixelValueWidget(QDialog):
         self._update_internal()
 
     def clear(self):
-        """Hide the value label (e.g. when the dataset is closed)."""
+        """Reset the value label to placeholder (e.g. when the dataset is closed)."""
         self._dataset = None
         self._pixel_coords = None
         self._display_bands = None
-        self._ui.lbl_display_values.setVisible(False)
+        self._ui.lbl_display_values.setText("—")
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -80,29 +79,24 @@ class PixelValueWidget(QDialog):
 
     def _update_internal(self):
         if self._dataset is None or self._pixel_coords is None or self._display_bands is None:
-            self._ui.lbl_display_values.setVisible(False)
+            self._ui.lbl_display_values.setText("—")
             return
 
         x, y = int(self._pixel_coords[0]), int(self._pixel_coords[1])
 
         # Fetch the spectral values at the clicked pixel.  get_all_bands_at
         # returns a 1-D numpy array indexed by band number.
-        # Use filter_bad_values=False so that bands flagged as "bad" in the
-        # dataset metadata still report their raw data value rather than being
-        # replaced with NaN.  The display renderer reads raw pixel data via the
-        # same unfiltered path, so this keeps the widget consistent with what
-        # is actually shown on screen.
+        # Use filter_bad_values=True so that "data ignore" pixels show "—",
+        # consistent with the spectrum plot which also shows nothing for those pixels.
         try:
-            all_values = self._dataset.get_all_bands_at(x, y, filter_bad_values=False)
-        except (IndexError, ValueError, RuntimeError, Exception) as exc:
+            all_values = self._dataset.get_all_bands_at(x, y, filter_bad_values=True)
+        except Exception as exc:
             logger.exception("Failed to read pixel values at (%d, %d): %s", x, y, exc)
             self._ui.lbl_display_values.setText("—")
-            self._ui.lbl_display_values.setVisible(True)
             return
 
         text = self._format_values(all_values, self._display_bands)
         self._ui.lbl_display_values.setText(text)
-        self._ui.lbl_display_values.setVisible(True)
 
     @staticmethod
     def _format_values(all_values: np.ndarray, display_bands: Tuple) -> str:
