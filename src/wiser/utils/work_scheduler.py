@@ -240,9 +240,14 @@ class ReservedTracker:
         self,
         in_flight_ram_bytes: int,
         scheduler_ram_cap_bytes: int,
-    ) -> Optional[QueuedWorkUnit]:
+    ) -> Optional[tuple[int, QueuedWorkUnit]]:
         """
         Return the next reserved unit that can run under Variant B reserved admission.
+
+        Returns a ``(slot_index, candidate)`` pair so the caller can advance the
+        round-robin cursor past ``slot_index`` once it commits to serving the
+        candidate (see `advance_reservation_cursor`). Returns None when no
+        candidate is currently admissible.
 
         Candidate order is deterministic and fairness-windowed via round-robin slots:
           1) INTERACTIVE slots 0..m-1,
@@ -260,13 +265,27 @@ class ReservedTracker:
         candidate_with_slot = self._next_candidate_with_slot()
         if candidate_with_slot is None:
             return None
-        _, candidate = candidate_with_slot
+        slot_index, candidate = candidate_with_slot
         candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
         if candidate_ram_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
-            return candidate
+            return slot_index, candidate
         candidate.defer_count += 1
         self._maybe_signal_defer_exceeded(candidate)
         return None
+
+    def advance_reservation_cursor(self, served_slot_index: int) -> None:
+        """Advance the round-robin cursor past the slot that was just served.
+
+        Mirrors the cursor bump inside `pop_next_admissible_reserved_unit` for
+        callers that select via `next_admissible_reserved_unit` and remove via
+        `remove_reserved_unit` (the scheduler's peek/acquire/remove path). Without
+        this, the cursor stays pinned and reserved admission degrades from
+        weighted round-robin to strict highest-priority-first.
+        """
+        if self._reservation_slots_in_order:
+            self._next_reservation_slot_index = (served_slot_index + 1) % len(
+                self._reservation_slots_in_order
+            )
 
     def _maybe_signal_defer_exceeded(self, candidate: "QueuedWorkUnit") -> None:
         """Invoke the defer-exceeded hook once, when the candidate's count crosses the cap."""
@@ -1027,12 +1046,13 @@ class WorkScheduler:
         relevant semaphore, then re-check and finally remove the exact unit
         immediately before submitting.
         """
-        candidate = self._reserved_tracker.next_admissible_reserved_unit(
+        selection = self._reserved_tracker.next_admissible_reserved_unit(
             in_flight_ram_bytes=self._in_flight_ram_bytes,
             scheduler_ram_cap_bytes=self._ram_budget_bytes,
         )
-        if candidate is None:
+        if selection is None:
             return False
+        _, candidate = selection
         priority_class = candidate.work_unit.priority_class
         sem = (
             self._process_semaphores[priority_class]
@@ -1042,16 +1062,21 @@ class WorkScheduler:
         if not sem.acquire(blocking=False):
             return False
         # Re-check under held token because memory/completion state may have changed.
-        candidate_after_capacity_check = self._reserved_tracker.next_admissible_reserved_unit(
+        selection_after_capacity_check = self._reserved_tracker.next_admissible_reserved_unit(
             in_flight_ram_bytes=self._in_flight_ram_bytes,
             scheduler_ram_cap_bytes=self._ram_budget_bytes,
         )
-        if candidate_after_capacity_check is None:
+        if selection_after_capacity_check is None:
             sem.release()
             return False
+        slot_index, candidate_after_capacity_check = selection_after_capacity_check
         if not self._reserved_tracker.remove_reserved_unit(candidate_after_capacity_check):
             sem.release()
             return False
+        # Commit: advance the round-robin cursor past the slot we just served so the
+        # next admission rotates to the next priority window instead of restarting
+        # at INTERACTIVE.
+        self._reserved_tracker.advance_reservation_cursor(slot_index)
         self._log_queue_transition_locked(
             item=candidate_after_capacity_check,
             from_queue=self._reserved_queue_name(candidate_after_capacity_check.work_unit.priority_class),
