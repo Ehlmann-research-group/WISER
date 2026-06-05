@@ -14,7 +14,7 @@ from concurrent.futures import (
 )
 from dataclasses import dataclass, field
 from collections import Counter, deque
-from threading import Lock, Semaphore
+from threading import Event, Lock, Semaphore, Thread
 from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
 from multiprocessing.managers import dispatch
@@ -36,6 +36,9 @@ SCHEDULER_PROCESS_BUDGET = min(12, available_cpus)
 SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
+# How often the watchdog re-drives the scheduler as a safety net against parked
+# work that never gets a normal (edge-triggered) drain. Set <= 0 to disable.
+SCHEDULER_WATCHDOG_INTERVAL_SECONDS = 2.0
 PRIORITY_LANE_COUNT = 3
 # Max times a reserved unit may fail RAM admission before its plan is aborted.
 # Prevents indefinite hangs when a unit's `ram_peak_est_bytes` exceeds the
@@ -61,6 +64,7 @@ class SchedulerConfig:
     _defer_to_reserved_threshold: int = SCHEDULER_DEFER_TO_RESERVED_THRESHOLD
     _process_priority_tokens: Optional[Dict[PriorityClass, int]] = None
     _thread_priority_tokens: Optional[Dict[PriorityClass, int]] = None
+    _watchdog_interval_seconds: float = SCHEDULER_WATCHDOG_INTERVAL_SECONDS
 
 
 @dataclass
@@ -735,6 +739,7 @@ class WorkScheduler:
         self._ram_budget_bytes = int(self._config._ram_budget)
         self._in_flight_ram_bytes = 0
         self._defer_to_reserved_threshold = int(self._config._defer_to_reserved_threshold)
+        self._watchdog_interval_seconds = float(self._config._watchdog_interval_seconds)
         self._recorder = recorder
         self._task_manager = task_manager
 
@@ -821,6 +826,13 @@ class WorkScheduler:
         self._queue_transition_sequence_id = 0
         self._state_lock = Lock()
 
+        # Background safety net: periodically re-drive the scheduler so parked
+        # work cannot wedge forever if a normal (edge-triggered) drain is missed.
+        # Started last so every field it touches is already initialized.
+        self._watchdog_stop_event = Event()
+        self._watchdog_thread: Optional[Thread] = None
+        self._start_watchdog()
+
     def submit_process(
         self,
         priority: PriorityClass,
@@ -866,7 +878,39 @@ class WorkScheduler:
             initializer=initialize_thread_worker,
         )
 
+    def _start_watchdog(self) -> None:
+        """Spin up the periodic re-drain thread unless the interval disables it."""
+        if self._watchdog_interval_seconds <= 0:
+            return
+        self._watchdog_thread = Thread(
+            target=self._watchdog_loop,
+            name="WorkSchedulerWatchdog",
+            daemon=True,
+        )
+        self._watchdog_thread.start()
+
+    def _watchdog_loop(self) -> None:
+        """Re-drive the scheduler every interval until stopped.
+
+        The scheduler is otherwise edge-triggered: `_drain_queues_locked` runs
+        only on plan submit and unit completion. If work is left parked while the
+        system goes idle and no completion is pending to re-drive it, nothing
+        would make progress. This loop turns that into a level-triggered safety
+        net. Draining when there is nothing admissible is a cheap no-op.
+        """
+        while not self._watchdog_stop_event.wait(self._watchdog_interval_seconds):
+            try:
+                with self._state_lock:
+                    self._drain_queues_locked()
+                self._flush_pending_done_callbacks()
+            except Exception:
+                logger.exception("WorkScheduler watchdog drain failed; continuing.")
+
     def shutdown(self, wait: bool = True) -> None:
+        self._watchdog_stop_event.set()
+        if self._watchdog_thread is not None:
+            self._watchdog_thread.join(timeout=self._watchdog_interval_seconds + 5.0)
+            self._watchdog_thread = None
         self._thread_pool.shutdown(wait=wait)
         self._process_pool.shutdown(wait=wait)
 
