@@ -269,6 +269,11 @@ class ReservedTracker:
         candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
         if candidate_ram_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
             return slot_index, candidate
+        if in_flight_ram_bytes == 0:
+            # Run-alone override: nothing else is using RAM, so waiting can never
+            # make this candidate fit. Admit it (the scheduler logs a warning at
+            # submission) instead of deferring forever toward a plan abort.
+            return slot_index, candidate
         candidate.defer_count += 1
         self._maybe_signal_defer_exceeded(candidate)
         return None
@@ -1188,10 +1193,20 @@ class WorkScheduler:
         return False
 
     def _can_admit_non_reserved(self, item: QueuedWorkUnit) -> bool:
-        """Variant B gate for non-reserved work: cap minus reserved hold."""
+        """Variant B gate for non-reserved work: cap minus reserved hold.
+
+        Includes a run-alone override: when nothing is in flight, waiting cannot
+        free any more RAM, so a unit that still does not fit (e.g. its
+        `ram_peak_est_bytes` exceeds the budget) is admitted anyway rather than
+        being parked forever. `_submit_runnable_item_locked` logs a warning when
+        an over-budget unit is admitted this way. See also the matching override
+        in `ReservedTracker.next_admissible_reserved_unit`.
+        """
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
         available_ram_bytes = self._ram_budget_bytes - self._reserved_hold_bytes()
-        return self._in_flight_ram_bytes + required_ram_bytes <= available_ram_bytes
+        if self._in_flight_ram_bytes + required_ram_bytes <= available_ram_bytes:
+            return True
+        return self._in_flight_ram_bytes == 0
 
     def _submit_runnable_item_locked(self, item: QueuedWorkUnit, sem: Semaphore) -> bool:
         """
@@ -1212,6 +1227,18 @@ class WorkScheduler:
             return False
 
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
+        # An over-budget unit can only reach this point via the run-alone override
+        # (admitted while nothing else is in flight). Surface it: running it alone
+        # may still exceed physical memory and OOM-kill the worker.
+        if required_ram_bytes > self._ram_budget_bytes:
+            logger.warning(
+                "Work unit %s requires %d bytes which exceeds the scheduler RAM budget "
+                "of %d bytes; admitting it to run alone because no other work is in "
+                "flight. This may exceed available memory.",
+                item.work_unit.unit_id,
+                required_ram_bytes,
+                self._ram_budget_bytes,
+            )
         stage_state = plan_state.stage_states[item.stage_id]
         pool = self._process_pool if item.work_unit.executor_kind == "process" else self._thread_pool
         # Submit before mutating in-flight bookkeeping: a broken pool is restarted
