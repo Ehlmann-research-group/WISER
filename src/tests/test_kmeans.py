@@ -24,6 +24,13 @@ from wiser.utils.primitives import DeletePolicy, ExternalRasterHandle, PriorityC
 from wiser.utils.storage_client import StorageClient
 from wiser.utils.task_system import SemanticTask
 
+from tests.utils import (
+    NAN_INF_BAD_BANDS,
+    NAN_INF_DATA_IGNORE_VALUE,
+    NAN_INF_INVALID_YX,
+    build_unmasked_nan_inf_cube,
+)
+
 pytestmark = [
     pytest.mark.integration,
 ]
@@ -534,6 +541,92 @@ class TestKMeansSemanticTaskParameters(unittest.TestCase):
         params = self._make_params(dataset, algorithm=KMeansAlgorithm.ELKAN)
         labels_ds, centroids = self._submit_task(dataset, params)
         self._assert_output(dataset, labels_ds, centroids)
+
+
+class TestKMeansNanResistance(unittest.TestCase):
+    """KMeans must drop unmasked NaN/Inf pixels (and nodata) and label them as
+    data-ignore (-1), instead of erroring. Pre-fix, `_run_kmeans` raised
+    ValueError on any non-finite value in a valid (non-nodata) pixel."""
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def test_kmeans_tolerates_unmasked_nan_and_inf(self) -> None:
+        # Synthetic cube with a bad band, two all-nodata pixels, and unmasked
+        # NaN/+Inf/-Inf in good bands at distinct pixels (NAN_INF_INVALID_YX).
+        dataset = RasterDataLoader().dataset_from_numpy_array(build_unmasked_nan_inf_cube())
+        dataset.set_bad_bands(NAN_INF_BAD_BANDS)
+        dataset.set_data_ignore_value(NAN_INF_DATA_IGNORE_VALUE)
+
+        app_services = self.test_model.app_services
+        storage_client = None
+        try:
+            dataset_ref = app_services.storage_service.register_external(
+                ExternalRasterHandle(dataset_obj=dataset)
+            )
+            k = 3
+            params = KMeansParameters(
+                dataset_id=0,  # dataset not registered in app_state; use sentinel
+                k=k,
+                init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
+                num_inits=3,
+                max_iter=100,
+                tol=1e-4,
+                seed=_SEED,
+                algorithm=KMeansAlgorithm.LLOYD,
+            )
+
+            pipeline = get_kmeans_pipeline(dataset_ref, params)
+            pipeline.stages[0].set_output_delete_policy("kmeans_labels", DeletePolicy.KEEP)
+            pipeline.stages[0].set_output_delete_policy("kmeans_centroids", DeletePolicy.KEEP)
+
+            task = SemanticTask(
+                priority_class=PriorityClass.BACKGROUND,
+                input_ref=dataset_ref,
+                algorithm_pipeline=pipeline,
+            )
+            task.id = 5101
+
+            task_plan = app_services.task_planner.plan_semantic_task(task)
+            future = app_services.scheduler.run_task_plan(task_plan)
+            # Pre-fix this raised "KMeans input contains NaN or infinite values...".
+            future.result(timeout=60)
+
+            listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
+            storage_client = StorageClient(
+                service=None,  # type: ignore[arg-type]
+                service_address=listener_address,
+                service_authkey=listener_authkey,
+            )
+            labels_out, _ = storage_client.read_data(task_plan.bindings["kmeans_labels"])
+            labels = np.asarray(labels_out).astype(np.int32)  # (y, x, 1)
+
+            self.assertEqual(labels.shape, (12, 12, 1))
+
+            # Every nodata / NaN / Inf pixel is dropped and labelled data-ignore.
+            invalid_mask = np.zeros((12, 12), dtype=bool)
+            for yy, xx in NAN_INF_INVALID_YX:
+                invalid_mask[yy, xx] = True
+                self.assertEqual(
+                    labels[yy, xx, 0],
+                    -1,
+                    f"Invalid pixel {(yy, xx)} should be labelled data-ignore (-1)",
+                )
+
+            # Every surviving pixel got a real cluster label in [0, k-1].
+            valid_labels = labels[~invalid_mask][:, 0]
+            self.assertTrue(np.all(valid_labels >= 0))
+            self.assertTrue(np.all(valid_labels < k))
+        finally:
+            if storage_client is not None:
+                storage_client.close()
+            release_kept_refs(app_services)
+            app_services.scheduler.shutdown(wait=True)
+            app_services.storage_service.close()
 
 
 if __name__ == "__main__":
