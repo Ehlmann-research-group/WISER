@@ -1631,7 +1631,8 @@ class WorkScheduler:
             f"RAM admission {queued.defer_count} times "
             f"(ram_peak_est_bytes={queued.work_unit.ram_peak_est_bytes}, "
             f"scheduler_ram_cap_bytes={self._ram_budget_bytes}, "
-            f"max_defer_count={MAX_DEFER_COUNT})."
+            f"max_defer_count={MAX_DEFER_COUNT}).\n\n"
+            f"Try to submit the task as the only task running."
         )
         self._abort_plan_locked(
             queued.plan_id,
