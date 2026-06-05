@@ -350,6 +350,9 @@ class TestWorkScheduler(unittest.TestCase):
                     _thread_budget=3,
                     _ram_budget=5_000,
                     _defer_to_reserved_threshold=2,
+                    # This test asserts the exact defer-count sequence, which extra
+                    # watchdog drains would perturb. Disable the watchdog here.
+                    _watchdog_interval_seconds=0,
                     _process_priority_tokens={
                         PriorityClass.INTERACTIVE: 5,
                         PriorityClass.RENDER: 1,
@@ -636,6 +639,87 @@ class TestWorkScheduler(unittest.TestCase):
                 # from reserved once the filler freed it (in_flight back to zero).
                 self.assertIn("defer_threshold_exceeded", reasons)
                 self.assertIn("reserved_admitted", reasons)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_watchdog_periodically_drains_and_stops_on_shutdown(self) -> None:
+        """The watchdog re-drives the scheduler on its interval while running, and
+        stops doing so once the scheduler is shut down.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=3,
+                    _watchdog_interval_seconds=0.05,
+                ),
+                service,
+            )
+            real_drain = scheduler._drain_queues_locked
+            drain_calls = {"count": 0}
+
+            def counting_drain() -> None:
+                drain_calls["count"] += 1
+                real_drain()
+
+            try:
+                # No plans are submitted, so every drain observed here is the
+                # watchdog ticking (nothing else calls it on an idle scheduler).
+                with patch.object(scheduler, "_drain_queues_locked", counting_drain):
+                    time.sleep(0.3)  # ~6 intervals
+                    ticks_while_running = drain_calls["count"]
+
+                self.assertGreaterEqual(ticks_while_running, 2, "watchdog should re-drive on its interval")
+
+                scheduler.shutdown(wait=True)
+                self.assertIsNone(scheduler._watchdog_thread)
+            finally:
+                scheduler.shutdown(wait=True)
+                service.close()
+
+    def test_watchdog_recovers_stranded_plan_after_missed_drain(self) -> None:
+        """If the drain that `run_task_plan` normally performs is missed, the unit
+        is enqueued but never submitted. The watchdog must re-drive the stranded
+        queue so the plan still completes.
+
+        The missed drain is simulated by suppressing only the initial submit-time
+        drain; the real watchdog and real `_drain_queues_locked` then recover it.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(
+                SchedulerConfig(
+                    _process_budget=3,
+                    _thread_budget=3,
+                    _watchdog_interval_seconds=0.05,
+                ),
+                service,
+            )
+            try:
+                unit = _make_work_unit(
+                    unit_id="u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-stranded",
+                    semantic_task_id="semantic-stranded",
+                    work_units={unit.unit_id: unit},
+                    stage_work_units={"s00": [unit.unit_id]},
+                    fail_fast=True,
+                )
+
+                # Suppress the submit-time drain: the unit lands in the main queue
+                # with no drain scheduled, exactly like a lost wakeup.
+                with patch.object(scheduler, "_drain_queues_locked", lambda: None):
+                    future = scheduler.run_task_plan(plan)
+
+                # Only the watchdog can re-drive the stranded queue now.
+                future.result(timeout=5)
             finally:
                 scheduler.shutdown(wait=True)
                 service.close()
