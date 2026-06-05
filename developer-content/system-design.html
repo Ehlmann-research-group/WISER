@@ -613,6 +613,10 @@ descriptors, JSON descriptors).</p></li>
 </ol>
 <p><code class="docutils literal notranslate"><span class="pre">QueuedWorkUnit.defer_count</span></code> is incremented when RAM admission fails. If this count exceeds a threshold, the unit is
 promoted into <code class="docutils literal notranslate"><span class="pre">ReservedTracker</span></code>.</p>
+<p>Dispatch is normally <strong>edge-triggered</strong>: queues are drained when a plan is submitted and when a unit completes. A
+periodic background <strong>watchdog</strong> thread (<code class="docutils literal notranslate"><span class="pre">_watchdog_loop</span></code>, interval configured by <code class="docutils literal notranslate"><span class="pre">SchedulerConfig._watchdog_interval_seconds</span></code>)
+re-drains the queues as a safety net, so work that was left parked cannot wedge forever if a normal drain trigger is
+missed. Draining when nothing is admissible is a cheap no-op.</p>
 </section>
 <section id="ram-and-hold-byte-model-high-level">
 <h4>RAM and hold-byte model (high level)<a class="headerlink" href="#ram-and-hold-byte-model-high-level" title="Link to this heading">#</a></h4>
@@ -625,6 +629,11 @@ promoted into <code class="docutils literal notranslate"><span class="pre">Reser
 For reserved units, admission uses full cap (<code class="docutils literal notranslate"><span class="pre">cap</span></code>).</p>
 <p>This prevents non-reserved work from continually consuming all slack while still allowing reserved units to run once
 feasible.</p>
+<p><strong>Run-alone override:</strong> when nothing is in flight (<code class="docutils literal notranslate"><span class="pre">in_flight</span> <span class="pre">==</span> <span class="pre">0</span></code>), a unit that still does not fit — most importantly
+one whose <code class="docutils literal notranslate"><span class="pre">ram_peak_est_bytes</span></code> exceeds the whole budget — is admitted anyway, since waiting can never free more RAM.
+The over-budget admission is logged as a warning (running such a unit may exceed available memory). This guarantees a
+single oversized unit with no siblings (e.g. an unchunked stage over a large dataset) runs alone instead of hanging the
+plan forever.</p>
 </section>
 <section id="reservedtracker-high-level">
 <h4>ReservedTracker (high level)<a class="headerlink" href="#reservedtracker-high-level" title="Link to this heading">#</a></h4>
@@ -632,7 +641,11 @@ feasible.</p>
 interactive/render/background = 3/2/1).</p>
 <p>It provides:</p>
 <ul class="simple">
-<li><p>deterministic reserved candidate selection,</p></li>
+<li><p>weighted round-robin candidate selection across the priority windows, using a cursor that advances past each served
+slot (so admission rotates fairly across priorities rather than always draining the highest priority first),</p></li>
+<li><p>head-of-line avoidance: admission scans past an un-admittable head (e.g. an over-budget unit) to serve a fittable
+candidate in another priority queue, while preserving FIFO order <em>within</em> a priority,</p></li>
+<li><p>a run-alone override consistent with the scheduler’s RAM model (admit the current head when nothing is in flight),</p></li>
 <li><p>FIFO ownership for reserved units,</p></li>
 <li><p>hold-byte totals used by scheduler RAM admission.</p></li>
 </ul>
@@ -645,9 +658,12 @@ interactive/render/background = 3/2/1).</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">_enqueue_stage_locked(...)</span></code> - places stage units into main queues.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">_drain_queues_locked(...)</span></code> - main dispatch loop (reserved, blocked, main).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">_attempt_submit_reserved_locked(...)</span></code> - reserved admission path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ReservedTracker.next_admissible_reserved_unit(...)</span></code> / <code class="docutils literal notranslate"><span class="pre">advance_reservation_cursor(...)</span></code> - round-robin reserved
+selection (with head-of-line scan and run-alone override) and the cursor advance that keeps it fair.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">_submit_non_reserved_from_queues_locked(...)</span></code> - blocked/main admission path.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">_submit_runnable_item_locked(...)</span></code> - final executor submission + in-flight accounting.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_submit_runnable_item_locked(...)</span></code> - final executor submission + in-flight accounting (logs over-budget run-alone admissions).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">_on_unit_done(...)</span></code> - completion accounting, stage progression, and re-dispatch.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_watchdog_loop(...)</span></code> - periodic safety-net re-drain so parked work cannot wedge if a drain trigger is missed.</p></li>
 </ul>
 </section>
 </section>
