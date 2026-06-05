@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from wiser.utils.task_system import TaskManager
 
 available_cpus = os.cpu_count() or 1
-SCHEDULER_PROCESS_BUDGET = min(12, available_cpus)
+SCHEDULER_PROCESS_BUDGET = min(6, available_cpus)
 SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
