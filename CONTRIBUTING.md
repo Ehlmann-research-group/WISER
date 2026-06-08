@@ -69,32 +69,35 @@ see your post and help you. Just remember, this is an
 open-source project, so it may take some time for people to 
 get to your discussion post.
 
-## Contributor License Agreement (CLA)
+## Developer Certificate of Origin (DCO)
 
-Before we can accept your contribution, you must sign our
-Contributor License Agreement (CLA). This confirms you have the
-right to contribute and grants the project the necessary rights
-to use and distribute your contribution.
+We use the [Developer Certificate of Origin (DCO)](https://github.com/Ehlmann-research-group/WISER/blob/main/DCO)
+rather than a Contributor License Agreement (CLA). By signing your commits with
+`git commit -s`, you automatically append a Signed-off-by: line to your commit message. This line legally certifies that you have the right to submit the code under the project's license.
 
-You’ll be prompted to sign the CLA when you open your first PR.
+### Why we chose DCO over CLA
 
-### Why we chose CLA over DCO
-
-If you don't know what CLA or DCO is, [this link](https://www.linkedin.com/pulse/should-i-use-developers-certificate-origin-agreement-vershov-downing/)
+If you don't know what a CLA or DCO is, [this link](https://www.linkedin.com/pulse/should-i-use-developers-certificate-origin-agreement-vershov-downing/)
 explains it well.
 
-We chose CLA because DCO doesn't protect WISER from corporate 
-contributors who may unintentionally violate their corporation's copyright or patents. Because WISER's goal is to
-be a free alternative to expensive corporate products, we want
-to be defensive against this.
+We chose DCO because it keeps the barrier to contribution as low as possible.
+Contributors only need to sign their commits rather than review and sign a
+separate legal document. We don't want paperwork to scare away people who want
+to help.
 
-We also want the ability to sue
-and counter sue anyone who takes WISER and commercializes it. 
+While the DCO doesn't as strongly protect WISER from contributors -- corporate
+or otherwise -- who may unintentionally or intentionally violate a
+corporation's copyright or patents, it does offer meaningful protection,
+particularly when combined with our license.
 
-Additionally, "no court has ruled that tags in DVCS commit logs can substitute for signing a contract (click-throughs, however, do constitute a legal signature), and tt’s unknown if the tag is being put in place by someone in their individual capacity or in their corporate capacity - there’s no way to tell who is actually 'signing' up to the DCO since there is no point when a contributor is prompted to disclose this information." -- [Kate Vershov Downing](https://www.linkedin.com/pulse/should-i-use-developers-certificate-origin-agreement-vershov-downing/)
+It is worth acknowledging that "no court has ruled that tags in DVCS commit logs
+can substitute for signing a contract (click-throughs, however, do constitute a
+legal signature), and it's unknown if the tag is being put in place by someone
+in their individual capacity or in their corporate capacity." --
+[Kate Vershov Downing](https://www.linkedin.com/pulse/should-i-use-developers-certificate-origin-agreement-vershov-downing/)
 
-In essence, using CLA gives us more legal movement to defend 
-WISER against corportations who may try to take it. 
+Still, when coupled with our license, we are confident the DCO provides WISER with
+solid protection against misuse.
 
 ## Project Roles
 
