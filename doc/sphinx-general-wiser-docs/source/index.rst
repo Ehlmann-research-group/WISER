@@ -17,7 +17,7 @@ at Caltech & CU Boulder. For any questions, contact wiser_AT_caltech.edu.
 - Contrast stretch and color mapping for display control
 - Band math with custom expressions and plugin-defined functions
 - Analysis tools: PCA, Spectral Angle Mapper, Continuum Removal, Scatter Plot,
- Minimum Noise Fraction, K-means, and more
+Minimum Noise Fraction, K-means, and more
 - Georeferencing and coordinate system management
 - Extensible plugin system (Tools Menu, Context Menu, Band Math)
 
