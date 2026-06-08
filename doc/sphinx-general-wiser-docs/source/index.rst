@@ -52,6 +52,15 @@ exploring WISER:
 - `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ --- planetary hyperspectral datasets (CRISM, OMEGA, and more)
 - `Ehlmann Lab datasets <https://ehlmann.caltech.edu/publications/datasets.html>`_ --- laboratory and field imaging-spectroscopy data
 
+----
+
+Subscribe to Email Updates
+--------------------------
+
+To receive notifications about new WISER releases, send an email to
+``wiser-announce-request@caltech.edu`` with the subject line **Subscribe**.
+Follow the instructions in the reply to confirm your subscription.
+
 
 Installation
 ------------
