@@ -3,7 +3,7 @@
 Questions, bugs, and feature requests can be submitted as
 [GitHub Issues](https://github.com/Ehlmann-research-group/WISER/issues),
 or via the [WISER feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)
-if you prefer not to use GitHub.
+if you prefer not to use GitHub. For other help, email us at wiser_AT_caltech.edu.
 
 ## Reporting a Bug
 
@@ -67,4 +67,3 @@ Want to contribute a fix or feature? Start here:
    [Testing & QA](developer-content/testing-and-qa) guide.
 5. **Open a pull request** — link it to your issue. The PR description is the
    merge commit body, so write it clearly.
-
