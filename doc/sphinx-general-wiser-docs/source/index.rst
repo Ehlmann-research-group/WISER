@@ -7,7 +7,7 @@ imagery. Built in Python on Qt/PySide2, it runs on **macOS, Windows, and
 Linux** with no commercial license required.
 
 Developed and maintained by the `Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_
-at Caltech & CU Boulder.
+at Caltech & CU Boulder. For any questions, contact wiser_AT_caltech.edu.
 
 **Key capabilities:**
 
