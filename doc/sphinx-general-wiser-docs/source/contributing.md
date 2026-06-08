@@ -5,6 +5,13 @@ Questions, bugs, and feature requests can be submitted as
 or via the [WISER feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)
 if you prefer not to use GitHub. For other help, email us at wiser_AT_caltech.edu.
 
+## Becoming a Tester
+
+To become a WISER tester, fill out [this form](https://docs.google.com/forms/d/e/1FAIpQLSfzNRkk7Pp19eaoa1u2qM0rezIAqQK7sIQl518hMqzDD3daqQ/viewform?usp=header).
+
+As a tester, you will receive pre-release builds of WISER in order to help
+us find any bugs or issues with the software before the release.
+
 ## Reporting a Bug
 
 Thank you for helping make WISER better!
