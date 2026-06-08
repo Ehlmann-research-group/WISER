@@ -3,7 +3,14 @@
 Questions, bugs, and feature requests can be submitted as
 [GitHub Issues](https://github.com/Ehlmann-research-group/WISER/issues),
 or via the [WISER feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)
-if you prefer not to use GitHub.
+if you prefer not to use GitHub. For other help, email us at wiser_AT_caltech.edu.
+
+## Becoming a Tester
+
+To become a WISER tester, fill out [this form](https://docs.google.com/forms/d/e/1FAIpQLSfzNRkk7Pp19eaoa1u2qM0rezIAqQK7sIQl518hMqzDD3daqQ/viewform?usp=header).
+
+As a tester, you will receive pre-release builds of WISER in order to help
+us find any bugs or issues with the software before the release.
 
 ## Reporting a Bug
 
@@ -67,4 +74,3 @@ Want to contribute a fix or feature? Start here:
    [Testing & QA](developer-content/testing-and-qa) guide.
 5. **Open a pull request** — link it to your issue. The PR description is the
    merge commit body, so write it clearly.
-
