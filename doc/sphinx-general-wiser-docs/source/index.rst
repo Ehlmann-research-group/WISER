@@ -7,7 +7,7 @@ imagery. Built in Python on Qt/PySide2, it runs on **macOS, Windows, and
 Linux** with no commercial license required.
 
 Developed and maintained by the `Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_
-at Caltech & CU Boulder.
+at Caltech & CU Boulder. For any questions, contact wiser_AT_caltech.edu.
 
 **Key capabilities:**
 
@@ -16,11 +16,50 @@ at Caltech & CU Boulder.
 - Regions of Interest (ROIs) for area-averaged spectra and pixel exports
 - Contrast stretch and color mapping for display control
 - Band math with custom expressions and plugin-defined functions
-- Analysis tools: PCA, Spectral Angle Mapper, Continuum Removal, Scatter Plot
+- Analysis tools: PCA, Spectral Angle Mapper, Continuum Removal, Scatter Plot, Minimum Noise Fraction, K-means, and more
 - Georeferencing and coordinate system management
 - Extensible plugin system (Tools Menu, Context Menu, Band Math)
 
 ----
+
+Sample Datasets
+---------------
+
+WISER natively opens several hyperspectral and spectral-library formats, and
+can fall back to any format supported by GDAL for additional coverage.
+
+**Natively supported formats**
+
+- **ENVI raster** (``*.img``, ``*.hdr``)
+- **TIFF / GeoTIFF** (``*.tiff``, ``*.tif``, ``*.tfw``)
+- **NetCDF** (``*.nc``)
+- **JPEG 2000** (``*.JP2``)
+- **PDS raster** (``*.PDS``, ``*.img``, ``*.lbl``, ``*.xml``)
+- **ENVI spectral libraries** (``*.sli``, ``*.hdr``)
+- **GDAL-readable formats** --- any format that GDAL can open (e.g. HDF4/5,
+  GRIdded Binary, COG, and more)
+
+**Example datasets to try**
+
+The following publicly available datasets are good starting points for
+exploring WISER:
+
+- `Sample AVIRIS-NG image of Caltech <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
+  (also download the matching
+  `header file <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`_)
+- `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ --- archive of airborne imaging-spectrometer scenes
+- `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ --- planetary hyperspectral datasets (CRISM, OMEGA, and more)
+- `Ehlmann Lab datasets <https://ehlmann.caltech.edu/publications/datasets.html>`_ --- laboratory and field imaging-spectroscopy data
+
+----
+
+Subscribe to Email Updates
+--------------------------
+
+To receive notifications about new WISER releases, send an email to
+``wiser-announce-request@caltech.edu`` with the subject line **Subscribe**.
+Follow the instructions in the reply to confirm your subscription.
+
 
 Installation
 ------------
@@ -64,6 +103,24 @@ WISER builds currently target:
 - **macOS 15** --- ARM (Apple Silicon) and Intel
 - **Windows 10/11**
 - **Linux** --- Ubuntu 20.04+, Debian 11+, Fedora 39+ (amd64 and aarch64)
+
+System Requirements
+^^^^^^^^^^^^^^^^^^^
+
+The minimum and recommended specifications for running WISER are:
+
+**Operating system**
+
+- **Windows:** Windows 10 or 11 (64-bit)
+- **macOS:** macOS 15 or newer (Intel and Apple Silicon)
+- **Linux:** Ubuntu 20.04+, Debian 11+, or Fedora 39+ (amd64 and aarch64)
+
+**Hardware**
+
+- **CPU architecture:** x86_64 (Intel/AMD) or arm64 (Apple Silicon / aarch64)
+- **Memory:** 8 GB minimum; 16--32 GB recommended for large datasets
+- **Storage:** ~1 GB for installation; SSD strongly recommended
+- **GPU:** Not required
 
 If you encounter issues building or running WISER, please
 `open a GitHub Issue <https://github.com/Ehlmann-research-group/WISER/issues>`_.

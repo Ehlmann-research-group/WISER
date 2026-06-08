@@ -60,6 +60,7 @@ Read _CODE_OF_CONDUCT.md_ for more information.
 |------|------|-------------|
 | Project Lead [(BDFL)](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life) | [Bethany Ehlmann](https://www.linkedin.com/in/bethany-ehlmann-1112b81/) | CU Boulder
 | Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
+| Maintainer | Matthew Maclay | LASP |
 
 ## Where can I ask for help?
 
