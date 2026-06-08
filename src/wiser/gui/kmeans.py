@@ -52,7 +52,11 @@ from wiser.utils.task_system import (
 from wiser.utils.worker_runtime import get_process_storage_client
 
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
-from wiser.raster.utils import convert_spectrum_wavelengths, get_band_values
+from wiser.raster.utils import (
+    convert_spectrum_wavelengths,
+    finite_unmasked_row_mask,
+    get_band_values,
+)
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
@@ -256,24 +260,34 @@ def _run_kmeans(
     # Flatten to (n_pixels, b_good) while preserving the flat index -> (y, x) mapping
     flat = image_good.reshape(y * x, b_good)
 
-    # Remove rows that contain the data ignore value
+    # A pixel is unusable if it holds any non-finite value (NaN/Inf) in a good
+    # band, or it hits the nodata sentinel. Both kinds of row are dropped before
+    # clustering and get the data-ignore label in the output -- the same approach
+    # PCA/MNF/decorrelation use to stay NaN-resistant, instead of erroring out.
+    # finite_unmasked_row_mask is the shared row-validity helper: it drops the
+    # NaN/Inf rows (which also covers the nodata-is-NaN case) and AND-s out the
+    # finite-sentinel nodata rows passed via its optional mask.
     nodata = region_meta.nodata
-    if nodata is not None:
-        if np.isnan(nodata):
-            nodata_row_mask = np.any(np.isnan(flat), axis=1)
-        else:
-            nodata_row_mask = np.any(flat == nodata, axis=1)
-        valid_indices = np.where(~nodata_row_mask)[0]
-    else:
-        valid_indices = np.arange(y * x)
+    nodata_mask = None
+    if nodata is not None and not np.isnan(nodata):
+        nodata_mask = flat == nodata
+    valid_indices = np.where(finite_unmasked_row_mask(flat, nodata_mask))[0]
 
     flat_valid = flat[valid_indices]  # (n_valid, b_good)
 
-    # Error out on any remaining NaN or infinite values
+    # Defensive sanity check: after dropping non-finite/nodata rows, nothing
+    # non-finite should remain. If it does, the cleaning above missed something.
     if not np.all(np.isfinite(flat_valid)):
         raise ValueError(
-            "KMeans input contains NaN or infinite values in valid (non-nodata) pixels. "
-            "Check your dataset for corrupt values."
+            "KMeans input still contains NaN or infinite values after removing "
+            "nodata and NaN/Inf pixels. Check your dataset for corrupt values."
+        )
+
+    k = params.get_k()
+    if flat_valid.shape[0] < k:
+        raise ValueError(
+            f"KMeans needs at least k={k} valid (finite, non-nodata) pixels, but only "
+            f"{flat_valid.shape[0]} remain after removing nodata and NaN/Inf pixels."
         )
 
     # Build the init argument
