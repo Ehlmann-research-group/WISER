@@ -23,6 +23,36 @@ at Caltech & CU Boulder.
 
 ----
 
+Sample Datasets
+---------------
+
+WISER natively opens several hyperspectral and spectral-library formats, and
+can fall back to any format supported by GDAL for additional coverage.
+
+**Natively supported formats**
+
+- **ENVI raster** (``*.img``, ``*.hdr``)
+- **TIFF / GeoTIFF** (``*.tiff``, ``*.tif``, ``*.tfw``)
+- **NetCDF** (``*.nc``)
+- **JPEG 2000** (``*.JP2``)
+- **PDS raster** (``*.PDS``, ``*.img``, ``*.lbl``, ``*.xml``)
+- **ENVI spectral libraries** (``*.sli``, ``*.hdr``)
+- **GDAL-readable formats** --- any format that GDAL can open (e.g. HDF4/5,
+  GRIdded Binary, COG, and more)
+
+**Example datasets to try**
+
+The following publicly available datasets are good starting points for
+exploring WISER:
+
+- `Sample AVIRIS-NG image of Caltech <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
+  (also download the matching
+  `header file <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`_)
+- `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ --- archive of airborne imaging-spectrometer scenes
+- `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ --- planetary hyperspectral datasets (CRISM, OMEGA, and more)
+- `Ehlmann Lab datasets <https://ehlmann.caltech.edu/publications/datasets.html>`_ --- laboratory and field imaging-spectroscopy data
+
+
 Installation
 ------------
 
