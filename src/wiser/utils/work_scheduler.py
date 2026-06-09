@@ -14,7 +14,7 @@ from concurrent.futures import (
 )
 from dataclasses import dataclass, field
 from collections import Counter, deque
-from threading import Lock, Semaphore
+from threading import Event, Lock, Semaphore, Thread
 from time import perf_counter
 from typing import Any, Callable, Deque, Dict, Optional, TYPE_CHECKING
 from multiprocessing.managers import dispatch
@@ -32,10 +32,13 @@ if TYPE_CHECKING:
     from wiser.utils.task_system import TaskManager
 
 available_cpus = os.cpu_count() or 1
-SCHEDULER_PROCESS_BUDGET = min(12, available_cpus)
+SCHEDULER_PROCESS_BUDGET = min(6, available_cpus)
 SCHEDULER_RAM_BUDGET = 2_000_000_000
 SCHEDULER_THREAD_BUDGET = 32
 SCHEDULER_DEFER_TO_RESERVED_THRESHOLD = 4
+# How often the watchdog re-drives the scheduler as a safety net against parked
+# work that never gets a normal (edge-triggered) drain. Set <= 0 to disable.
+SCHEDULER_WATCHDOG_INTERVAL_SECONDS = 2.0
 PRIORITY_LANE_COUNT = 3
 # Max times a reserved unit may fail RAM admission before its plan is aborted.
 # Prevents indefinite hangs when a unit's `ram_peak_est_bytes` exceeds the
@@ -61,6 +64,7 @@ class SchedulerConfig:
     _defer_to_reserved_threshold: int = SCHEDULER_DEFER_TO_RESERVED_THRESHOLD
     _process_priority_tokens: Optional[Dict[PriorityClass, int]] = None
     _thread_priority_tokens: Optional[Dict[PriorityClass, int]] = None
+    _watchdog_interval_seconds: float = SCHEDULER_WATCHDOG_INTERVAL_SECONDS
 
 
 @dataclass
@@ -216,6 +220,27 @@ class ReservedTracker:
         self._recompute_hold_bytes()
         return True
 
+    def _iter_candidate_slots(self):
+        """Yield ``(slot_index, head_candidate)`` for each populated slot in
+        round-robin scan order starting at the cursor.
+
+        Each populated slot yields the head of that priority's FIFO queue, so a
+        priority whose window spans multiple slots yields its head once per
+        populated slot; callers that only test admissibility can treat the
+        repeats idempotently. This is the iteration primitive behind both the
+        single-candidate `_next_candidate_with_slot` and the full
+        head-of-line-avoiding scan in `next_admissible_reserved_unit`.
+        """
+        if not self._reservation_slots_in_order:
+            return
+        total_slots = len(self._reservation_slots_in_order)
+        for scanned_slots in range(total_slots):
+            slot_index = (self._next_reservation_slot_index + scanned_slots) % total_slots
+            priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
+            reserved_queue = self._reserved_queue_by_priority[priority_class]
+            if slot_offset < len(reserved_queue):
+                yield slot_index, reserved_queue[0]
+
     def _next_candidate_with_slot(self) -> Optional[tuple[int, QueuedWorkUnit]]:
         """
         Return current round-robin candidate.
@@ -223,26 +248,20 @@ class ReservedTracker:
         We scan at most one full slot cycle and pick the first slot that is
         currently populated in its class queue.
         """
-        if not self._reservation_slots_in_order:
-            return None
-        total_slots = len(self._reservation_slots_in_order)
-        for scanned_slots in range(total_slots):
-            slot_index = (self._next_reservation_slot_index + scanned_slots) % total_slots
-            priority_class, slot_offset = self._reservation_slots_in_order[slot_index]
-            reserved_queue = self._reserved_queue_by_priority[priority_class]
-            if slot_offset < len(reserved_queue):
-                # We use the slot_index to know what priority class to use. Then
-                # we just get the first item in the queue.
-                return slot_index, reserved_queue[0]
-        return None
+        return next(self._iter_candidate_slots(), None)
 
     def next_admissible_reserved_unit(
         self,
         in_flight_ram_bytes: int,
         scheduler_ram_cap_bytes: int,
-    ) -> Optional[QueuedWorkUnit]:
+    ) -> Optional[tuple[int, QueuedWorkUnit]]:
         """
         Return the next reserved unit that can run under Variant B reserved admission.
+
+        Returns a ``(slot_index, candidate)`` pair so the caller can advance the
+        round-robin cursor past ``slot_index`` once it commits to serving the
+        candidate (see `advance_reservation_cursor`). Returns None when no
+        candidate is currently admissible.
 
         Candidate order is deterministic and fairness-windowed via round-robin slots:
           1) INTERACTIVE slots 0..m-1,
@@ -250,23 +269,54 @@ class ReservedTracker:
           3) then BACKGROUND slots 0..k-1,
         and the tracker remembers the last served slot to continue fairly.
 
-        Strict fairness rule:
-          - only the current round-robin candidate slot is eligible now.
-          - if that candidate does not fit, this method returns None (no fallback scanning).
+        Head-of-line avoidance:
+          - we scan candidates in round-robin order and return the first that
+            fits, so an un-admittable head (e.g. an over-budget unit) in one
+            priority queue does not starve fittable units in the others.
+          - FIFO within a priority is preserved: only each queue's head is a
+            candidate, never a unit behind a stuck head in the same queue.
 
-        The candidate is admissible when:
-            candidate.ram_peak_est_bytes + in_flight_ram_bytes < scheduler_ram_cap_bytes
+        Fallbacks when nothing fits:
+          - run-alone override: if nothing is in flight, waiting can never free
+            more RAM, so the current round-robin head is admitted anyway (the
+            scheduler logs a warning at submission).
+          - otherwise the head's defer counter is advanced (toward the eventual
+            plan abort) and None is returned.
+
+        A candidate is admissible when:
+            candidate.ram_peak_est_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes
         """
-        candidate_with_slot = self._next_candidate_with_slot()
-        if candidate_with_slot is None:
+        head_with_slot: Optional[tuple[int, QueuedWorkUnit]] = None
+        for slot_index, candidate in self._iter_candidate_slots():
+            if head_with_slot is None:
+                head_with_slot = (slot_index, candidate)
+            if candidate.work_unit.ram_peak_est_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
+                return slot_index, candidate
+
+        if head_with_slot is None:
             return None
-        _, candidate = candidate_with_slot
-        candidate_ram_bytes = candidate.work_unit.ram_peak_est_bytes
-        if candidate_ram_bytes + in_flight_ram_bytes <= scheduler_ram_cap_bytes:
-            return candidate
-        candidate.defer_count += 1
-        self._maybe_signal_defer_exceeded(candidate)
+        if in_flight_ram_bytes == 0:
+            # Run-alone override on the current round-robin head: nothing else is
+            # using RAM, so no amount of waiting will make anything fit.
+            return head_with_slot
+        _, head_candidate = head_with_slot
+        head_candidate.defer_count += 1
+        self._maybe_signal_defer_exceeded(head_candidate)
         return None
+
+    def advance_reservation_cursor(self, served_slot_index: int) -> None:
+        """Advance the round-robin cursor past the slot that was just served.
+
+        Mirrors the cursor bump inside `pop_next_admissible_reserved_unit` for
+        callers that select via `next_admissible_reserved_unit` and remove via
+        `remove_reserved_unit` (the scheduler's peek/acquire/remove path). Without
+        this, the cursor stays pinned and reserved admission degrades from
+        weighted round-robin to strict highest-priority-first.
+        """
+        if self._reservation_slots_in_order:
+            self._next_reservation_slot_index = (served_slot_index + 1) % len(
+                self._reservation_slots_in_order
+            )
 
     def _maybe_signal_defer_exceeded(self, candidate: "QueuedWorkUnit") -> None:
         """Invoke the defer-exceeded hook once, when the candidate's count crosses the cap."""
@@ -711,6 +761,7 @@ class WorkScheduler:
         self._ram_budget_bytes = int(self._config._ram_budget)
         self._in_flight_ram_bytes = 0
         self._defer_to_reserved_threshold = int(self._config._defer_to_reserved_threshold)
+        self._watchdog_interval_seconds = float(self._config._watchdog_interval_seconds)
         self._recorder = recorder
         self._task_manager = task_manager
 
@@ -797,6 +848,13 @@ class WorkScheduler:
         self._queue_transition_sequence_id = 0
         self._state_lock = Lock()
 
+        # Background safety net: periodically re-drive the scheduler so parked
+        # work cannot wedge forever if a normal (edge-triggered) drain is missed.
+        # Started last so every field it touches is already initialized.
+        self._watchdog_stop_event = Event()
+        self._watchdog_thread: Optional[Thread] = None
+        self._start_watchdog()
+
     def submit_process(
         self,
         priority: PriorityClass,
@@ -842,7 +900,39 @@ class WorkScheduler:
             initializer=initialize_thread_worker,
         )
 
+    def _start_watchdog(self) -> None:
+        """Spin up the periodic re-drain thread unless the interval disables it."""
+        if self._watchdog_interval_seconds <= 0:
+            return
+        self._watchdog_thread = Thread(
+            target=self._watchdog_loop,
+            name="WorkSchedulerWatchdog",
+            daemon=True,
+        )
+        self._watchdog_thread.start()
+
+    def _watchdog_loop(self) -> None:
+        """Re-drive the scheduler every interval until stopped.
+
+        The scheduler is otherwise edge-triggered: `_drain_queues_locked` runs
+        only on plan submit and unit completion. If work is left parked while the
+        system goes idle and no completion is pending to re-drive it, nothing
+        would make progress. This loop turns that into a level-triggered safety
+        net. Draining when there is nothing admissible is a cheap no-op.
+        """
+        while not self._watchdog_stop_event.wait(self._watchdog_interval_seconds):
+            try:
+                with self._state_lock:
+                    self._drain_queues_locked()
+                self._flush_pending_done_callbacks()
+            except Exception:
+                logger.exception("WorkScheduler watchdog drain failed; continuing.")
+
     def shutdown(self, wait: bool = True) -> None:
+        self._watchdog_stop_event.set()
+        if self._watchdog_thread is not None:
+            self._watchdog_thread.join(timeout=self._watchdog_interval_seconds + 5.0)
+            self._watchdog_thread = None
         self._thread_pool.shutdown(wait=wait)
         self._process_pool.shutdown(wait=wait)
 
@@ -1027,12 +1117,13 @@ class WorkScheduler:
         relevant semaphore, then re-check and finally remove the exact unit
         immediately before submitting.
         """
-        candidate = self._reserved_tracker.next_admissible_reserved_unit(
+        selection = self._reserved_tracker.next_admissible_reserved_unit(
             in_flight_ram_bytes=self._in_flight_ram_bytes,
             scheduler_ram_cap_bytes=self._ram_budget_bytes,
         )
-        if candidate is None:
+        if selection is None:
             return False
+        _, candidate = selection
         priority_class = candidate.work_unit.priority_class
         sem = (
             self._process_semaphores[priority_class]
@@ -1042,16 +1133,21 @@ class WorkScheduler:
         if not sem.acquire(blocking=False):
             return False
         # Re-check under held token because memory/completion state may have changed.
-        candidate_after_capacity_check = self._reserved_tracker.next_admissible_reserved_unit(
+        selection_after_capacity_check = self._reserved_tracker.next_admissible_reserved_unit(
             in_flight_ram_bytes=self._in_flight_ram_bytes,
             scheduler_ram_cap_bytes=self._ram_budget_bytes,
         )
-        if candidate_after_capacity_check is None:
+        if selection_after_capacity_check is None:
             sem.release()
             return False
+        slot_index, candidate_after_capacity_check = selection_after_capacity_check
         if not self._reserved_tracker.remove_reserved_unit(candidate_after_capacity_check):
             sem.release()
             return False
+        # Commit: advance the round-robin cursor past the slot we just served so the
+        # next admission rotates to the next priority window instead of restarting
+        # at INTERACTIVE.
+        self._reserved_tracker.advance_reservation_cursor(slot_index)
         self._log_queue_transition_locked(
             item=candidate_after_capacity_check,
             from_queue=self._reserved_queue_name(candidate_after_capacity_check.work_unit.priority_class),
@@ -1163,10 +1259,20 @@ class WorkScheduler:
         return False
 
     def _can_admit_non_reserved(self, item: QueuedWorkUnit) -> bool:
-        """Variant B gate for non-reserved work: cap minus reserved hold."""
+        """Variant B gate for non-reserved work: cap minus reserved hold.
+
+        Includes a run-alone override: when nothing is in flight, waiting cannot
+        free any more RAM, so a unit that still does not fit (e.g. its
+        `ram_peak_est_bytes` exceeds the budget) is admitted anyway rather than
+        being parked forever. `_submit_runnable_item_locked` logs a warning when
+        an over-budget unit is admitted this way. See also the matching override
+        in `ReservedTracker.next_admissible_reserved_unit`.
+        """
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
         available_ram_bytes = self._ram_budget_bytes - self._reserved_hold_bytes()
-        return self._in_flight_ram_bytes + required_ram_bytes <= available_ram_bytes
+        if self._in_flight_ram_bytes + required_ram_bytes <= available_ram_bytes:
+            return True
+        return self._in_flight_ram_bytes == 0
 
     def _submit_runnable_item_locked(self, item: QueuedWorkUnit, sem: Semaphore) -> bool:
         """
@@ -1187,6 +1293,18 @@ class WorkScheduler:
             return False
 
         required_ram_bytes = item.work_unit.ram_peak_est_bytes
+        # An over-budget unit can only reach this point via the run-alone override
+        # (admitted while nothing else is in flight). Surface it: running it alone
+        # may still exceed physical memory and OOM-kill the worker.
+        if required_ram_bytes > self._ram_budget_bytes:
+            logger.warning(
+                "Work unit %s requires %d bytes which exceeds the scheduler RAM budget "
+                "of %d bytes; admitting it to run alone because no other work is in "
+                "flight. This may exceed available memory.",
+                item.work_unit.unit_id,
+                required_ram_bytes,
+                self._ram_budget_bytes,
+            )
         stage_state = plan_state.stage_states[item.stage_id]
         pool = self._process_pool if item.work_unit.executor_kind == "process" else self._thread_pool
         # Submit before mutating in-flight bookkeeping: a broken pool is restarted
@@ -1513,7 +1631,8 @@ class WorkScheduler:
             f"RAM admission {queued.defer_count} times "
             f"(ram_peak_est_bytes={queued.work_unit.ram_peak_est_bytes}, "
             f"scheduler_ram_cap_bytes={self._ram_budget_bytes}, "
-            f"max_defer_count={MAX_DEFER_COUNT})."
+            f"max_defer_count={MAX_DEFER_COUNT}).\n\n"
+            f"Try to submit the task as the only task running."
         )
         self._abort_plan_locked(
             queued.plan_id,

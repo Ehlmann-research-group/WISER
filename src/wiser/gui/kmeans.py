@@ -2,9 +2,10 @@ import datetime
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
+from astropy import units as u
 from sklearn.cluster import KMeans as SklearnKMeans
 from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtGui import QIntValidator, QDoubleValidator
@@ -14,6 +15,7 @@ from PySide2.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -21,6 +23,7 @@ from PySide2.QtWidgets import (
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.kmeans_dialog_ui import Ui_KMeansDialog
+from wiser.gui.spectra_table import SpectraTableController
 from wiser.utils.primitives import (
     AllocationRequest,
     ChunkingScheme,
@@ -48,7 +51,12 @@ from wiser.utils.task_system import (
 )
 from wiser.utils.worker_runtime import get_process_storage_client
 
-from wiser.raster.spectrum import NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
+from wiser.raster.utils import (
+    convert_spectrum_wavelengths,
+    finite_unmasked_row_mask,
+    get_band_values,
+)
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
@@ -252,24 +260,34 @@ def _run_kmeans(
     # Flatten to (n_pixels, b_good) while preserving the flat index -> (y, x) mapping
     flat = image_good.reshape(y * x, b_good)
 
-    # Remove rows that contain the data ignore value
+    # A pixel is unusable if it holds any non-finite value (NaN/Inf) in a good
+    # band, or it hits the nodata sentinel. Both kinds of row are dropped before
+    # clustering and get the data-ignore label in the output -- the same approach
+    # PCA/MNF/decorrelation use to stay NaN-resistant, instead of erroring out.
+    # finite_unmasked_row_mask is the shared row-validity helper: it drops the
+    # NaN/Inf rows (which also covers the nodata-is-NaN case) and AND-s out the
+    # finite-sentinel nodata rows passed via its optional mask.
     nodata = region_meta.nodata
-    if nodata is not None:
-        if np.isnan(nodata):
-            nodata_row_mask = np.any(np.isnan(flat), axis=1)
-        else:
-            nodata_row_mask = np.any(flat == nodata, axis=1)
-        valid_indices = np.where(~nodata_row_mask)[0]
-    else:
-        valid_indices = np.arange(y * x)
+    nodata_mask = None
+    if nodata is not None and not np.isnan(nodata):
+        nodata_mask = flat == nodata
+    valid_indices = np.where(finite_unmasked_row_mask(flat, nodata_mask))[0]
 
     flat_valid = flat[valid_indices]  # (n_valid, b_good)
 
-    # Error out on any remaining NaN or infinite values
+    # Defensive sanity check: after dropping non-finite/nodata rows, nothing
+    # non-finite should remain. If it does, the cleaning above missed something.
     if not np.all(np.isfinite(flat_valid)):
         raise ValueError(
-            "KMeans input contains NaN or infinite values in valid (non-nodata) pixels. "
-            "Check your dataset for corrupt values."
+            "KMeans input still contains NaN or infinite values after removing "
+            "nodata and NaN/Inf pixels. Check your dataset for corrupt values."
+        )
+
+    k = params.get_k()
+    if flat_valid.shape[0] < k:
+        raise ValueError(
+            f"KMeans needs at least k={k} valid (finite, non-nodata) pixels, but only "
+            f"{flat_valid.shape[0]} remain after removing nodata and NaN/Inf pixels."
         )
 
     # Build the init argument
@@ -677,6 +695,17 @@ class KMeansDialog(QDialog):
         self._init_validators()
         self._ui.cbox_init_method.currentIndexChanged.connect(self._on_init_method_changed)
 
+        self._spectra_table = SpectraTableController(
+            self._ui.tbl_wdgt_init_spectra,
+            app_state,
+            self,
+            name_column_label=self.tr("Spectrum"),
+            remove_tooltip=self.tr("Remove init spectrum"),
+            add_filter=self._filter_spectra_by_band_count,
+        )
+        self._ui.btn_add_collected_spec.clicked.connect(self._spectra_table.on_add_collected_clicked)
+        self._ui.btn_import_spec.clicked.connect(self._spectra_table.on_import_clicked)
+
         app_state.dataset_added.connect(self._on_datasets_changed)
         app_state.dataset_removed.connect(self._on_datasets_changed)
 
@@ -685,7 +714,8 @@ class KMeansDialog(QDialog):
         cbox.clear()
         for method in KMeansInitMethod:
             cbox.addItem(method.value, method)
-        self._ui.tbl_wdgt_init_spectra.setVisible(False)
+        # Manual-init widgets start hidden; shown only when init method is manual.
+        self._set_manual_init_widgets_visible(False)
 
     def _init_cbox_algo(self) -> None:
         cbox = self._ui.cbox_algo
@@ -707,11 +737,65 @@ class KMeansDialog(QDialog):
         pos_float_validator.setNotation(QDoubleValidator.ScientificNotation)
         self._ui.ledit_tol.setValidator(pos_float_validator)
 
+    def _set_manual_init_widgets_visible(self, visible: bool) -> None:
+        """Show or hide the manual-init spectra widgets as a group.
+
+        Qt layouts and spacer items have no ``setVisible``; to keep the "Add
+        Collected Spectrum"/"Import Spectrum" row from leaving an empty gap when
+        the init method isn't manual, we hide the two buttons and collapse the
+        expanding spacer between them, then invalidate the row's layout so it
+        recomputes its geometry.
+        """
+        self._ui.tbl_wdgt_init_spectra.setVisible(visible)
+        self._ui.btn_add_collected_spec.setVisible(visible)
+        self._ui.btn_import_spec.setVisible(visible)
+        if visible:
+            self._ui.hspacer_add_spec.changeSize(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        else:
+            self._ui.hspacer_add_spec.changeSize(0, 0, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self._ui.hlayout_add_spec.invalidate()
+
+    def _filter_spectra_by_band_count(self, specs: List[Spectrum]) -> List[Spectrum]:
+        """Drop spectra whose band count doesn't match the selected dataset.
+
+        Used as the SpectraTableController's ``add_filter``, so it runs over the
+        whole batch before any rows are created.  When no dataset is selected we
+        can't validate, so every spectrum is accepted — the run-time check in
+        :meth:`perform_kmeans` is the backstop.  Mismatched spectra are skipped
+        and reported together in a single warning.
+        """
+        dataset = self.get_selected_dataset()
+        if dataset is None:
+            return specs
+
+        expected = dataset.num_bands()
+        matching: List[Spectrum] = []
+        mismatched: List[Spectrum] = []
+        for spec in specs:
+            (matching if spec.num_bands() == expected else mismatched).append(spec)
+
+        if mismatched:
+            details = "\n".join(
+                self.tr("• {0}: {1} bands").format(spec.get_name() or self.tr("<unnamed>"), spec.num_bands())
+                for spec in mismatched
+            )
+            QMessageBox.warning(
+                self,
+                self.tr("Band Count Mismatch"),
+                self.tr(
+                    "These spectra were skipped because their band count does not "
+                    "match the input dataset ({0} bands):\n\n{1}"
+                ).format(expected, details),
+            )
+        return matching
+
     def _on_init_method_changed(self, index: int) -> None:
         method = self._ui.cbox_init_method.itemData(index)
         is_manual = method is KMeansInitMethod.MANUAL
 
-        self._ui.tbl_wdgt_init_spectra.setVisible(is_manual)
+        # Manual-init spectra entry (table + add/import buttons + spacer) only
+        # applies when the user supplies the initial centroids by hand.
+        self._set_manual_init_widgets_visible(is_manual)
 
         # Disable num_inits and seed when manual (centroid positions are fixed)
         self._ui.ledit_num_inits.setEnabled(not is_manual)
@@ -791,6 +875,116 @@ class KMeansDialog(QDialog):
             return None
         return self._app_state.get_dataset(int(dataset_id))
 
+    def _collect_manual_init_spectra(self, dataset, k: int) -> List[np.ndarray]:
+        """Return the staged manual-init centroids as full-band arrays.
+
+        Re-validates the table against this run (the add-time filter only checks
+        band counts when a dataset was selected, and the selection or table may
+        have changed since): the number of spectra must equal ``k`` because
+        scikit-learn requires ``init.shape[0] == n_clusters``, and every spectrum
+        must match the dataset's band count because ``_run_kmeans`` treats each
+        as a full-band centroid.  When the dataset carries wavelengths, each
+        spectrum must also sit on the dataset's exact wavelength grid once its
+        own wavelengths are cast into the dataset's units (see
+        :meth:`_validate_spectra_on_dataset_grid`); when it doesn't, the user is
+        warned and bands are matched positionally.
+
+        Raises:
+            ValueError: If the count differs from ``k``, a band count mismatches,
+                or a spectrum is off the dataset's wavelength grid.  Surfaced to
+                the user as a warning by :meth:`accept`.
+            KeyError: If a staged collected spectrum/library has since been
+                removed from app state (propagated from ``collect_spectra``).
+        """
+        specs = self._spectra_table.collect_spectra()
+        if len(specs) != k:
+            raise ValueError(
+                self.tr(
+                    "Manual initialization requires exactly k={0} spectra, but {1} are staged. "
+                    "Add or remove spectra so the count matches k."
+                ).format(k, len(specs))
+            )
+
+        expected_bands = dataset.num_bands()
+        mismatched = [s for s in specs if s.num_bands() != expected_bands]
+        if mismatched:
+            details = "\n".join(
+                self.tr("• {0}: {1} bands").format(s.get_name() or self.tr("<unnamed>"), s.num_bands())
+                for s in mismatched
+            )
+            raise ValueError(
+                self.tr(
+                    "These manual spectra don't match the input dataset's band count " "({0} bands):\n\n{1}"
+                ).format(expected_bands, details)
+            )
+
+        # Wavelength-unit handling: when the dataset exposes a wavelength unit,
+        # each manual spectrum must already sit on the dataset's grid once its
+        # own wavelengths are cast into that unit (no interpolation — we never
+        # silently alter centroid values). Without a usable unit we can't align
+        # by wavelength, so warn and fall back to matching bands by position.
+        # (has_wavelengths() only checks that the band-info key is present;
+        # get_band_unit() can still be None, so gate on the unit itself.)
+        target_unit = dataset.get_band_unit() if dataset.has_wavelengths() else None
+        if target_unit is not None:
+            self._validate_spectra_on_dataset_grid(dataset, specs, target_unit)
+        else:
+            QMessageBox.warning(
+                self,
+                self.tr("K-Means"),
+                self.tr(
+                    "The input dataset has no wavelength units, so K-Means will match the "
+                    "manual spectra to bands by position without casting units."
+                ),
+            )
+
+        return [np.asarray(s.get_spectrum(), dtype=np.float32) for s in specs]
+
+    def _validate_spectra_on_dataset_grid(self, dataset, specs: List[Spectrum], target_unit: u.Unit) -> None:
+        """Require each manual spectrum to lie on the dataset's exact wavelength grid.
+
+        Each spectrum's wavelengths are converted into ``target_unit`` (the
+        dataset's wavelength unit) and compared element-wise against the
+        dataset's grid (band counts are already known to match).  Spectra with
+        no wavelengths, units that can't convert, or a differing grid are
+        collected and reported together in one ``ValueError`` (surfaced as a
+        warning by :meth:`accept`).  Nothing is resampled — centroid values are
+        used exactly as entered.
+        """
+        target_wvls = np.asarray(get_band_values(dataset.get_wavelengths(), target_unit), dtype=np.float64)
+
+        problems = []  # list[tuple[Spectrum, str]]
+        for s in specs:
+            try:
+                spec_wvls = convert_spectrum_wavelengths(s, target_unit)
+            except ValueError:
+                problems.append((s, self.tr("has no wavelengths to verify against the dataset's grid")))
+                continue
+            except u.UnitConversionError:
+                problems.append(
+                    (
+                        s,
+                        self.tr("wavelength units are not convertible to the dataset's units ({0})").format(
+                            target_unit
+                        ),
+                    )
+                )
+                continue
+            if not np.allclose(spec_wvls, target_wvls, rtol=0.0, atol=1e-9):
+                problems.append((s, self.tr("wavelengths do not match the dataset's grid")))
+
+        if problems:
+            details = "\n".join(
+                self.tr("• {0}: {1}").format(s.get_name() or self.tr("<unnamed>"), reason)
+                for s, reason in problems
+            )
+            raise ValueError(
+                self.tr(
+                    "These manual spectra are not on the input dataset's wavelength grid "
+                    "(in {0}). Re-collect or re-import them so they match the dataset:\n\n{1}"
+                ).format(target_unit, details)
+            )
+
     def perform_kmeans(self):
         selected_dataset = self.get_selected_dataset()
         if selected_dataset is None:
@@ -800,15 +994,25 @@ class KMeansDialog(QDialog):
         if k is None:
             raise ValueError("K (number of clusters) must be specified")
 
+        init_method = self.get_init_method()
+        # For manual init, gather the staged spectra as full-band centroids and
+        # validate them against this run. Other init methods don't use them.
+        manual_spectra = (
+            self._collect_manual_init_spectra(selected_dataset, k)
+            if init_method == KMeansInitMethod.MANUAL
+            else None
+        )
+
         params = KMeansParameters(
             dataset_id=selected_dataset.get_id(),
             k=k,
-            init_method=self.get_init_method(),
+            init_method=init_method,
             num_inits=self.get_num_inits(),
             max_iter=self.get_max_iter(),
             tol=self.get_tol(),
             seed=self.get_seed(),
             algorithm=self.get_algorithm(),
+            _manual_spectra=manual_spectra,
         )
 
         dataset_ref = self._app_services.storage_service.register_external(
@@ -829,5 +1033,9 @@ class KMeansDialog(QDialog):
         return future
 
     def accept(self):
-        self.perform_kmeans()
-        QMessageBox.information(self, "K-Means", "K-Means is running in the background.")
+        try:
+            self.perform_kmeans()
+        except (ValueError, KeyError) as exc:
+            QMessageBox.warning(self, self.tr("K-Means"), str(exc))
+            return
+        QMessageBox.information(self, self.tr("K-Means"), self.tr("K-Means is running in the background."))

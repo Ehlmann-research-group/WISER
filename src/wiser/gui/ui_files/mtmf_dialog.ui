@@ -60,13 +60,6 @@
    <item row="3" column="2">
     <widget class="QComboBox" name="cbox_shift_diff_method"/>
    </item>
-   <item row="0" column="0">
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>Input Image Cube</string>
-     </property>
-    </widget>
-   </item>
   </layout>
  </widget>
  <resources/>
