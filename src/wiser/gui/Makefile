@@ -35,6 +35,7 @@ FILENAMES=\
 	mnf_dialog_ui.py \
 	mtmf_dialog_ui.py \
 	pca_dialog_ui.py \
+	pixel_value_widget_ui.py \
 	reference_system_creator_ui.py \
 	roi_info_editor_ui.py \
 	sav_golay_filter_dialog_ui.py \

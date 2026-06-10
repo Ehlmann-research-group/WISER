@@ -12,10 +12,11 @@ It includes:
 
 This module is intended to be used for integration and GUI-level testing.
 """
+import gc
+import os
+
 # ruff: noqa: E402
 import sys
-import os
-import gc
 
 # Make sure we have the directory for WISER in our system path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,7 +41,6 @@ from wiser.gui.rasterpane import TiledRasterView
 from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
 from wiser.gui.stretch_builder import ChannelStretchWidget
 from wiser.gui.geo_reference_dialog import (
-    GeoReferencerDialog,
     COLUMN_ID,
     TRANSFORM_TYPES,
     GeneralCRS,
@@ -53,12 +53,6 @@ from wiser.gui.reference_creator_dialog import (
 )
 from wiser.gui.similarity_transform_dialog import SimilarityTransformDialog
 from wiser.gui.scatter_plot_2D import ScatterPlot2DDialog
-from wiser.gui.ui_library import (
-    DatasetChooserDialog,
-    SpectrumChooserDialog,
-    ROIChooserDialog,
-    BandChooserDialog,
-)
 from wiser.gui.bandmath_dialog import BandMathDialog
 
 from wiser.bandmath import VariableType
@@ -71,10 +65,6 @@ from wiser.raster.roi import RegionOfInterest
 
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
-
-from wiser.config import FLAGS, set_feature_env
-
-import time
 
 
 class LoggingApplication(QApplication):
@@ -2160,6 +2150,28 @@ class WiserTestModel:
             self._bandmath_apply_variable_type_combo(type_combo, VariableType.IMAGE_CUBE)
 
         self._bandmath_apply_variable_type_combo(type_combo, target_type)
+
+    # ==========================================
+    # region Pixel Value Widget
+    # ==========================================
+
+    def get_pixel_value_widget_text(self) -> str:
+        """
+        Returns the text currently shown in the pixel-value status-bar widget.
+
+        This is the string produced after clicking a pixel in the main view —
+        something like ``"Val: 0.42"`` (grayscale) or
+        ``"R: 0.25  G: 0.5  B: 0.75"`` (RGB).
+        """
+        return self.main_window._pixel_value_widget._ui.lbl_display_values.text()
+
+    def get_pixel_value_widget_visible(self) -> bool:
+        """
+        Returns whether the value label inside the pixel-value widget is
+        currently visible (i.e. at least one pixel has been clicked since
+        the app started or the last ``clear()``).
+        """
+        return self.main_window._pixel_value_widget._ui.lbl_display_values.isVisible()
 
     # ==========================================
     # region General

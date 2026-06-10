@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import platform
 import pprint
 import sys
@@ -8,80 +7,62 @@ import traceback
 import webbrowser
 from functools import partial
 
-from typing import List, Optional, Tuple
+from PySide2.QtGui import QKeySequence
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
-
+from test_utils.test_event_loop_functions import TestingWidget
+from wiser import bandmath
+from wiser import plugins
 from wiser.bandmath.utils import (
     TEMP_FOLDER_PATH,
     bandmath_success_callback,
     bandmath_progress_callback,
     bandmath_error_callback,
 )
+from wiser.config import FLAGS
 from wiser.gui.app_services import AppServices
-
-from .about_dialog import AboutDialog
-
-from .rasterpane import RecenterMode
-
-from .dockable import DockablePane
-
-from .context_pane import ContextPane
-from .main_view import MainViewWidget
-from .zoom_pane import ZoomPane
-
-from .spectrum_plot import SpectrumPlot
-from .infoview import DatasetInfoView
-
-from .image_coords_widget import ImageCoordsWidget
-
-from .import_spectra_text import ImportSpectraTextDialog
-from .save_dataset import SaveDatasetDialog
-from .similarity_transform_dialog import SimilarityTransformDialog
-from .activity_monitor import ActivityMonitorDialog
-from .activity_monitor_button import ActivityMonitorButton
-
-from .util import *
-
-from .app_config import ApplicationConfig, get_wiser_config_dir
-from .app_config_dialog import AppConfigDialog
-from .app_state import ApplicationState
-from . import bug_reporting
-
-from wiser import plugins
-
-from .bandmath_dialog import BandMathDialog
-from .geo_reference_dialog import GeoReferencerDialog
-from .reference_creator_dialog import ReferenceCreatorDialog
-from wiser import bandmath
-
-from wiser.raster.selection import SinglePixelSelection
-from wiser.raster.spectrum import (
-    SpectrumAtPoint,
-    SpectrumAverageMode,
-)
-from wiser.raster.spectral_library import ListSpectralLibrary
-from wiser.raster import RasterDataSet, roi_export
-from wiser.raster.data_cache import DataCache
-from wiser.utils.primitives import ExternalRasterHandle, PriorityClass
-from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
-from wiser.utils.task_system import SemanticTask
-
-from test_utils.test_event_loop_functions import TestingWidget
-
+from wiser.gui.kmeans import KMeansDialog
+from wiser.gui.linear_unmixing import LinearUnmixingDialog
+from wiser.gui.mnf import MinimumNoiseFractionDialog
+from wiser.gui.mtmf import MTMFDialog
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
 from wiser.gui.sav_golay import SavGolayPlugin
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
-from wiser.gui.kmeans import KMeansDialog
-from wiser.gui.linear_unmixing import LinearUnmixingDialog
-from wiser.gui.mnf import MinimumNoiseFractionDialog
-from wiser.gui.mtmf import MTMFDialog
-
-from wiser.config import FLAGS
+from wiser.raster import RasterDataSet, roi_export
+from wiser.raster.data_cache import DataCache
+from wiser.raster.selection import SinglePixelSelection
+from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster.spectrum import (
+    SpectrumAtPoint,
+    SpectrumAverageMode,
+)
+from wiser.utils.primitives import ExternalRasterHandle, PriorityClass
+from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
+from wiser.utils.task_system import SemanticTask
+from . import bug_reporting
+from .about_dialog import AboutDialog
+from .activity_monitor import ActivityMonitorDialog
+from .activity_monitor_button import ActivityMonitorButton
+from .app_config import ApplicationConfig, get_wiser_config_dir
+from .app_config_dialog import AppConfigDialog
+from .app_state import ApplicationState
+from .bandmath_dialog import BandMathDialog
+from .context_pane import ContextPane
+from .dockable import DockablePane
+from .geo_reference_dialog import GeoReferencerDialog
+from .image_coords_widget import ImageCoordsWidget
+from .import_spectra_text import ImportSpectraTextDialog
+from .infoview import DatasetInfoView
+from .main_view import MainViewWidget
+from .pixel_value_widget import PixelValueWidget
+from .rasterpane import RecenterMode
+from .reference_creator_dialog import ReferenceCreatorDialog
+from .save_dataset import SaveDatasetDialog
+from .similarity_transform_dialog import SimilarityTransformDialog
+from .spectrum_plot import SpectrumPlot
+from .util import *
+from .zoom_pane import ZoomPane
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +167,9 @@ class DataVisualizerApp(QMainWindow):
         # Status bar
 
         self.statusBar().addPermanentWidget(self._activity_monitor_button)
+
+        self._pixel_value_widget = PixelValueWidget(self)
+        self.statusBar().addPermanentWidget(self._pixel_value_widget)
 
         self._image_coords = ImageCoordsWidget(self)
         self.statusBar().addPermanentWidget(self._image_coords)
@@ -540,6 +524,7 @@ class DataVisualizerApp(QMainWindow):
     def _on_dataset_removed(self, ds_id: int):
         self._update_dataset_menus()
         self._image_coords.update_coords(None, None)
+        self._pixel_value_widget.clear()
 
     def _update_dataset_menus(self):
         self._update_dataset_menu(self._save_dataset_menu, self._on_save_dataset)
@@ -1129,6 +1114,20 @@ class DataVisualizerApp(QMainWindow):
         pixel_coord = ds_point.toTuple()
         self._image_coords.update_coords(dataset, pixel_coord)
 
+    def _update_pixel_values(self, dataset: Optional[RasterDataSet], ds_point, rasterview_position):
+        """
+        Update the pixel-value widget in the status bar with the raw data
+        values of the currently-displayed bands at the clicked pixel.
+        """
+        if dataset is None:
+            return
+
+        rasterview = self._main_view.get_rasterview(rasterview_position)
+        display_bands = rasterview.get_display_bands() if rasterview is not None else None
+
+        pixel_coord = ds_point.toTuple()
+        self._pixel_value_widget.update_pixel_values(dataset, pixel_coord, display_bands)
+
     def get_spectrum_plot(self) -> SpectrumPlot:
         return self._spectrum_plot
 
@@ -1205,6 +1204,7 @@ class DataVisualizerApp(QMainWindow):
             return
 
         self._update_image_coords(ds, ds_point)
+        self._update_pixel_values(ds, ds_point, rasterview_position)
 
         # If the spectrum-plot window has a specific dataset to pull spectra
         # from, use that dataset instead of the raster-view's dataset.
@@ -1306,6 +1306,7 @@ class DataVisualizerApp(QMainWindow):
             return
 
         self._update_image_coords(ds, ds_point)
+        self._update_pixel_values(ds, ds_point, rasterview_position)
 
         # If the spectrum-plot window has a specific dataset to pull spectra
         # from, use that dataset instead of the raster-view's dataset.
