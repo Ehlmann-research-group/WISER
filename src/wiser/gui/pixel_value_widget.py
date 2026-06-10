@@ -86,10 +86,13 @@ class PixelValueWidget(QDialog):
 
         # Fetch the spectral values at the clicked pixel.  get_all_bands_at
         # returns a 1-D numpy array indexed by band number.
-        # Use filter_bad_values=True so that "data ignore" pixels show "—",
-        # consistent with the spectrum plot which also shows nothing for those pixels.
+        # Mirror what the renderer shows: mask "data ignore" pixels (the renderer
+        # masks them too) but keep filter_bad_values=False so a band flagged "bad"
+        # still shows its raw value, matching the rendered image instead of "nan".
         try:
-            all_values = self._dataset.get_all_bands_at(x, y, filter_bad_values=True)
+            all_values = self._dataset.get_all_bands_at(
+                x, y, filter_bad_values=False, filter_data_ignore_value=True
+            )
         except Exception as exc:
             logger.exception("Failed to read pixel values at (%d, %d): %s", x, y, exc)
             self.setVisible(False)
