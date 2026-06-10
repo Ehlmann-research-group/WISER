@@ -969,12 +969,15 @@ filtering will impact performance.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_all_bands_at">
-<span class="sig-name descname"><span class="pre">get_all_bands_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_bad_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_all_bands_at" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_all_bands_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_bad_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_data_ignore_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_all_bands_at" title="Link to this definition">#</a></dt>
 <dd><p>Returns a numpy 1D array of the values of all bands at the specified
 (x, y) coordinate in the raster data.</p>
 <p>If filter_bad_values is set to True, bands that are marked as “bad” in
-the metadata will be set to NaN, and bands with the “data ignore value”
-will also be set to NaN.</p>
+the metadata will be set to NaN.  If filter_data_ignore_value is set to
+True, bands holding the dataset’s “data ignore value” will be set to
+NaN.  The two filters are independent: a caller that needs to mirror the
+rendered image can mask data-ignore pixels while still showing the raw
+values of bad bands (which the renderer also displays).</p>
 </dd></dl>
 
 <dl class="py method">
