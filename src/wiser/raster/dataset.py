@@ -336,7 +336,7 @@ class SpatialMetadata:
         # original value be retained because getting bands in the image is exclusive.
         if row_min < 0 or col_min < 0 or row_max - 1 >= height or col_max - 1 >= width:
             raise ValueError(
-                f"Window out of bounds: height {height-1}, width {width-1}, "
+                f"Window out of bounds: height {height - 1}, width {width - 1}, "
                 f"but got rows [{row_min},{row_max}], cols [{col_min},{col_max}]."
             )
 
@@ -795,9 +795,9 @@ class RasterDataSet(Serializable):
         This sets just the band description for all the bands in the dataset
         based on what is in band_descriptions list.
         """
-        assert len(band_descriptions) == len(self._band_info), (
-            "Passed in band_descriptions must be the same length" " as dataset's _band_info"
-        )
+        assert len(band_descriptions) == len(
+            self._band_info
+        ), "Passed in band_descriptions must be the same length as dataset's _band_info"
         for i in range(len(band_descriptions)):
             b = self._band_info[i]
             b["description"] = band_descriptions[i]
@@ -1167,28 +1167,35 @@ class RasterDataSet(Serializable):
             self._cached_band_stats[band_index] = stats
         return stats
 
-    def get_all_bands_at(self, x: int, y: int, filter_bad_values=True):
+    def get_all_bands_at(self, x: int, y: int, filter_bad_values=True, filter_data_ignore_value=True):
         """
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
 
         If filter_bad_values is set to True, bands that are marked as "bad" in
-        the metadata will be set to NaN, and bands with the "data ignore value"
-        will also be set to NaN.
+        the metadata will be set to NaN.  If filter_data_ignore_value is set to
+        True, bands holding the dataset's "data ignore value" will be set to
+        NaN.  The two filters are independent: a caller that needs to mirror the
+        rendered image can mask data-ignore pixels while still showing the raw
+        values of bad bands (which the renderer also displays).
         """
         arr = self._impl.get_all_bands_at(x, y)
 
-        if filter_bad_values:
+        if filter_bad_values or filter_data_ignore_value:
             arr = arr.copy()
             for i, v in enumerate(self.get_bad_bands()):
-                if v == 0:
+                if filter_bad_values and v == 0:
                     # Band is marked "bad"
                     try:
                         arr[i] = np.nan
                     except:
                         arr[i] = DEFAULT_MASK_VALUE
 
-                elif self._data_ignore_value is not None and math.isclose(arr[i], self._data_ignore_value):
+                elif (
+                    filter_data_ignore_value
+                    and self._data_ignore_value is not None
+                    and math.isclose(arr[i], self._data_ignore_value)
+                ):
                     # Band has the "data ignore" value
                     try:
                         arr[i] = np.nan
