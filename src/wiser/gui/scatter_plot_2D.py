@@ -349,22 +349,11 @@ class ScatterPlot2DDialog(QDialog):
         x_dataset_id = self._ui.cbox_x_dataset.currentData()
         if self._app_state.has_dataset(x_dataset_id):
             dataset = self._app_state.get_dataset(x_dataset_id)
-            bands = dataset.band_list()
-            descriptions = list([band["description"] for band in bands])
-            if descriptions[0]:
-                band_descriptions = list(
-                    (
-                        f"Band {descriptions.index(descr)}: " + descr,
-                        descriptions.index(descr),
-                    )
-                    for descr in descriptions
-                )
-            else:
-                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
+            num_bands = len(dataset.band_list())
             cbox_x_band.clear()
-            for descr, index in band_descriptions:
-                cbox_x_band.addItem(self.tr(f"{descr}"), index)
-            spin_box_x_band.setRange(0, len(band_descriptions) - 1)
+            for index in range(num_bands):
+                cbox_x_band.addItem(self.tr(dataset.get_band_label(index)), index)
+            spin_box_x_band.setRange(0, num_bands - 1)
         else:
             cbox_x_band.clear()
 
@@ -378,22 +367,11 @@ class ScatterPlot2DDialog(QDialog):
         y_dataset_id = self._ui.cbox_y_dataset.currentData()
         if self._app_state.has_dataset(y_dataset_id):
             dataset = self._app_state.get_dataset(y_dataset_id)
-            bands = dataset.band_list()
-            descriptions = list([band["description"] for band in bands])
-            if descriptions[0]:
-                band_descriptions = list(
-                    (
-                        f"Band {descriptions.index(descr)}: " + descr,
-                        descriptions.index(descr),
-                    )
-                    for descr in descriptions
-                )
-            else:
-                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
+            num_bands = len(dataset.band_list())
             cbox_y_band.clear()
-            for descr, index in band_descriptions:
-                cbox_y_band.addItem(self.tr(f"{descr}"), index)
-            spin_box_y_band.setRange(0, len(band_descriptions) - 1)
+            for index in range(num_bands):
+                cbox_y_band.addItem(self.tr(dataset.get_band_label(index)), index)
+            spin_box_y_band.setRange(0, num_bands - 1)
         else:
             cbox_y_band.clear()
 
@@ -693,9 +671,8 @@ class ScatterPlot2DDialog(QDialog):
 
         image_index = image.currentIndex()
         image = datasets[image_index]
-        bands = image.band_list()
-        bands = list([i["description"] for i in bands])
-        bands = list(f"Band {bands.index(i)}: " + i for i in bands)
+        num_bands = len(image.band_list())
+        bands = [image.get_band_label(i) for i in range(num_bands)]
 
         combo.clear()
         combo.addItems(bands)
