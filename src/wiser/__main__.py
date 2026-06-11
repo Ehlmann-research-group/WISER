@@ -164,7 +164,7 @@ def run_tests(tests: list[str]) -> int:
     # Normal startup already works because it imports cv2 at the start, so paths can't
     # be reordered.
 
-    # prevents distributable --test_mode failure.
+    # TLDR: Prevent distributable --test_mode failure.
     import cv2  # noqa: F401
 
     import pytest
