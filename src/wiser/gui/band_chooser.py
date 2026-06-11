@@ -114,17 +114,10 @@ class BandChooserDialog(QDialog):
             return
 
         # Get the band list from the dataset, and get a string description for
-        # each band
+        # each band.  The label includes a "(bad)" marker for bands that are
+        # flagged as bad bands in the dataset metadata.
         bands = self._dataset.band_list()
-        items = []
-        for b in bands:
-            desc = b["description"]
-            if desc:
-                desc = f'Band {b["index"]}: {desc}'
-            else:
-                desc = f'Band {b["index"]}'
-
-            items.append(desc)
+        items = [self._dataset.get_band_label(i) for i in range(len(bands))]
 
         # Add all the band descriptions to the combobox.
         combobox.addItems(items)

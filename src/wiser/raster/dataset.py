@@ -921,6 +921,35 @@ class RasterDataSet(Serializable):
         else:
             self._bad_bands = None
 
+    def is_bad_band(self, band_index: int) -> bool:
+        """
+        Returns ``True`` if the band at the given index is flagged as a "bad
+        band" in the dataset metadata, otherwise ``False``.  A band is "bad"
+        when its entry in the bad-band list is 0.  Datasets without a bad-band
+        list are treated as having all good bands.
+        """
+        if self._bad_bands is None:
+            return False
+        return self._bad_bands[band_index] == 0
+
+    def get_band_label(self, band_index: int) -> str:
+        """
+        Returns a human-readable label for the given band, suitable for display
+        in band-selection UI.  The label always includes the band's index, its
+        description (when one is present), and a ``(bad)`` marker when the band
+        is flagged as a bad band in the dataset metadata.
+        """
+        desc = self._band_info[band_index].get("description")
+        if desc:
+            label = f"Band {band_index}: {desc}"
+        else:
+            label = f"Band {band_index}"
+
+        if self.is_bad_band(band_index):
+            label += " (bad)"
+
+        return label
+
     def get_image_data(self, filter_data_ignore_value=True):
         """
         Returns a numpy 3D array of the entire image cube.

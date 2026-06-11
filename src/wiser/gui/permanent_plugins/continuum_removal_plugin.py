@@ -692,9 +692,8 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         minimum = dialog.findChild(QComboBox, "min_bands")
         maximum = dialog.findChild(QComboBox, "max_bands")
 
-        bands = dataset.band_list()
-        bands = list([i["description"] for i in bands])
-        bands = list(f"Band {bands.index(i)}: " + i for i in bands)
+        num_bands = len(dataset.band_list())
+        bands = [dataset.get_band_label(i) for i in range(num_bands)]
         last = len(bands) - 1
 
         all_bands.clicked.connect(lambda checked=True: self.set_all_bands(dialog, last))

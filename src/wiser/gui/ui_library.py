@@ -464,22 +464,11 @@ class BandChooserDialog(SingleItemChooserDialog):
         ds_id = self._cbox_dataset.currentData()
         if self._app_state.has_dataset(ds_id):
             dataset = self._app_state.get_dataset(ds_id)
-            bands = dataset.band_list()
-            descriptions = list([band["description"] for band in bands])
-            if descriptions[0]:
-                band_descriptions = list(
-                    (
-                        f"Band {descriptions.index(descr)}: " + descr,
-                        descriptions.index(descr),
-                    )
-                    for descr in descriptions
-                )
-            else:
-                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
+            num_bands = len(dataset.band_list())
             self._cbox_band.clear()
-            for descr, index in band_descriptions:
-                self._cbox_band.addItem(self.tr(f"{descr}"), index)
-            self._sbox_band.setRange(0, len(band_descriptions) - 1)
+            for index in range(num_bands):
+                self._cbox_band.addItem(self.tr(dataset.get_band_label(index)), index)
+            self._sbox_band.setRange(0, num_bands - 1)
         else:
             self._cbox_band.clear()
 

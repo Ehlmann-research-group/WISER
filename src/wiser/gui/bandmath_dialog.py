@@ -219,14 +219,8 @@ class DatasetBandChooserWidget(QWidget):
 
         longest = ""
 
-        for b in dataset.band_list():
-            # TODO(donnie):  Generate a band name in some generalized way.
-
-            desc = b["description"]
-            if desc:
-                desc = f'Band {b["index"]}: {desc}'
-            else:
-                desc = f'Band {b["index"]}'
+        for i, b in enumerate(dataset.band_list()):
+            desc = dataset.get_band_label(i)
 
             self.band_chooser.addItem(desc, b["index"])
 
