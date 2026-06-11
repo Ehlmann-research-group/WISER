@@ -151,6 +151,17 @@ def qt_debug_callback(*args, **kwargs):
 
 
 def run_tests(tests: list[str]) -> int:
+    # Pre-import cv2 while sys.path is still in the order established by the
+    # pyi_rth_cv2 runtime hook (the bundled cv2/python-* native folder first).
+    # pytest.main() below mutates sys.path during collection, which otherwise
+    # makes the first cv2 import resolve to the package's __init__.py bootstrap
+    # and raise "recursion is detected during loading of cv2 binary extensions"
+    # in the frozen build. Loading it once here caches it in sys.modules so
+    # later imports during collection are no-ops. Normal startup already works
+    # because it imports cv2 lazily before any such mutation.
+    # prevents distributable --test_mode failure.
+    import cv2  # noqa: F401
+
     import pytest
 
     os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "1"
