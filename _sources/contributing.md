@@ -18,8 +18,7 @@ Thank you for helping make WISER better!
 If you find a problem or unexpected behavior, you can report it in two ways:
 
 - **[Submit via the feedback form](https://forms.gle/eqkdnv9b2ogEUbPp6)** — no GitHub account required.
-- **[Submit a GitHub Issue](https://github.com/Ehlmann-research-group/WISER/issues/new/choose)** — use the **Bug report
-  ** template.
+- **[Submit a GitHub Issue](https://github.com/Ehlmann-research-group/WISER/issues/new/choose)** — use the **Bug report** template.
 
 When filling out the issue form:
 
