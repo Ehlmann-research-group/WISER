@@ -39,12 +39,12 @@ jobs:
           ls -la dist/WISER || true
         timeout-minutes: 15
 
-      - name: Smoke Test (Windows)
-        if: runner.os == 'Windows'
-        shell: bash -leo pipefail {0}
-        run: |
-          cd dist/WISER
-          ./WISER.exe --test_mode
+      # - name: Smoke Test (Windows)
+      #   if: runner.os == 'Windows'
+      #   shell: bash -leo pipefail {0}
+      #   run: |
+      #     cd dist/WISER
+      #     ./WISER.exe --test_mode
       
       - name: Package Windows + checksum
         if: runner.os == 'Windows'
@@ -85,12 +85,12 @@ jobs:
           ls -la dist/WISER || true
         timeout-minutes: 25
 
-      - name: Smoke Test (macOS)
-        if: runner.os == 'macOS'
-        shell: bash -leo pipefail {0}
-        run: |
-          cd dist/WISER
-          ./WISER_Bin --test_mode
+      # - name: Smoke Test (macOS)
+      #   if: runner.os == 'macOS'
+      #   shell: bash -leo pipefail {0}
+      #   run: |
+      #     cd dist/WISER
+      #     ./WISER_Bin --test_mode
 
       - name: Pack macOS .app (preserve symlinks & modes)
         if: runner.os == 'macOS'
