@@ -306,49 +306,46 @@ All six signals are defined on `RasterPane` and inherited by `ContextPane`, `Zoo
 
 The `App` class acts as the signal broker — panes never call each other directly.
 
+Each scenario below reads top-to-bottom: a pane emits a signal, the named
+`App` handler runs, and the handler calls methods back on the other panes.
+`App` sits in the center lane because every signal passes through it.
+
 ```{mermaid}
-flowchart TD
-    subgraph main["MainViewWidget"]
-        MV_scroll["scroll / resize"]
-        MV_click["pixel click"]
-    end
-    subgraph zoom["ZoomPane"]
-        ZP_scroll["scroll"]
-        ZP_click["pixel click"]
-    end
-    subgraph ctx["ContextPane"]
-        CP_click["pixel click"]
-    end
-    subgraph app["App (signal broker)"]
-        A1["_on_mainview_viewport_change"]
-        A2["_on_zoom_viewport_change"]
-        A3["_on_mainview_raster_pixel_select"]
-        A4["_on_zoom_raster_pixel_select"]
-        A5["_on_context_raster_pixel_select"]
-        A6["_on_display_bands_change"]
-    end
+sequenceDiagram
+    participant CP as ContextPane
+    participant Main as MainViewWidget
+    participant App as App (broker)
+    participant Zoom as ZoomPane
+    participant Plot as Spectrum Plot
 
-    MV_scroll -- "viewport_change" --> A1
-    ZP_scroll -- "viewport_change" --> A2
-    MV_click  -- "click_pixel"     --> A3
-    ZP_click  -- "click_pixel"     --> A4
-    CP_click  -- "click_pixel"     --> A5
+    Note over CP,Plot: Main view scrolled
+    Main->>App: viewport_change<br/>(_on_mainview_viewport_change)
+    App->>CP: set_viewport_highlight()
 
-    A1 -- "set_viewport_highlight()" --> ctx
-    A2 -- "set_viewport_highlight()" --> main
-    A3 -- "set_pixel_highlight() +\ncenter on pixel" --> zoom
-    A3 -- "show_dataset()" --> ctx
-    A3 -- "→ spectrum plot" --> spectrum["Spectrum Plot"]
-    A4 -- "set_pixel_highlight()\n(respects link mode)" --> main
-    A4 -- "→ spectrum plot" --> spectrum
-    A5 -- "make_point_visible()" --> main
+    Note over CP,Plot: Zoom pane scrolled
+    Zoom->>App: viewport_change<br/>(_on_zoom_viewport_change)
+    App->>Main: set_viewport_highlight()
 
-    main -- "display_bands_change\n(global=True)" --> A6
-    zoom -- "display_bands_change\n(global=True)" --> A6
-    ctx  -- "display_bands_change\n(global=True)" --> A6
-    A6 -- "set_display_bands()\nall panes" --> main
-    A6 -- "set_display_bands()\nall panes" --> zoom
-    A6 -- "set_display_bands()\nall panes" --> ctx
+    Note over CP,Plot: Pixel clicked in main view
+    Main->>App: click_pixel<br/>(_on_mainview_raster_pixel_select)
+    App->>Zoom: set_pixel_highlight() + center on pixel
+    App->>CP: show_dataset()
+    App->>Plot: push pixel spectrum
+
+    Note over CP,Plot: Pixel clicked in context pane
+    CP->>App: click_pixel<br/>(_on_context_raster_pixel_select)
+    App->>Main: make_point_visible()
+
+    Note over CP,Plot: Pixel clicked in zoom pane
+    Zoom->>App: click_pixel<br/>(_on_zoom_raster_pixel_select)
+    App->>Main: set_pixel_highlight() (respects link mode)
+    App->>Plot: push pixel spectrum
+
+    Note over CP,Plot: Bands / colormap changed (global)
+    Main->>App: display_bands_change(global=True)<br/>(_on_display_bands_change)
+    App->>Main: set_display_bands()
+    App->>Zoom: set_display_bands()
+    App->>CP: set_display_bands()
 ```
 
 ### Interaction flows in plain language
