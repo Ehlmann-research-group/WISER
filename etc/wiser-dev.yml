@@ -52,3 +52,4 @@ dependencies:
   - psutil==7.0.0
   - pyinstaller==6.16.*
   - pre-commit==4.3.*
+  - sphinxcontrib-mermaid==1.2.*

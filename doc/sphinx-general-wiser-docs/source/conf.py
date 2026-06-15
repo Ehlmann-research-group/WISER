@@ -47,6 +47,7 @@ extensions = [
     "sphinx.ext.napoleon",  # Google/NumPy docstring support
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.mermaid",
 ]
 
 myst_enable_extensions = [
