@@ -168,5 +168,6 @@ See the `LICENSE <https://github.com/Ehlmann-research-group/WISER/blob/main/LICE
    user-content/user-manual
    extending-wiser/index
    developer-content/environment-setup
+   developer-content/code-documentation
 
    contributing
