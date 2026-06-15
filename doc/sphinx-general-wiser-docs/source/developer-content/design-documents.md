@@ -5,10 +5,12 @@ consideration.
 
 ## Plugin Architecture and Design
 
-> **Note:** This is an internal design document discussing plugin isolation,
-> dependency management, and implementation considerations. It is not the
-> user-facing plugin development guide. For documentation on how to write
-> plugins for WISER, see the [Extending WISER](../extending-wiser/index) section.
+> **Note:** This section captures *open* design questions about plugin
+> isolation and quality. For how WISER actually loads and runs plugins today,
+> see [Plugin System Internals](plugin-system.md); for the dependency model,
+> known issues, and the out-of-process future direction, see
+> [Plugin Dependencies](plugin-dependencies.md). For how to *write* a plugin,
+> see the [Extending WISER](../extending-wiser/index) section.
 
 This document discusses plugin support for WISER, including the desired
 features, potential implementation issues, and possible design approaches.
@@ -83,81 +85,17 @@ be a high priority to build early on, for the sake of usability.
 
 ### Dependencies
 
-**How do we reconcile the library dependencies of plugins, with the library
-dependencies of WISER?**  WISER has a set of Python dependencies. Plugins may
-have additional dependencies outside of WISER's dependencies. Also, plugins
-may have dependencies that are incompatible with WISER's dependencies. We need
-to consider how to support plugins in these scenarios. As of 04/14/2026, WISER
-does not support plugins that have incompatible dependencies.
+How WISER reconciles plugin dependencies with its own — the `sys.path`
+precedence mechanism, why it follows from the in-process execution model, the
+known PyInstaller submodule-pruning issue and its fix, and the proposed
+out-of-process (`uv`) future direction — is documented in
+[Plugin Dependencies](plugin-dependencies.md).
 
-This suggests that WISER should support plugins of two main "flavors":  plugins
-that work within the WISER dependencies, and plugins that run out-of-process,
-possibly against some separate Python environment.  (A special case of this
-could be plugins that run within a Docker container, or that interface with
-software running in a Docker container.)
-
-This is further affected by whether WISER is being used in an internal
-development setting (where WISER's source code is available to the developer,
-and the developer can install other dependencies), or whether it is being used
-in a "frozen application" setting (where WISER has been frozen, along with its
-dependencies). In the frozen-app situation, WISER's dependencies cannot be
-extended.  (This may not be possible in a frozen-app context, but WISER can spawn a separate Python process with its own
-environment and
-dependencies.)
-
-### Known Plugin Dependency Issue and Fixes
-
-#### The Problem (Pre-release 1.3b1)
-
-When PyInstaller builds a frozen WISER application it recursively resolves
-all imports and stores them in `_internal/`. Before release 1.3b1, if a
-plugin used a submodule that PyInstaller had pruned (e.g. `scipy.io` when
-WISER itself only used top-level `scipy`), that submodule would not be found
-at runtime and the plugin would fail to load.
-
-**Bandage solution (releases 1.2b1 and earlier):** The PyInstaller spec was
-updated to include all submodules of WISER's Python dependencies explicitly.
-This is done in `pyinstaller_hooks/` and ensures submodules are not pruned.
-All `rel/1.2b1` and `rel/1.2b1-intelmac` branches (Windows, ARM Mac, Intel
-Mac) carry this fix.
-
-To verify the fix:
-
-1. Build a frozen WISER (no need to code-sign or notarize).
-2. Add the `pca_plugin` (it depends on `scipy.io`).
-3. Confirm no `scipy.io` import error occurs.
-
-**Longer-term direction (under investigation):** Allow plugins to declare
-their own Python dependencies (separate from WISER's conda environment) using
-`uv` in a subprocess. Rough sketch:
-
-1. A Python bootloader script installs `uv` if not present (downloaded from
-   the internet, not bundled with PyInstaller).
-2. On plugin load, WISER spawns a subprocess via `uv` that provides the
-   plugin's declared dependencies.
-3. WISER must be packaged as a wheel (`python -m zipapp`) so it can be
-   imported by the plugin subprocess.
-4. Plugins that ship as wheels are supported; dev-environment (loose source)
-   plugins are also supported.
-
-Constraints identified:
-
-- GDAL and similar packages that require compiled C extensions cannot be
-  installed via pip alone — they need conda or system packages.
-- `PySide6` is required (over `PySide2`) for this approach because PySide6
-  has pip wheels for all major platforms.
-- Architecture-specific DLLs can only be installed by pip if the corresponding
-  package itself supports pip installation.
-
-Tooling evaluated: Bazel, Nuitka (requires PySide6), Poetry, cx_Freeze.
-None has been adopted yet.
-
-#### Replicating the Pre-fix Bug
-
-Add the path to a conda environment's `site-packages` (e.g.
-`C:\Users\<user>\anaconda3\envs\plugin_lib\Lib\site-packages`) to plugin
-directories, and add `pca_plugin.PCAPlugin` to plugins in settings.
-`scipy.io` will not be found because PyInstaller did not include it.
+The open design question that remains is whether to support a second class of
+plugin that runs **out of process** against a separate Python environment
+(possibly a Docker container), so that plugins with dependencies *incompatible*
+with WISER's bundled set can be supported. As of 04/14/2026 such plugins are not
+supported.
 
 ---
 
