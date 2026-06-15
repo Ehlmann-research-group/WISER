@@ -1,0 +1,1454 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Viewport System &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/viewport-system';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Band Math Internals" href="bandmath-internals.html" />
+    <link rel="prev" title="Code Documentation" href="code-documentation.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/viewport-system.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/viewport-system.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Viewport System</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-hierarchy">Class Hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-responsibilities">Class Responsibilities</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#imagewidget">ImageWidget</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#imagescrollarea">ImageScrollArea</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rasterview">RasterView</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tiledrasterview">TiledRasterView</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rasterpane">RasterPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contextpane">ContextPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#zoompane">ZoomPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mainviewwidget">MainViewWidget</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-reference">Signal Reference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-flow">Signal Flow</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#interaction-flows-in-plain-language">Interaction flows in plain language</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-systems">Coordinate Systems</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supporting-infrastructure">Supporting Infrastructure</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#event-forwarding-via-forward-dict">Event forwarding via <code class="docutils literal notranslate"><span class="pre">forward</span></code> dict</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rendering-cache">Rendering cache</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-delegates">Task delegates</a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="viewport-system">
+<h1>Viewport System<a class="headerlink" href="#viewport-system" title="Link to this heading">#</a></h1>
+<p>This page documents the internal architecture of WISER’s image-display system: how the three visible panes (Context, Main, Zoom) are built, how they interact, and what each class is and is not responsible for.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>The viewport system consists of two parallel class hierarchies that work together:</p>
+<ul class="simple">
+<li><p><strong>Display hierarchy</strong> — low-level Qt widgets that render a single raster image with pan/zoom.
+<code class="docutils literal notranslate"><span class="pre">ImageWidget</span></code> → <code class="docutils literal notranslate"><span class="pre">ImageScrollArea</span></code> → <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> → <code class="docutils literal notranslate"><span class="pre">TiledRasterView</span></code></p></li>
+<li><p><strong>Pane hierarchy</strong> — higher-level container widgets that manage one or more <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> instances and expose Qt signals to the rest of the application.
+<code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> (base) → <code class="docutils literal notranslate"><span class="pre">ContextPane</span></code> / <code class="docutils literal notranslate"><span class="pre">ZoomPane</span></code> / <code class="docutils literal notranslate"><span class="pre">MainViewWidget</span></code></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> <strong>contains</strong> <code class="docutils literal notranslate"><span class="pre">TiledRasterView</span></code> instances in an MxN grid. The <code class="docutils literal notranslate"><span class="pre">App</span></code> class (<code class="docutils literal notranslate"><span class="pre">app.py</span></code>) wires the panes together by connecting their signals to slots — panes themselves have no direct references to each other.</p>
+</section>
+<hr class="docutils" />
+<section id="class-hierarchy">
+<h2>Class Hierarchy<a class="headerlink" href="#class-hierarchy" title="Link to this heading">#</a></h2>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class QWidget[&quot;QWidget (Qt)&quot;]
+    class QScrollArea[&quot;QScrollArea (Qt)&quot;]
+
+    class ImageWidget {
+        rasterview.py
+        +paintEvent()
+        +mousePressEvent()
+        +mouseMoveEvent()
+        +keyPressEvent()
+    }
+
+    class ImageScrollArea {
+        rasterview.py
+        +scrollContentsBy()
+        +wheelEvent()
+        +_propagate_scroll : bool
+    }
+
+    class RasterView {
+        rasterview.py
+        +_raster_data : RasterDataSet
+        +_scale_factor : float
+        +_image_pixmap : QPixmap
+        +set_raster_data()
+        +scale_image()
+        +get_visible_region()
+        +image_coord_to_raster_coord()
+        +raster_coord_to_image_coord()
+    }
+
+    class TiledRasterView {
+        rasterpane.py
+        +_position : tuple[int,int]
+        +_toolbar : QToolBar
+        +show_toolbar()
+        +hide_toolbar()
+    }
+
+    class RasterPane {
+        rasterpane.py
+        +_rasterviews : dict
+        +_num_views : tuple[int,int]
+        +visibility_change : Signal
+        +viewport_change : Signal
+        +click_pixel : Signal
+        +display_bands_change : Signal
+        +roi_selection_changed : Signal
+        +views_changed : Signal
+        +show_dataset()
+        +set_scale()
+        +set_pixel_highlight()
+        +set_viewport_highlight()
+    }
+
+    class ContextPane {
+        context_pane.py
+        +_ds_id : int
+        +_act_fit_to_window : QAction
+        +_update_image_scale()
+    }
+
+    class ZoomPane {
+        zoom_pane.py
+        +_zoom_in_scale()
+        +_zoom_out_scale()
+    }
+
+    class MainViewWidget {
+        main_view.py
+        +_link_view_state : GeographicLinkState
+        +_link_view_scrolling : bool
+        +_init_rasterviews()
+        +_sync_scroll_state()
+    }
+
+    QWidget &lt;|-- ImageWidget : subclass
+    QScrollArea &lt;|-- ImageScrollArea : subclass
+    QWidget &lt;|-- RasterView : subclass
+    RasterView &lt;|-- TiledRasterView : subclass
+    QWidget &lt;|-- RasterPane : subclass
+    RasterPane &lt;|-- ContextPane : subclass
+    RasterPane &lt;|-- ZoomPane : subclass
+    RasterPane &lt;|-- MainViewWidget : subclass
+
+    RasterView --&gt; ImageWidget : contains
+    RasterView --&gt; ImageScrollArea : contains
+    RasterPane --&gt; TiledRasterView : contains (MxN grid)
+    </pre></section>
+<hr class="docutils" />
+<section id="class-responsibilities">
+<h2>Class Responsibilities<a class="headerlink" href="#class-responsibilities" title="Link to this heading">#</a></h2>
+<section id="imagewidget">
+<h3>ImageWidget<a class="headerlink" href="#imagewidget" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code></p>
+<p><strong>Purpose:</strong> The innermost Qt widget — paints the image <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> on screen and forwards user-input events upward.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Rendering the current <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> via <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code></p></li>
+<li><p>Middle-mouse-button pan (translates the scroll area)</p></li>
+<li><p>Forwarding mouse, keyboard, and context-menu events through the <code class="docutils literal notranslate"><span class="pre">forward</span></code> dictionary</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>What image is drawn (set externally via <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>)</p></li>
+<li><p>Scrollbars or zoom level</p></li>
+<li><p>Data loading or stretch computation</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="imagescrollarea">
+<h3>ImageScrollArea<a class="headerlink" href="#imagescrollarea" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code></p>
+<p><strong>Purpose:</strong> Manages the scroll area that wraps <code class="docutils literal notranslate"><span class="pre">ImageWidget</span></code>, handles <code class="docutils literal notranslate"><span class="pre">Ctrl+scroll</span></code> zoom, and optionally propagates scroll events to other linked views.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Horizontal and vertical scrollbar state</p></li>
+<li><p>Intercepting <code class="docutils literal notranslate"><span class="pre">Ctrl+wheel</span></code> and converting it to a zoom call on the parent <code class="docutils literal notranslate"><span class="pre">RasterView</span></code></p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">_propagate_scroll</span></code> flag that prevents infinite scroll-sync loops between linked views</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>What zoom level results from <code class="docutils literal notranslate"><span class="pre">Ctrl+wheel</span></code> (delegated to <code class="docutils literal notranslate"><span class="pre">RasterView.scale_image_around_point</span></code>)</p></li>
+<li><p>Image content</p></li>
+<li><p>Signal emission</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="rasterview">
+<h3>RasterView<a class="headerlink" href="#rasterview" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code></p>
+<p><strong>Purpose:</strong> The core single-viewport widget. Owns the full rendering pipeline from raw data through stretch application to a displayed <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code>, and manages zoom, scroll, and coordinate conversions.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Loading and caching the rendered <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> (<code class="docutils literal notranslate"><span class="pre">update_display_image</span></code>)</p></li>
+<li><p>Zoom scale factor (<code class="docutils literal notranslate"><span class="pre">_scale_factor</span></code>), accessible via <code class="docutils literal notranslate"><span class="pre">get_scale()</span></code> / <code class="docutils literal notranslate"><span class="pre">scale_image()</span></code></p></li>
+<li><p>Coordinate conversion between raster, image, and display spaces</p></li>
+<li><p>Reporting the currently visible region of the dataset (<code class="docutils literal notranslate"><span class="pre">get_visible_region</span></code>)</p></li>
+<li><p>Scrollbar synchronization for linked-view scrolling (<code class="docutils literal notranslate"><span class="pre">get_scrollbar_state</span></code> / <code class="docutils literal notranslate"><span class="pre">set_scrollbar_state</span></code>)</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Qt signal emission — all events are forwarded to the parent <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> via the <code class="docutils literal notranslate"><span class="pre">forward</span></code> dict</p></li>
+<li><p>Drawing highlights (viewport boxes, pixel crosshairs, ROI overlays) — done by <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code></p></li>
+<li><p>Multi-view layout decisions</p></li>
+</ul>
+<p><strong>Key attributes:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_raster_data</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code></p></td>
+<td><p>Dataset currently displayed</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">_display_bands</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tuple</span></code></p></td>
+<td><p>Band indices to render (1 or 3 elements)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_stretches</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">list[StretchBase]</span></code></p></td>
+<td><p>Per-band contrast stretch objects</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">_scale_factor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p>Current zoom (1.0 = 100%)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_image_pixmap</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">QPixmap</span></code></p></td>
+<td><p>Cached rendered image</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">_colormap</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>Colormap name for single-band display</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="tiledrasterview">
+<h3>TiledRasterView<a class="headerlink" href="#tiledrasterview" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterpane.py</span></code></p>
+<p><strong>Purpose:</strong> Extends <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> with a per-view toolbar and a grid position <code class="docutils literal notranslate"><span class="pre">(row,</span> <span class="pre">col)</span></code>, making it suitable for use inside <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code>’s MxN view grid.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Per-view toolbar visibility (<code class="docutils literal notranslate"><span class="pre">show_toolbar</span></code> / <code class="docutils literal notranslate"><span class="pre">hide_toolbar</span></code>)</p></li>
+<li><p>Keeping the dataset-chooser combo box in sync when the displayed dataset changes</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Rendering, zoom, or coordinate conversion (all in <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>)</p></li>
+<li><p>Layout or grid decisions (managed by <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code>)</p></li>
+<li><p>Signal emission</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="rasterpane">
+<h3>RasterPane<a class="headerlink" href="#rasterpane" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterpane.py</span></code></p>
+<p><strong>Purpose:</strong> Base class for all three visible panes. Owns the grid of <code class="docutils literal notranslate"><span class="pre">TiledRasterView</span></code> instances, the main toolbar, all Qt signals, highlight drawing, and ROI tools.</p>
+<p><strong>Controls:</strong></p>
+<ul>
+<li><p>The MxN grid of <code class="docutils literal notranslate"><span class="pre">TiledRasterView</span></code> objects (<code class="docutils literal notranslate"><span class="pre">_rasterviews</span></code> dict keyed by <code class="docutils literal notranslate"><span class="pre">(row,</span> <span class="pre">col)</span></code>)</p></li>
+<li><p>All Qt signal definitions (see Signal Reference section below)</p></li>
+<li><p>Receiving forwarded events from child <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> instances and re-emitting them as signals.
+Each <code class="docutils literal notranslate"><span class="pre">TiledRasterView</span></code> is constructed with the following <code class="docutils literal notranslate"><span class="pre">forward</span></code> dict pointing back to <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> handlers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">forward</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;mousePressEvent&quot;</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMousePress</span><span class="p">,</span>
+    <span class="s2">&quot;mouseReleaseEvent&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMouseRelease</span><span class="p">,</span>
+    <span class="s2">&quot;mouseMoveEvent&quot;</span><span class="p">:</span>    <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMouseMove</span><span class="p">,</span>
+    <span class="s2">&quot;keyPressEvent&quot;</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterKeyPress</span><span class="p">,</span>
+    <span class="s2">&quot;keyReleaseEvent&quot;</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterKeyRelease</span><span class="p">,</span>
+    <span class="s2">&quot;contextMenuEvent&quot;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterContextMenu</span><span class="p">,</span>
+    <span class="s2">&quot;paintEvent&quot;</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">_afterRasterPaint</span><span class="p">,</span>    <span class="c1"># overlay drawing hook</span>
+    <span class="s2">&quot;scrollContentsBy&quot;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_afterRasterScroll</span><span class="p">,</span>   <span class="c1"># emits viewport_change</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p>Drawing overlays on top of the raster image: viewport-highlight boxes, pixel crosshairs, ROI polygons</p></li>
+<li><p>ROI creation, editing, deletion, and export operations</p></li>
+<li><p>Toolbar setup (zoom combo box, band chooser, stretch builder, selection tools)</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Subclass-specific behaviors (overridden by <code class="docutils literal notranslate"><span class="pre">ContextPane</span></code>, <code class="docutils literal notranslate"><span class="pre">ZoomPane</span></code>, <code class="docutils literal notranslate"><span class="pre">MainViewWidget</span></code>)</p></li>
+<li><p>Inter-pane communication (wired in <code class="docutils literal notranslate"><span class="pre">App</span></code>)</p></li>
+<li><p>What datasets are loaded (managed by <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="contextpane">
+<h3>ContextPane<a class="headerlink" href="#contextpane" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/context_pane.py</span></code></p>
+<p><strong>Purpose:</strong> Overview/minimap pane that shows the full extent of the dataset at a zoomed-out scale and draws colored highlight boxes indicating the visible regions of other panes.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Automatically fitting the image to the widget size (<code class="docutils literal notranslate"><span class="pre">_act_fit_to_window</span></code> toggle)</p></li>
+<li><p>Dataset lock mode: either “use clicked dataset” (follows what was last clicked in any pane) or locked to a specific dataset ID (<code class="docutils literal notranslate"><span class="pre">_ds_id</span></code>)</p></li>
+<li><p>Rendering viewport-highlight boxes for the main view and/or zoom pane</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Scrolling (the image always fits the window; there is no free scrolling)</p></li>
+<li><p>Which dataset the main view or zoom pane display</p></li>
+<li><p>Signal wiring</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="zoompane">
+<h3>ZoomPane<a class="headerlink" href="#zoompane" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/zoom_pane.py</span></code></p>
+<p><strong>Purpose:</strong> High-magnification pane (1–16×, default 8×) for precise pixel-level inspection.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Magnification range: 1–16× (integer steps only, unlike the main view’s ×1.25 multiplier)</p></li>
+<li><p>Zoom increment behavior: <code class="docutils literal notranslate"><span class="pre">_zoom_in_scale</span></code> adds 1, <code class="docutils literal notranslate"><span class="pre">_zoom_out_scale</span></code> subtracts 1</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Which pixel is centered (set by <code class="docutils literal notranslate"><span class="pre">App</span></code> in response to main-view clicks via <code class="docutils literal notranslate"><span class="pre">set_pixel_highlight</span></code>)</p></li>
+<li><p>Signal wiring</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="mainviewwidget">
+<h3>MainViewWidget<a class="headerlink" href="#mainviewwidget" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/main_view.py</span></code></p>
+<p><strong>Purpose:</strong> The primary image viewer. Supports multi-view grid layouts (1×1, 1×2, 2×1, 2×2, or custom MxN) and linked scrolling between views with optional geographic coordinate transformation.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>View layout grid (<code class="docutils literal notranslate"><span class="pre">_init_rasterviews</span></code>, <code class="docutils literal notranslate"><span class="pre">_on_split_views</span></code>)</p></li>
+<li><p>Linked-scrolling mode: <code class="docutils literal notranslate"><span class="pre">NO_LINK</span></code>, <code class="docutils literal notranslate"><span class="pre">PIXEL</span></code> (same-dimension sync), or <code class="docutils literal notranslate"><span class="pre">SPATIAL</span></code> (geographic coordinate transform)</p></li>
+<li><p>Zoom range: 0.25×–16× in ×1.25 increments</p></li>
+<li><p>Synchronizing scroll positions across views when linked (<code class="docutils literal notranslate"><span class="pre">_sync_scroll_state</span></code>)</p></li>
+<li><p>ROI/selection tools (rectangle, polygon, multi-pixel)</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>What the context pane or zoom pane display (set by <code class="docutils literal notranslate"><span class="pre">App</span></code> view signals that depend on what is clicked in MainView)</p></li>
+<li><p>Signal wiring (done in <code class="docutils literal notranslate"><span class="pre">App</span></code>)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="signal-reference">
+<h2>Signal Reference<a class="headerlink" href="#signal-reference" title="Link to this heading">#</a></h2>
+<p>All six signals are defined on <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> and inherited by <code class="docutils literal notranslate"><span class="pre">ContextPane</span></code>, <code class="docutils literal notranslate"><span class="pre">ZoomPane</span></code>, and <code class="docutils literal notranslate"><span class="pre">MainViewWidget</span></code>.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Arguments</p></th>
+<th class="head"><p>When emitted</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">visibility_change</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
+<td><p>Pane is shown (<code class="docutils literal notranslate"><span class="pre">True</span></code>) or hidden (<code class="docutils literal notranslate"><span class="pre">False</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">views_changed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tuple</span> <span class="pre">(rows,</span> <span class="pre">cols)</span></code></p></td>
+<td><p>Multi-view layout changes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">display_bands_change</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int,</span> <span class="pre">tuple,</span> <span class="pre">object,</span> <span class="pre">bool</span></code></p></td>
+<td><p>Display bands or colormap changes; the <code class="docutils literal notranslate"><span class="pre">bool</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> if the change should propagate to all panes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">click_pixel</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tuple</span> <span class="pre">(row,</span> <span class="pre">col),</span> <span class="pre">QPoint</span></code></p></td>
+<td><p>User clicks a pixel; <code class="docutils literal notranslate"><span class="pre">QPoint</span></code> is in dataset coordinates</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">roi_selection_changed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ROI,</span> <span class="pre">Selection</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>An ROI selection is added, changed, or deleted</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">viewport_change</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tuple</span> <span class="pre">(row,</span> <span class="pre">col)</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>Scroll position changes; <code class="docutils literal notranslate"><span class="pre">None</span></code> means all views</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="signal-flow">
+<h2>Signal Flow<a class="headerlink" href="#signal-flow" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">App</span></code> class acts as the signal broker — panes never call each other directly.</p>
+<p>Each scenario below reads top-to-bottom: a pane emits a signal, the named
+<code class="docutils literal notranslate"><span class="pre">App</span></code> handler runs, and the handler calls methods back on the other panes.
+<code class="docutils literal notranslate"><span class="pre">App</span></code> sits in the center lane because every signal passes through it.</p>
+<pre  class="mermaid">
+        sequenceDiagram
+    participant CP as ContextPane
+    participant Main as MainViewWidget
+    participant App as App (broker)
+    participant Zoom as ZoomPane
+    participant Plot as Spectrum Plot
+
+    Note over CP,Plot: Main view scrolled
+    Main-&gt;&gt;App: viewport_change&lt;br/&gt;(_on_mainview_viewport_change)
+    App-&gt;&gt;CP: set_viewport_highlight()
+
+    Note over CP,Plot: Zoom pane scrolled
+    Zoom-&gt;&gt;App: viewport_change&lt;br/&gt;(_on_zoom_viewport_change)
+    App-&gt;&gt;Main: set_viewport_highlight()
+
+    Note over CP,Plot: Pixel clicked in main view
+    Main-&gt;&gt;App: click_pixel&lt;br/&gt;(_on_mainview_raster_pixel_select)
+    App-&gt;&gt;Zoom: set_pixel_highlight() + center on pixel
+    App-&gt;&gt;CP: show_dataset()
+    App-&gt;&gt;Plot: push pixel spectrum
+
+    Note over CP,Plot: Pixel clicked in context pane
+    CP-&gt;&gt;App: click_pixel&lt;br/&gt;(_on_context_raster_pixel_select)
+    App-&gt;&gt;Main: make_point_visible()
+
+    Note over CP,Plot: Pixel clicked in zoom pane
+    Zoom-&gt;&gt;App: click_pixel&lt;br/&gt;(_on_zoom_raster_pixel_select)
+    App-&gt;&gt;Main: set_pixel_highlight() (respects link mode)
+    App-&gt;&gt;Plot: push pixel spectrum
+
+    Note over CP,Plot: Bands / colormap changed (global)
+    Main-&gt;&gt;App: display_bands_change(global=True)&lt;br/&gt;(_on_display_bands_change)
+    App-&gt;&gt;Main: set_display_bands()
+    App-&gt;&gt;Zoom: set_display_bands()
+    App-&gt;&gt;CP: set_display_bands()
+    </pre><section id="interaction-flows-in-plain-language">
+<h3>Interaction flows in plain language<a class="headerlink" href="#interaction-flows-in-plain-language" title="Link to this heading">#</a></h3>
+<p><strong>Main view scrolled</strong> — <code class="docutils literal notranslate"><span class="pre">viewport_change</span></code> → <code class="docutils literal notranslate"><span class="pre">App._on_mainview_viewport_change</span></code> → <code class="docutils literal notranslate"><span class="pre">ContextPane.set_viewport_highlight()</span></code> updates the colored box in the context pane showing where the main view is looking.</p>
+<p><strong>Zoom pane scrolled</strong> — <code class="docutils literal notranslate"><span class="pre">viewport_change</span></code> → <code class="docutils literal notranslate"><span class="pre">App._on_zoom_viewport_change</span></code> → <code class="docutils literal notranslate"><span class="pre">MainViewWidget.set_viewport_highlight()</span></code> updates the small box drawn on the main view showing where the zoom pane is looking.</p>
+<p><strong>User clicks a pixel in the main view</strong> — <code class="docutils literal notranslate"><span class="pre">click_pixel</span></code> → <code class="docutils literal notranslate"><span class="pre">App._on_mainview_raster_pixel_select</span></code> → centers and highlights the pixel in the zoom pane, updates the context pane dataset, and pushes the pixel spectrum to the spectrum plot.</p>
+<p><strong>User clicks a pixel in the context pane</strong> — <code class="docutils literal notranslate"><span class="pre">click_pixel</span></code> → <code class="docutils literal notranslate"><span class="pre">App._on_context_raster_pixel_select</span></code> → <code class="docutils literal notranslate"><span class="pre">MainViewWidget.make_point_visible()</span></code> scrolls the main view so the clicked location is visible.</p>
+<p><strong>User clicks a pixel in the zoom pane</strong> — <code class="docutils literal notranslate"><span class="pre">click_pixel</span></code> → <code class="docutils literal notranslate"><span class="pre">App._on_zoom_raster_pixel_select</span></code> → highlights the pixel in the main view (respecting linked-scrolling mode) and pushes the spectrum.</p>
+<p><strong>Band or colormap changes in any pane</strong> — <code class="docutils literal notranslate"><span class="pre">display_bands_change(global=True)</span></code> → <code class="docutils literal notranslate"><span class="pre">App._on_display_bands_change</span></code> → propagates the change to all three panes so they stay in sync.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="coordinate-systems">
+<h2>Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Link to this heading">#</a></h2>
+<p>Three coordinate spaces are used throughout the codebase. Conversion methods live on <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Space</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Unit</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Raster / dataset</strong></p></td>
+<td><p>Raw pixel indices in the loaded <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code></p></td>
+<td><p>pixel (col, row)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Image</strong></p></td>
+<td><p>Screen pixels as if zoom = 1.0 (one screen pixel per dataset pixel)</p></td>
+<td><p>pixel</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Display</strong></p></td>
+<td><p>Actual on-screen pixels at the current zoom level</p></td>
+<td><p>pixel</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Conversion methods on <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">image_coord_to_raster_coord(pos)</span></code> — image → raster</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">raster_coord_to_image_coord(coord)</span></code> — raster → image</p></li>
+<li><p>Image ↔ display: multiply or divide by <code class="docutils literal notranslate"><span class="pre">_scale_factor</span></code></p></li>
+</ul>
+<pre  class="mermaid">
+        flowchart LR
+    R[&quot;Raster coords\n(dataset pixels)&quot;]
+    I[&quot;Image coords\n(at zoom = 1.0)&quot;]
+    D[&quot;Display coords\n(on screen)&quot;]
+
+    R -- &quot;raster_coord_to_image_coord()&quot; --&gt; I
+    I -- &quot;image_coord_to_raster_coord()&quot; --&gt; R
+    I -- &quot;× scale_factor&quot; --&gt; D
+    D -- &quot;÷ scale_factor&quot; --&gt; I
+    </pre></section>
+<hr class="docutils" />
+<section id="supporting-infrastructure">
+<h2>Supporting Infrastructure<a class="headerlink" href="#supporting-infrastructure" title="Link to this heading">#</a></h2>
+<section id="event-forwarding-via-forward-dict">
+<h3>Event forwarding via <code class="docutils literal notranslate"><span class="pre">forward</span></code> dict<a class="headerlink" href="#event-forwarding-via-forward-dict" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">RasterView</span></code> is constructed with an optional <code class="docutils literal notranslate"><span class="pre">forward</span></code> dictionary mapping event names (e.g., <code class="docutils literal notranslate"><span class="pre">&quot;mousePressEvent&quot;</span></code>) to callables. When <code class="docutils literal notranslate"><span class="pre">ImageWidget</span></code> or <code class="docutils literal notranslate"><span class="pre">ImageScrollArea</span></code> fires an event, <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> looks it up in <code class="docutils literal notranslate"><span class="pre">forward</span></code> and calls the corresponding handler on the parent <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code>. This decouples the low-level widgets from the pane without requiring additional subclasses.</p>
+</section>
+<section id="rendering-cache">
+<h3>Rendering cache<a class="headerlink" href="#rendering-cache" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">RasterView</span></code> caches the rendered <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> (<code class="docutils literal notranslate"><span class="pre">_image_pixmap</span></code>) and per-band stretched arrays (<code class="docutils literal notranslate"><span class="pre">_display_data</span></code>). The cache is only invalidated and regenerated when <code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code> is called explicitly — for example, when bands, stretches, or the dataset change. Scrolling and zooming reuse the cached pixmap.</p>
+</section>
+<section id="task-delegates">
+<h3>Task delegates<a class="headerlink" href="#task-delegates" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> uses a <code class="docutils literal notranslate"><span class="pre">_task_delegate</span></code> attribute for modal, multi-step operations such as drawing a new ROI selection or editing an existing geometry. While a task delegate is active, other mouse events are routed to it rather than processed as normal clicks.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="code-documentation.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Code Documentation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="bandmath-internals.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Band Math Internals</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-hierarchy">Class Hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-responsibilities">Class Responsibilities</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#imagewidget">ImageWidget</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#imagescrollarea">ImageScrollArea</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rasterview">RasterView</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tiledrasterview">TiledRasterView</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rasterpane">RasterPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contextpane">ContextPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#zoompane">ZoomPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mainviewwidget">MainViewWidget</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-reference">Signal Reference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-flow">Signal Flow</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#interaction-flows-in-plain-language">Interaction flows in plain language</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinate-systems">Coordinate Systems</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supporting-infrastructure">Supporting Infrastructure</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#event-forwarding-via-forward-dict">Event forwarding via <code class="docutils literal notranslate"><span class="pre">forward</span></code> dict</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rendering-cache">Rendering cache</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-delegates">Task delegates</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
