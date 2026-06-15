@@ -7,6 +7,7 @@ This should be used as a guide for developers reading, debugging, or extending t
 codebase. Please keep this up to date.
 
 ```{toctree}
+:hidden:
 :maxdepth: 1
 
 viewport-system.md
