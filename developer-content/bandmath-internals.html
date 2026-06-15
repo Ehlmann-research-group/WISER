@@ -1,0 +1,1394 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Band Math Internals &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/bandmath-internals';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Design Documents" href="design-documents.html" />
+    <link rel="prev" title="System Design" href="system-design.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/bandmath-internals.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/bandmath-internals.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Band Math Internals</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-1-parsing">Phase 1: Parsing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-2-analysis">Phase 2: Analysis</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#type-broadcasting-rules-enforced-at-analysis-time">Type-broadcasting rules (enforced at analysis time)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-3-evaluation-entry-point">Phase 3: Evaluation Entry Point</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#start-bandmath-evaluation"><code class="docutils literal notranslate"><span class="pre">start_bandmath_evaluation()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#single-vs-batch-evaluation">Single vs. Batch Evaluation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bandmathjob-and-singlebandmathjob"><code class="docutils literal notranslate"><span class="pre">BandMathJob</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleBandMathJob</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dispatch-flow">Dispatch flow</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-differences">Key differences</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sync-vs-async-transformer">Sync vs. Async Transformer</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-transformer-bandmathevaluator">Synchronous Transformer (<code class="docutils literal notranslate"><span class="pre">BandMathEvaluator</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asynchronous-transformer-bandmathevaluatorasync">Asynchronous Transformer (<code class="docutils literal notranslate"><span class="pre">BandMathEvaluatorAsync</span></code>)</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#class-hierarchy">Class hierarchy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#asynctransformer"><code class="docutils literal notranslate"><span class="pre">AsyncTransformer</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-window-chunking">Band-window chunking</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#read-ahead-pipeline">Read-ahead pipeline</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#result-storage">Result storage</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#operator-system">Operator System</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#end-to-end-data-flow">End-to-End Data Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary-choosing-the-right-path">Summary: Choosing the Right Path</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="band-math-internals">
+<h1>Band Math Internals<a class="headerlink" href="#band-math-internals" title="Link to this heading">#</a></h1>
+<p>This page documents how the band-math evaluation engine works internally — from the moment a user submits an expression to the moment results are returned.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>Band math in WISER is a three-phase pipeline: <strong>parse</strong>, <strong>analyze</strong>, then <strong>evaluate</strong>.</p>
+<pre  class="mermaid">
+        flowchart LR
+    A[&quot;User expression\n(string)&quot;] --&gt; B[&quot;Parser\nbandmath.lark&quot;]
+    B --&gt; C[&quot;Parse tree\nlark.Tree&quot;]
+    C --&gt; D[&quot;Analyzer\nBandMathAnalyzer&quot;]
+    D --&gt; E[&quot;BandMathExprInfo\ntype · shape · metadata&quot;]
+    E --&gt; F[&quot;Evaluator\n(subprocess)&quot;]
+    F --&gt; G[&quot;Result\nnumpy array / on-disk dataset&quot;]
+    </pre><p>Each phase has a distinct responsibility:</p>
+<ul class="simple">
+<li><p><strong>Parse</strong> — turn the expression string into a tree without touching any data.</p></li>
+<li><p><strong>Analyze</strong> — walk the tree to infer the result type, shape, and metadata.</p></li>
+<li><p><strong>Evaluate</strong> — walk the tree a second time to actually compute values.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="phase-1-parsing">
+<h2>Phase 1: Parsing<a class="headerlink" href="#phase-1-parsing" title="Link to this heading">#</a></h2>
+<p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/parser.py</span></code>, <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/bandmath.lark</span></code></p>
+<p>The Lark library parses the expression string against the grammar in <code class="docutils literal notranslate"><span class="pre">bandmath.lark</span></code>. The grammar covers arithmetic (<code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">**</span></code>), comparison operators (<code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code>), unary negation, variables, numeric/string/boolean literals, and function calls.</p>
+<p>Key functions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">parse_bandmath(expr)</span></code> — returns a <code class="docutils literal notranslate"><span class="pre">lark.Tree</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_bandmath_variables(expr)</span></code> — uses a <code class="docutils literal notranslate"><span class="pre">VariableCollector</span></code> visitor to return the set of variable names referenced in the expression</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bandmath_parses(expr)</span></code> — returns <code class="docutils literal notranslate"><span class="pre">True</span></code> if the expression is syntactically valid</p></li>
+</ul>
+<p>The parser does not load any raster data and has no side effects.</p>
+</section>
+<hr class="docutils" />
+<section id="phase-2-analysis">
+<h2>Phase 2: Analysis<a class="headerlink" href="#phase-2-analysis" title="Link to this heading">#</a></h2>
+<p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/analyzer.py</span></code>, <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/types.py</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">BandMathAnalyzer</span></code> is a Lark <code class="docutils literal notranslate"><span class="pre">Transformer</span></code> that walks the parse tree and calls each operator’s <code class="docutils literal notranslate"><span class="pre">analyze()</span></code> method instead of <code class="docutils literal notranslate"><span class="pre">apply()</span></code>. No pixel data is loaded.</p>
+<p>The result is a <code class="docutils literal notranslate"><span class="pre">BandMathExprInfo</span></code> object that carries:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">result_type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">VariableType</span></code> enum — <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code>, <code class="docutils literal notranslate"><span class="pre">IMAGE_BAND</span></code>, <code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code>, <code class="docutils literal notranslate"><span class="pre">NUMBER</span></code>, <code class="docutils literal notranslate"><span class="pre">BOOLEAN</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">shape</span></code></p></td>
+<td><p>Array dimensions (e.g. <code class="docutils literal notranslate"><span class="pre">(bands,</span> <span class="pre">rows,</span> <span class="pre">cols)</span></code> for <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">elem_type</span></code></p></td>
+<td><p>NumPy dtype of the output (e.g. <code class="docutils literal notranslate"><span class="pre">float32</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">spectral_metadata_source</span></code></p></td>
+<td><p>Where to inherit wavelength information from</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spatial_metadata_source</span></code></p></td>
+<td><p>Where to inherit projection / geotransform from</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">BandMathExprInfo.result_size()</span></code> multiplies <code class="docutils literal notranslate"><span class="pre">shape</span></code> by <code class="docutils literal notranslate"><span class="pre">elem_type.itemsize</span></code> to get the estimated byte size of the result — this feeds directly into the memory-management decision in Phase 3.</p>
+<section id="type-broadcasting-rules-enforced-at-analysis-time">
+<h3>Type-broadcasting rules (enforced at analysis time)<a class="headerlink" href="#type-broadcasting-rules-enforced-at-analysis-time" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Left operand</p></th>
+<th class="head"><p>Right operand</p></th>
+<th class="head"><p>Result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NUMBER</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> (scalar broadcast)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> (spectrum broadcast along spatial dims)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_BAND</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> (band broadcast along spectral dim)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> (element-wise; shapes must match)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code> (element-wise; lengths must match)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_BAND</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NUMBER</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">IMAGE_BAND</span></code> (scalar broadcast)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Incompatible shapes or types raise a <code class="docutils literal notranslate"><span class="pre">BandMathEvalError</span></code> during analysis, before any subprocess is spawned.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="phase-3-evaluation-entry-point">
+<h2>Phase 3: Evaluation Entry Point<a class="headerlink" href="#phase-3-evaluation-entry-point" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/evaluator.py</span></code></p>
+<section id="start-bandmath-evaluation">
+<h3><code class="docutils literal notranslate"><span class="pre">start_bandmath_evaluation()</span></code><a class="headerlink" href="#start-bandmath-evaluation" title="Link to this heading">#</a></h3>
+<p>This is the public entry point called by the GUI. It:</p>
+<ol class="arabic simple">
+<li><p>Lowercases all variable and function names for case-insensitive matching.</p></li>
+<li><p>Parses the expression and assigns unique IDs to every tree node (via <code class="docutils literal notranslate"><span class="pre">UniqueIDAssigner</span></code>) — node IDs are used later to route per-operator read-ahead queues.</p></li>
+<li><p>Counts intermediate values the expression will create (<code class="docutils literal notranslate"><span class="pre">NumberOfIntermediatesFinder</span></code>) to estimate peak memory.</p></li>
+<li><p>Serializes all variables — <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>, <code class="docutils literal notranslate"><span class="pre">RasterDataBand</span></code>, and <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code> objects wrap GDAL handles that cannot be pickled, so they are converted to a serializable form before being passed to the subprocess.</p></li>
+<li><p>Creates a <code class="docutils literal notranslate"><span class="pre">BandMathJob</span></code> and passes it to a <code class="docutils literal notranslate"><span class="pre">ProcessManager</span></code>, which spawns a worker subprocess.</p></li>
+<li><p>Returns immediately. Results are delivered later through callbacks:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">succeeded_callback(result)</span></code> — called with the computed value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error_callback(task)</span></code> — called if evaluation raises</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">status_callback(msg)</span></code> — called with progress updates</p></li>
+</ul>
+</li>
+</ol>
+<p>The subprocess entry point is <code class="docutils literal notranslate"><span class="pre">bandmath_subprocess_entrypoint()</span></code> → <code class="docutils literal notranslate"><span class="pre">eval_bandmath_expressions()</span></code>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="single-vs-batch-evaluation">
+<h2>Single vs. Batch Evaluation<a class="headerlink" href="#single-vs-batch-evaluation" title="Link to this heading">#</a></h2>
+<section id="bandmathjob-and-singlebandmathjob">
+<h3><code class="docutils literal notranslate"><span class="pre">BandMathJob</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleBandMathJob</span></code><a class="headerlink" href="#bandmathjob-and-singlebandmathjob" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">BandMathJob</span></code> is the serializable job container passed to the subprocess. On construction it inspects <code class="docutils literal notranslate"><span class="pre">serialized_variables</span></code> to determine whether the job is a batch job:</p>
+<ul class="simple">
+<li><p>If any variable has type <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE_BATCH</span></code> or <code class="docutils literal notranslate"><span class="pre">IMAGE_BAND_BATCH</span></code>, <code class="docutils literal notranslate"><span class="pre">is_batch</span> <span class="pre">=</span> <span class="pre">True</span></code> and <code class="docutils literal notranslate"><span class="pre">filepaths</span></code> is populated with the list of files from the batch folder.</p></li>
+<li><p>Otherwise, <code class="docutils literal notranslate"><span class="pre">is_batch</span> <span class="pre">=</span> <span class="pre">False</span></code> and <code class="docutils literal notranslate"><span class="pre">filepaths</span></code> is empty.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">BandMathJob</span></code> is <strong>iterable</strong>. Each iteration step yields a <code class="docutils literal notranslate"><span class="pre">SingleBandMathJob</span></code> — a fully resolved, self-contained job for one evaluation target (one file). For a single job it yields exactly one <code class="docutils literal notranslate"><span class="pre">SingleBandMathJob</span></code>; for a batch job it yields one per filepath.</p>
+<p>For each filepath the iterator:</p>
+<ul class="simple">
+<li><p>Deserializes variables with the filepath as context (loading the specific raster file).</p></li>
+<li><p>Recomputes <code class="docutils literal notranslate"><span class="pre">BandMathExprInfo</span></code> for those variables.</p></li>
+<li><p>Prefixes the result name with the filename stem (e.g. a batch variable <code class="docutils literal notranslate"><span class="pre">_result</span></code> from file <code class="docutils literal notranslate"><span class="pre">ang20171108.img</span></code> becomes <code class="docutils literal notranslate"><span class="pre">ang20171108_result</span></code>).</p></li>
+</ul>
+</section>
+<section id="dispatch-flow">
+<h3>Dispatch flow<a class="headerlink" href="#dispatch-flow" title="Link to this heading">#</a></h3>
+<pre  class="mermaid">
+        flowchart TD
+    A[&quot;eval_bandmath_expressions()&quot;] --&gt; B{&quot;BandMathJob.is_batch?&quot;}
+    B -- No --&gt; C[&quot;get_single_bandmath_job()\nyields one SingleBandMathJob&quot;]
+    C --&gt; D[&quot;eval_singular_bandmath_expr()&quot;]
+    B -- Yes --&gt; E[&quot;eval_bandmath_batch()\niterates BandMathJob&quot;]
+    E -- &quot;per filepath&quot; --&gt; F[&quot;yield SingleBandMathJob\nfor this filepath&quot;]
+    F --&gt; D
+    E -- &quot;after all files complete&quot; --&gt; G[&quot;Collect results\nreport per-file progress\ncontinue on error&quot;]
+    </pre></section>
+<section id="key-differences">
+<h3>Key differences<a class="headerlink" href="#key-differences" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p>Single</p></th>
+<th class="head"><p>Batch</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Variable loading</p></td>
+<td><p>Once from in-memory serialized refs</p></td>
+<td><p>Once per file, re-deserialized from disk</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">expr_info</span></code> computation</p></td>
+<td><p>Once</p></td>
+<td><p>Once per file</p></td>
+</tr>
+<tr class="row-even"><td><p>Result naming</p></td>
+<td><p>Unchanged from user input</p></td>
+<td><p>Prefixed with filename stem</p></td>
+</tr>
+<tr class="row-odd"><td><p>Error handling</p></td>
+<td><p>Propagates immediately; aborts</p></td>
+<td><p>Continues; per-file errors collected alongside successes</p></td>
+</tr>
+<tr class="row-even"><td><p>Progress reporting</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">completed</span> <span class="pre">/</span> <span class="pre">total</span> <span class="pre">files</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Return value</p></td>
+<td><p>Single result wrapped in a list</p></td>
+<td><p>List of results (one per file)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="sync-vs-async-transformer">
+<h2>Sync vs. Async Transformer<a class="headerlink" href="#sync-vs-async-transformer" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">eval_singular_bandmath_expr()</span></code> contains the central decision: which evaluator to use.</p>
+<pre  class="mermaid">
+        flowchart TD
+    A[&quot;eval_singular_bandmath_expr()&quot;] --&gt; B[&quot;Compute estimated peak memory:\nexpr_info.result_size() × number_of_intermediates&quot;]
+    B --&gt; C{&quot;result_type == IMAGE_CUBE\nAND memory exceeds threshold?&quot;}
+    C -- Yes --&gt; ASYNC[&quot;eval_singular_bandmath_expr_async()\nBandMathEvaluatorAsync&quot;]
+    C -- No --&gt; D{&quot;use_synchronous_method\nexplicitly False?&quot;}
+    D -- Yes --&gt; ASYNC
+    D -- No --&gt; SYNC[&quot;eval_singular_bandmath_expr_sync()\nBandMathEvaluator&quot;]
+    </pre><p><strong>Memory threshold:</strong> <code class="docutils literal notranslate"><span class="pre">max_bytes_to_chunk(expr_info.result_size()</span> <span class="pre">*</span> <span class="pre">number_of_intermediates)</span></code></p>
+<p>Constants (from <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/builtins/constants.py</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Constant</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MAX_RAM_BYTES</span></code></p></td>
+<td><p>4 000 000 000 (4 GB)</p></td>
+<td><p>Ceiling used if platform query fails</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RATIO_OF_MEM_TO_USE</span></code></p></td>
+<td><p>0.25</p></td>
+<td><p>Use at most 25 % of available RAM</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NUM_READERS</span></code></p></td>
+<td><p>4</p></td>
+<td><p>Async read-thread-pool size</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NUM_WRITERS</span></code></p></td>
+<td><p>1</p></td>
+<td><p>Async write-thread-pool size</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>In practice:</strong> spectra, scalars, and single-band results always take the sync path because they are not <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code>. Large hyperspectral cubes almost always exceed 25 % of available RAM and take the async path.</p>
+</section>
+<hr class="docutils" />
+<section id="synchronous-transformer-bandmathevaluator">
+<h2>Synchronous Transformer (<code class="docutils literal notranslate"><span class="pre">BandMathEvaluator</span></code>)<a class="headerlink" href="#synchronous-transformer-bandmathevaluator" title="Link to this heading">#</a></h2>
+<p><strong>Class:</strong> <code class="docutils literal notranslate"><span class="pre">BandMathEvaluator(lark.visitors.Transformer)</span></code></p>
+<p>The synchronous evaluator is a standard Lark <code class="docutils literal notranslate"><span class="pre">Transformer</span></code>. It walks the parse tree depth-first, calling a handler method for each grammar rule. Each handler runs <code class="docutils literal notranslate"><span class="pre">asyncio.run_coroutine_threadsafe(operator.apply(...),</span> <span class="pre">event_loop).result()</span></code> — this executes the operator’s async <code class="docutils literal notranslate"><span class="pre">apply()</span></code> coroutine on a background event loop and blocks the calling thread until it completes. Essentially making it synchronous, hence the name.</p>
+<p>All data is loaded into memory before evaluation begins. There is no chunking, no read-ahead, and no intermediate disk writes. The result is a <code class="docutils literal notranslate"><span class="pre">BandMathValue</span></code> holding an in-memory NumPy array.</p>
+<p><strong>Use cases:</strong></p>
+<ul class="simple">
+<li><p>Results of type <code class="docutils literal notranslate"><span class="pre">IMAGE_BAND</span></code>, <code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code>, <code class="docutils literal notranslate"><span class="pre">NUMBER</span></code>, <code class="docutils literal notranslate"><span class="pre">BOOLEAN</span></code>, or <code class="docutils literal notranslate"><span class="pre">STRING</span></code></p></li>
+<li><p>Small <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> results that fit within the memory threshold</p></li>
+<li><p>Scalar expressions (always negligible memory)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="asynchronous-transformer-bandmathevaluatorasync">
+<h2>Asynchronous Transformer (<code class="docutils literal notranslate"><span class="pre">BandMathEvaluatorAsync</span></code>)<a class="headerlink" href="#asynchronous-transformer-bandmathevaluatorasync" title="Link to this heading">#</a></h2>
+<section id="class-hierarchy">
+<h3>Class hierarchy<a class="headerlink" href="#class-hierarchy" title="Link to this heading">#</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>lark.visitors.Transformer
+├── AsyncTransformer            ← custom base: async def visitor methods
+│   └── BandMathEvaluatorAsync  ← band-math evaluation with chunking and I/O
+└── BandMathEvaluator           ← synchronous, no chunking
+</pre></div>
+</div>
+</section>
+<section id="asynctransformer">
+<h3><code class="docutils literal notranslate"><span class="pre">AsyncTransformer</span></code><a class="headerlink" href="#asynctransformer" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncTransformer</span></code> mirrors Lark’s <code class="docutils literal notranslate"><span class="pre">Transformer</span></code> but makes every step awaitable:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_transform_children()</span></code> — creates a <code class="docutils literal notranslate"><span class="pre">asyncio.Task</span></code> per child node, then awaits all of them concurrently with <code class="docutils literal notranslate"><span class="pre">asyncio.gather()</span></code>. This allows for I/O to happen in parallel which reduces time spent evaluating.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_transform_tree()</span></code> — awaits <code class="docutils literal notranslate"><span class="pre">_transform_children()</span></code>, then calls the handler for the current node.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_call_userfunc()</span></code> — detects whether the handler method is <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code> or a regular <code class="docutils literal notranslate"><span class="pre">def</span></code> and awaits it accordingly.</p></li>
+</ul>
+</section>
+<section id="band-window-chunking">
+<h3>Band-window chunking<a class="headerlink" href="#band-window-chunking" title="Link to this heading">#</a></h3>
+<p>For an <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> result, the spectral dimension is split into <strong>band windows</strong>. <code class="docutils literal notranslate"><span class="pre">compute_bands_per_chunk()</span></code> calculates the maximum number of bands that fit in the available memory budget. <code class="docutils literal notranslate"><span class="pre">iter_band_windows(total_bands,</span> <span class="pre">num_bands)</span></code> yields <code class="docutils literal notranslate"><span class="pre">(current_bands,</span> <span class="pre">next_bands)</span></code> pairs — the second element is the window that will be needed next, enabling read-ahead.</p>
+<pre  class="mermaid">
+        flowchart LR
+    A[&quot;All bands\ne.g. 432 bands&quot;] --&gt;|&quot;compute_bands_per_chunk()&quot;| B[&quot;Window size\ne.g. 50 bands&quot;]
+    B --&gt; C[&quot;Window 0–49\ncurrent + next&quot;]
+    B --&gt; D[&quot;Window 50–99\ncurrent + next&quot;]
+    B --&gt; E[&quot;Window 100–149\n...&quot;]
+    B --&gt; F[&quot;...&quot;]
+    </pre><p>Each window is evaluated independently, and its result bands are written to an on-disk GDAL dataset incrementally.</p>
+</section>
+<section id="read-ahead-pipeline">
+<h3>Read-ahead pipeline<a class="headerlink" href="#read-ahead-pipeline" title="Link to this heading">#</a></h3>
+<p>The async evaluator runs two thread pools in addition to the <code class="docutils literal notranslate"><span class="pre">asyncio</span></code> event loop:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_read_thread_pool</span></code> — 4 workers; reads raster band data from disk</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_write_thread_pool</span></code> — 1 worker; writes computed band windows back to disk</p></li>
+</ul>
+<p>Each expression tree node (operator) gets a pair of <code class="docutils literal notranslate"><span class="pre">queue.Queue</span></code> objects keyed by <code class="docutils literal notranslate"><span class="pre">LHS_KEY</span></code> and <code class="docutils literal notranslate"><span class="pre">RHS_KEY</span></code>. The operator submits the <em>next</em> window’s read to the thread pool before it even starts computing the <em>current</em> window. By the time the current window’s computation finishes, the next window’s data is often already in the queue.</p>
+<pre  class="mermaid">
+        sequenceDiagram
+    participant EL as Event Loop
+    participant RP as Read Thread Pool&lt;br/&gt;(4 workers)
+    participant WP as Write Thread Pool&lt;br/&gt;(1 worker)
+    participant Disk
+
+    loop Each band window
+        EL-&gt;&gt;RP: submit read — current window (LHS + RHS)
+        EL-&gt;&gt;RP: submit read — NEXT window (prefetch)
+        RP-&gt;&gt;Disk: read current bands
+        RP--&gt;&gt;EL: current data ready (via queue)
+        EL-&gt;&gt;EL: evaluate operators&lt;br/&gt;(asyncio.gather children)
+        EL-&gt;&gt;WP: submit write — current result bands
+        Note over RP,Disk: next-window read runs concurrently&lt;br/&gt;with current-window write
+    end
+    </pre><p><strong>Why this matters:</strong> disk I/O is the bottleneck for large hyperspectral cubes. Without read-ahead, every band window waits for both a read and a compute before the next read begins. With read-ahead, the next read overlaps the current compute-and-write, hiding most of the I/O latency.</p>
+</section>
+<section id="result-storage">
+<h3>Result storage<a class="headerlink" href="#result-storage" title="Link to this heading">#</a></h3>
+<p>The async path writes results to a temporary on-disk GDAL dataset (<code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE_DATASET</span></code> type) rather than accumulating them in RAM. The dataset is passed back to the GUI as a <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>. This is why the async path can handle datasets much larger than available RAM.</p>
+<p>The file is written into <code class="docutils literal notranslate"><span class="pre">TEMP_FOLDER_PATH</span></code>, which is a <code class="docutils literal notranslate"><span class="pre">temp_output/</span></code> directory sitting inside the <code class="docutils literal notranslate"><span class="pre">wiser/bandmath/</span></code> package directory — not the OS temp folder. This means the files persist across runs if WISER crashes, but are explicitly swept on a clean exit.</p>
+<p>Immediately after the GDAL dataset is created, <code class="docutils literal notranslate"><span class="pre">out_dataset.set_dirty()</span></code> is called on the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> wrapper. This marks the dataset as dirty, which prevents the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> from deleting its backing file when the <strong>subprocess</strong> exits — the file must survive long enough for the <strong>main process</strong> to read it back. Without this flag the file would be cleaned up as the subprocess tears down, and the result would be lost.</p>
+<p>The main process cleans up all files in <code class="docutils literal notranslate"><span class="pre">TEMP_FOLDER_PATH</span></code> inside <code class="docutils literal notranslate"><span class="pre">app.py</span></code>’s <code class="docutils literal notranslate"><span class="pre">closeEvent()</span></code>, which runs when the user closes WISER. This means temp files from a previous session that survived a crash will also be removed on the next clean shutdown.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="operator-system">
+<h2>Operator System<a class="headerlink" href="#operator-system" title="Link to this heading">#</a></h2>
+<p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/builtins/</span></code></p>
+<p>Every operator is a class that implements two methods:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">BandMathFunction</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">infos</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BandMathExprInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BandMathExprInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called during Phase 2. Infers result type without touching data.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BandMathValue</span><span class="p">],</span> <span class="n">index_list</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BandMathValue</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called during Phase 3. Computes the actual result for the current band window.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Built-in operators: <code class="docutils literal notranslate"><span class="pre">OperatorAdd</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorSubtract</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorMultiply</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorDivide</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorPower</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorCompare</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorUnaryNegate</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorTrigFunction</span></code>, <code class="docutils literal notranslate"><span class="pre">OperatorDotProduct</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">apply()</span></code> receives the current <code class="docutils literal notranslate"><span class="pre">index_list</span></code> (the set of band indices in the current window), which operators use to slice or broadcast their operands to the right shape before computing.</p>
+<p>Plugin-defined functions follow the same <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> interface and are registered via <code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code> — see the plugin documentation for details.</p>
+</section>
+<hr class="docutils" />
+<section id="end-to-end-data-flow">
+<h2>End-to-End Data Flow<a class="headerlink" href="#end-to-end-data-flow" title="Link to this heading">#</a></h2>
+<pre  class="mermaid">
+        flowchart TD
+    GUI[&quot;GUI\nstart_bandmath_evaluation()&quot;]
+    GUI --&gt;|&quot;serialize vars\ncreate BandMathJob&quot;| PM[&quot;ProcessManager\nspawns subprocess&quot;]
+    PM --&gt;|&quot;IPC pipe + queue&quot;| SUB[&quot;bandmath_subprocess_entrypoint()&quot;]
+    SUB --&gt; EBE[&quot;eval_bandmath_expressions()&quot;]
+
+    EBE --&gt;|&quot;single job&quot;| ESB[&quot;eval_singular_bandmath_expr()&quot;]
+    EBE --&gt;|&quot;batch: one per file&quot;| ESB
+
+    ESB --&gt;|&quot;IMAGE_BAND / SPECTRUM\nNUMBER / small IMAGE_CUBE&quot;| SYNC[&quot;eval_singular_bandmath_expr_sync()\nBandMathEvaluator\nin-memory numpy array&quot;]
+    ESB --&gt;|&quot;large IMAGE_CUBE\nor use_synchronous_method=False&quot;| ASYNC[&quot;eval_singular_bandmath_expr_async()\nBandMathEvaluatorAsync\nchunked + read-ahead&quot;]
+
+    SYNC --&gt;|&quot;in-memory numpy&quot;| RES[&quot;Result tuple\n(type, value, name, expr_info)&quot;]
+    ASYNC --&gt;|&quot;on-disk GDAL dataset\n(RasterDataSet)&quot;| RES
+
+    RES --&gt;|&quot;serialized\nput on return_queue&quot;| PM
+    PM --&gt;|&quot;succeeded_callback&quot;| GUI
+    </pre></section>
+<hr class="docutils" />
+<section id="summary-choosing-the-right-path">
+<h2>Summary: Choosing the Right Path<a class="headerlink" href="#summary-choosing-the-right-path" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Scenario</p></th>
+<th class="head"><p>Path</p></th>
+<th class="head"><p>Why</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Expression produces a scalar or spectrum</p></td>
+<td><p>Sync</p></td>
+<td><p>Trivially small; no benefit to chunking</p></td>
+</tr>
+<tr class="row-odd"><td><p>Expression produces a single-band image</p></td>
+<td><p>Sync</p></td>
+<td><p>2-D data rarely exceeds the 25 % threshold</p></td>
+</tr>
+<tr class="row-even"><td><p>Expression produces a large hyperspectral cube</p></td>
+<td><p>Async</p></td>
+<td><p>Chunking prevents OOM; read-ahead hides I/O latency</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_synchronous_method=False</span></code> passed explicitly</p></td>
+<td><p>Async</p></td>
+<td><p>Caller forces chunked execution regardless of size</p></td>
+</tr>
+<tr class="row-even"><td><p>Batch mode over a folder</p></td>
+<td><p>Same decision per file</p></td>
+<td><p>Each file is evaluated independently through <code class="docutils literal notranslate"><span class="pre">eval_singular_bandmath_expr()</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="system-design.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">System Design</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="design-documents.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Design Documents</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-1-parsing">Phase 1: Parsing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-2-analysis">Phase 2: Analysis</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#type-broadcasting-rules-enforced-at-analysis-time">Type-broadcasting rules (enforced at analysis time)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-3-evaluation-entry-point">Phase 3: Evaluation Entry Point</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#start-bandmath-evaluation"><code class="docutils literal notranslate"><span class="pre">start_bandmath_evaluation()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#single-vs-batch-evaluation">Single vs. Batch Evaluation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bandmathjob-and-singlebandmathjob"><code class="docutils literal notranslate"><span class="pre">BandMathJob</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleBandMathJob</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dispatch-flow">Dispatch flow</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-differences">Key differences</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sync-vs-async-transformer">Sync vs. Async Transformer</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-transformer-bandmathevaluator">Synchronous Transformer (<code class="docutils literal notranslate"><span class="pre">BandMathEvaluator</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#asynchronous-transformer-bandmathevaluatorasync">Asynchronous Transformer (<code class="docutils literal notranslate"><span class="pre">BandMathEvaluatorAsync</span></code>)</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#class-hierarchy">Class hierarchy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#asynctransformer"><code class="docutils literal notranslate"><span class="pre">AsyncTransformer</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-window-chunking">Band-window chunking</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#read-ahead-pipeline">Read-ahead pipeline</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#result-storage">Result storage</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#operator-system">Operator System</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#end-to-end-data-flow">End-to-End Data Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary-choosing-the-right-path">Summary: Choosing the Right Path</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
