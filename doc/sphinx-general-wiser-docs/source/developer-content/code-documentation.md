@@ -11,5 +11,6 @@ codebase. Please keep this up to date.
 :maxdepth: 1
 
 viewport-system.md
+spectrum-plot.md
 bandmath-internals.md
 ```
