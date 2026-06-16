@@ -12,4 +12,6 @@ codebase. Please keep this up to date.
 
 viewport-system.md
 bandmath-internals.md
+georeferencer-internals.md
+crs-creator-internals.md
 ```
