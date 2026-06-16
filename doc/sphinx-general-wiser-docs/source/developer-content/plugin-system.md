@@ -15,11 +15,11 @@ machinery on WISER's side that makes those plugins run.
 WISER exposes three plugin integration points, each backed by an abstract base
 class in `wiser.plugins`:
 
-| Integration point | Base class | Invocation style |
+| Integration point | Base class | When WISER calls the plugin |
 |---|---|---|
-| Tools menu | `ToolsMenuPlugin` | Push, once at startup |
-| Context menus | `ContextMenuPlugin` | Pull, every time a menu is built |
-| Band Math | `BandMathPlugin` | Pull, when the Band Math dialog opens |
+| Tools menu | `ToolsMenuPlugin` | Once, at startup |
+| Context menus | `ContextMenuPlugin` | On demand, every time a context menu is built |
+| Band Math | `BandMathPlugin` | On demand, when the Band Math dialog opens |
 
 A plugin is a plain Python class that subclasses one of these. WISER never
 spawns a separate process or interpreter for a plugin — every plugin is
@@ -28,13 +28,13 @@ imported into and runs inside WISER's own process (see
 
 ```{mermaid}
 flowchart LR
-    CFG["Config\nplugin_paths + plugins (FQCNs)"] --> INIT["App._init_plugins()\napp.py"]
-    INIT -->|"sys.path.append(path)"| SP["sys.path\n(plugin paths appended last)"]
-    INIT -->|"instantiate(FQCN)"| IMP["importlib.import_module\nplugins/utils.py"]
-    IMP --> STORE["ApplicationState\nadd_plugin / get_plugins"]
-    STORE --> TOOLS["ToolsMenuPlugin\nadd_tool_menu_items()"]
-    STORE --> CTX["ContextMenuPlugin\nadd_context_menu_items()"]
-    STORE --> BM["BandMathPlugin\nget_bandmath_functions()"]
+    CFG["Config, plugin_paths + plugins (FQCNs)"] --> INIT["App._init_plugins(), app.py"]
+    INIT -->|"sys.path.append(path)"| SP["sys.path, (plugin paths appended last)"]
+    INIT -->|"instantiate(FQCN)"| IMP["importlib.import_module, plugins/utils.py"]
+    IMP --> STORE["ApplicationState, add_plugin / get_plugins"]
+    STORE --> TOOLS["ToolsMenuPlugin, add_tool_menu_items()"]
+    STORE --> CTX["ContextMenuPlugin, add_context_menu_items()"]
+    STORE --> BM["BandMathPlugin, get_bandmath_functions()"]
 ```
 
 ---
@@ -166,8 +166,8 @@ via `add_plugin(name, plugin)`. Immediately after storage, if the plugin is a
 - One-shot Tools-menu registration
 
 **Does not control:**
-- Discovering which classes are plugins (done by the settings dialog)
-- Context-menu and band-math invocation (pull-based, happen later on demand)
+- Finding plugin classes inside of .py files (done by the settings dialog)
+- Context-menu and band-math invocation (these happen later, on demand)
 
 ### Plugin storage
 
@@ -212,7 +212,7 @@ surface load errors early; failures are written to the WISER log.
 
 ### Tools-menu plugins
 
-Tools-menu registration is **push-based and one-shot**. Inside
+Tools-menu items are registered **once, at startup**. Inside
 `_init_plugins()`, right after a plugin is stored, WISER checks its type and
 lets it contribute to the live Tools `QMenu`:
 
@@ -227,7 +227,7 @@ contributions are fixed for the session.
 
 ### Context-menu plugins
 
-Context-menu registration is **pull-based and repeated** — WISER calls every
+Context-menu plugins are invoked **on demand** — WISER calls every
 context-menu plugin *each time* it builds a context menu. The dispatcher is:
 
 **File:** `src/wiser/gui/plugin_utils.py` — `add_plugin_context_menu_items()`
@@ -292,12 +292,12 @@ by the band-math engine exactly like built-in operators — see
 ```{mermaid}
 flowchart TD
     INIT["App._init_plugins()"]
-    INIT -->|"at startup"| T["ToolsMenuPlugin.add_tool_menu_items()\npush · once"]
+    INIT -->|"at startup"| T["ToolsMenuPlugin.add_tool_menu_items()\nonce, at startup"]
     GP["get_plugins() registry\n(ApplicationState)"]
     INIT --> GP
-    MENU["User opens a context menu"] -->|"per build"| C["add_plugin_context_menu_items()\npull · repeated"]
+    MENU["User opens a context menu"] -->|"per build"| C["add_plugin_context_menu_items()\non demand, every build"]
     C --> GP
-    DLG["User opens Band Math dialog"] -->|"on open"| B["get_plugin_fns()\npull · on demand"]
+    DLG["User opens Band Math dialog"] -->|"on open"| B["get_plugin_fns()\non demand, on open"]
     B --> GP
 ```
 
