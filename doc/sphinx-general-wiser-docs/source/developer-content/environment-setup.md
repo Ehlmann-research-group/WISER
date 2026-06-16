@@ -25,6 +25,8 @@ testing-and-qa.md
 ci-cd-and-releases.md
 codesign-mac.md
 system-design.md
+plugin-system.md
+plugin-dependencies.md
 design-documents.md
 ```
 
