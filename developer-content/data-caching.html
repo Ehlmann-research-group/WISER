@@ -1,0 +1,1206 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Data Caching &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/data-caching';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Band Math Internals" href="bandmath-internals.html" />
+    <link rel="prev" title="Stretch Builder" href="stretch-builder.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/data-caching.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/data-caching.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Data Caching</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-base-cache">The Base <code class="docutils literal notranslate"><span class="pre">Cache</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cache-keys-at-a-glance">Cache keys at a glance</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#histogramcache-differences"><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code> differences</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lifecycle">Lifecycle</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bandstats-a-separate-smaller-cache"><code class="docutils literal notranslate"><span class="pre">BandStats</span></code> — a separate, smaller cache</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#threading">Threading</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lookup-miss-store-flow">Lookup / Miss / Store Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-cache-add-cache-item-guard">Known Issue: <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code> Guard</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="data-caching">
+<h1>Data Caching<a class="headerlink" href="#data-caching" title="Link to this heading">#</a></h1>
+<p>Rendering a raster is expensive: reading and normalizing bands, applying
+stretches, and packing pixels all cost real time, and the same work is requested
+repeatedly as the user scrolls, switches panes, or reopens dialogs. WISER avoids
+recomputation with a three-tier in-memory cache. This page documents what each
+tier stores, how keys and eviction work, the cache lifecycle, and a known issue
+to be aware of.</p>
+<p>This is the caching half of the <a class="reference internal" href="rendering-pipeline.html"><span class="std std-doc">Rendering Pipeline</span></a>.</p>
+<hr class="docutils" />
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>All caching lives in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/data_cache.py</span></code>. A single
+<code class="docutils literal notranslate"><span class="pre">DataCache</span></code> object is created once at startup and holds three caches:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Cache</p></th>
+<th class="head"><p>Class</p></th>
+<th class="head"><p>Stores</p></th>
+<th class="head"><p>Default capacity</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Render</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RenderCache</span></code></p></td>
+<td><p>Final packed <code class="docutils literal notranslate"><span class="pre">uint32</span></code> ARGB images</p></td>
+<td><p>10 GB</p></td>
+</tr>
+<tr class="row-odd"><td><p>Computation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ComputationCache</span></code></p></td>
+<td><p>Raw and normalized band arrays, full image arrays</p></td>
+<td><p>10 GB</p></td>
+</tr>
+<tr class="row-even"><td><p>Histogram</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(bins,</span> <span class="pre">edges)</span></code> tuples for the Stretch Builder</p></td>
+<td><p>100 MB</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>All three subclass a generic <code class="docutils literal notranslate"><span class="pre">Cache</span></code> base that provides size-bounded storage,
+integer hash keys, and per-dataset bulk eviction.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class Cache {
+        data_cache.py
+        +_capacity : int
+        +_size : int
+        +_cache : OrderedDict
+        +_key_lookup_table : dict
+        +add_cache_item(key, value) bool
+        +get_cache_item(key)
+        +in_cache(key) bool
+        +remove_cache_item(key)
+        +clear_keys_from_partial(partial_key)
+        +_evict()
+        +get_cache_key(*args)*
+        +get_partial_key(dataset)*
+    }
+    class RenderCache {
+        key = hash(dataset, *bands, *stretches, colormap)
+    }
+    class ComputationCache {
+        key = hash(dataset, band_index, normalized)
+    }
+    class HistogramCache {
+        key = hash(dataset, band, stretch_type, conditioner_type, min, max)
+        stores (bins, edges) tuples
+    }
+    class DataCache {
+        +get_render_cache()
+        +get_computation_cache()
+        +get_histogram_cache()
+    }
+
+    Cache &lt;|-- RenderCache
+    Cache &lt;|-- ComputationCache
+    Cache &lt;|-- HistogramCache
+    DataCache o-- RenderCache
+    DataCache o-- ComputationCache
+    DataCache o-- HistogramCache
+    </pre></section>
+<hr class="docutils" />
+<section id="the-base-cache">
+<h2>The Base <code class="docutils literal notranslate"><span class="pre">Cache</span></code><a class="headerlink" href="#the-base-cache" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/data_cache.py</span></code></p>
+<p><strong>Purpose:</strong> A size-bounded key→array store backed by an <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code>.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p><strong>Capacity by bytes</strong> — <code class="docutils literal notranslate"><span class="pre">_capacity</span></code> (bytes) and a running <code class="docutils literal notranslate"><span class="pre">_size</span></code>. When adding
+an item would exceed capacity, <code class="docutils literal notranslate"><span class="pre">_evict()</span></code> removes items.</p></li>
+<li><p><strong>FIFO eviction</strong> — <code class="docutils literal notranslate"><span class="pre">_evict()</span></code> pops from the front of the <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code>
+(<code class="docutils literal notranslate"><span class="pre">popitem(last=False)</span></code>), i.e. oldest-inserted first, until back within
+capacity. (This is insertion-order FIFO, not true LRU — reads do not refresh
+an item’s position.)</p></li>
+<li><p><strong>Integer hash keys</strong> — <code class="docutils literal notranslate"><span class="pre">get_cache_key(*args)</span></code> is abstract; each subclass
+hashes the inputs that uniquely identify a cached value.</p></li>
+<li><p><strong>Per-dataset bulk eviction</strong> — every <code class="docutils literal notranslate"><span class="pre">get_cache_key</span></code> also records the key
+under a <em>partial key</em> (<code class="docutils literal notranslate"><span class="pre">get_partial_key(dataset)</span></code> = <code class="docutils literal notranslate"><span class="pre">hash(dataset)</span></code>) in
+<code class="docutils literal notranslate"><span class="pre">_key_lookup_table</span></code>. <code class="docutils literal notranslate"><span class="pre">clear_keys_from_partial(partial_key)</span></code> then removes every
+entry belonging to one dataset in a single call.</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>What gets cached or when (callers decide).</p></li>
+<li><p>Thread safety (see the Threading section below).</p></li>
+</ul>
+<section id="cache-keys-at-a-glance">
+<h3>Cache keys at a glance<a class="headerlink" href="#cache-keys-at-a-glance" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Cache</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">get_cache_key(...)</span></code> hashes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RenderCache</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(dataset,</span> <span class="pre">*band_tuple,</span> <span class="pre">*stretches,</span> <span class="pre">colormap)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ComputationCache</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(dataset,</span> <span class="pre">band_index,</span> <span class="pre">normalized)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(dataset,</span> <span class="pre">band_index,</span> <span class="pre">stretch_type,</span> <span class="pre">conditioner_type,</span> <span class="pre">min_bound,</span> <span class="pre">max_bound)</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Because stretch objects implement <code class="docutils literal notranslate"><span class="pre">__hash__</span></code>/<code class="docutils literal notranslate"><span class="pre">__eq__</span></code> by value (see
+<a class="reference internal" href="stretch-builder.html"><span class="std std-doc">Stretch Builder</span></a>), two equal stretches map to the same
+render-cache entry.</p>
+</section>
+<section id="histogramcache-differences">
+<h3><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code> differences<a class="headerlink" href="#histogramcache-differences" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code> stores a <strong>tuple</strong> <code class="docutils literal notranslate"><span class="pre">(bins,</span> <span class="pre">edges)</span></code> rather than a single array,
+so it overrides <code class="docutils literal notranslate"><span class="pre">add_cache_item</span></code>, <code class="docutils literal notranslate"><span class="pre">_evict</span></code>, <code class="docutils literal notranslate"><span class="pre">clear_cache</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">remove_cache_item</span></code> to sum the <code class="docutils literal notranslate"><span class="pre">nbytes</span></code> of both tuple elements. Its default
+capacity is only 100 MB because histograms are tiny relative to images.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="lifecycle">
+<h2>Lifecycle<a class="headerlink" href="#lifecycle" title="Link to this heading">#</a></h2>
+<pre  class="mermaid">
+        flowchart LR
+    APP[&quot;App.__init__&lt;br/&gt;DataCache()&quot;] --&gt; AS[&quot;ApplicationState&lt;br/&gt;.set_data_cache()&quot;]
+    AS --&gt; LOAD[&quot;loader.py&lt;br/&gt;RasterDataSet(impl, data_cache)&quot;]
+    LOAD --&gt; USE[&quot;dataset / rasterview&lt;br/&gt;read + write caches&quot;]
+    USE --&gt; RM[&quot;ApplicationState.remove_dataset()&lt;br/&gt;clear_keys_from_partial()&quot;]
+    </pre><ol class="arabic simple">
+<li><p><strong>Creation</strong> — <code class="docutils literal notranslate"><span class="pre">App.__init__</span></code> constructs one <code class="docutils literal notranslate"><span class="pre">DataCache()</span></code> and hands it to
+<code class="docutils literal notranslate"><span class="pre">ApplicationState.set_data_cache()</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>).</p></li>
+<li><p><strong>Attachment</strong> — when a dataset is loaded, the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> is constructed
+with that cache (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/loader.py</span></code>), reachable via
+<code class="docutils literal notranslate"><span class="pre">dataset.get_cache()</span></code>.</p></li>
+<li><p><strong>Population (computation cache)</strong> — <code class="docutils literal notranslate"><span class="pre">get_band_data()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">get_band_data_normalized()</span></code>, and <code class="docutils literal notranslate"><span class="pre">get_image_data()</span></code>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>) check the computation cache, and
+on a miss read from the underlying <code class="docutils literal notranslate"><span class="pre">RasterDataImpl</span></code> (GDAL/PDS/NumPy),
+normalize, and store.</p></li>
+<li><p><strong>Population (render cache)</strong> — <code class="docutils literal notranslate"><span class="pre">RasterView.update_display_image()</span></code> checks the
+render cache before stretching, and stores the packed <code class="docutils literal notranslate"><span class="pre">uint32</span></code> image after.</p></li>
+<li><p><strong>Population (histogram cache)</strong> — the Stretch Builder looks up/stores
+histograms keyed by dataset, band, stretch type, conditioner, and bounds.</p></li>
+<li><p><strong>Invalidation</strong> — <code class="docutils literal notranslate"><span class="pre">ApplicationState.remove_dataset()</span></code> removes the dataset’s
+computation entry and calls <code class="docutils literal notranslate"><span class="pre">render_cache.clear_keys_from_partial(...)</span></code> to
+drop all its rendered images. Within a view, changing bands or stretches nulls
+<code class="docutils literal notranslate"><span class="pre">RasterView._joint_render_cache</span></code> (see <a class="reference internal" href="stretch-builder.html"><span class="std std-doc">Stretch Builder</span></a>);
+the render cache itself is keyed by bands+stretches, so a new combination
+naturally maps to a different entry.</p></li>
+</ol>
+<section id="bandstats-a-separate-smaller-cache">
+<h3><code class="docutils literal notranslate"><span class="pre">BandStats</span></code> — a separate, smaller cache<a class="headerlink" href="#bandstats-a-separate-smaller-cache" title="Link to this heading">#</a></h3>
+<p>Independently of <code class="docutils literal notranslate"><span class="pre">DataCache</span></code>, each <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> keeps a per-band
+<code class="docutils literal notranslate"><span class="pre">BandStats</span></code> (min/max) cache in <code class="docutils literal notranslate"><span class="pre">_cached_band_stats</span></code>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>). It is populated the first time a
+band is read and is what lets normalization reuse min/max without rescanning the
+array.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="threading">
+<h2>Threading<a class="headerlink" href="#threading" title="Link to this heading">#</a></h2>
+<p>The caches use a plain <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> with <strong>no locks</strong>. This is safe only
+because all cache access happens on the Qt main (GUI) thread — rendering, data
+reads, and dialog interactions are all synchronous on that thread. Any future
+background loading or worker-thread rendering would need to add synchronization
+around <code class="docutils literal notranslate"><span class="pre">add_cache_item</span></code> / <code class="docutils literal notranslate"><span class="pre">get_cache_item</span></code> / <code class="docutils literal notranslate"><span class="pre">_evict</span></code>, since <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code>
+compound operations are not atomic.</p>
+</section>
+<hr class="docutils" />
+<section id="lookup-miss-store-flow">
+<h2>Lookup / Miss / Store Flow<a class="headerlink" href="#lookup-miss-store-flow" title="Link to this heading">#</a></h2>
+<pre  class="mermaid">
+        flowchart TD
+    REQ[&quot;caller needs value&lt;br/&gt;(image / band / histogram)&quot;]
+    KEY[&quot;get_cache_key(...)&lt;br/&gt;also records partial key&quot;]
+    IN{&quot;in_cache(key)?&quot;}
+    HIT[&quot;get_cache_item(key)&quot;]
+    MISS[&quot;compute value&lt;br/&gt;(read/normalize/stretch)&quot;]
+    ADD[&quot;add_cache_item(key, value)&lt;br/&gt;evict if over capacity&quot;]
+    OUT[&quot;use value&quot;]
+
+    REQ --&gt; KEY --&gt; IN
+    IN --&gt;|yes| HIT --&gt; OUT
+    IN --&gt;|no| MISS --&gt; ADD --&gt; OUT
+    </pre></section>
+<hr class="docutils" />
+<section id="known-issue-cache-add-cache-item-guard">
+<h2>Known Issue: <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code> Guard<a class="headerlink" href="#known-issue-cache-add-cache-item-guard" title="Link to this heading">#</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The base <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/data_cache.py</span></code>) currently guards its insert
+with <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">key</span> <span class="pre">in</span> <span class="pre">self._cache:</span></code> and returns <code class="docutils literal notranslate"><span class="pre">False</span></code> otherwise:</p>
+<p>​<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">def</span> <span class="pre">add_cache_item(self,</span> <span class="pre">key,</span> <span class="pre">value)</span> <span class="pre">-&gt;</span> <span class="pre">bool:</span>&#160;&#160;&#160;&#160; <span class="pre">if</span> <span class="pre">key</span> <span class="pre">in</span> <span class="pre">self._cache:</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">&lt;--</span> <span class="pre">only</span> <span class="pre">updates</span> <span class="pre">EXISTING</span> <span class="pre">keys</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">self._cache[key]</span> <span class="pre">=</span> <span class="pre">value</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">self._size</span> <span class="pre">+=</span> <span class="pre">value.nbytes</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">return</span> <span class="pre">True</span>&#160;&#160;&#160;&#160; <span class="pre">return</span> <span class="pre">False</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">#</span> <span class="pre">&lt;--</span> <span class="pre">a</span> <span class="pre">brand-new</span> <span class="pre">key</span> <span class="pre">is</span> <span class="pre">never</span> <span class="pre">stored</span> <span class="pre">​</span></code></p>
+<p>Callers add an item only <strong>after</strong> a cache miss (<code class="docutils literal notranslate"><span class="pre">in_cache(key)</span></code> returned
+<code class="docutils literal notranslate"><span class="pre">False</span></code>), so the key is never already present — which means new entries are
+never stored. As written, the <strong>render cache and computation cache do not
+actually serve hits</strong>: every render recomputes from scratch. The condition is
+almost certainly meant to be <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">key</span> <span class="pre">not</span> <span class="pre">in</span> <span class="pre">self._cache:</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code> overrides <code class="docutils literal notranslate"><span class="pre">add_cache_item</span></code> <em>without</em> this guard, so the
+histogram cache works as intended.</p>
+<p>This page documents the <em>intended</em> design (the caches are meant to store on
+miss and serve on subsequent requests). The note is here so readers aren’t
+misled by the current code; fixing the guard is a separate change.</p>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="stretch-builder.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Stretch Builder</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="bandmath-internals.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Band Math Internals</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-base-cache">The Base <code class="docutils literal notranslate"><span class="pre">Cache</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cache-keys-at-a-glance">Cache keys at a glance</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#histogramcache-differences"><code class="docutils literal notranslate"><span class="pre">HistogramCache</span></code> differences</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lifecycle">Lifecycle</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bandstats-a-separate-smaller-cache"><code class="docutils literal notranslate"><span class="pre">BandStats</span></code> — a separate, smaller cache</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#threading">Threading</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lookup-miss-store-flow">Lookup / Miss / Store Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-cache-add-cache-item-guard">Known Issue: <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code> Guard</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

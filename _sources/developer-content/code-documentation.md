@@ -11,6 +11,10 @@ codebase. Please keep this up to date.
 :maxdepth: 1
 
 viewport-system.md
+rendering-pipeline.md
+band-chooser.md
+stretch-builder.md
+data-caching.md
 bandmath-internals.md
 plugin-system.md
 ```
