@@ -16,4 +16,5 @@ band-chooser.md
 stretch-builder.md
 data-caching.md
 bandmath-internals.md
+plugin-system.md
 ```
