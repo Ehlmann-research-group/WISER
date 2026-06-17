@@ -139,7 +139,7 @@ sequenceDiagram
     RV->>RV: update_display_image()
 
     Note over SB,RV: Bands / colormap changed (global)
-    Note right of RP: BandChooserDialog returns;<br/>RasterPane emits display_bands_change
+    Note right of RP: BandChooserDialog returns, RasterPane emits display_bands_change
     RP->>App: display_bands_change(ds_id, bands, colormap, is_global)
     App->>RP: set_display_bands() on every pane
     RP->>RV: set_display_bands(bands, stretches, colormap)

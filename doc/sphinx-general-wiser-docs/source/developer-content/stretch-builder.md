@@ -169,7 +169,7 @@ In short: `App` stores the stretches in `ApplicationState` (keyed per
 
 ### Per-band path
 
-For each dirty channel, `update_display_image()` calls:
+For each dirty channel, `RasterView`'s `update_display_image()` calls:
 
 ```python
 stretches = self._stretches[i].get_stretches()   # [conditioner, main]

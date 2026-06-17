@@ -51,7 +51,7 @@ classDiagram
         key = hash(dataset, band_index, normalized)
     }
     class HistogramCache {
-        key = hash(dataset, band, stretch_type,<br/>conditioner_type, min, max)
+        key = hash(dataset, band, stretch_type, conditioner_type, min, max)
         stores (bins, edges) tuples
     }
     class DataCache {

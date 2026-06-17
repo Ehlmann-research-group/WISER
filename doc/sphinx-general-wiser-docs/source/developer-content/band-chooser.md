@@ -67,8 +67,10 @@ On construction the dialog:
 
 **Controls:**
 - RGB vs grayscale mode toggle and the corresponding band combo boxes.
-- Colormap selection and a live preview swatch (`_on_grayscale_choose_colormap`
-  renders the 256-entry colormap into a `QImage`).
+- Colormap selection and a live preview gradient strip
+  (`_on_grayscale_choose_colormap`, connected to the combo box's `activated`
+  signal, samples the selected colormap at 256 points into a 256×24 `QImage`
+  shown on `lbl_colormap_display`).
 - The "apply globally" checkbox (disabled when `can_apply_global=False`).
 
 **Does not control:**
@@ -108,36 +110,66 @@ bands" calls `find_truecolor_bands()`, and "choose defaults" reads
 
 ## Propagation
 
-`BandChooserDialog` is shown from `RasterPane._on_band_chooser()`
-(`src/wiser/gui/rasterpane.py`). The dialog does not apply the
-change; the pane inspects the result and routes it:
+The key thing to understand is that **`BandChooserDialog` is passive**: it never
+calls into the `RasterPane` or `RasterView`, and it changes no application state.
+It is a modal data-collection widget. `RasterPane._on_band_chooser()`
+(`src/wiser/gui/rasterpane.py`) constructs it, blocks on `exec_()`, and then —
+once the user clicks OK — **pulls** the user's choices back out of the dialog
+with its getters and decides what to do with them.
 
 ```{mermaid}
 sequenceDiagram
     participant U as User
-    participant BC as BandChooserDialog
     participant RP as RasterPane
+    participant BC as BandChooserDialog
     participant App as App (broker)
     participant RV as RasterView
 
     U->>RP: click "Band Chooser"
-    RP->>BC: exec_() (modal)
-    U->>BC: choose bands / colormap, OK
-    BC-->>RP: get_display_bands(), get_colormap_name(), apply_globally()
-    alt global change
-        RP->>App: display_bands_change(ds_id, bands, colormap, is_global=True)
-        App->>RP: set_display_bands() on every pane
+    RP->>BC: construct + exec_() (modal, blocks)
+    U->>BC: pick bands / colormap, click OK
+    Note over BC: passive - only records the choice in its own widgets, no app state
+    BC-->>RP: exec_() returns QDialog.Accepted
+    RP->>BC: get_display_bands() / get_colormap_name() / apply_globally()
+    BC-->>RP: bands, colormap, is_global
+    alt is_global is True (Apply globally checked)
+        RP->>App: display_bands_change(ds_id, bands, colormap, is_global)
+        App->>RP: set_display_bands(ds_id, bands, colormap) on every pane
         RP->>RV: set_display_bands(bands, stretches, colormap)
-    else local change
+    else local (this pane only)
         RP->>RV: set_display_bands(bands, colormap=colormap)
     end
     RV->>RV: update_display_image()
 ```
 
-- A **global** change is emitted as `display_bands_change` and broadcast by `App`
-  to all panes (context, main, zoom) so they stay in sync.
-- A **local / singular** change is applied directly to the originating pane's
-  `RasterView`.
+You're right that the dashed return line is mostly getters — that is the whole
+point. The dialog holds no application state, so nothing it does affects the pane
+until the pane reads these values after the modal closes:
+
+| Getter | Returns | Role |
+|--------|---------|------|
+| `get_display_bands()` | new band tuple (1 or 3 indices) | the new data to apply |
+| `get_colormap_name()` | colormap name or `None` | the new data to apply |
+| `apply_globally()` | `bool` | **routing decision only** — not data |
+
+So `apply_globally()` is the only value that changes the pane's *behavior*
+(global vs local); the other two carry the new bands/colormap. The pane then
+routes them (`_on_band_chooser`, `src/wiser/gui/rasterpane.py`, the
+`if dialog.exec_() == QDialog.Accepted:` block):
+
+- **Global** (`apply_globally()` is `True`): emit
+  `display_bands_change(ds_id, bands, colormap, is_global)`. `App` receives it and
+  calls `set_display_bands` on every pane (context, main, zoom) so they stay in
+  sync.
+- **Local**: call this pane's own `set_display_bands(ds_id, bands, colormap)`
+  directly, skipping the broadcast.
+
+Both routes converge on `RasterPane.set_display_bands(ds_id, bands, colormap)`,
+which loops over the pane's rasterviews and, for each one showing this dataset,
+calls `RasterView.set_display_bands(bands, stretches, colormap)` — forwarding the
+exact `bands` tuple that `BandChooserDialog.get_display_bands()` returned. (The
+`stretches` are looked up from `ApplicationState` by the pane at this point so the
+view only re-renders once.)
 
 The same `BandChooserDialog` is reused elsewhere (e.g.
 `similarity_transform_pane.py`, `geo_reference_pane.py`, and a plugin-facing
@@ -149,7 +181,15 @@ instance held by `ApplicationState`).
 
 **File:** `src/wiser/gui/rasterview.py`
 
-This is where a band/colormap choice becomes a render. Its key behavior is a
+This is the method that connects the Band Chooser to an actual render. As traced
+above, the `display_bands` argument it receives is exactly the tuple the user
+chose in the dialog (`BandChooserDialog.get_display_bands()` →
+`RasterPane.set_display_bands()` → here); `colormap` is
+`BandChooserDialog.get_colormap_name()`, and `stretches` are the ones the pane
+looked up from `ApplicationState`. The dialog itself is never referenced here —
+by the time this runs, its values have already been extracted and passed in.
+
+Its key behavior is a
 **dirty-flag optimization**: it compares the old and new band tuples and builds
 an `ImageColors` flag (`RED`, `GREEN`, `BLUE`, or all) describing which channels
 actually changed, so `update_display_image()` only regenerates those channels.
