@@ -1,0 +1,1422 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Plugin System Internals &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/plugin-system';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Plugin Dependencies Internals" href="plugin-dependencies.html" />
+    <link rel="prev" title="System Design" href="system-design.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Plugin System Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/plugin-system.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/plugin-system.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Plugin System Internals</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-types">Plugin Types</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contextmenutype">ContextMenuType</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-pipeline">Loading Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-register-plugin-paths">Step 1 — Register plugin paths</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-instantiate-permanent-plugins">Step 2 — Instantiate permanent plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-instantiate-user-plugins">Step 3 — Instantiate user plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-storage">Plugin storage</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#discovery-settings-plugins">Discovery (Settings → Plugins)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-type-registration">Per-Type Registration</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tools-menu-plugins">Tools-menu plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#context-menu-plugins">Context-menu plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-math-plugins">Band-math plugins</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execution-model">Execution model</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exception-isolation">Exception isolation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dependency-handling">Dependency handling</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="plugin-system-internals">
+<h1>Plugin System Internals<a class="headerlink" href="#plugin-system-internals" title="Link to this heading">#</a></h1>
+<p>This page documents how WISER’s plugin system works internally — how plugins
+are discovered, loaded, instantiated, and wired into the application, how each
+of the three plugin types is invoked at runtime, and how plugin dependencies
+are resolved against WISER’s own.</p>
+<p>This is a code-internals reference for WISER developers. The user-facing guide
+for <em>writing</em> plugins lives in the
+<a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a> section; this page covers the
+machinery on WISER’s side that makes those plugins run.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>WISER exposes three plugin integration points, each backed by an abstract base
+class in <code class="docutils literal notranslate"><span class="pre">wiser.plugins</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Integration point</p></th>
+<th class="head"><p>Base class</p></th>
+<th class="head"><p>When WISER calls the plugin</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Tools menu</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ToolsMenuPlugin</span></code></p></td>
+<td><p>Once, at startup</p></td>
+</tr>
+<tr class="row-odd"><td><p>Context menus</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ContextMenuPlugin</span></code></p></td>
+<td><p>On demand, every time a context menu is built</p></td>
+</tr>
+<tr class="row-even"><td><p>Band Math</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code></p></td>
+<td><p>On demand, when the Band Math dialog opens</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A plugin is a plain Python class that subclasses one of these. WISER never
+spawns a separate process or interpreter for a plugin — every plugin is
+imported into and runs inside WISER’s own process (see
+<a class="reference internal" href="#execution-model">Execution model</a>).</p>
+<pre  class="mermaid">
+        flowchart LR
+    CFG[&quot;Config, plugin_paths + plugins (FQCNs)&quot;] --&gt; INIT[&quot;App._init_plugins(), app.py&quot;]
+    INIT --&gt;|&quot;sys.path.append(path)&quot;| SP[&quot;sys.path, (plugin paths appended last)&quot;]
+    INIT --&gt;|&quot;instantiate(FQCN)&quot;| IMP[&quot;importlib.import_module, plugins/utils.py&quot;]
+    IMP --&gt; STORE[&quot;ApplicationState, add_plugin / get_plugins&quot;]
+    STORE --&gt; TOOLS[&quot;ToolsMenuPlugin, add_tool_menu_items()&quot;]
+    STORE --&gt; CTX[&quot;ContextMenuPlugin, add_context_menu_items()&quot;]
+    STORE --&gt; BM[&quot;BandMathPlugin, get_bandmath_functions()&quot;]
+    </pre></section>
+<hr class="docutils" />
+<section id="plugin-types">
+<h2>Plugin Types<a class="headerlink" href="#plugin-types" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/plugins/types.py</span></code> (re-exported from
+<code class="docutils literal notranslate"><span class="pre">src/wiser/plugins/__init__.py</span></code>)</p>
+<p>All plugin types descend from a single abstract root, <code class="docutils literal notranslate"><span class="pre">Plugin(abc.ABC)</span></code>. The
+band-math <em>function</em> type lives separately in <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/types.py</span></code>,
+because it belongs to the band-math engine rather than the plugin API.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class Plugin {
+        plugins/types.py
+        «abstract»
+    }
+    class ToolsMenuPlugin {
+        plugins/types.py
+        +add_tool_menu_items(tool_menu, wiser)
+    }
+    class ContextMenuPlugin {
+        plugins/types.py
+        +add_context_menu_items(context_type, context_menu, context)
+    }
+    class BandMathPlugin {
+        plugins/types.py
+        +get_bandmath_functions() Dict~str,BandMathFunction~
+    }
+    class BandMathFunction {
+        bandmath/types.py
+        «abstract»
+        +analyze(args) BandMathExprInfo
+        +apply(args) BandMathValue
+        +get_description() str
+    }
+
+    Plugin &lt;|-- ToolsMenuPlugin
+    Plugin &lt;|-- ContextMenuPlugin
+    Plugin &lt;|-- BandMathPlugin
+    BandMathPlugin ..&gt; BandMathFunction : returns
+    </pre><p><code class="docutils literal notranslate"><span class="pre">is_plugin(obj)</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/plugins/utils.py</span></code>) is the single predicate WISER
+uses to decide whether an object is a recognized plugin — it returns <code class="docutils literal notranslate"><span class="pre">True</span></code>
+for instances of any of the three concrete base types. The tuple of base types
+is also referenced as <code class="docutils literal notranslate"><span class="pre">PluginBases</span></code> in the settings dialog for discovery.</p>
+<section id="contextmenutype">
+<h3>ContextMenuType<a class="headerlink" href="#contextmenutype" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ContextMenuType</span></code> (an <code class="docutils literal notranslate"><span class="pre">enum.Enum</span></code> in <code class="docutils literal notranslate"><span class="pre">plugins/types.py</span></code>) is the contract between
+WISER and context-menu plugins. It tells the plugin <em>what kind</em> of context menu
+is being built and therefore which keys to expect in the <code class="docutils literal notranslate"><span class="pre">context</span></code> dict:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Member</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RASTER_VIEW</span></code></p></td>
+<td><p>1</p></td>
+<td><p>General raster-view operation (not cursor-specific)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM_PLOT</span></code></p></td>
+<td><p>2</p></td>
+<td><p>General spectrum-plot operation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DATASET_PICK</span></code></p></td>
+<td><p>10</p></td>
+<td><p>Location-specific dataset operation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM_PICK</span></code></p></td>
+<td><p>11</p></td>
+<td><p>A specific spectrum was picked</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ROI_PICK</span></code></p></td>
+<td><p>12</p></td>
+<td><p>A specific ROI was picked</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="loading-pipeline">
+<h2>Loading Pipeline<a class="headerlink" href="#loading-pipeline" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code> — <code class="docutils literal notranslate"><span class="pre">App._init_plugins()</span></code> (~line 434)</p>
+<p><code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code> runs once during application startup and is the entry point
+for everything below. It performs three steps in order.</p>
+<section id="step-1-register-plugin-paths">
+<h3>Step 1 — Register plugin paths<a class="headerlink" href="#step-1-register-plugin-paths" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plugin_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;plugin_paths&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plugin_paths</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Plugin-path &quot;</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&quot; doesn</span><span class="se">\&#39;</span><span class="s1">t exist; ignoring&#39;</span><span class="p">)</span>
+        <span class="k">continue</span>
+    <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>          <span class="c1"># appended → searched AFTER WISER&#39;s own paths</span>
+</pre></div>
+</div>
+<p>Each configured directory is <strong>appended</strong> to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>. The append (rather than
+insert) is what makes WISER’s own dependencies take precedence — see
+<a class="reference internal" href="#dependency-handling">Dependency handling</a>.</p>
+</section>
+<section id="step-2-instantiate-permanent-plugins">
+<h3>Step 2 — Instantiate permanent plugins<a class="headerlink" href="#step-2-instantiate-permanent-plugins" title="Link to this heading">#</a></h3>
+<p>A small set of built-in plugins is instantiated directly (not via config), kept
+as plugins partly to serve as living examples of the API:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">permanent_plugins</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">&quot;ContinuumRemovalPlugin&quot;</span><span class="p">,</span> <span class="n">ContinuumRemovalPlugin</span><span class="p">()),</span>
+    <span class="p">(</span><span class="s2">&quot;SavGolayPlugin&quot;</span><span class="p">,</span> <span class="n">SavGolayPlugin</span><span class="p">()),</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="step-3-instantiate-user-plugins">
+<h3>Step 3 — Instantiate user plugins<a class="headerlink" href="#step-3-instantiate-user-plugins" title="Link to this heading">#</a></h3>
+<p>Every fully-qualified class name (FQCN) in the <code class="docutils literal notranslate"><span class="pre">plugins</span></code> config list is
+instantiated through <code class="docutils literal notranslate"><span class="pre">plugins.utils.instantiate()</span></code>:</p>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/plugins/utils.py</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">instantiate</span><span class="p">(</span><span class="n">fully_qualified_class_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Plugin</span><span class="p">:</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">fully_qualified_class_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="n">module_name</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">class_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">module_obj</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+    <span class="n">class_obj</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module_obj</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">class_obj</span><span class="p">()</span>          <span class="c1"># instantiated with no arguments</span>
+</pre></div>
+</div>
+<p>Each instance is validated with <code class="docutils literal notranslate"><span class="pre">is_plugin()</span></code> and stored in <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>
+via <code class="docutils literal notranslate"><span class="pre">add_plugin(name,</span> <span class="pre">plugin)</span></code>. Immediately after storage, if the plugin is a
+<code class="docutils literal notranslate"><span class="pre">ToolsMenuPlugin</span></code> its menu items are registered (Step “Tools menu” below).</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Adding plugin paths to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code></p></li>
+<li><p>Instantiating permanent and user plugins</p></li>
+<li><p>Storing plugins in <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code></p></li>
+<li><p>One-shot Tools-menu registration</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Finding plugin classes inside of .py files (done by the settings dialog)</p></li>
+<li><p>Context-menu and band-math invocation (these happen later, on demand)</p></li>
+</ul>
+</section>
+<section id="plugin-storage">
+<h3>Plugin storage<a class="headerlink" href="#plugin-storage" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_state.py</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> is the registry. <code class="docutils literal notranslate"><span class="pre">add_plugin(class_name,</span> <span class="pre">plugin)</span></code> stores the
+instance (raising if the name is already registered), and <code class="docutils literal notranslate"><span class="pre">get_plugins()</span></code>
+returns a dict copy of all registered plugins. Every runtime registration path
+below iterates over <code class="docutils literal notranslate"><span class="pre">get_plugins()</span></code>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="discovery-settings-plugins">
+<h2>Discovery (Settings → Plugins)<a class="headerlink" href="#discovery-settings-plugins" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_config_dialog.py</span></code></p>
+<p>The configuration that <code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code> consumes is produced by the
+<strong>Settings → Plugins</strong> dialog. There is <strong>no manifest file</strong> — discovery is
+reflection-based:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_derive_paths_and_module()</span></code> walks parent directories from the chosen <code class="docutils literal notranslate"><span class="pre">.py</span></code>
+file looking for the nearest <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> to find the package root, then
+derives the module’s fully-qualified name.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_discover_plugin_classes()</span></code> temporarily prepends the base directory to
+<code class="docutils literal notranslate"><span class="pre">sys.path</span></code>, imports the module, and scans it with <code class="docutils literal notranslate"><span class="pre">inspect</span></code>, collecting every
+class that is an <code class="docutils literal notranslate"><span class="pre">issubclass</span></code> of one of the <code class="docutils literal notranslate"><span class="pre">PluginBases</span></code>
+(<code class="docutils literal notranslate"><span class="pre">ContextMenuPlugin</span></code>, <code class="docutils literal notranslate"><span class="pre">ToolsMenuPlugin</span></code>, <code class="docutils literal notranslate"><span class="pre">BandMathPlugin</span></code>).</p></li>
+</ol>
+<p>The dialog stores two config values (defined in <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_config.py</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Config key</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">plugin_paths</span></code></p></td>
+<td><p>list of dirs</p></td>
+<td><p>Added to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> so plugin modules and their deps import</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plugins</span></code></p></td>
+<td><p>list of FQCNs</p></td>
+<td><p>The classes <code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code> instantiates</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The dialog’s <strong>Verify All</strong> button instantiates every registered plugin to
+surface load errors early; failures are written to the WISER log.</p>
+</section>
+<hr class="docutils" />
+<section id="per-type-registration">
+<h2>Per-Type Registration<a class="headerlink" href="#per-type-registration" title="Link to this heading">#</a></h2>
+<section id="tools-menu-plugins">
+<h3>Tools-menu plugins<a class="headerlink" href="#tools-menu-plugins" title="Link to this heading">#</a></h3>
+<p>Tools-menu items are registered <strong>once, at startup</strong>. Inside
+<code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code>, right after a plugin is stored, WISER checks its type and
+lets it contribute to the live Tools <code class="docutils literal notranslate"><span class="pre">QMenu</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plugin</span><span class="p">,</span> <span class="n">plugins</span><span class="o">.</span><span class="n">ToolsMenuPlugin</span><span class="p">):</span>
+    <span class="n">plugin</span><span class="o">.</span><span class="n">add_tool_menu_items</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tools_menu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The plugin receives the menu and the <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>, and adds its actions or
+submenus then. Because this runs only at startup, a plugin’s Tools-menu
+contributions are fixed for the session.</p>
+</section>
+<section id="context-menu-plugins">
+<h3>Context-menu plugins<a class="headerlink" href="#context-menu-plugins" title="Link to this heading">#</a></h3>
+<p>Context-menu plugins are invoked <strong>on demand</strong> — WISER calls every
+context-menu plugin <em>each time</em> it builds a context menu. The dispatcher is:</p>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/plugin_utils.py</span></code> — <code class="docutils literal notranslate"><span class="pre">add_plugin_context_menu_items()</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">plugin_name</span><span class="p">,</span> <span class="n">plugin</span> <span class="ow">in</span> <span class="n">app_state</span><span class="o">.</span><span class="n">get_plugins</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plugin</span><span class="p">,</span> <span class="n">plugins</span><span class="o">.</span><span class="n">ContextMenuPlugin</span><span class="p">):</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>           <span class="c1"># each plugin gets its own copy</span>
+        <span class="n">context</span><span class="p">[</span><span class="s2">&quot;wiser&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span>
+        <span class="n">context</span><span class="p">[</span><span class="s2">&quot;app_services&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_services</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">plugin</span><span class="o">.</span><span class="n">add_context_menu_items</span><span class="p">(</span><span class="n">context_type</span><span class="p">,</span> <span class="n">menu</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>          <span class="c1"># one bad plugin can&#39;t break the menu</span>
+</pre></div>
+</div>
+<p>A single user-facing menu may produce several calls with different
+<code class="docutils literal notranslate"><span class="pre">context_type</span></code> values (e.g. <code class="docutils literal notranslate"><span class="pre">RASTER_VIEW</span></code>, then <code class="docutils literal notranslate"><span class="pre">DATASET_PICK</span></code>, then
+<code class="docutils literal notranslate"><span class="pre">ROI_PICK</span></code>). The keys present in <code class="docutils literal notranslate"><span class="pre">context</span></code> depend on the <code class="docutils literal notranslate"><span class="pre">context_type</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">context_type</span></code></p></th>
+<th class="head"><p>Extra <code class="docutils literal notranslate"><span class="pre">context</span></code> keys (besides <code class="docutils literal notranslate"><span class="pre">wiser</span></code>, <code class="docutils literal notranslate"><span class="pre">app_services</span></code>)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RASTER_VIEW</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dataset</span></code>, <code class="docutils literal notranslate"><span class="pre">display_bands</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM_PLOT</span></code></p></td>
+<td><p><em>(none)</em></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DATASET_PICK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dataset</span></code>, <code class="docutils literal notranslate"><span class="pre">display_bands</span></code>, <code class="docutils literal notranslate"><span class="pre">ds_coord</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SPECTRUM_PICK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">spectrum</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ROI_PICK</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dataset</span></code>, <code class="docutils literal notranslate"><span class="pre">display_bands</span></code>, <code class="docutils literal notranslate"><span class="pre">roi</span></code>, <code class="docutils literal notranslate"><span class="pre">ds_coord</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Each plugin is handed a <strong>copy</strong> of the context, so a plugin that mutates its
+context cannot affect the others.</p>
+</section>
+<section id="band-math-plugins">
+<h3>Band-math plugins<a class="headerlink" href="#band-math-plugins" title="Link to this heading">#</a></h3>
+<p>Band-math functions are collected on demand by <code class="docutils literal notranslate"><span class="pre">get_plugin_fns(app_state)</span></code> when
+the Band Math dialog is set up.</p>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/util.py</span></code> — <code class="docutils literal notranslate"><span class="pre">get_plugin_fns()</span></code> (~line 651), called from
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/bandmath_dialog.py</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_plugin_fns</span><span class="p">(</span><span class="n">app_state</span><span class="p">):</span>
+    <span class="n">functions</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">plugin_name</span><span class="p">,</span> <span class="n">plugin</span> <span class="ow">in</span> <span class="n">app_state</span><span class="o">.</span><span class="n">get_plugins</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">plugin_fns</span> <span class="o">=</span> <span class="n">plugin</span><span class="o">.</span><span class="n">get_bandmath_functions</span><span class="p">()</span>
+            <span class="c1"># lowercase every name (band math is case-insensitive)</span>
+            <span class="c1"># warn on duplicate names across plugins</span>
+            <span class="n">functions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">plugin_fns</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">pass</span>
+    <span class="k">return</span> <span class="n">functions</span>
+</pre></div>
+</div>
+<p>Note it calls <code class="docutils literal notranslate"><span class="pre">get_bandmath_functions()</span></code> on <strong>every</strong> plugin and relies on the
+<code class="docutils literal notranslate"><span class="pre">try/except</span></code> to skip plugins that don’t implement it — there is no
+<code class="docutils literal notranslate"><span class="pre">isinstance</span></code> check. Returned names are lower-cased (band math is
+case-insensitive) and duplicate names across plugins emit a warning, with the
+last definition winning. The returned <code class="docutils literal notranslate"><span class="pre">BandMathFunction</span></code> instances are invoked
+by the band-math engine exactly like built-in operators — see
+<a class="reference internal" href="bandmath-internals.html"><span class="doc">Band Math Internals</span></a>.</p>
+<pre  class="mermaid">
+        flowchart TD
+    INIT[&quot;App._init_plugins()&quot;]
+    INIT --&gt;|&quot;at startup&quot;| T[&quot;ToolsMenuPlugin.add_tool_menu_items()\nonce, at startup&quot;]
+    GP[&quot;get_plugins() registry\n(ApplicationState)&quot;]
+    INIT --&gt; GP
+    MENU[&quot;User opens a context menu&quot;] --&gt;|&quot;per build&quot;| C[&quot;add_plugin_context_menu_items()\non demand, every build&quot;]
+    C --&gt; GP
+    DLG[&quot;User opens Band Math dialog&quot;] --&gt;|&quot;on open&quot;| B[&quot;get_plugin_fns()\non demand, on open&quot;]
+    B --&gt; GP
+    </pre><hr class="docutils" />
+</section>
+</section>
+<section id="execution-model">
+<span id="id1"></span><h2>Execution model<a class="headerlink" href="#execution-model" title="Link to this heading">#</a></h2>
+<p>Plugins run <strong>in WISER’s own process and Python interpreter</strong>. WISER does not
+spawn a new process or interpreter to load or run a plugin: <code class="docutils literal notranslate"><span class="pre">instantiate()</span></code>
+imports the plugin module into the running process, and every plugin method
+(menu callbacks, band-math <code class="docutils literal notranslate"><span class="pre">apply()</span></code>, etc.) executes on WISER’s threads.</p>
+<p>Two consequences follow:</p>
+<ul class="simple">
+<li><p>A long-running or blocking plugin call runs on WISER’s threads. Isolating
+WISER from misbehaving plugins (separate processes, long-task abstractions) is
+an open design question — see
+<a class="reference internal" href="design-documents.html"><span class="doc">Design Documents</span></a>.</p></li>
+<li><p>All plugins share the interpreter’s single set of imported modules, which
+drives the dependency-precedence behavior below.</p></li>
+</ul>
+<section id="exception-isolation">
+<h3>Exception isolation<a class="headerlink" href="#exception-isolation" title="Link to this heading">#</a></h3>
+<p>The machinery is defensive at each boundary so a single faulty plugin degrades
+gracefully rather than crashing WISER:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Boundary</p></th>
+<th class="head"><p>Location</p></th>
+<th class="head"><p>Behavior on failure</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Instantiation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">try/except</span></code> logs and skips the plugin</p></td>
+</tr>
+<tr class="row-odd"><td><p>Type check</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">is_plugin()</span></code></p></td>
+<td><p>Non-plugin objects are skipped</p></td>
+</tr>
+<tr class="row-even"><td><p>Context menu</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">add_plugin_context_menu_items()</span></code></p></td>
+<td><p>Exception caught and logged; menu still builds</p></td>
+</tr>
+<tr class="row-odd"><td><p>Band math</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">get_plugin_fns()</span></code></p></td>
+<td><p>Exception swallowed per plugin</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>WISER also provides <code class="docutils literal notranslate"><span class="pre">wiser.plugins.log_exceptions</span></code>, a decorator plugin authors
+can apply to their own methods so exceptions land in the WISER log.</p>
+<hr class="docutils" />
+</section>
+</section>
+<section id="dependency-handling">
+<span id="id2"></span><h2>Dependency handling<a class="headerlink" href="#dependency-handling" title="Link to this heading">#</a></h2>
+<p>Because plugins run in WISER’s single interpreter, dependency resolution comes
+down to one detail: <strong>how plugin paths are added to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code></strong>. In
+<code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code> they are <strong>appended</strong>, so they land at the <em>end</em> of the search
+path. Python resolves imports in <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> order, so WISER’s own dependencies —
+in a frozen build, the modules bundled under <code class="docutils literal notranslate"><span class="pre">sys._MEIPASS</span></code> by PyInstaller — are
+found <strong>first</strong>.</p>
+<blockquote>
+<div><p>If a plugin and WISER both depend on the same package, <strong>WISER’s version
+wins.</strong> The plugin’s copy on a later <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> entry is never reached.</p>
+</div></blockquote>
+<p>This is a deliberate consequence of the <a class="reference internal" href="#execution-model">execution model</a>: a
+single interpreter holds exactly one copy of any imported module, so WISER
+cannot hand a plugin a conflicting version of a package it has already imported.
+Appending after WISER’s own paths is the safest available option — a plugin can
+add <em>new</em> packages it needs, but can never shadow one of WISER’s libraries and
+destabilize the core application.</p>
+<p><strong>Implications for plugin authors</strong> (documented user-side in
+<a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a>):</p>
+<ul class="simple">
+<li><p>Pin plugin dependency versions to match the WISER release being targeted.
+WISER publishes per-release dependency lists; mismatches usually work but can
+cause subtle behavior.</p></li>
+<li><p>Plugins whose dependencies are <em>incompatible</em> with WISER’s bundled versions
+are not supported today — in a frozen build WISER’s dependency set cannot be
+extended or overridden.</p></li>
+</ul>
+<p>The proposed longer-term direction — running plugins out of process against
+their own environment (e.g. via <code class="docutils literal notranslate"><span class="pre">uv</span></code>) so incompatible dependencies become
+possible — is captured in
+<a class="reference internal" href="design-documents.html"><span class="doc">Design Documents</span></a>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="system-design.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">System Design</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="plugin-dependencies.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Plugin Dependencies Internals</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-types">Plugin Types</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contextmenutype">ContextMenuType</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-pipeline">Loading Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-register-plugin-paths">Step 1 — Register plugin paths</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-instantiate-permanent-plugins">Step 2 — Instantiate permanent plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-instantiate-user-plugins">Step 3 — Instantiate user plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-storage">Plugin storage</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#discovery-settings-plugins">Discovery (Settings → Plugins)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-type-registration">Per-Type Registration</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tools-menu-plugins">Tools-menu plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#context-menu-plugins">Context-menu plugins</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-math-plugins">Band-math plugins</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execution-model">Execution model</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#exception-isolation">Exception isolation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dependency-handling">Dependency handling</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

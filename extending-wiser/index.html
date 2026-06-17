@@ -188,12 +188,15 @@
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -475,6 +478,11 @@ logs for details if a plugin fails to load.</p>
 <p>WISER ships pinned conda environments; it is good practice to match your
 plugin’s dependency versions against the version of WISER you are targeting.
 Mismatched versions usually work but can produce unexpected behaviour.</p>
+<p>WISER loads plugins in its own interpreter and appends plugin paths to the end
+of <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>, so WISER’s own dependencies always take precedence over a
+plugin’s. For why this is the case and what it implies, see the
+<a class="reference internal" href="../developer-content/plugin-dependencies.html"><span class="doc">Plugin Dependencies</span></a> developer
+page.</p>
 <p>The dependency lists for each release are available as downloadable text
 files below.</p>
 <style>

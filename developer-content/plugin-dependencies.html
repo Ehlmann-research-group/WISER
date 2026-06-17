@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design Documents &#8212; WISER Documentation</title>
+    <title>Plugin Dependencies Internals &#8212; WISER Documentation</title>
   
   
   
@@ -44,12 +44,12 @@
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/design-documents';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/plugin-dependencies';</script>
     <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Code Documentation" href="code-documentation.html" />
-    <link rel="prev" title="Plugin Dependencies Internals" href="plugin-dependencies.html" />
+    <link rel="next" title="Design Documents" href="design-documents.html" />
+    <link rel="prev" title="Plugin System Internals" href="plugin-system.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -189,8 +189,8 @@
 <li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Design Documents</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -276,7 +276,7 @@
       
       
       
-      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/design-documents.md" target="_blank"
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/plugin-dependencies.md" target="_blank"
    class="btn btn-sm btn-source-edit-button dropdown-item"
    title="Suggest edit"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -306,7 +306,7 @@
       
       
       
-      <li><a href="../_sources/developer-content/design-documents.md" target="_blank"
+      <li><a href="../_sources/developer-content/plugin-dependencies.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -382,7 +382,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Design Documents</h1>
+    <h1>Plugin Dependencies Internals</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -392,18 +392,13 @@
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-architecture-and-design">Plugin Architecture and Design</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#desired-features">Desired Features</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-questions-and-issues">Implementation Questions and Issues</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#knowledge-required-for-implementation">Knowledge Required for Implementation</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-quality">Plugin Quality</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dependencies">Dependencies</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-processing">Batch Processing</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-technical-challenges">Known Technical Challenges</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-dependency-model">The dependency model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#precedence-mechanism">Precedence mechanism</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-this-design">Why this design</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implications-for-authors">Implications for authors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-pyinstaller-submodule-pruning-pre-1-3b1">Known issue: PyInstaller submodule pruning (pre-1.3b1)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#future-direction">Future direction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -415,124 +410,148 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="design-documents">
-<h1>Design Documents<a class="headerlink" href="#design-documents" title="Link to this heading">#</a></h1>
-<p>These documents capture requirements, proposed designs, and architecture decisions for features in development or under
-consideration.</p>
-<section id="plugin-architecture-and-design">
-<h2>Plugin Architecture and Design<a class="headerlink" href="#plugin-architecture-and-design" title="Link to this heading">#</a></h2>
+  <section id="plugin-dependencies-internals">
+<h1>Plugin Dependencies Internals<a class="headerlink" href="#plugin-dependencies-internals" title="Link to this heading">#</a></h1>
+<p>This page explains how WISER handles a plugin’s third-party Python
+dependencies, <strong>why</strong> it works the way it does, and what that means for plugin
+authors. It is the developer-facing companion to the load mechanics described in
+<a class="reference internal" href="plugin-system.html"><span class="doc">Plugin System Internals</span></a>. For the author-facing “how to
+configure plugin paths” instructions, see
+<a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a>.</p>
+<section id="the-dependency-model">
+<h2>The dependency model<a class="headerlink" href="#the-dependency-model" title="Link to this heading">#</a></h2>
+<p>WISER does <strong>not</strong> install a plugin’s dependencies for it. A plugin author is
+responsible for making their dependencies importable, and points WISER at them
+through the <code class="docutils literal notranslate"><span class="pre">plugin_paths</span></code> setting (<strong>Settings → Plugins</strong>). A path may be:</p>
+<ul class="simple">
+<li><p>the plugin’s own source directory, and/or</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">site-packages</span></code> of a virtualenv or conda environment where the plugin’s
+dependencies are installed.</p></li>
+</ul>
+<p>At startup, every configured path is added to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> so those packages
+become importable by the running interpreter.</p>
+</section>
+<section id="precedence-mechanism">
+<h2>Precedence mechanism<a class="headerlink" href="#precedence-mechanism" title="Link to this heading">#</a></h2>
+<p>The key detail is <strong>how</strong> plugin paths are added to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>. In
+<code class="docutils literal notranslate"><span class="pre">App._init_plugins()</span></code>
+(<a class="reference download internal" download="" href="../_downloads/3566f45f09be1f41972b565e865d9f13/app.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code></span></a>, ~line 441):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plugin_paths</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Plugin-path &quot;</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&quot; doesn</span><span class="se">\&#39;</span><span class="s1">t exist; ignoring&#39;</span><span class="p">)</span>
+        <span class="k">continue</span>
+    <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>          <span class="c1"># APPENDED to the end of sys.path</span>
+</pre></div>
+</div>
+<p>Paths are <strong>appended</strong>, so they land at the <em>end</em> of <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>. Python resolves
+imports by searching <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> in order, which means WISER’s own dependencies —
+in a packaged build, the modules bundled under <code class="docutils literal notranslate"><span class="pre">sys._MEIPASS</span></code> by PyInstaller —
+are found <strong>first</strong>. Plugin paths are consulted only for packages WISER hasn’t
+already provided.</p>
+<p>The practical rule:</p>
 <blockquote>
-<div><p><strong>Note:</strong> This section captures <em>open</em> design questions about plugin
-isolation and quality. For how WISER actually loads and runs plugins today,
-see <a class="reference internal" href="plugin-system.html"><span class="std std-doc">Plugin System Internals</span></a>; for the dependency model,
-known issues, and the out-of-process future direction, see
-<a class="reference internal" href="plugin-dependencies.html"><span class="std std-doc">Plugin Dependencies</span></a>. For how to <em>write</em> a plugin,
-see the <a class="reference internal" href="../extending-wiser/index.html"><span class="doc std std-doc">Extending WISER</span></a> section.</p>
+<div><p>If a plugin and WISER both depend on the same package, <strong>WISER’s version
+wins</strong>. The plugin’s copy on a later <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> entry is never reached,
+because the import is already satisfied by WISER’s bundled copy.</p>
 </div></blockquote>
-<p>This document discusses plugin support for WISER, including the desired
-features, potential implementation issues, and possible design approaches.</p>
-<section id="desired-features">
-<h3>Desired Features<a class="headerlink" href="#desired-features" title="Link to this heading">#</a></h3>
-<p>WISER is intended to be a research tool. As such, it should be extensible by
-researchers as they develop new data processing techniques.</p>
-<p>The integration points for WISER extension are as follows:</p>
+</section>
+<section id="why-this-design">
+<h2>Why this design<a class="headerlink" href="#why-this-design" title="Link to this heading">#</a></h2>
+<p>This behavior follows directly from the in-process
+<a class="reference internal" href="plugin-system.html#execution-model"><span class="std std-ref">execution model</span></a>. WISER loads plugins into
+its own interpreter rather than spawning a separate process per plugin. A single
+interpreter has exactly one copy of any imported module, so WISER fundamentally
+<em>cannot</em> give a plugin a different version of a package it has already imported —
+there is nowhere to put the second version.</p>
+<p>Given that constraint, appending plugin paths after WISER’s is the safest
+option available: it guarantees WISER always runs against the dependency
+versions it was built and tested with, so a plugin can never destabilize the
+core application by shadowing one of WISER’s libraries. Plugins still get access
+to any <em>additional</em> packages they need; they just don’t get to override the ones
+WISER ships.</p>
+<p>Running plugins in a fresh interpreter would remove this constraint, but at a
+large cost in complexity (cross-process GUI interaction, serialization,
+packaging WISER for import by the subprocess). That is an active area of design
+work — see <a class="reference internal" href="#future-direction">Future direction</a>.</p>
+</section>
+<section id="implications-for-authors">
+<h2>Implications for authors<a class="headerlink" href="#implications-for-authors" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Plugins may be exposed in a “Tools” drop-down menu in the global application
-toolbar. This is the most general way to extend WISER. Such tool plugins
-may be written as Python modules.</p></li>
-<li><p>Plugins may be exposed as pop-up context menu entries, when the user e.g.
-right-clicks on a dataset, ROI, spectrum, or other such object in the GUI.
-The plugin is intended to operate on the specific kind of object that was
-selected.  (Example:  A plugin that provides a custom processing operation
-over the pixels in the ROI right-clicked by the user.)</p></li>
-<li><p>Plugins may also expose custom functions in the band-math functionality, if
-users want to provide custom band-math operations for exploring their data.</p></li>
-</ul>
-<p>None of these options are necessarily aimed at the WISER Python Console, since
-the console is expected to be able to import Python modules on its own.</p>
-</section>
-<section id="implementation-questions-and-issues">
-<h3>Implementation Questions and Issues<a class="headerlink" href="#implementation-questions-and-issues" title="Link to this heading">#</a></h3>
-<p>Several implementation questions and issues present themselves with this
-functionality. They fall into various categories.</p>
-</section>
-<section id="knowledge-required-for-implementation">
-<h3>Knowledge Required for Implementation<a class="headerlink" href="#knowledge-required-for-implementation" title="Link to this heading">#</a></h3>
-<p>WISER will provide some kind of programmatic API for integrating plugins into
-the application. It is reasonable to expect users to know this API. It will
-be well-documented, and over time we will refine it to be powerful and easy to
-use.</p>
-<p><strong>Are we expecting users to know Qt5 and PySide2?</strong>  These libraries are quite
-involved, and we probably don’t want to require users to know about them. On
-the other hand, if users <em>are</em> familiar with these libraries, we would like the
-user to be able to use them to create more sophisticated UIs.</p>
-<p>This suggests providing a library of common UI interactions for users to use in
-their plugins. For example:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ds:</span> <span class="pre">RasterDataSet</span> <span class="pre">=</span> <span class="pre">app.choose_dataset_ui()</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">spectrum:</span> <span class="pre">SpectrumInfo</span> <span class="pre">=</span> <span class="pre">app.choose_spectrum_ui()</span></code></p></li>
-</ul>
-<p>We want to provide the <em>minimum barrier to entry</em> for people wishing to extend
-WISER.</p>
-</section>
-<section id="plugin-quality">
-<h3>Plugin Quality<a class="headerlink" href="#plugin-quality" title="Link to this heading">#</a></h3>
-<p><strong>Do we want to try to isolate WISER from bad plugin behaviors, such as
-long-running tasks, infinite loops, and buggy/crashing behavior?</strong></p>
-<p>It would seem desirable to do this. Because of this, we should consider running
-plugins (or giving users the option of running plugins) in separate processes.
-Perhaps an option can be provided to turn this on or off, so that
-lightweight/reliable plugins can be kept within the WISER process. It should be
-noted that supporting running plugins in separate processes will require us to
-rethink how the user can create plugins that interact with the GUI. As of
-04/14/2026, users just have to create their PySide2 widget and show it, but a
-separate process can’t easily do this.</p>
-<p>WISER needs to provide a long-running-task abstraction for plugins to leverage,
-or for WISER to leverage when invoking plugins, to keep them from killing UI
-interactivity. We already need this to support large data files, so this will
-be a high priority to build early on, for the sake of usability.</p>
-</section>
-<section id="dependencies">
-<h3>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading">#</a></h3>
-<p>How WISER reconciles plugin dependencies with its own — the <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>
-precedence mechanism, why it follows from the in-process execution model, the
-known PyInstaller submodule-pruning issue and its fix, and the proposed
-out-of-process (<code class="docutils literal notranslate"><span class="pre">uv</span></code>) future direction — is documented in
-<a class="reference internal" href="plugin-dependencies.html"><span class="std std-doc">Plugin Dependencies</span></a>.</p>
-<p>The open design question that remains is whether to support a second class of
-plugin that runs <strong>out of process</strong> against a separate Python environment
-(possibly a Docker container), so that plugins with dependencies <em>incompatible</em>
-with WISER’s bundled set can be supported. As of 04/14/2026 such plugins are not
-supported.</p>
-</section>
-</section>
-<hr class="docutils" />
-<section id="batch-processing">
-<h2>Batch Processing<a class="headerlink" href="#batch-processing" title="Link to this heading">#</a></h2>
-<p>Researchers frequently need to apply the same processing step — a plugin algorithm,
-a band-math expression, a spectral analysis — across many datasets at once. Today,
-WISER handles each operation interactively and sequentially on the main thread,
-which does not scale to multi-file workflows and can freeze the UI on large inputs.</p>
-<p>The goal of batch processing is to let users define a set of tasks, submit them
-as a queue, track their progress, and cancel individual runs — all without
-interrupting the rest of the application. This capability is needed in two areas:
-running plugins over collections of datasets, and applying band-math expressions
-to folders of images. The band-math is case is already implemented.</p>
-<section id="known-technical-challenges">
-<h3>Known Technical Challenges<a class="headerlink" href="#known-technical-challenges" title="Link to this heading">#</a></h3>
-<p>GDAL <code class="docutils literal notranslate"><span class="pre">Dataset</span></code> objects are not serializable (cannot be pickled) and cannot be
-memory-mapped. Windows does not support <code class="docutils literal notranslate"><span class="pre">fork</span></code>, so process spawning with GDAL
-objects is non-trivial. Options being explored:</p>
-<ul class="simple">
-<li><p>Pass file paths to worker processes and re-open datasets there.</p></li>
-<li><p>Use shared memory for raw array data extracted before spawning.</p></li>
-</ul>
-<p>Relevant background:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://gdal.org/tutorials/multiprocessing.html">GDAL and multiprocessing</a></p></li>
-<li><p><a class="reference external" href="https://gis.stackexchange.com/questions/361703/pickle-error-with-gdal-dataset">Pickle error with GDAL Dataset</a></p></li>
+<li><p><strong>Pin to the WISER release you target.</strong> WISER ships pinned environments;
+match your plugin’s dependency versions to the version and platform of WISER
+you run against. Per-release dependency lists are published in the
+<a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a> guide (for example
+<code class="docutils literal notranslate"><span class="pre">extending-wiser/resources/rel-1.3b1/{windows,arm-mac,intel-mac}-dependencies.txt</span></code>).
+Mismatched versions usually work, but can produce subtle, hard-to-diagnose
+behavior.</p></li>
+<li><p><strong>Incompatible dependencies are not supported today.</strong> If a plugin needs a
+version of a package that is incompatible with WISER’s bundled version, there
+is currently no way to satisfy it — in a frozen build WISER’s dependency set
+cannot be extended or overridden.</p></li>
+<li><p><strong>Compiled C-extension packages are special.</strong> Packages like GDAL that require
+compiled C extensions generally cannot be installed with <code class="docutils literal notranslate"><span class="pre">pip</span></code> alone; they
+need conda or system packages. Plan plugin environments accordingly.</p></li>
 </ul>
 </section>
+<section id="known-issue-pyinstaller-submodule-pruning-pre-1-3b1">
+<h2>Known issue: PyInstaller submodule pruning (pre-1.3b1)<a class="headerlink" href="#known-issue-pyinstaller-submodule-pruning-pre-1-3b1" title="Link to this heading">#</a></h2>
+<p>When PyInstaller builds a frozen WISER application it recursively resolves all
+imports and stores them under <code class="docutils literal notranslate"><span class="pre">_internal/</span></code>. Before release 1.3b1, if a plugin
+imported a submodule that PyInstaller had pruned because WISER itself never
+imported it (e.g. <code class="docutils literal notranslate"><span class="pre">scipy.io</span></code> when WISER only used top-level <code class="docutils literal notranslate"><span class="pre">scipy</span></code>), that
+submodule was missing at runtime and the plugin failed to load.</p>
+<p><strong>Bandage fix (releases 1.2b1 and earlier):</strong> the PyInstaller spec was updated
+to explicitly include all submodules of WISER’s dependencies via hooks in
+<code class="docutils literal notranslate"><span class="pre">pyinstaller_hooks/</span></code>, so submodules are no longer pruned. The <code class="docutils literal notranslate"><span class="pre">rel/1.2b1</span></code> and
+<code class="docutils literal notranslate"><span class="pre">rel/1.2b1-intelmac</span></code> branches (Windows, ARM Mac, Intel Mac) carry this fix.</p>
+<p><strong>To verify the fix:</strong></p>
+<ol class="arabic simple">
+<li><p>Build a frozen WISER (no code-signing or notarization needed).</p></li>
+<li><p>Add the <code class="docutils literal notranslate"><span class="pre">pca_plugin</span></code> (it depends on <code class="docutils literal notranslate"><span class="pre">scipy.io</span></code>).</p></li>
+<li><p>Confirm no <code class="docutils literal notranslate"><span class="pre">scipy.io</span></code> import error occurs.</p></li>
+</ol>
+<p><strong>To replicate the pre-fix bug:</strong> add a conda environment’s <code class="docutils literal notranslate"><span class="pre">site-packages</span></code>
+(e.g. <code class="docutils literal notranslate"><span class="pre">C:\Users\&lt;user&gt;\anaconda3\envs\plugin_lib\Lib\site-packages</span></code>) to plugin
+paths, add <code class="docutils literal notranslate"><span class="pre">pca_plugin.PCAPlugin</span></code> to the plugins list, and on a pre-fix build
+<code class="docutils literal notranslate"><span class="pre">scipy.io</span></code> will not be found.</p>
+</section>
+<section id="future-direction">
+<span id="id1"></span><h2>Future direction<a class="headerlink" href="#future-direction" title="Link to this heading">#</a></h2>
+<p>The longer-term goal (under investigation) is to let plugins declare their own
+Python dependencies, independent of WISER’s bundled environment, by running them
+<strong>out of process</strong>. The rough sketch:</p>
+<ol class="arabic simple">
+<li><p>A bootloader installs <code class="docutils literal notranslate"><span class="pre">uv</span></code> if it isn’t already present (downloaded at
+runtime, not bundled with PyInstaller).</p></li>
+<li><p>On plugin load, WISER spawns a subprocess via <code class="docutils literal notranslate"><span class="pre">uv</span></code> that provides the
+plugin’s declared dependencies.</p></li>
+<li><p>WISER is packaged as a wheel (e.g. via <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">zipapp</span></code>) so it can be
+imported by the plugin subprocess.</p></li>
+<li><p>Both wheel-packaged plugins and loose dev-environment plugins are supported.</p></li>
+</ol>
+<p>Identified constraints:</p>
+<ul class="simple">
+<li><p>GDAL and similar compiled-C-extension packages can’t be installed by <code class="docutils literal notranslate"><span class="pre">pip</span></code>
+alone — they need conda or system packages.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PySide6</span></code> is required (over <code class="docutils literal notranslate"><span class="pre">PySide2</span></code>) because it has <code class="docutils literal notranslate"><span class="pre">pip</span></code> wheels for all
+major platforms.</p></li>
+<li><p>Architecture-specific DLLs can only be <code class="docutils literal notranslate"><span class="pre">pip</span></code>-installed if the package itself
+ships pip wheels for that platform.</p></li>
+</ul>
+<p>Tooling evaluated (none adopted yet): Bazel, Nuitka (requires PySide6), Poetry,
+cx_Freeze.</p>
+</section>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="plugin-system.html"><span class="doc">Plugin System Internals</span></a> — discovery, loading, and the
+in-process execution model.</p></li>
+<li><p><a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a> — author-facing plugin-path
+setup and per-release dependency lists.</p></li>
+<li><p><a class="reference internal" href="design-documents.html"><span class="doc">Design Documents</span></a> — broader plugin isolation and
+quality design questions.</p></li>
+</ul>
 </section>
 </section>
 
@@ -548,20 +567,20 @@ objects is non-trivial. Options being explored:</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="plugin-dependencies.html"
+       href="plugin-system.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Plugin Dependencies Internals</p>
+        <p class="prev-next-title">Plugin System Internals</p>
       </div>
     </a>
     <a class="right-next"
-       href="code-documentation.html"
+       href="design-documents.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Code Documentation</p>
+        <p class="prev-next-title">Design Documents</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -583,18 +602,13 @@ objects is non-trivial. Options being explored:</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-architecture-and-design">Plugin Architecture and Design</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#desired-features">Desired Features</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-questions-and-issues">Implementation Questions and Issues</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#knowledge-required-for-implementation">Knowledge Required for Implementation</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#plugin-quality">Plugin Quality</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dependencies">Dependencies</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-processing">Batch Processing</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-technical-challenges">Known Technical Challenges</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-dependency-model">The dependency model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#precedence-mechanism">Precedence mechanism</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-this-design">Why this design</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implications-for-authors">Implications for authors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-pyinstaller-submodule-pruning-pre-1-3b1">Known issue: PyInstaller submodule pruning (pre-1.3b1)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#future-direction">Future direction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 
