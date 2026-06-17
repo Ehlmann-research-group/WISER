@@ -77,6 +77,12 @@ WISER ships pinned conda environments; it is good practice to match your
 plugin's dependency versions against the version of WISER you are targeting.
 Mismatched versions usually work but can produce unexpected behaviour.
 
+WISER loads plugins in its own interpreter and appends plugin paths to the end
+of ``sys.path``, so WISER's own dependencies always take precedence over a
+plugin's. For why this is the case and what it implies, see the
+:doc:`Plugin Dependencies </developer-content/plugin-dependencies>` developer
+page.
+
 The dependency lists for each release are available as downloadable text
 files below.
 
