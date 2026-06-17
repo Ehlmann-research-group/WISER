@@ -1,0 +1,1391 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Spectrum Plot System &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/spectrum-plot';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Rendering Pipeline" href="rendering-pipeline.html" />
+    <link rel="prev" title="Viewport System" href="viewport-system.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/spectrum-plot.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/spectrum-plot.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Spectrum Plot System</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-widget-class-hierarchy">Plot widget class hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectrumplot-vs-spectrumplotgeneric"><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> vs <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#when-to-use-which">When to use which</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-spectrumplotgeneric">Using <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#region-of-interest-roi-model">Region of Interest (ROI) model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectrum-class-hierarchy">Spectrum class hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-spectra-are-calculated">How spectra are calculated</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#end-to-end-data-flow">End-to-end data flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-signals-reference">Key signals reference</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="spectrum-plot-system">
+<h1>Spectrum Plot System<a class="headerlink" href="#spectrum-plot-system" title="Link to this heading">#</a></h1>
+<p>This page documents the internals of WISER’s spectrum-plot subsystem: the plot
+widgets that render spectra, the Region-of-Interest (ROI) model that defines
+<em>which</em> pixels a spectrum is drawn from, how a spectrum is actually <em>computed</em>
+from raster data, and how those pieces are wired together through application
+state. It is a guide for developers reading, debugging, or extending any part of
+this pipeline. Please keep it up to date.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>Three cooperating layers turn raster pixels into a plotted line:</p>
+<ul class="simple">
+<li><p><strong>Model layer</strong> (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/</span></code>) — <code class="docutils literal notranslate"><span class="pre">RegionOfInterest</span></code> and <code class="docutils literal notranslate"><span class="pre">Selection</span></code>
+describe a set of pixels; the functions in <code class="docutils literal notranslate"><span class="pre">spectrum.py</span></code> aggregate those
+pixels’ band values into a single spectrum; the <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code> class hierarchy
+wraps the result behind a common, lazily-evaluated interface.</p></li>
+<li><p><strong>Application state</strong> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_state.py</span></code>) — <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>
+owns the “active spectrum”, the list of “collected” spectra, and loaded
+spectral libraries. It broadcasts changes through Qt signals. No widget holds
+a direct reference to another; they communicate only through these signals.</p></li>
+<li><p><strong>GUI layer</strong> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/spectrum_plot.py</span></code>) — <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code> is a
+reusable matplotlib-backed plot widget; <code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> subclasses it and binds
+it to <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>.</p></li>
+</ul>
+<p>The central idea: <strong>ROIs and pixel clicks produce <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code> objects; app state
+broadcasts them via signals; the plot widget renders them with matplotlib.</strong></p>
+<pre  class="mermaid">
+        flowchart TB
+    subgraph Model[&quot;Model layer (wiser/raster)&quot;]
+        ROI[&quot;RegionOfInterest / Selection&quot;]
+        CALC[&quot;spectrum.py calc_* functions&quot;]
+        SPEC[&quot;Spectrum objects&quot;]
+    end
+    subgraph State[&quot;App state&quot;]
+        AS[&quot;ApplicationState (signals)&quot;]
+    end
+    subgraph GUI[&quot;GUI layer (wiser/gui)&quot;]
+        PLOT[&quot;SpectrumPlot / SpectrumPlotGeneric&quot;]
+    end
+
+    ROI --&gt; CALC --&gt; SPEC
+    SPEC --&gt; AS
+    AS -- &quot;signals&quot; --&gt; PLOT
+    </pre></section>
+<hr class="docutils" />
+<section id="plot-widget-class-hierarchy">
+<h2>Plot widget class hierarchy<a class="headerlink" href="#plot-widget-class-hierarchy" title="Link to this heading">#</a></h2>
+<p>All of the following live in
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/spectrum_plot.py</span></code>. The two widget
+classes are <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code> (the reusable base) and <code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> (the
+app-bound subclass); the rest are small helpers each responsible for one drawing
+or UI concern.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class QWidget[&quot;QWidget (Qt)&quot;]
+
+    class SpectrumPlotGeneric {
+        spectrum_plot.py :492
+        +_collected_spectra : List~Spectrum~
+        +_spectrum_display_info : Dict
+        +closed : Signal
+        +add_collected_spectrum()
+        +set_title() / set_legend()
+        +set_x_range() / set_y_range()
+        +_add_spectrum_to_plot()
+        +_draw_spectra()
+    }
+
+    class SpectrumPlot {
+        spectrum_plot.py :1679
+        +_dataset : RasterDataSet
+        +_on_active_spectrum_changed()
+        +_on_collected_spectra_changed()
+        +_on_spectral_library_added()
+        +_on_collect_spectrum()
+    }
+
+    QWidget &lt;|-- SpectrumPlotGeneric : subclass
+    SpectrumPlotGeneric &lt;|-- SpectrumPlot : subclass
+    </pre><p>The helper classes the plot composes:</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class SpectrumPlotGeneric {
+        spectrum_plot.py :492
+    }
+    class SpectrumPlotCanvas {
+        spectrum_plot.py :124
+        matplotlib FigureCanvas + context menu
+    }
+    class SpectrumDisplayInfo {
+        spectrum_plot.py :151
+        one matplotlib Line2D per spectrum
+        +generate_plot()
+        +remove_plot()
+    }
+    class SpectrumPointDisplayInfo {
+        spectrum_plot.py :281
+        selected-point crosshair + label
+        +generate_plot()
+    }
+    class SpectrumPlotDatasetChooser {
+        spectrum_plot.py :427
+        toolbar dataset dropdown
+    }
+
+    SpectrumPlotGeneric --&gt; SpectrumPlotCanvas : contains
+    SpectrumPlotGeneric --&gt; SpectrumDisplayInfo : one per spectrum
+    SpectrumPlotGeneric --&gt; SpectrumPointDisplayInfo : zero or one (selection)
+    SpectrumPlot --&gt; SpectrumPlotDatasetChooser : contains (toolbar)
+    </pre><p><strong>Plotting library.</strong> The widget uses <strong>matplotlib</strong> with the <code class="docutils literal notranslate"><span class="pre">Qt5Agg</span></code> backend.
+Each visible spectrum is a matplotlib <code class="docutils literal notranslate"><span class="pre">Line2D</span></code> managed by a <code class="docutils literal notranslate"><span class="pre">SpectrumDisplayInfo</span></code>
+(<code class="docutils literal notranslate"><span class="pre">:151</span></code>); the X-axis shows wavelengths when the spectra carry them, and falls
+back to band index otherwise. Display configuration (title, legend placement,
+font sizes, axis ranges, tick intervals, selection-marker style, default
+area-average mode) is driven by <code class="docutils literal notranslate"><span class="pre">SpectrumPlotConfigDialog</span></code>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/spectrum_plot_config.py:15</span></code>).</p>
+</section>
+<hr class="docutils" />
+<section id="spectrumplot-vs-spectrumplotgeneric">
+<h2><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> vs <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code><a class="headerlink" href="#spectrumplot-vs-spectrumplotgeneric" title="Link to this heading">#</a></h2>
+<p>This is the most important distinction in the subsystem, and the most commonly
+misunderstood.</p>
+<p>A common misconception is that <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code> is fully decoupled from
+application state. It is <strong>not</strong> — <em>both</em> classes receive an <code class="docutils literal notranslate"><span class="pre">app_state</span></code> in their
+constructor. The real difference is the <strong>data source for collected spectra</strong>, as
+the in-code comment at <code class="docutils literal notranslate"><span class="pre">spectrum_plot.py:557-559</span></code> states:</p>
+<blockquote>
+<div><p>This class gets its collected spectra from a list while the child class
+<code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> gets its collected spectrum from app_state.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code> reads from its own <code class="docutils literal notranslate"><span class="pre">_collected_spectra:</span> <span class="pre">List[Spectrum]</span></code>,
+populated <strong>manually</strong> by calling <code class="docutils literal notranslate"><span class="pre">add_collected_spectrum(spectrum)</span></code> (<code class="docutils literal notranslate"><span class="pre">:1366</span></code>).
+It connects to <em>no</em> app-state signals.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> connects to <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> signals in its constructor
+(<code class="docutils literal notranslate"><span class="pre">:1694-1700</span></code>) and <strong>syncs automatically</strong>: the active spectrum via
+<code class="docutils literal notranslate"><span class="pre">_on_active_spectrum_changed</span></code> (<code class="docutils literal notranslate"><span class="pre">:1901</span></code>), the collected list via
+<code class="docutils literal notranslate"><span class="pre">_on_collected_spectra_changed</span></code> (<code class="docutils literal notranslate"><span class="pre">:1959</span></code>), and spectral libraries via
+<code class="docutils literal notranslate"><span class="pre">_on_spectral_library_added</span></code> (<code class="docutils literal notranslate"><span class="pre">:1835</span></code>) / <code class="docutils literal notranslate"><span class="pre">_on_spectral_library_removed</span></code>.</p></li>
+</ul>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code></p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Collected-spectra source</p></td>
+<td><p>own <code class="docutils literal notranslate"><span class="pre">_collected_spectra</span></code> list</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">app_state.get_collected_spectra()</span></code> via signals</p></td>
+</tr>
+<tr class="row-odd"><td><p>Active spectrum</p></td>
+<td><p>none</p></td>
+<td><p>synced from <code class="docutils literal notranslate"><span class="pre">app_state.get_active_spectrum()</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>App-state signal wiring</p></td>
+<td><p>none</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">active_spectrum_changed</span></code>, <code class="docutils literal notranslate"><span class="pre">collected_spectra_changed</span></code>, <code class="docutils literal notranslate"><span class="pre">spectral_library_added/removed</span></code>, <code class="docutils literal notranslate"><span class="pre">dataset_removed</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Dataset-chooser toolbar</p></td>
+<td><p>no</p></td>
+<td><p>yes (<code class="docutils literal notranslate"><span class="pre">SpectrumPlotDatasetChooser</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p>Collect-spectrum / load-library actions</p></td>
+<td><p>no</p></td>
+<td><p>yes</p></td>
+</tr>
+<tr class="row-odd"><td><p>Spectral libraries</p></td>
+<td><p>not shown</p></td>
+<td><p>loaded, shown, hidden</p></td>
+</tr>
+<tr class="row-even"><td><p>Plot rendering, axis/tick/font/legend config, mouse selection</p></td>
+<td><p>yes (defined here)</p></td>
+<td><p>inherited</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="when-to-use-which">
+<h3>When to use which<a class="headerlink" href="#when-to-use-which" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Use <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code></strong> when you have your own set of <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code> objects
+and want a plot window without app-state integration — e.g. a Tools-menu
+plugin or a results dialog that compares a target against library matches.</p></li>
+<li><p><strong>Use <code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code></strong> for the main application’s live spectrum window, where
+the plot must follow the user’s active spectrum, collected spectra, and loaded
+libraries automatically.</p></li>
+</ul>
+</section>
+<section id="using-spectrumplotgeneric">
+<h3>Using <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code><a class="headerlink" href="#using-spectrumplotgeneric" title="Link to this heading">#</a></h3>
+<p>Instantiate it directly, add <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code> objects, and apply any display config via
+the setters. A real example is the spectral-computation results dialog in
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/generic_spectral_tool.py</span></code> (around <code class="docutils literal notranslate"><span class="pre">:897</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plot_widget</span> <span class="o">=</span> <span class="n">SpectrumPlotGeneric</span><span class="p">(</span>
+    <span class="n">app_state</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="p">,</span>
+    <span class="n">parent</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="n">plot_widget</span><span class="p">)</span>
+
+<span class="c1"># Push spectra in directly — no signals involved.</span>
+<span class="n">plot_widget</span><span class="o">.</span><span class="n">add_collected_spectrum</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">[:</span><span class="mi">5</span><span class="p">]:</span>
+    <span class="n">plot_widget</span><span class="o">.</span><span class="n">add_collected_spectrum</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">&quot;ref_obj&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Configuration setters available from the base class include <code class="docutils literal notranslate"><span class="pre">set_title()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">set_legend()</span></code>, <code class="docutils literal notranslate"><span class="pre">set_x_range()</span></code> / <code class="docutils literal notranslate"><span class="pre">set_y_range()</span></code>, <code class="docutils literal notranslate"><span class="pre">set_x_label()</span></code> /
+<code class="docutils literal notranslate"><span class="pre">set_y_label()</span></code>, the tick-interval setters, and <code class="docutils literal notranslate"><span class="pre">set_font_size()</span></code> /
+<code class="docutils literal notranslate"><span class="pre">set_font_name()</span></code>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="region-of-interest-roi-model">
+<h2>Region of Interest (ROI) model<a class="headerlink" href="#region-of-interest-roi-model" title="Link to this heading">#</a></h2>
+<p>An ROI is a <em>composite</em> of one or more <code class="docutils literal notranslate"><span class="pre">Selection</span></code>s, so a single named region can
+mix rectangles, polygons, and loose pixels. The aggregation in
+<code class="docutils literal notranslate"><span class="pre">get_all_pixels()</span></code> deduplicates across selections, so overlapping selections
+never double-count a pixel.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class RegionOfInterest {
+        raster/roi.py :12
+        +_selections : List~Selection~
+        +name / color / id
+        +get_all_pixels() Set
+        +get_bounding_box()
+    }
+
+    class Selection {
+        raster/selection.py :31
+        +get_type() SelectionType
+        +get_all_pixels()
+    }
+
+    class SelectionType {
+        &lt;&lt;enumeration&gt;&gt;
+        SINGLE_PIXEL
+        MULTI_PIXEL
+        RECTANGLE
+        POLYGON
+        PREDICATE
+    }
+
+    RegionOfInterest --&gt; Selection : contains many
+    Selection --&gt; SelectionType : tagged by
+    </pre><p>Each concrete <code class="docutils literal notranslate"><span class="pre">Selection</span></code> subtype implements <code class="docutils literal notranslate"><span class="pre">get_all_pixels()</span></code> to yield its
+pixel coordinates; <code class="docutils literal notranslate"><span class="pre">RegionOfInterest.get_all_pixels()</span></code> unions them into a single
+deduplicated set of <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code> tuples.</p>
+</section>
+<hr class="docutils" />
+<section id="spectrum-class-hierarchy">
+<h2>Spectrum class hierarchy<a class="headerlink" href="#spectrum-class-hierarchy" title="Link to this heading">#</a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Spectrum</span></code> is the common, lazily-evaluated wrapper that the plot consumes. The
+abstract base defines the interface (<code class="docutils literal notranslate"><span class="pre">get_spectrum()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_wavelengths()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">get_bad_bands()</span></code>, <code class="docutils literal notranslate"><span class="pre">num_bands()</span></code>, color/name/id). Dataset-derived spectra defer
+the actual computation until the first <code class="docutils literal notranslate"><span class="pre">get_spectrum()</span></code> call and cache the result.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class Spectrum {
+        raster/spectrum.py :175
+        &lt;&lt;abstract&gt;&gt;
+        +get_spectrum() ndarray
+        +get_wavelengths()
+        +get_bad_bands()
+        +num_bands()
+    }
+
+    class RasterDataSetSpectrum {
+        raster/spectrum.py :487
+        &lt;&lt;abstract&gt;&gt;
+        +_spectrum (cached, lazy)
+        +_calculate_spectrum()
+        +_reset_internal_state()
+    }
+
+    class ROIAverageSpectrum {
+        raster/spectrum.py :706
+        +set_avg_mode()
+    }
+
+    class SpectrumAtPoint {
+        raster/spectrum.py :629
+        single pixel / area average
+    }
+
+    class NumPyArraySpectrum {
+        raster/spectrum.py :336
+        wraps a precomputed array
+    }
+
+    Spectrum &lt;|-- RasterDataSetSpectrum : subclass
+    Spectrum &lt;|-- NumPyArraySpectrum : subclass
+    RasterDataSetSpectrum &lt;|-- ROIAverageSpectrum : subclass
+    RasterDataSetSpectrum &lt;|-- SpectrumAtPoint : subclass
+    </pre><p><strong>Lazy evaluation.</strong> <code class="docutils literal notranslate"><span class="pre">RasterDataSetSpectrum.get_spectrum()</span></code> computes <code class="docutils literal notranslate"><span class="pre">_spectrum</span></code>
+only on first access by calling the subclass’s <code class="docutils literal notranslate"><span class="pre">_calculate_spectrum()</span></code>, then
+caches it. Changing configuration (e.g. <code class="docutils literal notranslate"><span class="pre">ROIAverageSpectrum.set_avg_mode()</span></code> or a
+<code class="docutils literal notranslate"><span class="pre">SpectrumAtPoint</span></code> area change) calls <code class="docutils literal notranslate"><span class="pre">_reset_internal_state()</span></code>, which invalidates
+the cache so the next <code class="docutils literal notranslate"><span class="pre">get_spectrum()</span></code> recomputes. This means constructing a
+spectrum is cheap; the cost is paid the first time it is actually plotted.</p>
+<p>For example, <code class="docutils literal notranslate"><span class="pre">ROIAverageSpectrum._calculate_spectrum()</span></code> (<code class="docutils literal notranslate"><span class="pre">:733</span></code>) simply delegates
+to the calculation pipeline below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_calculate_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_spectrum</span> <span class="o">=</span> <span class="n">calc_roi_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dataset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_roi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_avg_mode</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="how-spectra-are-calculated">
+<h2>How spectra are calculated<a class="headerlink" href="#how-spectra-are-calculated" title="Link to this heading">#</a></h2>
+<p>The aggregation math lives in
+<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/spectrum.py</span></code>. A spectrum over multiple
+pixels is the <strong>per-band mean or median</strong> across those pixels, selected by
+<code class="docutils literal notranslate"><span class="pre">SpectrumAverageMode</span></code> (<code class="docutils literal notranslate"><span class="pre">MEAN</span></code> or <code class="docutils literal notranslate"><span class="pre">MEDIAN</span></code>). Both reductions are <strong>NaN-aware</strong>
+(<code class="docutils literal notranslate"><span class="pre">np.nanmean</span></code> / <code class="docutils literal notranslate"><span class="pre">np.nanmedian</span></code>, <code class="docutils literal notranslate"><span class="pre">:96-108</span></code>), so bad bands and data-ignore values
+(stored as NaN) are excluded without any explicit masking.</p>
+<p>The performance-sensitive part is <em>reading</em> the pixels. Accessing a raster pixel
+by pixel is slow, so <code class="docutils literal notranslate"><span class="pre">calc_spectrum_fast</span></code> (<code class="docutils literal notranslate"><span class="pre">:50</span></code>, wrapped by <code class="docutils literal notranslate"><span class="pre">calc_roi_spectrum</span></code>
+at <code class="docutils literal notranslate"><span class="pre">:163</span></code>) converts the ROI into a small number of rectangular blocks and reads
+each block in one call:</p>
+<pre  class="mermaid">
+        flowchart TB
+    A[&quot;ROI&quot;] --&gt; B[&quot;create_raster_from_roi() — binary mask&quot;]
+    B --&gt; C[&quot;RLE rectangle-pack along X axis&quot;]
+    B --&gt; D[&quot;RLE rectangle-pack along Y axis&quot;]
+    C --&gt; E[&quot;pick the axis with fewer rectangles&quot;]
+    D --&gt; E
+    E --&gt; F[&quot;read each block: get_all_bands_at_rect()&quot;]
+    F --&gt; G[&quot;stack pixel spectra&quot;]
+    G --&gt; H[&quot;np.nanmean / np.nanmedian per band&quot;]
+    H --&gt; I[&quot;1-D spectrum array&quot;]
+    </pre><p>The run-length-encoding (RLE) rectangle packing is implemented in
+<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/roi_utils.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">raster_to_combined_rectangles_x_axis</span></code> / <code class="docutils literal notranslate"><span class="pre">_y_axis</span></code>); the code packs along both
+axes and keeps whichever produces fewer rectangles. For a plain rectangular
+region there is a simpler single-block path, <code class="docutils literal notranslate"><span class="pre">calc_rect_spectrum</span></code> (<code class="docutils literal notranslate"><span class="pre">:113</span></code>), which
+reads the whole rectangle at once and reduces over the spatial dimensions.</p>
+<blockquote>
+<div><p><strong>Threading note.</strong> These calculations run synchronously on the Qt event loop.
+For very large ROIs the first <code class="docutils literal notranslate"><span class="pre">get_spectrum()</span></code> can briefly block the UI; there
+is no background worker for spectrum computation today.</p>
+</div></blockquote>
+</section>
+<hr class="docutils" />
+<section id="end-to-end-data-flow">
+<h2>End-to-end data flow<a class="headerlink" href="#end-to-end-data-flow" title="Link to this heading">#</a></h2>
+<p>Putting it together, here is the path from “user asks for an ROI’s average
+spectrum” to “a line appears on the plot”:</p>
+<pre  class="mermaid">
+        flowchart TB
+    A[&quot;User: 'Show ROI average spectrum' (RasterPane)&quot;]
+    B[&quot;_on_show_roi_avg_spectrum() — rasterpane.py:1792&quot;]
+    C[&quot;build ROIAverageSpectrum(dataset, roi)&quot;]
+    D[&quot;app_state.set_active_spectrum() — app_state.py:776&quot;]
+    E[&quot;emit active_spectrum_changed&quot;]
+    F[&quot;SpectrumPlot._on_active_spectrum_changed() — :1901&quot;]
+    G[&quot;spectrum.get_spectrum() — lazy calc_roi_spectrum()&quot;]
+    H[&quot;SpectrumDisplayInfo.generate_plot()&quot;]
+    I[&quot;matplotlib Line2D drawn (wavelengths or band index)&quot;]
+
+    A --&gt; B --&gt; C --&gt; D --&gt; E --&gt; F --&gt; G --&gt; H --&gt; I
+    </pre><p>The <strong>pixel-click path</strong> is analogous: clicking a pixel in a raster view builds a
+<code class="docutils literal notranslate"><span class="pre">SpectrumAtPoint</span></code> (single pixel, or an area average around it) and likewise calls
+<code class="docutils literal notranslate"><span class="pre">set_active_spectrum()</span></code>, so it flows through the same signal and rendering steps.
+“Collecting” the active spectrum (<code class="docutils literal notranslate"><span class="pre">_on_collect_spectrum</span></code>, <code class="docutils literal notranslate"><span class="pre">:1947</span></code>) promotes it
+into the collected list, which emits <code class="docutils literal notranslate"><span class="pre">collected_spectra_changed</span></code> and adds a
+second, persistent line.</p>
+</section>
+<hr class="docutils" />
+<section id="key-signals-reference">
+<h2>Key signals reference<a class="headerlink" href="#key-signals-reference" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> listens to these <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> signals
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_state.py</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Fired when</p></th>
+<th class="head"><p>Plot handler</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">active_spectrum_changed</span></code></p></td>
+<td><p>active spectrum set/cleared (<code class="docutils literal notranslate"><span class="pre">set_active_spectrum</span></code>, <code class="docutils literal notranslate"><span class="pre">:776</span></code>)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_on_active_spectrum_changed</span></code> (<code class="docutils literal notranslate"><span class="pre">:1901</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">collected_spectra_changed</span></code></p></td>
+<td><p>a spectrum is added to / removed from the collected list</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_on_collected_spectra_changed</span></code> (<code class="docutils literal notranslate"><span class="pre">:1959</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spectral_library_added</span></code></p></td>
+<td><p>a spectral library is loaded</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_on_spectral_library_added</span></code> (<code class="docutils literal notranslate"><span class="pre">:1835</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">spectral_library_removed</span></code></p></td>
+<td><p>a spectral library is unloaded</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_on_spectral_library_removed</span></code> (<code class="docutils literal notranslate"><span class="pre">:1868</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dataset_removed</span></code></p></td>
+<td><p>a dataset is closed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_on_dataset_removed</span></code> (<code class="docutils literal notranslate"><span class="pre">:1751</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The plot widget itself emits one signal: <code class="docutils literal notranslate"><span class="pre">closed</span></code> (<code class="docutils literal notranslate"><span class="pre">spectrum_plot.py:497</span></code>),
+fired when the plot window is closed so the rest of the app can react.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="viewport-system.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Viewport System</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="rendering-pipeline.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Rendering Pipeline</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plot-widget-class-hierarchy">Plot widget class hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectrumplot-vs-spectrumplotgeneric"><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code> vs <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#when-to-use-which">When to use which</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-spectrumplotgeneric">Using <code class="docutils literal notranslate"><span class="pre">SpectrumPlotGeneric</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#region-of-interest-roi-model">Region of Interest (ROI) model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectrum-class-hierarchy">Spectrum class hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-spectra-are-calculated">How spectra are calculated</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#end-to-end-data-flow">End-to-end data flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-signals-reference">Key signals reference</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
