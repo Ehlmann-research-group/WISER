@@ -20,10 +20,6 @@ Persist active + collected spectra using the epic's governing rule, driven by th
 
 **Manifest shape:** an ordered list for collected spectra and a reference to which one (if any) is active; each entry is a pyrep with a `kind` (`numpy` / `raster-backed` / `roi-average`) and either a dataset/ROI reference (FAITHFUL) or inline/`.npy` values (SNAPSHOT).
 
-## Describe how solution fits WISER's mission
-
-Picked and collected spectra are the core unit of spectral interpretation. Preserving them — faithfully when possible, as recoverable snapshots otherwise — lets researchers resume and share interpretation work without redoing pixel/ROI selection, advancing accessible and reproducible spectroscopy.
-
 ## Describe alternatives you've considered
 
 - **Always snapshot every spectrum.** Rejected: loses liveness even when the dataset is present and round-trippable.
@@ -32,7 +28,7 @@ Picked and collected spectra are the core unit of spectral interpretation. Prese
 
 ## Describe how spectra snapshotting relates to the "faithful vs. snapshot" design decision
 
-This issue is the canonical instance of the epic's design tension. The resolution: snapshotting is **not** a global mode — it is a per-instance fallback only for cut edges. Faithful reconstruction is the default whenever dependencies are intact; a frozen `NumPyArraySpectrum` is the fallback when they are not.
+Snapshotting is **not** a global mode — it is a per-instance fallback only for cut edges on the DAG. Faithful reconstruction is the default whenever dependencies are intact; a frozen `NumPyArraySpectrum` is the fallback when they are not.
 
 ## Additional context
 
