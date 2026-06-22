@@ -637,6 +637,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app-state.html">Application State</a></li>
 <li class="toctree-l2"><a class="reference internal" href="georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">CRS Creator Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
@@ -977,17 +978,8 @@ of true scale. Polar Stereographic additionally needs either a scale factor
 <section id="crs-construction-create-crs">
 <h2>CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)<a class="headerlink" href="#crs-construction-create-crs" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code> validates the fields, builds a PROJ4 string, and converts it to an OSR
-spatial reference:</p>
-<pre  class="mermaid">
-        flowchart TD
-    V[&quot;validate required fields&lt;br/&gt;(per shape &amp; projection type)&quot;] --&gt; E[&quot;ellipsoid fragment:&lt;br/&gt;+R=a (sphere) | +a=a +rf=inv_f&quot;]
-    E --&gt; B[&quot;base = ellps + '+pm=&lt;meridian&gt; +no_defs'&quot;]
-    B --&gt; Pr[&quot;projection fragment&lt;br/&gt;(+proj=longlat | eqc | stere)&quot;]
-    Pr --&gt; Py[&quot;pyproj.CRS.from_proj4(proj_str)&quot;]
-    Py --&gt; W[&quot;osr.SpatialReference.ImportFromWkt(crs.to_wkt())&quot;]
-    W --&gt; Ax[&quot;SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)&quot;]
-    Ax --&gt; St[&quot;ApplicationState.add_user_created_crs(name, srs, state)&quot;]
-    </pre><p>The PROJ4 fragments assembled per choice:</p>
+spatial reference.</p>
+<p>The PROJ4 fragments assembled per choice:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Choice</p></th>

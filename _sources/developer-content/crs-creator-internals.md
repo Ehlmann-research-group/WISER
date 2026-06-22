@@ -104,18 +104,7 @@ A reset button clears the fields; the create/accept button runs `_create_crs()`.
 ## CRS Construction (`_create_crs`)
 
 `_create_crs()` validates the fields, builds a PROJ4 string, and converts it to an OSR
-spatial reference:
-
-```{mermaid}
-flowchart TD
-    V["validate required fields<br/>(per shape & projection type)"] --> E["ellipsoid fragment:<br/>+R=a (sphere) | +a=a +rf=inv_f"]
-    E --> B["base = ellps + '+pm=<meridian> +no_defs'"]
-    B --> Pr["projection fragment<br/>(+proj=longlat | eqc | stere)"]
-    Pr --> Py["pyproj.CRS.from_proj4(proj_str)"]
-    Py --> W["osr.SpatialReference.ImportFromWkt(crs.to_wkt())"]
-    W --> Ax["SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)"]
-    Ax --> St["ApplicationState.add_user_created_crs(name, srs, state)"]
-```
+spatial reference.
 
 The PROJ4 fragments assembled per choice:
 

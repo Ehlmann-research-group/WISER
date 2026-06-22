@@ -17,6 +17,7 @@ band-chooser.md
 stretch-builder.md
 data-caching.md
 bandmath-internals.md
+app-state.md
 georeferencer-internals.md
 crs-creator-internals.md
 plugin-system.md
