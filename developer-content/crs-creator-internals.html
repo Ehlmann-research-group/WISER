@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Band Chooser &#8212; WISER Documentation</title>
+    <title>CRS Creator Internals &#8212; WISER Documentation</title>
   
   
   
@@ -480,12 +480,12 @@ mermaid.initialize(
 
 window.addEventListener("load", load);
 window.runMermaid = runMermaid;</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/band-chooser';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/crs-creator-internals';</script>
     <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Stretch Builder" href="stretch-builder.html" />
-    <link rel="prev" title="Rendering Pipeline" href="rendering-pipeline.html" />
+    <link rel="next" title="Contributing to WISER" href="../contributing.html" />
+    <link rel="prev" title="Georeferencer Internals" href="georeferencer-internals.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -633,12 +633,12 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="georeferencer-internals.html">Georeferencer Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">CRS Creator Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
 </ul>
 </details></li>
@@ -719,7 +719,7 @@ window.runMermaid = runMermaid;</script>
       
       
       
-      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/band-chooser.md" target="_blank"
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/crs-creator-internals.md" target="_blank"
    class="btn btn-sm btn-source-edit-button dropdown-item"
    title="Suggest edit"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -749,7 +749,7 @@ window.runMermaid = runMermaid;</script>
       
       
       
-      <li><a href="../_sources/developer-content/band-chooser.md" target="_blank"
+      <li><a href="../_sources/developer-content/crs-creator-internals.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -825,7 +825,7 @@ window.runMermaid = runMermaid;</script>
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Band Chooser</h1>
+    <h1>CRS Creator Internals</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -836,17 +836,10 @@ window.runMermaid = runMermaid;</script>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bandchooserdialog"><code class="docutils literal notranslate"><span class="pre">BandChooserDialog</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#automatic-band-selection">Automatic Band Selection</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#find-truecolor-bands-dataset-red-green-blue"><code class="docutils literal notranslate"><span class="pre">find_truecolor_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#find-display-bands-dataset-red-green-blue"><code class="docutils literal notranslate"><span class="pre">find_display_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#propagation">Propagation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rasterview-set-display-bands"><code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands()</span></code></a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rgb-vs-grayscale-rendering">RGB vs grayscale rendering</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-state">Class &amp; State</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-workflow">UI / Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-construction-create-crs">CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration">Integration</a></li>
 </ul>
             </nav>
         </div>
@@ -858,252 +851,195 @@ window.runMermaid = runMermaid;</script>
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="band-chooser">
-<h1>Band Chooser<a class="headerlink" href="#band-chooser" title="Link to this heading">#</a></h1>
-<p>The Band Chooser is the dialog that lets the user pick which dataset band(s) are
-displayed and how: three bands for RGB, or one band for grayscale (optionally
-colorized with a matplotlib colormap). This page covers the dialog itself, the
-automatic band-selection helpers it relies on, and how a selection propagates
-into the <a class="reference internal" href="rendering-pipeline.html"><span class="std std-doc">rendering pipeline</span></a>.</p>
-<hr class="docutils" />
+  <section id="crs-creator-internals">
+<h1>CRS Creator Internals<a class="headerlink" href="#crs-creator-internals" title="Link to this heading">#</a></h1>
+<p>This page documents the internals of WISER’s <strong>CRS Creator</strong> (the “Reference System
+Creator”) — the spatial tool that lets a user define a <em>custom</em> coordinate reference
+system (CRS) by hand, without an EPSG / authority code. It is a companion to the
+<a class="reference internal" href="georeferencer-internals.html"><span class="std std-doc">Georeferencer Internals</span></a> page; custom CRSs created here
+become selectable as the output CRS when georeferencing.</p>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>A raster dataset can have anywhere from one to hundreds of bands. The renderer,
-however, only ever shows <strong>1 band (grayscale)</strong> or <strong>3 bands (RGB)</strong>. The Band
-Chooser is the UI that maps dataset bands onto those display slots.</p>
-<ul class="simple">
-<li><p><strong>GUI:</strong> <code class="docutils literal notranslate"><span class="pre">BandChooserDialog</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/band_chooser.py</span></code>)</p></li>
-<li><p><strong>Auto-selection helpers:</strong> <code class="docutils literal notranslate"><span class="pre">find_truecolor_bands()</span></code> / <code class="docutils literal notranslate"><span class="pre">find_display_bands()</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>)</p></li>
-<li><p><strong>Consumed by:</strong> <code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands()</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code>)</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="bandchooserdialog">
-<h2><code class="docutils literal notranslate"><span class="pre">BandChooserDialog</span></code><a class="headerlink" href="#bandchooserdialog" title="Link to this heading">#</a></h2>
-<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/band_chooser.py</span></code></p>
-<p><strong>Purpose:</strong> A modal <code class="docutils literal notranslate"><span class="pre">QDialog</span></code> for choosing display bands and colormap for one
-dataset. It is purely a chooser — it reads the dataset to populate its controls
-and reports the user’s choice back to the caller; it does not apply anything
-itself.</p>
-<p><strong>Constructor:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">BandChooserDialog</span><span class="p">(</span>
-    <span class="n">app_state</span><span class="p">:</span> <span class="n">ApplicationState</span><span class="p">,</span>
-    <span class="n">dataset</span><span class="p">:</span> <span class="n">RasterDataSet</span><span class="p">,</span>
-    <span class="n">display_bands</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>     <span class="c1"># current bands: 1-tuple or 3-tuple</span>
-    <span class="n">colormap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">can_apply_global</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>On construction the dialog:</p>
-<ul class="simple">
-<li><p>Populates the red/green/blue/gray band combo boxes from
-<code class="docutils literal notranslate"><span class="pre">dataset.band_list()</span></code>, labeling each entry with <code class="docutils literal notranslate"><span class="pre">dataset.get_band_label(i)</span></code>
-(which includes a <code class="docutils literal notranslate"><span class="pre">(bad)</span></code> marker for bad bands) and right-aligning the text
-when the dataset <code class="docutils literal notranslate"><span class="pre">has_wavelengths()</span></code>.</p></li>
-<li><p>Fills the colormap combo box from <code class="docutils literal notranslate"><span class="pre">matplotlib.pyplot.colormaps()</span></code>.</p></li>
-<li><p>Selects RGB or grayscale mode based on the length of <code class="docutils literal notranslate"><span class="pre">display_bands</span></code> and shows
-the matching page of the config stack.</p></li>
-<li><p>Configures the “choose defaults” / “choose visible-light” buttons based on
-dataset capabilities (<code class="docutils literal notranslate"><span class="pre">_configure_buttons()</span></code>).</p></li>
-</ul>
-<p><strong>Public API (read by the caller after <code class="docutils literal notranslate"><span class="pre">exec_()</span></code>):</strong></p>
-<div class="pst-scrollable-table-container"><table class="table">
-<thead>
-<tr class="row-odd"><th class="head"><p>Method</p></th>
-<th class="head"><p>Returns</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_display_bands()</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">tuple</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">(r,</span> <span class="pre">g,</span> <span class="pre">b)</span></code> in RGB mode, or <code class="docutils literal notranslate"><span class="pre">(gray,)</span></code> in grayscale mode (combo-box indices)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_colormap_name()</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
-<td><p>Colormap name if grayscale + colormap enabled, else <code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_colormap()</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
-<td><p>True when grayscale mode and the “use colormap” box is checked</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">apply_globally()</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
-<td><p>Whether the change should apply to all panes (the “apply globally” checkbox)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Controls:</strong></p>
-<ul class="simple">
-<li><p>RGB vs grayscale mode toggle and the corresponding band combo boxes.</p></li>
-<li><p>Colormap selection and a live preview gradient strip
-(<code class="docutils literal notranslate"><span class="pre">_on_grayscale_choose_colormap</span></code>, connected to the combo box’s <code class="docutils literal notranslate"><span class="pre">activated</span></code>
-signal, samples the selected colormap at 256 points into a 256×24 <code class="docutils literal notranslate"><span class="pre">QImage</span></code>
-shown on <code class="docutils literal notranslate"><span class="pre">lbl_colormap_display</span></code>).</p></li>
-<li><p>The “apply globally” checkbox (disabled when <code class="docutils literal notranslate"><span class="pre">can_apply_global=False</span></code>).</p></li>
-</ul>
-<p><strong>Does not control:</strong></p>
-<ul class="simple">
-<li><p>Applying the selection (the caller does this — see the Propagation section
-below).</p></li>
-<li><p>Stretches or rendering.</p></li>
-<li><p>Which dataset is shown.</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="automatic-band-selection">
-<h2>Automatic Band Selection<a class="headerlink" href="#automatic-band-selection" title="Link to this heading">#</a></h2>
-<p>Two module-level helpers in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code> decide
-sensible defaults so the user rarely has to choose bands manually.</p>
-<section id="find-truecolor-bands-dataset-red-green-blue">
-<h3><code class="docutils literal notranslate"><span class="pre">find_truecolor_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code><a class="headerlink" href="#find-truecolor-bands-dataset-red-green-blue" title="Link to this heading">#</a></h3>
-<p>Returns a <code class="docutils literal notranslate"><span class="pre">(red_index,</span> <span class="pre">green_index,</span> <span class="pre">blue_index)</span></code> triple of the bands closest to
-the given visible-light wavelengths, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if the dataset has no wavelength
-metadata or a match cannot be found for any channel. The Band Chooser calls this
-via <code class="docutils literal notranslate"><span class="pre">_get_truecolor_bands()</span></code>, passing the configured red/green/blue wavelengths
-from app config (<code class="docutils literal notranslate"><span class="pre">general.red_wavelength_nm</span></code>, etc.).</p>
-</section>
-<section id="find-display-bands-dataset-red-green-blue">
-<h3><code class="docutils literal notranslate"><span class="pre">find_display_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code><a class="headerlink" href="#find-display-bands-dataset-red-green-blue" title="Link to this heading">#</a></h3>
-<p>Picks the bands to display when a dataset is first shown, in priority order:</p>
-<ol class="arabic simple">
-<li><p>The dataset’s own <code class="docutils literal notranslate"><span class="pre">default_display_bands()</span></code> (may be a 3-tuple or 1-tuple).</p></li>
-<li><p>Otherwise, <code class="docutils literal notranslate"><span class="pre">find_truecolor_bands()</span></code> if wavelengths are available.</p></li>
-<li><p>Otherwise, <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">2)</span></code> if the dataset has ≥ 3 bands, else <code class="docutils literal notranslate"><span class="pre">(0,)</span></code> (grayscale).</p></li>
-</ol>
-<p>These helpers are also wired to the dialog’s buttons: “choose visible-light
-bands” calls <code class="docutils literal notranslate"><span class="pre">find_truecolor_bands()</span></code>, and “choose defaults” reads
-<code class="docutils literal notranslate"><span class="pre">dataset.default_display_bands()</span></code>.</p>
-</section>
-</section>
-<hr class="docutils" />
-<section id="propagation">
-<h2>Propagation<a class="headerlink" href="#propagation" title="Link to this heading">#</a></h2>
-<p>The key thing to understand is that <strong><code class="docutils literal notranslate"><span class="pre">BandChooserDialog</span></code> is passive</strong>: it never
-calls into the <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> or <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>, and it changes no application state.
-It is a modal data-collection widget. <code class="docutils literal notranslate"><span class="pre">RasterPane._on_band_chooser()</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterpane.py</span></code>) constructs it, blocks on <code class="docutils literal notranslate"><span class="pre">exec_()</span></code>, and then —
-once the user clicks OK — <strong>pulls</strong> the user’s choices back out of the dialog
-with its getters and decides what to do with them.</p>
+<p>A user describes a CRS in geodetic terms — a datum shape (sphere or ellipsoid), a prime
+meridian, and a map projection with its parameters — and the tool assembles those into a
+PROJ4 string, converts it to an <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>, and stores it by name in
+<code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>. From then on it behaves like any other CRS in WISER.</p>
 <pre  class="mermaid">
-        sequenceDiagram
-    participant U as User
-    participant RP as RasterPane
-    participant BC as BandChooserDialog
-    participant App as App (broker)
-    participant RV as RasterView
-
-    U-&gt;&gt;RP: click &quot;Band Chooser&quot;
-    RP-&gt;&gt;BC: construct + exec_() (modal, blocks)
-    U-&gt;&gt;BC: pick bands / colormap, click OK
-    Note over BC: passive - only records the choice in its own widgets, no app state
-    BC--&gt;&gt;RP: exec_() returns QDialog.Accepted
-    RP-&gt;&gt;BC: get_display_bands() / get_colormap_name() / apply_globally()
-    BC--&gt;&gt;RP: bands, colormap, is_global
-    alt is_global is True (Apply globally checked)
-        RP-&gt;&gt;App: display_bands_change(ds_id, bands, colormap, is_global)
-        App-&gt;&gt;RP: set_display_bands(ds_id, bands, colormap) on every pane
-        RP-&gt;&gt;RV: set_display_bands(bands, stretches, colormap)
-    else local (this pane only)
-        RP-&gt;&gt;RV: set_display_bands(bands, colormap=colormap)
-    end
-    RV-&gt;&gt;RV: update_display_image()
-    </pre><p>You’re right that the dashed return line is mostly getters — that is the whole
-point. The dialog holds no application state, so nothing it does affects the pane
-until the pane reads these values after the modal closes:</p>
+        flowchart LR
+    U[&quot;User fills dialog fields&quot;] --&gt; S[&quot;ReferenceCreatorDialog&lt;br/&gt;(validated state)&quot;]
+    S --&gt; P[&quot;_create_crs():&lt;br/&gt;build PROJ4 string&quot;]
+    P --&gt; Y[&quot;pyproj.CRS.from_proj4 → WKT&quot;]
+    Y --&gt; O[&quot;osr.SpatialReference&lt;br/&gt;(ImportFromWkt)&quot;]
+    O --&gt; A[&quot;ApplicationState.add_user_created_crs(name, srs, state)&quot;]
+    A --&gt; G[&quot;Georeferencer output-CRS chooser&lt;br/&gt;(as UserGeneratedCRS)&quot;]
+    </pre><p><strong>Core files:</strong></p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>Getter</p></th>
-<th class="head"><p>Returns</p></th>
-<th class="head"><p>Role</p></th>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Responsibility</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_display_bands()</span></code></p></td>
-<td><p>new band tuple (1 or 3 indices)</p></td>
-<td><p>the new data to apply</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/reference_creator_dialog.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ReferenceCreatorDialog</span></code>, <code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code>, the PROJ4 builder, enums</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_colormap_name()</span></code></p></td>
-<td><p>colormap name or <code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
-<td><p>the new data to apply</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/ui_files/reference_system_creator.ui</span></code> → <code class="docutils literal notranslate"><span class="pre">generated/reference_system_creator_ui.py</span></code></p></td>
+<td><p>Qt Designer UI (<code class="docutils literal notranslate"><span class="pre">Ui_ReferenceSystemCreator</span></code>)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">apply_globally()</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
-<td><p><strong>routing decision only</strong> — not data</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_state.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">add_user_created_crs</span></code> / <code class="docutils literal notranslate"><span class="pre">get_user_created_crs</span></code> store</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>So <code class="docutils literal notranslate"><span class="pre">apply_globally()</span></code> is the only value that changes the pane’s <em>behavior</em>
-(global vs local); the other two carry the new bands/colormap. The pane then
-routes them (<code class="docutils literal notranslate"><span class="pre">_on_band_chooser</span></code>, <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterpane.py</span></code>, the
-<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">dialog.exec_()</span> <span class="pre">==</span> <span class="pre">QDialog.Accepted:</span></code> block):</p>
-<ul class="simple">
-<li><p><strong>Global</strong> (<code class="docutils literal notranslate"><span class="pre">apply_globally()</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>): emit
-<code class="docutils literal notranslate"><span class="pre">display_bands_change(ds_id,</span> <span class="pre">bands,</span> <span class="pre">colormap,</span> <span class="pre">is_global)</span></code>. <code class="docutils literal notranslate"><span class="pre">App</span></code> receives it and
-calls <code class="docutils literal notranslate"><span class="pre">set_display_bands</span></code> on every pane (context, main, zoom) so they stay in
-sync.</p></li>
-<li><p><strong>Local</strong>: call this pane’s own <code class="docutils literal notranslate"><span class="pre">set_display_bands(ds_id,</span> <span class="pre">bands,</span> <span class="pre">colormap)</span></code>
-directly, skipping the broadcast.</p></li>
-</ul>
-<p>Both routes converge on <code class="docutils literal notranslate"><span class="pre">RasterPane.set_display_bands(ds_id,</span> <span class="pre">bands,</span> <span class="pre">colormap)</span></code>,
-which loops over the pane’s rasterviews and, for each one showing this dataset,
-calls <code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands(bands,</span> <span class="pre">stretches,</span> <span class="pre">colormap)</span></code> — forwarding the
-exact <code class="docutils literal notranslate"><span class="pre">bands</span></code> tuple that <code class="docutils literal notranslate"><span class="pre">BandChooserDialog.get_display_bands()</span></code> returned. (The
-<code class="docutils literal notranslate"><span class="pre">stretches</span></code> are looked up from <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> by the pane at this point so the
-view only re-renders once.)</p>
-<p>The same <code class="docutils literal notranslate"><span class="pre">BandChooserDialog</span></code> is reused elsewhere (e.g.
-<code class="docutils literal notranslate"><span class="pre">similarity_transform_pane.py</span></code>, <code class="docutils literal notranslate"><span class="pre">geo_reference_pane.py</span></code>, and a plugin-facing
-instance held by <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>).</p>
+<p>The dialog is launched lazily from <code class="docutils literal notranslate"><span class="pre">App.show_reference_creator_dialog</span></code>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>).</p>
 </section>
 <hr class="docutils" />
-<section id="rasterview-set-display-bands">
-<h2><code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands()</span></code><a class="headerlink" href="#rasterview-set-display-bands" title="Link to this heading">#</a></h2>
-<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code></p>
-<p>This is the method that connects the Band Chooser to an actual render. As traced
-above, the <code class="docutils literal notranslate"><span class="pre">display_bands</span></code> argument it receives is exactly the tuple the user
-chose in the dialog (<code class="docutils literal notranslate"><span class="pre">BandChooserDialog.get_display_bands()</span></code> →
-<code class="docutils literal notranslate"><span class="pre">RasterPane.set_display_bands()</span></code> → here); <code class="docutils literal notranslate"><span class="pre">colormap</span></code> is
-<code class="docutils literal notranslate"><span class="pre">BandChooserDialog.get_colormap_name()</span></code>, and <code class="docutils literal notranslate"><span class="pre">stretches</span></code> are the ones the pane
-looked up from <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>. The dialog itself is never referenced here —
-by the time this runs, its values have already been extracted and passed in.</p>
-<p>Its key behavior is a
-<strong>dirty-flag optimization</strong>: it compares the old and new band tuples and builds
-an <code class="docutils literal notranslate"><span class="pre">ImageColors</span></code> flag (<code class="docutils literal notranslate"><span class="pre">RED</span></code>, <code class="docutils literal notranslate"><span class="pre">GREEN</span></code>, <code class="docutils literal notranslate"><span class="pre">BLUE</span></code>, or all) describing which channels
-actually changed, so <code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code> only regenerates those channels.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">set_display_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">display_bands</span><span class="p">,</span> <span class="n">stretches</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="c1"># ... validate length is 1 or 3 ...</span>
-    <span class="n">changed</span> <span class="o">=</span> <span class="n">ImageColors</span><span class="o">.</span><span class="n">NONE</span>
-    <span class="c1"># ... set RED/GREEN/BLUE flags for each band index that differs ...</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_display_bands</span> <span class="o">=</span> <span class="n">display_bands</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_colormap</span> <span class="o">=</span> <span class="n">colormap</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_joint_render_cache</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># band selection feeds joint stretch input</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">update_display_image</span><span class="p">(</span><span class="n">colors</span><span class="o">=</span><span class="n">changed</span><span class="p">)</span>
+<section id="class-state">
+<h2>Class &amp; State<a class="headerlink" href="#class-state" title="Link to this heading">#</a></h2>
+<pre  class="mermaid">
+        classDiagram
+    class QDialog[&quot;QDialog (Qt)&quot;]
+    class ReferenceCreatorDialog {
+        reference_creator_dialog.py
+        +_create_crs()
+        +_export_creator_state()
+        -_new_crs : osr.SpatialReference
+    }
+    class CrsCreatorState {
+        &lt;&lt;immutable snapshot&gt;&gt;
+        +proj_type
+        +shape_type
+        +semi_major_value
+        +axis_ingest_type / value
+        +lon_meridian
+        +center_lon / latitude
+        +latitude_choice
+        +polar_stereo_scale / sign
+    }
+    QDialog &lt;|-- ReferenceCreatorDialog
+    ReferenceCreatorDialog --&gt; CrsCreatorState : exports / reloads
+    </pre><p><strong><code class="docutils literal notranslate"><span class="pre">ReferenceCreatorDialog</span></code></strong> owns the UI and the build logic. A family of <code class="docutils literal notranslate"><span class="pre">_init_*</span></code>
+methods wire each field group with validators (e.g. latitude clamped to ±90, longitude
+to ±180, the CRS name restricted to alphanumeric + underscore).</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code></strong> is an immutable snapshot of every field. After a successful build
+it is stored <em>alongside</em> the resulting <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>, which is what lets a saved
+custom CRS be re-selected and have its parameters reloaded into the dialog for editing.</p>
+<p>The dialog’s behavior is driven by several enums:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Enum</p></th>
+<th class="head"><p>Values</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ProjectionTypes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">EQUI_CYLINDRICAL</span></code>, <code class="docutils literal notranslate"><span class="pre">POLAR_STEREO</span></code>, <code class="docutils literal notranslate"><span class="pre">NO_PROJECTION</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ShapeTypes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ELLIPSOID</span></code>, <code class="docutils literal notranslate"><span class="pre">SPHEROID</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">EllipsoidAxisType</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SEMI_MINOR</span></code>, <code class="docutils literal notranslate"><span class="pre">INVERSE_FLATTENING</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LatitudeTypes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CENTRAL_LATITUDE</span></code>, <code class="docutils literal notranslate"><span class="pre">TRUE_SCALE_LATITUDE</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Sign</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">POSITIVE</span></code> (<code class="docutils literal notranslate"><span class="pre">+</span></code>), <code class="docutils literal notranslate"><span class="pre">NEGATIVE</span></code> (<code class="docutils literal notranslate"><span class="pre">-</span></code>) — polar-stereo pole</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Units</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">METERS</span></code>, <code class="docutils literal notranslate"><span class="pre">DEGREES</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="ui-workflow">
+<h2>UI / Workflow<a class="headerlink" href="#ui-workflow" title="Link to this heading">#</a></h2>
+<p>The form is organized into the groups a CRS definition needs:</p>
+<ul class="simple">
+<li><p><strong>Datum shape</strong> — <code class="docutils literal notranslate"><span class="pre">SPHEROID</span></code> (a single radius) or <code class="docutils literal notranslate"><span class="pre">ELLIPSOID</span></code> (semi-major axis plus
+either the semi-minor axis or the inverse flattening, selected via <code class="docutils literal notranslate"><span class="pre">EllipsoidAxisType</span></code>).</p></li>
+<li><p><strong>Prime meridian</strong> — the longitude offset applied to the datum (<code class="docutils literal notranslate"><span class="pre">+pm</span></code>).</p></li>
+<li><p><strong>Projection</strong> — one of <code class="docutils literal notranslate"><span class="pre">EQUI_CYLINDRICAL</span></code>, <code class="docutils literal notranslate"><span class="pre">POLAR_STEREO</span></code>, or <code class="docutils literal notranslate"><span class="pre">NO_PROJECTION</span></code>.</p></li>
+<li><p><strong>Projection parameters</strong> — central meridian (<code class="docutils literal notranslate"><span class="pre">center_lon</span></code>), a latitude value, and a
+<code class="docutils literal notranslate"><span class="pre">LatitudeTypes</span></code> choice of whether that latitude is the central latitude or the latitude
+of true scale. Polar Stereographic additionally needs either a scale factor
+(central-latitude mode) or a pole sign (true-scale mode).</p></li>
+<li><p><strong>Name</strong> — the key the CRS is stored and displayed under.</p></li>
+</ul>
+<p>A reset button clears the fields; the create/accept button runs <code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="crs-construction-create-crs">
+<h2>CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)<a class="headerlink" href="#crs-construction-create-crs" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code> validates the fields, builds a PROJ4 string, and converts it to an OSR
+spatial reference:</p>
+<pre  class="mermaid">
+        flowchart TD
+    V[&quot;validate required fields&lt;br/&gt;(per shape &amp; projection type)&quot;] --&gt; E[&quot;ellipsoid fragment:&lt;br/&gt;+R=a (sphere) | +a=a +rf=inv_f&quot;]
+    E --&gt; B[&quot;base = ellps + '+pm=&lt;meridian&gt; +no_defs'&quot;]
+    B --&gt; Pr[&quot;projection fragment&lt;br/&gt;(+proj=longlat | eqc | stere)&quot;]
+    Pr --&gt; Py[&quot;pyproj.CRS.from_proj4(proj_str)&quot;]
+    Py --&gt; W[&quot;osr.SpatialReference.ImportFromWkt(crs.to_wkt())&quot;]
+    W --&gt; Ax[&quot;SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)&quot;]
+    Ax --&gt; St[&quot;ApplicationState.add_user_created_crs(name, srs, state)&quot;]
+    </pre><p>The PROJ4 fragments assembled per choice:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Choice</p></th>
+<th class="head"><p>PROJ4 fragment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Sphere</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+R=&lt;a&gt;</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Ellipsoid</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+a=&lt;a&gt;</span> <span class="pre">+rf=&lt;inv_f&gt;</span></code> (inverse flattening derived from semi-minor if needed)</p></td>
+</tr>
+<tr class="row-even"><td><p>Base (always)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">…</span> <span class="pre">+pm=&lt;lon_meridian&gt;</span> <span class="pre">+no_defs</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>No Projection</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+proj=longlat</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Equidistance Cylindrical, central lat</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+proj=eqc</span> <span class="pre">+lon_0=&lt;center_lon&gt;</span> <span class="pre">+lat_0=&lt;lat&gt;</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Equidistance Cylindrical, true-scale lat</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+proj=eqc</span> <span class="pre">+lon_0=&lt;center_lon&gt;</span> <span class="pre">+lat_ts=&lt;lat&gt;</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Polar Stereographic, central lat</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+proj=stere</span> <span class="pre">+lat_0=&lt;lat&gt;</span> <span class="pre">+lon_0=&lt;center_lon&gt;</span> <span class="pre">+k=&lt;scale&gt;</span> <span class="pre">+x_0=0</span> <span class="pre">+y_0=0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Polar Stereographic, true-scale lat</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+proj=stere</span> <span class="pre">+lon_0=&lt;center_lon&gt;</span> <span class="pre">+lat_0=&lt;±&gt;90</span> <span class="pre">+lat_ts=&lt;lat&gt;</span> <span class="pre">+x_0=0</span> <span class="pre">+y_0=0</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The conversion goes PROJ4 → <code class="docutils literal notranslate"><span class="pre">pyproj.CRS</span></code> → WKT → <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>
+(<code class="docutils literal notranslate"><span class="pre">ImportFromWkt</span></code>), and the axis mapping is forced to <code class="docutils literal notranslate"><span class="pre">OAMS_TRADITIONAL_GIS_ORDER</span></code> — the
+same convention the georeferencer applies — so coordinate order is consistent everywhere
+the CRS is used.</p>
+</section>
+<hr class="docutils" />
+<section id="integration">
+<h2>Integration<a class="headerlink" href="#integration" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">add_user_created_crs(name,</span> <span class="pre">crs,</span> <span class="pre">state)</span></code> stores the pair in <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="bp">self</span><span class="o">.</span><span class="n">_user_created_crs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">osr</span><span class="o">.</span><span class="n">SpatialReference</span><span class="p">,</span> <span class="n">CrsCreatorState</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">ImageColors</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code>) is an <code class="docutils literal notranslate"><span class="pre">IntFlag</span></code>
-with <code class="docutils literal notranslate"><span class="pre">NONE=0</span></code>, <code class="docutils literal notranslate"><span class="pre">RED=1</span></code>, <code class="docutils literal notranslate"><span class="pre">GREEN=2</span></code>, <code class="docutils literal notranslate"><span class="pre">BLUE=4</span></code>, <code class="docutils literal notranslate"><span class="pre">RGB=7</span></code>. Switching the number of
-display bands (RGB ↔ grayscale) or changing the single grayscale band marks all
-channels dirty.</p>
-<section id="rgb-vs-grayscale-rendering">
-<h3>RGB vs grayscale rendering<a class="headerlink" href="#rgb-vs-grayscale-rendering" title="Link to this heading">#</a></h3>
-<ul class="simple">
-<li><p><strong>RGB (3 bands):</strong> each channel is stretched and scaled independently
-(<code class="docutils literal notranslate"><span class="pre">make_channel_image</span></code>), then the three <code class="docutils literal notranslate"><span class="pre">uint8</span></code> channels are packed into a
-<code class="docutils literal notranslate"><span class="pre">uint32</span></code> ARGB image by <code class="docutils literal notranslate"><span class="pre">make_rgb_image</span></code>.</p></li>
-<li><p><strong>Grayscale (1 band):</strong> the single stretched channel is duplicated across R, G,
-B, then <code class="docutils literal notranslate"><span class="pre">make_grayscale_image</span></code> either packs it as gray or, if a colormap is
-set, maps each <code class="docutils literal notranslate"><span class="pre">uint8</span></code> value through a 256-entry colormap lookup table.</p></li>
-</ul>
-<p>For how the stretch portion of this works (per-band vs joint), see the
-<a class="reference internal" href="stretch-builder.html"><span class="std std-doc">Stretch Builder</span></a>. For how results are cached, see
-<a class="reference internal" href="data-caching.html"><span class="std std-doc">Data Caching</span></a>.</p>
-</section>
+<p>(keyed by name, with a confirmation prompt before overwriting an existing name). The
+Georeferencer reads this map in <code class="docutils literal notranslate"><span class="pre">_update_output_srs_cbox_items</span></code> and wraps each entry in a
+<code class="docutils literal notranslate"><span class="pre">UserGeneratedCRS</span></code> so it appears in the output-CRS chooser. The stored <code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code>
+is what lets the CRS Creator reload a previously created CRS back into its fields for
+editing. See <a class="reference internal" href="georeferencer-internals.html"><span class="std std-doc">Georeferencer Internals</span></a> for how the resulting
+CRS feeds the warp.</p>
 </section>
 </section>
 
@@ -1119,20 +1055,20 @@ set, maps each <code class="docutils literal notranslate"><span class="pre">uint
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="rendering-pipeline.html"
+       href="georeferencer-internals.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Rendering Pipeline</p>
+        <p class="prev-next-title">Georeferencer Internals</p>
       </div>
     </a>
     <a class="right-next"
-       href="stretch-builder.html"
+       href="../contributing.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Stretch Builder</p>
+        <p class="prev-next-title">Contributing to WISER</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1155,17 +1091,10 @@ set, maps each <code class="docutils literal notranslate"><span class="pre">uint
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bandchooserdialog"><code class="docutils literal notranslate"><span class="pre">BandChooserDialog</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#automatic-band-selection">Automatic Band Selection</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#find-truecolor-bands-dataset-red-green-blue"><code class="docutils literal notranslate"><span class="pre">find_truecolor_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#find-display-bands-dataset-red-green-blue"><code class="docutils literal notranslate"><span class="pre">find_display_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#propagation">Propagation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rasterview-set-display-bands"><code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands()</span></code></a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rgb-vs-grayscale-rendering">RGB vs grayscale rendering</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-state">Class &amp; State</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-workflow">UI / Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-construction-create-crs">CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration">Integration</a></li>
 </ul>
   </nav></div>
 

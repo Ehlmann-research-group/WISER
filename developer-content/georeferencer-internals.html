@@ -1,0 +1,1582 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Georeferencer Internals &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/georeferencer-internals';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CRS Creator Internals" href="crs-creator-internals.html" />
+    <link rel="prev" title="Band Math Internals" href="bandmath-internals.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/georeferencer-internals.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/georeferencer-internals.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Georeferencer Internals</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-hierarchy">Class Hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-responsibilities">Class Responsibilities</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencerdialog">GeoReferencerDialog</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencerpane">GeoReferencerPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencertaskdelegate">GeoReferencerTaskDelegate</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-gcp-data-model">The GCP data model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeftableentry">GeoRefTableEntry</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-crs-model">The CRS model</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-gcp-collection-state-machine">The GCP Collection State Machine</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#click-gcp-table-data-flow">Click → GCP → Table Data Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transformation-models">Transformation Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#residual-computation-georeference">Residual Computation (<code class="docutils literal notranslate"><span class="pre">_georeference</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#warp-output-pipeline-create-warped-output">Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">_create_warped_output</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gcp-persistence">GCP Persistence</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="georeferencer-internals">
+<h1>Georeferencer Internals<a class="headerlink" href="#georeferencer-internals" title="Link to this heading">#</a></h1>
+<p>This page documents the internal architecture of WISER’s <strong>Georeferencer</strong> — the
+spatial tool that assigns or corrects a raster’s coordinate reference system (CRS) by
+collecting ground control points (GCPs) and warping the image onto real-world
+coordinates. It is intended for developers reading, debugging, or extending the tool.</p>
+<p>For the user-facing guide (what the tool does and how to operate it), see
+<a class="reference internal" href="../user-content/spatial-tools.html"><span class="std std-doc">Spatial Tools</span></a>. The georeferencer’s two image panes
+reuse the <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> infrastructure described in the
+<a class="reference internal" href="viewport-system.html"><span class="std std-doc">Viewport System</span></a> page.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>The georeferencer is built from two cooperating halves:</p>
+<ul class="simple">
+<li><p><strong>The UI / control layer</strong> — <code class="docutils literal notranslate"><span class="pre">GeoReferencerDialog</span></code> owns the whole dialog: two image
+panes (a <em>target</em> to be georeferenced and a <em>reference</em> providing real-world
+coordinates), a GCP table, and the output controls (CRS, transform type, resampling,
+save path). A <code class="docutils literal notranslate"><span class="pre">GeoReferencerTaskDelegate</span></code> interprets clicks and key presses in the
+panes and turns them into GCPs.</p></li>
+<li><p><strong>The data model</strong> — a small hierarchy of plain Python classes that represent GCPs
+(<code class="docutils literal notranslate"><span class="pre">GroundControlPoint</span></code> and subclasses), GCP pairs (<code class="docutils literal notranslate"><span class="pre">GroundControlPointPair</span></code>), table
+rows (<code class="docutils literal notranslate"><span class="pre">GeoRefTableEntry</span></code>), and coordinate reference systems (<code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code> and
+subclasses).</p></li>
+</ul>
+<p>The actual transformation math is delegated to <strong>GDAL/OSR</strong>: GCPs become <code class="docutils literal notranslate"><span class="pre">gdal.GCP</span></code>
+objects, the transform is a <code class="docutils literal notranslate"><span class="pre">gdal.Transformer</span></code> / <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> call, and CRSs are
+<code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code> objects.</p>
+<p>The dialog is created lazily from <code class="docutils literal notranslate"><span class="pre">App.show_geo_reference_dialog</span></code> in
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>, passed the shared <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> and the main view.</p>
+<p><strong>Core files:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Responsibility</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_dialog.py</span></code></p></td>
+<td><p>Dialog/controller, GCP table, CRS classes, residual + warp pipeline</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_task_delegate.py</span></code></p></td>
+<td><p>Input event state machine, GCP data model</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_pane.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GeoReferencerPane</span></code> — a stripped-down <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code></p></td>
+<td><p>Pixel ↔ spatial coordinate helpers used to build GCPs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="class-hierarchy">
+<h2>Class Hierarchy<a class="headerlink" href="#class-hierarchy" title="Link to this heading">#</a></h2>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class QDialog[&quot;QDialog (Qt)&quot;]
+    class RasterPane[&quot;RasterPane (see Viewport System)&quot;]
+    class TaskDelegate[&quot;TaskDelegate&quot;]
+
+    class GeoReferencerDialog {
+        geo_reference_dialog.py
+        +gcp_pair_added : Signal
+        +gcp_add_attempt : Signal
+        -_table_entry_list : list~GeoRefTableEntry~
+        -_warp_kwargs : dict
+        +_georeference()
+        +_create_warped_output()
+        +accept()
+    }
+
+    class GeoReferencerPane {
+        geo_reference_pane.py
+        -_pane_type : PointSelectorType
+        +get_point_selector_type()
+        +set_task_delegate()
+    }
+
+    class GeoReferencerTaskDelegate {
+        geo_reference_task_delegate.py
+        -_state : GeoReferencerState
+        -_current_point_pair : GroundControlPointPair
+        +on_mouse_release()
+        +handle_point_click_logic()
+        +handle_enter_key_release()
+        +handle_escape_key_release()
+    }
+
+    class GroundControlPoint {
+        &lt;&lt;abstract&gt;&gt;
+        +get_spatial_point()
+        +get_selector_type()
+    }
+    class GroundControlPointRasterPane {
+        +_point : (col,row)
+        +get_scaled_point()
+    }
+    class GroundControlPointCoordinate {
+        +_spatial_coord
+        +_srs
+    }
+    class GroundControlPointPair {
+        -_target_gcp
+        -_ref_gcp
+        +add_gcp()
+        +has_both_gcps()
+    }
+    class GeoRefTableEntry {
+        +get_gcp_pair()
+        +is_enabled()
+        +get_residual_x() / _y()
+    }
+
+    class GeneralCRS {
+        &lt;&lt;abstract&gt;&gt;
+        +get_osr_crs()
+    }
+    class AuthorityCodeCRS
+    class UserGeneratedCRS
+    class WktGeneratedCRS
+
+    QDialog &lt;|-- GeoReferencerDialog : subclass
+    RasterPane &lt;|-- GeoReferencerPane : subclass
+    TaskDelegate &lt;|-- GeoReferencerTaskDelegate : subclass
+
+    GroundControlPoint &lt;|-- GroundControlPointRasterPane
+    GroundControlPoint &lt;|-- GroundControlPointCoordinate
+    GeneralCRS &lt;|-- AuthorityCodeCRS
+    GeneralCRS &lt;|-- UserGeneratedCRS
+    GeneralCRS &lt;|-- WktGeneratedCRS
+
+    GeoReferencerDialog --&gt; GeoReferencerPane : owns 2 (target + reference)
+    GeoReferencerDialog --&gt; GeoReferencerTaskDelegate : owns
+    GeoReferencerDialog --&gt; GeoRefTableEntry : owns list
+    GeoReferencerDialog --&gt; GeneralCRS : output / reference CRS
+    GeoReferencerPane --&gt; GeoReferencerTaskDelegate : forwards events to
+    GeoReferencerTaskDelegate --&gt; GroundControlPointPair : builds
+    GroundControlPointPair --&gt; GroundControlPoint : target + reference
+    GeoRefTableEntry --&gt; GroundControlPointPair : wraps
+    </pre></section>
+<hr class="docutils" />
+<section id="class-responsibilities">
+<h2>Class Responsibilities<a class="headerlink" href="#class-responsibilities" title="Link to this heading">#</a></h2>
+<section id="georeferencerdialog">
+<h3>GeoReferencerDialog<a class="headerlink" href="#georeferencerdialog" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_dialog.py</span></code></p>
+<p><strong>Purpose:</strong> The top-level controller. Builds and wires the UI, owns the canonical list
+of GCP table rows (<code class="docutils literal notranslate"><span class="pre">_table_entry_list</span></code>), and runs both the residual computation and the
+final warp.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Constructing the two <code class="docutils literal notranslate"><span class="pre">GeoReferencerPane</span></code> instances (TARGET and REFERENCE) and the
+shared <code class="docutils literal notranslate"><span class="pre">GeoReferencerTaskDelegate</span></code></p></li>
+<li><p>The GCP <code class="docutils literal notranslate"><span class="pre">QTableWidget</span></code> and its backing <code class="docutils literal notranslate"><span class="pre">List[GeoRefTableEntry]</span></code>, including add/remove,
+enable/disable, per-row color, and inline coordinate edits</p></li>
+<li><p>The output controls: output CRS chooser (<code class="docutils literal notranslate"><span class="pre">cbox_srs</span></code>), resampling algorithm
+(<code class="docutils literal notranslate"><span class="pre">cbox_interpolation</span></code>), transform type (<code class="docutils literal notranslate"><span class="pre">cbox_poly_order</span></code>), and the save path</p></li>
+<li><p>Triggering <code class="docutils literal notranslate"><span class="pre">_georeference()</span></code> (recompute residuals) on every relevant change, and
+<code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code> when the dialog is accepted</p></li>
+<li><p>Saving/loading GCPs to/from disk</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>Per-click GCP state transitions (delegated to <code class="docutils literal notranslate"><span class="pre">GeoReferencerTaskDelegate</span></code>)</p></li>
+<li><p>Low-level rendering, zoom, and coordinate conversion (inherited <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> /
+<code class="docutils literal notranslate"><span class="pre">RasterView</span></code> behavior)</p></li>
+<li><p>The transformation math itself (delegated to GDAL)</p></li>
+</ul>
+<p><strong>Signals:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Argument</p></th>
+<th class="head"><p>Emitted when</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gcp_pair_added</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GroundControlPointPair</span></code></p></td>
+<td><p>A complete target+reference pair is finalized</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gcp_add_attempt</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GroundControlPoint</span></code></p></td>
+<td><p>A reference point is added via manual lat/lon entry</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="georeferencerpane">
+<h3>GeoReferencerPane<a class="headerlink" href="#georeferencerpane" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_pane.py</span></code></p>
+<p><strong>Purpose:</strong> A purpose-built <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> subclass (also implements <code class="docutils literal notranslate"><span class="pre">PointSelector</span></code>)
+used for both the target and reference image. It strips out features the georeferencer
+does not need — dataset adding, ROI/selection tools — and routes raw input events to the
+task delegate.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>Its <code class="docutils literal notranslate"><span class="pre">PointSelectorType</span></code> (<code class="docutils literal notranslate"><span class="pre">TARGET_POINT_SELECTOR</span></code> or <code class="docutils literal notranslate"><span class="pre">REFERENCE_POINT_SELECTOR</span></code>),
+returned by <code class="docutils literal notranslate"><span class="pre">get_point_selector_type()</span></code> — this is how the rest of the system tells the
+two panes apart</p></li>
+<li><p>Forwarding <code class="docutils literal notranslate"><span class="pre">mouseRelease</span></code>, <code class="docutils literal notranslate"><span class="pre">keyPress</span></code>, and <code class="docutils literal notranslate"><span class="pre">keyRelease</span></code> events to the task delegate
+(<code class="docutils literal notranslate"><span class="pre">_onRasterMouseRelease</span></code>, <code class="docutils literal notranslate"><span class="pre">_onRasterKeyRelease</span></code>, …), then refreshing the view</p></li>
+<li><p>Drawing GCP markers via the delegate’s <code class="docutils literal notranslate"><span class="pre">draw_state()</span></code> in <code class="docutils literal notranslate"><span class="pre">_afterRasterPaint</span></code></p></li>
+<li><p>A wider zoom range than a normal pane (up to 64×) for precise point placement</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>GCP state or pairing logic (delegated)</p></li>
+<li><p>ROI/selection tools (deliberately disabled — <code class="docutils literal notranslate"><span class="pre">_init_select_tools</span></code> is a no-op)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="georeferencertaskdelegate">
+<h3>GeoReferencerTaskDelegate<a class="headerlink" href="#georeferencertaskdelegate" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_task_delegate.py</span></code></p>
+<p><strong>Purpose:</strong> The input state machine. A single delegate instance is shared by both panes
+and converts the sequence of clicks and ENTER/ESC presses into completed
+<code class="docutils literal notranslate"><span class="pre">GroundControlPointPair</span></code>s. It also draws the GCP markers.</p>
+<p><strong>Controls:</strong></p>
+<ul class="simple">
+<li><p>The current <code class="docutils literal notranslate"><span class="pre">GeoReferencerState</span></code> and the in-progress <code class="docutils literal notranslate"><span class="pre">_current_point_pair</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">handle_point_click_logic()</span></code> — what a click means in the current state</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">handle_enter_key_release()</span></code> / <code class="docutils literal notranslate"><span class="pre">handle_escape_key_release()</span></code> — confirm / undo</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_on_gcp_add_attempt()</span></code> — the manual-entry path (a reference point typed as lat/lon)</p></li>
+<li><p>Painting completed and in-progress GCP markers (<code class="docutils literal notranslate"><span class="pre">draw_state</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">check_state()</span></code> — defensive assertions that the internal fields are consistent with
+the declared state after every transition</p></li>
+</ul>
+<p><strong>Does not control:</strong></p>
+<ul class="simple">
+<li><p>The GCP table or residual computation (it only emits <code class="docutils literal notranslate"><span class="pre">gcp_pair_added</span></code>; the dialog
+reacts)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="the-gcp-data-model">
+<h3>The GCP data model<a class="headerlink" href="#the-gcp-data-model" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_task_delegate.py</span></code></p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">GroundControlPoint</span></code></strong> (ABC) — the minimum a GCP needs: a spatial point, its CRS,
+and which selector (pane) it belongs to. Note it does <strong>not</strong> require a raster/pixel
+coordinate, because a real-world GCP is fundamentally a spatial coordinate.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">GroundControlPointRasterPane</span></code></strong> — a GCP created by clicking a pane. Stores the
+pixel coordinate <code class="docutils literal notranslate"><span class="pre">_point</span></code> and the pane’s dataset, and derives the spatial coordinate
+on demand via <code class="docutils literal notranslate"><span class="pre">dataset.to_geographic_coords(point)</span></code>. <code class="docutils literal notranslate"><span class="pre">set_spatial_point()</span></code> does the
+reverse using <code class="docutils literal notranslate"><span class="pre">dataset.geo_to_pixel_coords_exact()</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">GroundControlPointCoordinate</span></code></strong> — a purely spatial GCP (no pixel coordinate), used
+for the manual reference-point entry path. Holds <code class="docutils literal notranslate"><span class="pre">_spatial_coord</span></code> and an explicit
+<code class="docutils literal notranslate"><span class="pre">_srs</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">GroundControlPointPair</span></code></strong> — holds one target GCP and one reference GCP. <code class="docutils literal notranslate"><span class="pre">add_gcp()</span></code>
+routes an incoming GCP to the right slot based on its <code class="docutils literal notranslate"><span class="pre">get_selector_type()</span></code>, so order
+of insertion does not matter.</p></li>
+</ul>
+</section>
+<section id="georeftableentry">
+<h3>GeoRefTableEntry<a class="headerlink" href="#georeftableentry" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_dialog.py</span></code></p>
+<p><strong>Purpose:</strong> The model object behind one row of the GCP table. Wraps a
+<code class="docutils literal notranslate"><span class="pre">GroundControlPointPair</span></code> plus presentation/derived state: <code class="docutils literal notranslate"><span class="pre">enabled</span></code>, <code class="docutils literal notranslate"><span class="pre">id</span></code>, the computed
+residuals (<code class="docutils literal notranslate"><span class="pre">residual_x</span></code>, <code class="docutils literal notranslate"><span class="pre">residual_y</span></code>), and a hex <code class="docutils literal notranslate"><span class="pre">color</span></code>. Column indices are defined by
+the <code class="docutils literal notranslate"><span class="pre">COLUMN_ID</span></code> enum.</p>
+</section>
+<section id="the-crs-model">
+<h3>The CRS model<a class="headerlink" href="#the-crs-model" title="Link to this heading">#</a></h3>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_dialog.py</span></code></p>
+<p>All CRSs are represented through the <code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code> ABC, whose single contract is
+<code class="docutils literal notranslate"><span class="pre">get_osr_crs()</span> <span class="pre">-&gt;</span> <span class="pre">osr.SpatialReference</span></code>. This lets the dialog treat every CRS source
+uniformly (and compare them by WKT via <code class="docutils literal notranslate"><span class="pre">__eq__</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Class</p></th>
+<th class="head"><p>Built from</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AuthorityCodeCRS</span></code></p></td>
+<td><p>An authority name + code, e.g. <code class="docutils literal notranslate"><span class="pre">EPSG:4326</span></code> (<code class="docutils literal notranslate"><span class="pre">SetFromUserInput</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UserGeneratedCRS</span></code></p></td>
+<td><p>A custom <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code> from the <a class="reference internal" href="crs-creator-internals.html"><span class="std std-doc">CRS Creator</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WktGeneratedCRS</span></code></p></td>
+<td><p>A raw WKT string (e.g. recovered from a loaded GCP file)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">COMMON_SRS</span></code> provides a few built-in <code class="docutils literal notranslate"><span class="pre">AuthorityCodeCRS</span></code> entries (WGS84, Web Mercator,
+NAD83 / UTM 15N) that always appear in the output-CRS chooser.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="the-gcp-collection-state-machine">
+<h2>The GCP Collection State Machine<a class="headerlink" href="#the-gcp-collection-state-machine" title="Link to this heading">#</a></h2>
+<p>Collecting one GCP pair is a four-step dance: click a point in one pane, press ENTER to
+“lock” it, click the corresponding point in the other pane, press ENTER again to commit
+the pair. <code class="docutils literal notranslate"><span class="pre">GeoReferencerState</span></code> tracks where the user is in that cycle. (There is a
+transient <code class="docutils literal notranslate"><span class="pre">SECOND_POINT_ENTERED</span></code> state that exists only for code clarity — it is set and
+then immediately replaced by <code class="docutils literal notranslate"><span class="pre">NOTHING_SELECTED</span></code>.)</p>
+<pre  class="mermaid">
+        stateDiagram-v2
+    [*] --&gt; NOTHING_SELECTED
+    NOTHING_SELECTED --&gt; FIRST_POINT_SELECTED : click a pane
+    FIRST_POINT_SELECTED --&gt; FIRST_POINT_SELECTED : click again (re-place point)
+    FIRST_POINT_SELECTED --&gt; NOTHING_SELECTED : ESC (discard)
+    FIRST_POINT_SELECTED --&gt; FIRST_POINT_ENTERED : ENTER (lock first point)
+    FIRST_POINT_ENTERED --&gt; SECOND_POINT_SELECTED : click the OTHER pane
+    FIRST_POINT_ENTERED --&gt; FIRST_POINT_SELECTED : ESC (unlock)
+    SECOND_POINT_SELECTED --&gt; FIRST_POINT_ENTERED : ESC (remove second point)
+    SECOND_POINT_SELECTED --&gt; NOTHING_SELECTED : ENTER (commit pair → gcp_pair_added)
+    </pre><p>Manual reference entry is a shortcut: <code class="docutils literal notranslate"><span class="pre">_on_gcp_add_attempt()</span></code> injects a
+<code class="docutils literal notranslate"><span class="pre">GroundControlPointCoordinate</span></code> directly, jumping from <code class="docutils literal notranslate"><span class="pre">NOTHING_SELECTED</span></code> /
+<code class="docutils literal notranslate"><span class="pre">FIRST_POINT_SELECTED</span></code> to <code class="docutils literal notranslate"><span class="pre">FIRST_POINT_ENTERED</span></code>, or from <code class="docutils literal notranslate"><span class="pre">FIRST_POINT_ENTERED</span></code> /
+<code class="docutils literal notranslate"><span class="pre">SECOND_POINT_SELECTED</span></code> straight to a committed pair.</p>
+<p><strong>Transitions and handlers</strong> (all in <code class="docutils literal notranslate"><span class="pre">geo_reference_task_delegate.py</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>From state</p></th>
+<th class="head"><p>Input</p></th>
+<th class="head"><p>Handler</p></th>
+<th class="head"><p>Result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NOTHING_SELECTED</span></code></p></td>
+<td><p>click a pane</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_point_click_logic</span></code></p></td>
+<td><p>new pair, <code class="docutils literal notranslate"><span class="pre">FIRST_POINT_SELECTED</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FIRST_POINT_SELECTED</span></code></p></td>
+<td><p>ENTER</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_enter_key_release</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FIRST_POINT_ENTERED</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FIRST_POINT_SELECTED</span></code></p></td>
+<td><p>ESC</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_escape_key_release</span></code></p></td>
+<td><p>discard, <code class="docutils literal notranslate"><span class="pre">NOTHING_SELECTED</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FIRST_POINT_ENTERED</span></code></p></td>
+<td><p>click the <em>other</em> pane</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_point_click_logic</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">add_gcp</span></code>, <code class="docutils literal notranslate"><span class="pre">SECOND_POINT_SELECTED</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FIRST_POINT_ENTERED</span></code></p></td>
+<td><p>ESC</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_escape_key_release</span></code></p></td>
+<td><p>back to <code class="docutils literal notranslate"><span class="pre">FIRST_POINT_SELECTED</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SECOND_POINT_SELECTED</span></code></p></td>
+<td><p>ENTER</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_enter_key_release</span></code></p></td>
+<td><p>emit <code class="docutils literal notranslate"><span class="pre">gcp_pair_added</span></code>, <code class="docutils literal notranslate"><span class="pre">NOTHING_SELECTED</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SECOND_POINT_SELECTED</span></code></p></td>
+<td><p>ESC</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">handle_escape_key_release</span></code></p></td>
+<td><p>remove 2nd GCP, <code class="docutils literal notranslate"><span class="pre">FIRST_POINT_ENTERED</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>any</p></td>
+<td><p>manual ref entry</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_on_gcp_add_attempt</span></code></p></td>
+<td><p>inject <code class="docutils literal notranslate"><span class="pre">GroundControlPointCoordinate</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A guardrail throughout: clicking the <em>same</em> pane twice in a row (instead of alternating
+target/reference) does not advance the machine — the delegate posts a message telling
+the user to press ENTER or ESC first.</p>
+</section>
+<hr class="docutils" />
+<section id="click-gcp-table-data-flow">
+<h2>Click → GCP → Table Data Flow<a class="headerlink" href="#click-gcp-table-data-flow" title="Link to this heading">#</a></h2>
+<p>The pane forwards raw Qt events to the delegate; the delegate emits <code class="docutils literal notranslate"><span class="pre">gcp_pair_added</span></code>
+once a pair is complete; the dialog reacts by adding a table row and recomputing
+residuals.</p>
+<pre  class="mermaid">
+        sequenceDiagram
+    participant User
+    participant Pane as GeoReferencerPane
+    participant Del as GeoReferencerTaskDelegate
+    participant Dlg as GeoReferencerDialog
+    participant Table as GCP Table
+
+    User-&gt;&gt;Pane: click target image
+    Pane-&gt;&gt;Del: on_mouse_release()
+    Del-&gt;&gt;Del: handle_point_click_logic()&lt;br/&gt;→ FIRST_POINT_SELECTED
+    User-&gt;&gt;Pane: press ENTER
+    Pane-&gt;&gt;Del: on_key_release()
+    Del-&gt;&gt;Del: handle_enter_key_release()&lt;br/&gt;→ FIRST_POINT_ENTERED
+    User-&gt;&gt;Pane: click reference image
+    Pane-&gt;&gt;Del: on_mouse_release()
+    Del-&gt;&gt;Del: add_gcp() → SECOND_POINT_SELECTED
+    User-&gt;&gt;Pane: press ENTER
+    Pane-&gt;&gt;Del: on_key_release()
+    Del-&gt;&gt;Dlg: gcp_pair_added.emit(pair)
+    Dlg-&gt;&gt;Table: _on_gcp_pair_added()&lt;br/&gt;add GeoRefTableEntry row
+    Dlg-&gt;&gt;Dlg: _georeference() (recompute residuals)
+    Dlg-&gt;&gt;Table: _update_residuals() per row
+    </pre><p>Editing a cell in the table (<code class="docutils literal notranslate"><span class="pre">_on_cell_changed</span></code>), toggling a row’s <em>enabled</em> checkbox,
+or switching the output CRS / reference CRS / transform type all re-enter
+<code class="docutils literal notranslate"><span class="pre">_georeference()</span></code> so the residual columns stay live.</p>
+</section>
+<hr class="docutils" />
+<section id="transformation-models">
+<h2>Transformation Models<a class="headerlink" href="#transformation-models" title="Link to this heading">#</a></h2>
+<p>The transform type is chosen from the <code class="docutils literal notranslate"><span class="pre">TRANSFORM_TYPES</span></code> enum. Each maps to a GDAL
+transformer method and has a minimum GCP count (<code class="docutils literal notranslate"><span class="pre">min_points_per_transform</span></code>):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Transform</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">TRANSFORM_TYPES</span></code></p></th>
+<th class="head"><p>Min GCPs</p></th>
+<th class="head"><p>GDAL mapping</p></th>
+<th class="head"><p>Use when</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Affine</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">POLY_1</span></code></p></td>
+<td><p>3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">METHOD=GCP_POLYNOMIAL</span></code>, <code class="docutils literal notranslate"><span class="pre">MAX_GCP_ORDER=1</span></code></p></td>
+<td><p>Pure translate/scale/rotate/shear</p></td>
+</tr>
+<tr class="row-odd"><td><p>Polynomial 2</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">POLY_2</span></code></p></td>
+<td><p>6</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">METHOD=GCP_POLYNOMIAL</span></code>, <code class="docutils literal notranslate"><span class="pre">MAX_GCP_ORDER=2</span></code></p></td>
+<td><p>Mild, smooth distortion</p></td>
+</tr>
+<tr class="row-even"><td><p>Polynomial 3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">POLY_3</span></code></p></td>
+<td><p>10</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">METHOD=GCP_POLYNOMIAL</span></code>, <code class="docutils literal notranslate"><span class="pre">MAX_GCP_ORDER=3</span></code></p></td>
+<td><p>Stronger distortion</p></td>
+</tr>
+<tr class="row-odd"><td><p>Thin Plate Spline</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TPS</span></code></p></td>
+<td><p>10</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tps=True</span></code>, <code class="docutils literal notranslate"><span class="pre">METHOD=GCP_TPS</span></code>, <code class="docutils literal notranslate"><span class="pre">MAX_GCP_ORDER=-1</span></code></p></td>
+<td><p>Local, non-uniform warping; passes through all GCPs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These selections are written into <code class="docutils literal notranslate"><span class="pre">_warp_kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">_transform_options</span></code> in
+<code class="docutils literal notranslate"><span class="pre">_georeference()</span></code>, and reused unchanged by <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="residual-computation-georeference">
+<h2>Residual Computation (<code class="docutils literal notranslate"><span class="pre">_georeference</span></code>)<a class="headerlink" href="#residual-computation-georeference" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">_georeference()</span></code> runs after every change to give the user immediate feedback on how
+well each GCP fits the chosen transform. It does <strong>not</strong> warp the real image — it builds
+a 1×1 placeholder dataset purely to drive GDAL’s transformer.</p>
+<pre  class="mermaid">
+        flowchart TD
+    A[&quot;_get_entry_gcp_list()&lt;br/&gt;enabled rows → gdal.GCP&quot;] --&gt; B[&quot;build output_srs + ref_srs&lt;br/&gt;(OAMS_TRADITIONAL_GIS_ORDER)&quot;]
+    B --&gt; C[&quot;assemble _warp_kwargs +&lt;br/&gt;transformerOptions (per transform type)&quot;]
+    C --&gt; D[&quot;gdal.Transformer(temp_ds, options)&lt;br/&gt;pixel → output SRS&quot;]
+    D --&gt; E[&quot;per GCP: TransformPoint(pixel)&lt;br/&gt;→ output-SRS coord&quot;]
+    E --&gt; F[&quot;CoordinateTransformation&lt;br/&gt;output SRS → reference SRS&quot;]
+    F --&gt; G[&quot;spatial error = gcp.GCPX/Y − transformed X/Y&quot;]
+    G --&gt; H[&quot;pixel error = spatial error ÷&lt;br/&gt;warped geotransform pixel size&quot;]
+    H --&gt; I[&quot;entry.set_residual_x/y()&lt;br/&gt;→ dX/dY columns&quot;]
+    </pre><p>Key details:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_get_entry_gcp_list()</span></code> skips disabled rows and builds
+<code class="docutils literal notranslate"><span class="pre">gdal.GCP(spatial_x,</span> <span class="pre">spatial_y,</span> <span class="pre">0,</span> <span class="pre">pixel_x,</span> <span class="pre">pixel_y)</span></code> — the spatial coordinate comes
+from the <em>reference</em> GCP, the pixel coordinate from the <em>target</em> GCP.</p></li>
+<li><p>Both the output SRS (<code class="docutils literal notranslate"><span class="pre">_import_current_output_srs</span></code>) and reference SRS
+(<code class="docutils literal notranslate"><span class="pre">_get_reference_srs</span></code>) are forced to <code class="docutils literal notranslate"><span class="pre">OAMS_TRADITIONAL_GIS_ORDER</span></code> so axis ordering
+(lat/lon vs lon/lat) does not silently flip coordinates.</p></li>
+<li><p>The error is first measured in reference-SRS units, then converted to pixels by
+dividing by the warped geotransform’s pixel width/height (<code class="docutils literal notranslate"><span class="pre">transformed_gt[1]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">transformed_gt[5]</span></code>), which is why the residuals are reported in pixels.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="warp-output-pipeline-create-warped-output">
+<h2>Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">_create_warped_output</span></code>)<a class="headerlink" href="#warp-output-pipeline-create-warped-output" title="Link to this heading">#</a></h2>
+<p>Accepting the dialog calls <code class="docutils literal notranslate"><span class="pre">accept()</span></code> → <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>, which produces the
+georeferenced GeoTIFF. Because hyperspectral cubes can be very large, the band data is
+processed in RAM-bounded chunks.</p>
+<pre  class="mermaid">
+        flowchart TD
+    V[&quot;validate: save path, enough GCPs, target selected&quot;] --&gt; P[&quot;probe output size:&lt;br/&gt;warp band 0 to /vsimem&quot;]
+    P --&gt; Branch{target impl &amp; size}
+    Branch --&gt;|&quot;GDALRasterDataImpl&quot;| G[&quot;Translate → VRT,&lt;br/&gt;SetGCPs, gdal.Warp whole dataset&quot;]
+    Branch --&gt;|&quot;numpy &amp; fits in RAM&quot;| N[&quot;OpenNumPyArray,&lt;br/&gt;SetGCPs, gdal.Warp whole array&quot;]
+    Branch --&gt;|&quot;too big for RAM&quot;| C[&quot;chunk bands by MAX_RAM_BYTES:&lt;br/&gt;warp each chunk, write incrementally&quot;]
+    C --&gt; M[&quot;driver.Create GTiff,&lt;br/&gt;SetGeoTransform + SetSpatialRef&quot;]
+    G --&gt; F[&quot;copy_metadata_to_gdal_dataset, FlushCache&quot;]
+    N --&gt; F
+    M --&gt; F
+    </pre><p><code class="docutils literal notranslate"><span class="pre">_warp_kwargs</span></code> carries everything GDAL needs:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">copyMetadata</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Preserve source metadata</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">resampleAlg</span></code></p></td>
+<td><p>a <code class="docutils literal notranslate"><span class="pre">GRA_*</span></code> constant</p></td>
+<td><p>From the interpolation chooser</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dstSRS</span></code></p></td>
+<td><p>output <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code></p></td>
+<td><p>The chosen output CRS</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">polynomialOrder</span></code> / <code class="docutils literal notranslate"><span class="pre">tps</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code>/<code class="docutils literal notranslate"><span class="pre">2</span></code>/<code class="docutils literal notranslate"><span class="pre">3</span></code> or <code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Set per transform type</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">transformerOptions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[&quot;METHOD=…&quot;,</span> <span class="pre">&quot;MAX_GCP_ORDER=…&quot;]</span></code></p></td>
+<td><p>Mirrors the transform type</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The available resampling algorithms are discovered dynamically:
+<code class="docutils literal notranslate"><span class="pre">RESAMPLE_ALGORITHMS</span> <span class="pre">=</span> <span class="pre">{name:</span> <span class="pre">getattr(gdal,</span> <span class="pre">name)</span> <span class="pre">for</span> <span class="pre">name</span> <span class="pre">in</span> <span class="pre">dir(gdal)</span> <span class="pre">if</span> <span class="pre">name.startswith(&quot;GRA_&quot;)}</span></code>
+— i.e. all of GDAL’s <code class="docutils literal notranslate"><span class="pre">GRA_NearestNeighbour</span></code>, <code class="docutils literal notranslate"><span class="pre">GRA_Bilinear</span></code>, <code class="docutils literal notranslate"><span class="pre">GRA_Cubic</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GRA_CubicSpline</span></code>, <code class="docutils literal notranslate"><span class="pre">GRA_Lanczos</span></code>, etc.</p>
+<p>In every branch the GCPs are attached to a temporary GDAL dataset via
+<code class="docutils literal notranslate"><span class="pre">SetGCPs(gcps,</span> <span class="pre">ref_projection)</span></code> <em>before</em> warping, so GDAL derives the geometric
+transform from the GCPs rather than from any pre-existing geotransform on the source.</p>
+</section>
+<hr class="docutils" />
+<section id="gcp-persistence">
+<h2>GCP Persistence<a class="headerlink" href="#gcp-persistence" title="Link to this heading">#</a></h2>
+<p>GCPs can be saved and reloaded in two formats, chosen by file extension in
+<code class="docutils literal notranslate"><span class="pre">_on_save_gcps_clicked</span></code> / <code class="docutils literal notranslate"><span class="pre">_on_load_gcps_clicked</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Extension</p></th>
+<th class="head"><p>CRS header</p></th>
+<th class="head"><p>Writer / reader</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>QGIS points</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.points</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">CRS,</span> <span class="pre">EPSG:code</span></code> row (CSV)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_write_qgis_points_file</span></code> / <code class="docutils literal notranslate"><span class="pre">_read_qgis_points_file</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>ENVI points</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.pts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">;</span> <span class="pre">projection</span> <span class="pre">info</span> <span class="pre">=</span> <span class="pre">{auth,</span> <span class="pre">code,</span> <span class="pre">units=Degrees}</span></code> comment</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_write_envi_pts_file</span></code> / <code class="docutils literal notranslate"><span class="pre">_read_envi_pts_file</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>On load, <code class="docutils literal notranslate"><span class="pre">_read_gcp_file</span></code> dispatches by extension; <code class="docutils literal notranslate"><span class="pre">load_gcps_and_srs</span></code> rebuilds the
+<code class="docutils literal notranslate"><span class="pre">GeoRefTableEntry</span></code> rows and the associated <code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code>. Both readers fall back to an
+embedded WKT line if the authority header is missing. <code class="docutils literal notranslate"><span class="pre">compare_srs_lenient</span></code> is used to
+reconcile a loaded file’s CRS against the current reference CRS.</p>
+</section>
+<hr class="docutils" />
+<section id="integration-with-wiser">
+<h2>Integration with WISER<a class="headerlink" href="#integration-with-wiser" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code></strong> — the dialog reads open datasets to populate the target /
+reference choosers, and reads <code class="docutils literal notranslate"><span class="pre">get_user_created_crs()</span></code> to add each
+<a class="reference internal" href="crs-creator-internals.html"><span class="std std-doc">CRS Creator</span></a> CRS to the output-CRS chooser as a
+<code class="docutils literal notranslate"><span class="pre">UserGeneratedCRS</span></code> (alongside the reference dataset’s own CRS and the <code class="docutils literal notranslate"><span class="pre">COMMON_SRS</span></code>
+presets).</p></li>
+<li><p><strong>Viewport reuse</strong> — <code class="docutils literal notranslate"><span class="pre">GeoReferencerPane</span></code> extends <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code>, so it inherits the
+rendering, zoom, and coordinate-conversion machinery documented in the
+<a class="reference internal" href="viewport-system.html"><span class="std std-doc">Viewport System</span></a> page; the georeferencer only adds point
+selection on top.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code></strong> — GCP spatial coordinates come from
+<code class="docutils literal notranslate"><span class="pre">RasterDataSet.to_geographic_coords()</span></code> and <code class="docutils literal notranslate"><span class="pre">geo_to_pixel_coords_exact()</span></code>, and CRSs
+from <code class="docutils literal notranslate"><span class="pre">get_spatial_ref()</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>).</p></li>
+<li><p><strong>Entry point</strong> — <code class="docutils literal notranslate"><span class="pre">App.show_geo_reference_dialog</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>) constructs
+the dialog lazily with the shared <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> and the main view, then
+<code class="docutils literal notranslate"><span class="pre">exec_()</span></code>s it.</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="bandmath-internals.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Band Math Internals</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="crs-creator-internals.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">CRS Creator Internals</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-hierarchy">Class Hierarchy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-responsibilities">Class Responsibilities</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencerdialog">GeoReferencerDialog</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencerpane">GeoReferencerPane</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencertaskdelegate">GeoReferencerTaskDelegate</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-gcp-data-model">The GCP data model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeftableentry">GeoRefTableEntry</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-crs-model">The CRS model</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-gcp-collection-state-machine">The GCP Collection State Machine</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#click-gcp-table-data-flow">Click → GCP → Table Data Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transformation-models">Transformation Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#residual-computation-georeference">Residual Computation (<code class="docutils literal notranslate"><span class="pre">_georeference</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#warp-output-pipeline-create-warped-output">Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">_create_warped_output</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gcp-persistence">GCP Persistence</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
