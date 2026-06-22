@@ -13,7 +13,7 @@ A **load/restore orchestrator** that opens a bundle and reconstructs the session
 4. Restore **user CRSs** [09](09-user-crs-persistence.md) and **band-math expressions** [10](10-band-math-expression-persistence.md) (independent — any time).
 5. Restore **ROIs** [04](04-roi-persistence.md).
 6. Restore **stretches** [07](07-contrast-stretch-persistence.md), keyed onto restored datasets; drop leaves whose dataset is absent.
-7. Restore **spectra** [05](05-spectra-persistence.md) and **spectral libraries** [06](06-spectral-library-persistence.md): rebuild FAITHFUL objects against restored datasets/ROIs; otherwise rehydrate snapshots (with provenance so they remain upgradeable).
+7. Restore **spectra** [05](05-spectra-persistence.md) and **spectral libraries** [06](06-spectral-library-persistence.md): rebuild FAITHFUL objects against restored datasets/ROIs; otherwise rehydrate frozen snapshots as `NumPyArraySpectrum` instances.
 8. Restore **run histories** [08](08-run-history-persistence.md): wire records to restored datasets, or place into "closed runs" when a dataset is absent.
 9. Rebuild `[DERIVED]` state (e.g. `_all_spectra` index); leave caches to lazily recompute.
 10. Emit the appropriate `ApplicationState` signals so the UI reflects the restored session.

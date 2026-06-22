@@ -10,7 +10,7 @@ A **dependency-aware Save dialog** plus the top-level save flow, driven by the r
 
 **Dialog behavior:**
 1. List the **savable roots** (RAM-backed datasets, in-memory libraries) with checkboxes. File-backed datasets/libraries are free and need no decision (shown as auto-included).
-2. When a root is unchecked, **live-cascade** the consequence: show, per dependent item, whether it will be **FAITHFUL**, **SNAPSHOT** (with a one-line "frozen, can be re-linked later" note), or **DROP** (with a warning).
+2. When a root is unchecked, **live-cascade** the consequence: show, per dependent item, whether it will be **FAITHFUL**, **SNAPSHOT** (with a one-line "will be saved as a frozen copy" note), or **DROP** (with a warning).
 3. For DROP-eligible items, offer the **snapshot escape hatch** ("freeze this spectrum so it survives without its dataset") where snapshotting is possible.
 4. Offer **"promote to file"** for a RAM dataset (write to an external path and reference it) as an optional alternative to a bundle sidecar.
 5. Summarize warnings (what will be dropped) before the user confirms.

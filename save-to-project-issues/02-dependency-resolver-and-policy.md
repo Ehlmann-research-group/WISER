@@ -12,12 +12,12 @@ A **dependency resolver + save-policy engine** that every item persister (what i
 2. **Confirm acyclicity** and expose the roots and each item's transitive dependencies. (Per analysis, the graph is a DAG with datasets as sinks; the resolver should assert this and fail loudly if a cycle ever appears.)
 3. **Compute the cascade**: given a set of unsaved roots, classify every other item as one of:
    - **FAITHFUL** — all deps present → reconstruct the real object on load.
-   - **SNAPSHOT** — a dep is cut but the item is cheap to freeze (e.g. a dataset-backed spectrum → `NumPyArraySpectrum` with provenance) → save self-contained, re-linkable later.
+   - **SNAPSHOT** — a dep is cut but the item is cheap to freeze (e.g. a dataset-backed spectrum → `NumPyArraySpectrum`) → save the data self-contained.
    - **DROP** — cannot snapshot or user declined → omit, and record a warning.
 4. **Provide the policy decision per item type** (which edges are snapshot-able vs. dropped) so the user facing save project file dialog and the object that writes the project file share the same knowledge ion one place.
 5. **Produce a human-readable report** of the cascade (what will be faithful / snapshotted / dropped and why) for the save project file dialog ([11](11-save-flow-and-dialog-ux.md)) to render.
 
-This engine encodes the epic's governing rule: *faithful when deps present, snapshot (with provenance) when cut, drop only if declined — never a dangling reference.*
+This engine encodes the epic's governing rule: *faithful when deps present, snapshot when cut, drop only if declined — never a dangling reference.*
 
 ## Describe how solution fits WISER's mission
 
@@ -33,4 +33,4 @@ Centralizing the dependency logic guarantees consistent, explainable save behavi
 
 - Depends on the format/pyrep conventions in [01](01-project-bundle-format-and-pyrep.md).
 - Consumed by the save dialog [11](11-save-flow-and-dialog-ux.md) and informs every item persister (05–08 especially).
-- The "snapshot with provenance, upgradeable later" pattern mirrors how run records already snapshot endmembers/eigenvalues while referencing datasets ([app-state.md](../doc/sphinx-general-wiser-docs/source/developer-content/app-state.md)).
+- The snapshot pattern mirrors how run records already snapshot endmembers/eigenvalues — small, self-contained values saved directly into the record ([app-state.md](../doc/sphinx-general-wiser-docs/source/developer-content/app-state.md)).

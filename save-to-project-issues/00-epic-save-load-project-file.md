@@ -13,7 +13,7 @@ The project is saved as a **bundle** (a directory, optionally zipped): a small, 
 
 The design is governed by one rule, derived from the fact that the state forms a **DAG rooted at datasets**:
 
-> **Reconstruct faithfully when a dependency is present; snapshot it (with provenance, so it can be re-linked later) when the dependency is cut; drop it only if the user explicitly declines the snapshot — never write a dangling reference.**
+> **Reconstruct faithfully when a dependency is present; snapshot it when the dependency is cut; drop it only if the user explicitly declines the snapshot — never write a dangling reference.**
 
 Scope of what is saved (each its own sub-issue):
 
