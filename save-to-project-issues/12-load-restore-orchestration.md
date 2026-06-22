@@ -15,14 +15,21 @@ A **load/restore orchestrator** that opens a bundle and reconstructs the session
 6. Restore **stretches** [07](07-contrast-stretch-persistence.md), keyed onto restored datasets; drop leaves whose dataset is absent.
 7. Restore **spectra** [05](05-spectra-persistence.md) and **spectral libraries** [06](06-spectral-library-persistence.md): rebuild FAITHFUL objects against restored datasets/ROIs; otherwise rehydrate frozen snapshots as `NumPyArraySpectrum` instances.
 8. Restore **run histories** [08](08-run-history-persistence.md): wire records to restored datasets, or place into "closed runs" when a dataset is absent.
-9. Rebuild `[DERIVED]` state (e.g. `_all_spectra` index); leave caches to lazily recompute.
-10. Emit the appropriate `ApplicationState` signals so the UI reflects the restored session.
+9. Rebuild **`_all_spectra`** — the by-id index `{spectrum_id: Spectrum}` that other code uses to look up spectra by id. It is not saved (it duplicates the active/collected collections), but it must be repopulated after step 7 so that any id-based lookup resolves to the freshly-restored objects. The three other `[DERIVED]` items require no action: `DataCache` (render/computation/histogram caches), `RasterDataSet._cached_band_stats` (per-band min/max), and each spectrum's `_icon` thumbnail all refill themselves the first time something asks for them.
+10. **Emit the change signals so the UI reflects the restored session.** WISER's UI is signal-driven: `ApplicationState` emits a Qt signal on each change and the panels (layer list, spectrum plot, main view) redraw in response. Because restore loads everything programmatically into a cleared (empty-UI) session, each restored item needs its corresponding signal fired or the data sits in `ApplicationState` with nothing on screen. Wrap this in a single helper (e.g. `emit_session_reload_signals()`) that fires the **granular** per-item signals ([app_state.py:73-104](../src/wiser/gui/app_state.py#L73-L104)):
+   - Datasets → `dataset_added(id, bool)` per dataset, then `mainview_dataset_changed(id)` for the one being displayed.
+   - Spectral libraries → `spectral_library_added(id)`.
+   - ROIs → `roi_added(RegionOfInterest)`.
+   - Stretches → `stretch_changed(dataset_id, bands_tuple)`.
+   - Active spectrum → `active_spectrum_changed()`; collected spectra → `collected_spectra_changed(object, int, int)`.
 
-**Robustness:** missing sidecar files, an unreadable file-backed dataset path, or an unknown `type` tag should degrade gracefully (warn + continue), never hard-crash the load. Produce a load report mirroring the save report (what restored faithfully / as snapshot / was dropped).
+   Two things this step must also handle, because they do **not** go through `ApplicationState` signals:
+   - **Run histories** signal through their own managers, not `ApplicationState` — fire each `RunHistoryManagerBase.records_changed` (PCA / MNF / linear-unmixing / K-Means). (The legacy `kmeans_centroids_changed` goes away with [issue #613](https://github.com/Ehlmann-research-group/WISER/issues/613).)
+   - **User CRSs and band-math expressions** have no `ApplicationState` signal at all — they live on their dialogs and are refreshed by repopulating those dialogs' stores directly (steps 4).
 
-## Describe how solution fits WISER's mission
+   **Granular vs. bulk note:** we deliberately choose the granular approach — reusing the same per-item signals that `add_dataset()` and friends already emit, just gathered behind `emit_session_reload_signals()`. There is no single "whole session reloaded" signal today, and we are not adding one right now. If a bulk restore ever produces a signal flurry that is too slow or causes visible flicker, introducing one coarse "session reloaded, refresh everything" signal would be a small, contained follow-up — but granular is the default and is sufficient for now.
 
-Reliable restoration is what makes a saved session actually *usable* — a researcher or student can reopen exactly where they left off, and a shared project opens correctly on a collaborator's machine. This closes the reproducibility loop at the heart of WISER's mission.
+**Robustness:** missing sidecar files, an unreadable file-backed dataset path, or an unknown `type` tag should degrade gracefully (warn + continue), never hard-crash the load. Produce a load report mirroring the save report (what restored faithfully / as snapshot / was dropped) and log.
 
 ## Describe alternatives you've considered
 
