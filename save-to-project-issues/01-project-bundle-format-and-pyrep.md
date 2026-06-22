@@ -39,7 +39,7 @@ my_project.wiserproj/            (dir or zip)
 - **Lenient additive parsing avoids most migrations.** For non-breaking changes (a new *optional* field), don't bump `format_version` or write a migration — `from_pyrep` ignores unknown keys and supplies defaults for missing ones. Bump the version and write a migration only for **breaking** changes (renamed / removed / restructured fields).
 - **Single global `format_version`** for the whole bundle (migrations operate on the whole manifest dict), not per-section versions. Per-section versioning can be added later if one item churns heavily.
 
-The migration-chain harness, the refuse-too-new behavior, and the golden-file regression suite that *enforces* "old files still load" are specified in [13](13-project-versioning-and-migration.md).
+The migration-chain harness, the refuse-too-new behavior, and the regression suite that *enforces* "old files still load" are specified in [13](13-project-versioning-and-migration.md).
 
 ## Describe how solution fits WISER's mission
 
