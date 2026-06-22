@@ -1,20 +1,20 @@
 ## Is your feature request related to a problem? Please describe.
 
-Datasets are the **root of the entire dependency DAG** — nearly every other saveable item references a dataset by numeric id. Two problems make them the hardest and most important item to persist:
+Nearly every other saveable item in WISER references a dataset by numeric id — spectra, stretches, run records, and ROI-average spectra all point back to one. This makes datasets the foundation everything else is built on, and the most important item to get right when saving. Two specific problems make it harder than it sounds:
 
 1. **In-memory datasets have no file to point at.** A `RasterDataSet` whose `_impl` is an in-memory array (tool outputs, some loads) has no path; its pixels must be captured or the dataset is lost (see [app-state.md](../doc/sphinx-general-wiser-docs/source/developer-content/app-state.md), Datasets section).
-2. **Dataset ids hold the DAG together.** Stretch keys, run-record `input_dataset_id`/`output_dataset_id`, and spectrum sources all key on the dataset id. If ids change on load, every reference silently cross-wires.
+2. **Dataset ids hold everything together.** Stretch keys, run-record `input_dataset_id`/`output_dataset_id`, and spectrum sources all reference a dataset by its integer id. If those ids are reassigned to different datasets on load, every reference silently points at the wrong thing.
 
 ## Describe the solution you'd like
 
-Persist and restore datasets as the DAG roots.
+This issue covers both directions — **saving** datasets into the project file and **loading** them back out. Both directions are described below under their own headings. Datasets must be handled first in both directions: on save, they are written before anything that references them; on load, they are restored before anything that references them, so that the restored session has datasets to link against when spectra, stretches, and run records are rebuilt.
 
 **Save:**
 
 - **File-backed dataset** → store its filepath(s) (`_impl.get_filepaths()`) plus identity/metadata, *by reference*.
 - **In-memory dataset** → write a **raster sidecar** into the bundle (`datasets/ds_<id>.*` via GDAL/ENVI/GeoTIFF) and reference it by relative key. This is the default ("sidecar") behavior — the user does not have to manually save RAM datasets.
 - Optionally expose a **"promote to file"** action so a user can write a RAM dataset to a chosen external path and have the project reference that instead (escape hatch, not required).
-- Capture the dataset's `[SOURCE]` metadata: `_name`, `_description`, `_band_unit`, `SpectralMetadata` (band_info, bad_bands, default_display_bands, data_ignore_value, has_wavelengths), and `SpatialMetadata` (geo_transform, wkt_spatial_reference). `_cached_band_stats` is `[DERIVED]` — do **not** save.
+- Capture the dataset's `[SOURCE]` metadata: `_name`, `_description`, `_band_unit`, `SpectralMetadata` (band_info, bad_bands, default_display_bands, data_ignore_value, has_wavelengths), and `SpatialMetadata` (geo_transform, wkt_spatial_reference). This can be edited by the user at runtime so it may not be apart of the `_impl` type in the `RasterDataSet`. `_cached_band_stats` is `[DERIVED]` — do **not** save.
 - Record the dataset's **numeric id** in the manifest.
 
 **Load (fresh session only — no merge):**
