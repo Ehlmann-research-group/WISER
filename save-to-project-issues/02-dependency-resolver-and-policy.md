@@ -4,7 +4,7 @@ WISER's saveable state forms a **dependency DAG rooted at datasets**: dataset-ba
 
 ## Describe the solution you'd like
 
-A **dependency resolver + save-policy engine** that every item persister and the save dialog consult.
+A **dependency resolver + save-policy engine** that every item persister (what is responsibile for writing state to the project file for a specific part of the state) and the save project file dialog use.
 
 **Responsibilities:**
 
