@@ -12,13 +12,9 @@ Persist the saved-expression list as part of the project.
 
 **Out of scope** (`[EPHEMERAL]` / not session state): the current expression text in `_ui.ledit_expression`, variable bindings (`tbl_variables`), transient `_expr_info`, and batch-job definitions. **Old band-math runs are explicitly not tracked**; band-math *output rasters* are datasets, handled by [03](03-dataset-persistence.md).
 
-## Describe how solution fits WISER's mission
-
-Saved band-math expressions are reusable analytical recipes (spectral indices, ratios). Carrying them across sessions and sharing them in a project lets researchers and students build on each other's methods — supporting accessible, community-driven analysis.
-
 ## Describe alternatives you've considered
 
-- **Rely on the existing `.txt` export/import.** Rejected: manual, separate from the session, easily forgotten.
+- **Rely on using just the existing `.txt` export/import.** Rejected: manual, separate from the session, easily forgotten.
 - **Move the saved-expression list onto `ApplicationState` first.** A nice cleanup but not required; the persister can read/write the dialog's store directly. Could be a follow-up.
 
 ## Additional context
