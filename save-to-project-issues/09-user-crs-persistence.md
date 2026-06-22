@@ -15,10 +15,6 @@ Persist the user-created CRS registry, with no dataset dependency.
 
 The in-dialog widget state used while building a CRS (`_lon_meridian`, `_proj_type`, `_crs_name`, …) is `[EPHEMERAL]` and is not saved.
 
-## Describe how solution fits WISER's mission
-
-Custom CRSs let researchers work in the spatial frames their science requires (e.g. planetary bodies beyond Earth). Persisting them — usable *and* re-editable — removes repetitive setup and supports the mission of accessible planetary remote sensing.
-
 ## Describe alternatives you've considered
 
 - **Save only the WKT.** Rejected: the CRS would be usable but not re-editable; saving `CrsCreatorState` too enables round-trip editing.
