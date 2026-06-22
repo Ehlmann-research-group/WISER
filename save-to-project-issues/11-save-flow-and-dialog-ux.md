@@ -20,10 +20,6 @@ A **dependency-aware Save dialog** plus the top-level save flow, driven by the r
 - Choose bundle directory vs. zipped `.wiserproj`.
 - Wire up menu actions (Save Project / Save Project As) and remember the last project path.
 
-## Describe how solution fits WISER's mission
-
-Accessibility means users — including students and non-programmers — can confidently save their work and understand exactly what is preserved. A transparent, explainable save experience that never silently loses data embodies the mission's goals of usability and reproducibility.
-
 ## Describe alternatives you've considered
 
 - **Save everything with no dialog.** Rejected: users can't control bundle size or understand drops; large RAM cubes would always be written.
