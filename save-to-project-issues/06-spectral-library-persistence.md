@@ -8,15 +8,11 @@ Persist libraries by reusing the spectrum logic from [05](05-spectra-persistence
 
 **Save:**
 - **File-backed library** (`_path` set) → reference the path; store `_name`, `_description`, `_path`. Done.
-- **RAM-backed library** (`_path is None`) → save `{name, description, path: null, spectra: [...]}`, where **each member spectrum is serialized by the same FAITHFUL / SNAPSHOT / DROP rule** as active/collected spectra. Heterogeneity resolves itself because the decision was always per-spectrum.
+- **RAM-backed library** (`_path is None`) → save `{name, description, path: null, spectra: [...]}`, where **each member spectrum is written to the manifest as a pyrep entry, following the same FAITHFUL / SNAPSHOT / DROP rule** as active/collected spectra in [05](05-spectra-persistence.md). Heterogeneity resolves itself because the decision was always per-spectrum.
 
-**Load:** reconstruct file-backed libraries from path; rebuild RAM libraries by deserializing each member spectrum (faithful where its dataset is restored, snapshot otherwise).
+**Load:** reconstruct file-backed libraries from their path. For RAM libraries, read each member spectrum's pyrep entry from the manifest and reconstruct it — as a live object if its dataset was restored (FAITHFUL), or as a `NumPyArraySpectrum` from the stored values if not (SNAPSHOT). This is the same pyrep-based reconstruction used for active/collected spectra in [05](05-spectra-persistence.md); `Serializable`/`SerializedForm` is not used here.
 
-This keeps libraries conceptually simple: "a named, optionally-path-backed list of spectra," each member riding the spectrum rules.
-
-## Describe how solution fits WISER's mission
-
-Spectral libraries are reference collections central to identifying materials in imaging spectroscopy. Persisting them — and the community/reference spectra they contain — lets researchers and students carry curated libraries across sessions and share them, directly serving the mission of accessible, collaborative analysis.
+This keeps libraries conceptually simple: a library is just a named, optionally-path-backed list of spectra, and each member spectrum is saved and loaded by the same rules defined in [05](05-spectra-persistence.md) — no separate library-level logic needed.
 
 ## Describe alternatives you've considered
 
