@@ -21,10 +21,6 @@ A **versioning & migration subsystem** with a guarantee that is actually tested.
 4. **Golden-file regression suite (the enforcement).** Check in a real, representative project bundle for **every historical `format_version`** under test fixtures. A test loads each on the current code and asserts a successful, correct restore. This is what converts the guarantee from aspiration into something CI fails on. Add a checklist/CI reminder so that whenever `format_version` is bumped, a new golden fixture for the previous version is captured.
 5. **A "too-new" fixture** verifying the refuse-cleanly path.
 
-## Describe how solution fits WISER's mission
-
-Reproducibility is meaningless if a project saved last year cannot be opened today. A tested backward-compatibility guarantee means researchers, educators, and students can trust that their saved analyses — and the projects their collaborators share — will keep opening across WISER releases. This durability directly serves the mission of accessible, reproducible imaging spectroscopy.
-
 ## Describe alternatives you've considered
 
 - **Versioned readers (keep a parser per old version forever).** Rejected: the load path accumulates branching cruft and every old reader must be maintained; migrate-up keeps a single current-schema loader.
