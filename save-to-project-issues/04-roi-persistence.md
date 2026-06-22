@@ -1,6 +1,6 @@
 ## Is your feature request related to a problem? Please describe.
 
-Regions of interest are `[SOURCE]` state (`ApplicationState._regions_of_interest`) and are lost on close. They must be restored **faithfully** — as their original geometry (polygon corner points, rectangle corners, individual pixels), **not** flattened into one undifferentiated pixel blob. The existing ROI-level serialization helpers cannot do this today:
+Regions of interest are `[SOURCE]` state (`ApplicationState._regions_of_interest`) and are lost on close. They must be restored **faithfully** — as their original geometry (polygon corner points, rectangle corners, individual pixels). The existing ROI-level serialization helpers cannot do this today:
 
 - `roi_to_pyrep` / `roi_from_pyrep` in [roi.py](../src/wiser/raster/roi.py) are **stale**: they call `roi.get_selection()` (singular — no such method), assume a single selection (`TODO(donnie): Composite/multi-selection ROIs`), and `from_pyrep` calls a `RegionOfInterest(...)` constructor signature that no longer exists.
 - `RegionOfInterest` actually holds a **list** of selections (`_selections`).
