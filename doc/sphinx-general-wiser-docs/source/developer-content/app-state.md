@@ -493,3 +493,5 @@ The non-obvious part of the map: not all `[SOURCE]` state lives on
 **band-math saved-expression list** are owned by their dialogs, and **in-memory
 datasets** carry their pixels with no file to fall back on. Any reconstruction
 routine has to reach into those places too.
+
+If you wanted to have a good reconstruction of WISER's internal state, you would need to keep in mind the above. However, some of these things may be unncessary for a reconstruction.
