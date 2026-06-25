@@ -28,6 +28,15 @@ ManifestDPIAware True
   !error "ERROR:  SHA1_THUMBPRINT must be defined on NSIS command-line with /D option"
 !endif
 
+; Path to signtool.exe (from the Windows SDK) used to code-sign the installer
+; and uninstaller. The Windows SDK version number embedded in this path
+; (e.g. 10.0.26100.0) will differ between machines, so you will likely need to
+; change this to match the signtool location on your own machine.
+;
+; For help finding your signtool path, see the "Configuring the Signtool Path"
+; section of the Windows code-signing guide: doc/codesign-win.md
+!define SIGN_TOOL "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool"
+
 !define APP_BASENAME "WISER"
 !define APP_DIRNAME "${APP_BASENAME}-${WISER_VERSION}"
 !define APP_DIRNAME_LOWER "wiser-${WISER_VERSION}"
@@ -69,7 +78,7 @@ Var SkipDirectoryPage
   ; That will have written an uninstaller binary for us.  Now we sign it with your
   ; favorite code signing tool.
 
-  !system '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%TEMP%\${UNINSTALL_EXE_NAME}"' = 0
+  !system '"${SIGN_TOOL}" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%TEMP%\${UNINSTALL_EXE_NAME}"' = 0
 
   ; Good.  Now we can carry on writing the real installer.
 
@@ -108,7 +117,7 @@ Var SkipDirectoryPage
 FunctionEnd
 
 !ifndef INNER
-!finalize '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%1"' = 0
+!finalize '"${SIGN_TOOL}" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%1"' = 0
 !endif
 
 ;--------------------------------

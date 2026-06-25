@@ -9,7 +9,7 @@ covers the full contributor workflow from first clone to merged PR.
 2. [Contributing & Code Quality](contributing-and-quality.md) — code style, PR process, review standards
 3. [Testing & QA](testing-and-qa.md) — running tests, writing tests, CI
 4. [CI/CD and Releases](ci-cd-and-releases.md) — how releases are built and shipped (see
-   also: [macOS Code Signing](codesign-mac.md))
+   also: [macOS Code Signing](codesign-mac.md) and [Windows Code Signing](codesign-win.md))
 5. [System Design](system-design.md) — architecture overview for deeper changes
 6. [Design Documents](design-documents.md) — longer-form design rationale
 
@@ -24,6 +24,7 @@ contributing-and-quality.md
 testing-and-qa.md
 ci-cd-and-releases.md
 codesign-mac.md
+codesign-win.md
 system-design.md
 plugin-system.md
 plugin-dependencies.md
@@ -36,7 +37,8 @@ This section covers environment setup for all platforms —
 lockfiles, conda environments, dependency management, and
 platform-specific build and distribution steps.
 
-For macOS code signing, see [macOS Code Signing](codesign-mac.md).
+For macOS code signing, see [macOS Code Signing](codesign-mac.md). For Windows
+code signing, see [Windows Code Signing](codesign-win.md).
 
 ## Prerequisites
 
@@ -235,7 +237,7 @@ other IDEs should work as well.
 #### Installer — NSIS
 
 The [Nullsoft Scriptable Install System (NSIS)](https://nsis.sourceforge.io/Main_Page)
-is used to build the WISER installer. The installer installs at the user level.
+is used to build the WISER installer. The installer can install at both the user and admin level.
 
 #### Installing on Windows
 
@@ -264,6 +266,12 @@ uninstaller are code-signed. The sign command used in that script is:
 ```
 
 where `%1` is replaced by the installer filename (e.g. `Install-WISER-1.4b1.exe`).
+
+For a full walkthrough of Windows code signing — the tools you need (NSIS and
+the Windows SDK), how to configure the `signtool` path, how to find your
+certificate thumbprint, and a step-by-step explanation of how the installer
+script signs both the installer and uninstaller — see
+[Windows Code Signing](codesign-win.md).
 
 #### Building the Project
 
