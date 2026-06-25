@@ -44,7 +44,7 @@ from wiser.gui.util import StateChange
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
-    from wiser.gui.kmeans import KMeansParameters, KMeansCentroids
+    from wiser.gui.kmeans import KMeansRunHistoryManager
     from wiser.gui.linear_unmixing import LinearUnmixingHistoryManager
     from wiser.gui.permanent_plugins.pca_plugin import PCAHistoryManager
     from wiser.gui.mnf import MNFHistoryManager
@@ -100,9 +100,6 @@ class ApplicationState(QObject):
     # TODO(donnie):  collected_spectra_changed = Signal(StateChange, int)
     collected_spectra_changed = Signal(object, int, int)
 
-    # Signal: a KMeans centroid result was added or updated in app state
-    kmeans_centroids_changed = Signal()
-
     # TODO(donnie):  Signals for config changes and color changes!
 
     def __init__(self, app, config: Optional[ApplicationConfig] = None):
@@ -140,10 +137,6 @@ class ApplicationState(QObject):
         # All regions of interest in the application.  The key is the numeric ID
         # of the ROI, and the value is a RegionOfInterest object.
         self._regions_of_interest: Dict[int, RegionOfInterest] = {}
-
-        # K-Means centroid results, keyed by KMeansParameters (which includes
-        # dataset_id).  Last write wins for identical parameter sets.
-        self._kmeans_centroids: Dict["KMeansParameters", "KMeansCentroids"] = {}
 
         # A collection of all spectra in the application state, so that we can
         # look them up by ID.
@@ -210,6 +203,13 @@ class ApplicationState(QObject):
         self._pca_history = PCAHistoryManager(self)
         self._mnf_history = MNFHistoryManager(self)
 
+        # K-Means run history — same application-state pattern.  Replaces the
+        # legacy KMeansParameters-keyed centroid dict so every completed run is
+        # an independent, timestamped, deletable record (see issue #613).
+        from wiser.gui.kmeans import KMeansRunHistoryManager
+
+        self._kmeans_history = KMeansRunHistoryManager(self)
+
     def get_linear_unmix_history(self) -> "LinearUnmixingHistoryManager":
         """Return the application-wide linear-unmixing run history manager."""
         return self._linear_unmix_history
@@ -221,6 +221,10 @@ class ApplicationState(QObject):
     def get_mnf_history(self) -> "MNFHistoryManager":
         """Return the application-wide MNF run history manager."""
         return self._mnf_history
+
+    def get_kmeans_history(self) -> "KMeansRunHistoryManager":
+        """Return the application-wide K-Means run history manager."""
+        return self._kmeans_history
 
     def add_running_process(self, process_manager: ProcessManager):
         process_manager_id = process_manager.get_process_manager_id()
@@ -445,25 +449,6 @@ class ApplicationState(QObject):
 
         self.dataset_removed.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.REMOVED, dataset))
-
-    # ------------------------------------------------------------------
-    # K-Means centroids
-    # ------------------------------------------------------------------
-
-    def add_kmeans_centroids(self, params: "KMeansParameters", centroids: "KMeansCentroids") -> None:
-        """Store *centroids* under *params*.  Overwrites any previous entry for the same key."""
-        self._kmeans_centroids[params] = centroids
-        self.kmeans_centroids_changed.emit()
-
-    def get_kmeans_centroids(self, params: "KMeansParameters") -> "Optional[KMeansCentroids]":
-        """Return the centroids stored under *params*, or ``None`` if not found."""
-        return self._kmeans_centroids.get(params)
-
-    def get_all_kmeans_centroids(
-        self,
-    ) -> "Dict[KMeansParameters, KMeansCentroids]":
-        """Return a shallow copy of the full centroids mapping."""
-        return dict(self._kmeans_centroids)
 
     def multiple_datasets_same_size(self):
         """
