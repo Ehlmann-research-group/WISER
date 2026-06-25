@@ -23,6 +23,7 @@ from PySide2.QtWidgets import (
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.kmeans_dialog_ui import Ui_KMeansDialog
+from wiser.gui.run_history import RunHistoryManagerBase
 from wiser.gui.spectra_table import SpectraTableController
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -203,6 +204,61 @@ class KMeansCentroids:
     def num_centroids(self) -> int:
         """Return k, the number of cluster centroids."""
         return self._centroids.shape[0]
+
+
+# ---------------------------------------------------------------------------
+# Run history (application state) — record + manager
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class KMeansRunRecord:
+    """Immutable record of one completed K-Means run.
+
+    Mirrors the run records used by PCA, MNF, and linear unmixing so that all
+    four past-run histories share the :class:`RunHistoryManagerBase`
+    infrastructure.  Unlike the legacy ``KMeansParameters``-keyed dict, every
+    completed run is its own record: re-running with identical settings (or an
+    unseeded run that draws a fresh random state) produces a second,
+    independently viewable and deletable entry rather than silently
+    overwriting the first.
+
+    The record snapshots its own small, self-contained payload — the
+    ``centroids`` array and the resolved ``effective_seed`` — and only
+    *references* the heavy input cube by ``input_dataset_id``.  If that dataset
+    is later closed, the run moves into the past-runs viewer's "closed" section
+    instead of being lost.
+
+    ``params`` carries the full run configuration, including any manual-init
+    seed spectra (already captured as plain ``numpy`` arrays on
+    ``KMeansParameters._manual_spectra``), so the record stays dependency-free
+    on the live spectrum/dataset layer.
+
+    ``effective_seed`` is the integer random state actually handed to
+    scikit-learn.  When the user leaves the seed blank it is drawn explicitly
+    before the run (rather than letting sklearn pull from numpy's global state)
+    so that even unseeded runs are exactly reproducible.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    # Snapshotted name so the table can still show something meaningful after
+    # the live input dataset is closed.
+    input_dataset_name_snapshot: str
+    params: KMeansParameters
+    centroids: KMeansCentroids
+    effective_seed: Optional[int]
+
+
+class KMeansRunHistoryManager(RunHistoryManagerBase[KMeansRunRecord]):
+    """Owns the in-memory list of completed K-Means runs.
+
+    Lives on :class:`~wiser.gui.app_state.ApplicationState` so the history
+    persists across closing and reopening the K-Means dialog.  K-Means tracks
+    only input-dataset liveness (its centroids are snapshotted into the
+    record), so the shared base needs no overrides.
+    """
 
 
 # region KMeans TaskStage
@@ -500,6 +556,10 @@ class KMeansSemanticTask(QObject, SemanticTask):
     """Semantic task that runs K-means clustering and loads the label image into WISER."""
 
     result_ready = Signal(object, object, object)
+    # Emitted from _load_result_into_wiser once the centroids are in hand.
+    # Payload is a KMeansRunRecord; the K-Means dialog connects this to
+    # app_state.get_kmeans_history().add_record at task creation.
+    run_recorded = Signal(object)
 
     def __init__(
         self,
@@ -511,11 +571,26 @@ class KMeansSemanticTask(QObject, SemanticTask):
         centroids_ref_name: str = "kmeans_centroids",
     ):
         QObject.__init__(self)
+
+        # Resolve the effective random state before the run.  When the user
+        # leaves the seed blank, sklearn would pull from numpy's global state
+        # and never tell us what it used, making the run unreproducible.  We
+        # draw an explicit integer here instead, pass it to the clustering, and
+        # store it in the run record.  ``run_params`` carries that seed into the
+        # worker; ``params`` (the user's original config, seed possibly None) is
+        # kept verbatim for the record.
+        effective_seed = params.get_seed()
+        if effective_seed is None:
+            effective_seed = int(np.random.randint(0, 2**31 - 1))
+        run_params = replace(params, seed=effective_seed)
+
         SemanticTask.__init__(
             self,
             priority_class=PriorityClass.BACKGROUND,
             input_ref=input_ref,
-            algorithm_pipeline=get_kmeans_pipeline(input_ref, params, labels_ref_name, centroids_ref_name),
+            algorithm_pipeline=get_kmeans_pipeline(
+                input_ref, run_params, labels_ref_name, centroids_ref_name
+            ),
             task_title="K-Means Clustering",
             task_variables={
                 "K": params.get_k(),
@@ -527,6 +602,7 @@ class KMeansSemanticTask(QObject, SemanticTask):
         self._app_state = app_state
         self._source_dataset = source_dataset
         self._params = params
+        self._effective_seed = effective_seed
         self._labels_ref_name = labels_ref_name
         self._centroids_ref_name = centroids_ref_name
         self.result_ready.connect(self._load_result_into_wiser)
@@ -555,7 +631,6 @@ class KMeansSemanticTask(QObject, SemanticTask):
         self, labels_data: object, labels_meta: object, centroids_data: object
     ) -> None:
         centroids_obj = KMeansCentroids(np.asarray(centroids_data))
-        self._app_state.add_kmeans_centroids(self._params, centroids_obj)
 
         labels_array = np.asarray(labels_data)  # (y, x, 1)
         labels_by_band = labels_array.transpose(2, 0, 1)  # (1, y, x)
@@ -576,6 +651,22 @@ class KMeansSemanticTask(QObject, SemanticTask):
 
         self._app_state.add_dataset(labels_dataset, view_dataset=False)
 
+        # Record the completed run in the application-level history so the
+        # past-runs dialog can revisit it.  The manager is shared and outlives
+        # this task; the dialog connects run_recorded to add_record at task
+        # creation.
+        self.run_recorded.emit(
+            KMeansRunRecord(
+                run_id=self.id,
+                timestamp=datetime.datetime.now(),
+                input_dataset_id=self._source_dataset.get_id(),
+                input_dataset_name_snapshot=source_name,
+                params=self._params,
+                centroids=centroids_obj,
+                effective_seed=self._effective_seed,
+            )
+        )
+
 
 class KMeansCentroidsDialog(QDialog):
     """Lists all stored K-Means centroid results.
@@ -593,7 +684,7 @@ class KMeansCentroidsDialog(QDialog):
         self.resize(620, 400)
         self._scroll: Optional[QScrollArea] = None
         self._build_ui()
-        app_state.kmeans_centroids_changed.connect(self._rebuild_content)
+        app_state.get_kmeans_history().records_changed.connect(self._rebuild_content)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -612,11 +703,13 @@ class KMeansCentroidsDialog(QDialog):
         layout = QVBoxLayout(container)
         layout.setAlignment(Qt.AlignTop)
 
-        all_centroids = self._app_state.get_all_kmeans_centroids()
-        if not all_centroids:
+        records = self._app_state.get_kmeans_history().get_records()
+        if not records:
             layout.addWidget(QLabel("No K-Means centroids have been stored yet."))
         else:
-            for params, centroids in all_centroids.items():
+            for record in records:
+                params = record.params
+                centroids = record.centroids
                 btn_text = self._format_params(params)
                 btn = QPushButton(btn_text)
                 btn.setToolTip(btn_text)
@@ -1025,6 +1118,7 @@ class KMeansDialog(QDialog):
             input_ref=dataset_ref,
             params=params,
         )
+        kmeans_task.run_recorded.connect(self._app_state.get_kmeans_history().add_record)
 
         task_plan = self._app_services.task_planner.plan_semantic_task(kmeans_task)
         future = self._app_services.task_manager.register_and_submit_task_plan(
