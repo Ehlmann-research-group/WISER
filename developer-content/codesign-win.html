@@ -1,0 +1,729 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Code-signing WISER on Windows &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/codesign-win';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="System Design" href="system-design.html" />
+    <link rel="prev" title="Code-signing WISER on the Mac" href="codesign-mac.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/codesign-win.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/codesign-win.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Code-signing WISER on Windows</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tools-you-need">Tools You Need</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nsis">NSIS</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#windows-sdk-signtool">Windows SDK (signtool)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-certificate-usb-token">Code-signing certificate (USB token)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing-the-make-dist-win-command">Building and Signing: the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist-win</span></code> command</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-signtool-path">Configuring the Signtool Path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-your-certificate-thumbprint">Finding Your Certificate Thumbprint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-install-script-works">How the Install Script Works</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="code-signing-wiser-on-windows">
+<h1>Code-signing WISER on Windows<a class="headerlink" href="#code-signing-wiser-on-windows" title="Link to this heading">#</a></h1>
+<p>Code-signing is a widely-accepted technique for verifying that distributable
+binaries come from a known source and have not been tampered with since they
+were built. On Windows, an unsigned installer triggers a Microsoft Defender
+SmartScreen warning (“Windows protected your PC”), and many browsers and
+anti-virus tools will flag the download. Code-signing the WISER installer and
+uninstaller removes these warnings and lets users trust that the application
+came from us.</p>
+<p>This document describes how WISER is code-signed on Windows, what tools you
+need installed, and how the installer script itself works.</p>
+<p>Unlike macOS, Windows code-signing does not require a separate notarization
+step. You build the installer and sign it in a single <code class="docutils literal notranslate"><span class="pre">make</span></code> command, and the
+signature is embedded directly into the <code class="docutils literal notranslate"><span class="pre">.exe</span></code>.</p>
+<section id="tools-you-need">
+<h2>Tools You Need<a class="headerlink" href="#tools-you-need" title="Link to this heading">#</a></h2>
+<p>To build and code-sign the WISER installer on Windows you need two pieces of
+software installed locally — <strong>NSIS</strong> and the <strong>Windows SDK</strong> — plus the
+physical code-signing key.</p>
+<section id="nsis">
+<h3>NSIS<a class="headerlink" href="#nsis" title="Link to this heading">#</a></h3>
+<p>The <a class="reference external" href="https://nsis.sourceforge.io/Main_Page">Nullsoft Scriptable Install System (NSIS)</a>
+compiles <code class="docutils literal notranslate"><span class="pre">install-win/win-install.nsi</span></code> into the WISER installer. Download the
+installer from the <a class="reference external" href="https://nsis.sourceforge.io/Download">NSIS download page</a>
+and run it; the default options are fine. After installation, <code class="docutils literal notranslate"><span class="pre">makensis.exe</span></code> is
+typically located at <code class="docutils literal notranslate"><span class="pre">C:\Program</span> <span class="pre">Files</span> <span class="pre">(x86)\NSIS\makensis.exe</span></code>, which is the
+path the WISER <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> expects (see the <code class="docutils literal notranslate"><span class="pre">NSIS</span></code> variable near the top of the
+<code class="docutils literal notranslate"><span class="pre">Makefile</span></code>).</p>
+</section>
+<section id="windows-sdk-signtool">
+<h3>Windows SDK (signtool)<a class="headerlink" href="#windows-sdk-signtool" title="Link to this heading">#</a></h3>
+<p>The actual signing is performed by <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code>, which ships with the
+<a class="reference external" href="https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk/">Windows 10/11 SDK</a>.
+Download and run the SDK installer. You only need the <strong>“Windows SDK Signing
+Tools for Desktop Apps”</strong> component, though installing the full SDK is fine.</p>
+<p>After installation, <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code> lives under a versioned path such as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">C</span><span class="p">:</span>\<span class="n">Program</span> <span class="n">Files</span> <span class="p">(</span><span class="n">x86</span><span class="p">)</span>\<span class="n">Windows</span> <span class="n">Kits</span>\<span class="mi">10</span>\<span class="nb">bin</span>\<span class="mf">10.0.26100.0</span>\<span class="n">x64</span>\<span class="n">signtool</span><span class="o">.</span><span class="n">exe</span>
+</pre></div>
+</div>
+<p>The version number in that path (<code class="docutils literal notranslate"><span class="pre">10.0.26100.0</span></code> above) depends on which SDK
+version you installed, so it will likely differ on your machine. See
+<a class="reference internal" href="#configuring-signtool">Configuring the Signtool Path</a> below for how to find
+your exact path and point the install script at it.</p>
+</section>
+<section id="code-signing-certificate-usb-token">
+<h3>Code-signing certificate (USB token)<a class="headerlink" href="#code-signing-certificate-usb-token" title="Link to this heading">#</a></h3>
+<p>WISER is signed with a certificate stored on a physical USB hardware token
+(for example a YubiKey or a SafeNet/eToken device). To sign, you must:</p>
+<ol class="arabic simple">
+<li><p>Plug the USB token into your machine.</p></li>
+<li><p>Install the token vendor’s driver/middleware (e.g. SafeNet Authentication
+Client) so Windows can talk to it. Once installed, the token’s certificate
+is automatically registered in the Windows Certificate Store.</p></li>
+<li><p>Know the certificate’s <strong>SHA-1 thumbprint</strong> (see
+<a class="reference internal" href="#finding-thumbprint">Finding Your Certificate Thumbprint</a>), which is how
+the install script selects the right certificate.</p></li>
+</ol>
+<p>Because the script identifies the certificate by thumbprint and resolves it
+from the Windows Certificate Store at signing time, the only machine-specific
+secret you need is the thumbprint — there is nothing else to copy off of the
+original build machine.</p>
+</section>
+</section>
+<section id="building-and-signing-the-make-dist-win-command">
+<h2>Building and Signing: the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist-win</span></code> command<a class="headerlink" href="#building-and-signing-the-make-dist-win-command" title="Link to this heading">#</a></h2>
+<p>On Windows, building and signing happen together in a single Make target. From
+the top of the WISER repository, in the <code class="docutils literal notranslate"><span class="pre">wiser-prod</span></code> conda environment, run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">dist</span><span class="o">-</span><span class="n">win</span>
+</pre></div>
+</div>
+<p>This first runs the <code class="docutils literal notranslate"><span class="pre">build-win</span></code> target (which freezes WISER with PyInstaller
+into <code class="docutils literal notranslate"><span class="pre">dist/WISER</span></code>) and then invokes NSIS. The build-and-sign line in the
+<code class="docutils literal notranslate"><span class="pre">Makefile</span></code> is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$(NSIS) /NOCD /DWISER_VERSION=&quot;$(APP_VERSION)&quot; /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
+</pre></div>
+</div>
+<p>Here is what each part does:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">$(NSIS)</span></code></strong> — the path to the NSIS compiler, <code class="docutils literal notranslate"><span class="pre">makensis.exe</span></code>. It is
+defined once near the top of the <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> as
+<code class="docutils literal notranslate"><span class="pre">NSIS=&quot;C:\Program</span> <span class="pre">Files</span> <span class="pre">(x86)\NSIS\makensis.exe&quot;</span></code>. This is the program that
+reads the <code class="docutils literal notranslate"><span class="pre">.nsi</span></code> script and produces the installer <code class="docutils literal notranslate"><span class="pre">.exe</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">/NOCD</span></code></strong> — “no change directory.” By default <code class="docutils literal notranslate"><span class="pre">makensis</span></code> changes its
+working directory to the folder containing the script. <code class="docutils literal notranslate"><span class="pre">/NOCD</span></code> tells it to
+stay in the directory where <code class="docutils literal notranslate"><span class="pre">make</span></code> was invoked (the repository root) so
+that the relative paths inside the script — like <code class="docutils literal notranslate"><span class="pre">dist\WISER\*.*</span></code> and
+<code class="docutils literal notranslate"><span class="pre">install-win\license.rtf</span></code> — resolve correctly.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">/DWISER_VERSION=&quot;$(APP_VERSION)&quot;</span></code></strong> — defines the <code class="docutils literal notranslate"><span class="pre">WISER_VERSION</span></code> symbol
+inside the script. The <code class="docutils literal notranslate"><span class="pre">/D</span></code> flag is NSIS’s “define” option, analogous to a
+compiler’s <code class="docutils literal notranslate"><span class="pre">-D</span></code>. <code class="docutils literal notranslate"><span class="pre">$(APP_VERSION)</span></code> is computed by the <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> by running
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">src/wiser/version.py</span></code>, so the version is never hard-coded. The
+script uses <code class="docutils literal notranslate"><span class="pre">WISER_VERSION</span></code> to name the install directory, the registry
+keys, and the output file (e.g. <code class="docutils literal notranslate"><span class="pre">Install-WISER-1.4b1.exe</span></code>). The script
+deliberately <code class="docutils literal notranslate"><span class="pre">!error</span></code>s out if this symbol is not provided.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">/DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT)</span></code></strong> — defines the <code class="docutils literal notranslate"><span class="pre">SHA1_THUMBPRINT</span></code>
+symbol: the SHA-1 thumbprint of your code-signing certificate.
+<code class="docutils literal notranslate"><span class="pre">$(SHA1_THUMBPRINT)</span></code> comes from your <code class="docutils literal notranslate"><span class="pre">Secret.mk</span></code> file — a copy of
+<code class="docutils literal notranslate"><span class="pre">Secret-template.mk</span></code> that is <strong>not</strong> checked into git. <code class="docutils literal notranslate"><span class="pre">signtool</span></code> uses this
+thumbprint to pick the correct certificate out of the Windows Certificate
+Store. The script also <code class="docutils literal notranslate"><span class="pre">!error</span></code>s out if this symbol is not provided.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">install-win\win-install.nsi</span></code></strong> — the NSIS script to compile. This is the
+last argument, and is the script described in
+<a class="reference internal" href="#how-the-install-script-works">How the Install Script Works</a> below.</p></li>
+</ul>
+<p>The related <code class="docutils literal notranslate"><span class="pre">quick-sign-win</span></code> target runs the exact same <code class="docutils literal notranslate"><span class="pre">makensis</span></code> command
+<em>without</em> first rebuilding with PyInstaller. It is handy when <code class="docutils literal notranslate"><span class="pre">dist/WISER</span></code> is
+already built and you only want to (re)build and sign the installer.</p>
+</section>
+<section id="configuring-the-signtool-path">
+<span id="configuring-signtool"></span><h2>Configuring the Signtool Path<a class="headerlink" href="#configuring-the-signtool-path" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">win-install.nsi</span></code> script needs to know where <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code> lives on your
+machine. This is set near the top of the script with a single define:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>!define SIGN_TOOL &quot;C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool&quot;
+</pre></div>
+</div>
+<p>Because the SDK version number in that path differs between machines, you will
+likely need to change it. To find your own <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code>:</p>
+<ol class="arabic simple">
+<li><p>Open File Explorer and navigate to
+<code class="docutils literal notranslate"><span class="pre">C:\Program</span> <span class="pre">Files</span> <span class="pre">(x86)\Windows</span> <span class="pre">Kits\10\bin</span></code>.</p></li>
+<li><p>You will see one or more version folders (e.g. <code class="docutils literal notranslate"><span class="pre">10.0.22621.0</span></code>,
+<code class="docutils literal notranslate"><span class="pre">10.0.26100.0</span></code>). Open the newest one.</p></li>
+<li><p>Open the <code class="docutils literal notranslate"><span class="pre">x64</span></code> subfolder. <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code> should be inside.</p></li>
+<li><p>Copy that folder path (without the trailing <code class="docutils literal notranslate"><span class="pre">.exe</span></code>) into the <code class="docutils literal notranslate"><span class="pre">SIGN_TOOL</span></code>
+define.</p></li>
+</ol>
+<p>Alternatively, from a PowerShell prompt you can search for it directly:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Get-ChildItem &quot;C:\Program Files (x86)\Windows Kits\10\bin&quot; -Recurse -Filter signtool.exe |
+  Where-Object { $_.FullName -like &quot;*x64*&quot; }
+</pre></div>
+</div>
+<p>Use the path to the <code class="docutils literal notranslate"><span class="pre">x64</span></code> build for 64-bit Windows.</p>
+</section>
+<section id="finding-your-certificate-thumbprint">
+<span id="finding-thumbprint"></span><h2>Finding Your Certificate Thumbprint<a class="headerlink" href="#finding-your-certificate-thumbprint" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">SHA1_THUMBPRINT</span></code> value comes from your code-signing certificate. With the
+USB token plugged in and its middleware installed, list the certificates in
+your personal store from PowerShell:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Get</span><span class="o">-</span><span class="n">ChildItem</span> <span class="n">Cert</span><span class="p">:</span>\<span class="n">CurrentUser</span>\<span class="n">My</span> <span class="o">|</span> <span class="n">Format</span><span class="o">-</span><span class="n">List</span> <span class="n">Subject</span><span class="p">,</span> <span class="n">Thumbprint</span>
+</pre></div>
+</div>
+<p>Find the WISER code-signing certificate in the output and copy its
+<code class="docutils literal notranslate"><span class="pre">Thumbprint</span></code> value (a 40-character hex string). Put it in your <code class="docutils literal notranslate"><span class="pre">Secret.mk</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SHA1_THUMBPRINT</span><span class="o">=</span><span class="n">your</span><span class="o">.</span><span class="n">sha1</span><span class="o">.</span><span class="n">thumbprint</span><span class="o">.</span><span class="n">here</span>
+</pre></div>
+</div>
+<p>The thumbprint is a property of the certificate itself, so it is the same on
+any machine the token is plugged into. It is the only signing secret you need
+to carry between machines.</p>
+</section>
+<section id="how-the-install-script-works">
+<span id="id1"></span><h2>How the Install Script Works<a class="headerlink" href="#how-the-install-script-works" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">install-win/win-install.nsi</span></code> does two jobs that have to be carefully ordered
+so that <strong>both</strong> the installer and the uninstaller end up code-signed. NSIS
+normally embeds the uninstaller into the installer at compile time, but an
+uninstaller created that way cannot itself be signed. To work around this, the
+script uses the
+<a class="reference external" href="https://nsis.sourceforge.io/Signing_an_Uninstaller">two-pass technique from the NSIS wiki</a>:</p>
+<ol class="arabic">
+<li><p><strong>Inner pass.</strong> The script invokes <code class="docutils literal notranslate"><span class="pre">makensis</span></code> on itself a second time with
+the <code class="docutils literal notranslate"><span class="pre">INNER</span></code> symbol defined (see the <code class="docutils literal notranslate"><span class="pre">!makensis</span></code> call in the outer block).
+When <code class="docutils literal notranslate"><span class="pre">INNER</span></code> is defined, the script’s only job is to write the uninstaller
+binary out to <code class="docutils literal notranslate"><span class="pre">%TEMP%</span></code> and quit. The outer pass then runs that temporary
+installer, which drops a standalone <code class="docutils literal notranslate"><span class="pre">Uninstall</span> <span class="pre">WISER-&lt;ver&gt;.exe</span></code>.</p></li>
+<li><p><strong>Sign the uninstaller.</strong> Back in the outer pass, the script calls
+<code class="docutils literal notranslate"><span class="pre">${SIGN_TOOL}</span></code> to code-sign the just-created uninstaller:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;$</span><span class="si">{SIGN_TOOL}</span><span class="s2">&quot;</span> <span class="n">sign</span> <span class="o">/</span><span class="n">sha1</span> <span class="s2">&quot;$</span><span class="si">{SHA1_THUMBPRINT}</span><span class="s2">&quot;</span> <span class="o">/</span><span class="n">fd</span> <span class="n">SHA256</span> <span class="o">/</span><span class="n">t</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">timestamp</span><span class="o">.</span><span class="n">sectigo</span><span class="o">.</span><span class="n">com</span> <span class="s2">&quot;%TEMP%\Uninstall WISER-&lt;ver&gt;.exe&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Build the real installer.</strong> The outer pass continues, packaging the
+frozen <code class="docutils literal notranslate"><span class="pre">dist\WISER</span></code> tree, the icon, and the now-signed uninstaller into the
+final <code class="docutils literal notranslate"><span class="pre">Install-WISER-&lt;ver&gt;.exe</span></code>.</p></li>
+<li><p><strong>Sign the installer.</strong> The <code class="docutils literal notranslate"><span class="pre">!finalize</span></code> directive runs after the installer
+is written and signs it the same way (<code class="docutils literal notranslate"><span class="pre">%1</span></code> is the installer filename that
+NSIS just produced).</p></li>
+</ol>
+<p>The signing commands themselves are straightforward:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">sign</span> <span class="pre">/sha1</span> <span class="pre">&quot;${SHA1_THUMBPRINT}&quot;</span></code></strong> selects the certificate by thumbprint
+from the Windows Certificate Store (populated by the USB token’s
+middleware).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">/fd</span> <span class="pre">SHA256</span></code></strong> sets the file digest algorithm to SHA-256.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">/t</span> <span class="pre">http://timestamp.sectigo.com</span></code></strong> adds a trusted timestamp so the
+signature stays valid even after the signing certificate eventually
+expires.</p></li>
+</ul>
+<p>Both signing commands reference the single <code class="docutils literal notranslate"><span class="pre">SIGN_TOOL</span></code> define, so updating that
+one line (see <a class="reference internal" href="#configuring-signtool">Configuring the Signtool Path</a>) is enough
+to point the whole script at your <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="codesign-mac.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Code-signing WISER on the Mac</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="system-design.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">System Design</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tools-you-need">Tools You Need</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nsis">NSIS</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#windows-sdk-signtool">Windows SDK (signtool)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-certificate-usb-token">Code-signing certificate (USB token)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing-the-make-dist-win-command">Building and Signing: the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist-win</span></code> command</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-signtool-path">Configuring the Signtool Path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-your-certificate-thumbprint">Finding Your Certificate Thumbprint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-install-script-works">How the Install Script Works</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

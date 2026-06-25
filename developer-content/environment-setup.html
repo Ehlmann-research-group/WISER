@@ -187,6 +187,7 @@
 <li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-win.html">Code-signing WISER on Windows</a></li>
 <li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
@@ -458,7 +459,7 @@ covers the full contributor workflow from first clone to merged PR.</p>
 <li><p><a class="reference internal" href="contributing-and-quality.html"><span class="std std-doc">Contributing &amp; Code Quality</span></a> — code style, PR process, review standards</p></li>
 <li><p><a class="reference internal" href="testing-and-qa.html"><span class="std std-doc">Testing &amp; QA</span></a> — running tests, writing tests, CI</p></li>
 <li><p><a class="reference internal" href="ci-cd-and-releases.html"><span class="std std-doc">CI/CD and Releases</span></a> — how releases are built and shipped (see
-also: <a class="reference internal" href="codesign-mac.html"><span class="std std-doc">macOS Code Signing</span></a>)</p></li>
+also: <a class="reference internal" href="codesign-mac.html"><span class="std std-doc">macOS Code Signing</span></a> and <a class="reference internal" href="codesign-win.html"><span class="std std-doc">Windows Code Signing</span></a>)</p></li>
 <li><p><a class="reference internal" href="system-design.html"><span class="std std-doc">System Design</span></a> — architecture overview for deeper changes</p></li>
 <li><p><a class="reference internal" href="design-documents.html"><span class="std std-doc">Design Documents</span></a> — longer-form design rationale</p></li>
 </ol>
@@ -471,7 +472,8 @@ also: <a class="reference internal" href="codesign-mac.html"><span class="std st
 <p>This section covers environment setup for all platforms —
 lockfiles, conda environments, dependency management, and
 platform-specific build and distribution steps.</p>
-<p>For macOS code signing, see <a class="reference internal" href="codesign-mac.html"><span class="std std-doc">macOS Code Signing</span></a>.</p>
+<p>For macOS code signing, see <a class="reference internal" href="codesign-mac.html"><span class="std std-doc">macOS Code Signing</span></a>. For Windows
+code signing, see <a class="reference internal" href="codesign-win.html"><span class="std std-doc">Windows Code Signing</span></a>.</p>
 </section>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
@@ -644,7 +646,7 @@ other IDEs should work as well.</p>
 <section id="installer-nsis">
 <h4>Installer — NSIS<a class="headerlink" href="#installer-nsis" title="Link to this heading">#</a></h4>
 <p>The <a class="reference external" href="https://nsis.sourceforge.io/Main_Page">Nullsoft Scriptable Install System (NSIS)</a>
-is used to build the WISER installer. The installer installs at the user level.</p>
+is used to build the WISER installer. The installer can install at both the user and admin level.</p>
 </section>
 <section id="installing-on-windows">
 <h4>Installing on Windows<a class="headerlink" href="#installing-on-windows" title="Link to this heading">#</a></h4>
@@ -670,6 +672,11 @@ uninstaller are code-signed. The sign command used in that script is:</p>
 </pre></div>
 </div>
 <p>where <code class="docutils literal notranslate"><span class="pre">%1</span></code> is replaced by the installer filename (e.g. <code class="docutils literal notranslate"><span class="pre">Install-WISER-1.4b1.exe</span></code>).</p>
+<p>For a full walkthrough of Windows code signing — the tools you need (NSIS and
+the Windows SDK), how to configure the <code class="docutils literal notranslate"><span class="pre">signtool</span></code> path, how to find your
+certificate thumbprint, and a step-by-step explanation of how the installer
+script signs both the installer and uninstaller — see
+<a class="reference internal" href="codesign-win.html"><span class="std std-doc">Windows Code Signing</span></a>.</p>
 </section>
 <section id="building-the-project">
 <h4>Building the Project<a class="headerlink" href="#building-the-project" title="Link to this heading">#</a></h4>
