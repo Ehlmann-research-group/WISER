@@ -23,6 +23,7 @@ from PySide2.QtWidgets import (
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.generated.kmeans_dialog_ui import Ui_KMeansDialog
+from wiser.gui.run_history import RunHistoryManagerBase
 from wiser.gui.spectra_table import SpectraTableController
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -203,6 +204,61 @@ class KMeansCentroids:
     def num_centroids(self) -> int:
         """Return k, the number of cluster centroids."""
         return self._centroids.shape[0]
+
+
+# ---------------------------------------------------------------------------
+# Run history (application state) — record + manager
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class KMeansRunRecord:
+    """Immutable record of one completed K-Means run.
+
+    Mirrors the run records used by PCA, MNF, and linear unmixing so that all
+    four past-run histories share the :class:`RunHistoryManagerBase`
+    infrastructure.  Unlike the legacy ``KMeansParameters``-keyed dict, every
+    completed run is its own record: re-running with identical settings (or an
+    unseeded run that draws a fresh random state) produces a second,
+    independently viewable and deletable entry rather than silently
+    overwriting the first.
+
+    The record snapshots its own small, self-contained payload — the
+    ``centroids`` array and the resolved ``effective_seed`` — and only
+    *references* the heavy input cube by ``input_dataset_id``.  If that dataset
+    is later closed, the run moves into the past-runs viewer's "closed" section
+    instead of being lost.
+
+    ``params`` carries the full run configuration, including any manual-init
+    seed spectra (already captured as plain ``numpy`` arrays on
+    ``KMeansParameters._manual_spectra``), so the record stays dependency-free
+    on the live spectrum/dataset layer.
+
+    ``effective_seed`` is the integer random state actually handed to
+    scikit-learn.  When the user leaves the seed blank it is drawn explicitly
+    before the run (rather than letting sklearn pull from numpy's global state)
+    so that even unseeded runs are exactly reproducible.
+    """
+
+    run_id: int
+    timestamp: datetime.datetime
+    input_dataset_id: int
+    # Snapshotted name so the table can still show something meaningful after
+    # the live input dataset is closed.
+    input_dataset_name_snapshot: str
+    params: KMeansParameters
+    centroids: KMeansCentroids
+    effective_seed: Optional[int]
+
+
+class KMeansRunHistoryManager(RunHistoryManagerBase[KMeansRunRecord]):
+    """Owns the in-memory list of completed K-Means runs.
+
+    Lives on :class:`~wiser.gui.app_state.ApplicationState` so the history
+    persists across closing and reopening the K-Means dialog.  K-Means tracks
+    only input-dataset liveness (its centroids are snapshotted into the
+    record), so the shared base needs no overrides.
+    """
 
 
 # region KMeans TaskStage
