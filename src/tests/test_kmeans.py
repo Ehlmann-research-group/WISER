@@ -203,6 +203,8 @@ class TestKMeansSemanticTask(unittest.TestCase):
             input_ref=dataset_ref,
             params=params,
         )
+        # The dialog wires this in production; the test drives the task directly.
+        kmeans_task.run_recorded.connect(app_state.get_kmeans_history().add_record)
 
         task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
         future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
@@ -252,9 +254,14 @@ class TestKMeansSemanticTask(unittest.TestCase):
             err_msg="Semantic task label image does not match sklearn reference.",
         )
 
-        # Verify centroids were stored in app_state under the correct key
-        stored_centroids = app_state.get_kmeans_centroids(params)
-        self.assertIsNotNone(stored_centroids, "KMeansCentroids were not stored in app_state")
+        # Verify the completed run was recorded in the K-Means history.
+        records = app_state.get_kmeans_history().get_records()
+        self.assertEqual(len(records), 1, "Expected exactly one K-Means run record")
+        record = records[-1]
+        self.assertEqual(record.params, params)
+        self.assertEqual(record.effective_seed, _SEED)
+        stored_centroids = record.centroids
+        self.assertIsNotNone(stored_centroids, "KMeansCentroids were not stored in the run record")
         self.assertEqual(stored_centroids.num_centroids(), _K)
         ref_centroids = ref_kmeans.cluster_centers_.astype(np.float32)
         np.testing.assert_allclose(
@@ -355,6 +362,8 @@ class TestKMeansSemanticTaskParameters(unittest.TestCase):
             input_ref=dataset_ref,
             params=params,
         )
+        # The dialog wires this in production; the test drives the task directly.
+        kmeans_task.run_recorded.connect(app_state.get_kmeans_history().add_record)
 
         task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
         future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
@@ -369,7 +378,7 @@ class TestKMeansSemanticTaskParameters(unittest.TestCase):
         )
 
         labels_ds = datasets_after[-1]
-        centroids = app_state.get_kmeans_centroids(params)
+        centroids = app_state.get_kmeans_history().get_records()[-1].centroids
         return labels_ds, centroids
 
     def _assert_output(self, dataset, labels_ds, centroids, k=_K):
