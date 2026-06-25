@@ -1,3 +1,4 @@
+import datetime
 from typing import Tuple
 import unittest
 from pathlib import Path
@@ -15,6 +16,8 @@ from wiser.gui.kmeans import (
     KMeansCentroids,
     KMeansInitMethod,
     KMeansParameters,
+    KMeansRunHistoryDialog,
+    KMeansRunRecord,
     KMeansSemanticTask,
     get_kmeans_pipeline,
 )
@@ -636,6 +639,95 @@ class TestKMeansNanResistance(unittest.TestCase):
             release_kept_refs(app_services)
             app_services.scheduler.shutdown(wait=True)
             app_services.storage_service.close()
+
+
+class TestKMeansRunHistoryDialog(unittest.TestCase):
+    """Rendering tests for the past-runs viewer (no clustering involved).
+
+    Records are added to the manager directly so the dialog logic — the
+    active/closed split, the auto-seed flag, status text, and Delete — can be
+    exercised without paying for a real K-Means run.
+    """
+
+    # Column indices mirror the private constants in kmeans.py.
+    _COL_INIT = 4
+    _COL_SEED = 5
+    _COL_STATUS = 6
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def _make_record(self, run_id, dataset_id, name, *, seed, effective_seed, k=3):
+        params = KMeansParameters(
+            dataset_id=dataset_id,
+            k=k,
+            init_method=KMeansInitMethod.RANDOM,
+            num_inits=None,
+            max_iter=None,
+            tol=None,
+            seed=seed,
+            algorithm=KMeansAlgorithm.LLOYD,
+        )
+        return KMeansRunRecord(
+            run_id=run_id,
+            timestamp=datetime.datetime.now(),
+            input_dataset_id=dataset_id,
+            input_dataset_name_snapshot=name,
+            params=params,
+            centroids=KMeansCentroids(np.random.rand(k, 5).astype(np.float32)),
+            effective_seed=effective_seed,
+        )
+
+    def test_empty_history_renders_no_rows(self):
+        dialog = KMeansRunHistoryDialog(self.test_model.app_state)
+        self.assertEqual(dialog._tbl_active.rowCount(), 0)
+        self.assertEqual(dialog._tbl_closed.rowCount(), 0)
+
+    def test_alive_vs_closed_split(self):
+        app_state = self.test_model.app_state
+        dataset = self.test_model.load_dataset(str(_JPL_HDR))
+        history = app_state.get_kmeans_history()
+
+        dialog = KMeansRunHistoryDialog(app_state)
+
+        # Alive: references the loaded dataset.  Closed: references a
+        # never-registered id, so its input dataset can't be resolved.
+        history.add_record(
+            self._make_record(1, dataset.get_id(), dataset.get_name(), seed=7, effective_seed=7)
+        )
+        history.add_record(self._make_record(2, 999_999, "ghost", seed=None, effective_seed=4242))
+        self.test_model.app.processEvents()
+
+        self.assertEqual(dialog._tbl_active.rowCount(), 1)
+        self.assertEqual(dialog._tbl_closed.rowCount(), 1)
+
+        # The seeded run shows its seed verbatim; the unseeded run flags the
+        # auto-drawn seed but still shows the exact reproducible value.
+        self.assertEqual(dialog._tbl_active.item(0, self._COL_SEED).text(), "7")
+        closed_seed = dialog._tbl_closed.item(0, self._COL_SEED).text()
+        self.assertIn("4242", closed_seed)
+        self.assertIn("auto", closed_seed)
+
+        self.assertIn("closed", dialog._tbl_closed.item(0, self._COL_STATUS).text().lower())
+        self.assertEqual(dialog._tbl_active.item(0, self._COL_INIT).text(), "random")
+
+    def test_delete_removes_row(self):
+        app_state = self.test_model.app_state
+        history = app_state.get_kmeans_history()
+        dialog = KMeansRunHistoryDialog(app_state)
+
+        history.add_record(self._make_record(1, 999_999, "ghost", seed=None, effective_seed=1))
+        history.add_record(self._make_record(2, 999_998, "ghost2", seed=None, effective_seed=2))
+        self.test_model.app.processEvents()
+        self.assertEqual(dialog._tbl_closed.rowCount(), 2)
+
+        history.remove_record(1)
+        self.test_model.app.processEvents()
+        self.assertEqual(dialog._tbl_closed.rowCount(), 1)
 
 
 if __name__ == "__main__":

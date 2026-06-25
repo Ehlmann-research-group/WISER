@@ -10,14 +10,17 @@ from sklearn.cluster import KMeans as SklearnKMeans
 from PySide2.QtCore import QObject, Qt, Signal, Slot
 from PySide2.QtGui import QIntValidator, QDoubleValidator
 from PySide2.QtWidgets import (
+    QAbstractItemView,
     QDialog,
+    QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
 from wiser.gui.app_services import AppServices
@@ -668,62 +671,228 @@ class KMeansSemanticTask(QObject, SemanticTask):
         )
 
 
-class KMeansCentroidsDialog(QDialog):
-    """Lists all stored K-Means centroid results.
+# Column indices for the K-Means past-runs tables.  Shared between the active
+# and closed tables (mirrors the linear-unmixing history dialog).
+_KM_COL_RUN = 0
+_KM_COL_TIME = 1
+_KM_COL_INPUT = 2
+_KM_COL_K = 3
+_KM_COL_INIT = 4
+_KM_COL_SEED = 5
+_KM_COL_STATUS = 6
+_KM_COL_VIEW = 7
+_KM_COL_DELETE = 8
+_KM_COL_COUNT = 9
 
-    Each entry is shown as a button whose label summarises the
-    ``KMeansParameters`` used to produce it (using the dataset *name* rather
-    than the raw ID).  Clicking a button opens a :class:`SpectrumPlotGeneric`
-    that displays every centroid spectrum named ``"{i}-centroid"``.
+# Unicode arrows for the Closed Runs toggle button (mirrors activity monitor
+# and the other history dialogs).
+_KM_ARROW_EXPANDED = "▼"
+_KM_ARROW_COLLAPSED = "▶"
+
+
+class KMeansRunHistoryDialog(QDialog):
+    """Non-modal viewer for past K-Means runs.
+
+    Structurally mirrors
+    :class:`wiser.gui.linear_unmixing.LinearUnmixingHistoryDialog`: an Active
+    table and a collapsible Closed table that re-render whenever the shared
+    :class:`KMeansRunHistoryManager` emits ``records_changed``.  A run is
+    "active" iff its input dataset still resolves; otherwise it drops into the
+    Closed section with the dataset cell greyed out.  Because every record
+    snapshots its own centroids, the View button stays enabled even for closed
+    runs — viewing the centroid spectra has no live dependency.
     """
 
-    def __init__(self, app_state: ApplicationState, parent=None):
+    def __init__(self, app_state: ApplicationState, parent=None) -> None:
         super().__init__(parent=parent)
+        self.setWindowTitle(self.tr("K-Means — Past Runs"))
+        self.setModal(False)
+        self.resize(820, 500)
+
         self._app_state = app_state
-        self.setWindowTitle("K-Means Centroids")
-        self.resize(620, 400)
-        self._scroll: Optional[QScrollArea] = None
-        self._build_ui()
-        app_state.get_kmeans_history().records_changed.connect(self._rebuild_content)
+        self._history = app_state.get_kmeans_history()
+        self._closed_expanded = False
 
-    # ------------------------------------------------------------------
-    # UI construction
-    # ------------------------------------------------------------------
-
-    def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        outer.addWidget(self._scroll)
-        self._rebuild_content()
 
-    def _rebuild_content(self) -> None:
-        """Rebuild the scrollable list of centroid buttons from current app state."""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setAlignment(Qt.AlignTop)
+        outer.addWidget(QLabel(self.tr("Active Runs"), self))
+        self._tbl_active = self._make_table()
+        outer.addWidget(self._tbl_active)
 
-        records = self._app_state.get_kmeans_history().get_records()
-        if not records:
-            layout.addWidget(QLabel("No K-Means centroids have been stored yet."))
-        else:
-            for record in records:
-                params = record.params
-                centroids = record.centroids
-                btn_text = self._format_params(params)
-                btn = QPushButton(btn_text)
-                btn.setToolTip(btn_text)
-                btn.clicked.connect(lambda checked=False, p=params, c=centroids: self._show_centroids(p, c))
-                layout.addWidget(btn)
+        self._btn_toggle_closed = QPushButton(self)
+        self._btn_toggle_closed.clicked.connect(self._toggle_closed_section)
+        outer.addWidget(self._btn_toggle_closed)
 
-        self._scroll.setWidget(container)
+        self._tbl_closed = self._make_table()
+        self._tbl_closed.setVisible(self._closed_expanded)
+        outer.addWidget(self._tbl_closed)
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
+        btn_close = QPushButton(self.tr("Close"), self)
+        btn_close.clicked.connect(self.close)
+        bottom = QHBoxLayout()
+        bottom.addStretch(1)
+        bottom.addWidget(btn_close)
+        outer.addLayout(bottom)
+
+        self._history.records_changed.connect(self._rebuild_tables)
+        self._rebuild_tables()
+
+    # ----- helpers -----
+
+    def _make_table(self) -> QTableWidget:
+        table = QTableWidget(self)
+        table.setColumnCount(_KM_COL_COUNT)
+        table.setHorizontalHeaderLabels(
+            [
+                self.tr("Run"),
+                self.tr("Time"),
+                self.tr("Input dataset"),
+                self.tr("k"),
+                self.tr("Init"),
+                self.tr("Seed"),
+                self.tr("Status"),
+                self.tr(""),
+                self.tr(""),
+            ]
+        )
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QAbstractItemView.NoSelection)
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(_KM_COL_INPUT, QHeaderView.Stretch)
+        header.setSectionResizeMode(_KM_COL_STATUS, QHeaderView.Stretch)
+        for col in (
+            _KM_COL_RUN,
+            _KM_COL_TIME,
+            _KM_COL_K,
+            _KM_COL_INIT,
+            _KM_COL_SEED,
+            _KM_COL_VIEW,
+            _KM_COL_DELETE,
+        ):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        return table
+
+    def _toggle_closed_section(self) -> None:
+        self._closed_expanded = not self._closed_expanded
+        self._tbl_closed.setVisible(self._closed_expanded)
+        self._sync_closed_toggle_button()
+
+    def _sync_closed_toggle_button(self) -> None:
+        arrow = _KM_ARROW_EXPANDED if self._closed_expanded else _KM_ARROW_COLLAPSED
+        count = self._tbl_closed.rowCount()
+        self._btn_toggle_closed.setText(self.tr(f"Closed Runs ({count}) {arrow}"))
+
+    # ----- rendering -----
+
+    @Slot()
+    def _rebuild_tables(self) -> None:
+        self._tbl_active.setRowCount(0)
+        self._tbl_closed.setRowCount(0)
+        for record in self._history.get_records():
+            if self._history.is_input_alive(record):
+                self._append_row(self._tbl_active, record, alive=True)
+            else:
+                self._append_row(self._tbl_closed, record, alive=False)
+        self._sync_closed_toggle_button()
+
+    def _append_row(self, table: QTableWidget, record: KMeansRunRecord, *, alive: bool) -> None:
+        row = table.rowCount()
+        table.insertRow(row)
+
+        params = record.params
+        table.setItem(row, _KM_COL_RUN, QTableWidgetItem(str(record.run_id)))
+        table.setItem(
+            row,
+            _KM_COL_TIME,
+            QTableWidgetItem(record.timestamp.strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        table.setItem(
+            row,
+            _KM_COL_INPUT,
+            self._make_dataset_item(
+                record.input_dataset_id,
+                record.input_dataset_name_snapshot,
+                alive=alive,
+            ),
+        )
+        table.setItem(row, _KM_COL_K, QTableWidgetItem(str(params.get_k())))
+        table.setItem(row, _KM_COL_INIT, QTableWidgetItem(params.get_init_method().value))
+        table.setItem(row, _KM_COL_SEED, QTableWidgetItem(self._format_seed(record)))
+        table.setItem(
+            row,
+            _KM_COL_STATUS,
+            QTableWidgetItem(self._history.get_status_text(record)),
+        )
+
+        # Lambda binding captures rid by default arg to avoid the
+        # late-binding-loop-variable pitfall.
+        rid = record.run_id
+        btn_view = QPushButton(self.tr("View"), table)
+        btn_view.clicked.connect(lambda checked=False, r=rid: self._on_view_clicked(r))
+        table.setCellWidget(row, _KM_COL_VIEW, btn_view)
+
+        btn_delete = QPushButton(self.tr("Delete"), table)
+        btn_delete.clicked.connect(lambda checked=False, r=rid: self._history.remove_record(r))
+        table.setCellWidget(row, _KM_COL_DELETE, btn_delete)
+
+    def _format_seed(self, record: KMeansRunRecord) -> str:
+        """Render the effective seed, flagging seeds WISER drew itself.
+
+        When the user left the seed blank, ``params.seed`` is ``None`` and the
+        task drew ``effective_seed`` explicitly; we mark it "(auto)" so the row
+        still shows the exact, reproducible value while making clear the user
+        didn't pick it.
+        """
+        if record.params.get_seed() is None:
+            return self.tr("{0} (auto)").format(record.effective_seed)
+        return str(record.effective_seed)
+
+    def _make_dataset_item(
+        self,
+        dataset_id: int,
+        snapshot_name: str,
+        *,
+        alive: bool,
+    ) -> QTableWidgetItem:
+        if alive:
+            ds = self._app_state.get_dataset(dataset_id)
+            return QTableWidgetItem(ds.get_name() or snapshot_name)
+        item = QTableWidgetItem(f"{snapshot_name} (closed)")
+        font = item.font()
+        font.setItalic(True)
+        item.setFont(font)
+        item.setForeground(Qt.gray)
+        return item
+
+    # ----- View click -----
+
+    def _on_view_clicked(self, run_id: int) -> None:
+        # Liveness can change between the click and the slot firing; re-fetch
+        # the record fresh rather than capturing it in the lambda.  Centroids
+        # are snapshotted in the record, so this works even for closed runs.
+        record = next(
+            (r for r in self._history.get_records() if r.run_id == run_id),
+            None,
+        )
+        if record is None:
+            return
+
+        centroids = record.centroids
+        source_name = self._format_params(record.params)
+        spectra = [
+            NumPyArraySpectrum(
+                centroids.get_centroid(i).copy(),
+                name=f"{i}-centroid",
+                source_name=source_name,
+            )
+            for i in range(centroids.num_centroids())
+        ]
+        title = f"K-Means Run {record.run_id} — Centroids ({record.input_dataset_name_snapshot})"
+        self._app_state.show_spectra_in_plot(spectra, plot_title=title, parent=self)
 
     def _format_params(self, params: KMeansParameters) -> str:
-        """Build a human-readable summary of *params*, using the dataset name."""
+        """Build a one-line parameter summary used as the centroid spectra source name."""
         try:
             ds = self._app_state.get_dataset(params.get_dataset_id())
             ds_name = ds.get_name() or f"id={params.get_dataset_id()}"
@@ -748,19 +917,6 @@ class KMeansCentroidsDialog(QDialog):
             parts.append("init_spectra=manual")
         return " | ".join(parts)
 
-    def _show_centroids(self, params: KMeansParameters, centroids: KMeansCentroids) -> None:
-        """Open a SpectrumPlotGeneric showing every centroid in *centroids*."""
-        spectra = [
-            NumPyArraySpectrum(
-                centroids.get_centroid(i),
-                name=f"{i}-centroid",
-                source_name=self._format_params(params),
-            )
-            for i in range(centroids.num_centroids())
-        ]
-        title = f"K-Means Centroids — {self._format_params(params)}"
-        self._app_state.show_spectra_in_plot(spectra, plot_title=title, parent=self)
-
 
 class KMeansDialog(QDialog):
     def __init__(
@@ -773,7 +929,7 @@ class KMeansDialog(QDialog):
         self._app_state = app_state
         self._app_services = app_services
         self._selected_dataset_id: Optional[int] = None
-        self._centroids_dialog: Optional[KMeansCentroidsDialog] = None
+        self._centroids_dialog: Optional[KMeansRunHistoryDialog] = None
 
         self._ui = Ui_KMeansDialog()
         self._ui.setupUi(self)
@@ -930,7 +1086,7 @@ class KMeansDialog(QDialog):
 
     def _on_view_centroids(self) -> None:
         if self._centroids_dialog is None or not self._centroids_dialog.isVisible():
-            self._centroids_dialog = KMeansCentroidsDialog(self._app_state, parent=self)
+            self._centroids_dialog = KMeansRunHistoryDialog(self._app_state, parent=self)
         self._centroids_dialog.show()
         self._centroids_dialog.raise_()
         self._centroids_dialog.activateWindow()
