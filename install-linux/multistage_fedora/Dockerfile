@@ -33,7 +33,8 @@ RUN dnf -y update \
     pkgconf-pkg-config \
     patchelf file \
     mesa-libEGL mesa-libGL mesa-dri-drivers \
-    libglvnd-glx \
+    # Qt6/PySide6 uses GLVND: libOpenGL.so.0 (libglvnd-opengl) alongside libGLX.so.0
+    libglvnd-glx libglvnd-opengl \
     glib2 dbus-libs \
     libxkbcommon-x11 \
     libxcb libxcb-devel \
