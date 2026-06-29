@@ -757,13 +757,23 @@ class TaskManager(QObject):
 class SemanticTask:
     def __init__(
         self,
-        priority_class: PriorityClass,
-        input_ref: DataRef,
-        algorithm_pipeline: AlgorithmPipeline,
+        priority_class: Optional[PriorityClass] = None,
+        input_ref: Optional[DataRef] = None,
+        algorithm_pipeline: Optional[AlgorithmPipeline] = None,
         task_title: str = "Generic Task Title",
         task_variables: Optional[Dict[str, str]] = None,
         extra_plan_bindings: Optional[Dict[str, DataRef]] = None,
     ):
+        # PySide6's QObject.__init__ is cooperative: it calls super().__init__()
+        # with no arguments. In subclasses declared ``class X(QObject, SemanticTask)``
+        # the MRO routes that call into this method (PySide2's QObject never did).
+        # Such a call arrives with no arguments; the subclass then invokes
+        # SemanticTask.__init__ again explicitly with the real values, so treat the
+        # argument-less cooperative call as a no-op rather than raising
+        # "missing required positional arguments".
+        if priority_class is None or input_ref is None or algorithm_pipeline is None:
+            return
+
         # The id should be set by whatever uses this task before
         # the task is used
         self.id: Optional[int] = None
