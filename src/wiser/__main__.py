@@ -341,7 +341,7 @@ def main():
 
         # Command-line data files are opened in on_import_succeeded after the main window exists.
 
-        sys.exit(app.exec_())
+        sys.exit(app.exec())
 
 
 if __name__ == "__main__":
