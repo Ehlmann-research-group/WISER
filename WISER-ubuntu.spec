@@ -126,6 +126,24 @@ existing_datas += _sklearn_datas
 existing_binaries += _sklearn_binaries
 existing_hidden_imports += _sklearn_hidden
 
+# Belt-and-suspenders: force the Cython _pairwise_distances_reduction submodules
+# as explicit roots, in case collect_submodules skips any of them in the build
+# env. _datasets_pair / _middle_term_computer are imported only at the Cython
+# level by _base, so the module graph never sees them on its own.
+existing_hidden_imports += [
+    f"sklearn.metrics._pairwise_distances_reduction.{_m}"
+    for _m in (
+        "_datasets_pair",
+        "_middle_term_computer",
+        "_base",
+        "_argkmin",
+        "_argkmin_classmode",
+        "_radius_neighbors",
+        "_radius_neighbors_classmode",
+        "_dispatcher",
+    )
+]
+
 # SECOND PASS: rebuild Analysis with full hiddenimports
 a = Analysis(
     ["src/wiser/__main__.py"],
