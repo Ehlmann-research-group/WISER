@@ -26,8 +26,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget git \
     build-essential pkg-config \
     patchelf file \
-    # Qt/OpenGL/EGL runtime deps (PySide2 common deps)
+    # Qt/OpenGL/EGL runtime deps. Qt6/PySide6 uses GLVND and needs
+    # libOpenGL.so.0 (libopengl0) in addition to the Qt5-era libgl1/libglx0.
     libegl1 libgl1 \
+    libopengl0 \
     libgl1-mesa-dri \
     libglx0 \
     libglib2.0-0 libdbus-1-3 \
