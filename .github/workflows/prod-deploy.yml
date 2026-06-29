@@ -111,6 +111,9 @@ jobs:
 
   linux_build:
     name: Linux build (${{ matrix.distro }} / ${{ matrix.target_arch }})
+    # Needed so the release-upload step can attach assets to the release.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -174,15 +177,28 @@ jobs:
           set -euxo pipefail
           mkdir -p dist/linux
 
-          # Map distro -> your output folder key
+          # On a release the tag is the version; otherwise read it from source.
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(python3 src/wiser/version.py)"
+          fi
+
+          # Source folder key matches build_linux_multistage.sh output layout.
           case "${{ matrix.distro }}" in
             ubuntu2004) distro_key="ubuntu_2004" ;;
             debian11)   distro_key="debian_11" ;;
             fedora39)   distro_key="fedora_39" ;;
           esac
 
+          # Normalize the arch token to the web-friendly x64/arm64 form.
+          case "${{ matrix.target_arch }}" in
+            amd64) arch="x64" ;;
+            arm64) arch="arm64" ;;
+          esac
+
           src="linux_build_output/${distro_key}_${{ matrix.target_arch }}/WISER.tar.gz"
-          dst="dist/linux/WISER-${distro_key}-${{ matrix.target_arch }}.tar.gz"
+          dst="dist/linux/WISER-${version}-linux-${{ matrix.distro }}-${arch}.tar.gz"
 
           test -f "$src"
           cp "$src" "$dst"
@@ -194,3 +210,15 @@ jobs:
           name: wiser-linux-${{ matrix.distro }}-${{ matrix.target_arch }}
           path: dist/linux/*.tar.gz
           if-no-files-found: error
+
+      # Linux builds are unsigned, so the CI output is the final asset and can be
+      # attached to the release directly. Windows/macOS are signed locally and
+      # uploaded via src/devtools/sign_*.py --release-tag.
+      - name: Attach Linux asset to the release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          gh release upload "${GITHUB_REF_NAME}" dist/linux/*.tar.gz --clobber

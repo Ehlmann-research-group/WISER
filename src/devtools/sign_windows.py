@@ -39,6 +39,11 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("SHA1_THUMBPRINT"),
         help="Windows signing SHA1 thumbprint",
     )
+    p.add_argument(
+        "--release-tag",
+        default=None,
+        help="If set, upload the finished installer to this GitHub release tag (gh release upload --clobber)",
+    )
     return p.parse_args()
 
 
@@ -127,6 +132,15 @@ def main():
     nsis_cmd.append(str(nsi_script))
 
     run(nsis_cmd)
+
+    if args.release_tag:
+        if not args.app_version:
+            die("--release-tag requires --app-version to locate the installer.")
+        installer = root / f"WISER-{args.app_version}-windows-x64-setup.exe"
+        if not installer.exists():
+            die(f"Installer not found for upload: {installer}")
+        run(["gh", "release", "upload", args.release_tag, str(installer), "--clobber"])
+        print(f"Uploaded {installer.name} to release {args.release_tag}")
 
     print("Done. Artifact downloaded and installer executed.")
 

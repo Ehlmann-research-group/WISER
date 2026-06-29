@@ -137,31 +137,72 @@ command `gh`. The logic for this step is in the files /src/devtools/sign_mac.py 
 
 ## Releases
 
-WISER releases should always be made from a release branch. Release
-notes should accompany releases. Build artifacts
-should accompany releases. These build artifacts won't be
-signed due to how artifact creation works. Additionally, official
-releases should be made on the GitHub through
-the [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases)
-and the release should be tagged.
+WISER releases should always be made from a release branch and tagged through the
+GitHub [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases).
+Release notes should accompany every release.
+
+The installers are attached to the GitHub release as **release assets** (not linked
+from an Actions run — Actions artifacts expire, require a login, and are not counted
+in a release's download totals). Release notes should point users at the assets on the
+release page, never at a `…/actions/runs/<id>` URL.
+
+### Asset naming convention
+
+Asset filenames are normalized at build time so a platform + architecture is always
+identifiable from the name (the public downloads page groups assets by these tokens):
+
+```
+WISER-<version>-windows-x64-setup.exe
+WISER-<version>-macos-arm64.dmg
+WISER-<version>-macos-x64.dmg
+WISER-<version>-linux-<distro>-x64.tar.gz     # distro: ubuntu2004 | debian11 | fedora39
+WISER-<version>-linux-<distro>-arm64.tar.gz
+```
+
+`x64`/`arm64` are the canonical arch tokens (Intel/amd64 → `x64`). The names are set by
+`win-install.nsi` (Windows), `src/devtools/sign_mac.py` (macOS), and the Linux build
+step in `prod-deploy.yml` — not by hand on upload.
+
+### How assets reach the release
+
+- **Linux** builds are unsigned, so `prod-deploy.yml` attaches them to the release
+  automatically when the workflow is triggered by a `release` event.
+- **Windows / macOS** are signed locally with the maintainer's certificates, then
+  uploaded with the canonical name via the sign scripts' `--release-tag <tag>` option
+  (see the Release Process below).
+
+### Pre-release flag
+
+The web `…/releases/latest` and the API `latest` endpoint both **exclude** releases
+flagged `prerelease`. Our beta tags (e.g. `v2.2b1`) are *not* automatically treated as
+pre-releases — it is purely the checkbox at publish time. When publishing the release
+the public should download, leave **"Set as a pre-release" unchecked** (and keep "Set as
+the latest release" on) so `latest` resolves to it.
 
 ## Release Process
 
 The process of creating a release is documented below.
 
-1. Build WISER through the GitHub workflow `prod-deploy`.
-2. Do `make sign-mac` or `make sign-windows` to run the signing
-   logic. For signing on mac, you must have a valid Apple Developer
-   signing certificate tied to a paid Apple Developer Program account.
-   For signing on windows, you must have a windows code signing
-   certificate. This is tied to an individual or a legal entity.
+1. Create the GitHub release and tag the commit (see the Releases section for the
+   pre-release flag). Creating the release triggers `prod-deploy`, which builds every
+   platform and **automatically attaches the Linux assets** to the release. (You can
+   also run `prod-deploy` via `workflow_dispatch` to test a build without a release.)
+2. Sign and upload the Windows/macOS installers. Pass `RELEASE_TAG=<tag>` so the signed
+   installer is uploaded to the release with its canonical name in one step:
+
+   `make sign-mac LINK=<artifact-url> MAC_DIST_GITHUB_NAME=<artifact-name> RELEASE_TAG=<tag>`
+   or `make sign-windows LINK=<artifact-url> RELEASE_TAG=<tag>`.
+
+   For signing on mac, you must have a valid Apple Developer signing certificate tied to
+   a paid Apple Developer Program account. For signing on windows, you must have a
+   windows code signing certificate. This is tied to an individual or a legal entity.
 
    a. If you do code sign your own distribution, please do not
    present it to others as a official WISER release unless you have
    been explicitly allowed to do so for a specific release.
 
    b. Note that WISER currently does not have a code
-   signing mechanism for Linux.
+   signing mechanism for Linux; the Linux assets are attached unsigned by `prod-deploy`.
 
 3. If you are making an official release, you will need access to
    the [WISER website](https://ehlmann.caltech.edu/wiser/index.html)
@@ -169,8 +210,8 @@ The process of creating a release is documented below.
    access to this, you will add a download link to the website for the
    new release.
 
-4. You will need to make a release on GitHub with the release notes
-   and tag the release's commit.
+4. Finalize the release notes on the GitHub release (created in step 1). Point users at
+   the attached release assets — do not link to a `…/actions/runs/<id>` URL.
 
 5. You will then need to put the release on
    the [website's release notes page](https://ehlmann.caltech.edu/wiser/release-notes.html).
