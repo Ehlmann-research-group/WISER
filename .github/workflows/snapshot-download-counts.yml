@@ -1,0 +1,80 @@
+# Records a daily snapshot of every release asset's cumulative download_count so we can
+# chart downloads over time (per platform and per release). The GitHub API only exposes
+# running totals, so we append a timestamped row to a CSV and keep the history in git.
+#
+# Data lives on the long-lived `stats` branch (created automatically on first run) at
+# stats/downloads.csv, keeping the default branch's history clean. Read it with:
+#   git fetch origin stats && git show origin/stats:stats/downloads.csv
+#
+# Notes: download_count includes bots/CI traffic and excludes the auto-generated source
+# archives (those are not release assets).
+name: snapshot-download-counts
+
+on:
+  schedule:
+    - cron: "0 6 * * *"     # daily 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Append snapshot to the stats branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Move onto the long-lived stats branch (orphan it on the first run).
+          if git ls-remote --exit-code --heads origin stats >/dev/null 2>&1; then
+            git fetch origin stats
+            git checkout -B stats FETCH_HEAD
+          else
+            git checkout --orphan stats
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          mkdir -p stats
+          test -f stats/downloads.csv || \
+            echo "timestamp,release_tag,asset_name,download_count" > stats/downloads.csv
+
+          gh api --paginate "repos/${{ github.repository }}/releases" \
+            --jq '.[] | .tag_name as $t | .assets[]? | [$t, .name, .download_count] | @csv' \
+          | while IFS= read -r row; do echo "$TS,$row" >> stats/downloads.csv; done
+
+          # Human-readable rollup for this run (Actions summaries are retention-capped;
+          # the CSV in git is the durable record).
+          {
+            echo "## WISER download snapshot — $TS"
+            echo ""
+            echo "| platform | total downloads |"
+            echo "|---|---|"
+            awk -F, -v ts="$TS" '
+              $1==ts {
+                name=tolower($3); c=$4
+                if (name ~ /windows/ || name ~ /\.exe/)              win+=c
+                else if (name ~ /mac/ || name ~ /\.dmg/)             mac+=c
+                else if (name ~ /linux/ || name ~ /\.tar\.gz/ || name ~ /\.zip/) lin+=c
+              }
+              END { printf "| windows | %d |\n| macos | %d |\n| linux | %d |\n", win, mac, lin }
+            ' stats/downloads.csv
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          git add stats/downloads.csv
+          if git diff --staged --quiet; then
+            echo "No change in download counts; nothing to commit."
+          else
+            git commit -m "chore(stats): snapshot download counts ($TS) [skip ci]"
+            git push origin stats
+          fi
