@@ -5,7 +5,7 @@ This script assumes you use conda for your environment management.
 import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
+sys.path.insert(0, os.path.abspath(os.path.join(SPECPATH, 'src', 'devtools')))
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_dynamic_libs
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
