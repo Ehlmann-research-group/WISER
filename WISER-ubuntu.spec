@@ -23,6 +23,7 @@ devtools_path = os.path.join(project_root, "src", "devtools")
 sys.path.insert(0, os.path.abspath(devtools_path))
 
 from PyInstaller.utils.hooks import (
+    collect_all,
     collect_data_files,
     collect_dynamic_libs,
     collect_submodules,
@@ -113,6 +114,17 @@ cv2_binaries = collect_dynamic_libs(
 )
 cv2_data_files_diagnostic = collect_data_files("cv2")
 existing_binaries += cv2_binaries
+
+# scikit-learn ships compiled Cython extensions that PyInstaller's module graph
+# misses -- notably the sklearn.metrics._pairwise_distances_reduction submodules
+# (_datasets_pair, _middle_term_computer, ...), which are imported at the Cython
+# level rather than through normal Python imports. The collect_submodules loop
+# above lists module names, but the .so files must also be physically collected,
+# so pull sklearn's submodules, data files, and binaries in full.
+_sklearn_datas, _sklearn_binaries, _sklearn_hidden = collect_all("sklearn")
+existing_datas += _sklearn_datas
+existing_binaries += _sklearn_binaries
+existing_hidden_imports += _sklearn_hidden
 
 # SECOND PASS: rebuild Analysis with full hiddenimports
 a = Analysis(
