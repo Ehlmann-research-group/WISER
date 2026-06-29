@@ -7,8 +7,8 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
 from astropy import units as u
+import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib import cm
 
 from .generated.band_chooser_ui import Ui_BandChooserDialog
 
@@ -195,7 +195,7 @@ class BandChooserDialog(QDialog):
         """
 
         cm_name = self._ui.cbox_colormap_name.currentText()
-        cmap = cm.get_cmap(cm_name, 256)
+        cmap = matplotlib.colormaps[cm_name].resampled(256)
         img = QImage(cmap.N, 24, QImage.Format_RGB32)
 
         for x in range(cmap.N):

@@ -34,7 +34,6 @@ import matplotlib.pyplot as plt
 
 from typing import Callable, TYPE_CHECKING, Optional, List, Tuple
 
-from matplotlib.pyplot import cm
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.figure import Figure
 from matplotlib.widgets import PolygonSelector
@@ -477,7 +476,7 @@ class ScatterPlot2DDialog(QDialog):
 
         cbox_cmap.addItem(DEFAULT_COLOR[0], DEFAULT_COLOR[1])
         for cmap_text in plt.colormaps():
-            cbox_cmap.addItem(cmap_text, cm.get_cmap(cmap_text, 256))
+            cbox_cmap.addItem(cmap_text, matplotlib.colormaps[cmap_text].resampled(256))
 
         # Ensure we select the current color choice in the combo box
         idx = cbox_cmap.findText(self._colormap_choice[0])
