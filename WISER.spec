@@ -38,7 +38,7 @@ binaries = [
     (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
     (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins'),
 ]
-hiddenimports = ['PySide2.QtSvg', 'PySide2.QtXml']
+hiddenimports = ['PySide6.QtSvg', 'PySide6.QtXml']
 tmp_ret = collect_all('osgeo')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
@@ -65,7 +65,7 @@ top_modules = { entry[0].split('.', 1)[0] for entry in temp_a.pure }
 
 
 IGNORED_TOP_PACKAGES = {
-    "PySide2",
+    "PySide6",
 }
 
 for pkg in sorted(top_modules):

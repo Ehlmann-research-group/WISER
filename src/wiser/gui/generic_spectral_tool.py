@@ -9,7 +9,7 @@ import numpy as np
 from numba import njit, prange, types
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog,
     QMessageBox,
     QApplication,
@@ -24,7 +24,7 @@ from PySide2.QtWidgets import (
     QWidget,
     QPushButton,
 )
-from PySide2.QtCore import Qt, QSettings
+from PySide6.QtCore import Qt, QSettings
 from astropy import units as u
 
 from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
@@ -885,7 +885,7 @@ class GenericSpectralComputationTool(QDialog):
         d.activateWindow()
 
     def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: Spectrum):
-        from PySide2.QtWidgets import QVBoxLayout, QTableWidget
+        from PySide6.QtWidgets import QVBoxLayout, QTableWidget
 
         layout = QVBoxLayout(d)
 

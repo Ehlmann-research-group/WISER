@@ -25,9 +25,9 @@ import numba
 
 from typing import TYPE_CHECKING, Tuple
 
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
-from PySide2.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
 from scipy.interpolate import interp1d
 
 from wiser import plugins, raster

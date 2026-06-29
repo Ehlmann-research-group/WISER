@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-from PySide2.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu, QMessageBox
 from astropy import units as u
 
 from wiser.gui.app_state import ApplicationState

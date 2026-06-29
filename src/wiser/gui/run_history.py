@@ -20,8 +20,8 @@ import datetime
 from typing import Generic, List, Protocol, TYPE_CHECKING, TypeVar
 
 import numpy as np
-from PySide2.QtCore import QObject, Qt, Signal, Slot
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHBoxLayout,

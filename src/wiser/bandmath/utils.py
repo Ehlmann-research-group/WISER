@@ -41,7 +41,7 @@ from .builtins.constants import (
     RHS_KEY,
 )
 
-from PySide2.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 import logging
 

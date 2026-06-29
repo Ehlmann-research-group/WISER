@@ -3,15 +3,15 @@ channels:
 - conda-forge
 channel_priority: strict
 dependencies:
-- python==3.*
-- python_abi=3.*
-- astropy
+- python==3.12.*
+- python_abi=3.12
+- astropy>=7
 - backports.tarfile
 - conda-forge::blas[build=openblas]
 - gdal=3.12.*
 - hdf4
 - hdf5
-- libgdal-core
+- libgdal-core=3.12.*
 - libgdal-fits
 - libgdal-hdf4
 - libgdal-hdf5
@@ -27,9 +27,9 @@ dependencies:
 - pillow
 - proj
 - pyproj
-- pyside2
+- pyside6=6.11.*
 - pytest
-- qt-main
+- qt6-main=6.11.*
 - scipy
 - scikit-learn
 - setuptools

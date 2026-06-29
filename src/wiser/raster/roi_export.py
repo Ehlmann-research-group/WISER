@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 from osgeo import gdal, gdalconst, ogr
 

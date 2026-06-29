@@ -24,7 +24,7 @@ from .dataset_impl import (
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
 
-from PySide2.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import DataCache

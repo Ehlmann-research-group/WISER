@@ -12,9 +12,9 @@ import logging
 import traceback
 from typing import Optional
 
-from PySide2.QtCore import QSize, Qt, QThread, QTimer, Signal
-from PySide2.QtGui import QFont, QIcon, QPixmap
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QFont, QIcon, QPixmap
+from PySide6.QtWidgets import (
     QApplication,
     QFrame,
     QGraphicsDropShadowEffect,
@@ -269,6 +269,7 @@ class StartupSplash(QWidget):
             """
             QPlainTextEdit {
                 background-color: #ffffff;
+                color: #1a1a1a;
                 border: 1px solid #d0d0d0;
                 border-radius: 3px;
                 font-family: Consolas, "Courier New", monospace;
@@ -309,6 +310,7 @@ class StartupSplash(QWidget):
             """
             QPlainTextEdit {
                 background-color: #fff8f8;
+                color: #1a1a1a;
                 border: 1px solid #c04040;
                 border-radius: 3px;
                 font-family: Consolas, "Courier New", monospace;

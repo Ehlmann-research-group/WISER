@@ -18,14 +18,14 @@ channels:
   - conda-forge
 channel_priority: strict
 dependencies:
-  - python==3.9.*
-  - python_abi=3.9
-  - astropy
+  - python==3.12.*
+  - python_abi=3.12
+  - astropy>=7
   - backports.tarfile
   - conda-forge::blas[build=openblas]
   - gdal=3.12.*
   - hdf4
-  - hdf5git
+  - hdf5
   - libgdal-core=3.12.*
   - libgdal-fits
   - libgdal-hdf4
@@ -36,15 +36,15 @@ dependencies:
   - matplotlib
   - mpl-scatter-density
   - numba
-  - numpy=1.*
-  - opencv=4.*
+  - numpy
+  - opencv
   - pdr
   - pillow
   - proj
   - pyproj
-  - pyside2=5.15.15
+  - pyside6=6.11.*
   - pytest
-  - qt-main=5.15.15
+  - qt6-main=6.11.*
   - scipy
   - scikit-learn
   - setuptools

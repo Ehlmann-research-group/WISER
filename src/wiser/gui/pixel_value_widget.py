@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Tuple
 
 import numpy as np
-from PySide2.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog
 
 from wiser.raster import RasterDataSet
 from .generated.pixel_value_widget_ui import Ui_PixelValueWidget

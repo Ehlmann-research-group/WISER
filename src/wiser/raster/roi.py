@@ -5,8 +5,8 @@ from .selection import (
     selection_from_pyrep,
 )
 
-from PySide2.QtCore import QRect
-from PySide2.QtGui import QColor
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QColor
 
 
 class RegionOfInterest:

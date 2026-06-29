@@ -6,9 +6,9 @@ import numpy as np
 from scipy import ndimage
 from scipy.signal import savgol_filter
 from sklearn.decomposition import IncrementalPCA, PCA
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 from astropy import units as u
 
 from wiser.raster.loader import RasterDataLoader

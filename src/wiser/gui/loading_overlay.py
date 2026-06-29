@@ -1,6 +1,6 @@
-from PySide2.QtCore import Qt, QTimer, QRect, QPoint
-from PySide2.QtGui import QColor, QPainter, QPen
-from PySide2.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt, QTimer, QRect, QPoint
+from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
 
 class LoadingOverlay(QWidget):

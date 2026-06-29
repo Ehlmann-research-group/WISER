@@ -2476,7 +2476,7 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
 
     def test_spectral_mean_roi_single_rectangle(self):
         """Single 5x4 rectangle (x 5..9, y 10..13) — no overlap."""
-        from PySide2.QtCore import QPoint
+        from PySide6.QtCore import QPoint
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
@@ -2493,7 +2493,7 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
         Rect B: x 5..11, y 5..9    (cols 5-10, rows 5-8 inclusive)
         Overlap: x 5..7, y 5..8 — deduplicated by the ROI pixel set.
         """
-        from PySide2.QtCore import QPoint
+        from PySide6.QtCore import QPoint
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
@@ -2513,7 +2513,7 @@ class TestRoiSpectralMeanStage(unittest.TestCase):
         Polygon:   triangle touching the rectangle's right edge
         MultiPixel: a few scattered pixels, some inside the rectangle
         """
-        from PySide2.QtCore import QPoint
+        from PySide6.QtCore import QPoint
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import (
             RectangleSelection,
@@ -2595,7 +2595,7 @@ class TestRoiCalcCovMatrixStage(unittest.TestCase):
 
     def test_covariance_roi_single_rectangle(self):
         """5x6 rectangle — ground truth via np.cov."""
-        from PySide2.QtCore import QPoint
+        from PySide6.QtCore import QPoint
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 
@@ -2611,7 +2611,7 @@ class TestRoiCalcCovMatrixStage(unittest.TestCase):
         pixel set, so the pipeline covariance must match np.cov over the
         deduplicated set.
         """
-        from PySide2.QtCore import QPoint
+        from PySide6.QtCore import QPoint
         from wiser.raster.roi import RegionOfInterest
         from wiser.raster.selection import RectangleSelection
 

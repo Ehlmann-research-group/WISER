@@ -5,9 +5,9 @@ import time
 
 from typing import Dict, List, Optional, Tuple, Union
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import numpy as np
 from matplotlib import cm

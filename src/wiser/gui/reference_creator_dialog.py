@@ -3,9 +3,9 @@ import sys
 
 from typing import List, Optional
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .generated.reference_system_creator_ui import Ui_ReferenceSystemCreator
 
@@ -607,8 +607,8 @@ class ReferenceCreatorDialog(QDialog):
         self._ui.ledit_prime_meridian.textChanged.connect(self._on_lon_meridian_changed)
 
     def _init_crs_name(self):
-        regex = QRegExp(r"^[A-Za-z0-9_]+$")
-        validator = QRegExpValidator(regex, self._ui.ledit_crs_name)
+        regex = QRegularExpression(r"^[A-Za-z0-9_]+$")
+        validator = QRegularExpressionValidator(regex, self._ui.ledit_crs_name)
         self._ui.ledit_crs_name.setValidator(validator)
         self._ui.ledit_crs_name.textEdited.connect(self._on_crs_name_changed)
 

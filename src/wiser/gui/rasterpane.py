@@ -3,9 +3,9 @@ from enum import Enum
 from typing import List, Optional, Tuple, Dict, Union
 import numpy as np
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog

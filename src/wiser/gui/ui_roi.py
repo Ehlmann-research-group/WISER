@@ -1,8 +1,8 @@
 from typing import List
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .ui_selection_rectangle import draw_rectangle_selection
 from .ui_selection_polygon import draw_polygon_selection

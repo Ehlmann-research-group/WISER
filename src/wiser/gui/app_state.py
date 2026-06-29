@@ -6,8 +6,8 @@ from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
-from PySide2.QtCore import *
-from PySide2.QtWidgets import QMessageBox, QDialog
+from PySide6.QtCore import *
+from PySide6.QtWidgets import QMessageBox, QDialog
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color

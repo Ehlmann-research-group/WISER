@@ -16,8 +16,8 @@ every spectrum (linear unmixing).
 import os
 from typing import Any, Callable, List, Optional
 
-from PySide2.QtCore import QObject, Qt
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFileDialog,

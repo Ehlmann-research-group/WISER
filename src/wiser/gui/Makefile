@@ -1,6 +1,6 @@
 # Makefile to generate Python UI files from the Qt Designer .ui files.
 
-UIC=pyside2-uic
+UIC=pyside6-uic
 
 # The *.ui files are stored in this subdirectory.
 UI_SRC_DIR = ./ui_files

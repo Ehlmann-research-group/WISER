@@ -2,7 +2,7 @@ import logging
 
 from wiser.plugins import ToolsMenuPlugin
 
-from PySide2.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu, QMessageBox
 
 
 logger = logging.getLogger(__name__)

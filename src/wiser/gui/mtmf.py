@@ -6,8 +6,8 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
-from PySide2.QtCore import QObject, Qt, Signal, Slot
-from PySide2.QtWidgets import QDialog, QMessageBox
+from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState

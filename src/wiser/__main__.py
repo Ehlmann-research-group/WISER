@@ -128,9 +128,9 @@ warnings.filterwarnings("ignore", "(?s).*MATPLOTLIBDATA.*", category=UserWarning
 # This is why we do the debugging setup first.
 #
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import matplotlib
 
@@ -273,10 +273,6 @@ def main():
     # Qt Platform Initialization
 
     qInstallMessageHandler(qt_debug_callback)
-
-    # Turn on high-DPI application scaling in Qt.
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
     tests = args.test_mode
     if tests is not None:

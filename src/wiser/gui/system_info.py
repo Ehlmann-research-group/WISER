@@ -1,10 +1,10 @@
 import platform
-import pkg_resources
 import sys
+from importlib import metadata
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from wiser import version
 
@@ -53,7 +53,7 @@ class SystemInfoDialog(QDialog):
 
         # Installed packages and versions
 
-        installed_packages = [(d.project_name, d.version) for d in pkg_resources.working_set]
+        installed_packages = [(d.name, d.version) for d in metadata.distributions()]
 
         installed_packages.sort(key=lambda t: t[0].upper())
 

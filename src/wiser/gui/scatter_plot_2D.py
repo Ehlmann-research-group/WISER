@@ -45,9 +45,9 @@ from .generated.scatter_plot_axes_ui import Ui_ScatterPlotAxes
 from .generated.scatter_plot_colormap_ui import Ui_ScatterPlotColormap
 from .generated.interactive_scatter_plot_ui import Ui_ScatterPlotDialog
 
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
-from PySide2.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
 
 from wiser.gui.loading_overlay import LoadingOverlay
 from wiser.gui.parallel_task import ParallelTaskProcess

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional, Tuple
 
-from PySide2.QtCore import QTimer, Qt, Signal, Slot
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QTimer, Qt, Signal, Slot
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHBoxLayout,
@@ -161,11 +161,11 @@ class ActivityMonitorDialog(QDialog):
         table.setFocusPolicy(Qt.NoFocus)
         table.verticalHeader().setVisible(False)
         table.horizontalHeader().setStretchLastSection(False)
-        table.horizontalHeader().setSectionResizeMode(0, table.horizontalHeader().Stretch)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         if len(columns) > 1:
-            table.horizontalHeader().setSectionResizeMode(1, table.horizontalHeader().ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         if len(columns) > 2:
-            table.horizontalHeader().setSectionResizeMode(2, table.horizontalHeader().ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         table.setWordWrap(True)
         table.horizontalHeader().sectionResized.connect(
             lambda logical_index, old_size, new_size, table=table: self._resize_all_rows(table)
@@ -431,7 +431,7 @@ class ActivityMonitorDialog(QDialog):
     def _refresh_table_layout(self, table: QTableWidget) -> None:
         header = table.horizontalHeader()
         for column in range(1, table.columnCount()):
-            if header.sectionResizeMode(column) == QHeaderView.ResizeToContents:
+            if header.sectionResizeMode(column) == QHeaderView.ResizeMode.ResizeToContents:
                 table.resizeColumnToContents(column)
         self._resize_all_rows(table)
 

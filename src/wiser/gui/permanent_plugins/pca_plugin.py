@@ -8,8 +8,8 @@ from enum import Enum
 from typing import Callable, Dict, TYPE_CHECKING, Optional
 
 import numpy as np
-from PySide2.QtCore import QObject, Signal, Slot
-from PySide2.QtWidgets import QDialog, QMessageBox
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtWidgets import QDialog, QMessageBox
 from sklearn.decomposition import PCA
 
 from wiser import plugins

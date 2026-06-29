@@ -5,8 +5,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from astropy import units as u
-from PySide2.QtCore import QObject, Qt, Signal, Slot
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHBoxLayout,

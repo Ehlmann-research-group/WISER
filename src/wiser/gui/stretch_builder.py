@@ -1,8 +1,8 @@
 from typing import List, Tuple, Union
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .generated.channel_stretch_widget_ui import Ui_ChannelStretchWidget
 from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget

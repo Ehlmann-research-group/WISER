@@ -16,7 +16,7 @@ from wiser.raster.selection import (
     MultiPixelSelection,
 )
 
-# from PySide2.QtCore import *
+# from PySide6.QtCore import *
 from wiser.bandmath.types import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 import cProfile
@@ -35,9 +35,9 @@ from wiser.gui.app import DataVisualizerApp
 import logging
 import traceback
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 app = QApplication([])  # Initialize the QApplication
 

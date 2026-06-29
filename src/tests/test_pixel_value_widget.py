@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-    from PySide2.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication([])
 

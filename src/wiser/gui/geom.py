@@ -1,4 +1,4 @@
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 import math
 from typing import Union

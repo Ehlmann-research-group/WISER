@@ -3,9 +3,9 @@ import logging
 from enum import Enum
 from typing import Any, Callable, Dict, Optional, Union
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
