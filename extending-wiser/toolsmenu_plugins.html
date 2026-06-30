@@ -433,7 +433,7 @@ application-menu.</p>
 <p class="rubric">Initialization</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.plugins.types.wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin.add_tool_menu_items">
-<span class="sig-name descname"><span class="pre">add_tool_menu_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tool_menu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtWidgets.QMenu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wiser</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.plugins.gui.app_state.ApplicationState</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.plugins.types.wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin.add_tool_menu_items" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">add_tool_menu_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tool_menu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide6.QtWidgets.QMenu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wiser</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.plugins.gui.app_state.ApplicationState</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#wiser.plugins.types.wiser.plugins.types.ToolsMenuPlugin.ToolsMenuPlugin.add_tool_menu_items" title="Link to this definition">#</a></dt>
 <dd><p>This method is called by WISER to allow plugins to add menu actions or
 submenus into the Tools application menu.</p>
 <p>If a plugin provides multiple actions, the developer has several
@@ -455,7 +455,7 @@ add sub-menus to the Tools menu.</p>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">wiser.plugins</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolsMenuPlugin</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">PySide2.QtWidgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">QMenu</span><span class="p">,</span> <span class="n">QMessageBox</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PySide6.QtWidgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">QMenu</span><span class="p">,</span> <span class="n">QMessageBox</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>

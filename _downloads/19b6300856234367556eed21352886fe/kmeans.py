@@ -7,9 +7,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 import numpy as np
 from astropy import units as u
 from sklearn.cluster import KMeans as SklearnKMeans
-from PySide2.QtCore import QObject, Qt, Signal, Slot
-from PySide2.QtGui import QIntValidator, QDoubleValidator
-from PySide2.QtWidgets import (
+from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtGui import QIntValidator, QDoubleValidator
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHBoxLayout,
