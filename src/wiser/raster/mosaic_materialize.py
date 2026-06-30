@@ -32,6 +32,7 @@ import numpy as np
 from osgeo import gdal, gdal_array
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset_impl import GTiff_GDALRasterDataImpl
 from wiser.utils.primitives import temp_dir
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,24 @@ def _gdal_type_and_write_dtype(elem_type: np.dtype) -> tuple[int, np.dtype]:
     if gdal_type is None:
         raise TypeError(f"Unsupported NumPy dtype for GDAL materialization: {et}")
     return gdal_type, et
+
+
+def _band_wavelength_value_and_units(info: dict) -> tuple[Optional[object], Optional[str]]:
+    """
+    Extract a band's numeric wavelength value and unit string from a band-info
+    dict, preferring the canonical astropy ``Quantity`` under "wavelength" and
+    falling back to the "wavelength_str"/"wavelength_units" string fields.
+    Returns ``(None, None)`` when no wavelength is present.
+    """
+    quantity = info.get("wavelength")
+    if quantity is not None and hasattr(quantity, "value") and hasattr(quantity, "unit"):
+        return quantity.value, str(quantity.unit)
+
+    wl_str = info.get("wavelength_str")
+    if wl_str is None:
+        return None, None
+    wl_units = info.get("wavelength_units")
+    return wl_str, (str(wl_units) if wl_units is not None else None)
 
 
 def _stamp_metadata_from_dataset(gdal_dataset: gdal.Dataset, source_dataset: RasterDataSet) -> None:
@@ -81,13 +100,24 @@ def _stamp_metadata_from_dataset(gdal_dataset: gdal.Dataset, source_dataset: Ras
 
     band_info = source_dataset.band_list()
 
-    # Band descriptions follow the established ENVI/GDAL convention of using the
-    # "wavelength_name" entry when present.
-    if band_info and band_info[0].get("wavelength_name"):
-        for i, info in enumerate(band_info):
-            name = info.get("wavelength_name")
-            if name is not None:
-                gdal_dataset.GetRasterBand(i + 1).SetDescription(str(name))
+    # Per-band spectral metadata. We write the numeric wavelength value under
+    # "wavelength" and its units under "wavelength_units" -- the exact pair that
+    # GDALRasterDataImpl.read_band_info reads back to rebuild the wavelength
+    # Quantity, so a normal reload reconstructs wavelengths automatically.
+    for i, info in enumerate(band_info):
+        band = gdal_dataset.GetRasterBand(i + 1)
+
+        # Band descriptions follow the established ENVI/GDAL convention of using
+        # the "wavelength_name" entry when present.
+        name = info.get("wavelength_name")
+        if name is not None:
+            band.SetDescription(str(name))
+
+        value, units = _band_wavelength_value_and_units(info)
+        if value is not None:
+            band.SetMetadataItem("wavelength", str(value))
+        if units is not None:
+            band.SetMetadataItem("wavelength_units", str(units))
 
     defaults = source_dataset.default_display_bands()
     if defaults:
@@ -96,18 +126,6 @@ def _stamp_metadata_from_dataset(gdal_dataset: gdal.Dataset, source_dataset: Ras
     bad = source_dataset.get_bad_bands()
     if bad:
         gdal_dataset.SetMetadataItem("BAD_BANDS", ",".join(str(b) for b in bad))
-
-    if band_info and band_info[0].get("wavelength_str") is not None:
-        for i, info in enumerate(band_info):
-            wl_str = info.get("wavelength_str")
-            if wl_str is not None:
-                gdal_dataset.GetRasterBand(i + 1).SetMetadataItem("wavelength", str(wl_str))
-
-    if band_info and band_info[0].get("wavelength_units") is not None:
-        for i, info in enumerate(band_info):
-            wl_units = info.get("wavelength_units")
-            if wl_units is not None:
-                gdal_dataset.GetRasterBand(i + 1).SetMetadataItem("wavelength_units", str(wl_units))
 
 
 def materialize_to_tiled_geotiff(dataset: RasterDataSet, dest_path: Path) -> None:
@@ -145,12 +163,18 @@ def materialize_to_tiled_geotiff(dataset: RasterDataSet, dest_path: Path) -> Non
         raise RuntimeError(f"GDAL failed to create tiled GeoTIFF at {dest_path}")
 
     try:
+        # Write one band at a time (rather than the whole cube) to keep peak
+        # memory low: at most a single (height, width) band is resident per
+        # iteration, and it is released before the next band is read.
         for band_index in range(num_bands):
             # filter_data_ignore_value=False keeps the raw values (including the
             # nodata sentinel) so the materialized file mirrors the source.
             band_arr = dataset.get_band_data(band_index, filter_data_ignore_value=False)
             band_arr = np.asarray(band_arr, dtype=write_dtype)
             out_ds.GetRasterBand(band_index + 1).WriteArray(band_arr)
+            # Drop the reference so the band can be reclaimed now instead of
+            # lingering until it is reassigned on the next iteration.
+            del band_arr
 
         _stamp_metadata_from_dataset(out_ds, dataset)
         out_ds.FlushCache()
@@ -165,6 +189,41 @@ def materialize_to_tiled_geotiff(dataset: RasterDataSet, dest_path: Path) -> Non
         height,
         num_bands,
     )
+
+
+def read_materialized_geotiff(path: Path) -> RasterDataSet:
+    """
+    Reconstruct a :class:`RasterDataSet` from a GeoTIFF written by
+    :func:`materialize_to_tiled_geotiff`, restoring all stamped metadata.
+
+    Loading through ``GTiff_GDALRasterDataImpl`` already recovers the
+    geotransform, spatial reference, nodata value, and per-band wavelength
+    value/units (the GDAL band reader rebuilds the wavelength ``Quantity`` from
+    the "wavelength" / "wavelength_units" items). This function additionally
+    restores the dataset-level metadata GDAL does not interpret on its own --
+    the bad-band list and the default display bands -- so the returned object
+    matches the source ``RasterDataSet`` that was materialized.
+    """
+    impls = GTiff_GDALRasterDataImpl.try_load_file(str(path), interactive=False)
+    if not impls:
+        raise RuntimeError(f"Failed to load materialized GeoTIFF from {path}")
+    dataset = RasterDataSet(impls[0], data_cache=None)
+
+    metadata = impls[0].gdal_dataset.GetMetadata()
+
+    bad_bands_str = metadata.get("BAD_BANDS")
+    if bad_bands_str:
+        bad_bands = [int(v) for v in bad_bands_str.split(",")]
+        if len(bad_bands) == dataset.num_bands():
+            dataset.set_bad_bands(bad_bands)
+
+    default_bands_str = metadata.get("DEFAULT_BANDS")
+    if default_bands_str:
+        default_bands = tuple(int(v) for v in default_bands_str.split(","))
+        if len(default_bands) in (1, 3):
+            dataset.set_default_display_bands(default_bands)
+
+    return dataset
 
 
 class SceneMaterializer:

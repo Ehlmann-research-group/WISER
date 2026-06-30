@@ -23,7 +23,11 @@ import tests.context  # noqa: F401  (sets up sys.path for `wiser` imports)
 from tests.mosaic_fixtures import make_numpy_scene, wkt_for_epsg, write_gtiff
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import GTiff_GDALRasterDataImpl
-from wiser.raster.mosaic_materialize import SceneMaterializer, materialize_to_tiled_geotiff
+from wiser.raster.mosaic_materialize import (
+    SceneMaterializer,
+    materialize_to_tiled_geotiff,
+    read_materialized_geotiff,
+)
 
 pytestmark = [pytest.mark.unit]
 
@@ -70,6 +74,38 @@ def test_numpy_scene_round_trip_metadata_and_tiled(tmp_path: Path) -> None:
             np.testing.assert_array_equal(ds.GetRasterBand(b + 1).ReadAsArray(), expected)
     finally:
         ds = None
+
+
+def test_read_materialized_geotiff_reconstructs_metadata(tmp_path: Path) -> None:
+    """A materialize -> read_materialized_geotiff round trip restores the
+    metadata we had to encode in the GDAL object: wavelength value + units,
+    bad bands, default display bands, and nodata."""
+    wavelengths = [450.0, 550.0, 650.0]
+    scene = make_numpy_scene(
+        width=8,
+        height=6,
+        num_bands=3,
+        epsg=32611,
+        nodata=-9999.0,
+        wavelengths=wavelengths,
+        wavelength_units="nm",
+        bad_bands=[1, 0, 1],
+        default_display_bands=(2, 1, 0),
+    )
+
+    dest = tmp_path / "round_trip.tif"
+    materialize_to_tiled_geotiff(scene, dest)
+
+    restored = read_materialized_geotiff(dest)
+
+    assert restored.get_bad_bands() == [1, 0, 1]
+    assert tuple(restored.default_display_bands()) == (2, 1, 0)
+    assert restored.get_data_ignore_value() == pytest.approx(-9999.0)
+
+    restored_wavelengths = restored.get_wavelengths()
+    assert restored_wavelengths is not None
+    assert [q.value for q in restored_wavelengths] == pytest.approx(wavelengths)
+    assert all(str(q.unit) == "nm" for q in restored_wavelengths)
 
 
 def test_window_read_matches_source(tmp_path: Path) -> None:

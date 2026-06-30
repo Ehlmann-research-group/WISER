@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
+from astropy import units as u
 from osgeo import gdal, gdal_array, osr
 
 from wiser.raster.dataset import RasterDataSet
@@ -44,6 +45,7 @@ def _build_cube(num_bands: int, height: int, width: int, dtype: np.dtype, base: 
 
 
 def _wavelength_band_info(wavelengths: Sequence[float], units: str) -> List[dict]:
+    unit = u.Unit(units)
     info: List[dict] = []
     for i, wl in enumerate(wavelengths):
         info.append(
@@ -51,6 +53,7 @@ def _wavelength_band_info(wavelengths: Sequence[float], units: str) -> List[dict
                 "index": i,
                 "description": f"Band {i}",
                 "wavelength_name": f"{wl} {units}",
+                "wavelength": wl * unit,
                 "wavelength_str": str(wl),
                 "wavelength_units": units,
             }
@@ -70,14 +73,17 @@ def make_numpy_scene(
     nodata: Optional[float] = -9999.0,
     wavelengths: Optional[Sequence[float]] = None,
     wavelength_units: str = "nm",
+    bad_bands: Optional[Sequence[int]] = None,
+    default_display_bands: Optional[Sequence[int]] = None,
     base_value: float = 0.0,
 ) -> RasterDataSet:
     """
     Build an in-RAM, georeferenced ``NumPyRasterDataImpl``-backed scene.
 
     The geotransform is north-up: ``(origin_x, px_w, 0, origin_y, 0, px_h)``
-    (``px_h`` is typically negative). Spatial reference, nodata, and optional
-    per-band wavelength metadata are stamped onto the ``RasterDataSet`` object.
+    (``px_h`` is typically negative). Spatial reference, nodata, optional
+    per-band wavelength metadata, bad-band list, and default display bands are
+    stamped onto the ``RasterDataSet`` object.
     """
     cube = _build_cube(num_bands, height, width, np.dtype(dtype), base_value)
     dataset = RasterDataSet(NumPyRasterDataImpl(cube))
@@ -93,6 +99,12 @@ def make_numpy_scene(
         if len(wavelengths) != num_bands:
             raise ValueError("wavelengths must have one entry per band")
         dataset.set_band_list(_wavelength_band_info(wavelengths, wavelength_units))
+
+    if bad_bands is not None:
+        dataset.set_bad_bands(list(bad_bands))
+
+    if default_display_bands is not None:
+        dataset.set_default_display_bands(tuple(default_display_bands))
 
     return dataset
 
