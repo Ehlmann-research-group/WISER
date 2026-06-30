@@ -1528,7 +1528,7 @@ class WiserTestModel:
 
     @run_in_wiser_decorator
     def crs_creator_set_projection_type(self, proj_type: ProjectionTypes) -> None:
-        """
+        """p
         proj_type : ProjectionTypes enum
         """
         dlg = self.main_window._crs_creator_dialog
