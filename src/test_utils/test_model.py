@@ -1513,7 +1513,18 @@ class WiserTestModel:
             raise ValueError(f"Starting CRS “{wanted}” not found in combo‑box")
 
         cbox.setCurrentIndex(idx)
-        cbox.activated.emit(idx)
+        # Selecting a starting CRS pops a modal "Replace current parameters?"
+        # confirmation (reference_creator_dialog._on_starting_crs_changed). Under
+        # the offscreen test platform a modal exec() resolves to its default
+        # button ("No") when the event loop quits, which aborts the load. Simulate
+        # the user clicking "Yes" by stubbing QMessageBox.question only for the
+        # duration of the signal that raises it.
+        original_question = QMessageBox.question
+        QMessageBox.question = lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+        try:
+            cbox.activated.emit(idx)
+        finally:
+            QMessageBox.question = original_question
 
     @run_in_wiser_decorator
     def crs_creator_set_projection_type(self, proj_type: ProjectionTypes) -> None:
