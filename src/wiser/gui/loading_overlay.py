@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QTimer, QRect, QPoint
+from PySide6.QtCore import Qt, QEvent, QTimer, QRect, QPoint
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
@@ -36,7 +36,11 @@ class LoadingOverlay(QWidget):
 
     # keep overlay sized with target
     def eventFilter(self, obj, ev):
-        if obj is self.parentWidget() and ev.type() in (ev.Resize, ev.Move, ev.Show):
+        if obj is self.parentWidget() and ev.type() in (
+            QEvent.Type.Resize,
+            QEvent.Type.Move,
+            QEvent.Type.Show,
+        ):
             self.resize(obj.size())
         return super().eventFilter(obj, ev)
 
