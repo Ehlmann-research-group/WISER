@@ -5,12 +5,12 @@ import time
 
 from typing import Dict, List, Optional, Tuple, Union
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import numpy as np
-from matplotlib import cm
+import matplotlib
 
 from .util import get_painter
 
@@ -291,7 +291,7 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
 
     else:
         # Map the channel data to RGB colors using the colormap.
-        cmap = cm.get_cmap(colormap, 256)
+        cmap = matplotlib.colormaps[colormap].resampled(256)
         cmap_arr = make_colormap_array(cmap)
         rgb_data = cmap_arr[channel]
 

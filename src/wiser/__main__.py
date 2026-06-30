@@ -11,6 +11,21 @@ import traceback
 import multiprocessing
 
 # ============================================================================
+# Cap BLAS/OpenMP threads BEFORE numpy loads (hence the position at module top).
+# WISER parallelizes at the process level (scheduler ProcessPoolExecutor); if
+# OpenBLAS/OpenMP also spawn one thread per core in *every* worker, the
+# (workers x cores) threads oversubscribe and their buffers exhaust memory
+# ("OpenBLAS: Memory allocation failed" / BrokenProcessPool). Give each worker a
+# fair share instead -- cores / worker_budget -- where the budget mirrors
+# SCHEDULER_PROCESS_BUDGET = min(6, cores) (can't import it; that pulls in numpy).
+# setdefault() lets a shell/conda var override. Keep in sync with src/tests/conftest.py.
+_cpu_count = os.cpu_count() or 1
+_worker_budget = min(6, _cpu_count)  # mirrors SCHEDULER_PROCESS_BUDGET
+_blas_threads = str(max(1, _cpu_count // _worker_budget))
+for _blas_thread_var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS"):
+    os.environ.setdefault(_blas_thread_var, _blas_threads)
+
+# ============================================================================
 # Load gdal plugins into path and set gdal environment variables
 #
 if getattr(sys, "frozen", False):
@@ -128,9 +143,9 @@ warnings.filterwarnings("ignore", "(?s).*MATPLOTLIBDATA.*", category=UserWarning
 # This is why we do the debugging setup first.
 #
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import matplotlib
 
@@ -274,10 +289,6 @@ def main():
 
     qInstallMessageHandler(qt_debug_callback)
 
-    # Turn on high-DPI application scaling in Qt.
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
-
     tests = args.test_mode
     if tests is not None:
         code = run_tests(tests)
@@ -345,7 +356,7 @@ def main():
 
         # Command-line data files are opened in on_import_succeeded after the main window exists.
 
-        sys.exit(app.exec_())
+        sys.exit(app.exec())
 
 
 if __name__ == "__main__":

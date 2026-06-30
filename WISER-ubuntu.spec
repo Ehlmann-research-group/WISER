@@ -23,6 +23,7 @@ devtools_path = os.path.join(project_root, "src", "devtools")
 sys.path.insert(0, os.path.abspath(devtools_path))
 
 from PyInstaller.utils.hooks import (
+    collect_all,
     collect_data_files,
     collect_dynamic_libs,
     collect_submodules,
@@ -45,7 +46,7 @@ existing_datas = [
 ]
 
 existing_hidden_imports = [
-    "PySide2.QtXml",
+    "PySide6.QtXml",
 ]
 
 # --- GDAL plugins (Linux uses .so) ---
@@ -89,7 +90,7 @@ temp_a = Analysis(
 top_modules = {entry[0].split(".", 1)[0] for entry in temp_a.pure}
 
 IGNORED_TOP_PACKAGES = {
-    "PySide2",
+    "PySide6",
 }
 
 for pkg in sorted(top_modules):
@@ -113,6 +114,35 @@ cv2_binaries = collect_dynamic_libs(
 )
 cv2_data_files_diagnostic = collect_data_files("cv2")
 existing_binaries += cv2_binaries
+
+# scikit-learn ships compiled Cython extensions that PyInstaller's module graph
+# misses -- notably the sklearn.metrics._pairwise_distances_reduction submodules
+# (_datasets_pair, _middle_term_computer, ...), which are imported at the Cython
+# level rather than through normal Python imports. The collect_submodules loop
+# above lists module names, but the .so files must also be physically collected,
+# so pull sklearn's submodules, data files, and binaries in full.
+_sklearn_datas, _sklearn_binaries, _sklearn_hidden = collect_all("sklearn")
+existing_datas += _sklearn_datas
+existing_binaries += _sklearn_binaries
+existing_hidden_imports += _sklearn_hidden
+
+# Belt-and-suspenders: force the Cython _pairwise_distances_reduction submodules
+# as explicit roots, in case collect_submodules skips any of them in the build
+# env. _datasets_pair / _middle_term_computer are imported only at the Cython
+# level by _base, so the module graph never sees them on its own.
+existing_hidden_imports += [
+    f"sklearn.metrics._pairwise_distances_reduction.{_m}"
+    for _m in (
+        "_datasets_pair",
+        "_middle_term_computer",
+        "_base",
+        "_argkmin",
+        "_argkmin_classmode",
+        "_radius_neighbors",
+        "_radius_neighbors_classmode",
+        "_dispatcher",
+    )
+]
 
 # SECOND PASS: rebuild Analysis with full hiddenimports
 a = Analysis(

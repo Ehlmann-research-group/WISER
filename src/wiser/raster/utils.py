@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
     from wiser.raster.spectrum import Spectrum
 
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QPushButton,

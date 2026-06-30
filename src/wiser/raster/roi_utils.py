@@ -14,7 +14,7 @@ from collections import deque
 from typing import TYPE_CHECKING, List
 
 import numpy as np
-from PySide2.QtCore import QRect
+from PySide6.QtCore import QRect
 
 if TYPE_CHECKING:
     from wiser.raster.roi import RegionOfInterest

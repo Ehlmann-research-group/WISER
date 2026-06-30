@@ -1,9 +1,9 @@
 import os
 from typing import List, Optional, Dict, Tuple
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from wiser.gui.rasterpane import RasterPane
 from wiser.gui.similarity_transform_pane import SimilarityTransformPane

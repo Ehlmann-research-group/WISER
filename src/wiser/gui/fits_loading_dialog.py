@@ -13,9 +13,9 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.utils import KNOWN_SPECTRAL_UNITS
 from wiser.raster.spectrum import NumPyArraySpectrum
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .generated.fits_dataset_dialog_ui import Ui_FitsDialog
 from .generated.fits_spectra_dialog_ui import Ui_FitsSpectraDialog

@@ -747,7 +747,7 @@ class StorageService:
             if desc.shape is None or desc.dtype is None:
                 raise ValueError("zarr allocation requires desc.shape and desc.dtype")
             store_path = self.root_dir / f"{ref_id}.zarr"
-            store = zarr.DirectoryStore(str(store_path))
+            store = zarr.storage.LocalStore(str(store_path))
             root = zarr.group(store=store, overwrite=True)
             chunks = tuple(desc.chunks) if desc.chunks is not None else None
             arr = root.zeros(

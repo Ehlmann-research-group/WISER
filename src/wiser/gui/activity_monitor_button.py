@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide2.QtCore import QPointF, QRectF, QSize, Qt, QTimer
-from PySide2.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
-from PySide2.QtWidgets import QToolButton, QWidget
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QToolButton, QWidget
 
 from .activity_monitor import ActivityMonitorDialog
 

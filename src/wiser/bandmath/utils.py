@@ -14,7 +14,7 @@ import lark
 import psutil
 from lark import Tree
 
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 
 from enum import Enum
 from dataclasses import dataclass
@@ -41,7 +41,7 @@ from .builtins.constants import (
     RHS_KEY,
 )
 
-from PySide2.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 import logging
 
@@ -927,6 +927,17 @@ def write_raster_to_dataset(
 
     if isinstance(result, np.ndarray) and np.issubdtype(result.dtype, np.bool_):
         result = result.astype(np.uint8, copy=False)
+
+    # GDAL reads the raw buffer bytes as ``gdal_elem_type``, so the array's dtype
+    # must match it. Some operations upcast their result -- e.g. arctan2(cube, <number>)
+    # promotes float32 -> float64 because a bare Python number becomes a float64
+    # array -- and serializing those wider bytes as the narrower output type writes
+    # only part of the raster (the rest keeps the dataset's nodata fill). Cast to the
+    # output dtype before tobytes() so the byte layout matches what GDAL expects.
+    if isinstance(result, np.ndarray):
+        target_np_dtype = gdal_array.GDALTypeCodeToNumericTypeCode(gdal_elem_type)
+        if target_np_dtype is not None and result.dtype != np.dtype(target_np_dtype):
+            result = result.astype(target_np_dtype, copy=False)
 
     gdal_band_list_current = [band + 1 for band in band_index_list]
 

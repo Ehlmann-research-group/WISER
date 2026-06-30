@@ -4,9 +4,9 @@ import os
 
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from astropy import units as u
 import numpy as np

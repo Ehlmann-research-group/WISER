@@ -33,7 +33,7 @@ from wiser.raster.selection import (
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import ROIAverageSpectrum
 
-from PySide2.QtCore import QPoint
+from PySide6.QtCore import QPoint
 
 from wiser.gui.app import DataVisualizerApp
 
@@ -41,9 +41,9 @@ from wiser.gui.app import DataVisualizerApp
 import logging
 import traceback
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import pytest
 

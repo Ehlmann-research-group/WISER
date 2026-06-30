@@ -28,10 +28,10 @@ from astropy import units as u
 
 from typing import Any, Tuple, Union, Optional, List, Dict
 
-from PySide2.QtTest import QTest
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtTest import QTest
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from matplotlib.widgets import PolygonSelector
 
@@ -1513,11 +1513,22 @@ class WiserTestModel:
             raise ValueError(f"Starting CRS “{wanted}” not found in combo‑box")
 
         cbox.setCurrentIndex(idx)
-        cbox.activated.emit(idx)
+        # Selecting a starting CRS pops a modal "Replace current parameters?"
+        # confirmation (reference_creator_dialog._on_starting_crs_changed). Under
+        # the offscreen test platform a modal exec() resolves to its default
+        # button ("No") when the event loop quits, which aborts the load. Simulate
+        # the user clicking "Yes" by stubbing QMessageBox.question only for the
+        # duration of the signal that raises it.
+        original_question = QMessageBox.question
+        QMessageBox.question = lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+        try:
+            cbox.activated.emit(idx)
+        finally:
+            QMessageBox.question = original_question
 
     @run_in_wiser_decorator
     def crs_creator_set_projection_type(self, proj_type: ProjectionTypes) -> None:
-        """
+        """p
         proj_type : ProjectionTypes enum
         """
         dlg = self.main_window._crs_creator_dialog

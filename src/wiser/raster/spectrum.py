@@ -4,7 +4,7 @@ import os
 from typing import List, Optional, Tuple, Union, Dict
 
 
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 import numpy as np
 from astropy import units as u

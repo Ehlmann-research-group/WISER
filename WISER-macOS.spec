@@ -5,7 +5,7 @@ This script assumes you use conda for your environment management.
 import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
+sys.path.insert(0, os.path.abspath(os.path.join(SPECPATH, 'src', 'devtools')))
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_dynamic_libs
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
@@ -28,7 +28,7 @@ existing_datas = [
              ]
 
 existing_hidden_imports = [
-                 'PySide2.QtXml',
+                 'PySide6.QtXml',
              ]
 
 conda_env_prefix = os.environ.get("CONDA_PREFIX")
@@ -60,7 +60,7 @@ top_modules = { entry[0].split('.', 1)[0] for entry in temp_a.pure }
 
 
 IGNORED_TOP_PACKAGES = {
-    "PySide2",
+    "PySide6",
 }
 
 for pkg in sorted(top_modules):

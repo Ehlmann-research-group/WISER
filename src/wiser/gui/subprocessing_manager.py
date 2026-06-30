@@ -8,7 +8,7 @@ from typing import Callable, Dict, List, Optional, Union, TYPE_CHECKING
 
 from concurrent.futures import ProcessPoolExecutor
 
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 from wiser.gui.parallel_task import ParallelTaskProcess, ParallelTaskProcessPool
 from wiser.utils.multiprocessing_context import CTX

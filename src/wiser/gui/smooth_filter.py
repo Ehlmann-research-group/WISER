@@ -2,9 +2,9 @@ from enum import Enum, auto
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
-from PySide2.QtCore import QObject, Signal, Slot
-from PySide2.QtGui import QDoubleValidator, QIntValidator
-from PySide2.QtWidgets import QDialog, QDialogButtonBox, QMessageBox
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtGui import QDoubleValidator, QIntValidator
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QMessageBox
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.generated.smoothing_filter_dialog_ui import Ui_SmoothingFilterDatasetDialog

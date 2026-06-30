@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from PySide2.QtCore import QObject
+from PySide6.QtCore import QObject
 
 import os
 import uuid

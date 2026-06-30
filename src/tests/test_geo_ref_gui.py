@@ -29,10 +29,10 @@ from wiser.gui.geo_reference_dialog import (
 
 import numpy as np
 
-from PySide2.QtTest import QTest
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtTest import QTest
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import pytest
 

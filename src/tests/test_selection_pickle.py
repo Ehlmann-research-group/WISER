@@ -10,7 +10,7 @@ import pickle
 
 import numpy as np
 import pytest
-from PySide2.QtCore import QPoint
+from PySide6.QtCore import QPoint
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest

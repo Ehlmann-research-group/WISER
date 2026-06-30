@@ -5,9 +5,9 @@ from functools import partial
 from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
 import numpy as np
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from wiser.gui.app_services import AppServices
 from wiser.gui.app_state import ApplicationState

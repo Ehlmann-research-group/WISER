@@ -32,7 +32,7 @@ from wiser.raster.serializable import BasicValueSerialized, SerializedForm
 
 from test_utils.test_model import WiserTestModel
 
-from PySide2.QtWidgets import QComboBox
+from PySide6.QtWidgets import QComboBox
 
 from wiser.bandmath.utils import (
     load_image_from_bandmath_result,

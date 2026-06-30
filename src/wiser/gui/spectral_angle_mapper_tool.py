@@ -7,7 +7,7 @@ import numpy as np
 from numba import types, prange
 from scipy.interpolate import interp1d
 from astropy import units as u
-from PySide2.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet

@@ -8,7 +8,7 @@ import pytest
 
 import tests.context  # noqa: F401
 
-from PySide2.QtCore import QPoint
+from PySide6.QtCore import QPoint
 
 from test_utils.memory_cleanup import release_kept_refs
 from test_utils.test_model import WiserTestModel

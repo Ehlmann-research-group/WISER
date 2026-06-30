@@ -2,7 +2,7 @@ from typing import Callable, Dict, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from numba import types
 import numpy as np
-from PySide2.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 

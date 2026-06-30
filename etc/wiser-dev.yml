@@ -3,37 +3,37 @@ channels:
 - conda-forge
 channel_priority: strict
 dependencies:
-- python==3.9.23
-- python_abi=3.9
-- astropy=6.0.1
-- backports.tarfile=1.*
+- python==3.12.*
+- python_abi=3.12
+- astropy>=7
+- backports.tarfile
 - conda-forge::blas[build=openblas]
-- gdal=3.10.*
-- hdf4=4.2.*
-- hdf5=1.14.*
-- libgdal-core=3.10.*
-- libgdal-fits=3.10.*
-- libgdal-hdf4=3.10.*
-- libgdal-hdf5=3.10.*
-- libgdal-jp2openjpeg=3.10.*
-- libgdal-netcdf=3.10.*
-- netcdf4=1.7.2
-- matplotlib=3.9.1
-- mpl-scatter-density=0.8
-- numba=0.60.0
-- numpy=1.23.5
-- opencv=4.11.*
-- pdr=1.4.0
-- pillow=11.3.0
-- proj=9.5.1
-- pyproj=3.6.1
-- pyside2=5.15.15
-- pytest=8.4.1
-- qt-main=5.15.15
-- scipy=1.13.1
-- scikit-learn=1.6.1
-- setuptools=75.8.0
-- zarr=2.18.*
+- gdal=3.12.*
+- hdf4
+- hdf5
+- libgdal-core=3.12.*
+- libgdal-fits
+- libgdal-hdf4
+- libgdal-hdf5
+- libgdal-jp2openjpeg
+- libgdal-netcdf
+- netcdf4
+- matplotlib
+- mpl-scatter-density
+- numba
+- numpy
+- opencv
+- pdr
+- pillow
+- proj
+- pyproj
+- pyside6=6.11.*
+- pytest
+- qt6-main=6.11.*
+- scipy
+- scikit-learn
+- setuptools
+- zarr
 - spectral=0.24
 - sphinx=7.4.7
 - sphinx-autodoc2=0.5.*
@@ -47,9 +47,9 @@ dependencies:
 - pytest-timeout=2.3.*
 - pip
 - pip:
-  - bugsnag==4.7.1
-  - lark==1.2.2
-  - psutil==7.0.0
-  - pyinstaller==6.16.*
+  - bugsnag
+  - lark
+  - psutil
+  - pyinstaller
   - pre-commit==4.3.*
   - sphinxcontrib-mermaid==1.2.*

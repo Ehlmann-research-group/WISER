@@ -5,9 +5,9 @@ from typing import Any, Optional
 
 from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
 
-from PySide2.QtCore import QFile
-from PySide2.QtUiTools import QUiLoader
-from PySide2.QtWidgets import QWidget
+from PySide6.QtCore import QFile
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QWidget
 
 
 logger = logging.getLogger(__name__)

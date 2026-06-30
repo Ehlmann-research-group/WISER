@@ -323,7 +323,7 @@ class StorageClient:
             )
 
         if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
+            store = zarr.storage.LocalStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
             arr = self._read_region_from_array(grp[desc.array_name], whole_region)
             data = np.array(arr, copy=True)
@@ -408,7 +408,7 @@ class StorageClient:
             )
 
         if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
+            store = zarr.storage.LocalStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r")
             arr = self._read_region_from_array(grp[desc.array_name], region)
             data = np.array(arr, copy=True)
@@ -634,7 +634,7 @@ class StorageClient:
                     raise ValueError(
                         f"Missing 'store_path' in external_params.kwargs for ref_id={ref.ref_id}"
                     )
-                store = zarr.DirectoryStore(str(store_path))
+                store = zarr.storage.LocalStore(str(store_path))
                 grp = zarr.open_group(store=store, mode="r")
                 return self._read_region_from_array(grp[array_name], region)
             raise ValueError(f"Unsupported array external driver={params.driver} for ref_id={ref.ref_id}")
@@ -777,7 +777,7 @@ class StorageClient:
             return
 
         if isinstance(desc, ZarrAccessDescriptor):
-            store = zarr.DirectoryStore(str(desc.store_path))
+            store = zarr.storage.LocalStore(str(desc.store_path))
             grp = zarr.open_group(store=store, mode="r+")
             if region is None:
                 grp[desc.array_name][...] = value

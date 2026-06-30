@@ -3,8 +3,8 @@ from typing import Dict, TYPE_CHECKING, Any
 import numpy as np
 from multiprocessing.managers import dispatch
 from multiprocessing.shared_memory import SharedMemory
-from PySide2.QtCore import QObject, Signal, Slot, QTimer
-from PySide2.QtWidgets import QDialog, QMessageBox, QDialogButtonBox
+from PySide6.QtCore import QObject, Signal, Slot, QTimer
+from PySide6.QtWidgets import QDialog, QMessageBox, QDialogButtonBox
 from scipy.signal import savgol_filter
 
 from wiser import plugins
