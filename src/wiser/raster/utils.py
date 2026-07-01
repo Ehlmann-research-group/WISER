@@ -876,9 +876,8 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "R
             wl_units = band_info[i].get("wavelength_units")
             gdal_dataset.GetRasterBand(i + 1).SetMetadataItem("wavelength_units", str(wl_units))
 
-    # Flush and close when done
-    gdal_dataset.FlushCache()
-    gdal_dataset = None
+    # Note: the caller owns the handle's lifetime. We intentionally do not flush
+    # or close here so callers can keep stamping/reading before closing.
 
 
 def get_bbox(gt, width, height):
