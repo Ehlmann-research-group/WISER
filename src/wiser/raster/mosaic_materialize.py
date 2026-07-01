@@ -34,6 +34,7 @@ from osgeo import gdal, gdal_array
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import GTiff_GDALRasterDataImpl
 from wiser.utils.primitives import temp_dir
+from wiser.utils.progress import ProgressReporter
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,11 @@ def _stamp_metadata_from_dataset(gdal_dataset: gdal.Dataset, source_dataset: Ras
         gdal_dataset.SetMetadataItem("BAD_BANDS", ",".join(str(b) for b in bad))
 
 
-def materialize_to_tiled_geotiff(dataset: RasterDataSet, dest_path: Path) -> None:
+def materialize_to_tiled_geotiff(
+    dataset: RasterDataSet,
+    dest_path: Path,
+    progress: Optional[ProgressReporter] = None,
+) -> None:
     """
     Write ``dataset`` to a disk-backed, tiled GeoTIFF at ``dest_path``.
 
@@ -141,7 +146,11 @@ def materialize_to_tiled_geotiff(dataset: RasterDataSet, dest_path: Path) -> Non
     its on-disk backing. Bands are written one at a time to bound peak memory,
     and unmasked raw values are written (nodata sentinels are preserved and
     recorded as the band NoData value).
+
+    ``progress`` reports per-band completion (``band / num_bands``); it defaults to
+    a no-op reporter so this stays optional and Qt-free.
     """
+    progress = progress or ProgressReporter()
     gdal.UseExceptions()
 
     width = dataset.get_width()
@@ -175,6 +184,7 @@ def materialize_to_tiled_geotiff(dataset: RasterDataSet, dest_path: Path) -> Non
             # Drop the reference so the band can be reclaimed now instead of
             # lingering until it is reassigned on the next iteration.
             del band_arr
+            progress.report(band_index + 1, num_bands, "Materializing")
 
         _stamp_metadata_from_dataset(out_ds, dataset)
         out_ds.FlushCache()
@@ -261,19 +271,28 @@ class SceneMaterializer:
         ds_id = dataset.get_id()
         return ds_id if ds_id is not None else id(dataset)
 
-    def gdal_source(self, dataset: RasterDataSet) -> str:
+    def gdal_source(
+        self,
+        dataset: RasterDataSet,
+        progress: Optional[ProgressReporter] = None,
+    ) -> str:
         """
         Return a filesystem path to a warpable, disk-backed tiled GeoTIFF for
         ``dataset``, materializing it on first request and reusing the cached
         result thereafter.
+
+        ``progress`` is forwarded to :func:`materialize_to_tiled_geotiff`. A cache
+        hit does no work, so it reports immediate completion.
         """
         key = self._scene_key(dataset)
         cached = self._cache.get(key)
         if cached is not None and cached.exists():
+            if progress is not None:
+                progress.report(1, 1)
             return str(cached)
 
         dest = self.temp_path / f"scene_{key}.tif"
-        materialize_to_tiled_geotiff(dataset, dest)
+        materialize_to_tiled_geotiff(dataset, dest, progress=progress)
         self._cache[key] = dest
         return str(dest)
 

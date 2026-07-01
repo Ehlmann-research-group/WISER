@@ -32,23 +32,37 @@ from wiser.raster.mosaic_ingestion import (
     validate_scene,
 )
 from wiser.utils.primitives import PriorityClass
+from wiser.utils.progress import ProgressReporter
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
     from wiser.raster.mosaic_materialize import SceneMaterializer
 
 
-def _ingest_scene(dataset: "RasterDataSet", materializer: "SceneMaterializer") -> MosaicScene:
+def _ingest_scene(
+    dataset: "RasterDataSet",
+    materializer: "SceneMaterializer",
+    progress: Optional[ProgressReporter] = None,
+) -> MosaicScene:
     """
     Background I/O for one scene: materialize to a warpable temp GeoTIFF, build
     internal overviews on it, and compute the valid-pixel footprint.
 
-    Runs on a scheduler thread (no Qt here). Returns the fully-populated
+    Runs on a scheduler thread (no Qt here). ``progress`` is split across the three
+    phases (weighted by their rough cost) so the overall bar advances smoothly;
+    each phase reports fine-grained progress internally. Returns the fully-populated
     :class:`MosaicScene` for the main thread to append to the controller.
     """
-    gdal_path = materializer.gdal_source(dataset)
-    build_overviews(gdal_path)
-    footprint_wkt = compute_footprint_wkt(gdal_path)
+    progress = progress or ProgressReporter()
+    materialize_progress, overview_progress, footprint_progress = progress.split(
+        (0.5, "Materializing scene"),
+        (0.35, "Building overviews"),
+        (0.15, "Computing footprint"),
+    )
+    gdal_path = materializer.gdal_source(dataset, progress=materialize_progress)
+    build_overviews(gdal_path, progress=overview_progress)
+    footprint_wkt = compute_footprint_wkt(gdal_path, progress=footprint_progress)
+    progress.report_fraction(1.0, "Done")
     return MosaicScene(
         dataset=dataset,
         gdal_path=gdal_path,

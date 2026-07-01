@@ -21,6 +21,8 @@ from wiser.raster.mosaic_ingestion import (
     compute_footprint_wkt,
     validate_scene,
 )
+from wiser.raster.mosaic_materialize import materialize_to_tiled_geotiff, read_materialized_geotiff
+from wiser.utils.progress import ProgressReporter
 
 pytestmark = [
     pytest.mark.unit,
@@ -202,3 +204,53 @@ def test_overviews_written_to_file():
             assert reopened.GetRasterBand(1).GetOverviewCount() > 0
         finally:
             reopened = None
+
+
+# -- progress reporting -------------------------------------------------------
+
+
+class _Recorder:
+    """Records the global progress fractions a sink receives."""
+
+    def __init__(self):
+        self.fractions = []
+
+    def __call__(self, fraction, _message):
+        self.fractions.append(fraction)
+
+
+def _assert_monotonic_to_one(fractions):
+    assert fractions, "expected at least one progress report"
+    assert fractions == sorted(fractions), "progress must be non-decreasing"
+    assert all(0.0 <= f <= 1.0 for f in fractions)
+    assert fractions[-1] == pytest.approx(1.0)
+
+
+def test_build_overviews_reports_progress():
+    rec = _Recorder()
+    with tempfile.TemporaryDirectory() as d:
+        path = _make_georeffed_tiff(d, nodata=-9999, bands=1, collar=0, size=64)
+        build_overviews(path, progress=ProgressReporter(sink=rec))
+    _assert_monotonic_to_one(rec.fractions)
+
+
+def test_compute_footprint_reports_progress():
+    rec = _Recorder()
+    with tempfile.TemporaryDirectory() as d:
+        path = _make_georeffed_tiff(d, nodata=-9999, bands=1, collar=2, size=32)
+        compute_footprint_wkt(path, progress=ProgressReporter(sink=rec))
+    _assert_monotonic_to_one(rec.fractions)
+
+
+def test_materialize_reports_per_band():
+    rec = _Recorder()
+    # ignore_cleanup_errors: the RasterDataSet from read_materialized_geotiff keeps
+    # the source GeoTIFF open (a GDAL handle), and Windows refuses to unlink an open
+    # file, which would otherwise raise a spurious PermissionError on cleanup.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+        src = _make_georeffed_tiff(d, nodata=-9999, bands=3, collar=0, size=16)
+        dataset = read_materialized_geotiff(src)
+        dest = os.path.join(d, "out.tif")
+        materialize_to_tiled_geotiff(dataset, dest, progress=ProgressReporter(sink=rec))
+    # One report per band (3), ending exactly at 1.0.
+    assert rec.fractions == [pytest.approx(1 / 3), pytest.approx(2 / 3), pytest.approx(1.0)]

@@ -21,9 +21,11 @@ compute_footprint on a background thread) lives in the mosaic pane (#638-adjacen
 from __future__ import annotations
 
 import math
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from osgeo import gdal
+
+from wiser.utils.progress import ProgressReporter, gdal_progress_callback
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
@@ -116,7 +118,7 @@ def validate_scene(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"
             )
 
 
-def build_overviews(gdal_path: str) -> None:
+def build_overviews(gdal_path: str, progress: Optional[ProgressReporter] = None) -> None:
     """
     Build internal pyramid overviews on the materialized GeoTIFF at ``gdal_path``.
 
@@ -125,18 +127,23 @@ def build_overviews(gdal_path: str) -> None:
     original dataset (which is read-only and must stay untouched). Opening the temp
     copy ``GA_Update`` and calling ``BuildOverviews`` embeds the overviews *inside*
     that same ``.tif`` (internal overviews, no sidecar).
+
+    ``progress`` is driven by GDAL's own ``BuildOverviews`` progress callback and
+    defaults to a no-op reporter.
     """
+    # If not ProgressReporter is supplied, this essentially becomes a no-op
+    progress = progress or ProgressReporter()
     gdal.UseExceptions()
     ds = gdal.Open(gdal_path, gdal.GA_Update)
     if ds is None:
         raise RuntimeError(f"Cannot open {gdal_path} for overview building")
     try:
-        ds.BuildOverviews("NEAREST", _OVERVIEW_LEVELS)
+        ds.BuildOverviews("NEAREST", _OVERVIEW_LEVELS, callback=gdal_progress_callback(progress))
     finally:
         ds = None  # flush/close
 
 
-def compute_footprint_wkt(gdal_path: str) -> str:
+def compute_footprint_wkt(gdal_path: str, progress: Optional[ProgressReporter] = None) -> str:
     """
     Return the valid-pixel footprint of ``gdal_path`` as a WKT polygon.
 
@@ -144,9 +151,13 @@ def compute_footprint_wkt(gdal_path: str) -> str:
     #635/#636). When the source has a nodata value, the footprint traces the
     valid-pixel boundary; without one, ``gdal.Footprint`` returns the full raster
     rectangle — a valid, coarser footprint.
+
+    ``progress`` is driven by GDAL's own ``Footprint`` progress callback and defaults
+    to a no-op reporter.
     """
+    progress = progress or ProgressReporter()
     gdal.UseExceptions()
-    wkt = gdal.Footprint(None, gdal_path, format="WKT")
+    wkt = gdal.Footprint(None, gdal_path, format="WKT", callback=gdal_progress_callback(progress))
     if not wkt:
         raise RuntimeError(f"gdal.Footprint returned an empty result for {gdal_path}")
     return wkt
