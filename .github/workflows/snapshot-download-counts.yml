@@ -70,8 +70,8 @@ jobs:
             awk -F, -v ts="$TS" '
               $1==ts {
                 line=tolower($0); c=$NF
-                if (line ~ /windows/ || line ~ /\.exe/)              win+=c
-                else if (line ~ /mac/ || line ~ /\.dmg/)             mac+=c
+                if (line ~ /windows/ || line ~ /\.exe/ || line ~ /\.msi/)       win+=c
+                else if (line ~ /mac/ || line ~ /\.dmg/ || line ~ /\.app/ || line ~ /\.pkg/) mac+=c
                 else if (line ~ /linux/ || line ~ /\.tar\.gz/ || line ~ /\.zip/) lin+=c
               }
               END { printf "| windows | %d |\n| macos | %d |\n| linux | %d |\n", win, mac, lin }
