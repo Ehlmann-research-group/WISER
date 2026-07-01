@@ -129,6 +129,21 @@ class TestSeamlessMosaicAddScene(unittest.TestCase):
         self._select_dataset(pane, dataset.get_id())
         pane._add_scene_button.click()
 
+        # The progress dialog appears immediately (before the event loop is pumped, so
+        # ingestion cannot have finished yet). It is non-modal; input is suppressed by
+        # disabling only the owning mosaic dialog, leaving the rest of the app live.
+        runner = pane._active_progress_task
+        self.assertIsNotNone(runner)
+        dialog = runner._dialog
+        self.assertTrue(dialog.isVisible())
+        self.assertEqual(dialog.windowModality(), Qt.NonModal)
+        self.assertFalse(dlg.isEnabled())
+        self.assertTrue(dialog.isEnabled())
+
+        # Capture the progress fractions the modal receives as ingestion runs.
+        seen = []
+        runner.progressed.connect(lambda fraction, _msg: seen.append(fraction))
+
         added = self._wait_for(lambda: controller.scene_count() == 1)
         self.assertTrue(added, "scene was not ingested within the timeout")
 
@@ -136,6 +151,13 @@ class TestSeamlessMosaicAddScene(unittest.TestCase):
         self.assertTrue(scene.has_overviews)
         self.assertIsNotNone(scene.footprint_wkt)
         self.assertIsNotNone(scene.gdal_path)
+
+        # Progress was reported and reached 100%.
+        self.assertTrue(seen, "no progress was reported")
+        self.assertEqual(max(seen), pytest.approx(1.0))
+
+        # Once the task finishes, the owning dialog is interactive again.
+        self.assertTrue(dlg.isEnabled())
 
         self.test_model.close_seamless_mosaic_dialog()
 

@@ -13,7 +13,6 @@ resolution / CRS / resampling selectors, export) still lands in #638. The full
 ``app_state``.
 """
 
-from concurrent.futures import Future
 from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import *
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import *
 from .app_state import ApplicationState
 from .app_services import AppServices
 from .mosaic_view import MosaicView
+from .progress_task import run_with_progress
 
 from wiser.raster.mosaic_controller import MosaicController, MosaicScene
 from wiser.raster.mosaic_ingestion import (
@@ -31,7 +31,6 @@ from wiser.raster.mosaic_ingestion import (
     compute_footprint_wkt,
     validate_scene,
 )
-from wiser.utils.primitives import PriorityClass
 from wiser.utils.progress import ProgressReporter
 
 if TYPE_CHECKING:
@@ -71,22 +70,6 @@ def _ingest_scene(
     )
 
 
-class _IngestionBridge(QObject):
-    """
-    Marshals ingestion results from the scheduler thread back to the main thread.
-
-    The done-callback runs on a pool thread; emitting these signals (a thread-safe
-    op in PySide6) hops to the GUI thread via Qt's queued connections, so the slots
-    touch widgets / the Activity Monitor only on the main thread. Each payload is
-    ``(activity_id, result)`` so the slot can close the matching Activity row.
-    """
-
-    # (activity_id: int, scene: MosaicScene)
-    succeeded = Signal(object)
-    # (activity_id: int, message: str)
-    failed = Signal(object)
-
-
 class MosaicPane(QWidget):
     """
     Hosts a :class:`MosaicView` plus a controls area with the Add-Scene action.
@@ -108,11 +91,9 @@ class MosaicPane(QWidget):
         self._app_services = app_services
         self._materializer = materializer
         self._controller = MosaicController()
-
-        # Thread -> main-thread marshaling for background ingestion results.
-        self._bridge = _IngestionBridge()
-        self._bridge.succeeded.connect(self._on_ingestion_succeeded)
-        self._bridge.failed.connect(self._on_ingestion_failed)
+        # Holds the in-flight ingestion task (progress modal + background work) so it
+        # is not garbage-collected mid-run; overwritten on the next add.
+        self._active_progress_task = None
 
         self._init_ui()
 
@@ -194,36 +175,28 @@ class MosaicPane(QWidget):
             QMessageBox.warning(self, self.tr("Cannot add scene"), str(exc))
             return
 
-        activity_id = self._app_services.activity_monitor.register_task(
-            title=self.tr("Adding scene: {0}").format(dataset.get_name() or f"Dataset {ds_id}"),
+        name = dataset.get_name() or f"Dataset {ds_id}"
+        # Run the ingestion on the scheduler with a progress dialog and a mirrored
+        # Activity Monitor row. Pass the window (the SeamlessMosaicDialog) as the block
+        # target so only it is disabled while ingesting; the rest of WISER stays live.
+        self._active_progress_task = run_with_progress(
+            self._app_services,
+            self.window(),
+            self.tr("Adding scene: {0}").format(name),
+            _ingest_scene,
+            dataset,
+            self._materializer,
+            on_success=self._on_scene_ingested,
+            on_error=self._on_scene_failed,
+            description=self.tr("Materializing scene…"),
             meta={"bands": str(dataset.num_bands())},
-            cancel_callback=None,  # v1: short job; cancellation deferred to a follow-up.
         )
 
-        future = self._app_services.scheduler.submit_thread(
-            PriorityClass.BACKGROUND, _ingest_scene, dataset, self._materializer
-        )
-
-        def _done(finished: Future, activity_id: int = activity_id) -> None:
-            # Runs on the pool thread; hop to the GUI thread via the bridge.
-            try:
-                self._bridge.succeeded.emit((activity_id, finished.result()))
-            except Exception as exc:  # noqa: BLE001 - reported to the user via the bridge
-                self._bridge.failed.emit((activity_id, str(exc)))
-
-        future.add_done_callback(_done)
-
-    def _on_ingestion_succeeded(self, payload: object) -> None:
-        activity_id, scene = payload
+    def _on_scene_ingested(self, scene: MosaicScene) -> None:
         self._controller.add_scene(scene)
-        if self._app_services is not None:
-            self._app_services.activity_monitor.set_task_finished(activity_id)
         self._mosaic_view.update()
 
-    def _on_ingestion_failed(self, payload: object) -> None:
-        activity_id, message = payload
-        if self._app_services is not None:
-            self._app_services.activity_monitor.set_task_failed(activity_id, message)
+    def _on_scene_failed(self, message: str) -> None:
         QMessageBox.critical(self, self.tr("Add scene failed"), message)
 
     # -- accessors ------------------------------------------------------------
