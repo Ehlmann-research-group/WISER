@@ -238,9 +238,18 @@ def main():
 
     args = parser.parse_args()
 
-    if args.smoke:
-        # Headless launch check: use the offscreen Qt platform unless one is set,
-        # so the frozen bundle can be verified on a runner with no display.
+    if args.smoke and args.test_mode is not None:
+        parser.error("--smoke and --test_mode cannot be combined.")
+
+    if (
+        args.smoke
+        and sys.platform.startswith("linux")
+        and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    ):
+        # Headless Linux has no window server, so fall back to the offscreen Qt
+        # platform. Windows/macOS (including the CI runners) have a display and use
+        # their native platform, so the smoke check does not hard-depend on the
+        # bundled offscreen plugin.
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
     # Load the WISER configuration file.  If the user specifies a config file,
