@@ -140,7 +140,18 @@ def main():
         installer = root / f"WISER-{args.app_version}-windows-x64-setup.exe"
         if not installer.exists():
             die(f"Installer not found for upload: {installer}")
-        run(["gh", "release", "upload", args.release_tag, str(installer), "--clobber"])
+        run(
+            [
+                "gh",
+                "release",
+                "upload",
+                args.release_tag,
+                str(installer),
+                "-R",
+                f"{owner}/{repo}",
+                "--clobber",
+            ]
+        )
         print(f"Uploaded {installer.name} to release {args.release_tag}")
 
     print("Done. Artifact downloaded and installer executed.")

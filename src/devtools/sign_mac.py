@@ -248,7 +248,18 @@ def main():
         run(notary_cmd)
 
     if args.release_tag:
-        run(["gh", "release", "upload", args.release_tag, str(final_dmg), "--clobber"])
+        run(
+            [
+                "gh",
+                "release",
+                "upload",
+                args.release_tag,
+                str(final_dmg),
+                "-R",
+                f"{owner}/{repo}",
+                "--clobber",
+            ]
+        )
         print(f"Uploaded {final_dmg.name} to release {args.release_tag}")
 
     print("Done. Artifact downloaded, app signed, DMG built" + (" and notarized." if args.notarize else "."))
