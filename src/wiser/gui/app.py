@@ -58,6 +58,7 @@ from .main_view import MainViewWidget
 from .pixel_value_widget import PixelValueWidget
 from .rasterpane import RecenterMode
 from .reference_creator_dialog import ReferenceCreatorDialog
+from .mosaic_dialog import SeamlessMosaicDialog
 from .save_dataset import SaveDatasetDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
 from .spectrum_plot import SpectrumPlot
@@ -283,6 +284,7 @@ class DataVisualizerApp(QMainWindow):
         self._geo_ref_dialog: GeoReferencerDialog = None
         self._crs_creator_dialog: ReferenceCreatorDialog = None
         self._similarity_transform_dialog: SimilarityTransformDialog = None
+        self._seamless_mosaic_dialog: SeamlessMosaicDialog = None
         self._config_dialog: AppConfigDialog = None
 
     def _init_menus(self):
@@ -400,6 +402,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr("Similarity Transform"))
         act.triggered.connect(self.show_similarity_transform_dialog)
+
+        act = self._tools_menu.addAction(self.tr("Seamless Mosaic"))
+        act.triggered.connect(self.show_seamless_mosaic_dialog)
 
         # Help menu
 
@@ -1074,6 +1079,17 @@ class DataVisualizerApp(QMainWindow):
                 pass
         else:
             self._similarity_transform_dialog.show()
+
+    def show_seamless_mosaic_dialog(self, in_test_mode=False):
+        if self._seamless_mosaic_dialog is None:
+            self._seamless_mosaic_dialog = SeamlessMosaicDialog(
+                self._app_state, self._app_services, parent=self
+            )
+        # Non-modal: the mosaic is a long-lived, multi-step workflow (add scenes,
+        # reorder, export), so it stays open alongside the main window.
+        self._seamless_mosaic_dialog.show()
+        self._seamless_mosaic_dialog.raise_()
+        self._seamless_mosaic_dialog.activateWindow()
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         """
