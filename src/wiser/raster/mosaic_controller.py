@@ -254,6 +254,30 @@ class MosaicController:
             summary.append((name, _crs_display_name(srs)))
         return summary
 
+    def scene_crs_choices(self) -> List[Tuple[str, str]]:
+        """
+        Return ``(crs_display_name, crs_wkt)`` for each *distinct* visible-scene CRS.
+
+        Deduplicated by :meth:`osr.SpatialReference.IsSame` and ordered so the last
+        entry is the **top scene's** CRS — the reproject prompt uses these to seed its
+        target-CRS chooser and defaults the selection to that last entry. Scenes with
+        no CRS are skipped.
+        """
+        choices: List[Tuple[str, str]] = []
+        seen: List[osr.SpatialReference] = []
+        # Walk top-to-bottom so dedup keeps the top-most occurrence, then reverse so
+        # the top scene's CRS ends up last (the default target selection).
+        for scene in reversed(self._visible_scenes()):
+            srs = scene.dataset.get_spatial_ref()
+            if srs is None:
+                continue
+            if any(srs.IsSame(s) for s in seen):
+                continue
+            seen.append(srs)
+            choices.append((_crs_display_name(srs), srs.ExportToWkt()))
+        choices.reverse()
+        return choices
+
     def validate_target_crs(self, target_wkt: str) -> None:
         """
         Ensure every visible scene can be transformed into ``target_wkt``.
