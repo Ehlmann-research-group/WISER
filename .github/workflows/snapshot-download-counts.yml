@@ -18,6 +18,11 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  # Keep a manual run from overlapping the scheduled one (they'd race on the stats push).
+  group: snapshot-download-counts
+  cancel-in-progress: false
+
 jobs:
   snapshot:
     runs-on: ubuntu-latest
@@ -47,11 +52,11 @@ jobs:
           TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           mkdir -p stats
           test -f stats/downloads.csv || \
-            echo "timestamp,release_tag,asset_name,download_count" > stats/downloads.csv
+            printf '%s\n' "timestamp,release_tag,asset_name,download_count" > stats/downloads.csv
 
           gh api --paginate "repos/${{ github.repository }}/releases" \
             --jq '.[] | .tag_name as $t | .assets[]? | [$t, .name, .download_count] | @csv' \
-          | while IFS= read -r row; do echo "$TS,$row" >> stats/downloads.csv; done
+          | while IFS= read -r row; do printf '%s,%s\n' "$TS" "$row" >> stats/downloads.csv; done
 
           # Human-readable rollup for this run (Actions summaries are retention-capped;
           # the CSV in git is the durable record).
@@ -60,12 +65,14 @@ jobs:
             echo ""
             echo "| platform | total downloads |"
             echo "|---|---|"
+            # download_count is always the last field ($NF), so this is robust even if an
+            # asset name contained commas; platform is matched on the whole line.
             awk -F, -v ts="$TS" '
               $1==ts {
-                name=tolower($3); c=$4
-                if (name ~ /windows/ || name ~ /\.exe/)              win+=c
-                else if (name ~ /mac/ || name ~ /\.dmg/)             mac+=c
-                else if (name ~ /linux/ || name ~ /\.tar\.gz/ || name ~ /\.zip/) lin+=c
+                line=tolower($0); c=$NF
+                if (line ~ /windows/ || line ~ /\.exe/)              win+=c
+                else if (line ~ /mac/ || line ~ /\.dmg/)             mac+=c
+                else if (line ~ /linux/ || line ~ /\.tar\.gz/ || line ~ /\.zip/) lin+=c
               }
               END { printf "| windows | %d |\n| macos | %d |\n| linux | %d |\n", win, mac, lin }
             ' stats/downloads.csv
