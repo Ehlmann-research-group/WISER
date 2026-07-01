@@ -5,6 +5,10 @@ on:
     types: [created]
   workflow_dispatch:
 
+# Least privilege by default; only the release-upload job is elevated to write.
+permissions:
+  contents: read
+
 jobs:
   build:
     strategy:
@@ -111,9 +115,6 @@ jobs:
 
   linux_build:
     name: Linux build (${{ matrix.distro }} / ${{ matrix.target_arch }})
-    # Needed so the release-upload step can attach assets to the release.
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -213,14 +214,39 @@ jobs:
           path: dist/linux/*.tar.gz
           if-no-files-found: error
 
-      # Linux builds are unsigned, so the CI output is the final asset and can be
-      # attached to the release directly. Windows/macOS are signed locally and
-      # uploaded via src/devtools/sign_*.py --release-tag.
-      - name: Attach Linux asset to the release
-        if: github.event_name == 'release'
+  # Linux builds are unsigned, so the CI output is the final asset. Attaching the
+  # tarballs to the release is isolated in its own job so the build matrix (which
+  # runs third-party container builds) stays read-only; only this job holds
+  # contents: write. !cancelled() lets it upload whatever legs succeeded even if a
+  # sibling leg failed. Windows/macOS are signed locally and uploaded via
+  # src/devtools/sign_*.py --release-tag.
+  linux_release_upload:
+    name: Attach Linux assets to the release
+    needs: linux_build
+    if: ${{ !cancelled() && github.event_name == 'release' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wiser-linux-*
+          path: dist/linux
+          merge-multiple: true
+
+      - name: Attach to the release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euxo pipefail
-          gh release upload "${GITHUB_REF_NAME}" dist/linux/*.tar.gz --clobber
+          shopt -s nullglob
+          assets=(dist/linux/*.tar.gz)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No Linux tarballs found to upload." >&2
+            exit 1
+          fi
+          ls -lah dist/linux
+          gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
