@@ -46,8 +46,8 @@ class TestMosaicController(unittest.TestCase):
         ds_a = _FakeDataset("a")
         ds_b = _FakeDataset("b")
 
-        scene_a = self.controller.add_scene(ds_a)
-        scene_b = self.controller.add_scene(ds_b)
+        scene_a = self.controller.add_scene(MosaicScene(dataset=ds_a))
+        scene_b = self.controller.add_scene(MosaicScene(dataset=ds_b))
 
         self.assertIsInstance(scene_a, MosaicScene)
         self.assertTrue(scene_a.visible)
@@ -57,28 +57,28 @@ class TestMosaicController(unittest.TestCase):
         self.assertIs(scenes[-1], scene_b)
 
     def test_get_scenes_returns_copy(self):
-        self.controller.add_scene(_FakeDataset("a"))
+        self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
         scenes = self.controller.get_scenes()
         scenes.clear()
         # Mutating the returned list must not affect the controller.
         self.assertEqual(self.controller.scene_count(), 1)
 
     def test_remove_scene(self):
-        self.controller.add_scene(_FakeDataset("a"))
-        self.controller.add_scene(_FakeDataset("b"))
+        self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
+        self.controller.add_scene(MosaicScene(dataset=_FakeDataset("b")))
         self.controller.remove_scene(0)
         self.assertEqual(self.controller.scene_count(), 1)
         self.assertEqual(self.controller.get_scenes()[0].dataset.name, "b")
 
     def test_move_scene_reorders_z_order(self):
         for name in ("a", "b", "c"):
-            self.controller.add_scene(_FakeDataset(name))
+            self.controller.add_scene(MosaicScene(dataset=_FakeDataset(name)))
         # Move the bottom scene ("a") to the top.
         self.controller.move_scene(0, 2)
         self.assertEqual([s.dataset.name for s in self.controller.get_scenes()], ["b", "c", "a"])
 
     def test_set_visibility(self):
-        self.controller.add_scene(_FakeDataset("a"))
+        self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
         self.controller.set_visibility(0, False)
         self.assertFalse(self.controller.get_scenes()[0].visible)
 
