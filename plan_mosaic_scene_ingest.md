@@ -220,11 +220,29 @@ class _IngestionBridge(QObject):
     failed    = Signal(str)      # emits error message
 ```
 
+**Progress UX — Activity Monitor row, not a bare spinner.** Instead of a
+`LoadingOverlay`, register the ingestion as a row in the Activity Monitor so it gets
+a progress bar, a cancel affordance, and error display — the same surface a
+`SemanticTask` would give — without the `TaskStage`/chunking/`DataRef` machinery,
+which does not fit a sequential single-file I/O job (see Notes). Use the existing
+lightweight API: `activity_monitor.register_task(title, meta, cancel_callback) ->
+activity_id`, then `set_task_finished` / `set_task_failed(activity_id, msg)` on
+completion. The three steps are indeterminate/short, so drive a coarse
+`register_task` row (title `"Adding scene: <name>"`) rather than fine per-step
+progress.
+
 `_on_add_scene_clicked()` orchestration:
 1. Get the chosen `RasterDataSet` from the combo; bail if nothing selected.
 2. Call `validate_scene(dataset, controller.get_scenes())`; on `SceneValidationError`
    show `QMessageBox.warning(self, "Cannot add scene", str(e))` and return.
-3. `self._overlay.start()` — `LoadingOverlay` parented to `self._mosaic_view`.
+3. Register the Activity Monitor row:
+   ```python
+   activity_id = app_services.activity_monitor.register_task(
+       title=f"Adding scene: {dataset.get_name()}",
+       meta={"bands": str(dataset.num_bands())},
+       cancel_callback=None,  # v1: short job, cancellation deferred
+   )
+   ```
 4. Submit background work via the thread pool:
    ```python
    def _bg(dataset, materializer):
@@ -238,7 +256,9 @@ class _IngestionBridge(QObject):
        PriorityClass.BACKGROUND, _bg, dataset, materializer
    )
    ```
-5. Done callback emits through the bridge (runs on thread pool thread):
+5. Done callback emits through the bridge (runs on thread pool thread — the bridge
+   marshals back to the main thread; the Activity Monitor must only be touched on the
+   main thread, so the `set_task_*` calls happen in the slots, not here):
    ```python
    def _done(f, bridge=self._bridge):
        try:
@@ -247,9 +267,11 @@ class _IngestionBridge(QObject):
            bridge.failed.emit(str(exc))
    future.add_done_callback(_done)
    ```
+   Carry `activity_id` into the slots (e.g. bundle it into the emitted payload, or
+   keep it on `self` keyed by dataset) so they can close the right row.
 6. `_on_ingestion_succeeded(scene)`: `controller.add_scene(scene)`,
-   `self._overlay.stop()`, `self._mosaic_view.update()`.
-7. `_on_ingestion_failed(msg)`: `self._overlay.stop()`,
+   `activity_monitor.set_task_finished(activity_id)`, `self._mosaic_view.update()`.
+7. `_on_ingestion_failed(msg)`: `activity_monitor.set_task_failed(activity_id, msg)`,
    `QMessageBox.critical(self, "Add scene failed", msg)`.
 
 ### Integration test extension in `test_mosaic_dialog_gui.py`
@@ -263,8 +285,9 @@ Add `test_add_valid_scene`:
 - Assert `has_overviews=True` and `footprint_wkt is not None`.
 
 Add `test_add_invalid_scene_rejected`:
-- Load a dataset with `data_ignore_value=None`.
+- Load an **ungeoreferenced** dataset (empty/None SRS) — the only hard-rejected case now.
 - Click Add; assert `controller.scene_count()` is still 0 (no scene added on rejection).
+- (Note: a no-nodata dataset must *not* be used here — it is now accepted.)
 
 ---
 
@@ -282,8 +305,10 @@ cd src/tests && python -m pytest -s -m smoke -k mosaic
 ```
 
 Manual: launch WISER, load a georeferenced scene, open **Tools → Seamless Mosaic…**,
-pick the dataset from the "Add Scene" combo, click the button, observe the spinner,
-confirm `scene_count == 1` and the overview file exists next to the temp tiff.
+pick the dataset from the "Add Scene" combo, click the button, watch the Activity
+Monitor row appear and finish, and confirm `scene_count == 1`. The overviews are
+internal to the materialized `.tif` (verify with `gdalinfo` showing "Overviews:" on
+the temp file — there is no separate `.ovr` sidecar).
 
 ---
 
@@ -292,7 +317,18 @@ confirm `scene_count == 1` and the overview file exists next to the temp tiff.
 - No CRS reprojection of footprints — that is #635/#636.
 - The full "Add from file" picker is deferred to #638. Here the combo reads from
   datasets already loaded in `app_state`.
-- External `.ovr` sidecar path for user source files is not needed in v1 because
-  `SceneMaterializer` always produces a writable temp file. Noted with a comment.
-- No `SemanticTask` / activity-monitor registration for the overview thread; the
-  spinner is sufficient for a short I/O operation. Full integration deferred.
+- Overviews are **internal** (embedded in the materialized `.tif`); no external
+  `.ovr` sidecar is written or tracked. There is exactly one artifact file per scene
+  (`gdal_path`), so no `SceneArtifacts` wrapper is introduced in v1.
+- **No dtype consistency enforced.** Scenes may mix dtypes; the compositor
+  (#635/#637) promotes to a common widest type (`np.promote_types`) at warp time.
+- **No nodata requirement.** Missing nodata is accepted; the footprint falls back to
+  the full raster rectangle.
+- **Not using the full `SemanticTask`/`TaskStage` pipeline.** That framework is built
+  for chunked dataset compute (tile/band chunking, allocated output `DataRef`s,
+  per-region `WriteSpec`s) — a poor fit for a sequential three-step single-file I/O
+  job whose outputs are a WKT string and in-file side effects. We instead register a
+  lightweight Activity Monitor row directly (`register_task` / `set_task_finished` /
+  `set_task_failed`), which delivers the same user-visible progress/cancel/error
+  surface without the pipeline ceremony. Revisit only if ingestion later needs
+  chunked, resumable, storage-backed stages.
