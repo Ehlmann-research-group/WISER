@@ -1660,6 +1660,22 @@ class WiserTestModel:
         dlg = self.main_window._similarity_transform_dialog
         QTest.keyClick(dlg, Qt.Key_Escape)
 
+    # region Seamless Mosaic
+    # ==========================================
+    @run_in_wiser_decorator
+    def open_seamless_mosaic_dialog(self):
+        """Open the Seamless Mosaic dialog exactly as a user would."""
+        self.main_window.show_seamless_mosaic_dialog(in_test_mode=True)
+        dlg = self.main_window._seamless_mosaic_dialog
+        QTest.qWaitForWindowExposed(dlg)
+        return dlg
+
+    @run_in_wiser_decorator
+    def close_seamless_mosaic_dialog(self):
+        dlg = self.main_window._seamless_mosaic_dialog
+        if dlg is not None:
+            dlg.close()
+
     # ---------------------------------------------------------------------------
     # Tab selection
     # ---------------------------------------------------------------------------
