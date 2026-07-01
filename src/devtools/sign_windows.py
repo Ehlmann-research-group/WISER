@@ -131,7 +131,8 @@ def main():
         nsis_cmd.append(f"/DSHA1_THUMBPRINT={args.sha1_thumbprint}")
     nsis_cmd.append(str(nsi_script))
 
-    run(nsis_cmd)
+    # Run makensis from --root so the relative OutFile lands where the upload looks.
+    run(nsis_cmd, cwd=str(root))
 
     if args.release_tag:
         if not args.app_version:

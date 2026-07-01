@@ -193,9 +193,9 @@ The process of creating a release is documented below.
    `make sign-mac LINK=<artifact-url> MAC_DIST_GITHUB_NAME=<artifact-name> RELEASE_TAG=<tag>`
    or `make sign-windows LINK=<artifact-url> RELEASE_TAG=<tag>`.
 
-   For signing on mac, you must have a valid Apple Developer signing certificate tied to
-   a paid Apple Developer Program account. For signing on windows, you must have a
-   windows code signing certificate. This is tied to an individual or a legal entity.
+   For signing on macOS, you must have a valid Apple Developer signing certificate tied to
+   a paid Apple Developer Program account. For signing on Windows, you must have a
+   Windows code signing certificate. This is tied to an individual or a legal entity.
 
    a. If you do code sign your own distribution, please do not
    present it to others as a official WISER release unless you have

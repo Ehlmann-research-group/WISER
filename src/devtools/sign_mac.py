@@ -119,6 +119,9 @@ def parse_args():
 def main():
     args = parse_args()
 
+    if args.release_tag and not args.app_version:
+        die("--release-tag requires --app-version so the uploaded DMG carries the version.")
+
     root = Path(args.root).resolve()
     dist_dir = prepare_dist(root, args.dist_name)
 

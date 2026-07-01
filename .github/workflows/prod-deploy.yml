@@ -189,12 +189,14 @@ jobs:
             ubuntu2004) distro_key="ubuntu_2004" ;;
             debian11)   distro_key="debian_11" ;;
             fedora39)   distro_key="fedora_39" ;;
+            *) echo "Unknown distro: ${{ matrix.distro }}" >&2; exit 1 ;;
           esac
 
           # Normalize the arch token to the web-friendly x64/arm64 form.
           case "${{ matrix.target_arch }}" in
             amd64) arch="x64" ;;
             arm64) arch="arm64" ;;
+            *) echo "Unknown target_arch: ${{ matrix.target_arch }}" >&2; exit 1 ;;
           esac
 
           src="linux_build_output/${distro_key}_${{ matrix.target_arch }}/WISER.tar.gz"
