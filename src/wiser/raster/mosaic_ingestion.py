@@ -106,6 +106,9 @@ def validate_scene(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"
             "Scene has no spatial reference system (SRS); it cannot be placed on the " "mosaic grid."
         )
 
+    if any(scene.dataset.get_id() == dataset.get_id() for scene in existing_scenes):
+        raise SceneValidationError(f'"{dataset.get_name() or dataset.get_id()}" is already in the mosaic.')
+
     if existing_scenes:
         expected_bands = existing_scenes[0].dataset.num_bands()
         candidate_bands = dataset.num_bands()
