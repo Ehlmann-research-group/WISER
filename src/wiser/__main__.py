@@ -229,9 +229,19 @@ def main():
         are specified, tests will be run on the full test directory."
         ),
     )
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Launch check: start Qt and show the splash, then exit 0 without opening the app.",
+    )
     # TODO(donnie):  Provide a way to specify Qt arguments
 
     args = parser.parse_args()
+
+    if args.smoke:
+        # Headless launch check: use the offscreen Qt platform unless one is set,
+        # so the frozen bundle can be verified on a runner with no display.
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
     # Load the WISER configuration file.  If the user specifies a config file,
     # load it and exit if we can't load it.  Otherwise, if we see a WISER-config
@@ -304,6 +314,10 @@ def main():
         splash = StartupSplash(pixmap, icon)
         splash.show()
         app.processEvents()
+
+        if args.smoke:
+            logger.info("Smoke check passed: Qt started and splash shown; exiting 0.")
+            sys.exit(0)
 
         data_files: list[str] = list(args.data_files) if args.data_files else []
 
