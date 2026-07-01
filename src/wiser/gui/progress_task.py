@@ -19,6 +19,7 @@ the work-unit RAM accounting.
 """
 
 from concurrent.futures import Future
+from threading import Event
 from typing import Any, Callable, Dict, Optional
 
 from PySide6.QtCore import QObject, Signal
@@ -50,24 +51,34 @@ class _ProgressTaskRunner(QObject):
         parent: Optional[QObject],
         app_services: Any,
         dialog: ProgressDialog,
-        activity_id: int,
         on_success: Optional[Callable[[Any], None]],
         on_error: Optional[Callable[[str], None]],
+        cancel_event: Event,
         block_window: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self._app_services = app_services
         self._dialog = dialog
-        self._activity_id = activity_id
+        self._activity_id: Optional[int] = None
         self._on_success = on_success
         self._on_error = on_error
+        # Set once the worker requests it, so the worker bails at its next checkpoint.
+        self._cancel_event = cancel_event
         # The window whose input we suppress while the task runs (disabled on start,
         # re-enabled on completion). None means nothing is blocked.
         self._block_window = block_window
+        # True once the user cancelled; True once the task genuinely finished. Guard
+        # against a late (abandoned) result racing with a user cancel, and vice versa.
+        self._cancelled = False
+        self._done = False
 
         self.progressed.connect(self._on_progress)
         self.succeeded.connect(self._on_succeeded)
         self.failed.connect(self._on_failed)
+
+    def set_activity_id(self, activity_id: int) -> None:
+        """Record the Activity Monitor row id (set right after registration)."""
+        self._activity_id = activity_id
 
     # -- sink + future callback (called from the worker thread) ---------------
 
@@ -93,6 +104,12 @@ class _ProgressTaskRunner(QObject):
         self._app_services.activity_monitor.progress_update.emit((self._activity_id, update))
 
     def _on_succeeded(self, result: object) -> None:
+        # A result that arrives after the user cancelled is abandoned: the UI was
+        # already torn down in request_cancel, so just release the runner/dialog.
+        if self._cancelled:
+            self._cleanup()
+            return
+        self._done = True
         self._app_services.activity_monitor.set_task_finished(self._activity_id)
         self._dialog.finish()
         if self._on_success is not None:
@@ -100,11 +117,37 @@ class _ProgressTaskRunner(QObject):
         self._cleanup()
 
     def _on_failed(self, message: str) -> None:
+        # Cancellation surfaces here too (the worker raises ProgressCancelled): swallow
+        # it silently rather than showing an error, since the user asked to stop.
+        if self._cancelled:
+            self._cleanup()
+            return
+        self._done = True
         self._app_services.activity_monitor.set_task_failed(self._activity_id, message)
         self._dialog.finish()
         if self._on_error is not None:
             self._on_error(message)
         self._cleanup()
+
+    def request_cancel(self) -> None:
+        """
+        Cancel the task and free the UI immediately (idempotent; called from the
+        dialog's close button/Escape and the Activity Monitor's Cancel button).
+
+        Signals the worker to bail at its next checkpoint, marks the Activity Monitor
+        row cancelled, re-enables the blocked window, and closes the dialog now. The
+        background work winds down on its own; its (abandoned) result is dropped when
+        it eventually reaches :meth:`_on_succeeded` / :meth:`_on_failed`.
+        """
+        if self._cancelled or self._done:
+            return
+        self._cancelled = True
+        self._cancel_event.set()
+        if self._activity_id is not None:
+            self._app_services.activity_monitor.set_task_cancelled(self._activity_id)
+        if self._block_window is not None:
+            self._block_window.setEnabled(True)
+        self._dialog.finish()
 
     def _cleanup(self) -> None:
         # Re-enable the window we suppressed so the user can interact with it again.
@@ -137,6 +180,11 @@ def run_with_progress(
     the app stays usable. This is deliberately not ``Qt.WindowModal``: that would also
     freeze every ancestor window, which for the mosaic would wrongly lock all of WISER.
 
+    The user can cancel from the dialog (close button / Escape) or the Activity Monitor
+    row: that frees the UI at once and signals ``fn`` to bail at its next
+    :meth:`ProgressReporter.raise_if_cancelled` checkpoint (so ``fn`` should call it at
+    natural boundaries to stop promptly). A result produced after a cancel is dropped.
+
     ``fn`` must accept a ``progress`` keyword (a :class:`ProgressReporter`). Returns the
     runner that owns the dialog until completion; the caller may ignore it (it is kept
     alive by its Qt parent and the future callback).
@@ -151,13 +199,22 @@ def run_with_progress(
     dialog_parent = owner.window() if owner is not None else target
 
     dialog = ProgressDialog(dialog_parent, title=title, description=description)
-    activity_id = app_services.activity_monitor.register_task(
-        title=title, meta=meta or {}, cancel_callback=None
-    )
+    # Shared cancel flag: the reporter reads it on the worker thread, the runner sets it
+    # on the GUI thread when the user cancels.
+    cancel_event = Event()
     runner = _ProgressTaskRunner(
-        dialog_parent, app_services, dialog, activity_id, on_success, on_error, target
+        dialog_parent, app_services, dialog, on_success, on_error, cancel_event, target
     )
-    reporter = ProgressReporter(sink=runner.report)
+    # Register the row with the runner as its cancel handler so the Activity Monitor's
+    # Cancel button cancels this task too; then hand the runner its row id.
+    activity_id = app_services.activity_monitor.register_task(
+        title=title, meta=meta or {}, cancel_callback=runner.request_cancel
+    )
+    runner.set_activity_id(activity_id)
+    reporter = ProgressReporter(sink=runner.report, is_cancelled=cancel_event.is_set)
+
+    # Cancelling from the dialog itself (close button / Escape) routes to the same path.
+    dialog.cancel_requested.connect(runner.request_cancel)
 
     if target is not None:
         target.setEnabled(False)

@@ -8,7 +8,7 @@ all without Qt or GDAL, using a plain recording sink.
 import pytest
 
 import tests.context  # noqa: F401  (adds src/ to sys.path)
-from wiser.utils.progress import ProgressReporter, gdal_progress_callback
+from wiser.utils.progress import ProgressCancelled, ProgressReporter, gdal_progress_callback
 
 pytestmark = [
     pytest.mark.unit,
@@ -104,6 +104,35 @@ def test_none_sink_is_noop():
     reporter.report(1, 2)
     child = reporter.split((1.0, "x"))[0]
     child.report_fraction(0.5)
+
+
+def test_is_cancelled_defaults_false_and_never_raises():
+    # Without an is_cancelled check, a reporter is never cancelled.
+    reporter = ProgressReporter()
+    assert reporter.is_cancelled() is False
+    reporter.raise_if_cancelled()  # must not raise
+
+
+def test_raise_if_cancelled_raises_once_requested():
+    flag = {"stop": False}
+    reporter = ProgressReporter(is_cancelled=lambda: flag["stop"])
+    reporter.raise_if_cancelled()  # not yet requested -> no raise
+    flag["stop"] = True
+    assert reporter.is_cancelled() is True
+    with pytest.raises(ProgressCancelled):
+        reporter.raise_if_cancelled()
+
+
+def test_split_children_share_cancel_check():
+    flag = {"stop": False}
+    parent = ProgressReporter(is_cancelled=lambda: flag["stop"])
+    first, last = parent.split((0.5, "a"), (0.5, "b"))
+    flag["stop"] = True
+    # Both the proportional children and the end-pinned last child inherit the check.
+    for child in (first, last):
+        assert child.is_cancelled() is True
+        with pytest.raises(ProgressCancelled):
+            child.raise_if_cancelled()
 
 
 def test_gdal_callback_forwards_fraction_and_continues():

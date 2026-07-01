@@ -10,14 +10,15 @@ dialog itself is dumb: it renders whatever :meth:`set_progress` is told. The
 orchestration that feeds it (and the Activity Monitor, and the disable/re-enable of
 the owning window) lives in :mod:`wiser.gui.progress_task`.
 
-It is not user-closable while a task runs — there is no close button and Escape is
-ignored — because v1 has no cancellation. The owning task closes it via
-:meth:`finish`.
+Closing it (the window's close button or Escape) does not dismiss it directly;
+instead it emits :attr:`cancel_requested` so the owning task can cancel the work and
+tear down. The owner closes the dialog via :meth:`finish` once the task ends (whether
+it completed or was cancelled).
 """
 
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QLabel, QProgressBar, QVBoxLayout, QWidget
 
 # The progress bar runs on 0..PROGRESS_RESOLUTION so a 0..1 fraction maps to a smooth
@@ -26,7 +27,11 @@ PROGRESS_RESOLUTION = 1000
 
 
 class ProgressDialog(QDialog):
-    """Window-modal dialog with a title, a description line, and a progress bar."""
+    """Non-modal dialog with a title, a description line, and a progress bar."""
+
+    # Emitted when the user tries to close the dialog (close button or Escape) while a
+    # task is running; the owning task listens for this to cancel the work.
+    cancel_requested = Signal()
 
     def __init__(
         self,
@@ -36,14 +41,14 @@ class ProgressDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._finished = False
+        # Guards against emitting cancel_requested more than once per run.
+        self._cancel_requested = False
 
         self.setWindowTitle(title)
         # Non-modal: the owning task (run_with_progress) suppresses input by disabling
         # just the specific window the work belongs to, so the rest of the app stays
         # interactive. Shown via show() so the event loop keeps updating the bar.
         self.setWindowModality(Qt.NonModal)
-        # No close button: the task owns the dialog's lifetime.
-        self.setWindowFlags((self.windowFlags() | Qt.CustomizeWindowHint) & ~Qt.WindowCloseButtonHint)
         self.setMinimumWidth(360)
 
         layout = QVBoxLayout(self)
@@ -74,15 +79,28 @@ class ProgressDialog(QDialog):
         self._finished = True
         self.accept()
 
-    # -- close guards (block Escape / window close while a task runs) ----------
+    # -- cancellation (close button / Escape while a task runs) ----------------
+
+    def _request_cancel(self) -> None:
+        """Ask the owning task to cancel; the owner closes the dialog via finish()."""
+        if self._finished or self._cancel_requested:
+            return
+        self._cancel_requested = True
+        self.cancel_requested.emit()
 
     def reject(self) -> None:
-        # Escape triggers reject(); ignore it until the task marks itself finished.
+        # Escape triggers reject(). Once finished, close normally; otherwise treat it
+        # as a cancel request and leave the dialog up for the owner to dismiss.
         if self._finished:
             super().reject()
+        else:
+            self._request_cancel()
 
     def closeEvent(self, event) -> None:
+        # Same for the window close button: request cancellation and keep the dialog
+        # visible until the owner tears the task down and calls finish().
         if self._finished:
             super().closeEvent(event)
         else:
+            self._request_cancel()
             event.ignore()

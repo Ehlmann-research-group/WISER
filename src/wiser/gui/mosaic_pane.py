@@ -59,7 +59,9 @@ def _ingest_scene(
         (0.15, "Computing footprint"),
     )
     gdal_path = materializer.gdal_source(dataset, progress=materialize_progress)
+    progress.raise_if_cancelled()
     build_overviews(gdal_path, progress=overview_progress)
+    progress.raise_if_cancelled()
     footprint_wkt = compute_footprint_wkt(gdal_path, progress=footprint_progress)
     progress.report_fraction(1.0, "Done")
     return MosaicScene(

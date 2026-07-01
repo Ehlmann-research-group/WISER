@@ -161,6 +161,40 @@ class TestSeamlessMosaicAddScene(unittest.TestCase):
 
         self.test_model.close_seamless_mosaic_dialog()
 
+    def test_cancel_scene_ingestion(self):
+        tiff_path = os.path.join(self._tmp.name, "scene_cancel.tif")
+        _write_georeffed_tiff(tiff_path, bands=3, collar=2, size=20)
+        dataset = self.test_model.load_dataset(tiff_path)
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+
+        self._select_dataset(pane, dataset.get_id())
+        pane._add_scene_button.click()
+
+        runner = pane._active_progress_task
+        dialog = runner._dialog
+        # Cancel before pumping the loop, so the (queued) completion slot has not run
+        # yet and the cancel is what wins the race.
+        self.assertTrue(dialog.isVisible())
+        self.assertFalse(dlg.isEnabled())
+
+        # Closing the dialog requests cancellation: the UI is freed at once (dialog
+        # gone, owning window interactive) without waiting for the background work.
+        dialog.close()
+        self.assertTrue(runner._cancelled)
+        self.assertFalse(dialog.isVisible())
+        self.assertTrue(dlg.isEnabled())
+
+        # Let the abandoned background task wind down; its result must be dropped, so
+        # no scene is ever added and on_success is never invoked.
+        added = self._wait_for(lambda: controller.scene_count() == 1)
+        self.assertFalse(added, "a cancelled scene must not be added")
+        self.assertEqual(controller.scene_count(), 0)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
     def test_add_invalid_scene_rejected(self):
         # A numpy-array dataset is ungeoreferenced (identity transform, no SRS), so
         # validation must reject it before any background work runs.

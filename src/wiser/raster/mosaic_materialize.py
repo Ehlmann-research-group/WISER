@@ -176,6 +176,9 @@ def materialize_to_tiled_geotiff(
         # memory low: at most a single (height, width) band is resident per
         # iteration, and it is released before the next band is read.
         for band_index in range(num_bands):
+            # Cooperative cancellation checkpoint: bail before spending work on the
+            # next band once the owner has requested a stop.
+            progress.raise_if_cancelled()
             # filter_data_ignore_value=False keeps the raw values (including the
             # nodata sentinel) so the materialized file mirrors the source.
             band_arr = dataset.get_band_data(band_index, filter_data_ignore_value=False)

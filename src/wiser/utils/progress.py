@@ -22,6 +22,19 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 # A sink receives the *global* progress fraction in [0.0, 1.0] and a message.
 ProgressSink = Callable[[float, str], None]
+# A cancellation check returns True once the work should stop.
+CancelCheck = Callable[[], bool]
+
+
+class ProgressCancelled(Exception):
+    """
+    Raised by :meth:`ProgressReporter.raise_if_cancelled` when the owning task has
+    requested cancellation.
+
+    Worker functions let it propagate; the GUI orchestration
+    (``wiser/gui/progress_task``) recognizes the cancellation and drops the abandoned
+    result without surfacing it as an error.
+    """
 
 
 def _clamp01(value: float) -> float:
@@ -39,6 +52,11 @@ class ProgressReporter:
 
     A reporter with ``sink=None`` is a safe no-op, which is the default for non-GUI
     and unit-test use so ``progress`` parameters can always be optional.
+
+    An optional ``is_cancelled`` check lets long-running workers cooperatively bail
+    out: they call :meth:`raise_if_cancelled` at natural checkpoints (loop iterations,
+    phase boundaries) and stop as soon as the owner requests cancellation. Child
+    reporters from :meth:`split` share the same check.
     """
 
     def __init__(
@@ -47,6 +65,7 @@ class ProgressReporter:
         start: float = 0.0,
         end: float = 1.0,
         label: str = "",
+        is_cancelled: Optional[CancelCheck] = None,
     ) -> None:
         if end < start:
             raise ValueError(f"ProgressReporter end ({end}) must be >= start ({start})")
@@ -54,10 +73,20 @@ class ProgressReporter:
         self._start = _clamp01(start)
         self._end = _clamp01(end)
         self._label = label
+        self._is_cancelled = is_cancelled
 
     @property
     def label(self) -> str:
         return self._label
+
+    def is_cancelled(self) -> bool:
+        """True once the owner has requested cancellation (always False if unset)."""
+        return bool(self._is_cancelled()) if self._is_cancelled is not None else False
+
+    def raise_if_cancelled(self) -> None:
+        """Raise :class:`ProgressCancelled` if cancellation has been requested."""
+        if self.is_cancelled():
+            raise ProgressCancelled()
 
     def report(self, numerator: float, denominator: float, message: str = "") -> None:
         """
@@ -109,13 +138,15 @@ class ProgressReporter:
         cursor = self._start
         for weight, label in weights_and_labels:
             seg = span * (float(weight) / total)
-            children.append(ProgressReporter(self._sink, cursor, cursor + seg, label))
+            children.append(ProgressReporter(self._sink, cursor, cursor + seg, label, self._is_cancelled))
             cursor += seg
         # Pin the last child's end exactly to self._end to avoid float drift leaving a
         # sliver of the range unreachable.
         if children:
             last = children[-1]
-            children[-1] = ProgressReporter(self._sink, last._start, self._end, last._label)
+            children[-1] = ProgressReporter(
+                self._sink, last._start, self._end, last._label, self._is_cancelled
+            )
         return children
 
 
