@@ -21,4 +21,5 @@ app-state.md
 georeferencer-internals.md
 crs-creator-internals.md
 plugin-system.md
+mosaic-internals.md
 ```
