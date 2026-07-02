@@ -126,8 +126,13 @@ def roi_from_pyrep(data):
     """Reconstruct a region of interest from a :func:`roi_to_pyrep` dict.
 
     Parses leniently: unknown keys are ignored and missing optional keys take
-    their defaults.
+    their defaults.  A present ``type`` tag must match, so a pyrep of the wrong
+    kind is rejected rather than silently mangled into an ROI.
     """
+    type_tag = data.get("type")
+    if type_tag is not None and type_tag != ROI_PYREP_TYPE:
+        raise ValueError(f"Expected pyrep type {ROI_PYREP_TYPE!r}, got {type_tag!r}")
+
     roi = RegionOfInterest(name=data.get("name"), color=data.get("color", "yellow"))
 
     roi_id = data.get("id")

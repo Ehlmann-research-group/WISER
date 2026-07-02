@@ -6,6 +6,7 @@ end-to-end.
 """
 
 import json
+import zipfile
 
 import numpy as np
 import pytest
@@ -16,6 +17,7 @@ from PySide6.QtCore import QPoint
 
 from wiser.project import (
     ProjectBundle,
+    ProjectFormatError,
     ProjectTooNewError,
     UnknownPyrepType,
     from_pyrep,
@@ -145,3 +147,31 @@ def test_roi_persister_round_trip():
     load_rois(manifest, dst)
 
     assert [_roi_shape(r) for r in dst.get_rois()] == [_roi_shape(r) for r in src.get_rois()]
+
+
+def test_unzip_rejects_path_traversal(tmp_path):
+    evil_zip = tmp_path / "evil.wiserproj"
+    with zipfile.ZipFile(evil_zip, "w") as zf:
+        zf.writestr("manifest.json", "{}")
+        zf.writestr("../escape.txt", "pwned")
+
+    with pytest.raises(ProjectFormatError):
+        unzip_bundle(evil_zip, tmp_path / "dest")
+
+    # The escaping member must not have been written outside the destination.
+    assert not (tmp_path / "escape.txt").exists()
+
+
+def test_fetch_array_rejects_path_traversal(tmp_path):
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    np.save(tmp_path / "secret.npy", np.arange(3))
+
+    with pytest.raises(ProjectFormatError):
+        bundle.fetch_array("../secret.npy")
+
+
+def test_roi_from_pyrep_rejects_wrong_type():
+    data = roi_to_pyrep(_sample_roi())
+    data["type"] = "SomethingElse"
+    with pytest.raises(ValueError):
+        roi_from_pyrep(data)

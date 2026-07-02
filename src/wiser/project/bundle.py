@@ -13,10 +13,27 @@ from typing import Any, Dict, Union
 
 import numpy as np
 
-from .migrate import CURRENT_FORMAT_VERSION, migrate_up
+from .migrate import CURRENT_FORMAT_VERSION, ProjectFormatError, migrate_up
 from .pyrep import array_ref, array_ref_key, is_array_ref
 
 PathLike = Union[str, Path]
+
+
+def _resolve_within(root: PathLike, rel: str) -> Path:
+    """Resolve ``rel`` under ``root``, refusing paths that escape the bundle.
+
+    Returns the absolute resolved path when ``rel`` stays inside ``root``;
+    raises :class:`~wiser.project.migrate.ProjectFormatError` otherwise. Keeps
+    manifest- or archive-supplied paths from reaching outside the bundle
+    directory (``../`` segments, absolute paths).
+    """
+    root = Path(root).resolve()
+    target = (root / rel).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        raise ProjectFormatError(f"Path escapes the bundle root: {rel!r}") from None
+    return target
 
 
 class ProjectBundle:
@@ -90,9 +107,13 @@ class ProjectBundle:
 
     def fetch_array(self, ref: Union[Dict[str, str], str]) -> np.ndarray:
         """Load an array written with :meth:`add_array`, given either its
-        reference dict or its relative key."""
+        reference dict or its relative key.
+
+        The key is confined to the bundle directory: a reference that resolves
+        outside the bundle is rejected rather than read, since the manifest may
+        come from an untrusted source."""
         rel = array_ref_key(ref) if is_array_ref(ref) else ref
-        return np.load(self._root / rel)
+        return np.load(_resolve_within(self._root, rel))
 
     # -- raster sidecars ----------------------------------------------------
 
@@ -118,9 +139,15 @@ def zip_bundle(bundle: ProjectBundle, zip_path: PathLike) -> Path:
 
 
 def unzip_bundle(zip_path: PathLike, dest_dir: PathLike) -> ProjectBundle:
-    """Extract a ``.wiserproj`` zip into ``dest_dir`` and open it as a bundle."""
+    """Extract a ``.wiserproj`` zip into ``dest_dir`` and open it as a bundle.
+
+    Guards against zip-slip: a member whose path escapes ``dest_dir`` (via
+    ``../`` or an absolute path) is refused before anything is extracted, since
+    a project file may come from an untrusted source."""
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as zf:
+        for name in zf.namelist():
+            _resolve_within(dest_dir, name)
         zf.extractall(dest_dir)
     return ProjectBundle.open(dest_dir)
