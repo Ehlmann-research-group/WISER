@@ -229,9 +229,28 @@ def main():
         are specified, tests will be run on the full test directory."
         ),
     )
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Launch check: start Qt and show the splash, then exit 0 without opening the app.",
+    )
     # TODO(donnie):  Provide a way to specify Qt arguments
 
     args = parser.parse_args()
+
+    if args.smoke and args.test_mode is not None:
+        parser.error("--smoke and --test_mode cannot be combined.")
+
+    if (
+        args.smoke
+        and sys.platform.startswith("linux")
+        and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    ):
+        # Headless Linux has no window server, so fall back to the offscreen Qt
+        # platform. Windows/macOS (including the CI runners) have a display and use
+        # their native platform, so the smoke check does not hard-depend on the
+        # bundled offscreen plugin.
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
     # Load the WISER configuration file.  If the user specifies a config file,
     # load it and exit if we can't load it.  Otherwise, if we see a WISER-config
@@ -304,6 +323,10 @@ def main():
         splash = StartupSplash(pixmap, icon)
         splash.show()
         app.processEvents()
+
+        if args.smoke:
+            logger.info("Smoke check passed: Qt started and splash shown; exiting 0.")
+            sys.exit(0)
 
         data_files: list[str] = list(args.data_files) if args.data_files else []
 
