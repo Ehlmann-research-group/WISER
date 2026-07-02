@@ -95,7 +95,7 @@ class ReprojectPromptDialog(QDialog):
 
         intro = QLabel(
             self.tr(
-                "These scenes use different coordinate reference systems. Choose a "
+                "These scenes may use different coordinate reference systems. Choose a "
                 "single target CRS to place the whole mosaic onto."
             )
         )
