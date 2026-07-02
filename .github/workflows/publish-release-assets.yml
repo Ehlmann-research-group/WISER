@@ -38,6 +38,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Validate the shape of the dispatch inputs up front so a typo fails fast with a
+          # clear message (they are passed via env, so they cannot inject shell in any case).
+          [[ "${RUN_ID}" =~ ^[0-9]+$ ]] || { echo "::error::run_id must be a positive integer."; exit 1; }
+          [[ "${TAG}" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "::error::tag has unexpected characters."; exit 1; }
+
           # The build run must have finished successfully. For Linux that already implies
           # every distro's in-container --test_mode passed, since a failed suite yields no
           # tarball and fails the leg.

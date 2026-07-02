@@ -70,7 +70,7 @@ infeasible for developers to run on each push to a pull
 request. We need to look into a way to speed up our builds
 (<10 minutes would be good).
 
-The deployment code is in the github action `prod-deploy.yml`. It builds WISER on every
+The deployment code is in the GitHub Actions workflow `prod-deploy.yml`. It builds WISER on every
 platform (Windows, macOS arm/intel, and the six Linux distro/arch targets). The Linux legs
 run the full `--test_mode` suite inside each distributable (a hard gate — a failing suite
 produces no tarball); Windows and macOS run a fast `--smoke` launch check in CI and the full
