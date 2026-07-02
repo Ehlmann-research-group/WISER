@@ -297,6 +297,31 @@ class MosaicController:
                 "These scenes cannot be reprojected to the chosen CRS: " + ", ".join(unmappable)
             )
 
+    def validate_new_scene_crs(self, dataset_name: str, srs: Optional[osr.SpatialReference]) -> None:
+        """
+        Raise :class:`UnmappableCrsError` if a *candidate* scene (not yet added to
+        the mosaic) named ``dataset_name`` with spatial reference ``srs`` could not
+        join under the already-resolved target CRS.
+
+        Meant to run before the expensive materialize / build-overviews / footprint
+        ingestion pipeline, so an incompatible scene is rejected up front instead of
+        after wasted background work. A mosaic with no resolved target CRS yet (no
+        scenes added so far) accepts any candidate here -- that scene would itself
+        define the target once added, since the target permanently locks to the
+        first scene's CRS (see :meth:`build_common_grid`). Once a target is
+        resolved, this mirrors :meth:`validate_target_crs` but checks a single
+        candidate instead of every existing scene.
+        """
+        target_wkt = self._target_crs_wkt
+        if target_wkt is None:
+            return
+        target_srs = _srs_from_wkt(target_wkt)
+        if srs is None or not can_transform_between_srs(srs, target_srs):
+            raise UnmappableCrsError(
+                f'"{dataset_name}" cannot be reprojected to the mosaic\'s target CRS '
+                f"({_crs_display_name(target_srs)})."
+            )
+
     # -- common grid ----------------------------------------------------------
 
     def build_common_grid(self) -> CommonGrid:

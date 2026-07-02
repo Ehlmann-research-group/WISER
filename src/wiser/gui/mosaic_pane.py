@@ -227,15 +227,19 @@ class MosaicPane(QWidget):
         if ds_id is None:
             return
         dataset = self._app_state.get_dataset(ds_id)
+        name = dataset.get_name() or f"Dataset {ds_id}"
 
-        # Validate on the main thread so rejection is immediate (no spinner churn).
+        # Validate on the main thread so rejection is immediate (no spinner churn)
+        # and so a scene that can't join the mosaic never pays for the
+        # materialize/build-overviews/footprint pipeline it would just be rejected
+        # after anyway.
         try:
             validate_scene(dataset, self._controller.get_scenes())
-        except SceneValidationError as exc:
+            self._controller.validate_new_scene_crs(name, dataset.get_spatial_ref())
+        except (SceneValidationError, UnmappableCrsError) as exc:
             QMessageBox.warning(self, self.tr("Cannot add scene"), str(exc))
             return
 
-        name = dataset.get_name() or f"Dataset {ds_id}"
         # Run the ingestion on the scheduler with a progress dialog and a mirrored
         # Activity Monitor row. Pass the window (the SeamlessMosaicDialog) as the block
         # target so only it is disabled while ingesting; the rest of WISER stays live.
@@ -254,8 +258,12 @@ class MosaicPane(QWidget):
 
     def _on_scene_ingested(self, scene: MosaicScene) -> None:
         self._controller.add_scene(scene)
+        if not self._ensure_common_grid():
+            # The scene could not be placed on the common grid (unmappable CRS, or
+            # the user cancelled the reproject prompt) so remove the addition
+            self._controller.remove_scene(self._controller.scene_count() - 1)
+            return
         self._refresh_scene_list()
-        self._ensure_common_grid()
         self._mosaic_view.update()
 
     def _on_scene_failed(self, message: str) -> None:
@@ -315,16 +323,20 @@ class MosaicPane(QWidget):
 
     # -- common grid / target CRS ---------------------------------------------
 
-    def _ensure_common_grid(self) -> None:
+    def _ensure_common_grid(self) -> bool:
         """
         Resolve the shared output grid, prompting for a target CRS if needed.
 
         Same-CRS mosaics auto-resolve (``build_common_grid`` picks the shared scene
         CRS), so the dialog only appears on a real CRS mismatch. Standalone (not
         inlined into ``_on_scene_ingested``) so #638 can re-run it when the
-        resolution mode or CRS changes. On cancel the grid is left unresolved on
-        purpose — the user can add more scenes and retry.
+        resolution mode or CRS changes.
+
+        Returns ``True`` once the grid is resolved, ``False`` if it is left
+        unresolved (unmappable CRS, or the user cancelled the reproject prompt) so
+        a caller that just added a scene can decide to roll that addition back.
         """
+        resolved = True
         try:
             self._controller.build_common_grid()
         except TargetCrsRequired:
@@ -333,9 +345,14 @@ class MosaicPane(QWidget):
                     self._controller.build_common_grid()
                 except UnmappableCrsError as exc:
                     QMessageBox.warning(self, self.tr("Cannot reproject"), str(exc))
+                    resolved = False
+            else:
+                resolved = False
         except UnmappableCrsError as exc:
             QMessageBox.warning(self, self.tr("Cannot reproject"), str(exc))
+            resolved = False
         self._refresh_target_crs_label()
+        return resolved
 
     def _on_choose_target_crs(self) -> None:
         """Let the user pick / override the target CRS at any time (manual button)."""
