@@ -1,11 +1,11 @@
 name: Build and Smoke Test WISER
 
 on:
-  release:
-    types: [created]
   workflow_dispatch:
 
-# Least privilege by default; only the release-upload job is elevated to write.
+# This workflow only builds and smoke/test-checks WISER; it never writes to the repo or to
+# a release. Publishing the built assets to a release is a separate, manually triggered
+# workflow (publish-release-assets.yml).
 permissions:
   contents: read
 
@@ -178,12 +178,9 @@ jobs:
           set -euxo pipefail
           mkdir -p dist/linux
 
-          # On a release the tag is the version; otherwise read it from source.
-          if [ "${{ github.event_name }}" = "release" ]; then
-            version="${GITHUB_REF_NAME#v}"
-          else
-            version="$(python3 src/wiser/version.py)"
-          fi
+          # The build is always dispatched from the commit being released, so version.py
+          # is the source of truth for the version baked into the asset name.
+          version="$(python3 src/wiser/version.py)"
 
           # Source folder key matches build_linux_multistage.sh output layout.
           case "${{ matrix.distro }}" in
@@ -213,40 +210,3 @@ jobs:
           name: wiser-linux-${{ matrix.distro }}-${{ matrix.target_arch }}
           path: dist/linux/*.tar.gz
           if-no-files-found: error
-
-  # Linux builds are unsigned, so the CI output is the final asset. Attaching the
-  # tarballs to the release is isolated in its own job so the build matrix (which
-  # runs third-party container builds) stays read-only; only this job holds
-  # contents: write. !cancelled() lets it upload whatever legs succeeded even if a
-  # sibling leg failed. Windows/macOS are signed locally and uploaded via
-  # src/devtools/sign_*.py --release-tag.
-  linux_release_upload:
-    name: Attach Linux assets to the release
-    needs: linux_build
-    if: ${{ !cancelled() && github.event_name == 'release' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download Linux build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: wiser-linux-*
-          path: dist/linux
-          merge-multiple: true
-
-      - name: Attach to the release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euxo pipefail
-          shopt -s nullglob
-          assets=(dist/linux/*.tar.gz)
-          if [ ${#assets[@]} -eq 0 ]; then
-            echo "No Linux tarballs found to upload." >&2
-            exit 1
-          fi
-          ls -lah dist/linux
-          gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
