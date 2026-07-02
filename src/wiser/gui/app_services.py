@@ -80,6 +80,12 @@ class AppServices(QObject):
         return self._scheduler
 
     @property
+    def activity_monitor(self) -> "ActivityMonitorDialog":
+        """The shared Activity Monitor, for registering standalone (non-plan) work
+        such as mosaic scene ingestion (#634)."""
+        return self._activity_monitor
+
+    @property
     def task_planner(self):
         return self._task_planner
 
