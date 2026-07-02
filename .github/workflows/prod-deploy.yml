@@ -33,7 +33,7 @@ jobs:
           cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
           cache-downloads: true
           log-level: debug
-        timeout-minutes: 10
+        timeout-minutes: 20
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
@@ -43,13 +43,13 @@ jobs:
           ls -la dist/WISER || true
         timeout-minutes: 15
 
-      # - name: Smoke Test (Windows)
-      #   if: runner.os == 'Windows'
-      #   shell: bash -leo pipefail {0}
-      #   run: |
-      #     cd dist/WISER
-      #     ./WISER.exe --test_mode
-      
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -leo pipefail {0}
+        run: |
+          ./dist/WISER/WISER.exe --smoke
+        timeout-minutes: 5
+
       - name: Package Windows + checksum
         if: runner.os == 'Windows'
         shell: pwsh
@@ -87,14 +87,14 @@ jobs:
         run: |
           make build-mac
           ls -la dist/WISER || true
-        timeout-minutes: 25
+        timeout-minutes: 40
 
-      # - name: Smoke Test (macOS)
-      #   if: runner.os == 'macOS'
-      #   shell: bash -leo pipefail {0}
-      #   run: |
-      #     cd dist/WISER
-      #     ./WISER_Bin --test_mode
+      - name: Smoke test (macOS)
+        if: runner.os == 'macOS'
+        shell: bash -leo pipefail {0}
+        run: |
+          ./dist/WISER/WISER_Bin --smoke
+        timeout-minutes: 5
 
       - name: Pack macOS .app (preserve symlinks & modes)
         if: runner.os == 'macOS'
