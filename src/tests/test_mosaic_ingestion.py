@@ -41,6 +41,16 @@ def _utm_wkt() -> str:
     return srs.ExportToWkt()
 
 
+def id_generator():
+    counter = 0
+    while True:
+        counter += 1
+        yield counter
+
+
+_next_id = id_generator()
+
+
 class _FakeDataset:
     """
     Minimal stand-in for a RasterDataSet.
@@ -56,6 +66,7 @@ class _FakeDataset:
         self._wkt = wkt
         self._bands = bands
         self._dtype = np.dtype(dtype)
+        self._id = next(_next_id)
 
     def get_geo_transform(self):
         return self._geo_transform
@@ -68,6 +79,9 @@ class _FakeDataset:
 
     def get_elem_type(self):
         return self._dtype
+
+    def get_id(self):
+        return self._id
 
 
 def _valid_fake(bands=3, dtype=np.float32) -> _FakeDataset:
