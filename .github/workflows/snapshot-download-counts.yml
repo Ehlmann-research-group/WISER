@@ -15,9 +15,6 @@ on:
     - cron: "0 6 * * *"     # daily 06:00 UTC
   workflow_dispatch: {}
 
-permissions:
-  contents: write
-
 concurrency:
   # Keep a manual run from overlapping the scheduled one (they'd race on the stats push).
   group: snapshot-download-counts
@@ -26,6 +23,8 @@ concurrency:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,7 +79,7 @@ jobs:
 
           git add stats/downloads.csv
           if git diff --staged --quiet; then
-            echo "No change in download counts; nothing to commit."
+            echo "No new rows appended (no release assets, or counts unchanged); nothing to commit."
           else
             git commit -m "chore(stats): snapshot download counts ($TS) [skip ci]"
             git push origin stats
