@@ -12,6 +12,10 @@ from wiser.raster.mosaic_controller import (
     ResolutionMode,
     TargetCrsRequired,
     UnmappableCrsError,
+    compute_union_overlaps,
+    reprojected_footprint_geometry,
+    _footprint_envelope,
+    _srs_from_wkt,
     _warped_resolution,
 )
 
@@ -304,6 +308,100 @@ def test_scene_crs_summary(tmp_path):
     assert "EPSG:32611" in summary[0][1]
     assert "EPSG:4326" in summary[1][1]
     assert summary[2][1] == "(no CRS)"
+
+
+# -- geometry overlay helpers (#636) -----------------------------------------
+
+
+def _square(x0, y0, x1, y1) -> ogr.Geometry:
+    """A rectangular polygon geometry (no CRS attached) for overlap tests."""
+    return ogr.CreateGeometryFromWkt(f"POLYGON(({x0} {y0},{x1} {y0},{x1} {y1},{x0} {y1},{x0} {y0}))")
+
+
+def test_reprojected_footprint_matches_envelope(tmp_path):
+    # Reprojecting the whole polygon then taking its envelope must agree with the
+    # grid builder's _footprint_envelope (which does the same reprojection).
+    scene = _make_scene(tmp_path, "s", epsg=32611, origin=(400000.0, 3800000.0), pixel=30.0)
+    src = scene.dataset.get_spatial_ref()
+    target = _srs_from_wkt(_wkt_for_epsg(4326))
+
+    geom = reprojected_footprint_geometry(scene, src, target)
+    env = geom.GetEnvelope()  # (min_x, max_x, min_y, max_y)
+    fe = _footprint_envelope(scene, src, target)  # (min_x, min_y, max_x, max_y)
+    assert env[0] == pytest.approx(fe[0])
+    assert env[1] == pytest.approx(fe[2])
+    assert env[2] == pytest.approx(fe[1])
+    assert env[3] == pytest.approx(fe[3])
+
+
+def test_reprojected_footprint_same_crs_is_identity(tmp_path):
+    scene = _make_scene(tmp_path, "s", epsg=32611)
+    src = scene.dataset.get_spatial_ref()
+    geom = reprojected_footprint_geometry(scene, src, src)
+    orig = ogr.CreateGeometryFromWkt(scene.footprint_wkt)
+    assert geom.GetEnvelope() == pytest.approx(orig.GetEnvelope())
+
+
+def test_compute_union_overlaps_partial():
+    # Bottom-to-top: A, B, C. B partly under C; A partly under B∪C. C is on top.
+    a = _square(0, 0, 10, 10)
+    b = _square(5, 0, 15, 10)
+    c = _square(12, 0, 20, 10)
+    hidden = compute_union_overlaps([(None, a), (None, b), (None, c)])
+
+    # Top scene (index 2) is never hidden.
+    assert set(hidden.keys()) == {0, 1}
+    # B ∩ C = x in [12,15] => area 30.
+    assert hidden[1].GetArea() == pytest.approx(30.0)
+    # A ∩ (B ∪ C) = x in [5,10] => area 50.
+    assert hidden[0].GetArea() == pytest.approx(50.0)
+
+
+def test_compute_union_overlaps_full_cover():
+    lower = _square(0, 0, 10, 10)
+    cover = _square(-1, -1, 11, 11)
+    hidden = compute_union_overlaps([(None, lower), (None, cover)])
+    assert set(hidden.keys()) == {0}
+    assert hidden[0].GetArea() == pytest.approx(100.0)  # the whole lower scene is hidden
+
+
+def test_compute_union_overlaps_disjoint():
+    a = _square(0, 0, 10, 10)
+    b = _square(100, 100, 110, 110)
+    assert compute_union_overlaps([(None, a), (None, b)]) == {}
+
+
+def test_visible_footprints_in_common_crs(tmp_path):
+    a = _make_scene(tmp_path, "a", epsg=32611, origin=(400000.0, 3800000.0))
+    b = _make_scene(tmp_path, "b", epsg=32611, origin=(400500.0, 3800500.0))
+    c = MosaicController()
+    c.add_scene(a)
+    c.add_scene(b)
+
+    # No target CRS resolved yet -> nothing to draw.
+    assert c.visible_scene_footprints_in_common_crs() == []
+
+    c.build_common_grid()  # locks the target to the shared scene CRS
+    fps = c.visible_scene_footprints_in_common_crs()
+    # Bottom-to-top order, and same-CRS reprojection is an identity on the envelope.
+    assert [s.dataset.get_name() for s, _ in fps] == ["a", "b"]
+    for scene, geom in fps:
+        own = ogr.CreateGeometryFromWkt(scene.footprint_wkt).GetEnvelope()
+        assert geom.GetEnvelope() == pytest.approx(own)
+
+
+def test_visible_footprints_excludes_hidden_scenes(tmp_path):
+    a = _make_scene(tmp_path, "a", epsg=32611, origin=(400000.0, 3800000.0))
+    b = _make_scene(tmp_path, "b", epsg=32611, origin=(400500.0, 3800500.0))
+    c = MosaicController()
+    c.add_scene(a)
+    c.add_scene(b)
+    c.build_common_grid()
+
+    c.set_visibility(1, False)  # hide "b"
+    c.build_common_grid()
+    fps = c.visible_scene_footprints_in_common_crs()
+    assert [s.dataset.get_name() for s, _ in fps] == ["a"]
 
 
 # -- validate_target_crs -----------------------------------------------------
