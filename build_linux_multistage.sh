@@ -57,14 +57,33 @@ echo "→ Target: ${tgt}"
 echo "→ Platform: linux/${target_arch}"
 echo "→ Image tag: ${img}"
 
-# Bake override pattern (platform/output) :contentReference[oaicite:6]{index=6}
-docker buildx bake -f "${BAKE_FILE}" \
-  --set "${tgt}.platform=linux/${target_arch}" \
-  --set "${tgt}.output=type=docker" \
-  --set '*.cache-from=type=gha' \
-  --set '*.cache-to=type=gha,mode=max' \
-  --progress=plain \
-  "${tgt}"
+# Give each distro/arch its own cache scope so the six matrix legs don't evict
+# each other's layers out of the shared, space-limited GHA cache.
+scope="${base_name}_${target_arch}"
+
+# Base-image pulls and the GHA cache are the flakiest part of the build, so retry
+# the bake a few times instead of forcing a manual re-run of the whole job.
+bake() {
+  docker buildx bake -f "${BAKE_FILE}" \
+    --set "${tgt}.platform=linux/${target_arch}" \
+    --set "${tgt}.output=type=docker" \
+    --set "*.cache-from=type=gha,scope=${scope}" \
+    --set "*.cache-to=type=gha,mode=max,scope=${scope}" \
+    --progress=plain \
+    "${tgt}"
+}
+
+attempt=1
+max_attempts=3
+until bake; do
+  if (( attempt >= max_attempts )); then
+    echo "ERROR: 'docker buildx bake' failed after ${max_attempts} attempts"
+    exit 1
+  fi
+  echo "buildx bake failed (attempt ${attempt}/${max_attempts}); retrying in 30s..."
+  sleep 30
+  attempt=$(( attempt + 1 ))
+done
 
 echo "=== SMOKE TEST (PHASE C via docker run) ==="
 docker run --rm --platform "linux/${target_arch}" "${img}"
