@@ -6,7 +6,6 @@ from .selection import (
 )
 
 from PySide6.QtCore import QRect
-from PySide6.QtGui import QColor
 
 
 class RegionOfInterest:
@@ -102,24 +101,46 @@ class RegionOfInterest:
         print("]")
 
 
-def roi_to_pyrep(roi):
-    data = {
-        "name": roi.get_name(),
-        "color": str(roi.get_color().name()),
-        "metadata": roi.get_metadata(),
-    }
-    # TODO(donnie):  Composite/multi-selection ROIs
-    data["selection"] = roi.get_selection().to_pyrep()
+ROI_PYREP_TYPE = "RegionOfInterest"
 
-    return data
+
+def roi_to_pyrep(roi):
+    """Serialize a region of interest to a JSON-friendly pyrep dict.
+
+    Captures the ROI's identity and styling plus every selection's own pyrep,
+    so multi-selection ROIs round-trip faithfully (a polygon comes back a
+    polygon, not a rasterized pixel dump).
+    """
+    return {
+        "type": ROI_PYREP_TYPE,
+        "id": roi.get_id(),
+        "name": roi.get_name(),
+        "color": roi.get_color(),
+        "description": roi.get_description(),
+        "metadata": roi.get_metadata(),
+        "selections": [sel.to_pyrep() for sel in roi.get_selections()],
+    }
 
 
 def roi_from_pyrep(data):
-    name = data["name"]
-    color = QColor(data["color"])
-    metadata = data["metadata"]
-    # TODO(donnie):  Composite/multi-selection ROIs
-    sel = selection_from_pyrep(data["selection"])
+    """Reconstruct a region of interest from a :func:`roi_to_pyrep` dict.
 
-    roi = RegionOfInterest(name, sel, color, **metadata)
+    Parses leniently: unknown keys are ignored and missing optional keys take
+    their defaults.
+    """
+    roi = RegionOfInterest(name=data.get("name"), color=data.get("color", "yellow"))
+
+    roi_id = data.get("id")
+    if roi_id is not None:
+        roi.set_id(roi_id)
+
+    roi.set_description(data.get("description"))
+
+    metadata = data.get("metadata")
+    if metadata:
+        roi.get_metadata().update(metadata)
+
+    for sel_data in data.get("selections", []):
+        roi.add_selection(selection_from_pyrep(sel_data))
+
     return roi
