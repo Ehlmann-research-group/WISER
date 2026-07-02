@@ -57,12 +57,21 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its `_im
 
 ## Architecture
 
+The GUI shell (dialog, pane, view, ingestion adapter) and the non-GUI data model
+(`MosaicController` and what it owns) are split into two diagrams below — combining
+them into one made several unrelated ownership edges visually cross through unrelated
+boxes (e.g. the "constructs on demand" edge into `ReprojectPromptDialog` appeared to
+originate from `SceneMaterializer` just because of where the layout engine placed the
+boxes). `MosaicPane` and `MosaicView` both hold a reference to the **same**
+`MosaicController` instance; that instance is expanded in the second diagram.
+
 ```{mermaid}
 classDiagram
     direction TB
 
     class QDialog["QDialog (Qt)"]
     class QWidget["QWidget (Qt)"]
+    class MosaicController["MosaicController (see the data-model diagram below)"]
 
     class SeamlessMosaicDialog {
         mosaic_dialog.py
@@ -87,6 +96,44 @@ classDiagram
         +composite(layers, order) QImage
         +paintEvent(event)
     }
+
+    class SceneMaterializer {
+        mosaic_materialize.py
+        -_tmp : TemporaryDirectory
+        -_cache : dict
+        +gdal_source(dataset, progress) str
+        +close()
+    }
+
+    class ReprojectPromptDialog {
+        mosaic_crs_dialog.py
+        +selected_target_wkt() str
+        +accept()
+    }
+
+    QDialog <|-- SeamlessMosaicDialog
+    QDialog <|-- ReprojectPromptDialog
+    QWidget <|-- MosaicPane
+    QWidget <|-- MosaicView
+
+    SeamlessMosaicDialog --> MosaicPane : owns
+    SeamlessMosaicDialog --> SceneMaterializer : owns (session-scoped)
+    MosaicPane --> MosaicView : owns
+    MosaicPane --> ReprojectPromptDialog : constructs on demand
+    MosaicPane --> MosaicController : owns, shares with view
+    MosaicView --> MosaicController : reads
+```
+
+`SceneMaterializer` is injected into `MosaicPane`'s constructor by
+`SeamlessMosaicDialog` (see [Entry Point and Dialog
+Lifecycle](#entry-point-and-dialog-lifecycle) above) rather than owned separately by
+the pane, so it appears only once above.
+
+```{mermaid}
+classDiagram
+    direction TB
+
+    class RasterDataSet["RasterDataSet (see wiser.raster.dataset)"]
 
     class MosaicController {
         mosaic_controller.py
@@ -118,35 +165,9 @@ classDiagram
         +height
     }
 
-    class SceneMaterializer {
-        mosaic_materialize.py
-        -_tmp : TemporaryDirectory
-        -_cache : dict
-        +gdal_source(dataset, progress) str
-        +close()
-    }
-
-    class ReprojectPromptDialog {
-        mosaic_crs_dialog.py
-        +selected_target_wkt() str
-        +accept()
-    }
-
-    QDialog <|-- SeamlessMosaicDialog
-    QDialog <|-- ReprojectPromptDialog
-    QWidget <|-- MosaicPane
-    QWidget <|-- MosaicView
-
-    SeamlessMosaicDialog --> MosaicPane : owns
-    SeamlessMosaicDialog --> SceneMaterializer : owns (session-scoped)
-    MosaicPane --> MosaicView : owns
-    MosaicPane --> MosaicController : owns, shares with view
-    MosaicPane --> SceneMaterializer : uses (injected)
-    MosaicPane --> ReprojectPromptDialog : constructs on demand
-    MosaicView --> MosaicController : reads
     MosaicController --> MosaicScene : owns list (bottom-to-top)
     MosaicController --> CommonGrid : owns cached result
-    MosaicScene --> "RasterDataSet" : wraps
+    MosaicScene --> RasterDataSet : wraps
 ```
 
 The controller's scene list is **bottom-to-top**: index 0 renders first (bottom),
