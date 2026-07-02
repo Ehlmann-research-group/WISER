@@ -1,8 +1,10 @@
 """Unit tests for the dataset persister (issue #618).
 
 Covers the two storage paths -- in-memory datasets snapshotted to an ENVI
-sidecar, file-backed datasets saved by reference -- plus id preservation, the
-zip round-trip, and graceful handling of a reference whose file has vanished.
+sidecar, file-backed datasets saved by reference -- plus id preservation,
+name/description round-trip, the zip round-trip, and graceful handling of a
+vanished reference, an out-of-bundle sidecar path, an unknown storage kind, and
+a malformed id.
 """
 
 import os
@@ -94,6 +96,7 @@ def test_file_backed_dataset_saved_by_reference(tmp_path):
     loader.save_dataset_as(mem, str(ext_path), format="ENVI", config=None)
     file_ds = loader.load_from_file(str(ext_path), data_cache=None, interactive=False)[0]
     file_ds.set_name("on-disk")
+    file_ds.set_description("user-edited")
     src.add_dataset(file_ds)
 
     bundle = ProjectBundle.create(tmp_path / "proj")
@@ -110,6 +113,10 @@ def test_file_backed_dataset_saved_by_reference(tmp_path):
     assert load_datasets(manifest, dst, bundle) == []
     (restored,) = dst.get_datasets()
     assert restored.get_id() == file_ds.get_id()
+    # Runtime edits to name/description round-trip even though the source file's
+    # own header does not carry them.
+    assert restored.get_name() == "on-disk"
+    assert restored.get_description() == "user-edited"
     np.testing.assert_array_equal(_data(restored), _data(file_ds))
 
 
@@ -147,3 +154,55 @@ def test_sidecar_survives_zip_round_trip(tmp_path):
     assert load_datasets(reopened.read_manifest(), dst, reopened) == []
     (restored,) = dst.get_datasets()
     np.testing.assert_array_equal(_data(restored), _data(ds))
+
+
+def test_sidecar_path_traversal_is_dropped(tmp_path):
+    # A file outside the bundle that a crafted sidecar path might try to read.
+    np.save(tmp_path / "secret.npy", np.arange(3))
+    manifest = {
+        "datasets": [
+            {
+                "type": "RasterDataSet",
+                "id": 5,
+                "name": "evil",
+                "storage": STORAGE_SIDECAR,
+                "path": "../secret.npy",
+            }
+        ]
+    }
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    dst = _FakeAppState()
+    assert load_datasets(manifest, dst, bundle) == [5]
+    assert dst.get_datasets() == []
+
+
+def test_unknown_storage_kind_is_dropped(tmp_path):
+    manifest = {
+        "datasets": [
+            {
+                "type": "RasterDataSet",
+                "id": 7,
+                "name": "huh",
+                "storage": "future-kind",
+                "path": "whatever",
+            }
+        ]
+    }
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    dst = _FakeAppState()
+    assert load_datasets(manifest, dst, bundle) == [7]
+    assert dst.get_datasets() == []
+
+
+def test_malformed_id_is_skipped(tmp_path):
+    manifest = {
+        "datasets": [
+            {"type": "RasterDataSet", "name": "no-id", "storage": STORAGE_REFERENCE, "path": "x"},
+            {"type": "RasterDataSet", "id": "3", "name": "str-id", "storage": STORAGE_REFERENCE, "path": "x"},
+        ]
+    }
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    dst = _FakeAppState()
+    # No integer id to preserve or report: skipped entirely, not in dropped.
+    assert load_datasets(manifest, dst, bundle) == []
+    assert dst.get_datasets() == []

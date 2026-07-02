@@ -46,10 +46,14 @@ def dataset_to_pyrep(
     to ``datasets/ds_<id>.img`` (plus its ``.hdr``) inside ``bundle``.
     """
     ds_id = dataset.get_id()
+    # The manifest carries the user-editable SOURCE identity (name, description).
+    # Richer spectral/spatial metadata rides in the raster itself -- the ENVI
+    # sidecar header for in-memory datasets, the source file for file-backed ones.
     entry: Dict[str, Any] = {
         "type": DATASET_PYREP_TYPE,
         "id": ds_id,
         "name": dataset.get_name(),
+        "description": dataset.get_description(),
     }
 
     filepaths = dataset.get_filepaths()
@@ -80,18 +84,24 @@ def load_datasets(
     :meth:`ApplicationState.add_dataset`'s ``ds_id``.  Returns the ids that could
     not be restored -- a referenced file that has since moved, or a sidecar
     missing from the bundle -- so the caller can warn without aborting the load
-    rather than leaving a dangling reference.
+    rather than leaving a dangling reference.  Entries with no integer id (a
+    malformed manifest) are skipped, since there is no id to preserve or report.
     """
     loader = app_state.get_loader()
     cache = app_state.get_cache()
     dropped: List[int] = []
 
     for entry in manifest.get("datasets", []):
+        ds_id = entry.get("id")
+        if not isinstance(ds_id, int):
+            # A non-int id passed to add_dataset would silently mint a new one
+            # and cross-wire every downstream reference, so drop the entry.
+            continue
         dataset = _load_dataset(entry, bundle, loader, cache)
         if dataset is None:
-            dropped.append(entry.get("id"))
+            dropped.append(ds_id)
             continue
-        app_state.add_dataset(dataset, ds_id=entry.get("id"))
+        app_state.add_dataset(dataset, ds_id=ds_id)
 
     return dropped
 
@@ -99,10 +109,15 @@ def load_datasets(
 def _load_dataset(
     entry: Dict[str, Any], bundle: ProjectBundle, loader: "RasterDataLoader", cache
 ) -> Optional["RasterDataSet"]:
-    if entry.get("storage") == STORAGE_SIDECAR:
-        path = str(bundle.root / entry["path"])
-    else:
+    storage = entry.get("storage")
+    if storage == STORAGE_SIDECAR:
+        path = _sidecar_path(bundle, entry.get("path", ""))
+    elif storage == STORAGE_REFERENCE:
         path = entry.get("path")
+    else:
+        # Unknown storage kind (newer or hand-edited manifest): drop rather than
+        # treat an arbitrary string as a filesystem path.
+        return None
 
     if not path or not os.path.isfile(path):
         return None
@@ -114,7 +129,37 @@ def _load_dataset(
     # A file may yield several sub-datasets; the persister round-trips the
     # primary one, matching how a plain single-raster file is opened.
     dataset = datasets[0]
+    _apply_source_metadata(dataset, entry)
+    return dataset
+
+
+def _sidecar_path(bundle: ProjectBundle, rel: str) -> Optional[str]:
+    """Resolve a sidecar key confined to the bundle's ``datasets/`` directory.
+
+    Returns the absolute path, or ``None`` if ``rel`` is empty or escapes
+    ``datasets/`` (an absolute path or ``../`` segments in an untrusted
+    manifest), so a crafted manifest cannot read files outside the bundle.
+    """
+    if not rel:
+        return None
+    datasets_root = (bundle.root / ProjectBundle.DATASETS_DIR).resolve()
+    target = (bundle.root / rel).resolve()
+    try:
+        target.relative_to(datasets_root)
+    except ValueError:
+        return None
+    return str(target)
+
+
+def _apply_source_metadata(dataset: "RasterDataSet", entry: Dict[str, Any]) -> None:
+    """Reapply the user-editable SOURCE identity captured in the manifest.
+
+    ``load_from_file`` derives name and metadata from the file itself; reapplying
+    the saved values restores runtime edits (a renamed or re-described dataset)
+    that a file-backed dataset would otherwise lose on reload.
+    """
     name = entry.get("name")
     if name is not None:
         dataset.set_name(name)
-    return dataset
+    if "description" in entry:
+        dataset.set_description(entry.get("description"))
