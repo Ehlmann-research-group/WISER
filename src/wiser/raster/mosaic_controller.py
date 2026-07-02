@@ -52,13 +52,25 @@ class MosaicScene:
     """
     One scene in the mosaic.
 
-    Scaffolding-minimal: it holds the source dataset plus display state. The
-    materialized warpable GDAL source (#632), footprint polygon (#634), and overview
-    handles are added by later issues — intentionally absent here.
+    Holds the source dataset plus display state and the ingestion artifacts
+    produced by #634:
+
+      * ``gdal_path`` — the materialized, warpable tiled GeoTIFF (a WISER-owned temp
+        copy from :class:`~wiser.raster.mosaic_materialize.SceneMaterializer`; the
+        user's opened dataset is never modified). Overviews are built *internally*
+        into this same file, so there is exactly one artifact file per scene.
+      * ``footprint_wkt`` — the valid-pixel polygon as WKT in the dataset's own CRS.
+      * ``has_overviews`` — whether pyramid overviews were built on ``gdal_path``.
+
+    All three default to ``None``/``False`` so a bare ``MosaicScene(dataset=...)``
+    (as used by the scaffolding tests) is still valid.
     """
 
     dataset: "RasterDataSet"
     visible: bool = True
+    gdal_path: Optional[str] = None
+    footprint_wkt: Optional[str] = None
+    has_overviews: bool = False
 
 
 @dataclass
@@ -97,14 +109,15 @@ class MosaicController:
 
     # -- scene list -----------------------------------------------------------
 
-    def add_scene(self, dataset: "RasterDataSet") -> MosaicScene:
+    def add_scene(self, scene: MosaicScene) -> MosaicScene:
         """
-        Append a scene as the new top of the z-order.
+        Append a pre-built scene as the new top of the z-order.
 
-        Scaffolding: no validation, materialization, or overview building — those
-        land in #634. Returns the created :class:`MosaicScene`.
+        The caller (the GUI ingestion path, #634) is responsible for validating,
+        materializing, building overviews, and computing the footprint before
+        constructing the :class:`MosaicScene`. This controller stays pure and does
+        no I/O. Returns the same scene for call-site convenience.
         """
-        scene = MosaicScene(dataset=dataset)
         self._scenes.append(scene)
         return scene
 
