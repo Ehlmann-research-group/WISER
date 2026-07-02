@@ -79,7 +79,7 @@ jobs:
 
           git add stats/downloads.csv
           if git diff --staged --quiet; then
-            echo "No new rows appended (no release assets, or counts unchanged); nothing to commit."
+            echo "No rows appended (no release assets); nothing to commit."
           else
             git commit -m "chore(stats): snapshot download counts ($TS) [skip ci]"
             git push origin stats
