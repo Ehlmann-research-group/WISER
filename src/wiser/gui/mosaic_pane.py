@@ -264,7 +264,7 @@ class MosaicPane(QWidget):
             self._controller.remove_scene(self._controller.scene_count() - 1)
             return
         self._refresh_scene_list()
-        self._mosaic_view.update()
+        self._mosaic_view.invalidate_overlay()
 
     def _on_scene_failed(self, message: str) -> None:
         QMessageBox.critical(self, self.tr("Add scene failed"), message)
@@ -308,7 +308,7 @@ class MosaicPane(QWidget):
             return
         self._controller.set_visibility(index, item.checkState() == Qt.Checked)
         self._rebuild_grid_quietly()
-        self._mosaic_view.update()
+        self._mosaic_view.invalidate_overlay()
 
     def _on_remove_scene_clicked(self) -> None:
         index = self._selected_scene_index()
@@ -319,7 +319,7 @@ class MosaicPane(QWidget):
         # A removal can only relax the CRS constraint, so rebuild silently rather than
         # popping the reproject dialog.
         self._rebuild_grid_quietly()
-        self._mosaic_view.update()
+        self._mosaic_view.invalidate_overlay()
 
     # -- common grid / target CRS ---------------------------------------------
 
@@ -363,7 +363,7 @@ class MosaicPane(QWidget):
         except UnmappableCrsError as exc:
             QMessageBox.warning(self, self.tr("Cannot reproject"), str(exc))
         self._refresh_target_crs_label()
-        self._mosaic_view.update()
+        self._mosaic_view.invalidate_overlay()
 
     def _prompt_for_target_crs(self) -> bool:
         """

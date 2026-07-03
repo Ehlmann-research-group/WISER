@@ -16,8 +16,11 @@ Later issues fill in the two layers, both drawn through the seams stubbed here:
     drawn in world->screen coordinates on top of the pixel layer.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Tuple
+
+from osgeo import ogr
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -26,10 +29,62 @@ from PySide6.QtWidgets import *
 from .app_state import ApplicationState
 from .util import get_painter
 
-from wiser.raster.mosaic_controller import MosaicController, MosaicScene
+from wiser.raster.mosaic_controller import (
+    MosaicController,
+    MosaicScene,
+    compute_union_overlaps,
+)
 
 if TYPE_CHECKING:
     from .mosaic_pane import MosaicPane
+
+logger = logging.getLogger(__name__)
+
+# Vector-overlay styling (#636), matching the ENVI reference: green footprint
+# outlines, a dashed bounding box, and a magenta/purple overlap highlight. Pens are
+# cosmetic so their width stays constant in screen pixels under the world->screen
+# zoom (which would otherwise scale line width along with the geometry).
+_FOOTPRINT_PEN = QPen(QColor(0, 200, 0), 2)
+_FOOTPRINT_PEN.setCosmetic(True)
+_BBOX_PEN = QPen(QColor(230, 230, 230), 1, Qt.DashLine)
+_BBOX_PEN.setCosmetic(True)
+_OVERLAP_PEN = QPen(QColor(200, 0, 200), 2)
+_OVERLAP_PEN.setCosmetic(True)
+_OVERLAP_BRUSH = QBrush(QColor(200, 0, 200, 80))  # translucent purple fill
+
+# Multiplicative zoom per wheel notch (120 eighths-of-a-degree = one notch).
+_WHEEL_ZOOM_STEP = 1.25
+
+
+def _geometry_to_qpainterpath(geom: ogr.Geometry) -> QPainterPath:
+    """
+    Convert an OGR polygonal geometry to a ``QPainterPath`` in **world** coordinates
+    (no view transform applied — that happens per-paint).
+
+    Handles ``POLYGON`` (with interior rings as holes via the odd-even fill rule) and
+    ``MULTIPOLYGON`` / ``GEOMETRYCOLLECTION``; non-polygonal members (a point/line
+    from an edge-touching :meth:`Intersection`) are skipped so nothing degenerate is
+    drawn.
+    """
+    path = QPainterPath()
+    path.setFillRule(Qt.OddEvenFill)  # interior rings subtract as holes
+
+    def add_polygon(poly: ogr.Geometry) -> None:
+        for r in range(poly.GetGeometryCount()):
+            ring = poly.GetGeometryRef(r)
+            pts = [QPointF(x, y) for x, y, *_ in ring.GetPoints()]
+            if pts:
+                path.addPolygon(QPolygonF(pts))
+
+    gtype = geom.GetGeometryType()
+    if gtype in (ogr.wkbPolygon, ogr.wkbPolygon25D):
+        add_polygon(geom)
+    else:  # MultiPolygon / GeometryCollection: take only the polygonal members
+        for g in range(geom.GetGeometryCount()):
+            sub = geom.GetGeometryRef(g)
+            if sub.GetGeometryType() in (ogr.wkbPolygon, ogr.wkbPolygon25D):
+                add_polygon(sub)
+    return path
 
 
 @dataclass
@@ -124,15 +179,105 @@ class MosaicView(QWidget):
 
         # Pixel layer (#637): the composited, screen-resolution mosaic image.
         self._composite_pixmap: Optional[QPixmap] = None
-        # Zoom factor for the world->screen affine (#636). 1.0 == no scaling yet.
-        self._scale_factor: float = 1.0
+
+        # Camera for the QGIS-style unbounded canvas (#636). The view frames the
+        # mosaic extent once, the first time a grid is available (see paintEvent);
+        # after that the user drives it via pan/zoom and it is never auto-refit.
+        self._transform = MosaicViewTransform()
+        self._has_fitted = False
+
+        # Vector-overlay geometry cache (#636), all in world coordinates. Rebuilt
+        # only when scenes / z-order / target CRS change (invalidate_overlay), never
+        # on pan/zoom. _footprint_paths and _hidden_paths are parallel, bottom-to-top.
+        self._geometry_dirty = True
+        self._bbox_extent: Optional[Tuple[float, float, float, float]] = None
+        self._footprint_paths: List[QPainterPath] = []
+        self._hidden_paths: List[Optional[QPainterPath]] = []
+
+        # Middle-button drag-to-pan state (anchor pixel of the last move, or None).
+        self._pan_anchor: Optional[QPointF] = None
 
     def get_controller(self) -> MosaicController:
         return self._controller
 
     def set_controller(self, controller: MosaicController) -> None:
         self._controller = controller
+        self.invalidate_overlay()
+
+    # -- overlay geometry cache (#636) ----------------------------------------
+
+    def invalidate_overlay(self) -> None:
+        """
+        Mark the vector-overlay geometry stale and schedule a repaint.
+
+        Called by :class:`~wiser.gui.mosaic_pane.MosaicPane` after any controller
+        mutation that changes what the overlay draws — a scene added/removed, a
+        visibility toggle, a z-order move, or a target-CRS change. Pan/zoom does
+        **not** call this: the cached world-space paths are unchanged, only the
+        world->screen transform differs, so a plain repaint suffices there.
+        """
+        self._geometry_dirty = True
         self.update()
+
+    def _rebuild_overlay_geometry(self) -> None:
+        """
+        Rebuild the world-space overlay paths from the controller.
+
+        Runs on the GUI thread from :meth:`paintEvent` when the cache is dirty (so
+        repeated invalidations before the next paint coalesce into one rebuild). The
+        body is fully guarded: any OGR/OSR failure clears the cache and logs, rather
+        than letting an exception escape a paint. Only fires on discrete edits, not
+        on pan/zoom, so the synchronous GDAL/OSR work here is not on the hot path.
+        """
+        self._bbox_extent = None
+        self._footprint_paths = []
+        self._hidden_paths = []
+        try:
+            grid = self._controller.get_common_grid()
+            self._bbox_extent = grid.extent  # may be None until the grid is built
+
+            footprints = self._controller.visible_scene_footprints_in_common_crs()
+            if not footprints:
+                return
+            hidden = compute_union_overlaps(footprints)
+            for i, (_scene, geom) in enumerate(footprints):
+                self._footprint_paths.append(_geometry_to_qpainterpath(geom))
+                overlap = hidden.get(i)
+                self._hidden_paths.append(_geometry_to_qpainterpath(overlap) if overlap is not None else None)
+        except Exception:  # noqa: BLE001 — never let a repaint raise
+            logger.exception("Failed to rebuild mosaic overlay geometry")
+            self._bbox_extent = None
+            self._footprint_paths = []
+            self._hidden_paths = []
+
+    # -- pan / zoom -----------------------------------------------------------
+
+    def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
+        notches = event.angleDelta().y() / 120.0
+        if notches == 0.0:
+            return
+        factor = _WHEEL_ZOOM_STEP**notches
+        self._transform.zoom(factor, event.position(), self.size())
+        self.update()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
+        if event.button() == Qt.MiddleButton:
+            self._pan_anchor = event.position()
+            event.accept()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
+        if self._pan_anchor is not None:
+            pos = event.position()
+            delta = pos - self._pan_anchor
+            self._transform.pan(delta.x(), delta.y())
+            self._pan_anchor = pos
+            self.update()
+            event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
+        if event.button() == Qt.MiddleButton and self._pan_anchor is not None:
+            self._pan_anchor = None
+            event.accept()
 
     def composite(self, layers: List[MosaicScene], order: List[int]) -> Optional[QImage]:
         """
@@ -146,8 +291,27 @@ class MosaicView(QWidget):
         return None
 
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 (Qt override)
+        # Initial fit: frame the mosaic extent the first time a grid is available
+        # *and* the widget has a real size (done here rather than on grid-build so we
+        # never divide by a 0x0 not-yet-shown viewport). Later grid rebuilds do not
+        # refit, so a user's pan/zoom is never yanked out from under them.
+        #
+        # When the mosaic goes empty (all scenes removed) the fit is armed again, so
+        # the next scene re-frames the camera instead of leaving it parked on the
+        # extent of the now-removed scene (which would render the new scene's
+        # footprints off-screen).
+        grid = self._controller.get_common_grid()
+        if grid.extent is None:
+            self._has_fitted = False
+        elif not self._has_fitted and self.width() > 1 and self.height() > 1:
+            self._transform.fit_to_extent(grid.extent, self.size())
+            self._has_fitted = True
+
+        if self._geometry_dirty:
+            self._rebuild_overlay_geometry()
+            self._geometry_dirty = False
+
         with get_painter(self) as painter:
-            # Empty background for now; a real theme background lands with the layers.
             painter.fillRect(self.rect(), self.palette().window())
 
             # --- Layer 1: pixel layer (#637) -------------------------------------
@@ -155,5 +319,33 @@ class MosaicView(QWidget):
             # scaled by the world->screen affine.
 
             # --- Layer 2: vector overlay (#636) ----------------------------------
-            # TODO(#636): draw footprints, bounding box, and overlap highlight on top,
-            # using the world->screen affine derived from the controller's common grid.
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setWorldTransform(self._transform.world_to_screen(self.size()))
+
+            # Bounding box: the union extent of all footprints in the common CRS.
+            if self._bbox_extent is not None:
+                min_x, min_y, max_x, max_y = self._bbox_extent
+                painter.setPen(_BBOX_PEN)
+                painter.setBrush(Qt.NoBrush)
+                painter.drawRect(QRectF(min_x, min_y, max_x - min_x, max_y - min_y))
+
+            # Overlap highlight: for each scene, clip to its hidden region (the part
+            # covered by anything above it in z-order) and fill + outline it in the
+            # highlight color. Union approach => one clip/draw per scene, not per pair.
+            for footprint_path, hidden_path in zip(self._footprint_paths, self._hidden_paths):
+                if hidden_path is None:
+                    continue
+                painter.save()
+                painter.setClipPath(hidden_path)
+                painter.fillPath(hidden_path, _OVERLAP_BRUSH)
+                painter.setPen(_OVERLAP_PEN)
+                painter.setBrush(Qt.NoBrush)
+                painter.drawPath(footprint_path)
+                painter.restore()
+
+            # All footprint outlines on top, normal color, so every boundary stays
+            # visible even where it passes through an overlap region.
+            painter.setPen(_FOOTPRINT_PEN)
+            painter.setBrush(Qt.NoBrush)
+            for footprint_path in self._footprint_paths:
+                painter.drawPath(footprint_path)
