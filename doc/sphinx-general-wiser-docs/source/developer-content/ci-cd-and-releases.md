@@ -245,9 +245,9 @@ release time, so what ships is exactly what you tested.
    pre-release"** (and keep "Set as the latest release" on) so `latest` resolves to it.
 
 9. **Update the website** — if you are making an official release, add the download links on
-   the [WISER website](https://ehlmann.caltech.edu/wiser/index.html) and post the notes on
-   the [release notes page](https://ehlmann.caltech.edu/wiser/release-notes.html). (Once the
-   downloads page reads the release API, these per-release link edits go away.)
+   the [WISER website](https://ehlmann.caltech.edu/wiser/index.html). Release notes live on
+   the GitHub release itself (step 7) — there is no separate release-notes page to maintain.
+   (Once the downloads page reads the release API, these per-release link edits go away.)
 
 10. **Update the plugin API documentation** in
     `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any changes to plugin
