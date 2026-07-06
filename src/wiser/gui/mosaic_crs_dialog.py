@@ -180,7 +180,16 @@ class ReprojectPromptDialog(QDialog):
             return
 
         srs = osr.SpatialReference()
-        err = srs.SetFromUserInput(f"{authority}:{code}")
+        try:
+            err = srs.SetFromUserInput(f"{authority}:{code}")
+        except RuntimeError:
+            QMessageBox.warning(
+                self,
+                self.tr("CRS Lookup Failed"),
+                self.tr(f"Could not find spatial reference for {authority}:{code}"),
+            )
+            return
+
         if err != 0:
             QMessageBox.warning(
                 self,
