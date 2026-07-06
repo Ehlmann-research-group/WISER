@@ -415,7 +415,12 @@
 </li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#releases">Releases</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#releases">Releases</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#asset-naming-convention">Asset naming convention</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-assets-reach-the-release">How assets reach the release</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-release-flag">Pre-release flag</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#release-process">Release Process</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#github-actions-environment-setup">GitHub Actions Environment Setup</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#create-from-scratch-every-run-7-5-min">1. Create from scratch every run (~7.5 min)</a></li>
@@ -510,11 +515,12 @@ minutes for the longest build). This seems a bit
 infeasible for developers to run on each push to a pull
 request. We need to look into a way to speed up our builds
 (&lt;10 minutes would be good).</p>
-<p>The deployment code is in the github action <code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>. It
-builds WISER on all three platforms (windows, macos arm, macos intel)
-then runs tests inside of each WISER distributable. Running these tests
-ensures that WISER actually starts up and that core WISER functionality
-has been properly packaged up.</p>
+<p>The deployment code is in the GitHub Actions workflow <code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>. It builds WISER on every
+platform (Windows, macOS arm/intel, and the six Linux distro/arch targets). The Linux legs
+run the full <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> suite inside each distributable (a hard gate — a failing suite
+produces no tarball); Windows and macOS run a fast <code class="docutils literal notranslate"><span class="pre">--smoke</span></code> launch check in CI and the full
+<code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> locally. Running these checks ensures WISER actually starts up and that core
+functionality was packaged correctly.</p>
 <p>It is important to note that these build artifacts still
 need some more work done to them in order to become our
 distributables. The Windows artifact needs to be code-signed
@@ -530,6 +536,12 @@ test that JP2OpenJPEG.dll was properly packaged into the
 build, we would have a test that would try opening up a very
 small JP2 file that we can run with a command like <code class="docutils literal notranslate"><span class="pre">./WISER_Bin</span> <span class="pre">--mode</span> <span class="pre">test</span></code>. So you can see how it is important
 to run tests on the build artifact.</p>
+<p>Note that “smoke test” means two different things in our pipeline. The <strong>Linux</strong> builds run
+the full <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> suite in-container via <code class="docutils literal notranslate"><span class="pre">install-linux/run_smoke.sh</span></code> (despite the
+name) — a failing suite fails the build and no tarball is produced. <strong>Windows/macOS</strong> run
+only a lightweight <code class="docutils literal notranslate"><span class="pre">--smoke</span></code> launch check in CI (start Qt, show the splash, exit) and rely
+on the full <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> being run locally before signing. Don’t “standardize” the Linux
+path onto <code class="docutils literal notranslate"><span class="pre">--smoke</span></code> — that would silently drop the Linux test gate.</p>
 <p>We want to build these
 artifacts and run these tests on <code class="docutils literal notranslate"><span class="pre">main</span></code> and <code class="docutils literal notranslate"><span class="pre">rel/**</span></code> banches
 because these branches are meant to contain very stable
@@ -568,47 +580,101 @@ command <code class="docutils literal notranslate"><span class="pre">gh</span></
 </section>
 <section id="releases">
 <h2>Releases<a class="headerlink" href="#releases" title="Link to this heading">#</a></h2>
-<p>WISER releases should always be made from a release branch. Release
-notes should accompany releases. Build artifacts
-should accompany releases. These build artifacts won’t be
-signed due to how artifact creation works. Additionally, official
-releases should be made on the GitHub through
-the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">Releases feature</a>
-and the release should be tagged.</p>
+<p>WISER releases should always be made from a release branch and tagged through the
+GitHub <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">Releases feature</a>.
+Release notes should accompany every release.</p>
+<p>The installers are attached to the GitHub release as <strong>release assets</strong> (not linked
+from an Actions run — Actions artifacts expire, require a login, and are not counted
+in a release’s download totals). Release notes should point users at the assets on the
+release page, never at a <code class="docutils literal notranslate"><span class="pre">…/actions/runs/&lt;id&gt;</span></code> URL.</p>
+<section id="asset-naming-convention">
+<h3>Asset naming convention<a class="headerlink" href="#asset-naming-convention" title="Link to this heading">#</a></h3>
+<p>Asset filenames are normalized at build time so a platform + architecture is always
+identifiable from the name (the public downloads page groups assets by these tokens):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">windows</span><span class="o">-</span><span class="n">x64</span><span class="o">-</span><span class="n">setup</span><span class="o">.</span><span class="n">exe</span>
+<span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">macos</span><span class="o">-</span><span class="n">arm64</span><span class="o">.</span><span class="n">dmg</span>
+<span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">macos</span><span class="o">-</span><span class="n">x64</span><span class="o">.</span><span class="n">dmg</span>
+<span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">linux</span><span class="o">-&lt;</span><span class="n">distro</span><span class="o">&gt;-</span><span class="n">x64</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>     <span class="c1"># distro: ubuntu2004 | debian11 | fedora39</span>
+<span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">linux</span><span class="o">-&lt;</span><span class="n">distro</span><span class="o">&gt;-</span><span class="n">arm64</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">x64</span></code>/<code class="docutils literal notranslate"><span class="pre">arm64</span></code> are the canonical arch tokens (Intel/amd64 → <code class="docutils literal notranslate"><span class="pre">x64</span></code>). The names are set by
+<code class="docutils literal notranslate"><span class="pre">win-install.nsi</span></code> (Windows), <code class="docutils literal notranslate"><span class="pre">src/devtools/sign_mac.py</span></code> (macOS), and the Linux build
+step in <code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code> — not by hand on upload.</p>
+</section>
+<section id="how-assets-reach-the-release">
+<h3>How assets reach the release<a class="headerlink" href="#how-assets-reach-the-release" title="Link to this heading">#</a></h3>
+<p>Assets are <strong>built once and promoted</strong> — the release event never triggers a build, so the
+bits you ship are the exact bits you tested.</p>
+<ul class="simple">
+<li><p><strong>Linux</strong> builds are unsigned, so a CI tarball <em>is</em> the final asset. <code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>
+(run via <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>) builds and tests each distro and uploads the tarballs as
+run artifacts. When you are ready to release, <code class="docutils literal notranslate"><span class="pre">publish-release-assets.yml</span></code> attaches the
+tarballs from that specific run to the release — it verifies the run succeeded and that
+the tag points at the built commit, so nothing is rebuilt at release time.</p></li>
+<li><p><strong>Windows / macOS</strong> are signed locally with the maintainer’s certificates, then uploaded
+with the canonical name via the sign scripts’ <code class="docutils literal notranslate"><span class="pre">--release-tag</span> <span class="pre">&lt;tag&gt;</span></code> option (see the
+Release Process below).</p></li>
+</ul>
+</section>
+<section id="pre-release-flag">
+<h3>Pre-release flag<a class="headerlink" href="#pre-release-flag" title="Link to this heading">#</a></h3>
+<p>The web <code class="docutils literal notranslate"><span class="pre">…/releases/latest</span></code> and the API <code class="docutils literal notranslate"><span class="pre">latest</span></code> endpoint both <strong>exclude</strong> releases
+flagged <code class="docutils literal notranslate"><span class="pre">prerelease</span></code>. Our beta tags (e.g. <code class="docutils literal notranslate"><span class="pre">v2.2b1</span></code>) are <em>not</em> automatically treated as
+pre-releases — it is purely the checkbox at publish time. When publishing the release
+the public should download, leave <strong>“Set as a pre-release” unchecked</strong> (and keep “Set as
+the latest release” on) so <code class="docutils literal notranslate"><span class="pre">latest</span></code> resolves to it.</p>
+</section>
 </section>
 <section id="release-process">
 <h2>Release Process<a class="headerlink" href="#release-process" title="Link to this heading">#</a></h2>
-<p>The process of creating a release is documented below.</p>
+<p>Assets are built once, tested, then <strong>promoted</strong> to the release — nothing is rebuilt at
+release time, so what ships is exactly what you tested.</p>
 <ol class="arabic">
-<li><p>Build WISER through the GitHub workflow <code class="docutils literal notranslate"><span class="pre">prod-deploy</span></code>.</p></li>
-<li><p>Do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-mac</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-windows</span></code> to run the signing
-logic. For signing on mac, you must have a valid Apple Developer
-signing certificate tied to a paid Apple Developer Program account.
-For signing on windows, you must have a windows code signing
-certificate. This is tied to an individual or a legal entity.</p>
-<p>a. If you do code sign your own distribution, please do not
-present it to others as a official WISER release unless you have
-been explicitly allowed to do so for a specific release.</p>
-<p>b. Note that WISER currently does not have a code
-signing mechanism for Linux.</p>
+<li><p><strong>Bump the version</strong> in <code class="docutils literal notranslate"><span class="pre">src/wiser/version.py</span></code> (and <code class="docutils literal notranslate"><span class="pre">RELEASE_DATE</span></code>) and commit it. The
+Linux asset name is read from <code class="docutils literal notranslate"><span class="pre">version.py</span></code> at build time, so it must be correct
+<em>before</em> you build.</p></li>
+<li><p><strong>Build and test</strong> — run <strong>Build and Smoke Test WISER</strong> (<code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>) via
+<code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code> on the commit you intend to release. Every platform builds; each
+Linux distro runs the full <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> suite in-container (a leg only produces a
+tarball if its tests pass), and Windows/macOS run a <code class="docutils literal notranslate"><span class="pre">--smoke</span></code> launch check. Note the
+<strong>run ID</strong> — you will promote this exact run.</p></li>
+<li><p><strong>Verify locally</strong> — download the Linux tarballs from the run and test if needed. Build,
+<code class="docutils literal notranslate"><span class="pre">--test_mode</span></code>, code-sign, and clean-install-test the Windows/macOS installers locally
+(CI does not produce the signed installers). See the signing certificate requirements
+below.</p></li>
+<li><p><strong>Create the release</strong> on the <em>same commit</em> you built. Publish it as a <strong>pre-release</strong>
+(see the Pre-release flag section) so it stays out of <code class="docutils literal notranslate"><span class="pre">…/releases/latest</span></code> while you
+attach and verify assets. A published pre-release also lets the publish workflow confirm
+the tag matches the built commit.</p></li>
+<li><p><strong>Attach the Linux assets</strong> — run <strong>Publish release assets</strong>
+(<code class="docutils literal notranslate"><span class="pre">publish-release-assets.yml</span></code>) with the build <strong>run ID</strong> and the release <strong>tag</strong>. It
+checks the run succeeded and that the tag points at the built commit, then attaches the
+six Linux tarballs.</p></li>
+<li><p><strong>Upload the signed Windows/macOS installers</strong> with <code class="docutils literal notranslate"><span class="pre">RELEASE_TAG=&lt;tag&gt;</span></code> so each is
+uploaded to the release with its canonical name in one step:</p>
+<p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-mac</span> <span class="pre">LINK=&lt;artifact-url&gt;</span> <span class="pre">MAC_DIST_GITHUB_NAME=&lt;artifact-name&gt;</span> <span class="pre">RELEASE_TAG=&lt;tag&gt;</span></code>
+or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-windows</span> <span class="pre">LINK=&lt;artifact-url&gt;</span> <span class="pre">RELEASE_TAG=&lt;tag&gt;</span></code>.</p>
+<p>For signing on macOS, you must have a valid Apple Developer signing certificate tied to
+a paid Apple Developer Program account. For signing on Windows, you must have a Windows
+code signing certificate, tied to an individual or a legal entity.</p>
+<p>a. If you code-sign your own distribution, do not present it to others as an official
+WISER release unless you have been explicitly allowed to for a specific release.</p>
+<p>b. WISER has no code-signing mechanism for Linux; the Linux assets are attached unsigned.</p>
 </li>
-<li><p>If you are making an official release, you will need access to
-the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/index.html">WISER website</a>
-and a stable place to host the WISER distributable. When you have
-access to this, you will add a download link to the website for the
-new release.</p></li>
-<li><p>You will need to make a release on GitHub with the release notes
-and tag the release’s commit.</p></li>
-<li><p>You will then need to put the release on
-the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/release-notes.html">website’s release notes page</a>.</p></li>
-<li><p>Lastly, you will need to update the plugin API documentation in
-<code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/source/extending-wiser/</span></code> to reflect any
-changes to plugin interfaces or dependencies in the latest version.</p></li>
-<li><p>Finally, if have the permissions to, then you should send an
-email to wiser-announce&#64;caltech.edu to announce a new release of
-WISER with a summary of what is in the release. If you don’t have
-permission to, reach out to someone who does with the email you want
-them to send.</p></li>
+<li><p><strong>Finalize the release notes</strong> on the GitHub release. Point users at the attached
+release assets — never a <code class="docutils literal notranslate"><span class="pre">…/actions/runs/&lt;id&gt;</span></code> URL.</p></li>
+<li><p><strong>Go live</strong> — once every asset is present with its canonical name, uncheck <strong>“Set as a
+pre-release”</strong> (and keep “Set as the latest release” on) so <code class="docutils literal notranslate"><span class="pre">latest</span></code> resolves to it.</p></li>
+<li><p><strong>Update the website</strong> — if you are making an official release, add the download links on
+the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/index.html">WISER website</a>. Release notes live on
+the GitHub release itself (step 7) — there is no separate release-notes page to maintain.
+(Once the downloads page reads the release API, these per-release link edits go away.)</p></li>
+<li><p><strong>Update the plugin API documentation</strong> in
+<code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/source/extending-wiser/</span></code> to reflect any changes to plugin
+interfaces or dependencies in the latest version.</p></li>
+<li><p><strong>Announce</strong> — if you have permission, email wiser-announce&#64;caltech.edu with a summary of
+the release. If not, reach out to someone who does with the email you want sent.</p></li>
 </ol>
 <blockquote>
 <div><p><strong>Note</strong>: This process can only be done by a maintainer with
@@ -801,7 +867,12 @@ publishing releases.</p>
 </li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#releases">Releases</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#releases">Releases</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#asset-naming-convention">Asset naming convention</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#how-assets-reach-the-release">How assets reach the release</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-release-flag">Pre-release flag</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#release-process">Release Process</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#github-actions-environment-setup">GitHub Actions Environment Setup</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#create-from-scratch-every-run-7-5-min">1. Create from scratch every run (~7.5 min)</a></li>
