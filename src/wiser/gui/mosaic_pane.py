@@ -265,6 +265,7 @@ class MosaicPane(QWidget):
             return
         self._refresh_scene_list()
         self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
 
     def _on_scene_failed(self, message: str) -> None:
         QMessageBox.critical(self, self.tr("Add scene failed"), message)
@@ -309,6 +310,9 @@ class MosaicPane(QWidget):
         self._controller.set_visibility(index, item.checkState() == Qt.Checked)
         self._rebuild_grid_quietly()
         self._mosaic_view.invalidate_overlay()
+        # Visibility is a restack at the same viewport — no GDAL reads (recompose only
+        # falls back to a read if a revealed scene was never cached at this viewport).
+        self._mosaic_view.recomposite_only()
 
     def _on_remove_scene_clicked(self) -> None:
         index = self._selected_scene_index()
@@ -320,6 +324,7 @@ class MosaicPane(QWidget):
         # popping the reproject dialog.
         self._rebuild_grid_quietly()
         self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
 
     # -- common grid / target CRS ---------------------------------------------
 
@@ -364,6 +369,7 @@ class MosaicPane(QWidget):
             QMessageBox.warning(self, self.tr("Cannot reproject"), str(exc))
         self._refresh_target_crs_label()
         self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
 
     def _prompt_for_target_crs(self) -> bool:
         """
