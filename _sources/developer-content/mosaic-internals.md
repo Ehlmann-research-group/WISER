@@ -6,9 +6,10 @@ intended for developers reading, debugging, or extending the tool.
 
 ```{note}
 This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
-materialization, and common-grid/CRS resolution are implemented and wired into the
-GUI. **Pixel compositing (the preview) and the vector footprint overlay are not yet
-implemented** — see [What Isn't Built Yet](#what-isnt-built-yet).
+materialization, common-grid/CRS resolution, and the **vector overlay** (footprints,
+bounding box, overlap highlight) are implemented and wired into the GUI. **Pixel
+compositing (the preview) is not yet implemented** — see [What Isn't Built
+Yet](#what-isnt-built-yet).
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -31,8 +32,10 @@ The feature is built from three cooperating layers:
 
 - **The rendering layer** — `MosaicView` is a `QWidget` sibling of `RasterView`
   (not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
-  zoomed). It currently paints only an empty background; compositing and the
-  footprint overlay are stubbed seams for later issues.
+  zoomed). It draws the **vector overlay** (footprints, bounding box, overlap
+  highlight) on a QGIS-style unbounded canvas via a world→screen camera
+  (`MosaicViewTransform`); the pixel-compositing layer beneath it is still a stubbed
+  seam (#637). See [The Geometry Overlay](#the-geometry-overlay-vector-layer).
 
 Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
 is first turned into a warpable, disk-backed tiled GeoTIFF by a `SceneMaterializer` —
@@ -93,6 +96,10 @@ classDiagram
         mosaic_view.py
         -_controller : MosaicController
         -_composite_pixmap : QPixmap
+        -_transform : MosaicViewTransform
+        -_footprint_paths : List~QPainterPath~
+        -_hidden_paths : List~QPainterPath~
+        +invalidate_overlay()
         +composite(layers, order) QImage
         +paintEvent(event)
     }
@@ -412,6 +419,89 @@ convention used throughout WISER (see the georeferencer's identical convention i
 
 ---
 
+## The Geometry Overlay (Vector Layer)
+
+**Files:** `src/wiser/gui/mosaic_view.py` (rendering) and the Qt-free geometry helpers
+in `src/wiser/raster/mosaic_controller.py`.
+
+`MosaicView` draws the vector overlay (issue #636): each visible scene's footprint
+outline (green), the union bounding box (dashed), and the **overlap highlight**
+(magenta/purple) marking where a scene is hidden by anything above it in z-order. It
+matches the ENVI reference and is used **purely for on-screen rendering** — it never
+decides which pixel wins (that is z-order in the compositor/export, #637/#639).
+
+### The camera: `MosaicViewTransform`
+
+The view is a **QGIS-style unbounded canvas**, not `RasterView`'s
+`QScrollArea`-around-a-fixed-`QPixmap` (which is bounded by the pixmap's pixel size).
+There is no backing store sized to the data; the only state that persists between
+paints is a **camera** — three floats:
+
+- `center_x`, `center_y` — a point in **world (target-CRS) coordinates** that always
+  maps to the center of the widget. Panning moves it; nothing clamps it, so panning
+  far from every footprint simply shows blank canvas (what makes it "unbounded").
+- `world_units_per_pixel` — a single scale; zooming changes it.
+
+There is no invented `(0, 0)` origin: world coordinates come from the common CRS and
+screen coordinates are Qt's usual top-left widget space. The visible world rectangle
+is *derived* from `center + scale + widget size` each paint (never stored — storing it
+would distort the aspect ratio on resize). `world_to_screen(viewport_size)` returns a
+`QTransform` (with a y-flip, since world y increases north but screen y increases
+downward); `screen_to_world` is its inverse. The viewport size is passed in rather than
+cached, since `QWidget` already tracks it. The same camera is shared with the pixel
+layer (#637), which is why #636 builds it.
+
+Interaction: **middle-button drag** pans, the **mouse wheel** zooms (anchored at the
+cursor). The mosaic extent is framed once — the first time a common grid is available
+*and* the widget has a real size (done in `paintEvent`, not on grid-build, to avoid a
+0×0 not-yet-shown viewport) — and never auto-refit afterward, so a user's pan/zoom is
+never yanked out from under them.
+
+### Footprint reprojection and the overlap computation (Qt-free)
+
+The raw `footprint_wkt` on each `MosaicScene` is in the scene's **own** CRS. Two
+Qt-free helpers in `mosaic_controller.py` turn those into common-CRS geometry (so the
+overlay stays unit-testable without Qt, mirroring the controller's no-Qt rule):
+
+- `reprojected_footprint_geometry(scene, src_srs, target_srs)` — the footprint polygon
+  transformed *whole* into the target CRS (`_footprint_envelope` now delegates to this,
+  so the reprojection is defined once).
+- `MosaicController.visible_scene_footprints_in_common_crs()` — `(scene, geometry)` for
+  each visible scene, bottom-to-top, in the resolved target CRS; returns `[]` when no
+  target CRS is resolved yet (the view then draws nothing).
+- `compute_union_overlaps(footprints)` — each scene's **hidden region** = its footprint
+  ∩ the union of everything above it. Walking top-to-bottom with a running union, this
+  is one `Intersection` + one `Union` per scene (`O(n)`), not all-pairs `O(n²)`. The
+  topmost scene is never hidden.
+
+### Rendering and the geometry cache
+
+`MosaicView` caches the overlay as world-space `QPainterPath`s (`_footprint_paths` and
+the parallel `_hidden_paths`, plus `_bbox_extent`) converted from those `ogr.Geometry`
+objects by `_geometry_to_qpainterpath` (handles polygons-with-holes via the odd-even
+fill rule, and skips degenerate non-polygon `Intersection` results).
+
+This split is deliberate: **geometry** is recomputed only when scenes, z-order, or the
+target CRS change; **the transform** is applied fresh every paint. So pan/zoom is a
+cheap repaint (`paintEvent` just installs a new `QTransform` and redraws cached paths)
+with no GDAL/OSR work, satisfying the "redraws on pan/zoom without recomputing pixels"
+requirement.
+
+`MosaicPane` calls `MosaicView.invalidate_overlay()` (which sets a dirty flag and
+schedules a repaint) after every controller mutation that changes the overlay — scene
+add/remove, visibility toggle, and target-CRS change. The actual rebuild runs lazily
+in `paintEvent` when the flag is set (coalescing repeated invalidations into one
+rebuild) and is fully guarded: any OGR/OSR failure clears the cache and logs rather
+than letting an exception escape a paint. Pens are **cosmetic**, so outline width stays
+constant in screen pixels regardless of zoom.
+
+`paintEvent` draws, in order: the pixel layer (still stubbed, #637), then the bounding
+box, then per scene a clip to its hidden region filled + outlined in the highlight
+color, then all footprint outlines on top in green (so every boundary stays visible
+even where it crosses an overlap region).
+
+---
+
 ## `ReprojectPromptDialog`
 
 **File:** `src/wiser/gui/mosaic_crs_dialog.py`
@@ -443,18 +533,16 @@ selected.
 
 ## What Isn't Built Yet
 
-`MosaicView.paintEvent` currently only fills the background; both layers are stubbed
-seams with `TODO` markers pointing at the issues that will fill them in:
+`MosaicView.paintEvent` now draws the vector overlay (#636, see [The Geometry
+Overlay](#the-geometry-overlay-vector-layer)); the pixel layer beneath it is still a
+stubbed seam with a `TODO` marker, alongside the control-panel and export gaps:
 
 - **Pixel layer (compositing, issue #637)** — `MosaicView.composite(layers, order)` is
   a stub that returns `None`. The design calls for per-scene ARGB `QImage` caches at
   screen resolution (alpha = validity, from the GDAL mask band), stacked bottom-to-top
-  by `QPainter`; z-order reorders would only re-stack cached layers (no GDAL reads),
-  while pan/zoom would re-read from overviews (debounced).
-- **Vector overlay (issue #636)** — footprints, the mosaic bounding box, and the
-  "overlap highlight" (where a lower scene's footprint is covered by a higher one)
-  drawn on top of the pixel layer via a world→screen affine derived from the
-  controller's `CommonGrid`.
+  by `QPainter` and drawn beneath the vector overlay via the same
+  `MosaicViewTransform` camera; z-order reorders would only re-stack cached layers (no
+  GDAL reads), while pan/zoom would re-read from overviews (debounced).
 - **Control panel additions (issue #638)** — drag-to-reorder z-order, resampling
   method selector, and a band-metadata chooser are not yet in `MosaicPane`; today's
   panel only has Add Scene, the scene list (visibility toggle + remove), and the
@@ -484,7 +572,15 @@ consume the same `MosaicController` state once implemented.
 ## Testing
 
 - `src/tests/test_mosaic_controller.py` — grid math per `ResolutionMode`, CRS
-  resolution/validation, cache invalidation (pure `MosaicController`, no Qt).
+  resolution/validation, cache invalidation, and the Qt-free geometry helpers
+  (`reprojected_footprint_geometry`, `compute_union_overlaps`,
+  `visible_scene_footprints_in_common_crs`) — all pure `MosaicController`, no Qt.
+- `src/tests/test_mosaic_view_transform.py` — `MosaicViewTransform` camera math:
+  world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ratio
+  preservation (pure `QTransform` math, no widget shown).
+- `src/tests/test_mosaic_view_gui.py` — the overlay wiring end to end: geometry cache
+  populates for overlapping scenes and re-invalidates on scene removal / target-CRS
+  change, driven through the real `MosaicPane` ingestion path.
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
   `compute_footprint_wkt`, and progress-reporting behavior.
 - `src/tests/test_mosaic_crs_dialog.py` — `ReprojectPromptDialog` in isolation

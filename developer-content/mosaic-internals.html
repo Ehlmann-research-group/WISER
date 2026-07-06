@@ -856,6 +856,12 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-controller-helpers">Other controller helpers</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-geometry-overlay-vector-layer">The Geometry Overlay (Vector Layer)</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-camera-mosaicviewtransform">The camera: <code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-reprojection-and-the-overlap-computation-qt-free">Footprint reprojection and the overlap computation (Qt-free)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rendering-and-the-geometry-cache">Rendering and the geometry cache</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
@@ -879,9 +885,10 @@ intended for developers reading, debugging, or extending the tool.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
-materialization, and common-grid/CRS resolution are implemented and wired into the
-GUI. <strong>Pixel compositing (the preview) and the vector footprint overlay are not yet
-implemented</strong> — see <a class="reference internal" href="#what-isnt-built-yet"><span class="xref myst">What Isn’t Built Yet</span></a>.</p>
+materialization, common-grid/CRS resolution, and the <strong>vector overlay</strong> (footprints,
+bounding box, overlap highlight) are implemented and wired into the GUI. <strong>Pixel
+compositing (the preview) is not yet implemented</strong> — see <a class="reference internal" href="#what-isnt-built-yet"><span class="xref myst">What Isn’t Built
+Yet</span></a>.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
 in the repo root. There is no user-facing guide yet since the feature is not
@@ -900,8 +907,10 @@ is deliberately Qt-free (may use <code class="docutils literal notranslate"><spa
 a running application.</p></li>
 <li><p><strong>The rendering layer</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> is a <code class="docutils literal notranslate"><span class="pre">QWidget</span></code> sibling of <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>
 (not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
-zoomed). It currently paints only an empty background; compositing and the
-footprint overlay are stubbed seams for later issues.</p></li>
+zoomed). It draws the <strong>vector overlay</strong> (footprints, bounding box, overlap
+highlight) on a QGIS-style unbounded canvas via a world→screen camera
+(<code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code>); the pixel-compositing layer beneath it is still a stubbed
+seam (#637). See <a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>.</p></li>
 </ul>
 <p>Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
 is first turned into a warpable, disk-backed tiled GeoTIFF by a <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> —
@@ -984,6 +993,10 @@ boxes). <code class="docutils literal notranslate"><span class="pre">MosaicPane<
         mosaic_view.py
         -_controller : MosaicController
         -_composite_pixmap : QPixmap
+        -_transform : MosaicViewTransform
+        -_footprint_paths : List~QPainterPath~
+        -_hidden_paths : List~QPainterPath~
+        +invalidate_overlay()
         +composite(layers, order) QImage
         +paintEvent(event)
     }
@@ -1303,6 +1316,84 @@ convention used throughout WISER (see the georeferencer’s identical convention
 </section>
 </section>
 <hr class="docutils" />
+<section id="the-geometry-overlay-vector-layer">
+<h2>The Geometry Overlay (Vector Layer)<a class="headerlink" href="#the-geometry-overlay-vector-layer" title="Link to this heading">#</a></h2>
+<p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_view.py</span></code> (rendering) and the Qt-free geometry helpers
+in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_controller.py</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> draws the vector overlay (issue #636): each visible scene’s footprint
+outline (green), the union bounding box (dashed), and the <strong>overlap highlight</strong>
+(magenta/purple) marking where a scene is hidden by anything above it in z-order. It
+matches the ENVI reference and is used <strong>purely for on-screen rendering</strong> — it never
+decides which pixel wins (that is z-order in the compositor/export, #637/#639).</p>
+<section id="the-camera-mosaicviewtransform">
+<h3>The camera: <code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code><a class="headerlink" href="#the-camera-mosaicviewtransform" title="Link to this heading">#</a></h3>
+<p>The view is a <strong>QGIS-style unbounded canvas</strong>, not <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>’s
+<code class="docutils literal notranslate"><span class="pre">QScrollArea</span></code>-around-a-fixed-<code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> (which is bounded by the pixmap’s pixel size).
+There is no backing store sized to the data; the only state that persists between
+paints is a <strong>camera</strong> — three floats:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">center_x</span></code>, <code class="docutils literal notranslate"><span class="pre">center_y</span></code> — a point in <strong>world (target-CRS) coordinates</strong> that always
+maps to the center of the widget. Panning moves it; nothing clamps it, so panning
+far from every footprint simply shows blank canvas (what makes it “unbounded”).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">world_units_per_pixel</span></code> — a single scale; zooming changes it.</p></li>
+</ul>
+<p>There is no invented <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">0)</span></code> origin: world coordinates come from the common CRS and
+screen coordinates are Qt’s usual top-left widget space. The visible world rectangle
+is <em>derived</em> from <code class="docutils literal notranslate"><span class="pre">center</span> <span class="pre">+</span> <span class="pre">scale</span> <span class="pre">+</span> <span class="pre">widget</span> <span class="pre">size</span></code> each paint (never stored — storing it
+would distort the aspect ratio on resize). <code class="docutils literal notranslate"><span class="pre">world_to_screen(viewport_size)</span></code> returns a
+<code class="docutils literal notranslate"><span class="pre">QTransform</span></code> (with a y-flip, since world y increases north but screen y increases
+downward); <code class="docutils literal notranslate"><span class="pre">screen_to_world</span></code> is its inverse. The viewport size is passed in rather than
+cached, since <code class="docutils literal notranslate"><span class="pre">QWidget</span></code> already tracks it. The same camera is shared with the pixel
+layer (#637), which is why #636 builds it.</p>
+<p>Interaction: <strong>middle-button drag</strong> pans, the <strong>mouse wheel</strong> zooms (anchored at the
+cursor). The mosaic extent is framed once — the first time a common grid is available
+<em>and</em> the widget has a real size (done in <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code>, not on grid-build, to avoid a
+0×0 not-yet-shown viewport) — and never auto-refit afterward, so a user’s pan/zoom is
+never yanked out from under them.</p>
+</section>
+<section id="footprint-reprojection-and-the-overlap-computation-qt-free">
+<h3>Footprint reprojection and the overlap computation (Qt-free)<a class="headerlink" href="#footprint-reprojection-and-the-overlap-computation-qt-free" title="Link to this heading">#</a></h3>
+<p>The raw <code class="docutils literal notranslate"><span class="pre">footprint_wkt</span></code> on each <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code> is in the scene’s <strong>own</strong> CRS. Two
+Qt-free helpers in <code class="docutils literal notranslate"><span class="pre">mosaic_controller.py</span></code> turn those into common-CRS geometry (so the
+overlay stays unit-testable without Qt, mirroring the controller’s no-Qt rule):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">reprojected_footprint_geometry(scene,</span> <span class="pre">src_srs,</span> <span class="pre">target_srs)</span></code> — the footprint polygon
+transformed <em>whole</em> into the target CRS (<code class="docutils literal notranslate"><span class="pre">_footprint_envelope</span></code> now delegates to this,
+so the reprojection is defined once).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MosaicController.visible_scene_footprints_in_common_crs()</span></code> — <code class="docutils literal notranslate"><span class="pre">(scene,</span> <span class="pre">geometry)</span></code> for
+each visible scene, bottom-to-top, in the resolved target CRS; returns <code class="docutils literal notranslate"><span class="pre">[]</span></code> when no
+target CRS is resolved yet (the view then draws nothing).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">compute_union_overlaps(footprints)</span></code> — each scene’s <strong>hidden region</strong> = its footprint
+∩ the union of everything above it. Walking top-to-bottom with a running union, this
+is one <code class="docutils literal notranslate"><span class="pre">Intersection</span></code> + one <code class="docutils literal notranslate"><span class="pre">Union</span></code> per scene (<code class="docutils literal notranslate"><span class="pre">O(n)</span></code>), not all-pairs <code class="docutils literal notranslate"><span class="pre">O(n²)</span></code>. The
+topmost scene is never hidden.</p></li>
+</ul>
+</section>
+<section id="rendering-and-the-geometry-cache">
+<h3>Rendering and the geometry cache<a class="headerlink" href="#rendering-and-the-geometry-cache" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> caches the overlay as world-space <code class="docutils literal notranslate"><span class="pre">QPainterPath</span></code>s (<code class="docutils literal notranslate"><span class="pre">_footprint_paths</span></code> and
+the parallel <code class="docutils literal notranslate"><span class="pre">_hidden_paths</span></code>, plus <code class="docutils literal notranslate"><span class="pre">_bbox_extent</span></code>) converted from those <code class="docutils literal notranslate"><span class="pre">ogr.Geometry</span></code>
+objects by <code class="docutils literal notranslate"><span class="pre">_geometry_to_qpainterpath</span></code> (handles polygons-with-holes via the odd-even
+fill rule, and skips degenerate non-polygon <code class="docutils literal notranslate"><span class="pre">Intersection</span></code> results).</p>
+<p>This split is deliberate: <strong>geometry</strong> is recomputed only when scenes, z-order, or the
+target CRS change; <strong>the transform</strong> is applied fresh every paint. So pan/zoom is a
+cheap repaint (<code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> just installs a new <code class="docutils literal notranslate"><span class="pre">QTransform</span></code> and redraws cached paths)
+with no GDAL/OSR work, satisfying the “redraws on pan/zoom without recomputing pixels”
+requirement.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> calls <code class="docutils literal notranslate"><span class="pre">MosaicView.invalidate_overlay()</span></code> (which sets a dirty flag and
+schedules a repaint) after every controller mutation that changes the overlay — scene
+add/remove, visibility toggle, and target-CRS change. The actual rebuild runs lazily
+in <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> when the flag is set (coalescing repeated invalidations into one
+rebuild) and is fully guarded: any OGR/OSR failure clears the cache and logs rather
+than letting an exception escape a paint. Pens are <strong>cosmetic</strong>, so outline width stays
+constant in screen pixels regardless of zoom.</p>
+<p><code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> draws, in order: the pixel layer (still stubbed, #637), then the bounding
+box, then per scene a clip to its hidden region filled + outlined in the highlight
+color, then all footprint outlines on top in green (so every boundary stays visible
+even where it crosses an overlap region).</p>
+</section>
+</section>
+<hr class="docutils" />
 <section id="reprojectpromptdialog">
 <h2><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code><a class="headerlink" href="#reprojectpromptdialog" title="Link to this heading">#</a></h2>
 <p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_crs_dialog.py</span></code></p>
@@ -1335,18 +1426,16 @@ selected.</p>
 <hr class="docutils" />
 <section id="what-isn-t-built-yet">
 <h2>What Isn’t Built Yet<a class="headerlink" href="#what-isn-t-built-yet" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">MosaicView.paintEvent</span></code> currently only fills the background; both layers are stubbed
-seams with <code class="docutils literal notranslate"><span class="pre">TODO</span></code> markers pointing at the issues that will fill them in:</p>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView.paintEvent</span></code> now draws the vector overlay (#636, see <a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry
+Overlay</span></a>); the pixel layer beneath it is still a
+stubbed seam with a <code class="docutils literal notranslate"><span class="pre">TODO</span></code> marker, alongside the control-panel and export gaps:</p>
 <ul class="simple">
 <li><p><strong>Pixel layer (compositing, issue #637)</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicView.composite(layers,</span> <span class="pre">order)</span></code> is
 a stub that returns <code class="docutils literal notranslate"><span class="pre">None</span></code>. The design calls for per-scene ARGB <code class="docutils literal notranslate"><span class="pre">QImage</span></code> caches at
 screen resolution (alpha = validity, from the GDAL mask band), stacked bottom-to-top
-by <code class="docutils literal notranslate"><span class="pre">QPainter</span></code>; z-order reorders would only re-stack cached layers (no GDAL reads),
-while pan/zoom would re-read from overviews (debounced).</p></li>
-<li><p><strong>Vector overlay (issue #636)</strong> — footprints, the mosaic bounding box, and the
-“overlap highlight” (where a lower scene’s footprint is covered by a higher one)
-drawn on top of the pixel layer via a world→screen affine derived from the
-controller’s <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>.</p></li>
+by <code class="docutils literal notranslate"><span class="pre">QPainter</span></code> and drawn beneath the vector overlay via the same
+<code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code> camera; z-order reorders would only re-stack cached layers (no
+GDAL reads), while pan/zoom would re-read from overviews (debounced).</p></li>
 <li><p><strong>Control panel additions (issue #638)</strong> — drag-to-reorder z-order, resampling
 method selector, and a band-metadata chooser are not yet in <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>; today’s
 panel only has Add Scene, the scene list (visibility toggle + remove), and the
@@ -1378,7 +1467,15 @@ lazily constructs and caches the dialog, reusing it across open/close.</p></li>
 <h2>Testing<a class="headerlink" href="#testing" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_controller.py</span></code> — grid math per <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code>, CRS
-resolution/validation, cache invalidation (pure <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, no Qt).</p></li>
+resolution/validation, cache invalidation, and the Qt-free geometry helpers
+(<code class="docutils literal notranslate"><span class="pre">reprojected_footprint_geometry</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_union_overlaps</span></code>,
+<code class="docutils literal notranslate"><span class="pre">visible_scene_footprints_in_common_crs</span></code>) — all pure <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, no Qt.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_view_transform.py</span></code> — <code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code> camera math:
+world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ratio
+preservation (pure <code class="docutils literal notranslate"><span class="pre">QTransform</span></code> math, no widget shown).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_view_gui.py</span></code> — the overlay wiring end to end: geometry cache
+populates for overlapping scenes and re-invalidates on scene removal / target-CRS
+change, driven through the real <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> ingestion path.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_ingestion.py</span></code> — <code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>,
 <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_dialog.py</span></code> — <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in isolation
@@ -1459,6 +1556,12 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-resolution-and-the-auto-lock-behavior">CRS resolution and the auto-lock behavior</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removal-and-visibility-changes">Removal and visibility changes</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-controller-helpers">Other controller helpers</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-geometry-overlay-vector-layer">The Geometry Overlay (Vector Layer)</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-camera-mosaicviewtransform">The camera: <code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-reprojection-and-the-overlap-computation-qt-free">Footprint reprojection and the overlap computation (Qt-free)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rendering-and-the-geometry-cache">Rendering and the geometry cache</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
