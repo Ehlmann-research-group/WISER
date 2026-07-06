@@ -30,6 +30,7 @@ from .progress_task import run_with_progress
 from wiser.raster.mosaic_controller import (
     MosaicController,
     MosaicScene,
+    ResolutionMode,
     TargetCrsRequired,
     UnmappableCrsError,
 )
@@ -131,6 +132,7 @@ class MosaicPane(QWidget):
 
         self._controls_layout.addWidget(self._build_add_scene_group())
         self._controls_layout.addWidget(self._build_scene_list_group(), 1)
+        self._controls_layout.addWidget(self._build_resolution_group())
         self._controls_layout.addWidget(self._build_target_crs_group())
         self._splitter.addWidget(self._controls)
 
@@ -193,6 +195,47 @@ class MosaicPane(QWidget):
         self._remove_scene_button.clicked.connect(self._on_remove_scene_clicked)
         layout.addWidget(self._remove_scene_button)
         return group
+
+    def _build_resolution_group(self) -> QGroupBox:
+        group = QGroupBox(self.tr("Output Spatial Resolution"), self._controls)
+        layout = QVBoxLayout(group)
+
+        self._resolution_combo = QComboBox(group)
+        # userData is the ResolutionMode member itself, read back in the handler.
+        self._resolution_combo.addItem(self.tr("Top scene"), ResolutionMode.TOP)
+        self._resolution_combo.addItem(self.tr("Highest (finest)"), ResolutionMode.HIGHEST)
+        self._resolution_combo.addItem(self.tr("Lowest (coarsest)"), ResolutionMode.LOWEST)
+        self._resolution_combo.addItem(self.tr("Average"), ResolutionMode.AVERAGE)
+        self._resolution_combo.addItem(self.tr("Custom…"), ResolutionMode.CUSTOM)
+        current = self._controller.get_resolution_mode()
+        restored = self._resolution_combo.findData(current)
+        if restored >= 0:
+            self._resolution_combo.setCurrentIndex(restored)
+        self._resolution_combo.currentIndexChanged.connect(self._on_resolution_mode_changed)
+        layout.addWidget(self._resolution_combo)
+
+        # Custom pixel-size inputs (in target-CRS units), shown only in Custom mode.
+        self._custom_res_widget = QWidget(group)
+        custom_layout = QFormLayout(self._custom_res_widget)
+        custom_layout.setContentsMargins(0, 0, 0, 0)
+        self._custom_xres_spin = self._make_resolution_spinbox()
+        self._custom_yres_spin = self._make_resolution_spinbox()
+        custom_layout.addRow(self.tr("X size:"), self._custom_xres_spin)
+        custom_layout.addRow(self.tr("Y size:"), self._custom_yres_spin)
+        self._custom_res_widget.setVisible(current is ResolutionMode.CUSTOM)
+        layout.addWidget(self._custom_res_widget)
+        return group
+
+    def _make_resolution_spinbox(self) -> QDoubleSpinBox:
+        """A positive-only pixel-size spinbox (target-CRS units, so a wide range)."""
+        spin = QDoubleSpinBox()
+        spin.setDecimals(6)
+        # Minimum is a tiny positive so value() is always > 0 (set_custom_resolution
+        # rejects non-positive sizes); the range spans degrees to metres.
+        spin.setRange(1e-6, 1e9)
+        spin.setValue(1.0)
+        spin.valueChanged.connect(self._on_custom_resolution_changed)
+        return spin
 
     def _build_target_crs_group(self) -> QGroupBox:
         group = QGroupBox(self.tr("Target CRS"), self._controls)
@@ -364,6 +407,39 @@ class MosaicPane(QWidget):
         self._rebuild_grid_quietly()
         self._mosaic_view.invalidate_overlay()
         self._mosaic_view.invalidate_pixels()
+
+    # -- resolution -----------------------------------------------------------
+
+    def _on_resolution_mode_changed(self, *_args) -> None:
+        mode = self._resolution_combo.currentData()
+        is_custom = mode is ResolutionMode.CUSTOM
+        self._custom_res_widget.setVisible(is_custom)
+        if is_custom:
+            # Seed the spinboxes from the current grid (a sensible starting size) the
+            # first time Custom is chosen, then hand the controller a size so
+            # build_common_grid never sees CUSTOM without one.
+            grid = self._controller.get_common_grid()
+            if grid.geotransform is not None and self._controller.get_custom_resolution() is None:
+                self._custom_xres_spin.blockSignals(True)
+                self._custom_yres_spin.blockSignals(True)
+                self._custom_xres_spin.setValue(abs(grid.geotransform[1]))
+                self._custom_yres_spin.setValue(abs(grid.geotransform[5]))
+                self._custom_xres_spin.blockSignals(False)
+                self._custom_yres_spin.blockSignals(False)
+            self._controller.set_custom_resolution(
+                self._custom_xres_spin.value(), self._custom_yres_spin.value()
+            )
+        self._controller.set_resolution_mode(mode)
+        # Resolution changes the output grid's pixel size, not the on-screen preview
+        # (the compositor warps at viewport resolution), so a grid rebuild is the whole
+        # effect; the CRS constraint is unchanged, so rebuild quietly (no prompt).
+        self._rebuild_grid_quietly()
+
+    def _on_custom_resolution_changed(self, *_args) -> None:
+        if self._resolution_combo.currentData() is not ResolutionMode.CUSTOM:
+            return
+        self._controller.set_custom_resolution(self._custom_xres_spin.value(), self._custom_yres_spin.value())
+        self._rebuild_grid_quietly()
 
     # -- common grid / target CRS ---------------------------------------------
 
