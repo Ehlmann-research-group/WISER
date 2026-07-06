@@ -116,6 +116,7 @@ class MosaicPane(QWidget):
             app_state=self._app_state,
             controller=self._controller,
             mosaicpane=self,
+            app_services=self._app_services,
         )
         self._splitter.addWidget(self._mosaic_view)
 

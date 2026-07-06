@@ -33,13 +33,41 @@ from .util import get_painter
 from wiser.raster.mosaic_compositor import render_scene_argb
 from wiser.raster.mosaic_controller import (
     MosaicController,
+    MosaicScene,
     compute_union_overlaps,
 )
+from wiser.utils.primitives import PriorityClass
 
 if TYPE_CHECKING:
+    from .app_services import AppServices
     from .mosaic_pane import MosaicPane
 
 logger = logging.getLogger(__name__)
+
+# Debounce window for pan/zoom pixel re-reads: coalesce a gesture's burst of paints
+# into one background read once the camera settles for this long.
+_PIXEL_READ_DEBOUNCE_MS = 120
+
+
+def _render_scene_layers(
+    jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int]],
+) -> List[Tuple[int, np.ndarray]]:
+    """
+    Warp each job's scene into an RGBA array. Runs on a **scheduler thread** (no Qt).
+
+    ``jobs`` is ``(scene_key, scene, target_wkt, world_extent, width, height)``; the
+    result pairs each key with its ``(H, W, 4)`` RGBA array for the GUI thread to wrap
+    into a ``QImage``. A single scene that fails to render is skipped rather than
+    failing the whole batch (mirrors the per-scene guard in the synchronous path).
+    """
+    out: List[Tuple[int, np.ndarray]] = []
+    for key, scene, target_wkt, world_extent, width, height in jobs:
+        try:
+            out.append((key, render_scene_argb(scene, target_wkt, world_extent, width, height)))
+        except Exception:  # noqa: BLE001 — a bad scene must not break the batch
+            pass
+    return out
+
 
 # Vector-overlay styling (#636), matching the ENVI reference: green footprint
 # outlines, a dashed bounding box, and a magenta/purple overlap highlight. Pens are
@@ -166,17 +194,25 @@ class MosaicView(QWidget):
     common grid) and exposes the paint/compositing seams that #636 and #637 target.
     """
 
+    # Delivers a completed background pixel read from the scheduler thread to the GUI
+    # thread. Emitted from the future's done-callback (worker thread); the queued
+    # connection runs :meth:`_apply_pixel_read` on the GUI thread. Payload is
+    # ``(signature, world_extent, read_scene_ids, [(scene_key, rgba_ndarray), ...])``.
+    _read_ready = Signal(object)
+
     def __init__(
         self,
         parent: Optional[QWidget] = None,
         app_state: Optional[ApplicationState] = None,
         controller: Optional[MosaicController] = None,
         mosaicpane: Optional["MosaicPane"] = None,
+        app_services: Optional["AppServices"] = None,
     ) -> None:
         super().__init__(parent=parent)
         self._app_state = app_state
         self._controller = controller if controller is not None else MosaicController()
         self._mosaicpane = mosaicpane
+        self._app_services = app_services
 
         # Pixel layer (#637): the composited, screen-resolution mosaic image plus the
         # per-scene ARGB caches it is stacked from.
@@ -195,6 +231,19 @@ class MosaicView(QWidget):
         self._read_scene_ids: Set[int] = set()
         self._render_signature: Optional[Tuple[float, float, float, int, int]] = None
         self._pixels_dirty = True
+
+        # Off-thread + debounced pixel reads (#637). Pan/zoom paints coalesce into one
+        # background read once the camera settles for _PIXEL_READ_DEBOUNCE_MS. Reads are
+        # submitted to the scheduler (when available); the prior composite is drawn,
+        # scaled by the camera, in the interim. _reading_signature is the viewport the
+        # in-flight read targets, so a superseded read's late result is discarded.
+        self._reading_signature: Optional[Tuple[float, float, float, int, int]] = None
+        self._pending_future = None
+        self._debounce_timer = QTimer(self)
+        self._debounce_timer.setSingleShot(True)
+        self._debounce_timer.setInterval(_PIXEL_READ_DEBOUNCE_MS)
+        self._debounce_timer.timeout.connect(self._start_pixel_read)
+        self._read_ready.connect(self._apply_pixel_read)
 
         # Camera for the QGIS-style unbounded canvas (#636). The view frames the
         # mosaic extent once, the first time a grid is available (see paintEvent);
@@ -330,42 +379,101 @@ class MosaicView(QWidget):
         argb = np.ascontiguousarray((a << 24) | (r << 16) | (g << 8) | b, dtype=np.uint32)
         return QImage(argb.data, w, h, QImage.Format_ARGB32).copy()
 
-    def _rebuild_scene_layers(self) -> None:
-        """
-        Re-read every visible, in-view scene into the per-scene ARGB cache at the
-        current viewport. This is the **only** path that touches GDAL.
+    def _current_signature(self) -> Tuple[float, float, float, int, int]:
+        """The render signature (viewport identity) the pixel cache is keyed on."""
+        return (
+            self._transform.center_x,
+            self._transform.center_y,
+            self._transform.world_units_per_pixel,
+            self.width(),
+            self.height(),
+        )
 
-        The cache is rebuilt wholesale (stale layers, including hidden scenes' layers
-        from a prior viewport, are dropped) so it always corresponds to the current
-        render signature. Off-thread/debounced execution is layered on in #637 step 3;
-        here it runs synchronously from :meth:`paintEvent`.
+    def _schedule_pixel_read(self) -> None:
         """
-        self._scene_layers = {}
-        self._read_scene_ids = set()
-        self._composite_world_extent = None
+        Ask for a fresh per-scene read of the current viewport.
 
+        With a scheduler, this (re)starts the debounce timer so a pan/zoom gesture's
+        burst of paints collapses into a single background read once the camera
+        settles. Without one (e.g. a bare view in a unit test), it reads synchronously
+        so behavior is still correct, just on the GUI thread.
+        """
+        if self._app_services is None:
+            self._start_pixel_read()
+        else:
+            self._debounce_timer.start()
+
+    def _start_pixel_read(self) -> None:
+        """
+        Snapshot the current viewport on the GUI thread, then read its scenes.
+
+        The cheap, Qt-adjacent work (resolving the target CRS, reprojecting footprints,
+        the in-view intersect test) happens here; only the heavy per-scene warps are
+        handed to the worker. With no scheduler the worker runs inline.
+        """
+        signature = self._current_signature()
         target_wkt = self._controller.get_target_crs()
         w, h = self.width(), self.height()
         if target_wkt is None or w <= 1 or h <= 1:
+            # Nothing to read; clear the cache and mark this viewport as done so we
+            # don't reschedule every paint.
+            self._apply_pixel_read((signature, None, set(), []))
+            self._reading_signature = signature
             return
 
         world_extent = self._visible_world_extent()
-        self._composite_world_extent = world_extent
         try:
             footprints = self._controller.visible_scene_footprints_in_common_crs()
-        except Exception:  # noqa: BLE001 — never let a repaint raise
+        except Exception:  # noqa: BLE001 — never let a paint-driven read raise
             logger.exception("Failed to resolve mosaic scene footprints")
+            footprints = []
+
+        read_scene_ids: Set[int] = set()
+        jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int]] = []
+        for scene, geom in footprints:
+            read_scene_ids.add(id(scene))
+            if self._envelope_intersects(geom, world_extent):
+                jobs.append((id(scene), scene, target_wkt, world_extent, w, h))
+
+        self._reading_signature = signature
+        if self._app_services is None:
+            self._apply_pixel_read((signature, world_extent, read_scene_ids, _render_scene_layers(jobs)))
             return
 
-        for scene, geom in footprints:
-            self._read_scene_ids.add(id(scene))
-            if not self._envelope_intersects(geom, world_extent):
-                continue
+        def _done(future, signature=signature, world_extent=world_extent, read_scene_ids=read_scene_ids):
+            # Runs on the scheduler thread; hop back to the GUI thread via the signal.
             try:
-                rgba = render_scene_argb(scene, target_wkt, world_extent, w, h)
-                self._scene_layers[id(scene)] = self._numpy_to_argb_qimage(rgba)
-            except Exception:  # noqa: BLE001 — a bad scene must not break the paint
-                logger.exception("Failed to render mosaic scene layer")
+                results = future.result()
+            except Exception:  # noqa: BLE001 — surface nothing rather than crash a worker
+                logger.exception("Mosaic pixel read failed")
+                results = []
+            self._read_ready.emit((signature, world_extent, read_scene_ids, results))
+
+        self._pending_future = self._app_services.scheduler.submit_thread(
+            PriorityClass.BACKGROUND, _render_scene_layers, jobs
+        )
+        self._pending_future.add_done_callback(_done)
+
+    def _apply_pixel_read(self, payload) -> None:
+        """
+        Install a completed read on the GUI thread, unless it has been superseded.
+
+        Only the most recently *submitted* read (``_reading_signature``) is applied;
+        an out-of-order or stale result for an older viewport is dropped so it can
+        never clobber newer pixels. Wrapping RGBA into ``QImage`` happens here (Qt
+        objects must be built on the GUI thread), then the layers are restacked.
+        """
+        signature, world_extent, read_scene_ids, results = payload
+        if signature != self._reading_signature:
+            return  # superseded by a newer read; discard
+        self._reading_signature = None
+        self._scene_layers = {key: self._numpy_to_argb_qimage(rgba) for key, rgba in results}
+        self._read_scene_ids = read_scene_ids
+        self._composite_world_extent = world_extent
+        self._render_signature = signature
+        self._pixels_dirty = False
+        self._recomposite()
+        self.update()
 
     def _recomposite(self) -> None:
         """
@@ -459,21 +567,15 @@ class MosaicView(QWidget):
             self._rebuild_overlay_geometry()
             self._geometry_dirty = False
 
-        # Pixel layer: re-read per-scene layers when the viewport (render signature)
-        # changed or the cache was explicitly invalidated, then restack. In step 3 the
-        # read becomes off-thread + debounced; here it is synchronous.
-        signature = (
-            self._transform.center_x,
-            self._transform.center_y,
-            self._transform.world_units_per_pixel,
-            self.width(),
-            self.height(),
-        )
-        if self._pixels_dirty or self._render_signature != signature:
-            self._rebuild_scene_layers()
-            self._recomposite()
-            self._render_signature = signature
-            self._pixels_dirty = False
+        # Pixel layer: when the viewport (render signature) changed or the cache was
+        # explicitly invalidated, schedule a debounced background re-read — unless a
+        # read for this exact viewport is already in flight (wait for it instead). The
+        # prior composite keeps drawing, scaled by the camera, in the interim.
+        signature = self._current_signature()
+        if (
+            self._pixels_dirty or self._render_signature != signature
+        ) and signature != self._reading_signature:
+            self._schedule_pixel_read()
 
         with get_painter(self) as painter:
             painter.fillRect(self.rect(), self.palette().window())
