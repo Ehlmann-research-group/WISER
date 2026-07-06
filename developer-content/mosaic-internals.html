@@ -1,0 +1,1522 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Seamless Mosaic Internals &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/mosaic-internals';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Contributing to WISER" href="../contributing.html" />
+    <link rel="prev" title="CRS Creator Internals" href="crs-creator-internals.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="code-documentation.html">Code Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Seamless Mosaic Internals</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/mosaic-internals.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/mosaic-internals.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Seamless Mosaic Internals</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#entry-point-and-dialog-lifecycle">Entry Point and Dialog Lifecycle</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scene-ingestion-pipeline">Scene Ingestion Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-validate-scene-mosaic-ingestion-py">Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overviews-build-overviews-mosaic-ingestion-py">Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py">Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-reporting">Progress reporting</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-common-grid-and-crs-resolution">The Common Grid and CRS Resolution</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resolution-modes-resolutionmode">Resolution modes (<code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-resolution-and-the-auto-lock-behavior">CRS resolution and the auto-lock behavior</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removal-and-visibility-changes">Removal and visibility changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-controller-helpers">Other controller helpers</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="seamless-mosaic-internals">
+<h1>Seamless Mosaic Internals<a class="headerlink" href="#seamless-mosaic-internals" title="Link to this heading">#</a></h1>
+<p>This page documents the internal architecture of WISER’s <strong>Seamless Mosaic</strong> feature —
+combining several overlapping georeferenced scenes onto one shared output grid. It is
+intended for developers reading, debugging, or extending the tool.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
+materialization, and common-grid/CRS resolution are implemented and wired into the
+GUI. <strong>Pixel compositing (the preview) and the vector footprint overlay are not yet
+implemented</strong> — see <a class="reference internal" href="#what-isnt-built-yet"><span class="xref myst">What Isn’t Built Yet</span></a>.</p>
+</div>
+<p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
+in the repo root. There is no user-facing guide yet since the feature is not
+preview/export complete.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>The feature is built from three cooperating layers:</p>
+<ul class="simple">
+<li><p><strong>The UI / control layer</strong> — <code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> is a non-modal, cached top-level
+window (like the other tool dialogs) that hosts a <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>. The pane owns an
+“Add Scene” picker, a scene stack (z-order + visibility), and a target-CRS control,
+and drives the ingestion pipeline on a background thread.</p></li>
+<li><p><strong>The non-GUI model</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> is the single source of truth for the
+scene list, z-order, resolution mode, target CRS, and the computed <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>. It
+is deliberately Qt-free (may use <code class="docutils literal notranslate"><span class="pre">osgeo.gdal/ogr/osr</span></code>) so it is unit-testable without
+a running application.</p></li>
+<li><p><strong>The rendering layer</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> is a <code class="docutils literal notranslate"><span class="pre">QWidget</span></code> sibling of <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>
+(not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
+zoomed). It currently paints only an empty background; compositing and the
+footprint overlay are stubbed seams for later issues.</p></li>
+</ul>
+<p>Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
+is first turned into a warpable, disk-backed tiled GeoTIFF by a <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> —
+the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> is the source of truth for metadata, so materialization stamps
+SRS/geotransform/nodata/band metadata from the dataset object, not from its <code class="docutils literal notranslate"><span class="pre">_impl</span></code>.</p>
+<p><strong>Core files:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Responsibility</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_dialog.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> — top-level dialog shell, owns the session <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> — control panel; ingestion orchestration, scene list, CRS controls</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_view.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> — the two-layer paint surface (pixel + vector), currently a stub</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_crs_dialog.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> — modal target-CRS chooser</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_controller.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code>, <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>, <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> — the non-GUI model</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_ingestion.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code> — Qt-free ingestion gates</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_materialize.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code>, <code class="docutils literal notranslate"><span class="pre">materialize_to_tiled_geotiff</span></code> — the object-model adapter</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/utils/progress.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code> — Qt-free progress plumbing shared with any scheduler task</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/progress_task.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> — reusable modal + Activity Monitor bridge for scheduler tasks</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h2>
+<p>The GUI shell (dialog, pane, view, ingestion adapter) and the non-GUI data model
+(<code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> and what it owns) are split into two diagrams below — combining
+them into one made several unrelated ownership edges visually cross through unrelated
+boxes (e.g. the “constructs on demand” edge into <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> appeared to
+originate from <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> just because of where the layout engine placed the
+boxes). <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> and <code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> both hold a reference to the <strong>same</strong>
+<code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> instance; that instance is expanded in the second diagram.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class QDialog[&quot;QDialog (Qt)&quot;]
+    class QWidget[&quot;QWidget (Qt)&quot;]
+    class MosaicController[&quot;MosaicController (see the data-model diagram below)&quot;]
+
+    class SeamlessMosaicDialog {
+        mosaic_dialog.py
+        -_materializer : SceneMaterializer
+        +get_mosaic_pane()
+    }
+
+    class MosaicPane {
+        mosaic_pane.py
+        -_controller : MosaicController
+        -_materializer : SceneMaterializer
+        +_on_add_scene_clicked()
+        +_on_scene_ingested(scene)
+        +_ensure_common_grid()
+        +_on_choose_target_crs()
+    }
+
+    class MosaicView {
+        mosaic_view.py
+        -_controller : MosaicController
+        -_composite_pixmap : QPixmap
+        +composite(layers, order) QImage
+        +paintEvent(event)
+    }
+
+    class SceneMaterializer {
+        mosaic_materialize.py
+        -_tmp : TemporaryDirectory
+        -_cache : dict
+        +gdal_source(dataset, progress) str
+        +close()
+    }
+
+    class ReprojectPromptDialog {
+        mosaic_crs_dialog.py
+        +selected_target_wkt() str
+        +accept()
+    }
+
+    QDialog &lt;|-- SeamlessMosaicDialog
+    QDialog &lt;|-- ReprojectPromptDialog
+    QWidget &lt;|-- MosaicPane
+    QWidget &lt;|-- MosaicView
+
+    SeamlessMosaicDialog --&gt; MosaicPane : owns
+    SeamlessMosaicDialog --&gt; SceneMaterializer : owns (session-scoped)
+    MosaicPane --&gt; MosaicView : owns
+    MosaicPane --&gt; ReprojectPromptDialog : constructs on demand
+    MosaicPane --&gt; MosaicController : owns, shares with view
+    MosaicView --&gt; MosaicController : reads
+    </pre><p><code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> is injected into <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>’s constructor by
+<code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> (see <a class="reference internal" href="#entry-point-and-dialog-lifecycle"><span class="xref myst">Entry Point and Dialog
+Lifecycle</span></a> above) rather than owned separately by
+the pane, so it appears only once above.</p>
+<pre  class="mermaid">
+        classDiagram
+    direction TB
+
+    class RasterDataSet[&quot;RasterDataSet (see wiser.raster.dataset)&quot;]
+
+    class MosaicController {
+        mosaic_controller.py
+        -_scenes : List~MosaicScene~
+        -_target_crs_wkt : str
+        -_resolution_mode : ResolutionMode
+        -_common_grid : CommonGrid
+        +add_scene(scene)
+        +build_common_grid() CommonGrid
+        +scene_crs_summary()
+        +scene_crs_choices()
+        +validate_target_crs(wkt)
+    }
+
+    class MosaicScene {
+        &lt;&lt;dataclass&gt;&gt;
+        +dataset : RasterDataSet
+        +visible : bool
+        +gdal_path : str
+        +footprint_wkt : str
+        +has_overviews : bool
+    }
+
+    class CommonGrid {
+        &lt;&lt;dataclass&gt;&gt;
+        +geotransform
+        +extent
+        +width
+        +height
+    }
+
+    MosaicController --&gt; MosaicScene : owns list (bottom-to-top)
+    MosaicController --&gt; CommonGrid : owns cached result
+    MosaicScene --&gt; RasterDataSet : wraps
+    </pre><p>The controller’s scene list is <strong>bottom-to-top</strong>: index 0 renders first (bottom),
+the last index is the top scene and wins z-order overlap. This convention is used
+consistently by <code class="docutils literal notranslate"><span class="pre">scene_crs_summary</span></code>/<code class="docutils literal notranslate"><span class="pre">scene_crs_choices</span></code> (bottom-to-top) and the
+<code class="docutils literal notranslate"><span class="pre">Scenes</span></code> list in <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> (which displays top-most first, i.e. reversed).</p>
+</section>
+<hr class="docutils" />
+<section id="entry-point-and-dialog-lifecycle">
+<h2>Entry Point and Dialog Lifecycle<a class="headerlink" href="#entry-point-and-dialog-lifecycle" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">App.show_seamless_mosaic_dialog</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>) lazily constructs a single
+<code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog(app_state,</span> <span class="pre">app_services,</span> <span class="pre">parent=self)</span></code> and reuses it across
+open/close — the dialog is <strong>non-modal</strong> because a mosaic is a long-lived, multi-step
+workflow (add scenes, reorder, export), so it stays open alongside the main window.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> owns one <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> for the dialog’s lifetime. Because
+the dialog is cached and reopened, the materializer’s temp files must survive
+<code class="docutils literal notranslate"><span class="pre">close()</span></code> — cleaning them up on <code class="docutils literal notranslate"><span class="pre">closeEvent</span></code> would orphan every added scene’s
+<code class="docutils literal notranslate"><span class="pre">gdal_path</span></code> on the next open. Instead the temp directory is torn down only when the
+dialog itself is destroyed (<code class="docutils literal notranslate"><span class="pre">self.destroyed.connect(lambda</span> <span class="pre">*_:</span> <span class="pre">materializer.close())</span></code>),
+with <code class="docutils literal notranslate"><span class="pre">TemporaryDirectory</span></code>’s own finalizer as a backstop on GC/interpreter exit.</p>
+</section>
+<hr class="docutils" />
+<section id="scene-ingestion-pipeline">
+<h2>Scene Ingestion Pipeline<a class="headerlink" href="#scene-ingestion-pipeline" title="Link to this heading">#</a></h2>
+<p>Adding a scene runs three gated phases on a background thread, orchestrated by
+<code class="docutils literal notranslate"><span class="pre">_ingest_scene()</span></code> (<code class="docutils literal notranslate"><span class="pre">mosaic_pane.py</span></code>):</p>
+<pre  class="mermaid">
+        sequenceDiagram
+    participant User
+    participant Pane as MosaicPane
+    participant Sched as WorkScheduler
+    participant Ingest as _ingest_scene (bg thread)
+    participant Mat as SceneMaterializer
+    participant Ctrl as MosaicController
+
+    User-&gt;&gt;Pane: click &quot;Add Scene…&quot;
+    Pane-&gt;&gt;Pane: validate_scene(dataset, existing_scenes)
+    alt validation fails
+        Pane--&gt;&gt;User: QMessageBox.warning
+    else validation passes
+        Pane-&gt;&gt;Sched: run_with_progress(_ingest_scene, dataset, materializer)
+        Note over Pane: ProgressDialog shown, block_window disabled
+        Sched-&gt;&gt;Ingest: run on scheduler thread
+        Ingest-&gt;&gt;Mat: gdal_source(dataset) → materialize/warp-ready GeoTIFF
+        Ingest-&gt;&gt;Ingest: build_overviews(gdal_path)
+        Ingest-&gt;&gt;Ingest: compute_footprint_wkt(gdal_path)
+        Ingest--&gt;&gt;Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True)
+        Sched--&gt;&gt;Pane: on_success(scene) [GUI thread]
+        Pane-&gt;&gt;Ctrl: add_scene(scene)
+        Pane-&gt;&gt;Pane: _refresh_scene_list()
+        Pane-&gt;&gt;Pane: _ensure_common_grid()
+        Pane-&gt;&gt;Pane: _mosaic_view.update()
+    end
+    </pre><section id="validation-validate-scene-mosaic-ingestion-py">
+<h3>Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#validation-validate-scene-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<p>Runs synchronously on the <strong>main thread</strong> before any background work starts, so
+rejection is immediate (no spinner churn). Rejects:</p>
+<ul class="simple">
+<li><p><strong>Ungeoreferenced scenes</strong> — geotransform is GDAL’s identity sentinel.</p></li>
+<li><p><strong>No SRS</strong> — empty/missing spatial reference.</p></li>
+<li><p><strong>Duplicate</strong> — the dataset is already in the mosaic (by dataset id).</p></li>
+<li><p><strong>Band-count mismatch</strong> — differs from the first existing scene’s band count.</p></li>
+</ul>
+<p>Deliberately <strong>not</strong> rejected: missing nodata (a coarser, full-rectangle footprint is
+still valid) and dtype mismatches across scenes (the future compositor promotes to the
+widest common type at warp time). See <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">TODO(#640)</span></code> in the source for a planned
+warn-but-allow path for band-count mismatches.</p>
+</section>
+<section id="materialization-scenematerializer-gdal-source-mosaic-materialize-py">
+<h3>Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)<a class="headerlink" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py" title="Link to this heading">#</a></h3>
+<p>Every scene — GDAL-backed or not — is materialized to a disk-backed, tiled GeoTIFF
+(<code class="docutils literal notranslate"><span class="pre">TILED=YES</span></code>, 256×256 blocks) under a per-session temp directory
+(<code class="docutils literal notranslate"><span class="pre">wiser.utils.primitives.temp_dir()</span></code>), <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">/vsimem</span></code> (RAM-backed), so GDAL reads
+only the requested windows. Metadata (geotransform, SRS, nodata, per-band wavelength,
+bad bands, default display bands) is stamped from the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> object, mirroring
+the georeferencer’s numpy→GDAL-dataset trick but disk-backed. A per-scene dedup cache
+(keyed by dataset id, or <code class="docutils literal notranslate"><span class="pre">id(dataset)</span></code> as a fallback) keeps this to one write per scene
+per session — re-adding the same dataset is a cache hit.</p>
+<p>The user’s original dataset is <strong>never modified</strong>; the materialized copy is a
+WISER-owned temp artifact.</p>
+</section>
+<section id="overviews-build-overviews-mosaic-ingestion-py">
+<h3>Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#overviews-build-overviews-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<p>Builds internal pyramid overviews (<code class="docutils literal notranslate"><span class="pre">NEAREST</span></code>, levels <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">4,</span> <span class="pre">8,</span> <span class="pre">16]</span></code>) directly inside
+the materialized temp GeoTIFF (<code class="docutils literal notranslate"><span class="pre">GA_Update</span></code> + <code class="docutils literal notranslate"><span class="pre">BuildOverviews</span></code>), so preview rendering
+has no first-paint stutter. Because materialization already produces a WISER-owned
+temp copy, overviews can be written internally rather than as external <code class="docutils literal notranslate"><span class="pre">.ovr</span></code>
+sidecars.</p>
+</section>
+<section id="footprint-compute-footprint-wkt-mosaic-ingestion-py">
+<h3>Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<p>Derives the valid-pixel outline via <code class="docutils literal notranslate"><span class="pre">gdal.Footprint(...,</span> <span class="pre">format=&quot;WKT&quot;)</span></code>, in the
+scene’s <strong>own</strong> CRS (no reprojection here — that happens later, in the grid builder).
+With a nodata value set, this traces the true valid-pixel boundary; without one, it
+falls back to the full raster rectangle.</p>
+</section>
+<section id="progress-reporting">
+<h3>Progress reporting<a class="headerlink" href="#progress-reporting" title="Link to this heading">#</a></h3>
+<p>All three phases share one <code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code> (<code class="docutils literal notranslate"><span class="pre">wiser/utils/progress.py</span></code>), split by
+weight — materialize 0.5, overviews 0.35, footprint 0.15 — so the overall bar advances
+smoothly across phases that report in very different native units (per-band count vs.
+GDAL’s own <code class="docutils literal notranslate"><span class="pre">0..1</span></code> callbacks). The reporter is Qt-free; <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code>
+(<code class="docutils literal notranslate"><span class="pre">wiser/gui/progress_task.py</span></code>) is the reusable GUI bridge that:</p>
+<ul class="simple">
+<li><p>shows a non-blocking-to-the-rest-of-WISER <code class="docutils literal notranslate"><span class="pre">ProgressDialog</span></code> (disables only the mosaic
+dialog window, not all of WISER, unlike <code class="docutils literal notranslate"><span class="pre">Qt.WindowModal</span></code>),</p></li>
+<li><p>mirrors progress into an Activity Monitor row,</p></li>
+<li><p>marshals the worker thread’s Qt signal emits back onto the GUI thread,</p></li>
+<li><p>supports cancellation (dialog close/Escape or the Activity Monitor row), which sets
+a shared <code class="docutils literal notranslate"><span class="pre">threading.Event</span></code> that the worker checks at <code class="docutils literal notranslate"><span class="pre">progress.raise_if_cancelled()</span></code>
+checkpoints between phases.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">_ingest_scene</span></code> is intentionally plain — it prints nothing and does not use the
+logging module; progress and errors are the only channel out of a scheduler worker.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="the-common-grid-and-crs-resolution">
+<h2>The Common Grid and CRS Resolution<a class="headerlink" href="#the-common-grid-and-crs-resolution" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicController.build_common_grid()</span></code> computes the shared, north-up output grid all
+scenes are placed onto. It is cached (<code class="docutils literal notranslate"><span class="pre">_grid_dirty</span></code>) and invalidated by any change to
+the scene list, z-order, visibility, resolution mode, custom resolution, or target CRS
+(<code class="docutils literal notranslate"><span class="pre">_invalidate_grid()</span></code>, called from <code class="docutils literal notranslate"><span class="pre">add_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">remove_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">move_scene</span></code>,
+<code class="docutils literal notranslate"><span class="pre">set_visibility</span></code>, <code class="docutils literal notranslate"><span class="pre">set_resolution_mode</span></code>, <code class="docutils literal notranslate"><span class="pre">set_custom_resolution</span></code>, <code class="docutils literal notranslate"><span class="pre">set_target_crs</span></code>).</p>
+<pre  class="mermaid">
+        flowchart TD
+    A[build_common_grid] --&gt; B{grid_dirty?}
+    B --&gt;|no| C[return cached CommonGrid]
+    B --&gt;|yes| D{any visible scenes?}
+    D --&gt;|no| E[return empty CommonGrid]
+    D --&gt;|yes| F[&quot;target = target_crs_wkt or common_scene_crs_wkt()&quot;]
+    F --&gt; G{target resolved?}
+    G --&gt;|no| H[raise TargetCrsRequired]
+    G --&gt;|yes| I[&quot;persist target_crs_wkt&lt;br/&gt;validate_target_crs(target)&quot;]
+    I --&gt; J[&quot;per scene: reproject footprint envelope&lt;br/&gt;into target CRS → union extent&quot;]
+    J --&gt; K[&quot;per scene: SuggestedWarpOutput resolution&lt;br/&gt;in target CRS (AutoCreateWarpedVRT)&quot;]
+    K --&gt; L[&quot;pick xres/yres from ResolutionMode&quot;]
+    L --&gt; M[&quot;north-up geotransform:&lt;br/&gt;(min_x, xres, 0, max_y, 0, -yres)&lt;br/&gt;width/height = ceil(extent / res)&quot;]
+    M --&gt; N[cache + return CommonGrid]
+    </pre><section id="resolution-modes-resolutionmode">
+<h3>Resolution modes (<code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code>)<a class="headerlink" href="#resolution-modes-resolutionmode" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Mode</p></th>
+<th class="head"><p>Pixel size chosen</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TOP</span></code> (default)</p></td>
+<td><p>The <strong>top</strong> scene’s resolution (last index in z-order)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">HIGHEST</span></code></p></td>
+<td><p>The smallest pixel size across visible scenes (finest detail)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LOWEST</span></code></p></td>
+<td><p>The largest pixel size across visible scenes (coarsest)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AVERAGE</span></code></p></td>
+<td><p>Mean pixel size across visible scenes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CUSTOM</span></code></p></td>
+<td><p>User-specified <code class="docutils literal notranslate"><span class="pre">(xres,</span> <span class="pre">yres)</span></code> via <code class="docutils literal notranslate"><span class="pre">set_custom_resolution()</span></code>; raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if unset</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Per-scene resolution is computed once per scene, in the <strong>target CRS</strong>, via
+<code class="docutils literal notranslate"><span class="pre">gdal.AutoCreateWarpedVRT</span></code> (equivalent to <code class="docutils literal notranslate"><span class="pre">SuggestedWarpOutput</span></code>) — this makes
+cross-CRS resolution comparisons apples-to-apples rather than comparing native pixel
+sizes across differing units/projections.</p>
+</section>
+<section id="crs-resolution-and-the-auto-lock-behavior">
+<h3>CRS resolution and the auto-lock behavior<a class="headerlink" href="#crs-resolution-and-the-auto-lock-behavior" title="Link to this heading">#</a></h3>
+<p>This is the part most likely to surprise a new reader, so it is called out explicitly
+(and is covered by <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_gui.py</span></code>):</p>
+<blockquote>
+<div><p><strong>The first scene added to an empty mosaic always auto-resolves and <em>permanently
+locks</em> the target CRS.</strong> <code class="docutils literal notranslate"><span class="pre">build_common_grid()</span></code> treats a single-scene mosaic as
+trivially “all scenes share a CRS” (<code class="docutils literal notranslate"><span class="pre">common_scene_crs_wkt()</span></code> returns that one
+scene’s CRS), builds successfully, and — critically — <strong>persists</strong> the result into
+<code class="docutils literal notranslate"><span class="pre">_target_crs_wkt</span></code>. Because <code class="docutils literal notranslate"><span class="pre">_invalidate_grid()</span></code> never clears <code class="docutils literal notranslate"><span class="pre">_target_crs_wkt</span></code>
+(only the cached grid), every later <code class="docutils literal notranslate"><span class="pre">add_scene()</span></code> sees a non-<code class="docutils literal notranslate"><span class="pre">None</span></code> target already
+set. A second scene with a <em>different</em> CRS therefore reprojects silently onto the
+already-locked target instead of raising <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code> — <strong>the reproject
+dialog never fires during normal incremental ingestion</strong>, same-CRS or not.</p>
+</div></blockquote>
+<p>In practice this means:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code> is only ever raised from <code class="docutils literal notranslate"><span class="pre">_on_scene_ingested</span></code>’s path in the
+degenerate case where <code class="docutils literal notranslate"><span class="pre">_target_crs_wkt</span></code> is still <code class="docutils literal notranslate"><span class="pre">None</span></code> — which does not happen
+once any scene has ever been added, since the very first <code class="docutils literal notranslate"><span class="pre">add_scene</span></code> call always
+locks it.</p></li>
+<li><p>The <strong>only</strong> reachable path to <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in the current UI is the
+manual <strong>“Choose Target CRS…”</strong> button (<code class="docutils literal notranslate"><span class="pre">MosaicPane._on_choose_target_crs</span></code>), which
+calls <code class="docutils literal notranslate"><span class="pre">_prompt_for_target_crs()</span></code> unconditionally — not gated on
+<code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code> — so the user can override the auto-locked target at any time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">validate_target_crs()</span></code> still runs on every <code class="docutils literal notranslate"><span class="pre">build_common_grid()</span></code> call, so an
+incoming scene that is genuinely unmappable to the locked target (e.g. no CRS at
+all) still raises <code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code>, which <code class="docutils literal notranslate"><span class="pre">_ensure_common_grid</span></code> surfaces as a
+<code class="docutils literal notranslate"><span class="pre">QMessageBox.warning</span></code> rather than a dialog.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">_ensure_common_grid()</span></code> (<code class="docutils literal notranslate"><span class="pre">mosaic_pane.py</span></code>) is the call site, and stays a standalone
+method (not inlined into <code class="docutils literal notranslate"><span class="pre">_on_scene_ingested</span></code>) so a future resolution-mode/CRS control
+panel can re-run it:</p>
+<pre  class="mermaid">
+        flowchart TD
+    A[&quot;_ensure_common_grid()&quot;] --&gt; B[&quot;controller.build_common_grid()&quot;]
+    B --&gt;|succeeds| Z[refresh target-CRS label]
+    B --&gt;|TargetCrsRequired| C[&quot;_prompt_for_target_crs()&quot;]
+    C --&gt;|dialog cancelled| Z
+    C --&gt;|accepted + valid| D[&quot;controller.build_common_grid() again&quot;]
+    D --&gt;|UnmappableCrsError| W1[QMessageBox.warning]
+    D --&gt;|succeeds| Z
+    B --&gt;|UnmappableCrsError| W2[QMessageBox.warning]
+    W1 --&gt; Z
+    W2 --&gt; Z
+    </pre><p>As noted above, the <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code> branch is effectively dead in the ingestion
+path today but is kept because it is the correct, defensive behavior if the locking
+assumption ever changes (e.g. a future “clear target CRS” control).</p>
+</section>
+<section id="removal-and-visibility-changes">
+<h3>Removal and visibility changes<a class="headerlink" href="#removal-and-visibility-changes" title="Link to this heading">#</a></h3>
+<p>Removing a scene or toggling visibility can only <em>relax</em> the CRS constraint (fewer
+scenes to satisfy), so <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> calls <code class="docutils literal notranslate"><span class="pre">_rebuild_grid_quietly()</span></code> instead of
+<code class="docutils literal notranslate"><span class="pre">_ensure_common_grid()</span></code> — it rebuilds if possible and silently leaves the grid
+unresolved on <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code>/<code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> rather than popping a modal,
+since a prompt triggered by a <em>removal</em> would be a surprising, unrelated interruption.</p>
+</section>
+<section id="other-controller-helpers">
+<h3>Other controller helpers<a class="headerlink" href="#other-controller-helpers" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">common_scene_crs_wkt()</span></code> — the shared CRS (WKT) if every visible scene’s SRS is
+<code class="docutils literal notranslate"><span class="pre">IsSame</span></code>, else <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scene_crs_summary()</span></code> — <code class="docutils literal notranslate"><span class="pre">(dataset_name,</span> <span class="pre">crs_display_name)</span></code> per scene, bottom-to-top;
+feeds the reproject dialog’s read-only table.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scene_crs_choices()</span></code> — <code class="docutils literal notranslate"><span class="pre">(crs_display_name,</span> <span class="pre">crs_wkt)</span></code> for each <strong>distinct</strong>
+visible-scene CRS, deduped by <code class="docutils literal notranslate"><span class="pre">IsSame</span></code>, ordered so the <strong>last</strong> entry is the top
+scene’s CRS; seeds the dialog’s target-CRS combo and its default selection.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">validate_target_crs(target_wkt)</span></code> — raises <code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> naming any scene
+(by name) that cannot be transformed to the target, via
+<code class="docutils literal notranslate"><span class="pre">wiser.raster.utils.can_transform_between_srs</span></code>.</p></li>
+</ul>
+<p>All SRS objects used for transforms are built with
+<code class="docutils literal notranslate"><span class="pre">OAMS_TRADITIONAL_GIS_ORDER</span></code> (long/lat, x/y axis order), matching the geotransform
+convention used throughout WISER (see the georeferencer’s identical convention in
+<a class="reference internal" href="georeferencer-internals.html"><span class="std std-doc">Georeferencer Internals</span></a>).</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="reprojectpromptdialog">
+<h2><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code><a class="headerlink" href="#reprojectpromptdialog" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_crs_dialog.py</span></code></p>
+<p>A modal, data-driven dialog: it takes plain lists (<code class="docutils literal notranslate"><span class="pre">scene_summary</span></code>,
+<code class="docutils literal notranslate"><span class="pre">scene_crs_choices</span></code>), not the controller, so it can be constructed and tested without
+GDAL/OSR objects in hand — the caller passes <code class="docutils literal notranslate"><span class="pre">controller.scene_crs_summary()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">controller.scene_crs_choices()</span></code>.</p>
+<ul class="simple">
+<li><p><strong>Top:</strong> a read-only two-column table (<em>Dataset</em> / <em>CRS</em>) built from
+<code class="docutils literal notranslate"><span class="pre">scene_summary</span></code>, so a mismatch (or the current per-scene CRS state) is visible.</p></li>
+<li><p><strong>Bottom:</strong> a target-CRS combo box seeded, in order, with:</p>
+<ol class="arabic simple">
+<li><p>the distinct scene CRSs from <code class="docutils literal notranslate"><span class="pre">scene_crs_choices</span></code> (default selection = the
+<strong>last</strong> entry, i.e. the top scene’s CRS),</p></li>
+<li><p>the built-in <code class="docutils literal notranslate"><span class="pre">COMMON_SRS</span></code> presets (WGS84, Web Mercator, NAD83/UTM 15N),</p></li>
+<li><p>any CRS the user has created via the
+<a class="reference internal" href="crs-creator-internals.html"><span class="std std-doc">CRS Creator</span></a> (<code class="docutils literal notranslate"><span class="pre">app_state.get_user_created_crs()</span></code>).</p></li>
+<li><p>An <strong>authority + code</strong> lookup row (e.g. <code class="docutils literal notranslate"><span class="pre">EPSG</span></code> + <code class="docutils literal notranslate"><span class="pre">4326</span></code>) can add and select a
+fully custom <code class="docutils literal notranslate"><span class="pre">AuthorityCodeCRS</span></code> entry on demand.</p></li>
+</ol>
+</li>
+</ul>
+<p>Every combo entry stores a <code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code> subclass (<code class="docutils literal notranslate"><span class="pre">WktGeneratedCRS</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AuthorityCodeCRS</span></code>, <code class="docutils literal notranslate"><span class="pre">UserGeneratedCRS</span></code> — the same hierarchy documented in
+<a class="reference internal" href="georeferencer-internals.html#the-crs-model"><span class="std std-ref">Georeferencer Internals</span></a>) as <code class="docutils literal notranslate"><span class="pre">userData</span></code>, so
+<code class="docutils literal notranslate"><span class="pre">selected_target_wkt()</span></code> reads uniformly across all four sources via
+<code class="docutils literal notranslate"><span class="pre">GeneralCRS.get_osr_crs().ExportToWkt()</span></code>. <code class="docutils literal notranslate"><span class="pre">accept()</span></code> refuses to close if nothing is
+selected.</p>
+</section>
+<hr class="docutils" />
+<section id="what-isn-t-built-yet">
+<h2>What Isn’t Built Yet<a class="headerlink" href="#what-isn-t-built-yet" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView.paintEvent</span></code> currently only fills the background; both layers are stubbed
+seams with <code class="docutils literal notranslate"><span class="pre">TODO</span></code> markers pointing at the issues that will fill them in:</p>
+<ul class="simple">
+<li><p><strong>Pixel layer (compositing, issue #637)</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicView.composite(layers,</span> <span class="pre">order)</span></code> is
+a stub that returns <code class="docutils literal notranslate"><span class="pre">None</span></code>. The design calls for per-scene ARGB <code class="docutils literal notranslate"><span class="pre">QImage</span></code> caches at
+screen resolution (alpha = validity, from the GDAL mask band), stacked bottom-to-top
+by <code class="docutils literal notranslate"><span class="pre">QPainter</span></code>; z-order reorders would only re-stack cached layers (no GDAL reads),
+while pan/zoom would re-read from overviews (debounced).</p></li>
+<li><p><strong>Vector overlay (issue #636)</strong> — footprints, the mosaic bounding box, and the
+“overlap highlight” (where a lower scene’s footprint is covered by a higher one)
+drawn on top of the pixel layer via a world→screen affine derived from the
+controller’s <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>.</p></li>
+<li><p><strong>Control panel additions (issue #638)</strong> — drag-to-reorder z-order, resampling
+method selector, and a band-metadata chooser are not yet in <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>; today’s
+panel only has Add Scene, the scene list (visibility toggle + remove), and the
+target-CRS controls.</p></li>
+<li><p><strong>Export (issue #639)</strong> — writing the mosaic via <code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> (or the
+GDAL &lt; 3.11 <code class="docutils literal notranslate"><span class="pre">BuildVRT</span></code>/<code class="docutils literal notranslate"><span class="pre">Translate</span></code> fallback), ordered by z-order, resolved against
+the common grid, and loaded back into WISER as a new dataset.</p></li>
+</ul>
+<p>None of these gaps affect the ingestion/CRS-resolution logic documented above — they
+consume the same <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> state once implemented.</p>
+</section>
+<hr class="docutils" />
+<section id="integration-with-wiser">
+<h2>Integration with WISER<a class="headerlink" href="#integration-with-wiser" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> reads <code class="docutils literal notranslate"><span class="pre">get_datasets()</span></code> to populate the
+Add-Scene combo (kept in sync via the <code class="docutils literal notranslate"><span class="pre">dataset_added</span></code>/<code class="docutils literal notranslate"><span class="pre">dataset_removed</span></code> signals),
+and <code class="docutils literal notranslate"><span class="pre">get_user_created_crs()</span></code> feeds the reproject dialog’s target-CRS chooser.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">AppServices</span></code> / <code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code></strong> — scene ingestion runs via
+<code class="docutils literal notranslate"><span class="pre">run_with_progress(app_services,</span> <span class="pre">...)</span></code>, which submits to
+<code class="docutils literal notranslate"><span class="pre">app_services.scheduler.submit_thread(...)</span></code> and registers an Activity Monitor row;
+see the <a class="reference internal" href="system-design.html"><span class="std std-doc">System Design</span></a> page for how scheduler and Activity
+Monitor updates flow end to end.</p></li>
+<li><p><strong>Entry point</strong> — <code class="docutils literal notranslate"><span class="pre">App.show_seamless_mosaic_dialog</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>)
+lazily constructs and caches the dialog, reusing it across open/close.</p></li>
+</ul>
+</section>
+<section id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_controller.py</span></code> — grid math per <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code>, CRS
+resolution/validation, cache invalidation (pure <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, no Qt).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_ingestion.py</span></code> — <code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>,
+<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_dialog.py</span></code> — <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in isolation
+(offscreen Qt), constructed directly from plain lists.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_gui.py</span></code> — end-to-end through the real
+<code class="docutils literal notranslate"><span class="pre">MosaicPane._on_scene_ingested</span></code> path via the <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code> harness; documents
+the auto-lock behavior described above with <code class="docutils literal notranslate"><span class="pre">mock.patch</span></code> on
+<code class="docutils literal notranslate"><span class="pre">wiser.gui.mosaic_pane.ReprojectPromptDialog</span></code> so nothing blocks the test.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_dialog_gui.py</span></code> — dialog shell, Add Scene ingestion flow,
+progress modal.</p></li>
+</ul>
+<p>GUI tests use <code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.functional</span></code>/<code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.smoke</span></code> with the
+<code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code> harness (<code class="docutils literal notranslate"><span class="pre">src/test_utils/test_model.py</span></code>), not pytest-qt/qtbot. Run
+with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFORM=offscreen</span></code> and <code class="docutils literal notranslate"><span class="pre">PYTHONPATH=src</span></code>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="crs-creator-internals.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">CRS Creator Internals</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../contributing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Contributing to WISER</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#entry-point-and-dialog-lifecycle">Entry Point and Dialog Lifecycle</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scene-ingestion-pipeline">Scene Ingestion Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-validate-scene-mosaic-ingestion-py">Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overviews-build-overviews-mosaic-ingestion-py">Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py">Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-reporting">Progress reporting</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-common-grid-and-crs-resolution">The Common Grid and CRS Resolution</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resolution-modes-resolutionmode">Resolution modes (<code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-resolution-and-the-auto-lock-behavior">CRS resolution and the auto-lock behavior</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removal-and-visibility-changes">Removal and visibility changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-controller-helpers">Other controller helpers</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
