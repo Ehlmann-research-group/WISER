@@ -131,6 +131,16 @@ class MosaicController:
         self._target_crs_wkt: Optional[str] = None
         # User-specified pixel size (xres, yres) in target-CRS units for CUSTOM mode.
         self._custom_resolution: Optional[Tuple[float, float]] = None
+        # GDAL resampling algorithm (a gdal.GRA_* constant) used when warping scenes
+        # onto the target grid for both preview (#637) and export (#639). Defaults to
+        # nearest-neighbour, which preserves pixel values.
+        self._resample_alg: int = gdal.GRA_NearestNeighbour
+        # Which scene supplies the canonical band metadata (wavelengths / names) stamped
+        # on the exported output (#638/#639). Stored as a MosaicScene reference (stable
+        # across reorder/remove); None means "default to the top visible scene". This is
+        # metadata/labeling only -- it never changes the output band count, which the
+        # ingestion band-count gate keeps uniform across scenes.
+        self._band_metadata_source: Optional[MosaicScene] = None
         self._common_grid: CommonGrid = CommonGrid()
         # Whether _common_grid needs recomputation. Any change to the scene list,
         # z-order, resolution mode, custom resolution, or target CRS flips this.
@@ -203,6 +213,41 @@ class MosaicController:
 
     def get_custom_resolution(self) -> Optional[Tuple[float, float]]:
         return self._custom_resolution
+
+    # -- resampling / band metadata (output-content, not grid geometry) --------
+    #
+    # Neither of these affects the common grid's geometry, so they deliberately do
+    # *not* call _invalidate_grid(). Resampling changes rendered/exported pixel
+    # values; the band-metadata source only relabels the output.
+
+    def set_resample_alg(self, alg: int) -> None:
+        """Set the GDAL resampling algorithm (a ``gdal.GRA_*`` constant)."""
+        self._resample_alg = alg
+
+    def get_resample_alg(self) -> int:
+        return self._resample_alg
+
+    def set_band_metadata_source(self, scene: Optional[MosaicScene]) -> None:
+        """
+        Choose which scene's band metadata (wavelengths / names) becomes the canonical
+        metadata stamped on the exported output. ``None`` restores the default (the top
+        visible scene). Metadata/labeling only -- never changes the output band count.
+        """
+        self._band_metadata_source = scene
+
+    def get_band_metadata_source(self) -> Optional[MosaicScene]:
+        """
+        Return the **effective** canonical band-metadata source scene.
+
+        The explicitly chosen scene if it is still present and visible; otherwise the
+        top visible scene (last visible index), so the choice degrades gracefully when
+        the chosen scene is removed or hidden. ``None`` only when no scene is visible.
+        """
+        chosen = self._band_metadata_source
+        if chosen is not None and chosen in self._scenes and chosen.visible:
+            return chosen
+        visible = self._visible_scenes()
+        return visible[-1] if visible else None
 
     def set_target_crs(self, crs_wkt: Optional[str]) -> None:
         """Set the target CRS (WKT) that all scenes are placed onto."""
