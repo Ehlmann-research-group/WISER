@@ -18,8 +18,9 @@ Later issues fill in the two layers, both drawn through the seams stubbed here:
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
+import numpy as np
 from osgeo import ogr
 
 from PySide6.QtCore import *
@@ -29,9 +30,9 @@ from PySide6.QtWidgets import *
 from .app_state import ApplicationState
 from .util import get_painter
 
+from wiser.raster.mosaic_compositor import render_scene_argb
 from wiser.raster.mosaic_controller import (
     MosaicController,
-    MosaicScene,
     compute_union_overlaps,
 )
 
@@ -177,8 +178,23 @@ class MosaicView(QWidget):
         self._controller = controller if controller is not None else MosaicController()
         self._mosaicpane = mosaicpane
 
-        # Pixel layer (#637): the composited, screen-resolution mosaic image.
+        # Pixel layer (#637): the composited, screen-resolution mosaic image plus the
+        # per-scene ARGB caches it is stacked from.
+        #
+        # _scene_layers holds one ARGB QImage per visible scene (keyed by id(scene)) at
+        # the *current viewport* — the render signature below. Any pan/zoom changes the
+        # signature and re-reads every layer; the cache's payoff is that a z-order
+        # reorder or visibility toggle at a fixed viewport is a pure restack with no
+        # GDAL reads. _read_scene_ids records which scenes were visible at the last read
+        # so a restack can tell "legitimately not cached (non-intersecting)" from
+        # "was hidden, needs a read to reveal".
         self._composite_pixmap: Optional[QPixmap] = None
+        self._composite_world_extent: Optional[Tuple[float, float, float, float]] = None
+        # Below, int is the id() of a MosaicScene in the current viewport
+        self._scene_layers: Dict[int, QImage] = {}
+        self._read_scene_ids: Set[int] = set()
+        self._render_signature: Optional[Tuple[float, float, float, int, int]] = None
+        self._pixels_dirty = True
 
         # Camera for the QGIS-style unbounded canvas (#636). The view frames the
         # mosaic extent once, the first time a grid is available (see paintEvent);
@@ -250,6 +266,121 @@ class MosaicView(QWidget):
             self._footprint_paths = []
             self._hidden_paths = []
 
+    # -- pixel layer cache (#637) ---------------------------------------------
+
+    def invalidate_pixels(self) -> None:
+        """
+        Mark the per-scene pixel cache stale (a GDAL re-read is required) and repaint.
+
+        Called after a controller change that alters *which pixels* to read — a scene
+        added/removed or a target-CRS change. The rebuild runs lazily in
+        :meth:`paintEvent`. Distinct from :meth:`recomposite_only`, which restacks the
+        existing cache without any reads.
+        """
+        self._pixels_dirty = True
+        self.update()
+
+    def recomposite_only(self) -> None:
+        """
+        Restack the cached per-scene layers with **no GDAL reads** and repaint.
+
+        This is the fast path for a z-order reorder or a visibility toggle at a fixed
+        viewport: the cached layers are still valid, only their stacking order or
+        which ones are drawn changes. Falls back to :meth:`invalidate_pixels` when a
+        now-visible scene has no cached layer because it was hidden at the last read
+        (revealing it genuinely needs a read); a visible scene that is merely off-view
+        was still *considered* at the last read, so it stays on the no-read path.
+        """
+        visible_ids = {id(s) for s in self._controller.get_scenes() if s.visible}
+        if not visible_ids.issubset(self._read_scene_ids):
+            self.invalidate_pixels()
+            return
+        self._recomposite()
+        self.update()
+
+    def _visible_world_extent(self) -> Tuple[float, float, float, float]:
+        """The camera's visible rectangle as ``(min_x, min_y, max_x, max_y)`` in world."""
+        size = self.size()
+        tl = self._transform.screen_to_world(QPointF(0.0, 0.0), size)
+        br = self._transform.screen_to_world(QPointF(self.width(), self.height()), size)
+        # screen y-down => tl is the top (max world y), br the bottom (min world y).
+        return (tl.x(), br.y(), br.x(), tl.y())
+
+    @staticmethod
+    def _envelope_intersects(geom: ogr.Geometry, extent: Tuple[float, float, float, float]) -> bool:
+        """Cheap AABB test: does a footprint's envelope overlap the visible rect?"""
+        gmin_x, gmax_x, gmin_y, gmax_y = geom.GetEnvelope()
+        emin_x, emin_y, emax_x, emax_y = extent
+        return not (gmax_x < emin_x or gmin_x > emax_x or gmax_y < emin_y or gmin_y > emax_y)
+
+    def _numpy_to_argb_qimage(self, rgba: np.ndarray) -> QImage:
+        """
+        Wrap an ``(H, W, 4)`` uint8 RGBA array as a ``QImage.Format_ARGB32``.
+
+        ``Format_ARGB32`` packs each pixel as a native-endian ``0xAARRGGBB`` uint32,
+        so the channels are shifted into place (the alpha-aware analog of
+        ``rasterview.make_rgb_image``, which forces opaque alpha). ``.copy()`` detaches
+        the result from the transient NumPy buffer so it owns its own pixels.
+        """
+        h, w = rgba.shape[:2]
+        a = rgba[:, :, 3].astype(np.uint32)
+        r = rgba[:, :, 0].astype(np.uint32)
+        g = rgba[:, :, 1].astype(np.uint32)
+        b = rgba[:, :, 2].astype(np.uint32)
+        argb = np.ascontiguousarray((a << 24) | (r << 16) | (g << 8) | b, dtype=np.uint32)
+        return QImage(argb.data, w, h, QImage.Format_ARGB32).copy()
+
+    def _rebuild_scene_layers(self) -> None:
+        """
+        Re-read every visible, in-view scene into the per-scene ARGB cache at the
+        current viewport. This is the **only** path that touches GDAL.
+
+        The cache is rebuilt wholesale (stale layers, including hidden scenes' layers
+        from a prior viewport, are dropped) so it always corresponds to the current
+        render signature. Off-thread/debounced execution is layered on in #637 step 3;
+        here it runs synchronously from :meth:`paintEvent`.
+        """
+        self._scene_layers = {}
+        self._read_scene_ids = set()
+        self._composite_world_extent = None
+
+        target_wkt = self._controller.get_target_crs()
+        w, h = self.width(), self.height()
+        if target_wkt is None or w <= 1 or h <= 1:
+            return
+
+        world_extent = self._visible_world_extent()
+        self._composite_world_extent = world_extent
+        try:
+            footprints = self._controller.visible_scene_footprints_in_common_crs()
+        except Exception:  # noqa: BLE001 — never let a repaint raise
+            logger.exception("Failed to resolve mosaic scene footprints")
+            return
+
+        for scene, geom in footprints:
+            self._read_scene_ids.add(id(scene))
+            if not self._envelope_intersects(geom, world_extent):
+                continue
+            try:
+                rgba = render_scene_argb(scene, target_wkt, world_extent, w, h)
+                self._scene_layers[id(scene)] = self._numpy_to_argb_qimage(rgba)
+            except Exception:  # noqa: BLE001 — a bad scene must not break the paint
+                logger.exception("Failed to render mosaic scene layer")
+
+    def _recomposite(self) -> None:
+        """
+        Stack the cached per-scene layers bottom-to-top into ``_composite_pixmap``.
+
+        Walks the controller's bottom-to-top scene order and takes each visible
+        scene's cached layer (``None`` for hidden scenes or scenes with no cached
+        layer), so z-order and visibility are honored here purely from the cache — no
+        reads. ``_composite_world_extent`` is left as the last read set it.
+        """
+        scenes = self._controller.get_scenes()
+        layers = [self._scene_layers.get(id(s)) if s.visible else None for s in scenes]
+        result = self.composite(layers)
+        self._composite_pixmap = QPixmap.fromImage(result) if result is not None else None
+
     # -- pan / zoom -----------------------------------------------------------
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 (Qt override)
@@ -279,16 +410,33 @@ class MosaicView(QWidget):
             self._pan_anchor = None
             event.accept()
 
-    def composite(self, layers: List[MosaicScene], order: List[int]) -> Optional[QImage]:
+    def composite(self, layers: List[Optional[QImage]]) -> Optional[QImage]:
         """
-        Composite per-scene layers into a single image, bottom-to-top by ``order``.
+        Stack per-scene ARGB ``layers`` bottom-to-top into one image.
 
-        This is the single indirection point for the pixel layer: today it is a stub;
-        #637 stacks ARGB layers by alpha in z-order, and deferred work (seamlines,
-        feathering) reimplements only this method's internals without touching callers.
+        ``layers`` is already in render order — index 0 is the bottom scene, the last
+        index the top — with ``None`` for scenes that are hidden or have no cached
+        layer, so the z-order is encoded in the list itself. Layers are painted in
+        order with the default ``SourceOver`` compositing, so each layer's alpha lets
+        lower scenes show through its nodata holes. Returns ``None`` when nothing is
+        drawable.
+
+        This is the single indirection point for the pixel layer: deferred work
+        (seamlines, feathering) reimplements only this method's internals — stacking by
+        territory mask instead of raw z-order — without touching callers.
         """
-        # TODO(#637): build/stack per-scene ARGB caches (alpha = validity) in z-order.
-        return None
+        images = [im for im in layers if im is not None]
+        if not images:
+            return None
+        width = max(im.width() for im in images)
+        height = max(im.height() for im in images)
+        result = QImage(width, height, QImage.Format_ARGB32)
+        result.fill(Qt.transparent)
+        painter = QPainter(result)
+        for im in images:  # bottom-to-top; later draws land on top
+            painter.drawImage(0, 0, im)
+        painter.end()
+        return result
 
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 (Qt override)
         # Initial fit: frame the mosaic extent the first time a grid is available
@@ -311,12 +459,35 @@ class MosaicView(QWidget):
             self._rebuild_overlay_geometry()
             self._geometry_dirty = False
 
+        # Pixel layer: re-read per-scene layers when the viewport (render signature)
+        # changed or the cache was explicitly invalidated, then restack. In step 3 the
+        # read becomes off-thread + debounced; here it is synchronous.
+        signature = (
+            self._transform.center_x,
+            self._transform.center_y,
+            self._transform.world_units_per_pixel,
+            self.width(),
+            self.height(),
+        )
+        if self._pixels_dirty or self._render_signature != signature:
+            self._rebuild_scene_layers()
+            self._recomposite()
+            self._render_signature = signature
+            self._pixels_dirty = False
+
         with get_painter(self) as painter:
             painter.fillRect(self.rect(), self.palette().window())
 
             # --- Layer 1: pixel layer (#637) -------------------------------------
-            # TODO(#637): draw self._composite_pixmap (the composited mosaic) here,
-            # scaled by the world->screen affine.
+            # Draw the composited pixmap mapped by the world->screen affine, so an
+            # interim pan/zoom simply scales the last composite until the next rebuild.
+            if self._composite_pixmap is not None and self._composite_world_extent is not None:
+                painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+                min_x, min_y, max_x, max_y = self._composite_world_extent
+                target_rect = self._transform.world_to_screen(self.size()).mapRect(
+                    QRectF(min_x, min_y, max_x - min_x, max_y - min_y)
+                )
+                painter.drawPixmap(target_rect, self._composite_pixmap, QRectF(self._composite_pixmap.rect()))
 
             # --- Layer 2: vector overlay (#636) ----------------------------------
             painter.setRenderHint(QPainter.Antialiasing, True)
