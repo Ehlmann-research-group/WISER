@@ -175,11 +175,17 @@ class MosaicPane(QWidget):
 
         self._scene_list = QListWidget(group)
         self._scene_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        # Drag-to-reorder == z-order: dropping a row to a new position restacks the
+        # scenes (top of the list = top scene). The move is applied to the controller
+        # in _on_scene_rows_moved; the widget's own reorder is then overwritten by the
+        # authoritative rebuild in _refresh_scene_list.
+        self._scene_list.setDragDropMode(QAbstractItemView.InternalMove)
         self._scene_list.setToolTip(
-            self.tr("Scenes in top-to-bottom stacking order. Uncheck to hide a scene.")
+            self.tr("Drag to reorder (top = top of the stack). Uncheck to hide a scene.")
         )
         self._scene_list.itemSelectionChanged.connect(self._on_scene_selection_changed)
         self._scene_list.itemChanged.connect(self._on_scene_item_changed)
+        self._scene_list.model().rowsMoved.connect(self._on_scene_rows_moved)
         layout.addWidget(self._scene_list)
 
         self._remove_scene_button = QPushButton(self.tr("Remove Selected"), group)
@@ -288,7 +294,9 @@ class MosaicPane(QWidget):
             name, crs_display = summary[index]
             item = QListWidgetItem(f"{name}   ·   {crs_display}")
             item.setData(Qt.UserRole, index)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            # Checkable + draggable, but not a drop target itself, so a dragged row
+            # lands *between* rows (reorder) rather than "onto" another row.
+            item.setFlags((item.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsDropEnabled)
             item.setCheckState(Qt.Checked if scenes[index].visible else Qt.Unchecked)
             self._scene_list.addItem(item)
             if index == previous:
@@ -313,6 +321,36 @@ class MosaicPane(QWidget):
         self._mosaic_view.invalidate_overlay()
         # Visibility is a restack at the same viewport — no GDAL reads (recompose only
         # falls back to a read if a revealed scene was never cached at this viewport).
+        self._mosaic_view.recomposite_only()
+
+    def _on_scene_rows_moved(self, parent, start, end, destination, row) -> None:
+        """
+        Drag-to-reorder handler: translate the visual move into a controller z-order
+        move and restack.
+
+        The list is shown top-first while the controller stores scenes bottom-to-top,
+        so a visual row ``v`` maps to controller index ``n - 1 - v``. Qt's ``row``
+        (the destination) is indexed *before* the dragged row is removed, so it is
+        shifted down by one when a row moves downward. A reorder is a pure restack (no
+        GDAL reads), mirroring the visibility toggle's invalidation path.
+        """
+        count = self._controller.scene_count()
+        if count < 2:
+            return
+        src_visual = start
+        dst_visual = row - 1 if row > src_visual else row
+        if dst_visual == src_visual:
+            return  # dropped back onto its own position — no move
+        from_index = (count - 1) - src_visual
+        to_index = (count - 1) - dst_visual
+        self._controller.move_scene(from_index, to_index)
+        # Reorder can change the top scene, so the TOP resolution mode's grid may shift;
+        # rebuild quietly (z-order never changes the CRS constraint, so no prompt).
+        self._rebuild_grid_quietly()
+        # Re-sync the now-stale Qt.UserRole indices after Qt's own reorder. Defer so the
+        # rebuild runs after the drop finishes rather than mid-signal.
+        QTimer.singleShot(0, self._refresh_scene_list)
+        self._mosaic_view.invalidate_overlay()
         self._mosaic_view.recomposite_only()
 
     def _on_remove_scene_clicked(self) -> None:
