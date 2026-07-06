@@ -52,6 +52,7 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its `_im
 | `src/wiser/gui/mosaic_crs_dialog.py` | `ReprojectPromptDialog` — modal target-CRS chooser |
 | `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
 | `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_footprint_wkt` — Qt-free ingestion gates |
+| `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer |
 | `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer`, `materialize_to_tiled_geotiff` — the object-model adapter |
 | `src/wiser/utils/progress.py` | `ProgressReporter` — Qt-free progress plumbing shared with any scheduler task |
 | `src/wiser/gui/progress_task.py` | `run_with_progress` — reusable modal + Activity Monitor bridge for scheduler tasks |
@@ -561,12 +562,14 @@ selected.
 Overlay](#the-geometry-overlay-vector-layer)); the pixel layer beneath it is still a
 stubbed seam with a `TODO` marker, alongside the control-panel and export gaps:
 
-- **Pixel layer (compositing, issue #637)** — `MosaicView.composite(layers, order)` is
-  a stub that returns `None`. The design calls for per-scene ARGB `QImage` caches at
-  screen resolution (alpha = validity, from the GDAL mask band), stacked bottom-to-top
-  by `QPainter` and drawn beneath the vector overlay via the same
-  `MosaicViewTransform` camera; z-order reorders would only re-stack cached layers (no
-  GDAL reads), while pan/zoom would re-read from overviews (debounced).
+- **Pixel layer (compositing, issue #637)** — *in progress.* The Qt-free per-scene
+  renderer exists (`mosaic_compositor.render_scene_argb`: warps a scene onto the visible
+  world window at screen resolution via `gdal.Warp(dstAlpha=True)`, reading from the
+  internal overviews, and returns an RGBA array whose alpha is the validity mask). Still
+  to come: wiring it into `MosaicView` — the per-scene `QImage` cache, the `composite()`
+  stack, drawing beneath the vector overlay via the `MosaicViewTransform` camera, and the
+  off-thread/debounced re-read on pan/zoom. `MosaicView.composite(...)` is still a stub
+  that returns `None`.
 - **Control panel additions (issue #638)** — drag-to-reorder z-order, resampling
   method selector, and a band-metadata chooser are not yet in `MosaicPane`; today's
   panel only has Add Scene, the scene list (visibility toggle + remove), and the
