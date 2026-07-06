@@ -430,6 +430,30 @@ outline (green), the union bounding box (dashed), and the **overlap highlight**
 matches the ENVI reference and is used **purely for on-screen rendering** — it never
 decides which pixel wins (that is z-order in the compositor/export, #637/#639).
 
+```{mermaid}
+flowchart TD
+    A[paintEvent] --> B{grid.extent is None?}
+    B -->|yes, mosaic empty| C["_has_fitted = False<br/>(re-arm the initial fit)"]
+    B -->|no| D{"not _has_fitted and<br/>viewport has real size?"}
+    D -->|yes| E["transform.fit_to_extent(grid.extent)<br/>_has_fitted = True"]
+    D -->|no, already fitted| F
+    C --> F{geometry_dirty?}
+    E --> F
+    F -->|yes| G["_rebuild_overlay_geometry()<br/>geometry_dirty = False"]
+    F -->|no, cache is fresh| H
+    G --> H["painter.setWorldTransform(world_to_screen)"]
+    H --> I["draw pixel layer (stub, #637)"]
+    I --> J["draw bounding box (_bbox_extent)"]
+    J --> K["per scene: clip to hidden_path (if any),<br/>fill + outline in the highlight color"]
+    K --> L["draw all footprint outlines on top"]
+```
+
+The `_has_fitted` re-arm on an empty grid matters in practice: without it, removing
+every scene and then adding a *different* one left the camera parked on the removed
+scene's extent, so the new scene's footprints rendered off-screen (fixed as a
+regression once observed — see the camera-reframe test in
+`test_mosaic_view_gui.py`).
+
 ### The camera: `MosaicViewTransform`
 
 The view is a **QGIS-style unbounded canvas**, not `RasterView`'s
