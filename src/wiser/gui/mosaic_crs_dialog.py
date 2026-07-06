@@ -180,16 +180,14 @@ class ReprojectPromptDialog(QDialog):
             return
 
         srs = osr.SpatialReference()
+        # GDAL exceptions are a process-wide sticky flag: once any code calls
+        # gdal.UseExceptions() (and it's on by default in GDAL 4.0), a failed
+        # lookup raises RuntimeError instead of returning a non-zero code. Guard
+        # against both modes so a bad code always shows the warning below.
         try:
             err = srs.SetFromUserInput(f"{authority}:{code}")
         except RuntimeError:
-            QMessageBox.warning(
-                self,
-                self.tr("CRS Lookup Failed"),
-                self.tr(f"Could not find spatial reference for {authority}:{code}"),
-            )
-            return
-
+            err = 1
         if err != 0:
             QMessageBox.warning(
                 self,

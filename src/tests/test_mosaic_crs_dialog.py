@@ -112,7 +112,7 @@ class TestReprojectPromptDialog(unittest.TestCase):
             dlg._on_add_authority_crs()
 
         warn.assert_called_once()
-        self.assertEqual(dlg._cbox_target.count(), before)  # nothing added
+        self.assertEqual(dlg._cbox_target.count(), before)
 
     def test_accept_with_nothing_selectable_warns_and_stays_open(self):
         dlg = self._make_dialog()
