@@ -24,7 +24,7 @@ from __future__ import annotations
 import enum
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from osgeo import gdal, ogr, osr
 
@@ -322,6 +322,34 @@ class MosaicController:
                 f"({_crs_display_name(target_srs)})."
             )
 
+    # -- geometry overlay (#636) ---------------------------------------------
+
+    def visible_scene_footprints_in_common_crs(
+        self,
+    ) -> List[Tuple[MosaicScene, ogr.Geometry]]:
+        """
+        Return ``(scene, footprint)`` for each visible scene, **bottom-to-top**, with
+        the footprint reprojected into the already-resolved target CRS.
+
+        This is the geometry the vector overlay (#636) draws: outlines, the union
+        bounding box, and — via :func:`compute_union_overlaps` — the overlap
+        highlight. Returns ``[]`` when no target CRS is resolved yet (mirrors
+        :meth:`build_common_grid`'s precondition), so the view treats a not-yet-built
+        mosaic the same as an empty one and draws nothing. Stays Qt-free; the view
+        converts these ``ogr.Geometry`` objects to ``QPainterPath`` itself.
+        """
+        target_wkt = self._target_crs_wkt
+        if target_wkt is None:
+            return []
+        target_srs = _srs_from_wkt(target_wkt)
+        result: List[Tuple[MosaicScene, ogr.Geometry]] = []
+        for scene in self._visible_scenes():
+            src_srs = scene.dataset.get_spatial_ref()
+            if src_srs is None or scene.footprint_wkt is None:
+                continue
+            result.append((scene, reprojected_footprint_geometry(scene, src_srs, target_srs)))
+        return result
+
     # -- common grid ----------------------------------------------------------
 
     def build_common_grid(self) -> CommonGrid:
@@ -438,6 +466,30 @@ def _crs_display_name(srs: Optional[osr.SpatialReference]) -> str:
     return srs.ExportToWkt()
 
 
+def reprojected_footprint_geometry(
+    scene: "MosaicScene",
+    src_srs: osr.SpatialReference,
+    target_srs: osr.SpatialReference,
+) -> ogr.Geometry:
+    """
+    Return the scene's footprint polygon transformed **whole** into ``target_srs``.
+
+    The footprint is the valid-pixel outline (WKT in the scene's own CRS, from
+    #634). This parses a fresh geometry each call and reprojects it in place — the
+    caller owns the returned object. The transform is skipped when the source and
+    target CRS are the same. Both the geometry overlay (#636) and the grid builder's
+    :func:`_footprint_envelope` share this so the reprojection is defined once.
+    """
+    geom = ogr.CreateGeometryFromWkt(scene.footprint_wkt)
+    if geom is None:
+        raise ValueError(f"scene footprint WKT could not be parsed: {scene.footprint_wkt!r}")
+    if not src_srs.IsSame(target_srs):
+        src = src_srs.Clone()
+        src.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        geom.Transform(osr.CoordinateTransformation(src, target_srs))
+    return geom
+
+
 def _footprint_envelope(
     scene: "MosaicScene",
     src_srs: osr.SpatialReference,
@@ -448,15 +500,39 @@ def _footprint_envelope(
     the target CRS. The footprint polygon (valid-pixel outline in the scene's own
     CRS) is reprojected as a whole so the envelope faithfully bounds it.
     """
-    geom = ogr.CreateGeometryFromWkt(scene.footprint_wkt)
-    if geom is None:
-        raise ValueError(f"scene footprint WKT could not be parsed: {scene.footprint_wkt!r}")
-    if not src_srs.IsSame(target_srs):
-        src = src_srs.Clone()
-        src.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        geom.Transform(osr.CoordinateTransformation(src, target_srs))
+    geom = reprojected_footprint_geometry(scene, src_srs, target_srs)
     min_x, max_x, min_y, max_y = geom.GetEnvelope()
     return min_x, min_y, max_x, max_y
+
+
+def compute_union_overlaps(
+    footprints: List[Tuple["MosaicScene", ogr.Geometry]],
+) -> Dict[int, ogr.Geometry]:
+    """
+    Compute each scene's **hidden region** — the part of its footprint covered by
+    any scene above it in z-order.
+
+    ``footprints`` is ``(scene, reprojected footprint)`` in **bottom-to-top** order
+    (the controller's convention). Walking top-to-bottom, a running union of every
+    footprint already visited *is* "everything above" the current scene, so each
+    scene needs exactly one :meth:`ogr.Geometry.Intersection` (gated by a cheap
+    :meth:`Intersects`) plus one :meth:`Union` — ``O(n)`` geometry ops overall, not
+    the ``O(n^2)`` of all-pairs. The topmost scene is never hidden.
+
+    Returns a dict keyed by **index into ``footprints``** (bottom-to-top), present
+    only for scenes with a non-empty hidden region, so the caller can pair each
+    result with parallel per-scene path lists.
+    """
+    hidden: Dict[int, ogr.Geometry] = {}
+    union_above: Optional[ogr.Geometry] = None
+    for i in reversed(range(len(footprints))):  # topmost first
+        footprint = footprints[i][1]
+        if union_above is not None and footprint.Intersects(union_above):
+            overlap = footprint.Intersection(union_above)
+            if overlap is not None and not overlap.IsEmpty():
+                hidden[i] = overlap
+        union_above = footprint.Clone() if union_above is None else union_above.Union(footprint)
+    return hidden
 
 
 def _warped_resolution(scene: "MosaicScene", target_wkt: str) -> Tuple[float, float]:
