@@ -15,7 +15,7 @@ resolution / CRS / resampling selectors, export) still lands in #638. The full
 
 from typing import Optional, TYPE_CHECKING
 
-from osgeo import osr
+from osgeo import gdal, osr
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -134,6 +134,7 @@ class MosaicPane(QWidget):
         self._controls_layout.addWidget(self._build_scene_list_group(), 1)
         self._controls_layout.addWidget(self._build_resolution_group())
         self._controls_layout.addWidget(self._build_target_crs_group())
+        self._controls_layout.addWidget(self._build_resampling_group())
         self._splitter.addWidget(self._controls)
 
         # Give the view the bulk of the width; controls stay a slim side panel.
@@ -248,6 +249,23 @@ class MosaicPane(QWidget):
         self._choose_crs_button = QPushButton(self.tr("Choose Target CRS…"), group)
         self._choose_crs_button.clicked.connect(self._on_choose_target_crs)
         layout.addWidget(self._choose_crs_button)
+        return group
+
+    def _build_resampling_group(self) -> QGroupBox:
+        group = QGroupBox(self.tr("Resampling"), self._controls)
+        layout = QVBoxLayout(group)
+
+        self._resample_combo = QComboBox(group)
+        # userData is the GDAL GRA_* constant passed straight to gdal.Warp.
+        self._resample_combo.addItem(self.tr("Nearest Neighbor"), gdal.GRA_NearestNeighbour)
+        self._resample_combo.addItem(self.tr("Bilinear"), gdal.GRA_Bilinear)
+        self._resample_combo.addItem(self.tr("Cubic Convolution"), gdal.GRA_Cubic)
+        restored = self._resample_combo.findData(self._controller.get_resample_alg())
+        if restored >= 0:
+            self._resample_combo.setCurrentIndex(restored)
+        # Connect after seeding so the initial selection doesn't fire the warning.
+        self._resample_combo.currentIndexChanged.connect(self._on_resample_changed)
+        layout.addWidget(self._resample_combo)
         return group
 
     # -- dataset picker -------------------------------------------------------
@@ -440,6 +458,27 @@ class MosaicPane(QWidget):
             return
         self._controller.set_custom_resolution(self._custom_xres_spin.value(), self._custom_yres_spin.value())
         self._rebuild_grid_quietly()
+
+    # -- resampling -----------------------------------------------------------
+
+    def _on_resample_changed(self, *_args) -> None:
+        alg = self._resample_combo.currentData()
+        # Always warn on a non-Nearest-Neighbor choice: interpolation invents new pixel
+        # values, which distorts quantitative products (there is no product-type
+        # detection — we warn unconditionally).
+        if alg != gdal.GRA_NearestNeighbour:
+            QMessageBox.warning(
+                self,
+                self.tr("Resampling may alter pixel values"),
+                self.tr(
+                    "Non-Nearest-Neighbor resampling interpolates new pixel values, "
+                    "which can distort quantitative data. Use Nearest Neighbor to "
+                    "preserve the original values."
+                ),
+            )
+        self._controller.set_resample_alg(alg)
+        # The warp algorithm changes the rendered pixels, so force a fresh read.
+        self._mosaic_view.invalidate_pixels()
 
     # -- common grid / target CRS ---------------------------------------------
 
