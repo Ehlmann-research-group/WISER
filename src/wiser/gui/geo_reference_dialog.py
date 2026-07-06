@@ -303,6 +303,7 @@ class GeoReferencerDialog(QDialog):
         self._default_color_button: QPushButton = None
 
         self._manual_entry_spacer = None
+        self._manual_entry_shown = False
 
         self._first_init()
 
@@ -428,6 +429,7 @@ class GeoReferencerDialog(QDialog):
         """
         if self._manual_entry_spacer is None:
             self._manual_entry_spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self._manual_entry_shown = show_manual_chooser
         if show_manual_chooser:
             # We want to make sure the manual chooser is being shown
             self._ui.widget_manual_entry.show()
@@ -1823,7 +1825,7 @@ class GeoReferencerDialog(QDialog):
         ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
         if ref_ds is not None:
             return ref_ds.get_spatial_ref()
-        elif self._ui.widget_manual_entry.isVisible():
+        elif self._manual_entry_shown:
             return self._get_manual_ref_chosen_crs()
         else:
             raise RuntimeError("Both the dataset shown is none and the manual entry widget is None")
