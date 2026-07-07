@@ -82,7 +82,7 @@ Var SkipDirectoryPage
 
   ; Good.  Now we can carry on writing the real installer.
 
-  OutFile "Install-${APP_DIRNAME}.exe"
+  OutFile "WISER-${WISER_VERSION}-windows-x64-setup.exe"
   ; SetCompressor /SOLID lzma
 !endif
 
