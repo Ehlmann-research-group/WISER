@@ -152,6 +152,10 @@ def stretch_from_pyrep(data: Dict[str, Any]) -> Optional[Any]:
     bound, a missing field) is dropped rather than raised so one bad stretch
     cannot abort opening the project.
     """
+    if not isinstance(data, dict):
+        # A null or non-dict entry (e.g. ``{"stretch": null}`` from a hand-edited
+        # manifest) is dropped rather than dereferenced.
+        return None
     tag = data.get("type")
     try:
         if tag == TAG_COMPOSITE:
@@ -172,7 +176,9 @@ def stretch_from_pyrep(data: Dict[str, Any]) -> Optional[Any]:
             return StretchLog2()
         if tag == TAG_NONE:
             return StretchBase()
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, IndexError):
+        # IndexError guards an empty equalize CDF/edges (``cdf[-1]`` in the
+        # stretch constructor); the rest guard malformed scalar fields.
         return None
     return None
 

@@ -197,3 +197,17 @@ def test_malformed_stretch_dropped_not_fatal():
     dropped = load_stretches(manifest, dst)
     assert len(dropped) == 2
     assert dst.get_all_stretches() == {}
+
+
+def test_null_and_empty_stretch_entries_dropped_not_fatal():
+    manifest = {
+        "stretches": [
+            {"dataset_id": 1, "band_index": 0, "stretch": None},
+            {"dataset_id": 1, "band_index": 1, "stretch": {"type": "equalize", "cdf": [], "histo_edges": []}},
+        ]
+    }
+    dst = _FakeAppState()
+    dst.add_dataset(1)
+    dropped = load_stretches(manifest, dst)
+    assert len(dropped) == 2
+    assert dst.get_all_stretches() == {}
