@@ -22,6 +22,7 @@ from wiser.project.persisters.libraries import (
     load_libraries,
     save_libraries,
 )
+from wiser.project.persisters.spectra import KIND_NUMPY
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import NumPyArraySpectrum
@@ -131,6 +132,31 @@ def test_reference_library_dropped_when_file_missing():
     dropped = load_libraries(manifest, dst)
     assert len(dropped) == 1
     assert dst.get_spectral_libraries() == []
+
+
+def test_inline_library_reports_unrestorable_member():
+    # A member that cannot be restored is dropped from the library AND reported,
+    # never silently lost; the good members still restore.
+    manifest = {
+        "libraries": [
+            {
+                "storage": STORAGE_INLINE,
+                "name": "partial",
+                "description": "",
+                "path": None,
+                "spectra": [
+                    {"kind": KIND_NUMPY, "values": [0.1, 0.2, 0.3], "name": "good"},
+                    {"kind": KIND_NUMPY, "name": "corrupt"},
+                ],
+            }
+        ]
+    }
+    dst = _FakeAppState()
+    dropped = load_libraries(manifest, dst)
+    (restored,) = dst.get_spectral_libraries()
+    assert restored.num_spectra() == 1
+    assert restored.get_spectrum_name(0) == "good"
+    assert dropped == [{"kind": KIND_NUMPY, "name": "corrupt"}]
 
 
 def test_unknown_storage_kind_dropped():

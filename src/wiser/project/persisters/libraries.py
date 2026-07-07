@@ -16,13 +16,16 @@ be re-opened as a library -- so path presence is not the right signal):
   ``.hdr`` path and is re-opened from it on load (a large standard library such
   as the USGS mineral library never enters the bundle).  A path that has since
   moved drops the library, matching file-backed datasets.
-* ``inline`` -- an in-memory :class:`ListSpectralLibrary` snapshots every member
-  spectrum into the manifest; the members are self-contained ``NumPyArraySpectrum``
-  values, so the restored library is fully self-contained.
+* ``inline`` -- an in-memory :class:`ListSpectralLibrary` writes each member
+  spectrum into the manifest by the same per-member rule as #620 (faithful when
+  its dataset is saved, a ``NumPyArraySpectrum`` snapshot when its dataset is
+  cut).  Library members are self-contained ``NumPyArraySpectrum`` values in
+  practice, so a restored inline library is normally fully self-contained; a
+  member that still cannot be restored is dropped and reported, never silently.
 """
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
@@ -61,18 +64,20 @@ def load_libraries(manifest: Dict[str, Any], app_state: "ApplicationState") -> L
     """Reconstruct spectral libraries from the manifest into ``app_state``.
 
     Runs after datasets (#618) so dataset-backed members (if any) resolve.
-    Returns the entries that could not be restored -- an ENVI library whose file
-    is absent, or an unknown ``storage`` kind -- so the caller can warn without
-    aborting the load.  Libraries are leaf state referenced by nothing else, so
-    each is registered with a fresh id.
+    Returns the entries that could not be restored -- a whole library (an ENVI
+    file that is absent, or an unknown ``storage`` kind) or an individual inline
+    member spectrum -- so the caller can warn without aborting the load, and no
+    dropped member is lost silently.  Libraries are leaf state referenced by
+    nothing else, so each is registered with a fresh id.
     """
     dropped: List[Dict[str, Any]] = []
     for entry in manifest.get("libraries", []):
-        library = library_from_pyrep(entry, app_state)
+        library, dropped_members = library_from_pyrep(entry, app_state)
         if library is None:
             dropped.append(entry)
             continue
         app_state.add_spectral_library(library)
+        dropped.extend(dropped_members)
     return dropped
 
 
@@ -101,14 +106,22 @@ def library_to_pyrep(library: SpectralLibrary, resolver: DependencyResolver) -> 
     }
 
 
-def library_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationState") -> Optional[SpectralLibrary]:
-    """Reconstruct one library, or ``None`` if it cannot be restored."""
+def library_from_pyrep(
+    entry: Dict[str, Any], app_state: "ApplicationState"
+) -> Tuple[Optional[SpectralLibrary], List[Dict[str, Any]]]:
+    """Reconstruct one library and any inline members that could not be restored.
+
+    Returns ``(library, dropped_members)``.  ``library`` is ``None`` when the
+    library itself is unrestorable (a moved ENVI file, an unknown ``storage``
+    kind); ``dropped_members`` lists inline member spectra dropped from an
+    otherwise-restored library, so the loss is reported rather than silent.
+    """
     storage = entry.get("storage")
     if storage == STORAGE_REFERENCE:
-        return _reference_library(entry)
+        return _reference_library(entry), []
     if storage == STORAGE_INLINE:
         return _inline_library(entry, app_state)
-    return None
+    return None, []
 
 
 def _reference_library(entry: Dict[str, Any]) -> Optional[SpectralLibrary]:
@@ -121,15 +134,21 @@ def _reference_library(entry: Dict[str, Any]) -> Optional[SpectralLibrary]:
         return None
 
 
-def _inline_library(entry: Dict[str, Any], app_state: "ApplicationState") -> SpectralLibrary:
+def _inline_library(
+    entry: Dict[str, Any], app_state: "ApplicationState"
+) -> Tuple[SpectralLibrary, List[Dict[str, Any]]]:
     members = []
+    dropped_members: List[Dict[str, Any]] = []
     for spectrum_entry in entry.get("spectra", []):
         spectrum = spectrum_from_pyrep(spectrum_entry, app_state)
-        if spectrum is not None:
+        if spectrum is None:
+            dropped_members.append(spectrum_entry)
+        else:
             members.append(spectrum)
-    return ListSpectralLibrary(
+    library = ListSpectralLibrary(
         members,
         name=entry.get("name"),
         path=entry.get("path"),
         description=entry.get("description"),
     )
+    return library, dropped_members
