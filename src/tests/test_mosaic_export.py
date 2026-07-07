@@ -200,6 +200,44 @@ def test_band_count_and_metadata_round_trip(tmp_path: Path) -> None:
     assert [b.get("wavelength_str") for b in reloaded.band_list()] == ["450.0", "550.0", "650.0"]
 
 
+def test_out_of_range_default_bands_are_dropped(tmp_path: Path) -> None:
+    # A canonical source can carry default display bands that are out of range for the
+    # band count (e.g. 1-based metadata inherited from a foreign ENVI). WISER's
+    # find_display_bands does no bounds check, so an out-of-range value written to the
+    # export header would crash the raster view on open. The export must drop it.
+    band_source = make_numpy_scene(
+        origin=ORIGIN_A,
+        base_value=0.0,
+        wavelengths=[450.0, 550.0, 650.0],
+        wavelength_units="nm",
+        default_display_bands=[3, 2, 1],  # index 3 is invalid for a 3-band scene
+    )
+    scene_a = _materialized_scene(band_source, tmp_path, "a")
+    scene_b = _materialized_scene(make_numpy_scene(origin=ORIGIN_B, base_value=1000.0), tmp_path, "b")
+    out = tmp_path / "mosaic.img"
+
+    export_mosaic(
+        [scene_a, scene_b],
+        _union_grid(),
+        wkt_for_epsg(EPSG),
+        gdal.GRA_NearestNeighbour,
+        NODATA,
+        band_source,
+        out,
+    )
+
+    from wiser.raster.dataset import find_display_bands
+
+    loader = RasterDataLoader()
+    reloaded = loader.load_from_file(path=str(out), data_cache=None)[0]
+
+    # The invalid default was dropped; whatever the view resolves is in range (no crash).
+    stored = reloaded.default_display_bands()
+    if stored is not None:
+        assert all(0 <= int(b) < reloaded.num_bands() for b in stored)
+    assert all(0 <= int(b) < reloaded.num_bands() for b in find_display_bands(reloaded))
+
+
 def test_empty_scene_list_raises(tmp_path: Path) -> None:
     with pytest.raises(MosaicExportError):
         export_mosaic(
