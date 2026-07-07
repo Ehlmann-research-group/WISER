@@ -8,10 +8,11 @@ intended for developers reading, debugging, or extending the tool.
 This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
 materialization, common-grid/CRS resolution, the **vector overlay** (footprints,
 bounding box, overlap highlight), the **static-scene pixel compositor** (the composited
-preview, with an off-thread debounced per-scene cache), and the **control panel**
+preview, with an off-thread debounced per-scene cache), the **control panel**
 (drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
-chooser) are implemented and wired into the GUI. The one remaining gap is export — see
-[What Isn't Built Yet](#what-isnt-built-yet).
+chooser), and the **full-resolution export path** (streaming ENVI compositor on the
+common grid — see [The Export Path](#the-export-path)) are implemented and wired into
+the GUI.
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -57,6 +58,7 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its `_im
 | `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
 | `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_footprint_wkt` — Qt-free ingestion gates |
 | `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer |
+| `src/wiser/raster/mosaic_export.py` | `export_mosaic` — warps each scene onto the common grid and streams the mosaic to ENVI |
 | `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer`, `materialize_to_tiled_geotiff` — the object-model adapter |
 | `src/wiser/utils/progress.py` | `ProgressReporter` — Qt-free progress plumbing shared with any scheduler task |
 | `src/wiser/gui/progress_task.py` | `run_with_progress` — reusable modal + Activity Monitor bridge for scheduler tasks |
@@ -690,8 +692,8 @@ the output geometry changes:
   or the chosen scene is removed/hidden. Neither this nor the resampling method invalidates
   the grid (both are output-content, not grid geometry).
 
-- **Export / Finish** is present but **disabled** until the export path (#639) lands; the
-  v1 preview toggle is intentionally deferred.
+- **Export / Finish** runs the full-resolution export path (see [The Export
+  Path](#the-export-path)); the v1 preview toggle is intentionally deferred.
 
 `ResolutionMode` change, band-metadata selection, resampling warning, and
 reorder-without-reads are covered by `src/tests/test_mosaic_pane_gui.py`, with the
@@ -700,22 +702,85 @@ in `src/tests/test_mosaic_controller.py`.
 
 ---
 
-## What Isn't Built Yet
+## The Export Path
 
-`MosaicView.paintEvent` draws both layers — the pixel compositor (#637, see [The Pixel
-Layer](#the-pixel-layer-static-scene-compositor)) beneath the vector overlay (#636, see
-[The Geometry Overlay](#the-geometry-overlay-vector-layer)) — and the control panel
-(#638, see [The Control Panel](#the-control-panel)) exposes the model's handles. The one
-remaining gap is export:
+**Files:** `src/wiser/raster/mosaic_export.py` (Qt-free) and the
+`_on_export_clicked` / `_export_mosaic_task` handlers in `src/wiser/gui/mosaic_pane.py`
+(issue #639).
 
-- **Export (issue #639)** — writing the mosaic via `gdal raster mosaic` (or the
-  GDAL < 3.11 `BuildVRT`/`Translate` fallback), ordered by z-order, resolved against
-  the common grid, and loaded back into WISER as a new dataset. It will consume the
-  control panel's canonical band-metadata source and resampling method, and the common
-  grid's resolution/CRS.
+Export is the "Finish" half of the mosaic: where the pixel layer renders a
+screen-resolution *preview* per scene, export runs **once** at full resolution and writes
+a real, value-preserving raster to disk. It composites the visible scenes by **z-order +
+per-source nodata** (last valid source wins, never blends) onto the resolved common grid,
+and streams the result block-by-block so a mosaic larger than RAM is never buffered whole.
+It consumes the same `MosaicController` state as everything above — no new ingestion or
+CRS logic.
 
-Export does not affect the ingestion/CRS-resolution logic documented above — it consumes
-the same `MosaicController` state.
+### The compositor (`export_mosaic`, Qt-free)
+
+`export_mosaic(scenes, grid, target_wkt, resample_alg, output_nodata,
+band_metadata_dataset, out_path, progress)` is two GDAL stages, both lazy until the final
+streamed write:
+
+1. **Warp each visible scene onto the common grid as a warped VRT**
+   (`_warp_scene_to_grid_vrt`). `gdal raster mosaic` does **not** reproject, so this
+   per-scene `gdal.Warp(..., format="VRT")` is what applies the CRS transform + resample +
+   grid alignment — mirroring the preview warp in `render_scene_argb`, but keeping the raw
+   band values (no percentile stretch, no `dstAlpha`). Each scene's Data Ignore Value
+   becomes the warp `srcNodata` and `output_nodata` becomes the `dstNodata`, so invalid /
+   outside-footprint pixels are marked for the compositor. VRTs are lazy — no pixels are
+   materialized here. A scene whose window is disjoint from the grid warps to `None` and
+   is simply skipped.
+
+2. **Composite + stream to ENVI** (`_run_raster_mosaic`) via
+   `gdal.Run("raster", "mosaic", input=[...], output=..., output_format="ENVI", ...)`
+   (GDAL ≥ 3.11, guaranteed by #631; the doc's `BuildVRT`/`Translate` fallback is not
+   needed). Inputs are passed **bottom→top** (the top scene last) so the algorithm's
+   "last valid source wins" composites z-order correctly, and it writes ENVI
+   block-by-block, so no full-image buffer is held in RAM. GDAL's own progress callback is
+   forwarded through the `ProgressReporter`.
+
+The VRTs live in a `TemporaryDirectory` scoped around the mosaic call — they are only
+referenced until `gdal.Run` finishes the streamed write, then discarded.
+
+### Band-metadata stamping and the ENVI-header patch
+
+`gdal raster mosaic` writes correct pixels, geotransform, and `map info`, but no spectral
+metadata, so `_patch_envi_band_metadata` reopens the GDAL-written `.hdr` and rewrites it
+with WISER's own ENVI header helpers (`envi.load_envi_header` / `write_envi_header`),
+stamping the canonical band metadata from `controller.get_band_metadata_source()`:
+wavelengths / units, band names, the bad-band list (`bbl`), and the output nodata. This
+keeps the exported file self-describing so it re-opens in WISER with the right spectral
+labels.
+
+One subtlety is called out because it caused a crash-on-open regression:
+
+> **GDAL's ENVI writer stamps a *1-based* `default bands` placeholder** (e.g. `{1, 2, 3}`
+> for RGB inputs). WISER's ENVI reader reads `default bands` **verbatim** — no
+> 1-based→0-based conversion — and `find_display_bands` does **no** bounds check, so
+> leaving that placeholder (or copying an out-of-range source value) makes the exported
+> file raise `GDALDataset::GetRasterBand(4) - Illegal band #` when opened in a raster
+> view. `_resolve_default_bands` therefore always resolves the field explicitly: it keeps
+> the canonical source's default display bands only when every index is in range for the
+> output, and otherwise **clears** it so WISER derives display bands from the stamped
+> wavelengths (truecolor) or the first bands.
+
+The result is **not** loaded back into the running session — export writes the file and
+the user opens it manually via **File → Open** (a deliberate product decision), which is
+why the on-disk header must be fully self-describing.
+
+### GUI wiring and threading
+
+`MosaicPane._on_export_clicked` (GUI thread) requires ≥1 visible scene, resolves the grid
+via `_ensure_common_grid()` (surfacing `TargetCrsRequired`/`UnmappableCrsError` as a
+warning), asks for an output path with `QFileDialog.getSaveFileName`, resolves the output
+nodata (`_resolve_output_nodata`: the band-metadata dataset's Data Ignore Value, else the
+top-most visible scene that has one), snapshots the controller state, and hands the heavy
+work to a scheduler thread via the same `run_with_progress` bridge the ingestion path uses
+(progress modal + Activity Monitor row + cancellation, blocking only the mosaic dialog).
+The module-level worker `_export_mosaic_task` just calls `export_mosaic` and returns the
+written path; `_on_export_finished` shows a confirmation dialog. Like `_ingest_scene`, the
+worker never logs — progress and raised exceptions are its only channels out.
 
 ---
 
@@ -755,6 +820,18 @@ the same `MosaicController` state.
   reads**; a resolution-mode change rebuilds the grid; a band-metadata selection sets the
   canonical source without changing band count; and a non-Nearest-Neighbor resampling
   choice surfaces the warning and invalidates the pixel cache.
+- `src/tests/test_mosaic_export.py` — the Qt-free `export_mosaic` (#639): two overlapping
+  fixtures give the correct z-order winner per pixel (and the reversed order flips it),
+  nodata passthrough (a hole in the top scene reveals the lower one; outside every
+  footprint is the output nodata), Nearest-Neighbor value preservation (exact source
+  values), band count + canonical metadata round-tripped through the written ENVI, and the
+  `default bands` guards (GDAL's 1-based RGB placeholder is cleared; an out-of-range source
+  default is dropped so the file opens without an `Illegal band #` crash).
+- `src/tests/test_mosaic_export_gui.py` — the Export button end to end via `WiserTestModel`:
+  ingest two scenes, patch the save dialog, click Export, and assert the ENVI `.img`/`.hdr`
+  are written on the common grid with nodata carried through while **nothing is loaded back
+  into WISER** (dataset count unchanged); plus the no-scenes guard (informs and never
+  reaches the file picker).
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
   `compute_footprint_wkt`, and progress-reporting behavior.
 - `src/tests/test_mosaic_crs_dialog.py` — `ReprojectPromptDialog` in isolation
