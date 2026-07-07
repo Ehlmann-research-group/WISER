@@ -222,8 +222,7 @@ def _patch_envi_band_metadata(
     hdr_filename, _img_filename = envi.find_envi_filenames(str(out_path))
     metadata = envi.load_envi_header(hdr_filename)
 
-    if band_metadata_dataset is not None:
-        _apply_band_metadata(metadata, band_metadata_dataset)
+    _apply_band_metadata(metadata, band_metadata_dataset)
 
     if output_nodata is not None:
         metadata["data ignore value"] = output_nodata
@@ -231,13 +230,47 @@ def _patch_envi_band_metadata(
     envi.write_envi_header(hdr_filename, metadata)
 
 
-def _apply_band_metadata(metadata: dict, band_metadata_dataset: "RasterDataSet") -> None:
+def _resolve_default_bands(band_metadata_dataset: Optional["RasterDataSet"]) -> Optional[list]:
+    """
+    Choose the ``default bands`` (0-based band indices) to write to the export header,
+    or ``None`` to omit them entirely.
+
+    ``gdal raster mosaic`` writes a **1-based** ``default bands`` placeholder (e.g.
+    ``{1, 2, 3}`` for RGB inputs). WISER reads ``default bands`` verbatim -- it does no
+    1-based->0-based conversion and no bounds check -- so leaving GDAL's placeholder (or
+    stamping an out-of-range source value) makes the exported file crash the raster view
+    on open (``Illegal band #``). We therefore keep the canonical source's default
+    display bands only when every index is in range for the output, and otherwise clear
+    the field so WISER derives display bands from the stamped wavelengths (truecolor) or
+    the first bands.
+    """
+    if band_metadata_dataset is None:
+        return None
+    defaults = band_metadata_dataset.default_display_bands()
+    num_bands = band_metadata_dataset.num_bands()
+    if defaults and all(0 <= int(band) < num_bands for band in defaults):
+        return list(defaults)
+    return None
+
+
+def _apply_band_metadata(metadata: dict, band_metadata_dataset: Optional["RasterDataSet"]) -> None:
     """
     Merge the canonical band metadata from ``band_metadata_dataset`` into an ENVI
     header ``metadata`` dict, mirroring the per-band conventions of
-    :meth:`ENVI_GDALRasterDataImpl.save_dataset_as` (band names, wavelength /
-    wavelength units, ``bbl``, default display bands).
+    :meth:`ENVI_GDALRasterDataImpl.save_dataset_as` (default display bands, band names,
+    wavelength / wavelength units, ``bbl``).
+
+    ``band_metadata_dataset`` may be ``None`` (no canonical source); even then the
+    ``default bands`` field is resolved -- see below -- so this is always called.
     """
+    # Always resolve `default bands` explicitly (see _resolve_default_bands): GDAL's
+    # ENVI writer stamps a 1-based placeholder that WISER cannot read, so it must be
+    # replaced or cleared here regardless of whether we have a band-metadata source.
+    metadata["default bands"] = _resolve_default_bands(band_metadata_dataset)
+
+    if band_metadata_dataset is None:
+        return
+
     band_info = band_metadata_dataset.band_list()
     num_bands = band_metadata_dataset.num_bands()
 
@@ -267,16 +300,3 @@ def _apply_band_metadata(metadata: dict, band_metadata_dataset: "RasterDataSet")
     bad_bands = band_metadata_dataset.get_bad_bands()
     if bad_bands and 0 in bad_bands:
         metadata["bbl"] = list(bad_bands)
-
-    # Default display bands are 0-based band indices. Only stamp them when every index
-    # is in range for the output: a source scene can carry out-of-range defaults (e.g.
-    # 1-based metadata inherited from a foreign ENVI, which WISER stores un-converted),
-    # and WISER's find_display_bands does no bounds check, so writing an out-of-range
-    # value would make the exported file crash on open. When we can't stamp a valid set,
-    # clear the field (overriding any placeholder GDAL wrote) so WISER derives display
-    # bands from the stamped wavelengths (truecolor) or the first bands instead.
-    defaults = band_metadata_dataset.default_display_bands()
-    if defaults and all(0 <= int(band) < num_bands for band in defaults):
-        metadata["default bands"] = list(defaults)
-    else:
-        metadata["default bands"] = None
