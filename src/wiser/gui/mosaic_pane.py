@@ -2,15 +2,17 @@
 Control panel for the Seamless Mosaic feature (EPIC #629).
 
 Hosts the :class:`MosaicView` alongside a controls area and owns the non-GUI
-:class:`MosaicController` that both share. In this issue (#634) the controls area
-gains a minimal "Add Scene" action: a dataset picker plus a button that ingests the
-chosen dataset (materialize -> build overviews -> compute footprint) on a background
-thread and appends it to the controller.
+:class:`MosaicController` that both share. The controls area offers: an "Add Scene"
+action (a dataset picker plus a button that ingests the chosen dataset -- materialize
+-> build overviews -> compute footprint -- on a background thread and appends it to the
+controller); the scene stack with **drag-to-reorder** z-order and per-scene visibility
+(#638); resolution-mode, target-CRS, resampling-method, and canonical band-metadata
+controls (#638); and a disabled Export button (the export path lands in #639).
 
-The richer control panel (scene list with drag-to-reorder, per-scene visibility,
-resolution / CRS / resampling selectors, export) still lands in #638. The full
-"add from file" picker is also #638; here the combo reads datasets already loaded in
-``app_state``.
+Each control mutates the shared controller and then invalidates the view following the
+compositor's tiered contract -- a pure restack (``recomposite_only``) for
+z-order/visibility, a re-read (``invalidate_pixels``) when the pixels change, and a grid
+rebuild when the output geometry changes.
 """
 
 from typing import Optional, TYPE_CHECKING
@@ -122,8 +124,8 @@ class MosaicPane(QWidget):
         self._splitter.addWidget(self._mosaic_view)
 
         # Controls area: a slim side panel with stacked sections — add a scene, the
-        # current scene stack (per-scene visibility + remove), and target-CRS
-        # resolution. #638 extends this further (drag-to-reorder, resampling, export).
+        # scene stack (drag-reorder z-order + visibility + remove), resolution mode,
+        # target CRS, resampling method, band-metadata source, and a (disabled) export.
         # Built parentless; the scroll area below takes ownership via setWidget().
         self._controls = QWidget()
         self._controls_layout = QVBoxLayout(self._controls)
