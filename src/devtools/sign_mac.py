@@ -87,6 +87,12 @@ def parse_args():
         "--app-version", default=os.environ.get("APP_VERSION"), help="Version string for DMG filename"
     )
     p.add_argument(
+        "--arch",
+        default=None,
+        choices=["x64", "arm64"],
+        help="Target arch for the DMG filename (default: inferred from --artifact-name)",
+    )
+    p.add_argument(
         "--sign-script",
         default=os.path.join(os.path.dirname(__file__), "..", "..", "install-mac", "sign_wiser.sh"),
         help="Codesign script to run (bash)",
@@ -102,11 +108,19 @@ def parse_args():
         help="App-specific password (or set AD_PASSWORD)",
     )
     p.add_argument("--notary-wait", action="store_true", help="Pass --wait to notarytool submit")
+    p.add_argument(
+        "--release-tag",
+        default=None,
+        help="If set, upload the finished DMG to this GitHub release tag (gh release upload --clobber)",
+    )
     return p.parse_args()
 
 
 def main():
     args = parse_args()
+
+    if args.release_tag and not args.app_version:
+        die("--release-tag requires --app-version so the uploaded DMG carries the version.")
 
     root = Path(args.root).resolve()
     dist_dir = prepare_dist(root, args.dist_name)
@@ -174,7 +188,11 @@ def main():
 
     # Create DMG (tmp then convert to compressed UDZO)
     tmp_dmg = dist_dir / "tmp.dmg"
-    final_name = f"{args.app_name}-{args.app_version}.dmg" if args.app_version else f"{args.app_name}.dmg"
+    arch = args.arch or ("arm64" if "ARM64" in args.artifact_name.upper() else "x64")
+    if args.app_version:
+        final_name = f"{args.app_name}-{args.app_version}-macos-{arch}.dmg"
+    else:
+        final_name = f"{args.app_name}-macos-{arch}.dmg"
     final_dmg = dist_dir / final_name
 
     # hdiutil create
@@ -228,6 +246,21 @@ def main():
         if args.notary_wait:
             notary_cmd.append("--wait")
         run(notary_cmd)
+
+    if args.release_tag:
+        run(
+            [
+                "gh",
+                "release",
+                "upload",
+                args.release_tag,
+                str(final_dmg),
+                "-R",
+                f"{owner}/{repo}",
+                "--clobber",
+            ]
+        )
+        print(f"Uploaded {final_dmg.name} to release {args.release_tag}")
 
     print("Done. Artifact downloaded, app signed, DMG built" + (" and notarized." if args.notarize else "."))
 
