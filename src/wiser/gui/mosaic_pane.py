@@ -124,8 +124,8 @@ class MosaicPane(QWidget):
         # Controls area: a slim side panel with stacked sections — add a scene, the
         # current scene stack (per-scene visibility + remove), and target-CRS
         # resolution. #638 extends this further (drag-to-reorder, resampling, export).
-        self._controls = QWidget(self._splitter)
-        self._controls.setMinimumWidth(280)
+        # Built parentless; the scroll area below takes ownership via setWidget().
+        self._controls = QWidget()
         self._controls_layout = QVBoxLayout(self._controls)
         self._controls_layout.setContentsMargins(8, 8, 8, 8)
         self._controls_layout.setSpacing(10)
@@ -147,7 +147,13 @@ class MosaicPane(QWidget):
         self._export_button.setToolTip(self.tr("Export lands in issue #639."))
         self._controls_layout.addWidget(self._export_button)
 
-        self._splitter.addWidget(self._controls)
+        # The controls stack can grow taller than a short window, so host it in a
+        # vertically-scrolling area; the fixed minimum width keeps groups from cramping.
+        self._controls_scroll = QScrollArea(self._splitter)
+        self._controls_scroll.setWidgetResizable(True)
+        self._controls_scroll.setWidget(self._controls)
+        self._controls_scroll.setMinimumWidth(280)
+        self._splitter.addWidget(self._controls_scroll)
 
         # Give the view the bulk of the width; controls stay a slim side panel.
         self._splitter.setStretchFactor(0, 1)
