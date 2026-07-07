@@ -136,6 +136,17 @@ class MosaicPane(QWidget):
         self._controls_layout.addWidget(self._build_target_crs_group())
         self._controls_layout.addWidget(self._build_resampling_group())
         self._controls_layout.addWidget(self._build_band_metadata_group())
+
+        # Preview toggle deferred for v1 (#638): intentionally not added yet.
+        # self._controls_layout.addWidget(self._build_preview_toggle())
+
+        # Export / Finish hands off to the export path (#639), which is not built yet,
+        # so the button is present (final layout) but disabled until then.
+        self._export_button = QPushButton(self.tr("Export / Finish…"), self._controls)
+        self._export_button.setEnabled(False)
+        self._export_button.setToolTip(self.tr("Export lands in issue #639."))
+        self._controls_layout.addWidget(self._export_button)
+
         self._splitter.addWidget(self._controls)
 
         # Give the view the bulk of the width; controls stay a slim side panel.
