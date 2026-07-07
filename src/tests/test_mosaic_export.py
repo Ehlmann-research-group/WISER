@@ -200,11 +200,46 @@ def test_band_count_and_metadata_round_trip(tmp_path: Path) -> None:
     assert [b.get("wavelength_str") for b in reloaded.band_list()] == ["450.0", "550.0", "650.0"]
 
 
+def test_gdal_rgb_default_bands_placeholder_is_cleared(tmp_path: Path) -> None:
+    # gdal raster mosaic stamps a 1-based `default bands = {1, 2, 3}` placeholder for RGB
+    # inputs. WISER reads `default bands` verbatim (no 1-based->0-based conversion, no
+    # bounds check), so band 3 is out of range for a 3-band mosaic and crashes the raster
+    # view on open. Reproduce by giving the materialized inputs RGB colour interpretation
+    # (which propagates through the warp so the mosaic writer emits the placeholder), and
+    # assert the export clears it so the reopened file resolves in-range display bands.
+    band_source = make_numpy_scene(origin=ORIGIN_A, base_value=0.0)  # no default bands
+    scene_a = _materialized_scene(band_source, tmp_path, "a")
+    scene_b = _materialized_scene(make_numpy_scene(origin=ORIGIN_B, base_value=1000.0), tmp_path, "b")
+    for scene in (scene_a, scene_b):
+        ds = gdal.Open(scene.gdal_path, gdal.GA_Update)
+        ds.GetRasterBand(1).SetColorInterpretation(gdal.GCI_RedBand)
+        ds.GetRasterBand(2).SetColorInterpretation(gdal.GCI_GreenBand)
+        ds.GetRasterBand(3).SetColorInterpretation(gdal.GCI_BlueBand)
+        ds.FlushCache()
+        ds = None
+    out = tmp_path / "mosaic.img"
+
+    export_mosaic(
+        [scene_a, scene_b],
+        _union_grid(),
+        wkt_for_epsg(EPSG),
+        gdal.GRA_NearestNeighbour,
+        NODATA,
+        band_source,
+        out,
+    )
+
+    from wiser.raster.dataset import find_display_bands
+
+    reloaded = RasterDataLoader().load_from_file(path=str(out), data_cache=None)[0]
+    assert all(0 <= int(b) < reloaded.num_bands() for b in find_display_bands(reloaded))
+
+
 def test_out_of_range_default_bands_are_dropped(tmp_path: Path) -> None:
-    # A canonical source can carry default display bands that are out of range for the
-    # band count (e.g. 1-based metadata inherited from a foreign ENVI). WISER's
-    # find_display_bands does no bounds check, so an out-of-range value written to the
-    # export header would crash the raster view on open. The export must drop it.
+    # A canonical source can also carry default display bands that are themselves out of
+    # range for the band count (e.g. 1-based metadata inherited from a foreign ENVI).
+    # WISER's find_display_bands does no bounds check, so an out-of-range value written to
+    # the export header would crash the raster view on open. The export must drop it.
     band_source = make_numpy_scene(
         origin=ORIGIN_A,
         base_value=0.0,
