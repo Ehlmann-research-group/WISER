@@ -135,6 +135,7 @@ class MosaicPane(QWidget):
         self._controls_layout.addWidget(self._build_resolution_group())
         self._controls_layout.addWidget(self._build_target_crs_group())
         self._controls_layout.addWidget(self._build_resampling_group())
+        self._controls_layout.addWidget(self._build_band_metadata_group())
         self._splitter.addWidget(self._controls)
 
         # Give the view the bulk of the width; controls stay a slim side panel.
@@ -268,6 +269,30 @@ class MosaicPane(QWidget):
         layout.addWidget(self._resample_combo)
         return group
 
+    def _build_band_metadata_group(self) -> QGroupBox:
+        group = QGroupBox(self.tr("Band metadata"), self._controls)
+        layout = QVBoxLayout(group)
+
+        blurb = QLabel(
+            self.tr("Which scene's band metadata (wavelengths, names) labels the output."),
+            group,
+        )
+        blurb.setWordWrap(True)
+        layout.addWidget(blurb)
+
+        self._band_metadata_combo = QComboBox(group)
+        self._band_metadata_combo.setToolTip(
+            self.tr(
+                "Metadata/labeling only — does not change the output band count or which "
+                "bands are included."
+            )
+        )
+        # Populated by _refresh_band_metadata_combo (called from _refresh_scene_list);
+        # userData is the MosaicScene, or None for the "top scene" default.
+        self._band_metadata_combo.currentIndexChanged.connect(self._on_band_metadata_changed)
+        layout.addWidget(self._band_metadata_combo)
+        return group
+
     # -- dataset picker -------------------------------------------------------
 
     def _on_datasets_changed(self, *_args) -> None:
@@ -364,6 +389,41 @@ class MosaicPane(QWidget):
                 self._scene_list.setCurrentItem(item)
         self._scene_list.blockSignals(False)
         self._on_scene_selection_changed()
+        self._refresh_band_metadata_combo()
+
+    def _refresh_band_metadata_combo(self) -> None:
+        """
+        Rebuild the band-metadata source combo from the controller, preserving the
+        current selection by object identity so it survives add/remove/reorder.
+        """
+        combo = self._band_metadata_combo
+        previous = combo.currentData()  # a MosaicScene, or None for the default
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(self.tr("Top scene (default)"), None)
+        scenes = self._controller.get_scenes()
+        # Top-most first, matching the scene list's visual order.
+        for index in reversed(range(len(scenes))):
+            scene = scenes[index]
+            name = scene.dataset.get_name() or f"Scene {index}"
+            try:
+                label = self.tr("{0} ({1} bands)").format(name, scene.dataset.num_bands())
+            except Exception:  # noqa: BLE001 — metadata access must never break the UI
+                label = name
+            combo.addItem(label, scene)
+        restored = 0
+        if previous is not None:
+            for i in range(combo.count()):
+                if combo.itemData(i) is previous:
+                    restored = i
+                    break
+        combo.setCurrentIndex(restored)
+        combo.blockSignals(False)
+
+    def _on_band_metadata_changed(self, *_args) -> None:
+        # Metadata/labeling only — no grid or view invalidation, and the ingest
+        # band-count gate guarantees the output band count is unaffected.
+        self._controller.set_band_metadata_source(self._band_metadata_combo.currentData())
 
     def _selected_scene_index(self) -> Optional[int]:
         item = self._scene_list.currentItem()
