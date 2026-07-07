@@ -122,14 +122,23 @@ def load_spectra(manifest: Dict[str, Any], app_state: "ApplicationState") -> Lis
 
 
 def spectrum_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationState") -> Optional[Spectrum]:
-    """Reconstruct one spectrum, or ``None`` if a faithful dependency is missing."""
+    """Reconstruct one spectrum, or ``None`` if it cannot be restored.
+
+    ``None`` covers a missing faithful dependency, an unknown ``kind``, and a
+    malformed entry (a missing required field or an unparseable value): a single
+    bad entry is dropped and reported by :func:`load_spectra`, never allowed to
+    abort opening the project.
+    """
     kind = entry.get("kind")
-    if kind == KIND_NUMPY:
-        return _numpy_from_pyrep(entry)
-    if kind == KIND_RASTER_BACKED:
-        return _raster_backed_from_pyrep(entry, app_state)
-    if kind == KIND_ROI_AVERAGE:
-        return _roi_average_from_pyrep(entry, app_state)
+    try:
+        if kind == KIND_NUMPY:
+            return _numpy_from_pyrep(entry)
+        if kind == KIND_RASTER_BACKED:
+            return _raster_backed_from_pyrep(entry, app_state)
+        if kind == KIND_ROI_AVERAGE:
+            return _roi_average_from_pyrep(entry, app_state)
+    except (KeyError, TypeError, ValueError):
+        return None
     return None
 
 
@@ -196,12 +205,12 @@ def _raster_backed_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationStat
     dataset = _lookup_dataset(app_state, entry.get("dataset_id"))
     if dataset is None:
         return None
-    spectrum = SpectrumAtPoint(
-        dataset,
-        tuple(entry.get("point", (0, 0))),
-        tuple(entry.get("area", (1, 1))),
-        _avg_mode(entry),
-    )
+    point, area = entry.get("point"), entry.get("area")
+    if point is None or area is None:
+        # point/area identify which pixel(s) the spectrum reads; defaulting a
+        # missing one would restore a silently wrong spectrum, so drop instead.
+        return None
+    spectrum = SpectrumAtPoint(dataset, tuple(point), tuple(area), _avg_mode(entry))
     _apply_identity(spectrum, entry)
     return spectrum
 

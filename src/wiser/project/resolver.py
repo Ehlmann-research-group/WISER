@@ -66,6 +66,11 @@ class DependencyResolver:
 
     def is_saved(self, dep: Dependency) -> bool:
         """Whether a single dependency will be present in the restored session."""
+        if dep.id is None:
+            # A dependency whose app_state id is unresolved (e.g. a spectrum's
+            # dataset/ROI was never registered) is a cut edge for every kind,
+            # forcing a snapshot rather than a reference that would dangle.
+            return False
         if dep.kind == "dataset":
             return dep.id in self._saved_datasets
         if dep.kind == "roi":

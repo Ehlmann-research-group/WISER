@@ -57,6 +57,15 @@ def test_none_dataset_id_is_a_cut_edge():
     assert decision.policy is SavePolicy.SNAPSHOT
 
 
+def test_none_roi_id_is_a_cut_edge():
+    # ROIs default to "all saved", but an unresolved id still forces a snapshot
+    # so the load path never dereferences a missing ROI and drops it instead.
+    resolver = DependencyResolver(saved_dataset_ids={7})
+    decision = resolver.classify([Dependency("dataset", 7), Dependency("roi", None)], snapshotable=True)
+    assert decision.policy is SavePolicy.SNAPSHOT
+    assert decision.cut == [Dependency("roi", None)]
+
+
 def test_unknown_dependency_kind_raises():
     resolver = DependencyResolver(saved_dataset_ids=set())
     with pytest.raises(ValueError):

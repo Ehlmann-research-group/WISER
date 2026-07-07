@@ -255,3 +255,41 @@ def test_faithful_reference_dropped_when_dataset_missing():
     dropped = load_spectra(manifest, dst)
     assert len(dropped) == 1
     assert dst.get_collected_spectra() == []
+
+
+def test_raster_backed_missing_point_is_dropped():
+    # A hand-edited entry without point/area must drop, not restore a spectrum
+    # silently defaulted to pixel (0, 0).
+    src = _FakeAppState()
+    ds = _add_dataset(src)
+    manifest = {
+        "spectra": {
+            "collected": [
+                {
+                    "kind": KIND_RASTER_BACKED,
+                    "dataset_id": ds.get_id(),
+                    "avg_mode": "MEAN",
+                    "name": "no-point",
+                }
+            ],
+            "active": None,
+        }
+    }
+    dropped = load_spectra(manifest, src)
+    assert len(dropped) == 1
+    assert src.get_collected_spectra() == []
+
+
+def test_malformed_numpy_entry_is_dropped_not_fatal():
+    # A numpy entry missing its values must be dropped and reported, not raise
+    # and abort opening the whole project.
+    manifest = {
+        "spectra": {
+            "collected": [{"kind": KIND_NUMPY, "name": "corrupt"}],
+            "active": None,
+        }
+    }
+    dst = _FakeAppState()
+    dropped = load_spectra(manifest, dst)
+    assert len(dropped) == 1
+    assert dst.get_collected_spectra() == []
