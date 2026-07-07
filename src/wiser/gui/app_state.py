@@ -592,6 +592,11 @@ class ApplicationState(QObject):
         # ``None``.
         return [self._stretches.get((ds_id, b), None) for b in bands]
 
+    def get_all_stretches(self) -> Dict[Tuple[int, int], StretchBase]:
+        # Every committed stretch keyed by ``(dataset_id, band_index)``.  Used by
+        # the project-file persister to enumerate stretches for saving.
+        return dict(self._stretches)
+
     def add_spectral_library(self, library):
         """
         Add a spectral library to the application state, assigning a new ID to
