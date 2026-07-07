@@ -268,6 +268,15 @@ def _apply_band_metadata(metadata: dict, band_metadata_dataset: "RasterDataSet")
     if bad_bands and 0 in bad_bands:
         metadata["bbl"] = list(bad_bands)
 
+    # Default display bands are 0-based band indices. Only stamp them when every index
+    # is in range for the output: a source scene can carry out-of-range defaults (e.g.
+    # 1-based metadata inherited from a foreign ENVI, which WISER stores un-converted),
+    # and WISER's find_display_bands does no bounds check, so writing an out-of-range
+    # value would make the exported file crash on open. When we can't stamp a valid set,
+    # clear the field (overriding any placeholder GDAL wrote) so WISER derives display
+    # bands from the stamped wavelengths (truecolor) or the first bands instead.
     defaults = band_metadata_dataset.default_display_bands()
-    if defaults:
+    if defaults and all(0 <= int(band) < num_bands for band in defaults):
         metadata["default bands"] = list(defaults)
+    else:
+        metadata["default bands"] = None
