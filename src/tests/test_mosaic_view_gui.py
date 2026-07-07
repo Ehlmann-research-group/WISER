@@ -11,13 +11,16 @@ import unittest
 from unittest import mock
 
 from osgeo import gdal, osr
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, QRect, Qt
+from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QDialog
 
 import numpy as np
 
 import tests.context  # noqa: F401  (adds src/ to sys.path)
+import wiser.gui.mosaic_view as mosaic_view
+from wiser.gui.mosaic_view import MosaicView, _PIXEL_READ_DEBOUNCE_MS
 from test_utils.test_model import WiserTestModel
 
 import pytest
@@ -209,6 +212,129 @@ class TestMosaicViewGui(unittest.TestCase):
         self.assertLessEqual(screen.x(), 800.0)
         self.assertGreaterEqual(screen.y(), 0.0)
         self.assertLessEqual(screen.y(), 600.0)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    # -- pixel layer (#637) ---------------------------------------------------
+
+    def test_composite_stacks_bottom_to_top_with_alpha(self):
+        """composite() stacks known ARGB layers: top opaque wins, holes reveal below."""
+        view = MosaicView()  # QApplication exists (WiserTestModel); no controller needed
+        w = h = 4
+        bottom = QImage(w, h, QImage.Format_ARGB32)
+        bottom.fill(QColor(255, 0, 0, 255))  # opaque red
+        top = QImage(w, h, QImage.Format_ARGB32)
+        top.fill(Qt.transparent)
+        painter = QPainter(top)
+        painter.fillRect(QRect(0, 0, 2, h), QColor(0, 0, 255, 255))  # left half opaque blue
+        painter.end()
+
+        result = view.composite([bottom, top])  # bottom-to-top
+        self.assertIsNotNone(result)
+        # Left: top (blue) is opaque, so it wins.
+        self.assertEqual(result.pixelColor(0, 0), QColor(0, 0, 255, 255))
+        # Right: top is a transparent hole, so the bottom (red) shows through.
+        self.assertEqual(result.pixelColor(3, 0), QColor(255, 0, 0, 255))
+
+        # Nothing drawable -> None (hidden scenes contribute None entries).
+        self.assertIsNone(view.composite([None, None]))
+        self.assertIsNone(view.composite([]))
+
+    def test_scene_layers_populate_and_composite(self):
+        ds_a = self._load("a.tif", origin=(400000.0, 3800000.0))
+        ds_b = self._load("b.tif", origin=(400300.0, 3799700.0))
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+        view = pane.get_mosaic_view()
+        view.resize(800, 600)
+
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            self._ingest(pane, controller, ds_a, 1)
+            self._ingest(pane, controller, ds_b, 2)
+
+        # The read is off the UI thread and debounced, so force a paint to schedule it
+        # then pump the loop until the layers arrive.
+        view.grab()
+        self.assertTrue(
+            self._wait_for(lambda: len(view._scene_layers) == 2),
+            "per-scene layers were not read within the timeout",
+        )
+        self.assertIsNotNone(view._composite_pixmap)
+        self.assertIsNotNone(view._composite_world_extent)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_reorder_and_visibility_trigger_no_reads(self):
+        ds_a = self._load("a.tif", origin=(400000.0, 3800000.0))
+        ds_b = self._load("b.tif", origin=(400300.0, 3799700.0))
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+        view = pane.get_mosaic_view()
+        view.resize(800, 600)
+
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            self._ingest(pane, controller, ds_a, 1)
+            self._ingest(pane, controller, ds_b, 2)
+
+        real_render = mosaic_view.render_scene_argb
+        with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
+            # Initial debounced read populates the cache.
+            view.grab()
+            self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+            self.assertGreater(spy.call_count, 0)
+
+            def _assert_no_read(mutate):
+                spy.reset_mock()
+                mutate()
+                view.recomposite_only()
+                view.grab()
+                QTest.qWait(2 * _PIXEL_READ_DEBOUNCE_MS)  # past the debounce window — nothing should read
+                self.assertEqual(spy.call_count, 0)
+
+            # Z-order reorder, hide, and unhide-still-cached are all pure restacks.
+            _assert_no_read(lambda: controller.move_scene(0, 1))
+            _assert_no_read(lambda: controller.set_visibility(0, False))
+            _assert_no_read(lambda: controller.set_visibility(0, True))
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_pan_debounces_into_a_single_read(self):
+        ds_a = self._load("a.tif", origin=(400000.0, 3800000.0))
+        ds_b = self._load("b.tif", origin=(400300.0, 3799700.0))
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+        view = pane.get_mosaic_view()
+        view.resize(800, 600)
+
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            self._ingest(pane, controller, ds_a, 1)
+            self._ingest(pane, controller, ds_b, 2)
+
+        view.grab()
+        self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+
+        # A burst of pans must collapse into one background read, not one per event.
+        real_worker = mosaic_view._render_scene_layers
+        with mock.patch.object(mosaic_view, "_render_scene_layers", side_effect=real_worker) as worker_spy:
+            initial_extent = view._composite_world_extent
+            for _ in range(5):
+                view._transform.pan(40, 0)
+                view.grab()  # each paint restarts the debounce timer
+                QTest.qWait(_PIXEL_READ_DEBOUNCE_MS / 10)  # well under the debounce window
+            # Still mid-gesture: the debounce timer keeps restarting, so no read yet.
+            self.assertEqual(worker_spy.call_count, 0)
+
+            # Once the gesture settles, the composite updates to the panned viewport...
+            self.assertTrue(self._wait_for(lambda: view._composite_world_extent != initial_extent))
+            # ...via a single coalesced read, not one per pan event.
+            QTest.qWait(2 * _PIXEL_READ_DEBOUNCE_MS)
+            self.assertEqual(worker_spy.call_count, 1)
 
         self.test_model.close_seamless_mosaic_dialog()
 
