@@ -6,10 +6,11 @@ intended for developers reading, debugging, or extending the tool.
 
 ```{note}
 This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
-materialization, common-grid/CRS resolution, and the **vector overlay** (footprints,
-bounding box, overlap highlight) are implemented and wired into the GUI. **Pixel
-compositing (the preview) is not yet implemented** — see [What Isn't Built
-Yet](#what-isnt-built-yet).
+materialization, common-grid/CRS resolution, the **vector overlay** (footprints,
+bounding box, overlap highlight), and the **static-scene pixel compositor** (the
+composited preview, with an off-thread debounced per-scene cache) are implemented and
+wired into the GUI. The remaining gaps are the richer control panel and export — see
+[What Isn't Built Yet](#what-isnt-built-yet).
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -32,10 +33,11 @@ The feature is built from three cooperating layers:
 
 - **The rendering layer** — `MosaicView` is a `QWidget` sibling of `RasterView`
   (not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
-  zoomed). It draws the **vector overlay** (footprints, bounding box, overlap
-  highlight) on a QGIS-style unbounded canvas via a world→screen camera
-  (`MosaicViewTransform`); the pixel-compositing layer beneath it is still a stubbed
-  seam (#637). See [The Geometry Overlay](#the-geometry-overlay-vector-layer).
+  zoomed). It draws two layers on a QGIS-style unbounded canvas via a world→screen
+  camera (`MosaicViewTransform`): the **pixel layer** (the composited scenes, from a
+  per-scene ARGB cache — see [The Pixel Layer](#the-pixel-layer-static-scene-compositor))
+  and, on top, the **vector overlay** (footprints, bounding box, overlap highlight — see
+  [The Geometry Overlay](#the-geometry-overlay-vector-layer)).
 
 Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
 is first turned into a warpable, disk-backed tiled GeoTIFF by a `SceneMaterializer` —
@@ -52,6 +54,7 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its `_im
 | `src/wiser/gui/mosaic_crs_dialog.py` | `ReprojectPromptDialog` — modal target-CRS chooser |
 | `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
 | `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_footprint_wkt` — Qt-free ingestion gates |
+| `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer |
 | `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer`, `materialize_to_tiled_geotiff` — the object-model adapter |
 | `src/wiser/utils/progress.py` | `ProgressReporter` — Qt-free progress plumbing shared with any scheduler task |
 | `src/wiser/gui/progress_task.py` | `run_with_progress` — reusable modal + Activity Monitor bridge for scheduler tasks |
@@ -96,11 +99,15 @@ classDiagram
         mosaic_view.py
         -_controller : MosaicController
         -_composite_pixmap : QPixmap
+        -_scene_layers : Dict~int, QImage~
+        -_render_signature : tuple
         -_transform : MosaicViewTransform
         -_footprint_paths : List~QPainterPath~
         -_hidden_paths : List~QPainterPath~
         +invalidate_overlay()
-        +composite(layers, order) QImage
+        +invalidate_pixels()
+        +recomposite_only()
+        +composite(layers) QImage
         +paintEvent(event)
     }
 
@@ -419,6 +426,81 @@ convention used throughout WISER (see the georeferencer's identical convention i
 
 ---
 
+## The Pixel Layer (Static-Scene Compositor)
+
+**Files:** `src/wiser/raster/mosaic_compositor.py` (Qt-free per-scene renderer) and
+`src/wiser/gui/mosaic_view.py` (cache, compositing, drawing, threading).
+
+Beneath the vector overlay, `MosaicView` draws the actual composited scenes (issue
+#637): each visible scene is read at **screen resolution** into an **ARGB `QImage`**
+whose alpha is its validity mask, and the scenes are stacked bottom-to-top honoring
+z-order so lower scenes show through upper scenes' nodata holes.
+
+### The per-scene renderer (`render_scene_argb`, Qt-free)
+
+`mosaic_compositor.render_scene_argb(scene, target_wkt, world_extent, w, h)` warps one
+scene onto the current viewport rectangle at output size `w×h` via
+`gdal.Warp(..., dstSRS=target_wkt, outputBounds=world_extent, dstAlpha=True)` and returns
+an `(h, w, 4)` uint8 RGBA array. A single `gdal.Warp` does four jobs at once:
+
+- **reprojection** onto the target CRS,
+- **downsampling** — because the output is far coarser than the source, GDAL reads from
+  the internal **overviews** built in #634 (the whole point of building them),
+- **alignment** to the visible world rectangle, and
+- **the validity mask** — `dstAlpha=True` yields an alpha band that is `0` on nodata /
+  outside-coverage pixels, so the alpha channel *is* the validity mask (no manual
+  mask-band read). This mirrors the warp seam already used by `_warped_resolution`.
+
+RGB comes from the dataset's `get_default_display_bands()` (1 band → grayscale, 3 →
+RGB), contrast-stretched per band over the valid pixels (2–98 percentile). Invalid
+pixels are forced fully clear `(0,0,0,0)` so nothing bleeds under a transparent alpha.
+It is Qt-free (produces a NumPy array) so it is unit-testable without a running app and
+can run on a background thread; the view wraps the array into a `QImage` on the GUI
+thread.
+
+### The per-scene cache and `composite()`
+
+`MosaicView` holds one ARGB `QImage` per visible scene in `_scene_layers` (keyed by
+`id(scene)`), built for the **current viewport** — the *render signature*
+`(center_x, center_y, world_units_per_pixel, width, height)`. `composite(layers)` stacks
+those layers bottom-to-top with `QPainter` `SourceOver` into a single image; `layers` is
+already in render order (index 0 = bottom), so z-order is encoded in the list and hidden
+scenes are simply `None`. `composite()` is the **single indirection point** where
+deferred seamline/feathering work will later re-implement the stacking (by territory
+mask) without touching callers.
+
+This split gives the caching tiers the design calls for:
+
+- **Z-order reorder / visibility toggle** (`recomposite_only()`) — a pure restack of the
+  cached layers, **no GDAL reads**. Hiding a scene just drops it from the composite (its
+  `visible` flag), and unhiding at the same viewport reuses its still-cached layer.
+  `recomposite_only()` falls back to a read only when *revealing* a scene that was hidden
+  at the last read (so it was never cached at this viewport).
+- **Pan / zoom** — changes the render signature, so every layer is re-read. This is the
+  cache's deliberate trade-off: it does **not** survive pan/zoom (the composite is
+  re-read), but it makes reorder/visibility at a fixed viewport free.
+- **Add / remove scene, target-CRS change** (`invalidate_pixels()`) — marks the cache
+  stale so the next paint re-reads.
+
+### Off-thread, debounced reads
+
+Reads run **off the UI thread** and pan/zoom re-reads are **debounced** so the view stays
+responsive. A `paintEvent` whose render signature changed (re)starts a single-shot
+`QTimer` (`_PIXEL_READ_DEBOUNCE_MS`, ~120 ms); a gesture's burst of paints collapses into
+one read once the camera settles. On fire, `_start_pixel_read` snapshots the viewport on
+the GUI thread (resolving footprints and the in-view intersect test — cheap OSR work),
+then hands only the heavy per-scene warps to `app_services.scheduler.submit_thread`. The
+worker returns NumPy arrays (no Qt off-thread); the future's done-callback emits the
+`_read_ready` signal, whose queued connection wraps them into `QImage`s and restacks on
+the GUI thread. `_reading_signature` tracks the in-flight read so a superseded (or
+out-of-order) result is discarded and never clobbers newer pixels. In the interim the
+prior composite keeps drawing, scaled by the camera (it is drawn mapped from its own
+`_composite_world_extent` through the world→screen affine), so pan/zoom shows a scaled
+preview until the sharp re-read lands. With no scheduler (e.g. a bare view in a unit
+test) the read falls back to synchronous.
+
+---
+
 ## The Geometry Overlay (Vector Layer)
 
 **Files:** `src/wiser/gui/mosaic_view.py` (rendering) and the Qt-free geometry helpers
@@ -429,6 +511,33 @@ outline (green), the union bounding box (dashed), and the **overlap highlight**
 (magenta/purple) marking where a scene is hidden by anything above it in z-order. It
 matches the ENVI reference and is used **purely for on-screen rendering** — it never
 decides which pixel wins (that is z-order in the compositor/export, #637/#639).
+
+```{mermaid}
+flowchart TD
+    A[paintEvent] --> B{grid.extent is None?}
+    B -->|yes, mosaic empty| C["_has_fitted = False<br/>(re-arm the initial fit)"]
+    B -->|no| D{"not _has_fitted and<br/>viewport has real size?"}
+    D -->|yes| E["transform.fit_to_extent(grid.extent)<br/>_has_fitted = True"]
+    D -->|no, already fitted| F
+    C --> F{geometry_dirty?}
+    E --> F
+    F -->|yes| G["_rebuild_overlay_geometry()<br/>geometry_dirty = False"]
+    F -->|no, cache is fresh| H
+    G --> P{"render signature<br/>changed / pixels dirty?"}
+    P -->|yes| Q["_schedule_pixel_read()<br/>(debounced, off-thread)"]
+    P -->|no| H
+    Q --> H["draw pixel layer:<br/>_composite_pixmap mapped by world_to_screen"]
+    H --> H2["painter.setWorldTransform(world_to_screen)"]
+    H2 --> J["draw bounding box (_bbox_extent)"]
+    J --> K["per scene: clip to hidden_path (if any),<br/>fill + outline in the highlight color"]
+    K --> L["draw all footprint outlines on top"]
+```
+
+The `_has_fitted` re-arm on an empty grid matters in practice: without it, removing
+every scene and then adding a *different* one left the camera parked on the removed
+scene's extent, so the new scene's footprints rendered off-screen (fixed as a
+regression once observed — see the camera-reframe test in
+`test_mosaic_view_gui.py`).
 
 ### The camera: `MosaicViewTransform`
 
@@ -533,16 +642,11 @@ selected.
 
 ## What Isn't Built Yet
 
-`MosaicView.paintEvent` now draws the vector overlay (#636, see [The Geometry
-Overlay](#the-geometry-overlay-vector-layer)); the pixel layer beneath it is still a
-stubbed seam with a `TODO` marker, alongside the control-panel and export gaps:
+`MosaicView.paintEvent` now draws both layers — the pixel compositor (#637, see [The
+Pixel Layer](#the-pixel-layer-static-scene-compositor)) beneath the vector overlay (#636,
+see [The Geometry Overlay](#the-geometry-overlay-vector-layer)). The remaining gaps are
+the richer control panel and export:
 
-- **Pixel layer (compositing, issue #637)** — `MosaicView.composite(layers, order)` is
-  a stub that returns `None`. The design calls for per-scene ARGB `QImage` caches at
-  screen resolution (alpha = validity, from the GDAL mask band), stacked bottom-to-top
-  by `QPainter` and drawn beneath the vector overlay via the same
-  `MosaicViewTransform` camera; z-order reorders would only re-stack cached layers (no
-  GDAL reads), while pan/zoom would re-read from overviews (debounced).
 - **Control panel additions (issue #638)** — drag-to-reorder z-order, resampling
   method selector, and a band-metadata chooser are not yet in `MosaicPane`; today's
   panel only has Add Scene, the scene list (visibility toggle + remove), and the
@@ -578,9 +682,15 @@ consume the same `MosaicController` state once implemented.
 - `src/tests/test_mosaic_view_transform.py` — `MosaicViewTransform` camera math:
   world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ratio
   preservation (pure `QTransform` math, no widget shown).
-- `src/tests/test_mosaic_view_gui.py` — the overlay wiring end to end: geometry cache
-  populates for overlapping scenes and re-invalidates on scene removal / target-CRS
-  change, driven through the real `MosaicPane` ingestion path.
+- `src/tests/test_mosaic_compositor.py` — the Qt-free `render_scene_argb`: alpha is 0
+  exactly on the nodata collar and 255 on the valid interior, RGBA shape/dtype, valid
+  pixels get color, a disjoint viewport comes back fully transparent (no Qt).
+- `src/tests/test_mosaic_view_gui.py` — the overlay **and** pixel-layer wiring end to
+  end, driven through the real `MosaicPane` ingestion path: geometry cache populates /
+  re-invalidates; `composite()` stacks known ARGB layers (top opaque wins, holes reveal
+  below); the per-scene cache populates; z-order reorder / visibility toggle trigger **no
+  GDAL reads** (spy on `render_scene_argb`); and a pan burst **coalesces into a single
+  debounced background read**.
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
   `compute_footprint_wkt`, and progress-reporting behavior.
 - `src/tests/test_mosaic_crs_dialog.py` — `ReprojectPromptDialog` in isolation
