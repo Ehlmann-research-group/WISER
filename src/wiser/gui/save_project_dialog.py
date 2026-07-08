@@ -107,16 +107,15 @@ class SaveProjectDialog(QDialog):
         self._consequences.setRowCount(len(affected))
         for i, row in enumerate(affected):
             self._consequences.setItem(i, 0, QTableWidgetItem(row["item"]))
-            self._consequences.setItem(i, 1, QTableWidgetItem(_policy_text(row["policy"])))
+            self._consequences.setItem(i, 1, QTableWidgetItem(self._policy_text(row["policy"])))
 
     def get_resolver(self) -> "DependencyResolver":
         """The resolver for the user's current selection (call after ``exec()``)."""
         return resolver_for_selection(self._app_state, self._excluded_dataset_ids())
 
-
-def _policy_text(policy: str) -> str:
-    if policy == SavePolicy.SNAPSHOT.value:
-        return "frozen to a snapshot"
-    if policy == SavePolicy.DROP.value:
-        return "dropped"
-    return policy
+    def _policy_text(self, policy: str) -> str:
+        if policy == SavePolicy.SNAPSHOT.value:
+            return self.tr("frozen to a snapshot")
+        if policy == SavePolicy.DROP.value:
+            return self.tr("dropped")
+        return policy

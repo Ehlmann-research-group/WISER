@@ -1,7 +1,9 @@
 import logging
 import platform
 import pprint
+import shutil
 import sys
+import tempfile
 import traceback
 import webbrowser
 from functools import partial
@@ -150,6 +152,7 @@ class DataVisualizerApp(QMainWindow):
         # Path of the project file the session was last saved to / opened from,
         # so "Save Project" re-saves in place.  ``None`` until a Save As / Open.
         self._current_project_path: Optional[str] = None
+        self._project_extract_dir: Optional[str] = None
 
         self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
         self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
@@ -647,6 +650,7 @@ class DataVisualizerApp(QMainWindow):
 
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
+        self._clear_project_extract_dir()
         self._app_state.cancel_all_running_processes()
         self._app_services.close()
         super().closeEvent(event)
@@ -741,8 +745,14 @@ class DataVisualizerApp(QMainWindow):
         if not path:
             return
 
+        # A zipped project extracts to a directory that must outlive the load,
+        # since sidecar datasets are read from it lazily.  The app owns it: clear
+        # the previous session's directory and hand load_project a fresh one.
+        self._clear_project_extract_dir()
+        self._project_extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
+
         try:
-            report = load_project(path, self._app_state)
+            report = load_project(path, self._app_state, extract_dir=self._project_extract_dir)
         except ProjectTooNewError as e:
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
@@ -758,6 +768,12 @@ class DataVisualizerApp(QMainWindow):
         self._current_project_path = path
         self._app_state.update_cwd_from_path(path)
         self._warn_dropped_on_load(report)
+
+    def _clear_project_extract_dir(self):
+        """Remove the temp directory a zipped project was extracted into, if any."""
+        if self._project_extract_dir:
+            shutil.rmtree(self._project_extract_dir, ignore_errors=True)
+            self._project_extract_dir = None
 
     def _warn_dropped_on_load(self, report):
         """Warn about any items that could not be restored during a load."""

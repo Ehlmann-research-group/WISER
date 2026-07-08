@@ -7,7 +7,7 @@ user actually decides on and the file-backed ones that are auto-included, builds
 :class:`~wiser.project.resolver.DependencyResolver` from a chosen exclusion set,
 and previews the consequence for every dependent item -- reconstructed
 faithfully, frozen to a snapshot, or dropped -- so the dialog can warn before it
-writes and pass the same resolver on to :func:`~wiser.project.orchestrate.save_project`.
+writes and passes the same resolver on to :func:`~wiser.project.orchestrate.save_project`.
 
 Only dataset-dependent items cascade: a dataset-backed spectrum freezes to a
 snapshot when its dataset is cut, and a per-band stretch is dropped when its
