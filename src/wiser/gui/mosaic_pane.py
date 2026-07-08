@@ -672,6 +672,32 @@ class MosaicPane(QWidget):
             )
             return
 
+        # Warn (and let the user proceed) if any visible scene's live dataset metadata
+        # has drifted from the ingest-time snapshot (#677): the mosaic uses the frozen
+        # values, so a data-ignore / wavelength / display-band edit made in main WISER
+        # after the scene was added is NOT applied to the export. Data-ignore in
+        # particular is not cosmetic, so surfacing this avoids a silent surprise.
+        drifted = [scene for scene in visible if self._scene_metadata_drifted(scene)]
+        if drifted:
+            names = ", ".join(
+                scene.dataset.get_name() or f"Dataset {scene.dataset.get_id()}" for scene in drifted
+            )
+            answer = QMessageBox.warning(
+                self,
+                self.tr("Dataset metadata changed since ingest"),
+                self.tr(
+                    "These scenes were edited in WISER after being added to the mosaic:\n"
+                    "{0}\n\n"
+                    "The mosaic uses the metadata frozen when each scene was added, so "
+                    "those changes will NOT be applied to the export. Remove and re-add a "
+                    "scene to pick up its new metadata.\n\nExport anyway?"
+                ).format(names),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                return
+
         # Resolve the output grid first (may prompt for a target CRS), then confirm it
         # actually produced a usable extent before asking for an output path.
         if not self._ensure_common_grid():
@@ -717,6 +743,24 @@ class MosaicPane(QWidget):
             description=self.tr("Compositing mosaic…"),
             meta={"scenes": str(len(visible))},
         )
+
+    @staticmethod
+    def _scene_metadata_drifted(scene: MosaicScene) -> bool:
+        """
+        True if ``scene``'s live dataset spectral metadata (data-ignore, wavelengths,
+        default display bands) has drifted from the snapshot frozen at ingest (#677).
+
+        Compares the frozen ``SpectralMetadata`` against a freshly-read one via its
+        ``__eq__``. Any comparison error is treated as "no drift" so a metadata quirk
+        can never block an export.
+        """
+        snapshot = scene.snapshot
+        if snapshot is None:
+            return False
+        try:
+            return snapshot.spectral != scene.dataset.get_spectral_metadata()
+        except Exception:  # noqa: BLE001 - a drift check must never block export
+            return False
 
     @staticmethod
     def _resolve_output_nodata(
