@@ -52,6 +52,13 @@ def test_register_migration_adds_to_chain(monkeypatch):
     assert result["format_version"] == 2
 
 
+def test_register_migration_rejects_duplicate(monkeypatch):
+    monkeypatch.setattr(migrate_mod, "_MIGRATIONS", {})
+    migrate_mod.register_migration(1, lambda manifest: manifest)
+    with pytest.raises(ValueError):
+        migrate_mod.register_migration(1, lambda manifest: manifest)
+
+
 def test_missing_migration_step_is_refused(monkeypatch):
     monkeypatch.setattr(migrate_mod, "CURRENT_FORMAT_VERSION", 2)
     monkeypatch.setattr(migrate_mod, "_MIGRATIONS", {})

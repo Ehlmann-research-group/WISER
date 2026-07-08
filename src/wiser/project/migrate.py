@@ -55,8 +55,11 @@ def register_migration(from_version: int, migrate: Callable[[Dict[str, Any]], Di
 
     Called at import time as the schema evolves.  ``migrate`` must be a pure
     ``dict -> dict`` transform; pair each with a golden fixture per the module
-    docstring's checklist.
+    docstring's checklist.  Rejects a duplicate ``from_version`` rather than
+    silently overwriting it, since that would make the migration chain ambiguous.
     """
+    if from_version in _MIGRATIONS:
+        raise ValueError(f"A migration from project format v{from_version} is already registered.")
     _MIGRATIONS[from_version] = migrate
 
 
