@@ -112,7 +112,7 @@ def _export_mosaic_task(
     target_wkt: str,
     resample_alg: int,
     output_nodata: Optional[float],
-    band_metadata_dataset: Optional["RasterDataSet"],
+    band_metadata_snapshot: Optional[SceneMetadataSnapshot],
     out_path: str,
     progress: Optional[ProgressReporter] = None,
 ) -> str:
@@ -121,9 +121,10 @@ def _export_mosaic_task(
     grid and stream the mosaic to ``out_path`` as ENVI.
 
     Runs on a scheduler thread (no Qt here). Delegates to the Qt-free
-    :func:`wiser.raster.mosaic_export.export_mosaic` and returns the written path as
-    a string for the main thread's success callback. The result is intentionally
-    *not* loaded back into WISER — the user opens the file manually.
+    :func:`wiser.raster.mosaic_export.export_mosaic`, which lazily materializes each
+    scene's full-band cube from the live dataset + frozen snapshot (#677), and returns
+    the written path as a string for the main thread's success callback. The result is
+    intentionally *not* loaded back into WISER — the user opens the file manually.
     """
     result = export_mosaic(
         scenes,
@@ -131,7 +132,7 @@ def _export_mosaic_task(
         target_wkt,
         resample_alg,
         output_nodata,
-        band_metadata_dataset,
+        band_metadata_snapshot,
         Path(out_path),
         progress=progress,
     )
@@ -694,8 +695,8 @@ class MosaicPane(QWidget):
             return
 
         band_source = self._controller.get_band_metadata_source()
-        band_metadata_dataset = band_source.dataset if band_source is not None else None
-        output_nodata = self._resolve_output_nodata(band_metadata_dataset, visible)
+        band_metadata_snapshot = band_source.snapshot if band_source is not None else None
+        output_nodata = self._resolve_output_nodata(band_source, visible)
 
         # Snapshot the controller state on the GUI thread and hand the heavy work to a
         # scheduler thread; block only the mosaic dialog while it runs.
@@ -709,7 +710,7 @@ class MosaicPane(QWidget):
             target_wkt=self._controller.get_target_crs(),
             resample_alg=self._controller.get_resample_alg(),
             output_nodata=output_nodata,
-            band_metadata_dataset=band_metadata_dataset,
+            band_metadata_snapshot=band_metadata_snapshot,
             out_path=path,
             on_success=self._on_export_finished,
             on_error=self._on_export_failed,
@@ -719,22 +720,26 @@ class MosaicPane(QWidget):
 
     @staticmethod
     def _resolve_output_nodata(
-        band_metadata_dataset: Optional["RasterDataSet"],
+        band_source: Optional[MosaicScene],
         visible_scenes: Sequence[MosaicScene],
     ) -> Optional[float]:
         """
-        Pick the output Data Ignore Value: the canonical band-metadata dataset's if it
-        has one, else the top-most visible scene that has one (top → bottom), else
-        ``None`` (no scene defines a nodata, so nodata compositing is a no-op).
+        Pick the output Data Ignore Value from the **frozen** per-scene snapshots
+        (#677): the canonical band-metadata scene's if it has one, else the top-most
+        visible scene that has one (top → bottom), else ``None`` (no scene defines a
+        nodata, so nodata compositing is a no-op).
+
+        Reading the frozen value (not the live dataset) keeps the export deterministic:
+        it matches the nodata baked into the footprint / common grid at ingest.
         """
-        if band_metadata_dataset is not None:
-            nodata = band_metadata_dataset.get_data_ignore_value()
+        if band_source is not None and band_source.snapshot is not None:
+            nodata = band_source.snapshot.data_ignore_value
             if nodata is not None:
                 return nodata
         for scene in reversed(list(visible_scenes)):
-            nodata = scene.dataset.get_data_ignore_value()
-            if nodata is not None:
-                return nodata
+            snapshot = scene.snapshot
+            if snapshot is not None and snapshot.data_ignore_value is not None:
+                return snapshot.data_ignore_value
         return None
 
     def _on_export_finished(self, out_path: str) -> None:

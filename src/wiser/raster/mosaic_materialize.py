@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, Optional, Sequence, TYPE_CHECKING, Tuple
 
 import numpy as np
 from osgeo import gdal, gdal_array
@@ -35,6 +35,11 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import GTiff_GDALRasterDataImpl
 from wiser.utils.primitives import temp_dir
 from wiser.utils.progress import ProgressReporter
+
+if TYPE_CHECKING:
+    # Type-only: the snapshot is read attribute-by-attribute at runtime, so no runtime
+    # import of mosaic_controller is needed (and this avoids any import ordering churn).
+    from wiser.raster.mosaic_controller import SceneMetadataSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +201,127 @@ def materialize_to_tiled_geotiff(
 
     logger.info(
         "Materialized dataset id=%s to tiled GeoTIFF %s (%dx%d, %d bands)",
+        dataset.get_id(),
+        dest_path,
+        width,
+        height,
+        num_bands,
+    )
+
+
+def _stamp_metadata_from_snapshot(
+    gdal_dataset: gdal.Dataset,
+    snapshot: "SceneMetadataSnapshot",
+) -> None:
+    """
+    Stamp spatial + spectral metadata onto ``gdal_dataset`` from a frozen
+    :class:`~wiser.raster.mosaic_controller.SceneMetadataSnapshot` (#677) instead of a
+    live :class:`RasterDataSet`.
+
+    The snapshot mirror of :func:`_stamp_metadata_from_dataset`: the housed
+    ``SpatialMetadata`` / ``SpectralMetadata`` supply the geotransform, SRS, nodata,
+    per-band wavelength / name, and bad-band list exactly as they were at ingest. The
+    ``DEFAULT_BANDS`` field is written from the snapshot's frozen resolved
+    ``display_bands`` (the canonical display choice for export), not the dataset's
+    stored defaults.
+    """
+    geo_transform = snapshot.geo_transform
+    if geo_transform is not None:
+        gdal_dataset.SetGeoTransform([float(v) for v in geo_transform])
+
+    wkt = snapshot.wkt_spatial_reference
+    if wkt:
+        gdal_dataset.SetProjection(wkt)
+
+    nodata = snapshot.data_ignore_value
+    if nodata is not None:
+        for i in range(1, gdal_dataset.RasterCount + 1):
+            gdal_dataset.GetRasterBand(i).SetNoDataValue(float(nodata))
+
+    # snapshot.band_info is a deep copy of the dataset's band_list() (identical shape),
+    # so the same wavelength/name extraction applies band-for-band.
+    for i, info in enumerate(snapshot.band_info):
+        if i >= gdal_dataset.RasterCount:
+            break
+        band = gdal_dataset.GetRasterBand(i + 1)
+
+        name = info.get("wavelength_name")
+        if name is not None:
+            band.SetDescription(str(name))
+
+        value, units = _band_wavelength_value_and_units(info)
+        if value is not None:
+            band.SetMetadataItem("wavelength", str(value))
+        if units is not None:
+            band.SetMetadataItem("wavelength_units", str(units))
+
+    defaults = snapshot.display_bands
+    if defaults:
+        gdal_dataset.SetMetadataItem("DEFAULT_BANDS", ",".join(str(b) for b in defaults))
+
+    bad = snapshot.bad_bands
+    if bad:
+        gdal_dataset.SetMetadataItem("BAD_BANDS", ",".join(str(b) for b in bad))
+
+
+def materialize_full_band_from_snapshot(
+    dataset: RasterDataSet,
+    snapshot: "SceneMetadataSnapshot",
+    dest_path: Path,
+    progress: Optional[ProgressReporter] = None,
+) -> None:
+    """
+    Write a **full-band** tiled GeoTIFF at ``dest_path`` with pixels read from the live
+    ``dataset`` but all metadata stamped from ``snapshot`` (#677).
+
+    This is the lazy, export-time materialization: every band is needed for the output
+    product, but the spatial reference, geotransform, nodata, and band metadata come
+    from the ingest-time snapshot -- never the live dataset -- so a mid-session metadata
+    edit in main WISER cannot silently alter the exported mosaic. Freezing the nodata
+    and geotransform in particular keeps the export aligned with the footprint / common
+    grid that were computed at ingest.
+
+    Not cached: the export caller owns ``dest_path`` and discards it once the mosaic has
+    streamed. Bands are written one at a time to bound peak memory; ``progress`` reports
+    per-band completion and defaults to a no-op reporter.
+    """
+    progress = progress or ProgressReporter()
+    gdal.UseExceptions()
+
+    width = dataset.get_width()
+    height = dataset.get_height()
+    num_bands = dataset.num_bands()
+    gdal_type, write_dtype = _gdal_type_and_write_dtype(dataset.get_elem_type())
+
+    driver = gdal.GetDriverByName("GTiff")
+    options = [
+        "TILED=YES",
+        f"BLOCKXSIZE={_BLOCK_SIZE}",
+        f"BLOCKYSIZE={_BLOCK_SIZE}",
+    ]
+
+    out_ds: Optional[gdal.Dataset] = driver.Create(
+        str(dest_path), width, height, num_bands, gdal_type, options=options
+    )
+    if out_ds is None:
+        raise RuntimeError(f"GDAL failed to create full-band GeoTIFF at {dest_path}")
+
+    try:
+        for band_index in range(num_bands):
+            progress.raise_if_cancelled()
+            band_arr = dataset.get_band_data(band_index, filter_data_ignore_value=False)
+            band_arr = np.asarray(band_arr, dtype=write_dtype)
+            out_ds.GetRasterBand(band_index + 1).WriteArray(band_arr)
+            del band_arr
+            progress.report(band_index + 1, num_bands, "Materializing scene")
+
+        _stamp_metadata_from_snapshot(out_ds, snapshot)
+        out_ds.FlushCache()
+    finally:
+        out_ds = None
+
+    logger.info(
+        "Materialized full-band export GeoTIFF for dataset id=%s to %s (%dx%d, %d bands)",
         dataset.get_id(),
         dest_path,
         width,
