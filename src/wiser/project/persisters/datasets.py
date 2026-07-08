@@ -7,11 +7,17 @@ valid across a save/load.
 
 Each dataset is captured one of two ways:
 
-* **By reference** -- a file-backed dataset records only its on-disk path and is
-  re-opened from that path on load.  Bulk raster bytes never enter the bundle.
+* **By reference** -- a file-backed dataset records its on-disk path and is
+  re-opened from it on load.  Bulk raster bytes never enter the bundle.  A NetCDF
+  subdataset also records its ``subdataset_name`` so the *same* subdataset re-opens.
 * **As a sidecar** -- an in-memory dataset (a NumPy-backed ``RasterDataSet``
   with no file, e.g. a band-math result) is snapshotted to a native ENVI raster
   under the bundle's ``datasets/`` directory.
+
+Either way the manifest also carries a JSON snapshot of the runtime-editable
+metadata (data-ignore, bad bands, wavelengths, band names, display bands,
+georeferenced CRS), reapplied on load via the safe per-field setters so edits a
+file reopen would otherwise revert are preserved.
 
 Unlike the ROI persister, datasets carry bulk raster bytes and cannot be rebuilt
 from the manifest dict alone, so they bypass the generic
@@ -47,18 +53,29 @@ def dataset_to_pyrep(
     to ``datasets/ds_<id>.img`` (plus its ``.hdr``) inside ``bundle``.
     """
     ds_id = dataset.get_id()
-    # The manifest carries the user-editable SOURCE identity (name, description).
-    # Richer spectral/spatial metadata rides in the raster itself -- the ENVI
-    # sidecar header for in-memory datasets, the source file for file-backed ones.
+    # The manifest carries the user-editable SOURCE identity (name, description)
+    # plus a snapshot of the runtime-editable spectral/spatial metadata, so edits
+    # a file-backed dataset would otherwise lose on reopen (data-ignore, bad bands,
+    # wavelengths, band names, display bands, georeferenced CRS) round-trip.
     entry: Dict[str, Any] = {
         "type": DATASET_PYREP_TYPE,
         "id": ds_id,
         "name": dataset.get_name(),
         "description": dataset.get_description(),
+        "metadata": _metadata_to_pyrep(dataset),
     }
 
+    subdataset_name = dataset.get_subdataset_name()
     filepaths = dataset.get_filepaths()
-    if filepaths:
+    if subdataset_name:
+        # A NetCDF subdataset's get_filepaths() returns the GDAL descriptor, not a
+        # plain path; store the base file and the descriptor so load re-opens the
+        # SAME subdataset instead of re-running the auto-pick heuristic (or dropping
+        # the dataset because os.path.isfile rejects the descriptor).
+        entry["storage"] = STORAGE_REFERENCE
+        entry["path"] = _subdataset_base_path(subdataset_name)
+        entry["subdataset_name"] = subdataset_name
+    elif filepaths:
         entry["storage"] = STORAGE_REFERENCE
         entry["path"] = filepaths[0]
     else:
@@ -123,8 +140,11 @@ def _load_dataset(
     if not path or not os.path.isfile(path):
         return None
 
+    subdataset_name = entry.get("subdataset_name") or ""
     try:
-        datasets = loader.load_from_file(path, data_cache=cache, interactive=False)
+        datasets = loader.load_from_file(
+            path, data_cache=cache, interactive=False, subdataset_name=subdataset_name
+        )
     except Exception:
         # A referenced file that exists but is unreadable/unsupported (e.g. an
         # ENVI .img missing its .hdr) is dropped and reported, not fatal.
@@ -136,6 +156,7 @@ def _load_dataset(
     # primary one, matching how a plain single-raster file is opened.
     dataset = datasets[0]
     _apply_source_metadata(dataset, entry)
+    _apply_metadata_snapshot(dataset, entry.get("metadata") or {})
     return dataset
 
 
@@ -169,3 +190,118 @@ def _apply_source_metadata(dataset: "RasterDataSet", entry: Dict[str, Any]) -> N
         dataset.set_name(name)
     if "description" in entry:
         dataset.set_description(entry.get("description"))
+
+
+def _subdataset_base_path(descriptor: str) -> str:
+    """Extract the base file path from a GDAL subdataset descriptor.
+
+    ``NETCDF:"/abs/file.nc":var`` -> ``/abs/file.nc``.  Returns the descriptor
+    unchanged if it is not in the expected quoted form.
+    """
+    if '"' in descriptor:
+        return descriptor.split('"')[1]
+    return descriptor
+
+
+def _metadata_to_pyrep(dataset: "RasterDataSet") -> Dict[str, Any]:
+    """JSON-safe snapshot of the runtime-editable metadata a file reopen loses.
+
+    Only present fields are recorded (presence-checked, so a ``data_ignore_value``
+    of ``0`` is kept).  Reapplied on load by :func:`_apply_metadata_snapshot`.
+    """
+    meta: Dict[str, Any] = {}
+
+    ignore = dataset.get_data_ignore_value()
+    if ignore is not None:
+        meta["data_ignore_value"] = float(ignore)
+
+    bad_bands = dataset.get_bad_bands()
+    if bad_bands is not None:
+        meta["bad_bands"] = [int(b) for b in bad_bands]
+
+    wavelengths = dataset.get_wavelengths()
+    if wavelengths:
+        meta["wavelengths"] = [float(w.value) for w in wavelengths]
+        unit = dataset.get_band_unit()
+        if unit is not None:
+            meta["wavelength_units"] = str(unit)
+
+    descriptions = [b.get("description") for b in dataset.band_list()]
+    if any(d is not None for d in descriptions):
+        meta["band_descriptions"] = descriptions
+
+    display = dataset.default_display_bands()
+    if display is not None:
+        meta["default_display_bands"] = list(display)
+
+    wkt = dataset.get_wkt_spatial_reference()
+    geo = dataset.get_geo_transform()
+    if wkt and geo is not None:
+        meta["wkt_spatial_ref"] = wkt
+        meta["geo_transform"] = list(geo)
+
+    return meta
+
+
+def _apply_metadata_snapshot(dataset: "RasterDataSet", meta: Dict[str, Any]) -> None:
+    """Reapply a saved metadata snapshot via the safe per-field setters.
+
+    Best-effort and field-guarded: a value that no longer fits the reopened
+    dataset (a band-count mismatch, an unparseable unit) is skipped so the dataset
+    still restores, never aborting the load.  Order matters -- data-ignore first
+    (it feeds the band-stat cache key), and band descriptions after wavelengths
+    (``update_band_info`` rebuilds band info).  Never uses the destructive
+    ``set_band_list`` / ``set_band_unit``.
+    """
+    if not isinstance(meta, dict):
+        return
+
+    import astropy.units as u
+
+    from wiser.raster.dataset import SpatialMetadata
+
+    num_bands = dataset.num_bands()
+
+    if "data_ignore_value" in meta:
+        try:
+            dataset.set_data_ignore_value(meta["data_ignore_value"])
+        except Exception:
+            pass
+
+    wavelengths = meta.get("wavelengths")
+    units = meta.get("wavelength_units")
+    if isinstance(wavelengths, list) and len(wavelengths) == num_bands and units:
+        try:
+            unit = u.Unit(units)
+            dataset.update_band_info([float(w) * unit for w in wavelengths])
+        except Exception:
+            pass
+
+    descriptions = meta.get("band_descriptions")
+    if isinstance(descriptions, list) and len(descriptions) == num_bands:
+        try:
+            dataset.set_band_descriptions(descriptions)
+        except Exception:
+            pass
+
+    bad_bands = meta.get("bad_bands")
+    if isinstance(bad_bands, list) and len(bad_bands) == num_bands:
+        try:
+            dataset.set_bad_bands([int(b) for b in bad_bands])
+        except Exception:
+            pass
+
+    display = meta.get("default_display_bands")
+    if isinstance(display, list):
+        try:
+            dataset.set_default_display_bands(tuple(display))
+        except Exception:
+            pass
+
+    wkt = meta.get("wkt_spatial_ref")
+    geo = meta.get("geo_transform")
+    if wkt and isinstance(geo, list) and len(geo) == 6:
+        try:
+            dataset.copy_spatial_metadata(SpatialMetadata(tuple(geo), wkt))
+        except Exception:
+            pass
