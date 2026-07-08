@@ -12,7 +12,7 @@ import tests.context  # noqa: F401
 
 from osgeo import osr
 
-from wiser.gui.reference_creator_dialog import CrsCreatorState, ProjectionTypes
+from wiser.gui.reference_creator_dialog import CrsCreatorState, EllipsoidAxisType, ProjectionTypes
 from wiser.project.persisters.crs import load_user_crs, save_user_crs
 
 
@@ -81,6 +81,22 @@ def test_missing_creator_state_still_restores_crs():
     assert crs.IsSame(_wgs84()) == 1
     assert state.lon_meridian is None
     assert state.proj_type is None
+
+
+def test_none_creator_state_saved_and_reloads_with_defaults():
+    # A CRS registered with no creator state (e.g. seeded as (srs, None)) must still
+    # save without crashing, and reload with default creator-state fields.
+    src = _FakeAppState()
+    src.get_user_created_crs()["NoState"] = (_wgs84(), None)
+    manifest = {}
+    save_user_crs(src, manifest)
+    (entry,) = manifest["user_crs"]
+    assert entry["creator_state"] == {}
+
+    dst = _FakeAppState()
+    assert load_user_crs(_round_trip(manifest), dst) == []
+    _, state = dst.get_user_created_crs()["NoState"]
+    assert state.axis_ingest_type is EllipsoidAxisType.SEMI_MINOR
 
 
 def test_null_creator_state_still_restores_crs():

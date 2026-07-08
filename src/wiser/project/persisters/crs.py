@@ -55,6 +55,10 @@ def load_user_crs(manifest: Dict[str, Any], app_state: "ApplicationState") -> Li
 
 
 def _state_to_pyrep(state: Any) -> Dict[str, Any]:
+    # A CRS can be registered with no creator state (e.g. seeded by the mosaic
+    # dialog as (srs, None)); persist an empty dict so the save does not crash.
+    if state is None:
+        return {}
     return {
         "lon_meridian": state.lon_meridian,
         "proj_type": _enum_value(state.proj_type),
@@ -87,7 +91,15 @@ def _state_from_pyrep(data: Dict[str, Any]) -> Any:
     return CrsCreatorState(
         lon_meridian=data.get("lon_meridian"),
         proj_type=_enum_member(ProjectionTypes, data.get("proj_type")),
-        axis_ingest_type=_enum_member(EllipsoidAxisType, data.get("axis_ingest_type")),
+        # Fall back to the constructor default only when the key is absent; an
+        # explicit null/bad value still degrades to None.  Passing None for an
+        # absent key would drive the reference-creator dialog down the wrong
+        # (inverse-flattening) branch.
+        axis_ingest_type=(
+            _enum_member(EllipsoidAxisType, data["axis_ingest_type"])
+            if "axis_ingest_type" in data
+            else EllipsoidAxisType.SEMI_MINOR
+        ),
         axis_ingestion_value=data.get("axis_ingestion_value"),
         semi_major_value=data.get("semi_major_value"),
         latitude_choice=_enum_member(LatitudeTypes, data.get("latitude_choice")),
