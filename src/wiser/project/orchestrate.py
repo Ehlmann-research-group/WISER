@@ -96,6 +96,9 @@ def load_project(
 
 
 def _write_bundle(app_state: "ApplicationState", bundle: ProjectBundle, resolver: DependencyResolver) -> None:
+    # Clear any prior contents so re-saving over an existing bundle directory does
+    # not leave stale sidecars the new manifest no longer references.
+    bundle.clear_contents()
     manifest: Dict[str, Any] = {}
     # Datasets first: they are the roots the rest of the manifest references by
     # id, and they own the sidecar I/O through the bundle.  A dataset the resolver

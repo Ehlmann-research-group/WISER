@@ -29,3 +29,16 @@ def test_load_rois_no_section_is_noop():
     dst = _FakeAppState()
     assert load_rois({}, dst) == []
     assert dst.added == []
+
+
+def test_load_rois_non_list_section_is_noop():
+    dst = _FakeAppState()
+    assert load_rois({"rois": {"bad": "dict"}}, dst) == []
+    assert dst.added == []
+
+
+def test_load_rois_drops_non_dict_entry():
+    dst = _FakeAppState()
+    dropped = load_rois({"rois": ["not-a-dict"]}, dst)
+    assert dropped == ["not-a-dict"]
+    assert dst.added == []
