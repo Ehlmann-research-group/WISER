@@ -39,7 +39,8 @@ def load_user_crs(manifest: Dict[str, Any], app_state: "ApplicationState") -> Li
     """Reconstruct user-created CRSs from the manifest into ``app_state``.
 
     Independent of datasets, so it can run any time during a load.  Returns the
-    entries whose WKT could not be parsed so the caller can warn without aborting.
+    entries that could not be restored -- a missing name, or WKT that failed to
+    parse -- so the caller can warn without aborting.
     """
     registry = app_state.get_user_created_crs()
     dropped: List[Dict[str, Any]] = []
@@ -77,6 +78,11 @@ def _state_from_pyrep(data: Dict[str, Any]) -> Any:
         ProjectionTypes,
         ShapeTypes,
     )
+
+    # A missing/null/non-dict creator_state degrades to all-default fields rather
+    # than aborting the load; the CRS itself still restores from its WKT.
+    if not isinstance(data, dict):
+        data = {}
 
     return CrsCreatorState(
         lon_meridian=data.get("lon_meridian"),

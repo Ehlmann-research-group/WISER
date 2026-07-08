@@ -83,6 +83,18 @@ def test_missing_creator_state_still_restores_crs():
     assert state.proj_type is None
 
 
+def test_null_creator_state_still_restores_crs():
+    # A null (rather than {}) creator_state must degrade to defaults, not crash the
+    # load: `entry.get("creator_state", {})` returns None when the key is present.
+    manifest = {"user_crs": [{"name": "c", "wkt": _wgs84().ExportToWkt(), "creator_state": None}]}
+    dst = _FakeAppState()
+    assert load_user_crs(manifest, dst) == []
+    crs, state = dst.get_user_created_crs()["c"]
+    assert crs.IsSame(_wgs84()) == 1
+    assert state.lon_meridian is None
+    assert state.proj_type is None
+
+
 def test_bad_enum_value_degrades_field_but_keeps_crs():
     manifest = {
         "user_crs": [
