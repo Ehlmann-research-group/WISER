@@ -30,7 +30,7 @@ from .persisters.rois import load_rois, save_rois
 from .persisters.runs import load_runs, save_runs
 from .persisters.spectra import load_spectra, save_spectra
 from .persisters.stretches import load_stretches, save_stretches
-from .resolver import DependencyResolver, resolver_for_all_datasets
+from .resolver import Dependency, DependencyResolver, resolver_for_all_datasets
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -71,10 +71,11 @@ def load_project(
 ) -> Dict[str, List[Any]]:
     """Open a project bundle at ``src`` and restore it into a cleared session.
 
-    ``src`` may be a bundle directory or a ``.wiserproj`` zip.  A zip is
-    extracted into ``extract_dir`` (a fresh temp directory if omitted); that
-    directory must outlive the loaded session, since sidecar datasets are read
-    from it lazily -- so the caller owns its cleanup.  Raises
+    ``src`` may be a bundle directory or a ``.wiserproj`` zip.  A zip is extracted
+    into ``extract_dir``, which is **required** for a zip and must outlive the
+    loaded session, since sidecar datasets are read from it lazily -- the caller
+    owns it and its cleanup.  Raises :class:`ValueError` if a zip is opened without
+    an ``extract_dir``, and
     :class:`~wiser.project.migrate.ProjectTooNewError` for a too-new file.
 
     Returns a load report: a dict mapping each section to the entries that could
@@ -83,7 +84,11 @@ def load_project(
     src = Path(src)
     if src.is_file() and zipfile.is_zipfile(src):
         if extract_dir is None:
-            extract_dir = tempfile.mkdtemp(prefix="wiserproj-load-")
+            raise ValueError(
+                "Opening a zipped .wiserproj requires an extract_dir the caller owns "
+                "and keeps alive for the session, since sidecar datasets are read from "
+                "it lazily."
+            )
         bundle = unzip_bundle(src, extract_dir)
     else:
         bundle = ProjectBundle.open(src)
@@ -93,8 +98,15 @@ def load_project(
 def _write_bundle(app_state: "ApplicationState", bundle: ProjectBundle, resolver: DependencyResolver) -> None:
     manifest: Dict[str, Any] = {}
     # Datasets first: they are the roots the rest of the manifest references by
-    # id, and they own the sidecar I/O through the bundle.
-    save_datasets(app_state, manifest, bundle)
+    # id, and they own the sidecar I/O through the bundle.  A dataset the resolver
+    # cuts (unchecked in the Save dialog) is excluded here too, so the bundle
+    # matches the resolver the other persisters see rather than saving it anyway.
+    excluded_ids = frozenset(
+        ds.get_id()
+        for ds in app_state.get_datasets()
+        if not resolver.is_saved(Dependency("dataset", ds.get_id()))
+    )
+    save_datasets(app_state, manifest, bundle, excluded_ids)
     save_user_crs(app_state, manifest)
     save_bandmath(app_state, manifest)
     save_rois(app_state, manifest)
@@ -118,7 +130,7 @@ def _restore(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, 
     report["datasets"] = load_datasets(manifest, app_state, bundle)
     report["user_crs"] = load_user_crs(manifest, app_state)
     report["bandmath"] = load_bandmath(manifest, app_state)
-    load_rois(manifest, app_state)
+    report["rois"] = load_rois(manifest, app_state)
     report["stretches"] = load_stretches(manifest, app_state)
     report["spectra"] = load_spectra(manifest, app_state)
     report["libraries"] = load_libraries(manifest, app_state)

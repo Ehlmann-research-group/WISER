@@ -888,8 +888,23 @@ class ApplicationState(QObject):
         with no removal path (CRSs, band-math expressions, run records) are
         emptied directly.
         """
-        for ds_id in list(self._datasets.keys()):
-            self.remove_dataset(ds_id)
+        managers = (
+            self._pca_history,
+            self._mnf_history,
+            self._linear_unmix_history,
+            self._kmeans_history,
+        )
+        # The run-history managers react to dataset_removed; block their signals
+        # during the bulk removal so each emits records_changed once (from
+        # clear_records below) rather than once per removed dataset.
+        for manager in managers:
+            manager.blockSignals(True)
+        try:
+            for ds_id in list(self._datasets.keys()):
+                self.remove_dataset(ds_id)
+        finally:
+            for manager in managers:
+                manager.blockSignals(False)
         for roi_id in list(self._regions_of_interest.keys()):
             self.remove_roi(roi_id)
         for lib_id in list(self._spectral_libraries.keys()):
@@ -900,12 +915,7 @@ class ApplicationState(QObject):
         self._all_spectra.clear()
         self._user_created_crs.clear()
         self._bandmath_saved_exprs = []
-        for manager in (
-            self._pca_history,
-            self._mnf_history,
-            self._linear_unmix_history,
-            self._kmeans_history,
-        ):
+        for manager in managers:
             manager.clear_records()
         self._next_id = 1
 

@@ -5,7 +5,7 @@ and load directly via the pyrep convention.  Each ROI is captured as its
 identity plus a list of faithfully-serialized selections.
 """
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from wiser.raster.roi import ROI_PYREP_TYPE, roi_from_pyrep, roi_to_pyrep
 
@@ -22,7 +22,16 @@ def save_rois(app_state: "ApplicationState", manifest: Dict[str, Any]) -> None:
     manifest["rois"] = [roi_to_pyrep(roi) for roi in app_state.get_rois()]
 
 
-def load_rois(manifest: Dict[str, Any], app_state: "ApplicationState") -> None:
-    """Reconstruct ROIs from ``manifest['rois']`` into ``app_state``."""
+def load_rois(manifest: Dict[str, Any], app_state: "ApplicationState") -> List[Dict[str, Any]]:
+    """Reconstruct ROIs from ``manifest['rois']`` into ``app_state``.
+
+    Returns the entries that could not be restored (a malformed pyrep or an
+    unknown type tag) so the caller can warn without aborting the load.
+    """
+    dropped: List[Dict[str, Any]] = []
     for data in manifest.get("rois", []):
-        app_state.add_roi(roi_from_pyrep(data))
+        try:
+            app_state.add_roi(roi_from_pyrep(data))
+        except (KeyError, TypeError, ValueError):
+            dropped.append(data)
+    return dropped
