@@ -280,6 +280,45 @@ def test_out_of_range_default_bands_are_dropped(tmp_path: Path) -> None:
     assert all(0 <= int(b) < reloaded.num_bands() for b in find_display_bands(reloaded))
 
 
+def test_export_metadata_frozen_against_live_edit(tmp_path: Path) -> None:
+    """
+    #677: export stamps the header from the ingest-time snapshot, so a metadata edit
+    made in main WISER *after* a scene was added is not applied. Freeze a scene with
+    default bands [2, 1, 0], then edit the live dataset, and confirm the exported file
+    keeps the frozen choice.
+    """
+    band_source = make_numpy_scene(
+        origin=ORIGIN_A,
+        base_value=0.0,
+        wavelengths=[450.0, 550.0, 650.0],
+        wavelength_units="nm",
+        default_display_bands=[2, 1, 0],
+    )
+    scene_a = _materialized_scene(band_source, tmp_path, "a")  # snapshot frozen here
+    scene_b = _materialized_scene(make_numpy_scene(origin=ORIGIN_B, base_value=1000.0), tmp_path, "b")
+
+    # Edit the live dataset AFTER ingest; these must NOT reach the export.
+    band_source.set_default_display_bands((0, 1, 2))
+    band_source.set_data_ignore_value(4242.0)
+
+    out = tmp_path / "mosaic.img"
+    export_mosaic(
+        [scene_a, scene_b],
+        _union_grid(),
+        wkt_for_epsg(EPSG),
+        gdal.GRA_NearestNeighbour,
+        NODATA,
+        scene_a.snapshot,
+        out,
+    )
+
+    reloaded = RasterDataLoader().load_from_file(path=str(out), data_cache=None)[0]
+    # The frozen [2, 1, 0] is stamped, not the live edit [0, 1, 2].
+    assert list(reloaded.default_display_bands()) == [2, 1, 0]
+    # The output nodata is the export nodata we passed, unaffected by the live edit.
+    assert reloaded.get_data_ignore_value() == pytest.approx(NODATA)
+
+
 def test_empty_scene_list_raises(tmp_path: Path) -> None:
     with pytest.raises(MosaicExportError):
         export_mosaic(
