@@ -16,7 +16,7 @@ rebuild when the output geometry changes.
 """
 
 from pathlib import Path
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Callable, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from osgeo import gdal, osr
 
@@ -30,11 +30,13 @@ from .mosaic_crs_dialog import ReprojectPromptDialog
 from .mosaic_view import MosaicView
 from .progress_task import run_with_progress
 
+from wiser.raster.dataset import find_display_bands
 from wiser.raster.mosaic_controller import (
     CommonGrid,
     MosaicController,
     MosaicScene,
     ResolutionMode,
+    SceneMetadataSnapshot,
     TargetCrsRequired,
     UnmappableCrsError,
 )
@@ -55,6 +57,7 @@ if TYPE_CHECKING:
 def _ingest_scene(
     dataset: "RasterDataSet",
     materializer: "SceneMaterializer",
+    snapshot: Optional[SceneMetadataSnapshot] = None,
     progress: Optional[ProgressReporter] = None,
 ) -> MosaicScene:
     """
@@ -65,6 +68,13 @@ def _ingest_scene(
     phases (weighted by their rough cost) so the overall bar advances smoothly;
     each phase reports fine-grained progress internally. Returns the fully-populated
     :class:`MosaicScene` for the main thread to append to the controller.
+
+    ``snapshot`` is the dataset metadata **frozen at ingest** (#677), built on the GUI
+    thread in :meth:`MosaicPane._on_add_scene_clicked` (the display-band resolution and
+    the deep-copy of the dataset's metadata must both happen against the live main-view
+    / dataset state at add-time). It is carried through and stamped onto the returned
+    :class:`MosaicScene`; later steps materialize the display-only artifact and export
+    from this snapshot rather than the live dataset.
     """
     progress = progress or ProgressReporter()
     materialize_progress, overview_progress, footprint_progress = progress.split(
@@ -83,6 +93,7 @@ def _ingest_scene(
         gdal_path=gdal_path,
         footprint_wkt=footprint_wkt,
         has_overviews=True,
+        snapshot=snapshot,
     )
 
 
@@ -132,12 +143,18 @@ class MosaicPane(QWidget):
         app_state: ApplicationState,
         app_services: Optional[AppServices] = None,
         materializer: Optional["SceneMaterializer"] = None,
+        display_bands_resolver: Optional[Callable[["RasterDataSet"], Optional[Tuple[int, ...]]]] = None,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent=parent)
         self._app_state = app_state
         self._app_services = app_services
         self._materializer = materializer
+        # Resolves a dataset to the bands currently shown for it in the main view, or
+        # None if not shown there. Used at ingest to pick the display bands baked into
+        # a scene's display-only preview (#677); falls back to find_display_bands when
+        # this is None (e.g. a bare pane in a unit test) or returns None.
+        self._display_bands_resolver = display_bands_resolver
         self._controller = MosaicController()
         # Holds the in-flight ingestion task (progress modal + background work) so it
         # is not garbage-collected mid-run; overwritten on the next add.
@@ -388,6 +405,15 @@ class MosaicPane(QWidget):
             QMessageBox.warning(self, self.tr("Cannot add scene"), str(exc))
             return
 
+        # Freeze the dataset metadata at ingest (#677) on the GUI thread: the display
+        # bands are resolved from the *live* main-view selection (GUI state, unsafe to
+        # read off-thread), and the dataset's spatial/spectral metadata is deep-copied
+        # so a mid-session edit in main WISER cannot silently alter this mosaic. The
+        # snapshot rides along to the background worker and both the display-only
+        # materialization and the lazy export stamp from it.
+        display_bands = self._resolve_display_bands(dataset)
+        snapshot = SceneMetadataSnapshot.from_dataset(dataset, display_bands)
+
         # Run the ingestion on the scheduler with a progress dialog and a mirrored
         # Activity Monitor row. Pass the window (the SeamlessMosaicDialog) as the block
         # target so only it is disabled while ingesting; the rest of WISER stays live.
@@ -398,11 +424,31 @@ class MosaicPane(QWidget):
             _ingest_scene,
             dataset,
             self._materializer,
+            snapshot,
             on_success=self._on_scene_ingested,
             on_error=self._on_scene_failed,
             description=self.tr("Materializing scene…"),
             meta={"bands": str(dataset.num_bands())},
         )
+
+    def _resolve_display_bands(self, dataset: "RasterDataSet") -> Tuple[int, ...]:
+        """
+        Resolve which display bands to bake into ``dataset``'s display-only preview,
+        per issue #677's ordering:
+
+          1. the main view's current selection for the dataset (honoring a
+             band-chooser choice), via the injected ``display_bands_resolver``;
+          2. otherwise ``find_display_bands(dataset)`` -- the robust defaults ->
+             human-eye wavelength -> first 1/3 bands fallback chain -- which also
+             covers "never shown in the main view" and "no defaults".
+
+        Runs on the GUI thread (the resolver reads live main-view state).
+        """
+        if self._display_bands_resolver is not None:
+            bands = self._display_bands_resolver(dataset)
+            if bands:
+                return tuple(int(b) for b in bands)
+        return tuple(int(b) for b in find_display_bands(dataset))
 
     def _on_scene_ingested(self, scene: MosaicScene) -> None:
         self._controller.add_scene(scene)
