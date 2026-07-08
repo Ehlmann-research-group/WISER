@@ -61,8 +61,9 @@ def _ingest_scene(
     progress: Optional[ProgressReporter] = None,
 ) -> MosaicScene:
     """
-    Background I/O for one scene: materialize to a warpable temp GeoTIFF, build
-    internal overviews on it, and compute the valid-pixel footprint.
+    Background I/O for one scene: materialize the **display-only** warpable temp
+    GeoTIFF (just the frozen display bands), build internal overviews on it, and
+    compute the valid-pixel footprint.
 
     Runs on a scheduler thread (no Qt here). ``progress`` is split across the three
     phases (weighted by their rough cost) so the overall bar advances smoothly;
@@ -72,17 +73,25 @@ def _ingest_scene(
     ``snapshot`` is the dataset metadata **frozen at ingest** (#677), built on the GUI
     thread in :meth:`MosaicPane._on_add_scene_clicked` (the display-band resolution and
     the deep-copy of the dataset's metadata must both happen against the live main-view
-    / dataset state at add-time). It is carried through and stamped onto the returned
-    :class:`MosaicScene`; later steps materialize the display-only artifact and export
-    from this snapshot rather than the live dataset.
+    / dataset state at add-time). Its ``display_bands`` are what gets baked into the
+    display-only artifact -- so overviews and the footprint are computed on a file with
+    only 1--3 bands, which is the whole speedup -- and it is stamped onto the returned
+    :class:`MosaicScene` for the lazy full-band export to read from. When ``snapshot``
+    is ``None`` (a direct caller bypassing the GUI path) it is frozen here from the
+    live dataset so the scene still carries one.
     """
+    if snapshot is None:
+        snapshot = SceneMetadataSnapshot.from_dataset(dataset, find_display_bands(dataset))
+
     progress = progress or ProgressReporter()
     materialize_progress, overview_progress, footprint_progress = progress.split(
-        (0.5, "Materializing scene"),
+        (0.5, "Materializing display bands"),
         (0.35, "Building overviews"),
         (0.15, "Computing footprint"),
     )
-    gdal_path = materializer.gdal_source(dataset, progress=materialize_progress)
+    gdal_path = materializer.build_display_source(
+        dataset, snapshot.display_bands, progress=materialize_progress
+    )
     progress.raise_if_cancelled()
     build_overviews(gdal_path, progress=overview_progress)
     progress.raise_if_cancelled()

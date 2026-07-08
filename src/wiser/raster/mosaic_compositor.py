@@ -25,7 +25,7 @@ existing warp seam :func:`wiser.raster.mosaic_controller._warped_resolution`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence, Tuple
+from typing import TYPE_CHECKING, Tuple
 
 import numpy as np
 from osgeo import gdal
@@ -53,9 +53,12 @@ def render_scene_argb(
     an ``(out_height, out_width, 4)`` uint8 RGBA array.
 
     ``world_extent`` is ``(min_x, min_y, max_x, max_y)`` in the target CRS (the
-    view's visible world rectangle). RGB comes from the dataset's default display
-    bands (1 band -> grayscale, 3 bands -> RGB), contrast-stretched per band over the
-    valid pixels; alpha is the warp's validity mask (0 on nodata / outside coverage).
+    view's visible world rectangle). ``scene.gdal_path`` is the **display-only**
+    artifact (#677) whose bands already *are* the resolved display bands, so RGB is
+    read straight from bands 1..N in order (1 band -> grayscale, 3 bands -> RGB) --
+    the "which source bands" decision was made upstream at materialize time, not here.
+    Each band is contrast-stretched over the valid pixels; alpha is the warp's
+    validity mask (0 on nodata / outside coverage).
 
     A scene whose data does not cover ``world_extent`` comes back fully transparent
     (alpha all 0), so callers can render it unconditionally.
@@ -95,46 +98,25 @@ def render_scene_argb(
         # No data bands, or nothing valid in view: leave RGB black, alpha as computed.
         return rgba
 
-    display_bands = _select_display_bands(scene, num_data_bands)
+    # The display-only artifact holds exactly the display bands (1 or 3), so read them
+    # all, in order -- band 1/2/3 are R/G/B. Cap at 3 defensively; a well-formed
+    # display-only file never has more.
     channels = [
         _stretch_band(
             warped.GetRasterBand(band_idx + 1).ReadAsArray().astype(np.float32),
             valid,
         )
-        for band_idx in display_bands
+        for band_idx in range(min(num_data_bands, 3))
     ]
 
-    if len(channels) == 1:  # grayscale: replicate into R=G=B
+    if len(channels) == 1:  # grayscale (single display band): replicate into R=G=B
         rgba[:, :, 0] = rgba[:, :, 1] = rgba[:, :, 2] = channels[0]
-    else:
+    else:  # bands are already R, G, B
         rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2] = channels[0], channels[1], channels[2]
     # Force invalid pixels fully clear (0, 0, 0, 0) so RGB never bleeds under a
     # transparent alpha (the flat-band stretch otherwise whitens them).
     rgba[~valid, :3] = 0
     return rgba
-
-
-def _select_display_bands(scene: "MosaicScene", num_data_bands: int) -> Sequence[int]:
-    """
-    Pick the 0-based source band indices to render as RGB (or 1 for grayscale).
-
-    Prefers the dataset's default display bands; falls back to the first three bands
-    (or the single band) and clamps any out-of-range index defensively.
-    """
-    bands = None
-    getter = getattr(scene.dataset, "get_default_display_bands", None)
-    if getter is not None:
-        try:
-            bands = getter()
-        except Exception:  # noqa: BLE001 - metadata access must never break a paint
-            bands = None
-
-    if not bands:
-        bands = (0,) if num_data_bands < 3 else (0, 1, 2)
-    # Grayscale if a single band was chosen or the scene only has one band.
-    if len(bands) == 1 or num_data_bands < 3:
-        return (min(int(bands[0]), num_data_bands - 1),)
-    return tuple(min(int(b), num_data_bands - 1) for b in bands[:3])
 
 
 def _stretch_band(band: np.ndarray, valid: np.ndarray) -> np.ndarray:
