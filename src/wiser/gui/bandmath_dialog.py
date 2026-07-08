@@ -1903,7 +1903,7 @@ class BandMathDialog(QDialog):
             # TODO(donnie):  This comparison doesn't catch situations where
             #     whitespace is the only difference.
             saved_expr = self._ui.cbox_saved_exprs.itemText(i).casefold()
-            if expr == saved_expr:
+            if expr.casefold() == saved_expr:
                 QMessageBox.critical(
                     self,
                     self.tr("Expression already saved"),
