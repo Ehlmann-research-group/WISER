@@ -27,6 +27,7 @@ from ..bundle import ProjectBundle
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
+    from wiser.raster.data_cache import DataCache
     from wiser.raster.dataset import RasterDataSet
     from wiser.raster.loader import RasterDataLoader
 
@@ -107,7 +108,7 @@ def load_datasets(
 
 
 def _load_dataset(
-    entry: Dict[str, Any], bundle: ProjectBundle, loader: "RasterDataLoader", cache
+    entry: Dict[str, Any], bundle: ProjectBundle, loader: "RasterDataLoader", cache: Optional["DataCache"]
 ) -> Optional["RasterDataSet"]:
     storage = entry.get("storage")
     if storage == STORAGE_SIDECAR:
@@ -122,7 +123,12 @@ def _load_dataset(
     if not path or not os.path.isfile(path):
         return None
 
-    datasets = loader.load_from_file(path, data_cache=cache, interactive=False)
+    try:
+        datasets = loader.load_from_file(path, data_cache=cache, interactive=False)
+    except Exception:
+        # A referenced file that exists but is unreadable/unsupported (e.g. an
+        # ENVI .img missing its .hdr) is dropped and reported, not fatal.
+        return None
     if not datasets:
         return None
 
