@@ -205,6 +205,9 @@ def _unmixing_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationState") -
             # An endmember is core to the record; a corrupt one invalidates it.
             return None
         endmembers.append(spectrum)
+    if not endmembers:
+        # A missing or empty endmember list leaves an unusable record; drop it.
+        return None
     kwargs = _common_kwargs(entry, app_state)
     kwargs["output_dataset_id"] = entry["output_dataset_id"]
     kwargs["output_dataset_name_snapshot"] = entry.get("output_dataset_name_snapshot", "")

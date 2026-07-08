@@ -227,3 +227,12 @@ def test_malformed_record_dropped_not_fatal():
     dropped = load_runs(manifest, dst)
     assert len(dropped) == 1
     assert dst.get_pca_history().get_records() == []
+
+
+def test_unmixing_record_with_no_endmembers_dropped():
+    # Endmembers are core to an unmixing record; a missing/empty list is malformed.
+    manifest = {"runs": {"unmixing": [{"endmember_snapshots": [], "output_dataset_id": 2}]}}
+    dst = _FakeAppState()
+    dropped = load_runs(manifest, dst)
+    assert len(dropped) == 1
+    assert dst.get_linear_unmix_history().get_records() == []
