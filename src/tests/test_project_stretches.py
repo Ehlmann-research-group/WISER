@@ -14,8 +14,10 @@ import tests.context  # noqa: F401
 from wiser.project.persisters.stretches import (
     TAG_COMPOSITE,
     TAG_LINEAR,
+    TAG_NONE,
     load_stretches,
     save_stretches,
+    stretch_to_pyrep,
 )
 from wiser.project.resolver import DependencyResolver
 from wiser.raster.stretch import (
@@ -161,6 +163,17 @@ def test_stateless_stretches_round_trip():
     assert isinstance(restored[1], StretchSquareRoot)
     assert isinstance(restored[2], StretchLog2)
     assert isinstance(restored[3], StretchBase)
+
+
+def test_unknown_stretch_subclass_not_serialized_as_none():
+    # A bare StretchBase is the identity "none" stretch and serializes as such, but
+    # an unrecognized StretchBase subclass is dropped (None) rather than silently
+    # serialized as a no-op.
+    class _UnknownStretch(StretchBase):
+        pass
+
+    assert stretch_to_pyrep(StretchBase()) == {"type": TAG_NONE}
+    assert stretch_to_pyrep(_UnknownStretch()) is None
 
 
 def test_stretch_dropped_when_dataset_unsaved():

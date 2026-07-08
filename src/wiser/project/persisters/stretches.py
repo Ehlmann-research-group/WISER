@@ -139,8 +139,10 @@ def stretch_to_pyrep(stretch: Any) -> Optional[Dict[str, Any]]:
         return {"type": TAG_SQRT}
     if isinstance(stretch, _LOG2):
         return {"type": TAG_LOG2}
-    # Checked last: every per-band stretch subclasses StretchBase.
-    if isinstance(stretch, _BASE):
+    # The identity ("none") stretch is a bare StretchBase; match the exact type so
+    # an unrecognized StretchBase subclass falls through to None (dropped) instead
+    # of being silently serialized as a no-op.
+    if type(stretch) in _BASE:
         return {"type": TAG_NONE}
     return None
 
