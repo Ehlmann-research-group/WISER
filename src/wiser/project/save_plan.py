@@ -78,4 +78,6 @@ def _dependent_spectra(app_state: "ApplicationState") -> List[Any]:
 
 
 def _spectrum_label(spectrum: Any) -> str:
-    return spectrum.get_name() or "spectrum"
+    # Fall back to the id so multiple unnamed spectra get distinguishable rows in
+    # the consequences table rather than all reading "spectrum".
+    return spectrum.get_name() or f"spectrum {spectrum.get_id()}"

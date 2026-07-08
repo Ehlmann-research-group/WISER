@@ -710,7 +710,7 @@ class DataVisualizerApp(QMainWindow):
         )
         if not path:
             return
-        if not path.endswith(ProjectBundle.EXTENSION):
+        if not path.lower().endswith(ProjectBundle.EXTENSION):
             path += ProjectBundle.EXTENSION
 
         try:
@@ -754,9 +754,11 @@ class DataVisualizerApp(QMainWindow):
         try:
             report = load_project(path, self._app_state, extract_dir=self._project_extract_dir)
         except ProjectTooNewError as e:
+            self._clear_project_extract_dir()
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
         except Exception as e:
+            self._clear_project_extract_dir()
             logger.exception("Failed to open project")
             QMessageBox.critical(
                 self,
