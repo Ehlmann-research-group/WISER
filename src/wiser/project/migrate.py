@@ -3,7 +3,7 @@
 **Guarantee:** any project file written by a released WISER can be opened by
 every later WISER (backward compatibility).  Forward compatibility is *not*
 promised -- a file from a newer WISER is refused cleanly rather than
-mis-interpreted.
+misinterpreted.
 
 **How it works.** The loader only ever understands the *current* schema.  On
 load, an older manifest is transformed step-by-step up to the current shape by a
@@ -55,9 +55,12 @@ def register_migration(from_version: int, migrate: Callable[[Dict[str, Any]], Di
 
     Called at import time as the schema evolves.  ``migrate`` must be a pure
     ``dict -> dict`` transform; pair each with a golden fixture per the module
-    docstring's checklist.  Rejects a duplicate ``from_version`` rather than
-    silently overwriting it, since that would make the migration chain ambiguous.
+    docstring's checklist.  ``from_version`` must be a positive integer (project
+    ``format_version`` starts at 1); a duplicate ``from_version`` is rejected
+    rather than silently overwritten, since that would make the chain ambiguous.
     """
+    if not isinstance(from_version, int) or from_version < 1:
+        raise ValueError(f"Invalid migration from_version {from_version!r}; expected a positive integer.")
     if from_version in _MIGRATIONS:
         raise ValueError(f"A migration from project format v{from_version} is already registered.")
     _MIGRATIONS[from_version] = migrate

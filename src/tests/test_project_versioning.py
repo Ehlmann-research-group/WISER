@@ -59,6 +59,13 @@ def test_register_migration_rejects_duplicate(monkeypatch):
         migrate_mod.register_migration(1, lambda manifest: manifest)
 
 
+def test_register_migration_rejects_invalid_from_version(monkeypatch):
+    monkeypatch.setattr(migrate_mod, "_MIGRATIONS", {})
+    for bad in (0, -1):
+        with pytest.raises(ValueError):
+            migrate_mod.register_migration(bad, lambda manifest: manifest)
+
+
 def test_missing_migration_step_is_refused(monkeypatch):
     monkeypatch.setattr(migrate_mod, "CURRENT_FORMAT_VERSION", 2)
     monkeypatch.setattr(migrate_mod, "_MIGRATIONS", {})
