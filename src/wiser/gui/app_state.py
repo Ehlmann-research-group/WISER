@@ -878,6 +878,37 @@ class ApplicationState(QObject):
     def set_bandmath_expressions(self, expressions: List[str]) -> None:
         self._bandmath_saved_exprs = list(expressions)
 
+    def clear_session(self) -> None:
+        """Reset to an empty session, discarding all current state.
+
+        Used before restoring a project file (the load orchestrator clears first
+        so that datasets can be restored with their original ids).  Removal goes
+        through the normal ``remove_*`` methods so the corresponding
+        removed-signals fire and the UI clears; the remaining ``[SOURCE]`` stores
+        with no removal path (CRSs, band-math expressions, run records) are
+        emptied directly.
+        """
+        for ds_id in list(self._datasets.keys()):
+            self.remove_dataset(ds_id)
+        for roi_id in list(self._regions_of_interest.keys()):
+            self.remove_roi(roi_id)
+        for lib_id in list(self._spectral_libraries.keys()):
+            self.remove_spectral_library(lib_id)
+        self.remove_all_collected_spectra()
+        self.set_active_spectrum(None)
+        self._stretches.clear()
+        self._all_spectra.clear()
+        self._user_created_crs.clear()
+        self._bandmath_saved_exprs = []
+        for manager in (
+            self._pca_history,
+            self._mnf_history,
+            self._linear_unmix_history,
+            self._kmeans_history,
+        ):
+            manager.clear_records()
+        self._next_id = 1
+
     def get_user_created_crs(self):
         return self._user_created_crs
 
