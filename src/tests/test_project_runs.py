@@ -202,7 +202,8 @@ def test_kmeans_round_trip():
     assert rec.params.init_method is KMeansInitMethod.MANUAL
     assert rec.params.algorithm is KMeansAlgorithm.LLOYD
     assert rec.params.max_iter == 300
-    np.testing.assert_array_almost_equal(rec.centroids._centroids, [[1, 2, 3], [4, 5, 6]])
+    restored_centroids = [rec.centroids.get_centroid(i) for i in range(rec.centroids.num_centroids())]
+    np.testing.assert_array_almost_equal(restored_centroids, [[1, 2, 3], [4, 5, 6]])
     manual = rec.params.get_manual_spectra()
     assert len(manual) == 2
     np.testing.assert_array_almost_equal(manual[0], [0.1, 0.2, 0.3])

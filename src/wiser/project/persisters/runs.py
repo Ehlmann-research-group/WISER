@@ -139,14 +139,15 @@ def _unmixing_to_pyrep(record: Any, resolver: DependencyResolver) -> Dict[str, A
 def _kmeans_to_pyrep(record: Any) -> Dict[str, Any]:
     entry = _common_to_pyrep(record)
     entry["effective_seed"] = record.effective_seed
-    # KMeansCentroids exposes no array getter; the (k, bands) array is _centroids.
-    entry["centroids"] = np.asarray(record.centroids._centroids, dtype=float).tolist()
+    centroids = record.centroids
+    stack = [centroids.get_centroid(i) for i in range(centroids.num_centroids())]
+    entry["centroids"] = np.asarray(stack, dtype=float).tolist()
     entry["params"] = _kmeans_params_to_pyrep(record.params)
     return entry
 
 
 def _kmeans_params_to_pyrep(params: Any) -> Dict[str, Any]:
-    manual = params._manual_spectra
+    manual = params.get_manual_spectra()
     return {
         "dataset_id": params.dataset_id,
         "k": params.k,
@@ -156,7 +157,9 @@ def _kmeans_params_to_pyrep(params: Any) -> Dict[str, Any]:
         "tol": params.tol,
         "seed": params.seed,
         "algorithm": params.algorithm.value,
-        "manual_spectra": ([np.asarray(a, dtype=float).tolist() for a in manual] if manual else None),
+        "manual_spectra": (
+            [np.asarray(a, dtype=float).tolist() for a in manual] if manual is not None else None
+        ),
     }
 
 
@@ -231,7 +234,7 @@ def _kmeans_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationState") -> 
         tol=p.get("tol"),
         seed=p.get("seed"),
         algorithm=KMeansAlgorithm(p["algorithm"]),
-        _manual_spectra=([np.asarray(a, dtype=np.float32) for a in manual] if manual else None),
+        _manual_spectra=([np.asarray(a, dtype=np.float32) for a in manual] if manual is not None else None),
     )
     centroids = KMeansCentroids(np.asarray(entry["centroids"], dtype=np.float32))
     kwargs = _common_kwargs(entry, app_state)
