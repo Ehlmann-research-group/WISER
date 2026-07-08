@@ -113,9 +113,12 @@ def library_from_pyrep(
 
     Returns ``(library, dropped_members)``.  ``library`` is ``None`` when the
     library itself is unrestorable (a moved ENVI file, an unknown ``storage``
-    kind); ``dropped_members`` lists inline member spectra dropped from an
-    otherwise-restored library, so the loss is reported rather than silent.
+    kind, or a malformed entry); ``dropped_members`` lists inline member spectra
+    dropped from an otherwise-restored library, so the loss is reported rather
+    than silent.
     """
+    if not isinstance(entry, dict):
+        return None, []
     storage = entry.get("storage")
     if storage == STORAGE_REFERENCE:
         return _reference_library(entry), []
@@ -126,11 +129,11 @@ def library_from_pyrep(
 
 def _reference_library(entry: Dict[str, Any]) -> Optional[SpectralLibrary]:
     path = entry.get("path")
-    if not path or not os.path.isfile(path):
+    if not isinstance(path, str) or not os.path.isfile(path):
         return None
     try:
         return ENVISpectralLibrary(path)
-    except (FileNotFoundError, EnviFileFormatError):
+    except (OSError, ValueError, EnviFileFormatError):
         return None
 
 
@@ -139,7 +142,10 @@ def _inline_library(
 ) -> Tuple[SpectralLibrary, List[Dict[str, Any]]]:
     members = []
     dropped_members: List[Dict[str, Any]] = []
-    for spectrum_entry in entry.get("spectra", []):
+    spectra = entry.get("spectra")
+    if not isinstance(spectra, list):
+        spectra = []
+    for spectrum_entry in spectra:
         spectrum = spectrum_from_pyrep(spectrum_entry, app_state)
         if spectrum is None:
             dropped_members.append(spectrum_entry)

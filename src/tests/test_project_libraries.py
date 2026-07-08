@@ -159,6 +159,21 @@ def test_inline_library_reports_unrestorable_member():
     assert dropped == [{"kind": KIND_NUMPY, "name": "corrupt"}]
 
 
+def test_inline_library_with_non_list_spectra_does_not_crash():
+    # A hand-edited/corrupt manifest where "spectra" is null (not a list) must not
+    # abort the load: the library restores with no members rather than raising.
+    manifest = {
+        "libraries": [
+            {"storage": STORAGE_INLINE, "name": "broken", "description": "", "path": None, "spectra": None}
+        ]
+    }
+    dst = _FakeAppState()
+    dropped = load_libraries(manifest, dst)
+    (restored,) = dst.get_spectral_libraries()
+    assert restored.num_spectra() == 0
+    assert dropped == []
+
+
 def test_unknown_storage_kind_dropped():
     manifest = {"libraries": [{"storage": "future-format", "name": "x"}]}
     dst = _FakeAppState()
