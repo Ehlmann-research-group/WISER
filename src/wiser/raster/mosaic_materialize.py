@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence, Tuple
 
 import numpy as np
 from osgeo import gdal, gdal_array
@@ -204,6 +204,136 @@ def materialize_to_tiled_geotiff(
     )
 
 
+def _stamp_display_only_metadata(
+    gdal_dataset: gdal.Dataset,
+    source_dataset: RasterDataSet,
+    display_bands: Tuple[int, ...],
+) -> None:
+    """
+    Stamp metadata onto a **display-only** artifact whose bands are, in order, the
+    source dataset's ``display_bands``.
+
+    Like :func:`_stamp_metadata_from_dataset` this copies geotransform + SRS from the
+    ``RasterDataSet`` and the nodata value onto every output band (so the alpha /
+    validity mask still works in the preview compositor). It differs in that per-band
+    spectral metadata is **band-remapped**: output band ``k`` carries the wavelength /
+    name of source band ``display_bands[k]``. ``DEFAULT_BANDS`` is written as the
+    identity mapping because bands 1..N of this file *are* the display bands (band
+    1/2/3 = R/G/B) -- there is no longer an N-of-M selection to record. The bad-band
+    list is intentionally omitted: it is defined over the full band set and is
+    meaningless for a 1/3-band display slice.
+    """
+    geo_transform = source_dataset.get_geo_transform()
+    if geo_transform is not None:
+        gdal_dataset.SetGeoTransform([float(v) for v in geo_transform])
+
+    wkt = source_dataset.get_wkt_spatial_reference()
+    if wkt:
+        gdal_dataset.SetProjection(wkt)
+
+    nodata = source_dataset.get_data_ignore_value()
+    if nodata is not None:
+        for i in range(1, gdal_dataset.RasterCount + 1):
+            gdal_dataset.GetRasterBand(i).SetNoDataValue(float(nodata))
+
+    band_info = source_dataset.band_list()
+    for out_index, src_band in enumerate(display_bands):
+        band = gdal_dataset.GetRasterBand(out_index + 1)
+        info = band_info[src_band] if 0 <= src_band < len(band_info) else {}
+
+        name = info.get("wavelength_name")
+        if name is not None:
+            band.SetDescription(str(name))
+
+        value, units = _band_wavelength_value_and_units(info)
+        if value is not None:
+            band.SetMetadataItem("wavelength", str(value))
+        if units is not None:
+            band.SetMetadataItem("wavelength_units", str(units))
+
+    # Identity default bands (0-based): this file's bands already *are* the display
+    # bands, so grayscale is {0} and RGB is {0,1,2}.
+    identity = range(gdal_dataset.RasterCount)
+    gdal_dataset.SetMetadataItem("DEFAULT_BANDS", ",".join(str(b) for b in identity))
+
+
+def materialize_display_only_to_tiled_geotiff(
+    dataset: RasterDataSet,
+    dest_path: Path,
+    display_bands: Sequence[int],
+    progress: Optional[ProgressReporter] = None,
+) -> None:
+    """
+    Write a **display-only** tiled GeoTIFF at ``dest_path`` containing only the source
+    dataset's ``display_bands`` (a 1- or 3-tuple of 0-based band indices), in order.
+
+    This is the preview artifact for the mosaic pixel layer (#677): the compositor only
+    ever reads the display bands, so baking just those bands makes every warp and every
+    overview level touch 1--3 bands instead of all N -- a large speedup for
+    hyperspectral scenes. Because the file physically contains only the display bands,
+    band selection moves from read time to materialize time: bands 1/2/3 *are* R/G/B.
+
+    The nodata value is preserved on each output band so the warp's alpha (validity
+    mask) still works. Data/metadata are sourced from the ``RasterDataSet`` object (not
+    its on-disk backing), and bands are written one at a time to bound peak memory.
+
+    ``progress`` reports per-output-band completion; it defaults to a no-op reporter.
+    """
+    progress = progress or ProgressReporter()
+    gdal.UseExceptions()
+
+    display_bands = tuple(int(b) for b in display_bands)
+    if len(display_bands) not in (1, 3):
+        raise ValueError(f"display_bands must contain 1 or 3 band indices; got {display_bands!r}")
+
+    width = dataset.get_width()
+    height = dataset.get_height()
+    num_out_bands = len(display_bands)
+    gdal_type, write_dtype = _gdal_type_and_write_dtype(dataset.get_elem_type())
+
+    driver = gdal.GetDriverByName("GTiff")
+    options = [
+        "TILED=YES",
+        f"BLOCKXSIZE={_BLOCK_SIZE}",
+        f"BLOCKYSIZE={_BLOCK_SIZE}",
+    ]
+
+    out_ds: Optional[gdal.Dataset] = driver.Create(
+        str(dest_path), width, height, num_out_bands, gdal_type, options=options
+    )
+    if out_ds is None:
+        raise RuntimeError(f"GDAL failed to create display-only GeoTIFF at {dest_path}")
+
+    try:
+        # Write one output band at a time, reading the corresponding source band, to
+        # keep peak memory to a single (height, width) band.
+        for out_index, src_band in enumerate(display_bands):
+            progress.raise_if_cancelled()
+            # filter_data_ignore_value=False keeps the raw values (including the nodata
+            # sentinel) so the materialized file mirrors the source and nodata masking
+            # stays exact.
+            band_arr = dataset.get_band_data(src_band, filter_data_ignore_value=False)
+            band_arr = np.asarray(band_arr, dtype=write_dtype)
+            out_ds.GetRasterBand(out_index + 1).WriteArray(band_arr)
+            del band_arr
+            progress.report(out_index + 1, num_out_bands, "Materializing display bands")
+
+        _stamp_display_only_metadata(out_ds, dataset, display_bands)
+        out_ds.FlushCache()
+    finally:
+        out_ds = None
+
+    logger.info(
+        "Materialized display-only GeoTIFF for dataset id=%s to %s (%dx%d, bands %s of %d)",
+        dataset.get_id(),
+        dest_path,
+        width,
+        height,
+        display_bands,
+        dataset.num_bands(),
+    )
+
+
 def read_materialized_geotiff(path: Path) -> RasterDataSet:
     """
     Reconstruct a :class:`RasterDataSet` from a GeoTIFF written by
@@ -259,8 +389,12 @@ class SceneMaterializer:
         root = temp_dir()
         root.mkdir(parents=True, exist_ok=True)
         self._tmp = tempfile.TemporaryDirectory(dir=str(root), prefix="mosaic_")
-        # Maps a scene key (dataset id, else object identity) to its temp .tif.
+        # Maps a scene key (dataset id, else object identity) to its full-band temp .tif.
         self._cache: Dict[int, Path] = {}
+        # Maps (scene key, display-band tuple) to its display-only temp .tif (#677). The
+        # session cache holds display-only artifacts; the full-band GeoTIFF is
+        # materialized on demand at export and is intentionally not cached here.
+        self._display_cache: Dict[Tuple[int, Tuple[int, ...]], Path] = {}
 
     @property
     def temp_path(self) -> Path:
@@ -299,9 +433,42 @@ class SceneMaterializer:
         self._cache[key] = dest
         return str(dest)
 
+    def build_display_source(
+        self,
+        dataset: RasterDataSet,
+        display_bands: Sequence[int],
+        progress: Optional[ProgressReporter] = None,
+    ) -> str:
+        """
+        Return a path to a warpable, disk-backed **display-only** tiled GeoTIFF for
+        ``dataset`` containing only ``display_bands`` (a 1- or 3-tuple of 0-based band
+        indices), materializing it on first request and reusing the cached result
+        thereafter (#677).
+
+        This is what the preview compositor reads. The cache is keyed by
+        ``(scene key, display bands)`` so re-adding the same dataset with a different
+        frozen band choice yields a distinct artifact rather than a stale hit.
+        ``progress`` is forwarded to :func:`materialize_display_only_to_tiled_geotiff`;
+        a cache hit does no work and reports immediate completion.
+        """
+        bands = tuple(int(b) for b in display_bands)
+        key = (self._scene_key(dataset), bands)
+        cached = self._display_cache.get(key)
+        if cached is not None and cached.exists():
+            if progress is not None:
+                progress.report(1, 1)
+            return str(cached)
+
+        band_tag = "-".join(str(b) for b in bands)
+        dest = self.temp_path / f"scene_{self._scene_key(dataset)}_display_{band_tag}.tif"
+        materialize_display_only_to_tiled_geotiff(dataset, dest, bands, progress=progress)
+        self._display_cache[key] = dest
+        return str(dest)
+
     def close(self) -> None:
         """Deterministically remove the session temporary directory."""
         self._cache.clear()
+        self._display_cache.clear()
         self._tmp.cleanup()
 
     def __enter__(self) -> "SceneMaterializer":
