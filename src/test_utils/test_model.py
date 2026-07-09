@@ -1144,6 +1144,11 @@ class WiserTestModel:
     def open_geo_referencer(self):
         self.main_window.show_geo_reference_dialog(in_test_mode=True)
 
+    @run_in_wiser_decorator
+    def apply_geo_ref_config(self, config) -> None:
+        """Apply a ``GeoReferencerConfig`` to the (already open) georeferencer dialog."""
+        self.main_window._geo_ref_dialog._apply_config(config)
+
     def close_geo_referencer(self):
         def func():
             self.main_window._geo_ref_dialog.close()
@@ -1237,10 +1242,35 @@ class WiserTestModel:
         QTest.keyClicks(ledit, path)
         self.main_window._geo_ref_dialog._georeference()
 
-    @run_in_wiser_decorator
-    def click_run_warp(self) -> None:
-        btn = self.main_window._geo_ref_dialog._ui.btn_run_warp
-        QTest.mouseClick(btn, Qt.LeftButton)
+    def click_run_warp(self, timeout_ms: int = 60000) -> None:
+        """
+        Click "Run Warp" and pump the event loop until the (threaded) warp finishes.
+
+        The warp now runs off the GUI thread via ``run_with_progress`` and signals
+        completion through ``warp_completed``, so this helper waits for that signal (up to
+        ``timeout_ms``) before returning, keeping callers effectively synchronous.
+        """
+        dialog = self.main_window._geo_ref_dialog
+        completed = []
+
+        def _on_done(path):
+            completed.append(path)
+
+        dialog.warp_completed.connect(_on_done)
+        try:
+
+            def func():
+                QTest.mouseClick(dialog._ui.btn_run_warp, Qt.LeftButton)
+
+            self.app.postEvent(self.testing_widget, FunctionEvent(func))
+
+            waited = 0
+            step_ms = 50
+            while not completed and waited < timeout_ms:
+                QTest.qWait(step_ms)
+                waited += step_ms
+        finally:
+            dialog.warp_completed.disconnect(_on_done)
 
     # ---------- GCP creation helpers ----------
 
