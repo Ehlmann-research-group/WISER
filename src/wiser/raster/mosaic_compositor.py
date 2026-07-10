@@ -25,7 +25,7 @@ existing warp seam :func:`wiser.raster.mosaic_controller._warped_resolution`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence, Tuple
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
 import numpy as np
 from osgeo import gdal
@@ -36,8 +36,10 @@ if TYPE_CHECKING:
 # Percentile bounds for the per-scene linear contrast stretch. A 2-98% stretch is a
 # common, robust default that ignores a few extreme outliers without needing the
 # main view's live stretch state (this preview is intentionally self-contained).
-_STRETCH_LO_PCT = 2.0
-_STRETCH_HI_PCT = 98.0
+# Public (not module-private) because wiser.raster.mosaic_ingestion.compute_stretch_bounds
+# uses the same bounds when precomputing a scene's stable stretch (issue #675).
+STRETCH_LO_PCT = 2.0
+STRETCH_HI_PCT = 98.0
 
 
 def render_scene_argb(
@@ -54,8 +56,11 @@ def render_scene_argb(
 
     ``world_extent`` is ``(min_x, min_y, max_x, max_y)`` in the target CRS (the
     view's visible world rectangle). RGB comes from the dataset's default display
-    bands (1 band -> grayscale, 3 bands -> RGB), contrast-stretched per band over the
-    valid pixels; alpha is the warp's validity mask (0 on nodata / outside coverage).
+    bands (1 band -> grayscale, 3 bands -> RGB), contrast-stretched per band against
+    ``scene.stretch_bounds`` -- precomputed, extent-independent 2-98 percentile bounds
+    cached at ingest (issue #675), so contrast does not drift with zoom -- falling back
+    to a viewport percentile stretch when a scene has no cached bounds. Alpha is the
+    warp's validity mask (0 on nodata / outside coverage).
 
     A scene whose data does not cover ``world_extent`` comes back fully transparent
     (alpha all 0), so callers can render it unconditionally.
@@ -95,11 +100,12 @@ def render_scene_argb(
         # No data bands, or nothing valid in view: leave RGB black, alpha as computed.
         return rgba
 
-    display_bands = _select_display_bands(scene, num_data_bands)
+    display_bands = select_display_bands(scene.dataset, num_data_bands)
     channels = [
         _stretch_band(
             warped.GetRasterBand(band_idx + 1).ReadAsArray().astype(np.float32),
             valid,
+            bounds=scene.stretch_bounds.get(band_idx) if scene.stretch_bounds else None,
         )
         for band_idx in display_bands
     ]
@@ -114,15 +120,19 @@ def render_scene_argb(
     return rgba
 
 
-def _select_display_bands(scene: "MosaicScene", num_data_bands: int) -> Sequence[int]:
+def select_display_bands(dataset, num_data_bands: int) -> Sequence[int]:
     """
     Pick the 0-based source band indices to render as RGB (or 1 for grayscale).
 
     Prefers the dataset's default display bands; falls back to the first three bands
     (or the single band) and clamps any out-of-range index defensively.
+
+    Takes ``dataset`` directly (rather than a :class:`MosaicScene`) so
+    :func:`wiser.raster.mosaic_ingestion.compute_stretch_bounds` can pick the same
+    display bands at ingest time, before a ``MosaicScene`` exists (issue #675).
     """
     bands = None
-    getter = getattr(scene.dataset, "get_default_display_bands", None)
+    getter = getattr(dataset, "get_default_display_bands", None)
     if getter is not None:
         try:
             bands = getter()
@@ -137,14 +147,27 @@ def _select_display_bands(scene: "MosaicScene", num_data_bands: int) -> Sequence
     return tuple(min(int(b), num_data_bands - 1) for b in bands[:3])
 
 
-def _stretch_band(band: np.ndarray, valid: np.ndarray) -> np.ndarray:
+def _stretch_band(
+    band: np.ndarray, valid: np.ndarray, bounds: Optional[Tuple[float, float]] = None
+) -> np.ndarray:
     """
-    Linearly stretch ``band`` to uint8 [0, 255] using the 2-98 percentile of its
-    valid pixels. A flat band (no spread) maps to full white so it stays visible.
+    Linearly stretch ``band`` to uint8 [0, 255] using ``bounds``, or the 2-98
+    percentile of its valid pixels when ``bounds`` is ``None``. A flat/degenerate
+    range (``hi <= lo``) maps to full white so it stays visible.
+
+    ``bounds`` is the scene's precomputed, extent-independent stretch (see
+    :func:`wiser.raster.mosaic_ingestion.compute_stretch_bounds`, issue #675) — passing
+    it decouples the on-screen contrast from whatever pixels happen to be in the
+    current viewport. ``None`` is the fallback for a scene with no cached bounds (e.g.
+    a :class:`MosaicScene` built directly in a test, bypassing ingestion), which
+    reproduces the pre-#675 viewport-percentile behavior.
     """
-    values = band[valid]
-    lo = float(np.percentile(values, _STRETCH_LO_PCT))
-    hi = float(np.percentile(values, _STRETCH_HI_PCT))
+    if bounds is not None:
+        lo, hi = bounds
+    else:
+        values = band[valid]
+        lo = float(np.percentile(values, STRETCH_LO_PCT))
+        hi = float(np.percentile(values, STRETCH_HI_PCT))
     if hi <= lo:
         out = np.full(band.shape, 255.0, dtype=np.float32)
     else:

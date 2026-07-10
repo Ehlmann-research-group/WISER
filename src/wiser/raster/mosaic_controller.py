@@ -85,9 +85,14 @@ class MosaicScene:
         into this same file, so there is exactly one artifact file per scene.
       * ``footprint_wkt`` — the valid-pixel polygon as WKT in the dataset's own CRS.
       * ``has_overviews`` — whether pyramid overviews were built on ``gdal_path``.
+      * ``stretch_bounds`` — precomputed, extent-independent 2-98 percentile stretch
+        bounds per display band (source band index -> ``(lo, hi)``), populated at
+        ingest by :func:`wiser.raster.mosaic_ingestion.compute_stretch_bounds` so the
+        pixel compositor's contrast stays stable across zoom (issue #675). ``None``
+        until ingestion computes it.
 
-    All three default to ``None``/``False`` so a bare ``MosaicScene(dataset=...)``
-    (as used by the scaffolding tests) is still valid.
+    All fields besides ``dataset`` default to ``None``/``False`` so a bare
+    ``MosaicScene(dataset=...)`` (as used by the scaffolding tests) is still valid.
     """
 
     dataset: "RasterDataSet"
@@ -95,6 +100,7 @@ class MosaicScene:
     gdal_path: Optional[str] = None
     footprint_wkt: Optional[str] = None
     has_overviews: bool = False
+    stretch_bounds: Optional[Dict[int, Tuple[float, float]]] = None
 
 
 @dataclass
