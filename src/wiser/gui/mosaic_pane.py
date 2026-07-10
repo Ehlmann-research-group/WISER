@@ -710,15 +710,46 @@ class MosaicPane(QWidget):
 
     def _on_geodialog_finished(self, result: int) -> None:
         """
-        Tear down the task-scoped georeference dialog.
+        Finalize or revert the re-georeference session, then destroy the task-scoped
+        dialog.
 
-        Save/revert semantics land in a later step (#685); for now this just drops the
-        in-flight context and schedules the dialog for deletion.
+        "Save to Mosaic" (accept): the warped scene is already live, so this just drops
+        the revert handle. Cancel / close (reject): restore the original scene at its
+        slot via :meth:`_revert_regeoref` (a no-op if no warp ever ran). Either way the
+        task-scoped dialog is scheduled for deletion.
         """
         ctx = self._regeoref_ctx
+        if ctx is None:
+            return
+        if result != QDialog.Accepted:
+            self._revert_regeoref(ctx)
         self._regeoref_ctx = None
-        if ctx is not None:
-            ctx.dialog.deleteLater()
+        ctx.dialog.deleteLater()
+
+    def _revert_regeoref(self, ctx: "_RegeorefContext") -> None:
+        """
+        Undo an in-place re-georeference: remove the swapped-in warped scene (if any)
+        and restore the original scene at its z-order slot.
+
+        A no-op when the user never ran a warp (nothing was swapped in). The warped
+        scene is located by identity (robust to a user reorder), falling back to the
+        recorded slot. Rebuilds the grid *quietly* -- a revert restores a previously
+        valid state, so a reproject prompt here would be a surprising interruption.
+        """
+        if ctx.warped_scene is None:
+            return
+        scenes = self._controller.get_scenes()
+        slot = next((i for i, s in enumerate(scenes) if s is ctx.warped_scene), None)
+        if slot is None:
+            slot = ctx.orig_index
+        else:
+            self._controller.remove_scene(slot)
+        self._controller.add_scene(ctx.orig_scene)
+        self._controller.move_scene(self._controller.scene_count() - 1, slot)
+        self._rebuild_grid_quietly()
+        self._refresh_scene_list()
+        self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
 
     # -- resolution -----------------------------------------------------------
 
