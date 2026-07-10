@@ -648,14 +648,65 @@ class MosaicPane(QWidget):
 
     def _on_scene_rewarped(self, path: str) -> None:
         """
-        Warp finished: reingest the output at ``path`` and swap it into the mosaic in
-        place.
+        A "Run Warp" finished: reingest the warped output at ``path`` and swap the
+        corrected scene into the mosaic in place (see :meth:`_on_rewarp_ingested`).
 
-        Implemented in the reingest step (#685); for now the warp writes its temp
-        GeoTIFF but the mosaic is left unchanged.
+        The output is wrapped into a ``RasterDataSet`` with the shared loader but is
+        deliberately **not** registered in ``ApplicationState`` -- it is a
+        mosaic-owned throwaway that reingestion re-materializes, so it must never
+        pollute the global dataset list or the Add-Scene combo.
         """
-        # TODO(#685): load `path` as a RasterDataSet, reingest via _ingest_scene, and
-        # swap the corrected scene in at its original z-order slot.
+        ctx = self._regeoref_ctx
+        if ctx is None or self._app_services is None or self._materializer is None:
+            return
+        new_dataset = self._app_state.get_loader().load_from_file(
+            path=path, data_cache=self._app_state.get_cache()
+        )[0]
+        # Reingest on the scheduler (materialize -> overviews -> footprint) with its own
+        # progress modal. Block the georeference dialog (not the mosaic window) so the
+        # user cannot re-run the warp mid-reingest; the mosaic view updates when done.
+        self._active_progress_task = run_with_progress(
+            self._app_services,
+            ctx.dialog,
+            self.tr("Updating scene…"),
+            _ingest_scene,
+            new_dataset,
+            self._materializer,
+            on_success=self._on_rewarp_ingested,
+            on_error=self._on_scene_failed,
+            description=self.tr("Re-materializing warped scene…"),
+        )
+
+    def _on_rewarp_ingested(self, scene: MosaicScene) -> None:
+        """
+        Swap the freshly-reingested warped ``scene`` into the mosaic at the original
+        scene's z-order slot.
+
+        Replaces whatever currently occupies that slot -- the original on the first
+        warp, or the previous warped scene on a repeat -- so repeated warps never
+        stack. The occupant is located by object identity (robust to a user reorder
+        while the non-modal dialog is open), falling back to the recorded slot index.
+        """
+        ctx = self._regeoref_ctx
+        if ctx is None:
+            return
+        scenes = self._controller.get_scenes()
+        current = ctx.warped_scene if ctx.warped_scene is not None else ctx.orig_scene
+        slot = next((i for i, s in enumerate(scenes) if s is current), None)
+        if slot is None:
+            slot = ctx.orig_index
+        else:
+            self._controller.remove_scene(slot)
+        # add_scene appends to the top of the z-order, so move it back down to the slot.
+        self._controller.add_scene(scene)
+        self._controller.move_scene(self._controller.scene_count() - 1, slot)
+        ctx.warped_scene = scene
+        # The warp changed geotransform/footprint/extent, so the whole derived state
+        # must rebuild -- exactly the normal-ingest epilogue.
+        self._ensure_common_grid()
+        self._refresh_scene_list()
+        self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
 
     def _on_geodialog_finished(self, result: int) -> None:
         """
