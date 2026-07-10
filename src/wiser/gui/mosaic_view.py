@@ -17,6 +17,7 @@ Later issues fill in the two layers, both drawn through the seams stubbed here:
 """
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
@@ -47,6 +48,83 @@ logger = logging.getLogger(__name__)
 # Debounce window for pan/zoom pixel re-reads: coalesce a gesture's burst of paints
 # into one background read once the camera settles for this long.
 _PIXEL_READ_DEBOUNCE_MS = 120
+
+# Tile-based pixel cache (#674). World space is quantized into a fixed grid of ARGB
+# tiles per discrete zoom bucket; a pan/zoom reuses already-cached tiles and only warps
+# the newly-exposed ones, so the loaded margin travels with the user without re-warping
+# the whole viewport each time.
+#
+#  * _TILE_PX        — the output size (px, square) each tile is warped at.
+#  * _TILE_CACHE_MAX — LRU bound on the number of cached tiles (~256 tiles of 256x256
+#                      ARGB ~= 64 MB). Tune alongside the debounce interval.
+#  * _PREFETCH_RING  — how many extra tile rings around the viewport to read, so the
+#                      loaded margin extends past the visible edge in every direction.
+_TILE_PX = 256
+_TILE_CACHE_MAX = 256
+_PREFETCH_RING = 1
+
+# Nudge the exclusive upper edge off an exact tile boundary so a rectangle whose max
+# lands precisely on a cell border does not pull in the next (empty) cell.
+_TILE_EPS = 1e-9
+
+
+def _zoom_bucket(world_units_per_pixel: float) -> int:
+    """
+    Snap a continuous camera scale to a discrete power-of-two zoom bucket.
+
+    The camera's ``world_units_per_pixel`` (wupp) is continuous, but caching tiles at
+    every exact wupp would make the tiniest zoom invalidate the whole cache. Instead we
+    render tiles at the nearest power-of-two resolution ``bucket_wupp = 2 ** bucket`` and
+    let the world->screen affine scale them to the actual zoom (the standard slippy-map
+    look), so a whole range of zooms shares one set of cached tiles.
+
+    ``round`` keeps the draw scale ``bucket_wupp / wupp`` within ``[1/sqrt2, sqrt2]``
+    (~[0.71, 1.41]); it is defined purely in terms of wupp, so it is CRS-agnostic
+    (degrees or metres, no per-CRS constant). Non-finite/non-positive scales fall back
+    to bucket 0.
+    """
+    if not math.isfinite(world_units_per_pixel) or world_units_per_pixel <= 0.0:
+        return 0
+    return round(math.log2(world_units_per_pixel))
+
+
+def _bucket_wupp(bucket: int) -> float:
+    """The quantized render resolution (world units per pixel) for a zoom ``bucket``."""
+    return 2.0**bucket
+
+
+def _tile_world_extent(bucket: int, col: int, row: int) -> Tuple[float, float, float, float]:
+    """
+    The world rectangle ``(min_x, min_y, max_x, max_y)`` a ``(col, row)`` cell covers.
+
+    Tiles are ``_TILE_PX`` pixels square at the bucket's resolution, so a cell spans
+    ``tws = _TILE_PX * bucket_wupp`` world units, anchored at the CRS's real ``(0, 0)``
+    origin. The anchoring makes the grid stable across pans at a fixed bucket, so the
+    same world area always maps to the same cell (hence a cache hit after a pan).
+    """
+    tws = _TILE_PX * _bucket_wupp(bucket)
+    return (col * tws, row * tws, (col + 1) * tws, (row + 1) * tws)
+
+
+def _tiles_covering_extent(
+    bucket: int, world_extent: Tuple[float, float, float, float], ring: int = 0
+) -> List[Tuple[int, int]]:
+    """
+    The ``(col, row)`` cells whose tiles cover ``world_extent`` at ``bucket``, plus an
+    optional ``ring`` of extra cells on every side (the prefetch margin).
+
+    ``world_extent`` is ``(min_x, min_y, max_x, max_y)`` in the target CRS. Returns the
+    cells in row-major order; an empty/degenerate extent yields no cells.
+    """
+    min_x, min_y, max_x, max_y = world_extent
+    if max_x <= min_x or max_y <= min_y:
+        return []
+    tws = _TILE_PX * _bucket_wupp(bucket)
+    col_lo = math.floor(min_x / tws) - ring
+    col_hi = math.floor((max_x - _TILE_EPS) / tws) + ring
+    row_lo = math.floor(min_y / tws) - ring
+    row_hi = math.floor((max_y - _TILE_EPS) / tws) + ring
+    return [(c, r) for r in range(row_lo, row_hi + 1) for c in range(col_lo, col_hi + 1)]
 
 
 def _render_scene_layers(
