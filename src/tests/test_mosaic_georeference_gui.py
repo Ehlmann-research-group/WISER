@@ -209,6 +209,98 @@ class TestMosaicRegeoreferenceEntryPoint(unittest.TestCase):
         inst.deleteLater.assert_called_once()
         self.test_model.close_seamless_mosaic_dialog()
 
+    # -- reingest + swap on Run Warp (Chunk 2) --------------------------------
+
+    def _open_georef(self, pane, index):
+        """Open the real (locked) georeference dialog on the scene at ``index``."""
+        pane._on_georeference_scene(index)
+        ctx = pane._regeoref_ctx
+        self.assertIsNotNone(ctx)
+        return ctx
+
+    def _rewarp_and_wait(self, pane, ctx, name, origin=(400000.0, 3800000.0)):
+        """Feed a real georeferenced GeoTIFF as a completed warp and wait for the swap."""
+        warp_path = os.path.join(self._tmp.name, name)
+        _write_tiff(warp_path, origin=origin)
+        prev = ctx.warped_scene
+        # _ensure_common_grid runs in the swap; same-CRS scenes never prompt, but patch
+        # the reproject dialog defensively so a stray prompt can't block the test.
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            pane._on_scene_rewarped(warp_path)
+            self.assertTrue(
+                self._wait_for(lambda: ctx.warped_scene is not None and ctx.warped_scene is not prev),
+                "warped scene was not swapped in within the timeout",
+            )
+        return ctx.warped_scene
+
+    def test_warp_completed_swaps_scene_in_place(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        scenes_before = controller.get_scenes()  # bottom-to-top [A, B]
+        index = 0  # georeference the bottom scene, A
+        orig = scenes_before[index]
+
+        ctx = self._open_georef(pane, index)
+
+        warp_path = os.path.join(self._tmp.name, "warp1.tif")
+        _write_tiff(warp_path, origin=(400000.0, 3800000.0))
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            pane._on_scene_rewarped(warp_path)
+            # Reingest blocks the georeference dialog, not the mosaic window.
+            self.assertFalse(ctx.dialog.isEnabled())
+            self.assertTrue(_dlg.isEnabled())
+            self.assertTrue(
+                self._wait_for(lambda: ctx.warped_scene is not None),
+                "warped scene was not swapped in within the timeout",
+            )
+
+        scenes_after = controller.get_scenes()
+        self.assertEqual(controller.scene_count(), 2)  # swapped in place, not added
+        # The warped scene occupies the original z-order slot; the other is unchanged.
+        self.assertIs(scenes_after[index], ctx.warped_scene)
+        self.assertIsNot(scenes_after[index], orig)
+        self.assertIs(scenes_after[1], scenes_before[1])
+        # The reingest produced fully-derived state (overviews + footprint).
+        self.assertTrue(ctx.warped_scene.has_overviews)
+        self.assertIsNotNone(ctx.warped_scene.footprint_wkt)
+        # The original scene / dataset is held aside untouched.
+        self.assertIs(ctx.orig_scene, orig)
+        self.assertIs(ctx.orig_scene.dataset, orig.dataset)
+        self.assertFalse(any(s is orig for s in scenes_after))
+
+        ctx.dialog.reject()
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_repeated_warp_replaces_not_stacks(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        index = 0
+        ctx = self._open_georef(pane, index)
+
+        first = self._rewarp_and_wait(pane, ctx, "warp_a.tif")
+        self.assertEqual(controller.scene_count(), 2)
+
+        second = self._rewarp_and_wait(pane, ctx, "warp_b.tif")
+        self.assertIsNot(second, first)
+        # Replaced, not stacked: still two scenes, and the first warped one is gone.
+        self.assertEqual(controller.scene_count(), 2)
+        scenes_after = controller.get_scenes()
+        self.assertFalse(any(s is first for s in scenes_after))
+        self.assertIs(scenes_after[index], second)
+
+        ctx.dialog.reject()
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_rewarp_does_not_register_output_dataset(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        before = len(pane._app_state.get_datasets())
+        ctx = self._open_georef(pane, 0)
+        self._rewarp_and_wait(pane, ctx, "warp_noreg.tif")
+        # The warped output is mosaic-internal: it must not enter the global dataset
+        # list (and thus never appears in the Add-Scene combo).
+        self.assertEqual(len(pane._app_state.get_datasets()), before)
+
+        ctx.dialog.reject()
+        self.test_model.close_seamless_mosaic_dialog()
+
 
 if __name__ == "__main__":
     unittest.main()
