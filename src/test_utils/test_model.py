@@ -749,6 +749,12 @@ class WiserTestModel:
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
 
+    def get_main_view_scale(self):
+        """
+        Returns the current zoom scale of the main view's raster panes.
+        """
+        return self.main_view.get_scale()
+
     # region State setting
 
     def click_link_button(self) -> bool:
@@ -834,6 +840,39 @@ class WiserTestModel:
             QPoint(dx, dy),  # angleDelta: values such as 120 typically indicate one notch
             Qt.NoButton,  # buttons (wheel events usually have no button pressed)
             Qt.NoModifier,  # keyboard modifiers
+            Qt.ScrollUpdate,  # scroll phase: ScrollUpdate indicates the wheel is in motion
+            False,  # inverted scrolling: False means normal behavior
+        )
+
+        # Post the event to the viewport so that it is handled as if a user scrolled.
+        self.app.postEvent(viewport, wheel_event)
+        self.run()
+
+    def ctrl_scroll_main_view_rv(self, rv_pos: Tuple[int, int], notches: int):
+        """
+        Simulates holding Ctrl and scrolling the mouse wheel over the specified main
+        view rasterview, which should zoom in (positive notches) or out (negative
+        notches) centered on the middle of the viewport.
+
+        One notch corresponds to the standard Qt wheel delta of 120 units.
+        """
+        rv = self.get_main_view_rv(rv_pos)
+        scroll_area = rv._scroll_area
+
+        # The viewport is the widget that actually receives the wheel events.
+        viewport = scroll_area.viewport()
+
+        # Scroll from the center of the viewport.
+        pos = QPointF(viewport.width() / 2, viewport.height() / 2)
+        global_pos = viewport.mapToGlobal(pos.toPoint())
+
+        wheel_event = QWheelEvent(
+            pos,  # local position (QPointF)
+            global_pos,  # global position (QPointF)
+            QPoint(0, 0),  # pixelDelta (unused here)
+            QPoint(0, notches * 120),  # angleDelta: 120 units is a single notch
+            Qt.NoButton,  # buttons (wheel events usually have no button pressed)
+            Qt.ControlModifier,  # keyboard modifiers: Ctrl triggers zoom instead of scroll
             Qt.ScrollUpdate,  # scroll phase: ScrollUpdate indicates the wheel is in motion
             False,  # inverted scrolling: False means normal behavior
         )
