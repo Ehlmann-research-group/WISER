@@ -255,14 +255,16 @@ class TestMosaicViewGui(unittest.TestCase):
             self._ingest(pane, controller, ds_b, 2)
 
         # The read is off the UI thread and debounced, so force a paint to schedule it
-        # then pump the loop until the layers arrive.
+        # then pump the loop until the tiles arrive.
         view.grab()
         self.assertTrue(
-            self._wait_for(lambda: len(view._scene_layers) == 2),
-            "per-scene layers were not read within the timeout",
+            self._wait_for(lambda: len(view._tile_cache) > 0),
+            "tiles were not read within the timeout",
         )
-        self.assertIsNotNone(view._composite_pixmap)
-        self.assertIsNotNone(view._composite_world_extent)
+        # Both scenes contributed tiles at the current viewport's zoom bucket.
+        scene_ids = {id(s) for s in controller.get_scenes()}
+        cached_scene_ids = {key[0] for key in view._tile_cache}
+        self.assertEqual(cached_scene_ids, scene_ids)
 
         self.test_model.close_seamless_mosaic_dialog()
 
@@ -282,9 +284,9 @@ class TestMosaicViewGui(unittest.TestCase):
 
         real_render = mosaic_view.render_scene_argb
         with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
-            # Initial debounced read populates the cache.
+            # Initial debounced read populates the tile cache.
             view.grab()
-            self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+            self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
             self.assertGreater(spy.call_count, 0)
 
             def _assert_no_read(mutate):
@@ -317,12 +319,15 @@ class TestMosaicViewGui(unittest.TestCase):
             self._ingest(pane, controller, ds_b, 2)
 
         view.grab()
-        self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+        self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
 
-        # A burst of pans must collapse into one background read, not one per event.
+        # Drop the cache so the pan below genuinely warps tiles (these ~600 m fixtures
+        # otherwise fit entirely inside the first read + prefetch ring, so a pan would
+        # reuse cached tiles and read nothing). This isolates the property under test:
+        # a burst of pan paints coalesces into a *single* background read.
+        view._tile_cache.clear()
         real_worker = mosaic_view._render_scene_layers
         with mock.patch.object(mosaic_view, "_render_scene_layers", side_effect=real_worker) as worker_spy:
-            initial_extent = view._composite_world_extent
             for _ in range(5):
                 view._transform.pan(40, 0)
                 view.grab()  # each paint restarts the debounce timer
@@ -330,8 +335,8 @@ class TestMosaicViewGui(unittest.TestCase):
             # Still mid-gesture: the debounce timer keeps restarting, so no read yet.
             self.assertEqual(worker_spy.call_count, 0)
 
-            # Once the gesture settles, the composite updates to the panned viewport...
-            self.assertTrue(self._wait_for(lambda: view._composite_world_extent != initial_extent))
+            # Once the gesture settles, the viewport's tiles are read back in...
+            self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
             # ...via a single coalesced read, not one per pan event.
             QTest.qWait(2 * _PIXEL_READ_DEBOUNCE_MS)
             self.assertEqual(worker_spy.call_count, 1)
