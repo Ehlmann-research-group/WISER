@@ -94,6 +94,65 @@ def _make_scene(tmp_path, display_bands=(0,), num_bands=1):
     return scene, wkt
 
 
+def _write_gradient_tiff(path):
+    """
+    Like :func:`_write_collar_tiff` but the interior holds a linear value gradient
+    (varying across columns) rather than a flat fill, so a percentile computed over a
+    *cropped* extent differs from one computed over the *full* extent. This is what
+    exposes the zoom-dependent contrast bug (issue #675) that cached ``stretch_bounds``
+    fixes -- a flat fixture can't distinguish "stable" from "drifting" stretch bounds.
+    """
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(_EPSG)
+    ds = gdal.GetDriverByName("GTiff").Create(
+        path,
+        _SIZE,
+        _SIZE,
+        1,
+        gdal.GDT_Float32,
+        options=["TILED=YES", "BLOCKXSIZE=16", "BLOCKYSIZE=16"],
+    )
+    ox, oy = _ORIGIN
+    ds.SetGeoTransform([ox, _PIXEL, 0.0, oy, 0.0, -_PIXEL])
+    ds.SetProjection(srs.ExportToWkt())
+    gradient = np.linspace(0.0, 100.0, _SIZE, dtype=np.float32)
+    arr = np.tile(gradient, (_SIZE, 1))  # varies across columns, constant per row
+    arr[:_COLLAR, :] = _NODATA
+    arr[-_COLLAR:, :] = _NODATA
+    arr[:, :_COLLAR] = _NODATA
+    arr[:, -_COLLAR:] = _NODATA
+    band = ds.GetRasterBand(1)
+    band.WriteArray(arr)
+    band.SetNoDataValue(_NODATA)
+    ds.FlushCache()
+    ds = None
+    return srs.ExportToWkt()
+
+
+def _make_gradient_scene(tmp_path, stretch_bounds=None):
+    path = os.path.join(str(tmp_path), "gradient.tif")
+    wkt = _write_gradient_tiff(path)
+    scene = MosaicScene(dataset=_DatasetStub(wkt, (0,)), gdal_path=path, stretch_bounds=stretch_bounds)
+    return scene, wkt
+
+
+def _narrow_crop_extent():
+    """
+    A 1:1-resolution window zoomed in on just the first two columns of the gradient
+    fixture's valid interior (world columns 2-3). Unlike merely trimming the nodata
+    collar, this is a genuine *further* zoom into the visible data, so an on-the-fly
+    percentile computed over only this window covers a narrower value range than one
+    computed over the full extent -- exactly the scenario issue #675 describes.
+    """
+    ox, oy = _ORIGIN
+    return (
+        ox + _COLLAR * _PIXEL,
+        oy - _PIXEL * _SIZE,
+        ox + (_COLLAR + 2) * _PIXEL,
+        oy,
+    )
+
+
 def _expected_valid_mask():
     """True where the fixture has valid data (the interior, collar excluded)."""
     mask = np.zeros((_SIZE, _SIZE), dtype=bool)
@@ -144,3 +203,37 @@ def test_rgb_scene_uses_three_display_bands(tmp_path):
     assert np.all(rgba[valid, 0] == 255)
     assert np.all(rgba[valid, 1] == 255)
     assert np.all(rgba[valid, 2] == 255)
+
+
+def test_cached_bounds_are_stable_across_zoom(tmp_path):
+    """
+    Issue #675 regression: with explicit ``stretch_bounds`` set on the scene, the same
+    world pixels render identically whether the requested window is the full scene
+    extent or a further zoomed-in crop of it -- contrast must not depend on which
+    pixels happen to be inside the current viewport.
+    """
+    bounds = {0: (0.0, 100.0)}
+    scene, wkt = _make_gradient_scene(tmp_path, stretch_bounds=bounds)
+
+    full = render_scene_argb(scene, wkt, _source_extent(), _SIZE, _SIZE)
+    narrow = render_scene_argb(scene, wkt, _narrow_crop_extent(), 2, _SIZE)
+
+    # The narrow crop is exactly the full render's columns [_COLLAR, _COLLAR + 2).
+    full_slice = full[:, _COLLAR : _COLLAR + 2, :3]
+    assert np.array_equal(full_slice, narrow[:, :, :3])
+
+
+def test_uncached_bounds_still_drift_with_viewport(tmp_path):
+    """
+    Sanity check for the fixture above: WITHOUT cached ``stretch_bounds`` (the
+    fallback path), the pre-#675 viewport-percentile stretch still drifts between a
+    full and a further-zoomed-in crop -- proving the gradient fixture is sensitive
+    enough to have caught the bug the cached-bounds path fixes.
+    """
+    scene, wkt = _make_gradient_scene(tmp_path, stretch_bounds=None)
+
+    full = render_scene_argb(scene, wkt, _source_extent(), _SIZE, _SIZE)
+    narrow = render_scene_argb(scene, wkt, _narrow_crop_extent(), 2, _SIZE)
+
+    full_slice = full[:, _COLLAR : _COLLAR + 2, :3]
+    assert not np.array_equal(full_slice, narrow[:, :, :3])
