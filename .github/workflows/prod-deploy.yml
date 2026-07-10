@@ -1,9 +1,13 @@
 name: Build and Smoke Test WISER
 
 on:
-  release:
-    types: [created]
   workflow_dispatch:
+
+# This workflow only builds and smoke/test-checks WISER; it never writes to the repo or to
+# a release. Publishing the built assets to a release is a separate, manually triggered
+# workflow (publish-release-assets.yml).
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -174,15 +178,27 @@ jobs:
           set -euxo pipefail
           mkdir -p dist/linux
 
-          # Map distro -> your output folder key
+          # The build is always dispatched from the commit being released, so version.py
+          # is the source of truth for the version baked into the asset name.
+          version="$(python3 src/wiser/version.py)"
+
+          # Source folder key matches build_linux_multistage.sh output layout.
           case "${{ matrix.distro }}" in
             ubuntu2004) distro_key="ubuntu_2004" ;;
             debian11)   distro_key="debian_11" ;;
             fedora39)   distro_key="fedora_39" ;;
+            *) echo "Unknown distro: ${{ matrix.distro }}" >&2; exit 1 ;;
+          esac
+
+          # Normalize the arch token to the web-friendly x64/arm64 form.
+          case "${{ matrix.target_arch }}" in
+            amd64) arch="x64" ;;
+            arm64) arch="arm64" ;;
+            *) echo "Unknown target_arch: ${{ matrix.target_arch }}" >&2; exit 1 ;;
           esac
 
           src="linux_build_output/${distro_key}_${{ matrix.target_arch }}/WISER.tar.gz"
-          dst="dist/linux/WISER-${distro_key}-${{ matrix.target_arch }}.tar.gz"
+          dst="dist/linux/WISER-${version}-linux-${{ matrix.distro }}-${arch}.tar.gz"
 
           test -f "$src"
           cp "$src" "$dst"

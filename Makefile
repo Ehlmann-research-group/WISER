@@ -15,6 +15,9 @@ MYPY_OPTS=
 
 OSX_BUNDLE_ID=edu.caltech.gps.WISER
 
+# Web-friendly arch token for the .dmg filename (x64 / arm64).
+MAC_ARCH := $(shell uname -m | sed 's/x86_64/x64/')
+
 #======================================================
 # WINDOWS SETTINGS
 
@@ -59,11 +62,11 @@ dist-mac : build-mac
 	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ \
 		-srcfolder dist/$(APP_NAME).app
 	hdiutil convert dist/tmp.dmg -format UDZO \
-		-o dist/$(APP_NAME)-$(APP_VERSION).dmg
+		-o dist/$(APP_NAME)-$(APP_VERSION)-macos-$(MAC_ARCH).dmg
 	rm dist/tmp.dmg
 
 	# Submit the disk image to Apple for notarization
-	xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION).dmg \
+	xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION)-macos-$(MAC_ARCH).dmg \
 		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
 
 build-win : generated
@@ -118,12 +121,13 @@ sign-mac:
 	@python src/devtools/sign_mac.py --link "$(LINK)" --app-version "$(APP_VERSION)" \
 			--apple-id "$(AD_USERNAME)" --team-id "$(AD_TEAM_ID)" \
 			--app-password "$(AD_PASSWORD)" --app-name "$(APP_NAME)" \
-			--artifact-name "$(MAC_DIST_GITHUB_NAME)" --notarize
+			--artifact-name "$(MAC_DIST_GITHUB_NAME)" --notarize \
+			$(if $(RELEASE_TAG),--release-tag "$(RELEASE_TAG)",)
 
 sign-windows:  # Usage `make sign-windows LINK=https://github.com/Ehlmann-research-group/WISER/actions/runs/18478361575/artifacts/4259044563`
 	@rem Fail if LINK is missing
 	@if "$(LINK)"=="" ( echo ERROR: Provide LINK=<artifact URL> ; exit 1 )
 	@rem Call Python script with args
-	@python src\devtools\sign_windows.py --link "$(LINK)" --nsis $(NSIS) --app-version "$(APP_VERSION)" --sha1 "$(SHA1_THUMBPRINT)"
+	@python src\devtools\sign_windows.py --link "$(LINK)" --nsis $(NSIS) --app-version "$(APP_VERSION)" --sha1 "$(SHA1_THUMBPRINT)" $(if $(RELEASE_TAG),--release-tag "$(RELEASE_TAG)",)
 
 .PHONY: generated lint typecheck build-mac build-win clean sign-windows
