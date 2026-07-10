@@ -301,6 +301,64 @@ class TestMosaicRegeoreferenceEntryPoint(unittest.TestCase):
         ctx.dialog.reject()
         self.test_model.close_seamless_mosaic_dialog()
 
+    # -- save vs. revert (Chunk 3) --------------------------------------------
+
+    def test_cancel_after_warp_restores_original(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        scenes_before = controller.get_scenes()  # [A, B]
+        index = 0
+        orig = scenes_before[index]
+        ctx = self._open_georef(pane, index)
+
+        warped = self._rewarp_and_wait(pane, ctx, "warp_cancel.tif")
+        self.assertIs(controller.get_scenes()[index], warped)  # swapped in
+
+        # Cancel the dialog -> finished(Rejected) -> revert (synchronous).
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            ctx.dialog.reject()
+
+        scenes_after = controller.get_scenes()
+        self.assertEqual(controller.scene_count(), 2)
+        # The original scene is back at its z-order slot; the warped one is gone.
+        self.assertIs(scenes_after[index], orig)
+        self.assertIs(scenes_after[1], scenes_before[1])
+        self.assertFalse(any(s is warped for s in scenes_after))
+        self.assertIsNone(pane._regeoref_ctx)
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_accept_keeps_warped_scene(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        index = 0
+        ctx = self._open_georef(pane, index)
+        orig = ctx.orig_scene
+
+        warped = self._rewarp_and_wait(pane, ctx, "warp_accept.tif")
+
+        # "Save to Mosaic" -> finished(Accepted) -> finalize (keep the warped scene).
+        ctx.dialog.accept()
+
+        scenes_after = controller.get_scenes()
+        self.assertEqual(controller.scene_count(), 2)
+        self.assertIs(scenes_after[index], warped)
+        self.assertFalse(any(s is orig for s in scenes_after))
+        self.assertIsNone(pane._regeoref_ctx)
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_cancel_without_warp_is_noop(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        scenes_before = controller.get_scenes()
+        ctx = self._open_georef(pane, 0)
+
+        # No warp was run; cancelling must leave the mosaic exactly as it was.
+        ctx.dialog.reject()
+
+        scenes_after = controller.get_scenes()
+        self.assertEqual(controller.scene_count(), 2)
+        self.assertIs(scenes_after[0], scenes_before[0])
+        self.assertIs(scenes_after[1], scenes_before[1])
+        self.assertIsNone(pane._regeoref_ctx)
+        self.test_model.close_seamless_mosaic_dialog()
+
 
 if __name__ == "__main__":
     unittest.main()
