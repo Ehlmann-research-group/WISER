@@ -23,11 +23,18 @@ from PySide6.QtWidgets import (
     QLabel,
     QTableWidget,
     QTableWidgetItem,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
 )
 
 from wiser.project.resolver import SavePolicy
-from wiser.project.save_plan import resolver_for_selection, save_plan, savable_dataset_roots
+from wiser.project.save_plan import (
+    resolver_for_selection,
+    save_inventory,
+    save_plan,
+    savable_dataset_roots,
+)
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -84,6 +91,15 @@ class SaveProjectDialog(QDialog):
         self._consequences.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         layout.addWidget(self._consequences)
 
+        layout.addWidget(QLabel(self.tr("Will be saved:")))
+        self._inventory = QTreeWidget(self)
+        self._inventory.setColumnCount(1)
+        self._inventory.setHeaderHidden(True)
+        self._inventory.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._inventory.header().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self._inventory.header().setStretchLastSection(False)
+        layout.addWidget(self._inventory)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -108,6 +124,28 @@ class SaveProjectDialog(QDialog):
         for i, row in enumerate(affected):
             self._consequences.setItem(i, 0, QTableWidgetItem(row["item"]))
             self._consequences.setItem(i, 1, QTableWidgetItem(self._policy_text(row["policy"])))
+        self._refresh_inventory()
+
+    def _refresh_inventory(self) -> None:
+        resolver = resolver_for_selection(self._app_state, self._excluded_dataset_ids())
+        self._inventory.clear()
+        for node in save_inventory(self._app_state, resolver):
+            top = QTreeWidgetItem(self._inventory)
+            top.setText(0, self._node_label(node))
+            top.setData(0, Qt.UserRole, node["id"])
+            for child in node["children"]:
+                item = QTreeWidgetItem(top)
+                label = child["label"]
+                if child["policy"] == SavePolicy.SNAPSHOT.value:
+                    label = self.tr("{0} (snapshot)").format(label)
+                item.setText(0, label)
+            top.setExpanded(True)
+
+    def _node_label(self, node) -> str:
+        if node["kind"] == "dataset":
+            backing = self.tr("file") if node["backing"] == "file" else self.tr("in-memory")
+            return self.tr("Dataset {0} ({1})").format(node["label"], backing)
+        return self.tr("ROI {0}").format(node["label"])
 
     def get_resolver(self) -> "DependencyResolver":
         """The resolver for the user's current selection (call after ``exec()``)."""

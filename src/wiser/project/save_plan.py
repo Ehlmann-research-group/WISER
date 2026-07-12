@@ -17,6 +17,8 @@ members are self-contained numpy, so neither appears in the cascade.
 
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple
 
+from wiser.raster.spectrum import ROIAverageSpectrum
+
 from .persisters.spectra import spectrum_dependencies
 from .resolver import Dependency, DependencyResolver, cascade_report
 
@@ -81,3 +83,92 @@ def _spectrum_label(spectrum: Any) -> str:
     # Fall back to the id so multiple unnamed spectra get distinguishable rows in
     # the consequences table rather than all reading "spectrum".
     return spectrum.get_name() or f"spectrum {spectrum.get_id()}"
+
+
+def save_inventory(app_state: "ApplicationState", resolver: DependencyResolver) -> List[Dict[str, Any]]:
+    """What the project will contain, grouped by the dataset or ROI it hangs off.
+
+    Each saved dataset (file-backed, or RAM-backed and not excluded) and each ROI
+    (always saved) is a root node carrying its saved dependents: a dataset lists its
+    point/area spectra, per-band stretches, and the run records taken on it; an ROI
+    lists its ROI-average spectra.  Rootless saved items -- self-contained spectra,
+    libraries, user CRS, band-math -- are not shown, since the tree answers "what
+    hangs off each dataset/ROI", which is the decision the dialog is about.  A child
+    that freezes (an ROI-average whose dataset was cut) carries a ``snapshot`` policy
+    so the view can flag it.
+    """
+    spectra = _dependent_spectra(app_state)
+    nodes: List[Dict[str, Any]] = []
+
+    for dataset in app_state.get_datasets():
+        ds_id = dataset.get_id()
+        if not resolver.is_saved(Dependency("dataset", ds_id)):
+            continue  # excluded RAM dataset: not written, so not a root
+        nodes.append(
+            {
+                "kind": "dataset",
+                "id": ds_id,
+                "label": dataset.get_name() or f"dataset {ds_id}",
+                "backing": "file" if dataset.get_filepaths() else "ram",
+                "children": _dataset_children(app_state, resolver, ds_id, spectra),
+            }
+        )
+
+    for roi in app_state.get_rois():
+        nodes.append(
+            {
+                "kind": "roi",
+                "id": roi.get_id(),
+                "label": roi.get_name() or f"ROI {roi.get_id()}",
+                "backing": None,
+                "children": _roi_children(resolver, roi.get_id(), spectra),
+            }
+        )
+
+    return nodes
+
+
+def _dataset_children(
+    app_state: "ApplicationState", resolver: DependencyResolver, ds_id: int, spectra: List[Any]
+) -> List[Dict[str, Any]]:
+    children: List[Dict[str, Any]] = []
+    for (owner_id, band), stretch in app_state.get_all_stretches().items():
+        if stretch is not None and owner_id == ds_id:
+            children.append({"label": f"stretch (band {band})", "type": "stretch", "policy": "faithful"})
+    for spectrum in spectra:
+        # An ROI-average spectrum is listed under its ROI, not its dataset.
+        if isinstance(spectrum, ROIAverageSpectrum):
+            continue
+        deps = spectrum_dependencies(spectrum)
+        if any(dep.kind == "dataset" and dep.id == ds_id for dep in deps):
+            policy = resolver.classify(deps, snapshotable=True).policy.value
+            children.append({"label": _spectrum_label(spectrum), "type": "spectrum", "policy": policy})
+    for label, record in _run_records(app_state):
+        # Records reference their input dataset softly; they always save.
+        if record.input_dataset_id == ds_id:
+            children.append({"label": label, "type": "run", "policy": "faithful"})
+    return children
+
+
+def _roi_children(resolver: DependencyResolver, roi_id: int, spectra: List[Any]) -> List[Dict[str, Any]]:
+    children: List[Dict[str, Any]] = []
+    for spectrum in spectra:
+        if not isinstance(spectrum, ROIAverageSpectrum):
+            continue
+        roi = spectrum.get_roi()
+        if roi is not None and roi.get_id() == roi_id:
+            policy = resolver.classify(spectrum_dependencies(spectrum), snapshotable=True).policy.value
+            children.append({"label": _spectrum_label(spectrum), "type": "spectrum", "policy": policy})
+    return children
+
+
+def _run_records(app_state: "ApplicationState") -> Iterable[Tuple[str, Any]]:
+    histories = (
+        ("PCA", app_state.get_pca_history()),
+        ("MNF", app_state.get_mnf_history()),
+        ("Unmixing", app_state.get_linear_unmix_history()),
+        ("K-Means", app_state.get_kmeans_history()),
+    )
+    for label, history in histories:
+        for record in history.get_records():
+            yield f"{label} run {record.run_id}", record

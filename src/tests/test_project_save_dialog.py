@@ -36,9 +36,27 @@ class _FakeDataset:
         return self._name
 
 
+class _EmptyHistory:
+    def get_records(self):
+        return []
+
+
+class _FakeROI:
+    def __init__(self, roi_id, name):
+        self._id = roi_id
+        self._name = name
+
+    def get_id(self):
+        return self._id
+
+    def get_name(self):
+        return self._name
+
+
 class _FakeAppState:
-    def __init__(self, datasets):
+    def __init__(self, datasets, rois=()):
         self._datasets = datasets
+        self._rois = list(rois)
 
     def get_datasets(self):
         return list(self._datasets)
@@ -51,6 +69,21 @@ class _FakeAppState:
 
     def get_all_stretches(self):
         return {}
+
+    def get_rois(self):
+        return list(self._rois)
+
+    def get_pca_history(self):
+        return _EmptyHistory()
+
+    def get_mnf_history(self):
+        return _EmptyHistory()
+
+    def get_linear_unmix_history(self):
+        return _EmptyHistory()
+
+    def get_kmeans_history(self):
+        return _EmptyHistory()
 
 
 def test_dialog_resolver_reflects_selection():
@@ -75,6 +108,39 @@ def test_file_backed_dataset_is_not_a_checkable_root():
     assert dialog._roots_table.rowCount() == 1
     # ...and the file-backed dataset is saved regardless (referenced, not a decision).
     assert dialog.get_resolver().is_saved(Dependency("dataset", 2))
+
+
+def _top_labels(tree):
+    return [tree.topLevelItem(i).text(0) for i in range(tree.topLevelItemCount())]
+
+
+def test_inventory_tree_lists_saved_datasets_and_rois():
+    _qapp()
+    app_state = _FakeAppState(
+        [_FakeDataset(1, [], "ram"), _FakeDataset(2, ["/data/dem.tif"], "on-disk")],
+        rois=[_FakeROI(5, "crater")],
+    )
+    dialog = SaveProjectDialog(app_state, None)
+
+    labels = _top_labels(dialog._inventory)
+    assert dialog._inventory.topLevelItemCount() == 3
+    assert any("on-disk" in t for t in labels)  # file-backed dataset is visible, not empty
+    assert any("ram" in t for t in labels)
+    assert any("crater" in t for t in labels)
+
+
+def test_inventory_tree_drops_excluded_ram_dataset():
+    _qapp()
+    app_state = _FakeAppState(
+        [_FakeDataset(1, [], "ram"), _FakeDataset(2, ["/data/dem.tif"], "on-disk")],
+    )
+    dialog = SaveProjectDialog(app_state, None)
+    assert dialog._inventory.topLevelItemCount() == 2
+
+    dialog._roots_table.item(0, 0).setCheckState(Qt.Unchecked)  # exclude the RAM dataset
+    labels = _top_labels(dialog._inventory)
+    assert dialog._inventory.topLevelItemCount() == 1
+    assert any("on-disk" in t for t in labels)  # only the file-backed dataset remains
 
 
 def test_app_module_imports():
