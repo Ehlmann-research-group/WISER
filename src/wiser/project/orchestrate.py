@@ -129,13 +129,24 @@ def _restore(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, 
     # Topological order: datasets exist (with original ids) before anything that
     # references them; ROIs before ROI-average spectra.  CRSs and band-math
     # expressions are independent and restore any time.
+    loaders = [
+        ("datasets", lambda: load_datasets(manifest, app_state, bundle)),
+        ("user_crs", lambda: load_user_crs(manifest, app_state)),
+        ("bandmath", lambda: load_bandmath(manifest, app_state)),
+        ("rois", lambda: load_rois(manifest, app_state)),
+        ("stretches", lambda: load_stretches(manifest, app_state)),
+        ("spectra", lambda: load_spectra(manifest, app_state)),
+        ("libraries", lambda: load_libraries(manifest, app_state)),
+        ("runs", lambda: load_runs(manifest, app_state)),
+    ]
     report: Dict[str, List[Any]] = {}
-    report["datasets"] = load_datasets(manifest, app_state, bundle)
-    report["user_crs"] = load_user_crs(manifest, app_state)
-    report["bandmath"] = load_bandmath(manifest, app_state)
-    report["rois"] = load_rois(manifest, app_state)
-    report["stretches"] = load_stretches(manifest, app_state)
-    report["spectra"] = load_spectra(manifest, app_state)
-    report["libraries"] = load_libraries(manifest, app_state)
-    report["runs"] = load_runs(manifest, app_state)
+    for name, load in loaders:
+        try:
+            report[name] = load()
+        except Exception as exc:
+            # A persister is supposed to drop-and-report a bad entry, never raise.
+            # If one slips through, contain it: the session has already been cleared,
+            # so letting it propagate would abort the load with a half-restored
+            # session.  Report the failed section and keep restoring the rest.
+            report[name] = [{"section": name, "error": str(exc)}]
     return report

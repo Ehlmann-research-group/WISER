@@ -314,3 +314,23 @@ def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
     restored_roi = dst.get_roi(id=roi.get_id())
     assert restored_roi is not None
     assert restored_roi.get_id() == roi.get_id()
+
+
+def test_restore_contains_a_failing_persister(tmp_path, monkeypatch):
+    # A persister is supposed to drop-and-report, never raise.  If one does, the load
+    # must not abort after clear_session has already wiped the session: the failing
+    # section is reported and the rest of the project still restores.
+    import wiser.project.orchestrate as orch
+
+    src, ds = _populated_session()
+    save_project(src, tmp_path / "sess")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(orch, "load_stretches", boom)
+    dst = _FakeAppState()
+    report = load_project(tmp_path / "sess", dst)
+
+    assert report["stretches"] and report["stretches"][0]["section"] == "stretches"
+    assert dst.get_datasets()  # datasets restored despite the stretches failure
