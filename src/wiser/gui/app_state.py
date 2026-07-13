@@ -344,12 +344,6 @@ class ApplicationState(QObject):
         # Remember the directory of the selected file, for next file-open
         self.update_cwd_from_path(file_path)
 
-        # Is the file a project file?
-
-        if file_path.endswith(".wiser"):
-            self.load_project_file(file_path)
-            return
-
         # Figure out if the user wants to open a raster data set or a
         # spectral library.
 
@@ -377,17 +371,32 @@ class ApplicationState(QObject):
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)
 
-    def add_dataset(self, dataset: RasterDataSet, view_dataset: bool = True):
+    def add_dataset(
+        self,
+        dataset: RasterDataSet,
+        view_dataset: bool = True,
+        ds_id: Optional[int] = None,
+    ):
         """
         Add a dataset to the application state.  A unique numeric ID is assigned
         to the dataset, which is also set on the dataset itself.
+
+        When ``ds_id`` is given (project restore), that id is used verbatim
+        instead of allocating a new one, and the internal id counter is advanced
+        past it so later allocations do not collide.
 
         The method will fire a signal indicating that the dataset was added.
         """
         if not isinstance(dataset, RasterDataSet):
             raise TypeError("dataset must be a RasterDataSet")
 
-        ds_id = self.take_next_id()
+        if ds_id is None:
+            ds_id = self.take_next_id()
+        elif ds_id in self._datasets:
+            raise ValueError(f"dataset id {ds_id} is already in use")
+        else:
+            self._next_id = max(self._next_id, ds_id + 1)
+
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 

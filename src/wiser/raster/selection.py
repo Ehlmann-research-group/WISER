@@ -142,7 +142,7 @@ class SinglePixelSelection(Selection):
 
     def from_pyrep(data):
         assert data["type"] == SelectionType.SINGLE_PIXEL.name
-        return SinglePixelSelection(pixel=data["pixel"])
+        return SinglePixelSelection(pixel=QPoint(data["pixel"][0], data["pixel"][1]))
 
 
 class MultiPixelSelection(Selection):
@@ -345,7 +345,7 @@ class PredicateSelection(Selection):
 
     def from_pyrep(data):
         assert data["type"] == SelectionType.PREDICATE.name
-        return PredicateSelection(points=data["predicate"])
+        return PredicateSelection(predicate=data["predicate"])
 
 
 def selection_from_pyrep(data):
