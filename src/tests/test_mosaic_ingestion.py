@@ -20,7 +20,9 @@ from wiser.raster.mosaic_ingestion import (
     build_overviews,
     compute_footprint_wkt,
     compute_stretch_bounds,
+    is_dataset_georeferenced,
     validate_scene,
+    validate_scene_addable,
 )
 from wiser.raster.mosaic_materialize import materialize_to_tiled_geotiff, read_materialized_geotiff
 from wiser.utils.progress import ProgressReporter
@@ -74,6 +76,9 @@ class _FakeDataset:
 
     def get_wkt_spatial_reference(self):
         return self._wkt
+
+    def get_name(self):
+        return None
 
     def num_bands(self):
         return self._bands
@@ -169,6 +174,42 @@ def test_validate_accepts_dtype_mismatch():
 def test_validate_accepts_valid_scene():
     existing = [MosaicScene(dataset=_valid_fake(bands=3))]
     validate_scene(_valid_fake(bands=3), existing_scenes=existing)
+
+
+# -- is_dataset_georeferenced / validate_scene_addable (pending-scene feature) -
+
+
+def test_is_dataset_georeferenced_true():
+    assert is_dataset_georeferenced(_valid_fake(bands=3)) is True
+
+
+def test_is_dataset_georeferenced_false_on_identity_geotransform():
+    ds = _FakeDataset(_IDENTITY_GEO_TRANSFORM, _utm_wkt(), bands=3)
+    assert is_dataset_georeferenced(ds) is False
+
+
+def test_is_dataset_georeferenced_false_without_srs():
+    ds = _FakeDataset(_GOOD_GEO_TRANSFORM, "", bands=3)
+    assert is_dataset_georeferenced(ds) is False
+
+
+def test_addable_accepts_non_georeferenced_scene():
+    # The "addable" gate must NOT reject an ungeoreferenced scene (it is added pending).
+    ds = _FakeDataset(_IDENTITY_GEO_TRANSFORM, "", bands=3)
+    validate_scene_addable(ds, existing_scenes=[])  # no exception
+
+
+def test_addable_rejects_band_mismatch():
+    existing = [MosaicScene(dataset=_valid_fake(bands=3))]
+    with pytest.raises(SceneValidationError):
+        validate_scene_addable(_valid_fake(bands=1), existing_scenes=existing)
+
+
+def test_addable_rejects_duplicate():
+    ds = _valid_fake(bands=3)
+    existing = [MosaicScene(dataset=ds)]
+    with pytest.raises(SceneValidationError):
+        validate_scene_addable(ds, existing_scenes=existing)
 
 
 # -- compute_footprint_wkt ----------------------------------------------------
