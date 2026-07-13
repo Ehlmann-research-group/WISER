@@ -17,7 +17,7 @@ rebuild when the output geometry changes.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Callable, Optional, Sequence, Tuple, TYPE_CHECKING
 from uuid import uuid4
 
 from osgeo import gdal, osr
@@ -34,11 +34,13 @@ from .mosaic_crs_dialog import ReprojectPromptDialog
 from .mosaic_view import MosaicView
 from .progress_task import run_with_progress
 
+from wiser.raster.dataset import find_display_bands
 from wiser.raster.mosaic_controller import (
     CommonGrid,
     MosaicController,
     MosaicScene,
     ResolutionMode,
+    SceneMetadataSnapshot,
     TargetCrsRequired,
     UnmappableCrsError,
 )
@@ -60,24 +62,41 @@ if TYPE_CHECKING:
 def _ingest_scene(
     dataset: "RasterDataSet",
     materializer: "SceneMaterializer",
+    snapshot: Optional[SceneMetadataSnapshot] = None,
     progress: Optional[ProgressReporter] = None,
 ) -> MosaicScene:
     """
-    Background I/O for one scene: materialize to a warpable temp GeoTIFF, build
-    internal overviews on it, and compute the valid-pixel footprint.
+    Background I/O for one scene: materialize the **display-only** warpable temp
+    GeoTIFF (just the frozen display bands), build internal overviews on it, and
+    compute the valid-pixel footprint.
 
     Runs on a scheduler thread (no Qt here). ``progress`` is split across the three
     phases (weighted by their rough cost) so the overall bar advances smoothly;
     each phase reports fine-grained progress internally. Returns the fully-populated
     :class:`MosaicScene` for the main thread to append to the controller.
+
+    ``snapshot`` is the dataset metadata **frozen at ingest** (#677), built on the GUI
+    thread in :meth:`MosaicPane._on_add_scene_clicked` (the display-band resolution and
+    the deep-copy of the dataset's metadata must both happen against the live main-view
+    / dataset state at add-time). Its ``display_bands`` are what gets baked into the
+    display-only artifact -- so overviews and the footprint are computed on a file with
+    only 1--3 bands, which is the whole speedup -- and it is stamped onto the returned
+    :class:`MosaicScene` for the lazy full-band export to read from. When ``snapshot``
+    is ``None`` (a direct caller bypassing the GUI path) it is frozen here from the
+    live dataset so the scene still carries one.
     """
+    if snapshot is None:
+        snapshot = SceneMetadataSnapshot.from_dataset(dataset, find_display_bands(dataset))
+
     progress = progress or ProgressReporter()
     materialize_progress, overview_progress, footprint_progress = progress.split(
-        (0.5, "Materializing scene"),
+        (0.5, "Materializing display bands"),
         (0.35, "Building overviews"),
         (0.15, "Computing footprint"),
     )
-    gdal_path = materializer.gdal_source(dataset, progress=materialize_progress)
+    gdal_path = materializer.build_display_source(
+        dataset, snapshot.display_bands, progress=materialize_progress
+    )
     progress.raise_if_cancelled()
     build_overviews(gdal_path, progress=overview_progress)
     progress.raise_if_cancelled()
@@ -88,6 +107,7 @@ def _ingest_scene(
         gdal_path=gdal_path,
         footprint_wkt=footprint_wkt,
         has_overviews=True,
+        snapshot=snapshot,
     )
 
 
@@ -97,7 +117,7 @@ def _export_mosaic_task(
     target_wkt: str,
     resample_alg: int,
     output_nodata: Optional[float],
-    band_metadata_dataset: Optional["RasterDataSet"],
+    band_metadata_snapshot: Optional[SceneMetadataSnapshot],
     out_path: str,
     progress: Optional[ProgressReporter] = None,
 ) -> str:
@@ -106,9 +126,10 @@ def _export_mosaic_task(
     grid and stream the mosaic to ``out_path`` as ENVI.
 
     Runs on a scheduler thread (no Qt here). Delegates to the Qt-free
-    :func:`wiser.raster.mosaic_export.export_mosaic` and returns the written path as
-    a string for the main thread's success callback. The result is intentionally
-    *not* loaded back into WISER — the user opens the file manually.
+    :func:`wiser.raster.mosaic_export.export_mosaic`, which lazily materializes each
+    scene's full-band cube from the live dataset + frozen snapshot (#677), and returns
+    the written path as a string for the main thread's success callback. The result is
+    intentionally *not* loaded back into WISER — the user opens the file manually.
     """
     result = export_mosaic(
         scenes,
@@ -116,7 +137,7 @@ def _export_mosaic_task(
         target_wkt,
         resample_alg,
         output_nodata,
-        band_metadata_dataset,
+        band_metadata_snapshot,
         Path(out_path),
         progress=progress,
     )
@@ -155,12 +176,18 @@ class MosaicPane(QWidget):
         app_state: ApplicationState,
         app_services: Optional[AppServices] = None,
         materializer: Optional["SceneMaterializer"] = None,
+        display_bands_resolver: Optional[Callable[["RasterDataSet"], Optional[Tuple[int, ...]]]] = None,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent=parent)
         self._app_state = app_state
         self._app_services = app_services
         self._materializer = materializer
+        # Resolves a dataset to the bands currently shown for it in the main view, or
+        # None if not shown there. Used at ingest to pick the display bands baked into
+        # a scene's display-only preview (#677); falls back to find_display_bands when
+        # this is None (e.g. a bare pane in a unit test) or returns None.
+        self._display_bands_resolver = display_bands_resolver
         self._controller = MosaicController()
         # Holds the in-flight ingestion task (progress modal + background work) so it
         # is not garbage-collected mid-run; overwritten on the next add.
@@ -416,6 +443,15 @@ class MosaicPane(QWidget):
             QMessageBox.warning(self, self.tr("Cannot add scene"), str(exc))
             return
 
+        # Freeze the dataset metadata at ingest (#677) on the GUI thread: the display
+        # bands are resolved from the *live* main-view selection (GUI state, unsafe to
+        # read off-thread), and the dataset's spatial/spectral metadata is deep-copied
+        # so a mid-session edit in main WISER cannot silently alter this mosaic. The
+        # snapshot rides along to the background worker and both the display-only
+        # materialization and the lazy export stamp from it.
+        display_bands = self._resolve_display_bands(dataset)
+        snapshot = SceneMetadataSnapshot.from_dataset(dataset, display_bands)
+
         # Run the ingestion on the scheduler with a progress dialog and a mirrored
         # Activity Monitor row. Pass the window (the SeamlessMosaicDialog) as the block
         # target so only it is disabled while ingesting; the rest of WISER stays live.
@@ -426,11 +462,31 @@ class MosaicPane(QWidget):
             _ingest_scene,
             dataset,
             self._materializer,
+            snapshot,
             on_success=self._on_scene_ingested,
             on_error=self._on_scene_failed,
             description=self.tr("Materializing scene…"),
             meta={"bands": str(dataset.num_bands())},
         )
+
+    def _resolve_display_bands(self, dataset: "RasterDataSet") -> Tuple[int, ...]:
+        """
+        Resolve which display bands to bake into ``dataset``'s display-only preview,
+        per issue #677's ordering:
+
+          1. the main view's current selection for the dataset (honoring a
+             band-chooser choice), via the injected ``display_bands_resolver``;
+          2. otherwise ``find_display_bands(dataset)`` -- the robust defaults ->
+             human-eye wavelength -> first 1/3 bands fallback chain -- which also
+             covers "never shown in the main view" and "no defaults".
+
+        Runs on the GUI thread (the resolver reads live main-view state).
+        """
+        if self._display_bands_resolver is not None:
+            bands = self._display_bands_resolver(dataset)
+            if bands:
+                return tuple(int(b) for b in bands)
+        return tuple(int(b) for b in find_display_bands(dataset))
 
     def _on_scene_ingested(self, scene: MosaicScene) -> None:
         self._controller.add_scene(scene)
@@ -826,6 +882,32 @@ class MosaicPane(QWidget):
             )
             return
 
+        # Warn (and let the user proceed) if any visible scene's live dataset metadata
+        # has drifted from the ingest-time snapshot (#677): the mosaic uses the frozen
+        # values, so a data-ignore / wavelength / display-band edit made in main WISER
+        # after the scene was added is NOT applied to the export. Data-ignore in
+        # particular is not cosmetic, so surfacing this avoids a silent surprise.
+        drifted = [scene for scene in visible if self._scene_metadata_drifted(scene)]
+        if drifted:
+            names = ", ".join(
+                scene.dataset.get_name() or f"Dataset {scene.dataset.get_id()}" for scene in drifted
+            )
+            answer = QMessageBox.warning(
+                self,
+                self.tr("Dataset metadata changed since ingest"),
+                self.tr(
+                    "These scenes were edited in WISER after being added to the mosaic:\n"
+                    "{0}\n\n"
+                    "The mosaic uses the metadata frozen when each scene was added, so "
+                    "those changes will NOT be applied to the export. Remove and re-add a "
+                    "scene to pick up its new metadata.\n\nExport anyway?"
+                ).format(names),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                return
+
         # Resolve the output grid first (may prompt for a target CRS), then confirm it
         # actually produced a usable extent before asking for an output path.
         if not self._ensure_common_grid():
@@ -849,8 +931,8 @@ class MosaicPane(QWidget):
             return
 
         band_source = self._controller.get_band_metadata_source()
-        band_metadata_dataset = band_source.dataset if band_source is not None else None
-        output_nodata = self._resolve_output_nodata(band_metadata_dataset, visible)
+        band_metadata_snapshot = band_source.snapshot if band_source is not None else None
+        output_nodata = self._resolve_output_nodata(band_source, visible)
 
         # Snapshot the controller state on the GUI thread and hand the heavy work to a
         # scheduler thread; block only the mosaic dialog while it runs.
@@ -864,7 +946,7 @@ class MosaicPane(QWidget):
             target_wkt=self._controller.get_target_crs(),
             resample_alg=self._controller.get_resample_alg(),
             output_nodata=output_nodata,
-            band_metadata_dataset=band_metadata_dataset,
+            band_metadata_snapshot=band_metadata_snapshot,
             out_path=path,
             on_success=self._on_export_finished,
             on_error=self._on_export_failed,
@@ -873,23 +955,45 @@ class MosaicPane(QWidget):
         )
 
     @staticmethod
+    def _scene_metadata_drifted(scene: MosaicScene) -> bool:
+        """
+        True if ``scene``'s live dataset spectral metadata (data-ignore, wavelengths,
+        default display bands) has drifted from the snapshot frozen at ingest (#677).
+
+        Compares the frozen ``SpectralMetadata`` against a freshly-read one via its
+        ``__eq__``. Any comparison error is treated as "no drift" so a metadata quirk
+        can never block an export.
+        """
+        snapshot = scene.snapshot
+        if snapshot is None:
+            return False
+        try:
+            return snapshot.spectral != scene.dataset.get_spectral_metadata()
+        except Exception:  # noqa: BLE001 - a drift check must never block export
+            return False
+
+    @staticmethod
     def _resolve_output_nodata(
-        band_metadata_dataset: Optional["RasterDataSet"],
+        band_source: Optional[MosaicScene],
         visible_scenes: Sequence[MosaicScene],
     ) -> Optional[float]:
         """
-        Pick the output Data Ignore Value: the canonical band-metadata dataset's if it
-        has one, else the top-most visible scene that has one (top → bottom), else
-        ``None`` (no scene defines a nodata, so nodata compositing is a no-op).
+        Pick the output Data Ignore Value from the **frozen** per-scene snapshots
+        (#677): the canonical band-metadata scene's if it has one, else the top-most
+        visible scene that has one (top → bottom), else ``None`` (no scene defines a
+        nodata, so nodata compositing is a no-op).
+
+        Reading the frozen value (not the live dataset) keeps the export deterministic:
+        it matches the nodata baked into the footprint / common grid at ingest.
         """
-        if band_metadata_dataset is not None:
-            nodata = band_metadata_dataset.get_data_ignore_value()
+        if band_source is not None and band_source.snapshot is not None:
+            nodata = band_source.snapshot.data_ignore_value
             if nodata is not None:
                 return nodata
         for scene in reversed(list(visible_scenes)):
-            nodata = scene.dataset.get_data_ignore_value()
-            if nodata is not None:
-                return nodata
+            snapshot = scene.snapshot
+            if snapshot is not None and snapshot.data_ignore_value is not None:
+                return snapshot.data_ignore_value
         return None
 
     def _on_export_finished(self, out_path: str) -> None:

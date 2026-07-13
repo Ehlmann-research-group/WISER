@@ -141,6 +141,38 @@ class TestMosaicExportGui(unittest.TestCase):
 
         self.test_model.close_seamless_mosaic_dialog()
 
+    def test_export_warns_on_metadata_drift_and_can_cancel(self):
+        """#677: editing a scene's dataset metadata after ingest surfaces a drift
+        warning on export; declining it aborts before the file picker."""
+        _dlg, pane, controller = self._open_with_two_scenes()
+        # Edit a scene's live dataset nodata AFTER it was added -> snapshot drift.
+        controller.get_scenes()[0].dataset.set_data_ignore_value(12345.0)
+
+        with mock.patch.object(
+            QMessageBox, "warning", return_value=QMessageBox.No
+        ) as warn, mock.patch.object(QFileDialog, "getSaveFileName") as save_dialog:
+            pane._export_button.click()
+            QTest.qWait(200)
+
+        warn.assert_called_once()  # the drift warning was shown
+        save_dialog.assert_not_called()  # declining aborted before the file picker
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_export_drift_warning_proceed_reaches_file_picker(self):
+        """#677: accepting the drift warning proceeds past it to the file picker."""
+        _dlg, pane, controller = self._open_with_two_scenes()
+        controller.get_scenes()[0].dataset.set_data_ignore_value(999.0)
+
+        with mock.patch.object(
+            QMessageBox, "warning", return_value=QMessageBox.Yes
+        ) as warn, mock.patch.object(QFileDialog, "getSaveFileName", return_value=("", "")) as save_dialog:
+            pane._export_button.click()
+            QTest.qWait(200)
+
+        warn.assert_called_once()  # the drift warning was shown
+        save_dialog.assert_called_once()  # accepting proceeded to the file picker
+        self.test_model.close_seamless_mosaic_dialog()
+
     def test_export_with_no_scenes_informs_and_writes_nothing(self):
         dlg = self.test_model.open_seamless_mosaic_dialog()
         pane = dlg.get_mosaic_pane()
