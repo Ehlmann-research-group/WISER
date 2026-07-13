@@ -6,13 +6,15 @@ intended for developers reading, debugging, or extending the tool.
 
 ```{note}
 This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
-materialization, common-grid/CRS resolution, the **vector overlay** (footprints,
-bounding box, overlap highlight), the **static-scene pixel compositor** (the composited
-preview, with an off-thread debounced per-scene cache), the **control panel**
-(drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
-chooser), and the **full-resolution export path** (streaming ENVI compositor on the
-common grid — see [The Export Path](#the-export-path)) are implemented and wired into
-the GUI.
+materialization (a **display-only** preview artifact baked eagerly at ingest with the
+full-band cube materialized **lazily at export** — see [Display-Only Preview and Frozen
+Metadata](#display-only-preview-and-frozen-metadata)), common-grid/CRS resolution, the
+**vector overlay** (footprints, bounding box, overlap highlight), the **static-scene
+pixel compositor** (the composited preview, with an off-thread debounced per-scene
+cache), the **control panel** (drag-to-reorder z-order, resolution mode, resampling
+method, and the band-metadata chooser), and the **full-resolution export path**
+(streaming ENVI compositor on the common grid — see [The Export
+Path](#the-export-path)) are implemented and wired into the GUI.
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -43,23 +45,29 @@ The feature is built from three cooperating layers:
   [The Geometry Overlay](#the-geometry-overlay-vector-layer)).
 
 Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
-is first turned into a warpable, disk-backed tiled GeoTIFF by a `SceneMaterializer` —
-the `RasterDataSet` is the source of truth for metadata, so materialization stamps
+is turned into a warpable, disk-backed tiled GeoTIFF by a `SceneMaterializer` — the
+`RasterDataSet` is the source of truth for metadata, so materialization stamps
 SRS/geotransform/nodata/band metadata from the dataset object, not from its `_impl`.
+As of #677 there are **two** materialization moments: at ingest the pane bakes a
+small **display-only** GeoTIFF (just the 1 or 3 display bands) that the preview reads,
+and at export the full-band cube is materialized **lazily**, stamped from a metadata
+snapshot **frozen at ingest**. See [Display-Only Preview and Frozen
+Metadata](#display-only-preview-and-frozen-metadata).
 
 **Core files:**
 
 | File | Responsibility |
 |------|----------------|
 | `src/wiser/gui/mosaic_dialog.py` | `SeamlessMosaicDialog` — top-level dialog shell, owns the session `SceneMaterializer` |
-| `src/wiser/gui/mosaic_pane.py` | `MosaicPane` — control panel; ingestion orchestration, scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls |
+| `src/wiser/gui/mosaic_pane.py` | `MosaicPane` — control panel; ingestion orchestration (display-band resolution + metadata freeze), scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls, export (drift warning) |
 | `src/wiser/gui/mosaic_view.py` | `MosaicView` — the two-layer paint surface (pixel + vector), currently a stub |
 | `src/wiser/gui/mosaic_crs_dialog.py` | `ReprojectPromptDialog` — modal target-CRS chooser |
-| `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
+| `src/wiser/gui/app.py` | `App.get_current_display_bands` — narrow accessor for the main view's live per-dataset band selection (the display-band resolver injected into the mosaic) |
+| `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `SceneMetadataSnapshot`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
 | `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_footprint_wkt` — Qt-free ingestion gates |
-| `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer |
-| `src/wiser/raster/mosaic_export.py` | `export_mosaic` — warps each scene onto the common grid and streams the mosaic to ENVI |
-| `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer`, `materialize_to_tiled_geotiff` — the object-model adapter |
+| `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer; reads the display-only artifact's bands in order |
+| `src/wiser/raster/mosaic_export.py` | `export_mosaic` — lazily materializes each scene's full-band cube (from live pixels + frozen snapshot), warps onto the common grid, streams to ENVI |
+| `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer` (`build_display_source`), `materialize_to_tiled_geotiff`, `materialize_display_only_to_tiled_geotiff`, `materialize_full_band_from_snapshot` — the object-model adapter |
 | `src/wiser/utils/progress.py` | `ProgressReporter` — Qt-free progress plumbing shared with any scheduler task |
 | `src/wiser/gui/progress_task.py` | `run_with_progress` — reusable modal + Activity Monitor bridge for scheduler tasks |
 
@@ -119,6 +127,8 @@ classDiagram
         mosaic_materialize.py
         -_tmp : TemporaryDirectory
         -_cache : dict
+        -_display_cache : dict
+        +build_display_source(dataset, display_bands, progress) str
         +gdal_source(dataset, progress) str
         +close()
     }
@@ -173,6 +183,14 @@ classDiagram
         +gdal_path : str
         +footprint_wkt : str
         +has_overviews : bool
+        +snapshot : SceneMetadataSnapshot
+    }
+
+    class SceneMetadataSnapshot {
+        <<dataclass>>
+        +spatial : SpatialMetadata
+        +spectral : SpectralMetadata
+        +display_bands : tuple
     }
 
     class CommonGrid {
@@ -186,6 +204,7 @@ classDiagram
     MosaicController --> MosaicScene : owns list (bottom-to-top)
     MosaicController --> CommonGrid : owns cached result
     MosaicScene --> RasterDataSet : wraps
+    MosaicScene --> SceneMetadataSnapshot : frozen at ingest
 ```
 
 The controller's scene list is **bottom-to-top**: index 0 renders first (bottom),
@@ -230,13 +249,15 @@ sequenceDiagram
     alt validation fails
         Pane-->>User: QMessageBox.warning
     else validation passes
-        Pane->>Sched: run_with_progress(_ingest_scene, dataset, materializer)
+        Pane->>Pane: resolve display bands (main-view selection → find_display_bands)
+        Pane->>Pane: SceneMetadataSnapshot.from_dataset(dataset, display_bands)
+        Pane->>Sched: run_with_progress(_ingest_scene, dataset, materializer, snapshot)
         Note over Pane: ProgressDialog shown, block_window disabled
         Sched->>Ingest: run on scheduler thread
-        Ingest->>Mat: gdal_source(dataset) → materialize/warp-ready GeoTIFF
+        Ingest->>Mat: build_display_source(dataset, snapshot.display_bands) → display-only GeoTIFF
         Ingest->>Ingest: build_overviews(gdal_path)
         Ingest->>Ingest: compute_footprint_wkt(gdal_path)
-        Ingest-->>Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True)
+        Ingest-->>Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True, snapshot)
         Sched-->>Pane: on_success(scene) [GUI thread]
         Pane->>Ctrl: add_scene(scene)
         Pane->>Pane: _refresh_scene_list()
@@ -244,6 +265,12 @@ sequenceDiagram
         Pane->>Pane: _mosaic_view.update()
     end
 ```
+
+Note the display-band resolution and the metadata snapshot are computed on the **GUI
+thread** before the worker starts (both must read live main-view / dataset state at
+add-time); only the display-only materialization, overviews, and footprint run on the
+background thread. See [Display-Only Preview and Frozen
+Metadata](#display-only-preview-and-frozen-metadata).
 
 ### Validation (`validate_scene`, `mosaic_ingestion.py`)
 
@@ -260,34 +287,41 @@ still valid) and dtype mismatches across scenes (the future compositor promotes 
 widest common type at warp time). See `# TODO(#640)` in the source for a planned
 warn-but-allow path for band-count mismatches.
 
-### Materialization (`SceneMaterializer.gdal_source`, `mosaic_materialize.py`)
+### Materialization (`SceneMaterializer.build_display_source`, `mosaic_materialize.py`)
 
-Every scene — GDAL-backed or not — is materialized to a disk-backed, tiled GeoTIFF
-(`TILED=YES`, 256×256 blocks) under a per-session temp directory
-(`wiser.utils.primitives.temp_dir()`), **not** `/vsimem` (RAM-backed), so GDAL reads
-only the requested windows. Metadata (geotransform, SRS, nodata, per-band wavelength,
-bad bands, default display bands) is stamped from the `RasterDataSet` object, mirroring
-the georeferencer's numpy→GDAL-dataset trick but disk-backed. A per-scene dedup cache
-(keyed by dataset id, or `id(dataset)` as a fallback) keeps this to one write per scene
-per session — re-adding the same dataset is a cache hit.
+At ingest each scene — GDAL-backed or not — is materialized to a **display-only**
+disk-backed, tiled GeoTIFF (`TILED=YES`, 256×256 blocks) under a per-session temp
+directory (`wiser.utils.primitives.temp_dir()`), **not** `/vsimem` (RAM-backed), so
+GDAL reads only the requested windows. It contains only the frozen **display bands**
+(1 for grayscale, 3 for RGB — bands 1/2/3 *are* R/G/B), so every warp and overview
+level touches 1–3 bands instead of all N — the whole point of #677 (see [Display-Only
+Preview and Frozen Metadata](#display-only-preview-and-frozen-metadata)). Metadata
+(geotransform, SRS, nodata, per-band wavelength) is stamped from the `RasterDataSet`
+object band-remapped onto the kept bands, with nodata preserved so the preview alpha
+mask still works. A per-scene dedup cache keyed by `(dataset id, display bands)` keeps
+this to one write per scene/band-choice per session.
 
-The user's original dataset is **never modified**; the materialized copy is a
-WISER-owned temp artifact.
+The full-band GeoTIFF (`materialize_to_tiled_geotiff` /
+`materialize_full_band_from_snapshot`) is materialized **lazily at export**, not here.
+The user's original dataset is **never modified**; the materialized copies are all
+WISER-owned temp artifacts.
 
 ### Overviews (`build_overviews`, `mosaic_ingestion.py`)
 
 Builds internal pyramid overviews (`NEAREST`, levels `[2, 4, 8, 16]`) directly inside
-the materialized temp GeoTIFF (`GA_Update` + `BuildOverviews`), so preview rendering
-has no first-paint stutter. Because materialization already produces a WISER-owned
-temp copy, overviews can be written internally rather than as external `.ovr`
-sidecars.
+the materialized **display-only** temp GeoTIFF (`GA_Update` + `BuildOverviews`), so
+preview rendering has no first-paint stutter. Because materialization already produces
+a WISER-owned temp copy, overviews can be written internally rather than as external
+`.ovr` sidecars — and with only 1–3 bands the pyramid is a fraction of the full-cube
+cost.
 
 ### Footprint (`compute_footprint_wkt`, `mosaic_ingestion.py`)
 
-Derives the valid-pixel outline via `gdal.Footprint(..., format="WKT")`, in the
-scene's **own** CRS (no reprojection here — that happens later, in the grid builder).
-With a nodata value set, this traces the true valid-pixel boundary; without one, it
-falls back to the full raster rectangle.
+Derives the valid-pixel outline via `gdal.Footprint(..., format="WKT")` on the
+display-only artifact, in the scene's **own** CRS (no reprojection here — that happens
+later, in the grid builder). The nodata is preserved on the display-only file, so with
+a nodata value set this traces the true valid-pixel boundary; without one, it falls
+back to the full raster rectangle.
 
 ### Progress reporting
 
@@ -307,6 +341,83 @@ GDAL's own `0..1` callbacks). The reporter is Qt-free; `run_with_progress`
 
 `_ingest_scene` is intentionally plain — it prints nothing and does not use the
 logging module; progress and errors are the only channel out of a scheduler worker.
+
+---
+
+## Display-Only Preview and Frozen Metadata
+
+Issue #677 splits scene materialization into two artifacts and freezes the dataset
+metadata at ingest, so the preview is fast and the whole session is deterministic
+against concurrent edits in main WISER.
+
+### Two artifacts, two moments
+
+The preview compositor only ever reads the **display bands** (1 for grayscale, 3 for
+RGB), so carrying every non-display band through each `gdal.Warp` and every overview
+level was pure overhead — a large multiplier for hyperspectral scenes. So:
+
+- **At ingest** the pane bakes a **display-only** GeoTIFF containing just the resolved
+  display bands (`SceneMaterializer.build_display_source` →
+  `materialize_display_only_to_tiled_geotiff`). Its bands 1/2/3 *are* R/G/B, nodata is
+  preserved for the alpha mask, and overviews + footprint are built on it. This is what
+  `scene.gdal_path` points at and what the pixel layer reads. The session dedup cache
+  holds **only** these small artifacts.
+- **At export** the full-band cube is materialized **lazily and uncached**
+  (`materialize_full_band_from_snapshot`), the only moment all bands are actually needed
+  — see [The Export Path](#the-export-path).
+
+Band selection therefore moves from **read time to materialize time**: the compositor no
+longer picks 3-of-N, it reads the small file's bands in order.
+
+### Which display bands get baked in
+
+The display-only file uses the bands **currently shown in the main view** for that
+dataset, not `dataset.get_default_display_bands()` — a dataset may have no defaults, and
+even when it does the user may have changed the displayed bands via the band chooser, a
+choice the mosaic should honor. Those bands are **GUI state** (`RasterPane._display_bands`),
+so at ingest `MosaicPane._resolve_display_bands` resolves them in order:
+
+1. the main view's current selection for the dataset, via the injected resolver
+   (`App.get_current_display_bands` — a narrow public accessor, so the mosaic does not
+   reach into `RasterPane` internals);
+2. otherwise `find_display_bands(dataset)` (`dataset.py`) — the defaults → human-eye
+   wavelength → first 1/3 bands fallback chain (also covers "never shown in the main
+   view").
+
+### Freezing the metadata (`SceneMetadataSnapshot`)
+
+`RasterDataSet` metadata (data-ignore, wavelengths, default display bands) can be edited
+in main WISER while the mosaic dialog is open (via `dataset_editor_dialog.py`), and
+`RasterDataSet` is **not** a `QObject` — it emits no change signal, only sets a dirty
+flag. So at ingest the pane snapshots the relevant metadata onto the scene:
+`SceneMetadataSnapshot.from_dataset(dataset, display_bands)` **deep-copies** the dataset's
+`SpatialMetadata` and `SpectralMetadata` (a shallow copy would share the dataset's
+internal `band_info` list) and stores the resolved `display_bands` alongside. Both the
+display-only materialization and the lazy full-band export stamp **from this snapshot**,
+never the live dataset, so a mid-session edit cannot silently change the mosaic. The
+display-band resolution and the snapshot are both built on the **GUI thread** before the
+worker starts, since both read live main-view / dataset state at add-time.
+
+Data-ignore is **not** cosmetic here: changing it moves the footprint, the alpha validity
+mask, and potentially the common grid — which is exactly why freezing (rather than
+consuming a live value at export) is the safe default.
+
+### Drift warning on export
+
+Because the snapshot may diverge from a later live edit, `_on_export_clicked` compares
+each visible scene's frozen `snapshot.spectral` against a freshly-read
+`dataset.get_spectral_metadata()` (`_scene_metadata_drifted`, using `SpectralMetadata`'s
+own `__eq__`) and, if any drifted, shows a **warn-and-proceed** dialog naming them: the
+export will use the frozen values, so the user can proceed knowingly or cancel and re-add
+the scene to pick up the edit.
+
+### Out of scope (follow-up)
+
+The nicer end-state is to *listen* for changes and re-run the affected ingest phases
+(a main-view display-band change already emits `RasterPane.display_bands_change`; the
+dataset-model edits do not, so they need new signal infrastructure). The frozen snapshot
+is a prerequisite either way — it is how "did it change?" is detected — but the reactive
+re-ingest is deliberately deferred.
 
 ---
 
@@ -455,12 +566,14 @@ an `(h, w, 4)` uint8 RGBA array. A single `gdal.Warp` does four jobs at once:
   outside-coverage pixels, so the alpha channel *is* the validity mask (no manual
   mask-band read). This mirrors the warp seam already used by `_warped_resolution`.
 
-RGB comes from the dataset's `get_default_display_bands()` (1 band → grayscale, 3 →
-RGB), contrast-stretched per band over the valid pixels (2–98 percentile). Invalid
-pixels are forced fully clear `(0,0,0,0)` so nothing bleeds under a transparent alpha.
-It is Qt-free (produces a NumPy array) so it is unit-testable without a running app and
-can run on a background thread; the view wraps the array into a `QImage` on the GUI
-thread.
+Since #677 `scene.gdal_path` is the **display-only** artifact whose bands already *are*
+the resolved display bands, so RGB is read straight from bands 1..N **in order** (1 band
+→ grayscale, 3 → RGB) — `render_scene_argb` no longer picks 3-of-N or consults the
+dataset's display bands (that decision moved upstream to materialize time). Each band is
+contrast-stretched over the valid pixels (2–98 percentile); invalid pixels are forced
+fully clear `(0,0,0,0)` so nothing bleeds under a transparent alpha. It is Qt-free
+(produces a NumPy array) so it is unit-testable without a running app and can run on a
+background thread; the view wraps the array into a `QImage` on the GUI thread.
 
 ### The per-scene cache and `composite()`
 
@@ -719,18 +832,29 @@ CRS logic.
 ### The compositor (`export_mosaic`, Qt-free)
 
 `export_mosaic(scenes, grid, target_wkt, resample_alg, output_nodata,
-band_metadata_dataset, out_path, progress)` is two GDAL stages, both lazy until the final
-streamed write:
+band_metadata_snapshot, out_path, progress)` is now three lazy stages per scene, all
+lazy until the final streamed write:
 
-1. **Warp each visible scene onto the common grid as a warped VRT**
+0. **Materialize the full-band cube lazily** (#677, `_warp_scene_to_grid_vrt` is fed
+   from `materialize_full_band_from_snapshot`). The preview reads a display-only
+   artifact, so export is the only moment all bands are actually needed. Each scene's
+   full-band GeoTIFF is materialized here into the export temp dir from the **live**
+   `scene.dataset` pixels but stamped with the scene's **frozen** `snapshot` metadata
+   (geotransform, SRS, nodata, band metadata) — so a mid-session metadata edit never
+   silently alters the product and the export stays aligned with the ingest-frozen
+   footprint / common grid. This full-band artifact is **not** cached — it is discarded
+   after the streamed write, keeping the session's temp footprint to the small
+   display-only files.
+
+1. **Warp each full-band scene onto the common grid as a warped VRT**
    (`_warp_scene_to_grid_vrt`). `gdal raster mosaic` does **not** reproject, so this
    per-scene `gdal.Warp(..., format="VRT")` is what applies the CRS transform + resample +
    grid alignment — mirroring the preview warp in `render_scene_argb`, but keeping the raw
-   band values (no percentile stretch, no `dstAlpha`). Each scene's Data Ignore Value
-   becomes the warp `srcNodata` and `output_nodata` becomes the `dstNodata`, so invalid /
-   outside-footprint pixels are marked for the compositor. VRTs are lazy — no pixels are
-   materialized here. A scene whose window is disjoint from the grid warps to `None` and
-   is simply skipped.
+   band values (no percentile stretch, no `dstAlpha`). The scene's **frozen** Data Ignore
+   Value (from the snapshot) becomes the warp `srcNodata` and `output_nodata` becomes the
+   `dstNodata`, so invalid / outside-footprint pixels are marked for the compositor. VRTs
+   are lazy — no pixels are materialized here. A scene whose window is disjoint from the
+   grid warps to `None` and is simply skipped.
 
 2. **Composite + stream to ENVI** (`_run_raster_mosaic`) via
    `gdal.Run("raster", "mosaic", input=[...], output=..., output_format="ENVI", ...)`
@@ -740,18 +864,21 @@ streamed write:
    block-by-block, so no full-image buffer is held in RAM. GDAL's own progress callback is
    forwarded through the `ProgressReporter`.
 
-The VRTs live in a `TemporaryDirectory` scoped around the mosaic call — they are only
-referenced until `gdal.Run` finishes the streamed write, then discarded.
+Both the lazily-materialized full-band tiffs and the warped VRTs live in a
+`TemporaryDirectory` scoped around the mosaic call — they are only referenced until
+`gdal.Run` finishes the streamed write, then discarded.
 
 ### Band-metadata stamping and the ENVI-header patch
 
 `gdal raster mosaic` writes correct pixels, geotransform, and `map info`, but no spectral
 metadata, so `_patch_envi_band_metadata` reopens the GDAL-written `.hdr` and rewrites it
 with WISER's own ENVI header helpers (`envi.load_envi_header` / `write_envi_header`),
-stamping the canonical band metadata from `controller.get_band_metadata_source()`:
-wavelengths / units, band names, the bad-band list (`bbl`), and the output nodata. This
-keeps the exported file self-describing so it re-opens in WISER with the right spectral
-labels.
+stamping the canonical band metadata from the **frozen snapshot** of the scene chosen by
+`controller.get_band_metadata_source()` (its `band_metadata_snapshot`): wavelengths /
+units, band names, the bad-band list (`bbl`), and the output nodata. Reading from the
+snapshot rather than the live dataset keeps the export deterministic against concurrent
+edits. This keeps the exported file self-describing so it re-opens in WISER with the
+right spectral labels.
 
 One subtlety is called out because it caused a crash-on-open regression:
 
@@ -761,9 +888,9 @@ One subtlety is called out because it caused a crash-on-open regression:
 > leaving that placeholder (or copying an out-of-range source value) makes the exported
 > file raise `GDALDataset::GetRasterBand(4) - Illegal band #` when opened in a raster
 > view. `_resolve_default_bands` therefore always resolves the field explicitly: it keeps
-> the canonical source's default display bands only when every index is in range for the
-> output, and otherwise **clears** it so WISER derives display bands from the stamped
-> wavelengths (truecolor) or the first bands.
+> the snapshot's frozen resolved `display_bands` (the canonical display choice) only when
+> every index is in range for the output, and otherwise **clears** it so WISER derives
+> display bands from the stamped wavelengths (truecolor) or the first bands.
 
 The result is **not** loaded back into the running session — export writes the file and
 the user opens it manually via **File → Open** (a deliberate product decision), which is
@@ -771,16 +898,21 @@ why the on-disk header must be fully self-describing.
 
 ### GUI wiring and threading
 
-`MosaicPane._on_export_clicked` (GUI thread) requires ≥1 visible scene, resolves the grid
-via `_ensure_common_grid()` (surfacing `TargetCrsRequired`/`UnmappableCrsError` as a
+`MosaicPane._on_export_clicked` (GUI thread) requires ≥1 visible scene, **warns on
+metadata drift** (`_scene_metadata_drifted`: any visible scene whose live dataset
+spectral metadata differs from its frozen snapshot — a warn-and-proceed prompt, since
+the export will use the frozen values; see [Display-Only Preview and Frozen
+Metadata](#display-only-preview-and-frozen-metadata)), resolves the grid via
+`_ensure_common_grid()` (surfacing `TargetCrsRequired`/`UnmappableCrsError` as a
 warning), asks for an output path with `QFileDialog.getSaveFileName`, resolves the output
-nodata (`_resolve_output_nodata`: the band-metadata dataset's Data Ignore Value, else the
-top-most visible scene that has one), snapshots the controller state, and hands the heavy
-work to a scheduler thread via the same `run_with_progress` bridge the ingestion path uses
-(progress modal + Activity Monitor row + cancellation, blocking only the mosaic dialog).
-The module-level worker `_export_mosaic_task` just calls `export_mosaic` and returns the
-written path; `_on_export_finished` shows a confirmation dialog. Like `_ingest_scene`, the
-worker never logs — progress and raised exceptions are its only channels out.
+nodata (`_resolve_output_nodata`: the band-metadata scene's **frozen** Data Ignore Value,
+else the top-most visible scene that has one), snapshots the controller state, and hands
+the heavy work to a scheduler thread via the same `run_with_progress` bridge the ingestion
+path uses (progress modal + Activity Monitor row + cancellation, blocking only the mosaic
+dialog). The module-level worker `_export_mosaic_task` just calls `export_mosaic` and
+returns the written path; `_on_export_finished` shows a confirmation dialog. Like
+`_ingest_scene`, the worker never logs — progress and raised exceptions are its only
+channels out.
 
 ---
 
@@ -808,7 +940,16 @@ worker never logs — progress and raised exceptions are its only channels out.
   preservation (pure `QTransform` math, no widget shown).
 - `src/tests/test_mosaic_compositor.py` — the Qt-free `render_scene_argb`: alpha is 0
   exactly on the nodata collar and 255 on the valid interior, RGBA shape/dtype, valid
-  pixels get color, a disjoint viewport comes back fully transparent (no Qt).
+  pixels get color, a disjoint viewport comes back fully transparent (no Qt); plus (#677)
+  it reads the display-only bands **in order** (column gradient → R, row gradient → G)
+  and **ignores** the dataset's display bands (a post-ingest display-band edit can't
+  change the preview).
+- `src/tests/test_mosaic_materialize.py` — the materialization adapter: full-band
+  round-trip metadata + tiled layout, window reads, `RasterDataSet` overriding its GDAL
+  backing, dedup, temp-dir lifecycle; plus (#677) `build_display_source` bakes only the
+  chosen bands in order with nodata preserved, is cached by `(scene, bands)`, rejects
+  non-1/3 band counts, and `materialize_full_band_from_snapshot` takes live pixels but
+  **frozen** nodata/metadata.
 - `src/tests/test_mosaic_view_gui.py` — the overlay **and** pixel-layer wiring end to
   end, driven through the real `MosaicPane` ingestion path: geometry cache populates /
   re-invalidates; `composite()` stacks known ARGB layers (top opaque wins, holes reveal
@@ -826,12 +967,15 @@ worker never logs — progress and raised exceptions are its only channels out.
   footprint is the output nodata), Nearest-Neighbor value preservation (exact source
   values), band count + canonical metadata round-tripped through the written ENVI, and the
   `default bands` guards (GDAL's 1-based RGB placeholder is cleared; an out-of-range source
-  default is dropped so the file opens without an `Illegal band #` crash).
+  default is dropped so the file opens without an `Illegal band #` crash); plus (#677)
+  export stamps the **frozen** default bands even after the live dataset is edited.
 - `src/tests/test_mosaic_export_gui.py` — the Export button end to end via `WiserTestModel`:
   ingest two scenes, patch the save dialog, click Export, and assert the ENVI `.img`/`.hdr`
   are written on the common grid with nodata carried through while **nothing is loaded back
-  into WISER** (dataset count unchanged); plus the no-scenes guard (informs and never
-  reaches the file picker).
+  into WISER** (dataset count unchanged); the no-scenes guard (informs and never reaches the
+  file picker); and (#677) the metadata-drift warning — a post-ingest edit surfaces the
+  warn-and-proceed prompt, where declining aborts before the file picker and accepting
+  proceeds past it.
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
   `compute_footprint_wkt`, and progress-reporting behavior.
 - `src/tests/test_mosaic_crs_dialog.py` — `ReprojectPromptDialog` in isolation

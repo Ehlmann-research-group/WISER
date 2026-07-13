@@ -70,11 +70,12 @@ infeasible for developers to run on each push to a pull
 request. We need to look into a way to speed up our builds
 (<10 minutes would be good).
 
-The deployment code is in the github action `prod-deploy.yml`. It
-builds WISER on all three platforms (windows, macos arm, macos intel)
-then runs tests inside of each WISER distributable. Running these tests
-ensures that WISER actually starts up and that core WISER functionality
-has been properly packaged up.
+The deployment code is in the GitHub Actions workflow `prod-deploy.yml`. It builds WISER on every
+platform (Windows, macOS arm/intel, and the six Linux distro/arch targets). The Linux legs
+run the full `--test_mode` suite inside each distributable (a hard gate — a failing suite
+produces no tarball); Windows and macOS run a fast `--smoke` launch check in CI and the full
+`--test_mode` locally. Running these checks ensures WISER actually starts up and that core
+functionality was packaged correctly.
 
 It is important to note that these build artifacts still
 need some more work done to them in order to become our
@@ -92,6 +93,13 @@ test that JP2OpenJPEG.dll was properly packaged into the
 build, we would have a test that would try opening up a very
 small JP2 file that we can run with a command like `./WISER_Bin --mode test`. So you can see how it is important
 to run tests on the build artifact.
+
+Note that "smoke test" means two different things in our pipeline. The **Linux** builds run
+the full `--test_mode` suite in-container via `install-linux/run_smoke.sh` (despite the
+name) — a failing suite fails the build and no tarball is produced. **Windows/macOS** run
+only a lightweight `--smoke` launch check in CI (start Qt, show the splash, exit) and rely
+on the full `--test_mode` being run locally before signing. Don't "standardize" the Linux
+path onto `--smoke` — that would silently drop the Linux test gate.
 
 We want to build these
 artifacts and run these tests on `main` and `rel/**` banches
@@ -137,53 +145,116 @@ command `gh`. The logic for this step is in the files /src/devtools/sign_mac.py 
 
 ## Releases
 
-WISER releases should always be made from a release branch. Release
-notes should accompany releases. Build artifacts
-should accompany releases. These build artifacts won't be
-signed due to how artifact creation works. Additionally, official
-releases should be made on the GitHub through
-the [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases)
-and the release should be tagged.
+WISER releases should always be made from a release branch and tagged through the
+GitHub [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases).
+Release notes should accompany every release.
+
+The installers are attached to the GitHub release as **release assets** (not linked
+from an Actions run — Actions artifacts expire, require a login, and are not counted
+in a release's download totals). Release notes should point users at the assets on the
+release page, never at a `…/actions/runs/<id>` URL.
+
+### Asset naming convention
+
+Asset filenames are normalized at build time so a platform + architecture is always
+identifiable from the name (the public downloads page groups assets by these tokens):
+
+```
+WISER-<version>-windows-x64-setup.exe
+WISER-<version>-macos-arm64.dmg
+WISER-<version>-macos-x64.dmg
+WISER-<version>-linux-<distro>-x64.tar.gz     # distro: ubuntu2004 | debian11 | fedora39
+WISER-<version>-linux-<distro>-arm64.tar.gz
+```
+
+`x64`/`arm64` are the canonical arch tokens (Intel/amd64 → `x64`). The names are set by
+`win-install.nsi` (Windows), `src/devtools/sign_mac.py` (macOS), and the Linux build
+step in `prod-deploy.yml` — not by hand on upload.
+
+### How assets reach the release
+
+Assets are **built once and promoted** — the release event never triggers a build, so the
+bits you ship are the exact bits you tested.
+
+- **Linux** builds are unsigned, so a CI tarball *is* the final asset. `prod-deploy.yml`
+  (run via `workflow_dispatch`) builds and tests each distro and uploads the tarballs as
+  run artifacts. When you are ready to release, `publish-release-assets.yml` attaches the
+  tarballs from that specific run to the release — it verifies the run succeeded and that
+  the tag points at the built commit, so nothing is rebuilt at release time.
+- **Windows / macOS** are signed locally with the maintainer's certificates, then uploaded
+  with the canonical name via the sign scripts' `--release-tag <tag>` option (see the
+  Release Process below).
+
+### Pre-release flag
+
+The web `…/releases/latest` and the API `latest` endpoint both **exclude** releases
+flagged `prerelease`. Our beta tags (e.g. `v2.2b1`) are *not* automatically treated as
+pre-releases — it is purely the checkbox at publish time. When publishing the release
+the public should download, leave **"Set as a pre-release" unchecked** (and keep "Set as
+the latest release" on) so `latest` resolves to it.
 
 ## Release Process
 
-The process of creating a release is documented below.
+Assets are built once, tested, then **promoted** to the release — nothing is rebuilt at
+release time, so what ships is exactly what you tested.
 
-1. Build WISER through the GitHub workflow `prod-deploy`.
-2. Do `make sign-mac` or `make sign-windows` to run the signing
-   logic. For signing on mac, you must have a valid Apple Developer
-   signing certificate tied to a paid Apple Developer Program account.
-   For signing on windows, you must have a windows code signing
-   certificate. This is tied to an individual or a legal entity.
+1. **Bump the version** in `src/wiser/version.py` (and `RELEASE_DATE`) and commit it. The
+   Linux asset name is read from `version.py` at build time, so it must be correct
+   *before* you build.
 
-   a. If you do code sign your own distribution, please do not
-   present it to others as a official WISER release unless you have
-   been explicitly allowed to do so for a specific release.
+2. **Build and test** — run **Build and Smoke Test WISER** (`prod-deploy.yml`) via
+   `workflow_dispatch` on the commit you intend to release. Every platform builds; each
+   Linux distro runs the full `--test_mode` suite in-container (a leg only produces a
+   tarball if its tests pass), and Windows/macOS run a `--smoke` launch check. Note the
+   **run ID** — you will promote this exact run.
 
-   b. Note that WISER currently does not have a code
-   signing mechanism for Linux.
+3. **Verify locally** — download the Linux tarballs from the run and test if needed. Build,
+   `--test_mode`, code-sign, and clean-install-test the Windows/macOS installers locally
+   (CI does not produce the signed installers). See the signing certificate requirements
+   below.
 
-3. If you are making an official release, you will need access to
-   the [WISER website](https://ehlmann.caltech.edu/wiser/index.html)
-   and a stable place to host the WISER distributable. When you have
-   access to this, you will add a download link to the website for the
-   new release.
+4. **Create the release** on the *same commit* you built. Publish it as a **pre-release**
+   (see the Pre-release flag section) so it stays out of `…/releases/latest` while you
+   attach and verify assets. A published pre-release also lets the publish workflow confirm
+   the tag matches the built commit.
 
-4. You will need to make a release on GitHub with the release notes
-   and tag the release's commit.
+5. **Attach the Linux assets** — run **Publish release assets**
+   (`publish-release-assets.yml`) with the build **run ID** and the release **tag**. It
+   checks the run succeeded and that the tag points at the built commit, then attaches the
+   six Linux tarballs.
 
-5. You will then need to put the release on
-   the [website's release notes page](https://ehlmann.caltech.edu/wiser/release-notes.html).
+6. **Upload the signed Windows/macOS installers** with `RELEASE_TAG=<tag>` so each is
+   uploaded to the release with its canonical name in one step:
 
-6. Lastly, you will need to update the plugin API documentation in
-   `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any
-   changes to plugin interfaces or dependencies in the latest version.
+   `make sign-mac LINK=<artifact-url> MAC_DIST_GITHUB_NAME=<artifact-name> RELEASE_TAG=<tag>`
+   or `make sign-windows LINK=<artifact-url> RELEASE_TAG=<tag>`.
 
-7. Finally, if have the permissions to, then you should send an
-   email to wiser-announce@caltech.edu to announce a new release of
-   WISER with a summary of what is in the release. If you don't have
-   permission to, reach out to someone who does with the email you want
-   them to send.
+   For signing on macOS, you must have a valid Apple Developer signing certificate tied to
+   a paid Apple Developer Program account. For signing on Windows, you must have a Windows
+   code signing certificate, tied to an individual or a legal entity.
+
+   a. If you code-sign your own distribution, do not present it to others as an official
+   WISER release unless you have been explicitly allowed to for a specific release.
+
+   b. WISER has no code-signing mechanism for Linux; the Linux assets are attached unsigned.
+
+7. **Finalize the release notes** on the GitHub release. Point users at the attached
+   release assets — never a `…/actions/runs/<id>` URL.
+
+8. **Go live** — once every asset is present with its canonical name, uncheck **"Set as a
+   pre-release"** (and keep "Set as the latest release" on) so `latest` resolves to it.
+
+9. **Update the website** — if you are making an official release, add the download links on
+   the [WISER website](https://ehlmann.caltech.edu/wiser/index.html). Release notes live on
+   the GitHub release itself (step 7) — there is no separate release-notes page to maintain.
+   (Once the downloads page reads the release API, these per-release link edits go away.)
+
+10. **Update the plugin API documentation** in
+    `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any changes to plugin
+    interfaces or dependencies in the latest version.
+
+11. **Announce** — if you have permission, email wiser-announce@caltech.edu with a summary of
+    the release. If not, reach out to someone who does with the email you want sent.
 
 > **Note**: This process can only be done by a maintainer with
 > access to all of these resources. This intentionally limits who can
