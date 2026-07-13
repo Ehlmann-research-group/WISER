@@ -40,6 +40,7 @@ from wiser.raster.mosaic_controller import (
     MosaicController,
     MosaicScene,
     ResolutionMode,
+    ScenePendingReason,
     TargetCrsRequired,
     UnmappableCrsError,
 )
@@ -49,7 +50,8 @@ from wiser.raster.mosaic_ingestion import (
     build_overviews,
     compute_footprint_wkt,
     compute_stretch_bounds,
-    validate_scene,
+    is_dataset_georeferenced,
+    validate_scene_addable,
 )
 from wiser.utils.primitives import temp_dir
 from wiser.utils.progress import ProgressReporter
@@ -415,17 +417,29 @@ class MosaicPane(QWidget):
         dataset = self._app_state.get_dataset(ds_id)
         name = dataset.get_name() or f"Dataset {ds_id}"
 
-        # Validate on the main thread so rejection is immediate (no spinner churn)
-        # and so a scene that can't join the mosaic never pays for the
-        # materialize/build-overviews/footprint pipeline it would just be rejected
-        # after anyway.
+        # Only the "can't be added at all" gates (duplicate, band-count) block here. A
+        # non-georeferenced or CRS-incompatible dataset is *not* rejected: it is added as
+        # a disabled "pending" scene and fixed later via the in-place georeferencer.
         try:
-            validate_scene(dataset, self._controller.get_scenes())
-            self._controller.validate_new_scene_crs(name, dataset.get_spatial_ref())
-        except (SceneValidationError, UnmappableCrsError) as exc:
+            validate_scene_addable(dataset, self._controller.get_scenes())
+        except SceneValidationError as exc:
             QMessageBox.warning(self, self.tr("Cannot add scene"), str(exc))
             return
 
+        if not is_dataset_georeferenced(dataset):
+            # Non-georeferenced: there is nothing to materialize and no grid
+            # contribution, so add a bare placeholder immediately (no background work).
+            # It appears in the list as pending until the user right-clicks →
+            # Georeference…, at which point the swap promotes it to a live scene.
+            self._controller.add_scene(MosaicScene(dataset=dataset))
+            self._refresh_scene_list()
+            self._refresh_target_crs_label()
+            self._mosaic_view.invalidate_overlay()
+            return
+
+        # Georeferenced (whether or not it is compatible with a locked target): ingest
+        # now so that, if it lands pending, a later promotion is instant. The scene is
+        # classified live/pending automatically once it reaches the controller.
         # Run the ingestion on the scheduler with a progress dialog and a mirrored
         # Activity Monitor row. Pass the window (the SeamlessMosaicDialog) as the block
         # target so only it is disabled while ingesting; the rest of WISER stays live.
@@ -470,19 +484,41 @@ class MosaicPane(QWidget):
         # Controller order is bottom-to-top; show the top-most first so the list reads
         # like a layer stack. Each item carries its real controller index in UserRole.
         for index in reversed(range(len(scenes))):
+            scene = scenes[index]
             name, crs_display = summary[index]
             item = QListWidgetItem(f"{name}   ·   {crs_display}")
             item.setData(Qt.UserRole, index)
             # Checkable + draggable, but not a drop target itself, so a dragged row
             # lands *between* rows (reorder) rather than "onto" another row.
             item.setFlags((item.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsDropEnabled)
-            item.setCheckState(Qt.Checked if scenes[index].visible else Qt.Unchecked)
+            item.setCheckState(Qt.Checked if scene.visible else Qt.Unchecked)
+            # Flag pending scenes (non-georeferenced, or a CRS that can't reach the
+            # target) with a warning icon + explanatory tooltip. The visibility checkbox
+            # stays enabled: it records the user's intent for when the scene becomes live.
+            reason = self._controller.scene_pending_reason(scene)
+            if reason is not None:
+                item.setIcon(self.style().standardIcon(QStyle.SP_MessageBoxWarning))
+                item.setToolTip(self._pending_tooltip(reason))
+                item.setForeground(QColor(150, 150, 150))
             self._scene_list.addItem(item)
             if index == previous:
                 self._scene_list.setCurrentItem(item)
         self._scene_list.blockSignals(False)
         self._on_scene_selection_changed()
         self._refresh_band_metadata_combo()
+
+    @staticmethod
+    def _pending_tooltip(reason: ScenePendingReason) -> str:
+        """Hover text explaining why a pending scene is excluded, and how to fix it."""
+        if reason is ScenePendingReason.INCOMPATIBLE_CRS:
+            return (
+                "Can't add scene to preview/final output because its CRS isn't "
+                "compatible with the mosaic. Right-click \u2192 Georeference\u2026 to fix it."
+            )
+        return (
+            "Can't add scene to preview/final output because it has no CRS. "
+            "Right-click \u2192 Georeference\u2026 to fix it."
+        )
 
     def _refresh_band_metadata_combo(self) -> None:
         """
@@ -827,14 +863,32 @@ class MosaicPane(QWidget):
         if self._app_services is None:
             return
 
-        visible = [scene for scene in self._controller.get_scenes() if scene.visible]
+        # Only live scenes are composited; pending scenes (non-georeferenced or
+        # CRS-incompatible) cannot be placed on the grid and are skipped.
+        visible = self._controller.live_scenes()
         if not visible:
             QMessageBox.information(
                 self,
                 self.tr("Nothing to export"),
-                self.tr("Add at least one visible scene before exporting."),
+                self.tr("Add at least one visible, georeferenced scene before exporting."),
             )
             return
+
+        # Warn before silently dropping any pending scenes from the output.
+        if self._controller.has_pending_scenes():
+            proceed = QMessageBox.warning(
+                self,
+                self.tr("Pending scenes will be skipped"),
+                self.tr(
+                    "Some scenes are pending (not georeferenced, or their CRS is not "
+                    "compatible with the mosaic) and will be skipped in the export. "
+                    "Continue anyway?"
+                ),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if proceed != QMessageBox.Yes:
+                return
 
         # Resolve the output grid first (may prompt for a target CRS), then confirm it
         # actually produced a usable extent before asking for an output path.
@@ -949,19 +1003,30 @@ class MosaicPane(QWidget):
         """Let the user pick / override the target CRS at any time (manual button)."""
         if not self._prompt_for_target_crs():
             return
-        try:
-            self._controller.build_common_grid()
-        except UnmappableCrsError as exc:
-            QMessageBox.warning(self, self.tr("Cannot reproject"), str(exc))
-        self._refresh_target_crs_label()
+        # A target change re-evaluates every scene: some may go pending (their CRS can no
+        # longer reach the target), some may be promoted. Rebuild from the live scenes,
+        # refresh the pending flags, and warn only if nothing is left to display.
+        self._rebuild_grid_quietly()
+        self._refresh_scene_list()
         self._mosaic_view.invalidate_overlay()
         self._mosaic_view.invalidate_pixels()
+        if not self._controller.has_live_scenes():
+            QMessageBox.warning(
+                self,
+                self.tr("No compatible scenes"),
+                self.tr(
+                    "No scene can be transformed into the chosen target CRS, so the "
+                    "mosaic preview is empty. Right-click a scene and choose "
+                    "Georeference\u2026 to bring it into a compatible CRS."
+                ),
+            )
 
     def _prompt_for_target_crs(self) -> bool:
         """
-        Show the reproject dialog and, on accept, validate + set the chosen target
-        CRS. Returns ``True`` when a target CRS was set, ``False`` otherwise (no
-        scenes, cancelled, or the choice was unmappable).
+        Show the reproject dialog and, on accept, set the chosen target CRS. Returns
+        ``True`` when a target CRS was set, ``False`` otherwise (no scenes, or the user
+        cancelled). A choice that some scenes cannot reach is *not* rejected here — those
+        scenes become pending — so the only failure modes are an empty mosaic or cancel.
         """
         if self._controller.scene_count() == 0:
             QMessageBox.information(
@@ -980,11 +1045,9 @@ class MosaicPane(QWidget):
         if dlg.exec() != QDialog.Accepted:
             return False
         target = dlg.selected_target_wkt()
-        try:
-            self._controller.validate_target_crs(target)
-        except UnmappableCrsError as exc:
-            QMessageBox.warning(self, self.tr("Cannot reproject"), str(exc))
-            return False
+        # No longer a hard gate: a target that some scenes cannot reach is accepted, and
+        # those scenes become pending (flagged in the list) instead of blocking the
+        # change. The caller re-evaluates pending status and refreshes the view.
         self._controller.set_target_crs(target)
         return True
 
