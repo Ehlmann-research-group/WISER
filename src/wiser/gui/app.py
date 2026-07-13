@@ -1073,12 +1073,15 @@ class DataVisualizerApp(QMainWindow):
 
     def show_similarity_transform_dialog(self, in_test_mode=False):
         if self._similarity_transform_dialog is None:
-            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
-        if not in_test_mode:
-            if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
-                pass
-        else:
-            self._similarity_transform_dialog.show()
+            self._similarity_transform_dialog = SimilarityTransformDialog(
+                self._app_state, self._app_services, parent=self
+            )
+        # Non-modal: the transform now runs off-thread with a cancelable progress modal
+        # (like the Seamless Mosaic dialog), so the dialog must stay non-modal for the
+        # progress dialog's Cancel button to remain clickable and the main window usable.
+        self._similarity_transform_dialog.show()
+        self._similarity_transform_dialog.raise_()
+        self._similarity_transform_dialog.activateWindow()
 
     def show_seamless_mosaic_dialog(self, in_test_mode=False):
         if self._seamless_mosaic_dialog is None:
