@@ -436,6 +436,31 @@ class MosaicView(QWidget):
         self._schedule_pixel_read()
         self.update()
 
+    def zoom_to_extent(self, extent: Tuple[float, float, float, float], margin: float = 0.05) -> None:
+        """
+        Frame a world-coordinate ``(min_x, min_y, max_x, max_y)`` extent, padded by
+        ``margin`` (a fraction of each side) so the target is not flush against the
+        viewport edges, then repaint.
+
+        This is the per-scene analogue of the one-time whole-mosaic auto-fit in
+        :meth:`paintEvent`. It is a no-op until the widget has a real size (the camera
+        math needs a non-degenerate viewport). Setting ``_has_fitted`` keeps the
+        auto-fit branch from later snapping the camera back to the whole-grid extent,
+        so a deliberate zoom is never yanked away. ``update()`` is enough: the moved
+        camera makes ``paintEvent`` schedule the debounced, off-thread read for the
+        newly-visible tiles (the same path as a pan/zoom gesture).
+        """
+        if self.width() <= 1 or self.height() <= 1:
+            return
+        min_x, min_y, max_x, max_y = extent
+        pad_x = (max_x - min_x) * margin
+        pad_y = (max_y - min_y) * margin
+        self._transform.fit_to_extent(
+            (min_x - pad_x, min_y - pad_y, max_x + pad_x, max_y + pad_y), self.size()
+        )
+        self._has_fitted = True
+        self.update()
+
     def _visible_world_extent(self) -> Tuple[float, float, float, float]:
         """The camera's visible rectangle as ``(min_x, min_y, max_x, max_y)`` in world."""
         size = self.size()
