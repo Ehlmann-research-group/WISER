@@ -31,7 +31,7 @@ from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
 from wiser.raster.spectral_library import ListSpectralLibrary, SpectralLibrary
 
-from ..resolver import DependencyResolver, resolver_for_all_datasets
+from ..resolver import Dependency, DependencyResolver, resolver_for_all_datasets
 from .spectra import spectrum_from_pyrep, spectrum_to_pyrep
 
 if TYPE_CHECKING:
@@ -48,15 +48,17 @@ def save_libraries(
 ) -> None:
     """Write every spectral library in ``app_state`` into ``manifest['libraries']``.
 
-    The resolver is passed through to each inline member so a dataset-backed
-    member would snapshot when its dataset is cut; in practice library members
-    are self-contained, so without an explicit resolver every dataset is treated
-    as saved.
+    A library the resolver excludes (unchecked in the Save dialog) is omitted; the
+    resolver is also passed through to each inline member so a dataset-backed member
+    would snapshot when its dataset is cut.  In practice library members are
+    self-contained, so without an explicit resolver every library is saved.
     """
     if resolver is None:
         resolver = resolver_for_all_datasets(app_state)
     manifest["libraries"] = [
-        library_to_pyrep(library, resolver) for library in app_state.get_spectral_libraries()
+        library_to_pyrep(library, resolver)
+        for library in app_state.get_spectral_libraries()
+        if resolver.is_saved(Dependency("library", library.get_id()))
     ]
 
 

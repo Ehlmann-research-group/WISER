@@ -141,13 +141,88 @@ def save_inventory(app_state: "ApplicationState", resolver: DependencyResolver) 
     return nodes
 
 
+def save_tree(app_state: "ApplicationState", resolver: DependencyResolver) -> List[Dict[str, Any]]:
+    """The full selectable inventory as three groups for the Save dialog tree.
+
+    Returns ``[datasets_group, rois_group, outputs_group]``.  Unlike
+    :func:`save_inventory` (a preview of what *will* be saved, which omits cut
+    roots), this is the selection model itself, so it lists *every* dataset, ROI,
+    and standalone output -- the dialog manages each item's checked state.  Each
+    item node carries the ``(kind, id)`` handle the resolver excludes it by; a
+    dataset or ROI node also lists its cascade children (stretches / spectra /
+    runs, or ROI-average spectra) tagged with the policy they take when their root
+    is cut, so the dialog can annotate them.  An ``Analysis outputs`` node (run /
+    library / user CRS / band-math expression) is a leaf nothing depends on.
+    """
+    spectra = _dependent_spectra(app_state)
+
+    datasets = [
+        {
+            "kind": "dataset",
+            "id": dataset.get_id(),
+            "label": dataset.get_name() or f"dataset {dataset.get_id()}",
+            "backing": "file" if dataset.get_filepaths() else "ram",
+            "children": _dataset_children(app_state, resolver, dataset.get_id(), spectra, include_runs=False),
+        }
+        for dataset in app_state.get_datasets()
+    ]
+    rois = [
+        {
+            "kind": "roi",
+            "id": roi.get_id(),
+            "label": roi.get_name() or f"ROI {roi.get_id()}",
+            "children": _roi_children(resolver, roi.get_id(), spectra),
+        }
+        for roi in app_state.get_rois()
+    ]
+
+    return [
+        {"group": "datasets", "label": "Datasets", "children": datasets},
+        {"group": "rois", "label": "ROIs", "children": rois},
+        {"group": "outputs", "label": "Analysis outputs", "children": _output_nodes(app_state)},
+    ]
+
+
+def _output_nodes(app_state: "ApplicationState") -> List[Dict[str, Any]]:
+    """The standalone items no dataset or ROI owns -- what :func:`save_inventory` omits.
+
+    Run records, spectral libraries, user CRSs, and band-math expressions each save
+    on their own, so they are their own leaves under the ``Analysis outputs`` group.
+    Each carries the ``(kind, id)`` handle the resolver excludes it by.
+    """
+    nodes: List[Dict[str, Any]] = []
+    for label, record in _run_records(app_state):
+        nodes.append({"kind": "run", "id": record.run_id, "label": label})
+    for library in app_state.get_spectral_libraries():
+        nodes.append(
+            {
+                "kind": "library",
+                "id": library.get_id(),
+                "label": library.get_name() or f"library {library.get_id()}",
+            }
+        )
+    for name in app_state.get_user_created_crs():
+        nodes.append({"kind": "crs", "id": name, "label": name})
+    for index, expression in enumerate(app_state.get_bandmath_expressions()):
+        nodes.append({"kind": "bandmath", "id": index, "label": expression})
+    return nodes
+
+
 def _dataset_children(
-    app_state: "ApplicationState", resolver: DependencyResolver, ds_id: int, spectra: List[Any]
+    app_state: "ApplicationState",
+    resolver: DependencyResolver,
+    ds_id: int,
+    spectra: List[Any],
+    include_runs: bool = True,
 ) -> List[Dict[str, Any]]:
     children: List[Dict[str, Any]] = []
+    # A stretch drops when its dataset is cut, so its policy follows the resolver --
+    # save_inventory only shows saved datasets (always faithful), but the selection
+    # tree shows a cut dataset too and must annotate the stretch as dropped.
+    stretch_policy = resolver.classify([Dependency("dataset", ds_id)], snapshotable=False).policy.value
     for (owner_id, band), stretch in app_state.get_all_stretches().items():
         if stretch is not None and owner_id == ds_id:
-            children.append({"label": f"stretch (band {band})", "type": "stretch", "policy": "faithful"})
+            children.append({"label": f"stretch (band {band})", "type": "stretch", "policy": stretch_policy})
     for spectrum in spectra:
         # An ROI-average spectrum is listed under its ROI, not its dataset.
         if isinstance(spectrum, ROIAverageSpectrum):
@@ -156,10 +231,13 @@ def _dataset_children(
         if any(dep.kind == "dataset" and dep.id == ds_id for dep in deps):
             policy = resolver.classify(deps, snapshotable=True).policy.value
             children.append({"label": _spectrum_label(spectrum), "type": "spectrum", "policy": policy})
-    for label, record in _run_records(app_state):
-        # Records reference their input dataset softly; they always save.
-        if record.input_dataset_id == ds_id:
-            children.append({"label": label, "type": "run", "policy": "faithful"})
+    # Run records reference their input dataset softly and always save on their own,
+    # so the selection tree lists them under Analysis outputs, not here; save_inventory
+    # still groups them under the dataset for its preview.
+    if include_runs:
+        for label, record in _run_records(app_state):
+            if record.input_dataset_id == ds_id:
+                children.append({"label": label, "type": "run", "policy": "faithful"})
     return children
 
 

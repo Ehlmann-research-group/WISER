@@ -407,6 +407,42 @@ def test_excluding_an_roi_omits_it_and_snapshots_its_average(tmp_path):
     assert not isinstance(spec, ROIAverageSpectrum)
 
 
+def test_excluding_standalone_items_omits_them(tmp_path):
+    # A run, user CRS, and band-math expression the user deselects are omitted from
+    # the reopened project -- the standalone-kind exclusion path through
+    # save_runs / save_user_crs / save_bandmath, wired via the resolver.
+    from wiser.project.save_plan import resolver_for_selection
+
+    src = _FakeAppState()
+    ds = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    src.add_dataset(ds)
+    src.get_pca_history().add_record(
+        PCARunRecord(
+            run_id=7,
+            timestamp=datetime.datetime.fromisoformat("2026-07-13T00:00:00"),
+            input_dataset_id=ds.get_id(),
+            input_dataset_name_snapshot="cube",
+            num_components_chosen=2,
+            max_components_available=4,
+            eigenvalues=np.array([3.0, 2.0]),
+        )
+    )
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(4326)
+    src.get_user_created_crs()["DropMe"] = (srs, CrsCreatorState(lon_meridian=10.0))
+    src.set_bandmath_expressions(["b1 + b2", "b3 * 2"])
+
+    excluded = {("run", 7), ("crs", "DropMe"), ("bandmath", 0)}
+    resolver = resolver_for_selection(src, excluded_dataset_ids=[], excluded_items=excluded)
+    save_project(src, tmp_path / "sess", resolver=resolver)
+
+    dst = _FakeAppState()
+    load_project(tmp_path / "sess", dst)
+    assert dst.get_pca_history().get_records() == []  # excluded run
+    assert "DropMe" not in dst.get_user_created_crs()  # excluded CRS
+    assert dst.get_bandmath_expressions() == ["b3 * 2"]  # expr index 0 excluded, 1 kept
+
+
 def test_restore_contains_a_failing_persister(tmp_path, monkeypatch):
     # A persister is supposed to drop-and-report, never raise.  If one does, the load
     # must not abort after clear_session has already wiped the session: the failing

@@ -9,15 +9,32 @@ repopulated; the dialog seeds its combo-box from it the next time it opens (or t
 load orchestrator #627 refreshes an already-open dialog).  Independent of datasets.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from ..resolver import Dependency
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
 
+    from ..resolver import DependencyResolver
 
-def save_bandmath(app_state: "ApplicationState", manifest: Dict[str, Any]) -> None:
-    """Write the saved band-math expressions into ``manifest['bandmath_expressions']``."""
-    manifest["bandmath_expressions"] = list(app_state.get_bandmath_expressions())
+
+def save_bandmath(
+    app_state: "ApplicationState",
+    manifest: Dict[str, Any],
+    resolver: Optional["DependencyResolver"] = None,
+) -> None:
+    """Write the saved band-math expressions into ``manifest['bandmath_expressions']``.
+
+    An expression the resolver excludes (by list index, unchecked in the Save
+    dialog) is omitted; without a resolver every expression is saved.
+    """
+    expressions = list(app_state.get_bandmath_expressions())
+    if resolver is not None:
+        expressions = [
+            expr for i, expr in enumerate(expressions) if resolver.is_saved(Dependency("bandmath", i))
+        ]
+    manifest["bandmath_expressions"] = expressions
 
 
 def load_bandmath(manifest: Dict[str, Any], app_state: "ApplicationState") -> List[Any]:

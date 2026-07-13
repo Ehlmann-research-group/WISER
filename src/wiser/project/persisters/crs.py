@@ -23,15 +23,28 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from osgeo import osr
 
+from ..resolver import Dependency
+
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
 
+    from ..resolver import DependencyResolver
 
-def save_user_crs(app_state: "ApplicationState", manifest: Dict[str, Any]) -> None:
-    """Write the user-created CRS registry into ``manifest['user_crs']``."""
+
+def save_user_crs(
+    app_state: "ApplicationState",
+    manifest: Dict[str, Any],
+    resolver: Optional["DependencyResolver"] = None,
+) -> None:
+    """Write the user-created CRS registry into ``manifest['user_crs']``.
+
+    A CRS the resolver excludes (by name, unchecked in the Save dialog) is omitted;
+    without a resolver every CRS is saved.
+    """
     manifest["user_crs"] = [
         {"name": name, "wkt": crs.ExportToWkt(), "creator_state": _state_to_pyrep(state)}
         for name, (crs, state) in app_state.get_user_created_crs().items()
+        if resolver is None or resolver.is_saved(Dependency("crs", name))
     ]
 
 

@@ -13,6 +13,7 @@ from wiser.project.save_plan import (
     resolver_for_selection,
     save_inventory,
     save_plan,
+    save_tree,
     savable_dataset_roots,
 )
 from wiser.raster.loader import RasterDataLoader
@@ -50,6 +51,18 @@ class _FakeRunRecord:
         self.input_dataset_id = input_dataset_id
 
 
+class _FakeLibrary:
+    def __init__(self, lib_id, name):
+        self._id = lib_id
+        self._name = name
+
+    def get_id(self):
+        return self._id
+
+    def get_name(self):
+        return self._name
+
+
 class _FakeAppState:
     def __init__(self):
         self._loader = RasterDataLoader()
@@ -59,6 +72,9 @@ class _FakeAppState:
         self._stretches = {}
         self._rois = []
         self._runs = {"pca": [], "mnf": [], "unmixing": [], "kmeans": []}
+        self._libraries = []
+        self._user_crs = {}
+        self._bandmath = []
         self._next_id = 1
 
     def get_loader(self):
@@ -114,6 +130,21 @@ class _FakeAppState:
 
     def get_kmeans_history(self):
         return _History(self._runs["kmeans"])
+
+    def get_spectral_libraries(self):
+        return list(self._libraries)
+
+    def add_spectral_library(self, library):
+        self._libraries.append(library)
+
+    def get_user_created_crs(self):
+        return self._user_crs
+
+    def get_bandmath_expressions(self):
+        return list(self._bandmath)
+
+    def set_bandmath_expressions(self, expressions):
+        self._bandmath = list(expressions)
 
 
 def _ram_dataset(app_state, name="cube"):
@@ -248,3 +279,47 @@ def test_save_inventory_omits_rootless_items():
     inv = save_inventory(app, resolver_for_selection(app, excluded_dataset_ids=[]))
     assert [node["id"] for node in inv] == [ds.get_id()]
     assert inv[0]["children"] == []  # the self-contained spectrum hangs off nothing
+
+
+def test_save_tree_groups_datasets_rois_and_analysis_outputs():
+    app = _FakeAppState()
+    ds = _ram_dataset(app)
+    app.set_stretches(ds.get_id(), (0,), [StretchLinear(0.2, 0.8)])
+    roi = RegionOfInterest("rim")
+    roi.set_id(50)
+    app.add_roi(roi)
+    app.collect_spectrum(ROIAverageSpectrum(ds, roi))
+    app.add_run_record("pca", _FakeRunRecord(run_id=7, input_dataset_id=ds.get_id()))
+    app.add_spectral_library(_FakeLibrary(lib_id=8, name="usgs"))
+    app.get_user_created_crs()["MyCRS"] = object()
+    app.set_bandmath_expressions(["b1 + b2"])
+
+    tree = save_tree(app, resolver_for_selection(app, excluded_dataset_ids=[]))
+    groups = {g["group"]: g for g in tree}
+    assert set(groups) == {"datasets", "rois", "outputs"}
+    assert groups["outputs"]["label"] == "Analysis outputs"
+
+    (ds_node,) = groups["datasets"]["children"]
+    assert (ds_node["kind"], ds_node["id"]) == ("dataset", ds.get_id())
+    assert [c["type"] for c in ds_node["children"]] == ["stretch"]  # its cascade child
+
+    (roi_node,) = groups["rois"]["children"]
+    assert (roi_node["kind"], roi_node["id"]) == ("roi", 50)
+    assert [c["type"] for c in roi_node["children"]] == ["spectrum"]  # the ROI-average
+
+    # Each standalone output carries the (kind, id) handle the resolver excludes it by.
+    handles = {(n["kind"], n["id"]) for n in groups["outputs"]["children"]}
+    assert handles == {("run", 7), ("library", 8), ("crs", "MyCRS"), ("bandmath", 0)}
+
+
+def test_save_tree_lists_an_excluded_dataset_and_annotates_the_cut():
+    # Unlike save_inventory (a preview that drops cut roots), the selection tree keeps
+    # an excluded dataset as a node and marks its cascade child with the cut policy.
+    app = _FakeAppState()
+    ds = _ram_dataset(app)
+    app.set_stretches(ds.get_id(), (0,), [StretchLinear(0.2, 0.8)])
+
+    tree = save_tree(app, resolver_for_selection(app, excluded_dataset_ids=[ds.get_id()]))
+    groups = {g["group"]: g for g in tree}
+    (ds_node,) = groups["datasets"]["children"]  # still present though excluded
+    assert ds_node["children"][0]["policy"] == "drop"  # its stretch drops when the dataset is cut
