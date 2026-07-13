@@ -99,11 +99,12 @@ class GeoReferencerPane(RasterPane, PointSelector):
 
         if dataset is not None:
             self._pending_fit = True
-            # If the pane is already visible (e.g. the user switched datasets
-            # while the dialog is open) fit on the next event-loop turn once the
-            # layout has settled.  Otherwise the fit runs from showEvent.
-            if self.isVisible():
-                QTimer.singleShot(0, self._run_pending_fit)
+            # Attempt the fit on the next event-loop turn (handles switching
+            # datasets while the dialog is already open).  If the pane isn't
+            # laid out yet -- e.g. the dataset was set via GeoReferencerConfig
+            # before the dialog was shown -- _run_pending_fit bails and showEvent
+            # schedules another attempt once the pane is visible.
+            QTimer.singleShot(0, self._run_pending_fit)
 
     def showEvent(self, event):
         super().showEvent(event)
