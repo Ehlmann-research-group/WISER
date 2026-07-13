@@ -237,6 +237,8 @@ def test_uncached_bounds_still_drift_with_viewport(tmp_path):
 
     full_slice = full[:, _COLLAR : _COLLAR + 2, :3]
     assert not np.array_equal(full_slice, narrow[:, :, :3])
+
+
 def _write_gradient_tiff(path):
     """
     Write an all-valid 3-band GeoTIFF whose bands carry *distinguishable* patterns so
