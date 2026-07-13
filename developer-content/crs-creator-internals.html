@@ -921,7 +921,12 @@ window.runMermaid = runMermaid;</script>
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-state">Class &amp; State</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-workflow">UI / Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-workflow">UI / Workflow</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-parameters-tab">From Parameters tab</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-crs-string-tab">From CRS String tab</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#validating-a-pasted-crs-string">Validating a pasted CRS string</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-construction-create-crs">CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration">Integration</a></li>
 </ul>
@@ -944,17 +949,30 @@ system (CRS) by hand, without an EPSG / authority code. It is a companion to the
 become selectable as the output CRS when georeferencing.</p>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>A user describes a CRS in geodetic terms — a datum shape (sphere or ellipsoid), a prime
-meridian, and a map projection with its parameters — and the tool assembles those into a
-PROJ4 string, converts it to an <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>, and stores it by name in
-<code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>. From then on it behaves like any other CRS in WISER.</p>
+<p>The dialog is a <code class="docutils literal notranslate"><span class="pre">QTabWidget</span></code> with two ways to define a CRS, both of which end at the
+same <code class="docutils literal notranslate"><span class="pre">ApplicationState.add_user_created_crs(name,</span> <span class="pre">srs,</span> <span class="pre">state)</span></code> store:</p>
+<ul class="simple">
+<li><p><strong>From Parameters</strong> — a user describes a CRS in geodetic terms (a datum shape, a
+prime meridian, and a map projection with its parameters) and the tool assembles
+those into a PROJ4 string and converts it to an <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>.</p></li>
+<li><p><strong>From CRS String</strong> — a user pastes a ready-made CRS definition (WKT, PROJ, or an
+authority code such as <code class="docutils literal notranslate"><span class="pre">EPSG:4326</span></code>) and the tool tries to load it, reporting whether
+WISER can build it and, if so, letting the user name and store it.</p></li>
+</ul>
+<p>From then on either result behaves like any other CRS in WISER.</p>
 <pre  class="mermaid">
         flowchart LR
-    U[&quot;User fills dialog fields&quot;] --&gt; S[&quot;ReferenceCreatorDialog&lt;br/&gt;(validated state)&quot;]
-    S --&gt; P[&quot;_create_crs():&lt;br/&gt;build PROJ4 string&quot;]
-    P --&gt; Y[&quot;pyproj.CRS.from_proj4 → WKT&quot;]
-    Y --&gt; O[&quot;osr.SpatialReference&lt;br/&gt;(ImportFromWkt)&quot;]
+    subgraph Params[&quot;From Parameters tab&quot;]
+        U[&quot;User fills dialog fields&quot;] --&gt; P[&quot;_create_crs():&lt;br/&gt;build PROJ4 string&quot;]
+        P --&gt; Y[&quot;pyproj.CRS.from_proj4 → WKT&quot;]
+        Y --&gt; O[&quot;osr.SpatialReference&lt;br/&gt;(ImportFromWkt)&quot;]
+    end
+    subgraph Str[&quot;From CRS String tab&quot;]
+        US[&quot;User pastes WKT / PROJ / EPSG:code&quot;] --&gt; V[&quot;_build_srs_from_string():&lt;br/&gt;osr.SetFromUserInput&quot;]
+        V --&gt; O2[&quot;osr.SpatialReference&lt;br/&gt;(valid?)&quot;]
+    end
     O --&gt; A[&quot;ApplicationState.add_user_created_crs(name, srs, state)&quot;]
+    O2 --&gt; A
     A --&gt; G[&quot;Georeferencer output-CRS chooser&lt;br/&gt;(as UserGeneratedCRS)&quot;]
     </pre><p><strong>Core files:</strong></p>
 <div class="pst-scrollable-table-container"><table class="table">
@@ -1001,6 +1019,8 @@ PROJ4 string, converts it to an <code class="docutils literal notranslate"><span
         +center_lon / latitude
         +latitude_choice
         +polar_stereo_scale / sign
+        +source_wkt
+        +is_string_origin
     }
     QDialog &lt;|-- ReferenceCreatorDialog
     ReferenceCreatorDialog --&gt; CrsCreatorState : exports / reloads
@@ -1009,7 +1029,10 @@ methods wire each field group with validators (e.g. latitude clamped to ±90, lo
 to ±180, the CRS name restricted to alphanumeric + underscore).</p>
 <p><strong><code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code></strong> is an immutable snapshot of every field. After a successful build
 it is stored <em>alongside</em> the resulting <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>, which is what lets a saved
-custom CRS be re-selected and have its parameters reloaded into the dialog for editing.</p>
+custom CRS be re-selected and have its parameters reloaded into the dialog for editing.
+Its <code class="docutils literal notranslate"><span class="pre">source_wkt</span></code> field (and the <code class="docutils literal notranslate"><span class="pre">is_string_origin</span></code> convenience property) marks a CRS
+that was built from a pasted string on the <strong>From CRS String</strong> tab rather than from the
+parameter fields — see <a class="reference internal" href="#validating-a-pasted-crs-string"><span class="xref myst">Validating a pasted CRS string</span></a>.</p>
 <p>The dialog’s behavior is driven by several enums:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -1043,6 +1066,13 @@ custom CRS be re-selected and have its parameters reloaded into the dialog for e
 <hr class="docutils" />
 <section id="ui-workflow">
 <h2>UI / Workflow<a class="headerlink" href="#ui-workflow" title="Link to this heading">#</a></h2>
+<p>The dialog is a <code class="docutils literal notranslate"><span class="pre">QTabWidget</span></code> (<code class="docutils literal notranslate"><span class="pre">tabWidget</span></code>) with two pages, and a single shared
+OK/Cancel <code class="docutils literal notranslate"><span class="pre">QDialogButtonBox</span></code> beneath the tabs. Which builder the <strong>OK</strong> button runs
+depends on the active tab: <code class="docutils literal notranslate"><span class="pre">accept()</span></code> calls <code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code> for the parameter tab and
+<code class="docutils literal notranslate"><span class="pre">_on_add_crs_string()</span></code> for the string tab (and keeps the dialog open if the string tab
+has nothing valid to add).</p>
+<section id="from-parameters-tab">
+<h3>From Parameters tab<a class="headerlink" href="#from-parameters-tab" title="Link to this heading">#</a></h3>
 <p>The form is organized into the groups a CRS definition needs:</p>
 <ul class="simple">
 <li><p><strong>Datum shape</strong> — <code class="docutils literal notranslate"><span class="pre">SPHEROID</span></code> (a single radius) or <code class="docutils literal notranslate"><span class="pre">ELLIPSOID</span></code> (semi-major axis plus
@@ -1055,7 +1085,42 @@ of true scale. Polar Stereographic additionally needs either a scale factor
 (central-latitude mode) or a pole sign (true-scale mode).</p></li>
 <li><p><strong>Name</strong> — the key the CRS is stored and displayed under.</p></li>
 </ul>
-<p>A reset button clears the fields; the create/accept button runs <code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code>.</p>
+<p>A reset button clears the fields (both tabs); the create/accept button runs
+<code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code>.</p>
+</section>
+<section id="from-crs-string-tab">
+<h3>From CRS String tab<a class="headerlink" href="#from-crs-string-tab" title="Link to this heading">#</a></h3>
+<p>A <code class="docutils literal notranslate"><span class="pre">QPlainTextEdit</span></code> (<code class="docutils literal notranslate"><span class="pre">pedit_crs_string</span></code>) to paste the definition into, a name field
+(<code class="docutils literal notranslate"><span class="pre">ledit_string_crs_name</span></code>), a <strong>Validate</strong> button, an <strong>Add to WISER</strong> button (disabled
+until a validation succeeds), and a read-only result box (<code class="docutils literal notranslate"><span class="pre">pedit_crs_string_result</span></code>)
+that shows a green success summary or a red error. See below.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="validating-a-pasted-crs-string">
+<h2>Validating a pasted CRS string<a class="headerlink" href="#validating-a-pasted-crs-string" title="Link to this heading">#</a></h2>
+<p>The <strong>From CRS String</strong> tab lets a user check whether WISER can load an arbitrary CRS
+definition without hand-entering every parameter.</p>
+<p><code class="docutils literal notranslate"><span class="pre">_build_srs_from_string(text)</span></code> is the core helper. It builds an <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code>
+and calls <code class="docutils literal notranslate"><span class="pre">SetFromUserInput(text)</span></code> — the broadest GDAL entry point, which accepts WKT
+(WKT1 and WKT2), PROJ strings, and authority codes like <code class="docutils literal notranslate"><span class="pre">EPSG:4326</span></code>. It returns
+<code class="docutils literal notranslate"><span class="pre">(srs,</span> <span class="pre">None)</span></code> on success or <code class="docutils literal notranslate"><span class="pre">(None,</span> <span class="pre">error)</span></code> on failure, catching both the exception and
+non-zero return-code styles GDAL uses. On success the axis mapping is forced to
+<code class="docutils literal notranslate"><span class="pre">OAMS_TRADITIONAL_GIS_ORDER</span></code>, the same convention the parameter path and the
+georeferencer apply.</p>
+<ul class="simple">
+<li><p><strong>Validate</strong> (<code class="docutils literal notranslate"><span class="pre">_on_validate_crs_string</span></code>) parses the text and shows either a green
+summary (name, geographic/projected, authority:code if present) or the red error, and
+enables <strong>Add to WISER</strong> only on success. Editing the text afterwards
+(<code class="docutils literal notranslate"><span class="pre">_on_crs_string_text_changed</span></code>) invalidates the prior result and re-disables Add.</p></li>
+<li><p><strong>Add to WISER</strong> (<code class="docutils literal notranslate"><span class="pre">_on_add_crs_string</span></code>) requires a name and a validated CRS (it
+re-validates if needed), then stores it via <code class="docutils literal notranslate"><span class="pre">add_user_created_crs</span></code> with a
+<code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code> whose <code class="docutils literal notranslate"><span class="pre">source_wkt</span></code> is set to the CRS’s WKT.</p></li>
+</ul>
+<p>Because a string-origin CRS has no parameter fields to reload, selecting one in the
+<strong>Starting Ref System</strong> combo is special-cased in <code class="docutils literal notranslate"><span class="pre">_on_starting_crs_changed</span></code>: instead of
+driving the parameter widgets it switches to the string tab, repopulates
+<code class="docutils literal notranslate"><span class="pre">pedit_crs_string</span></code> with the stored <code class="docutils literal notranslate"><span class="pre">source_wkt</span></code>, and re-validates.</p>
 </section>
 <hr class="docutils" />
 <section id="crs-construction-create-crs">
@@ -1111,8 +1176,11 @@ the CRS is used.</p>
 </div>
 <p>(keyed by name, with a confirmation prompt before overwriting an existing name). The
 Georeferencer reads this map in <code class="docutils literal notranslate"><span class="pre">_update_output_srs_cbox_items</span></code> and wraps each entry in a
-<code class="docutils literal notranslate"><span class="pre">UserGeneratedCRS</span></code> so it appears in the output-CRS chooser. The stored <code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code>
-is what lets the CRS Creator reload a previously created CRS back into its fields for
+<code class="docutils literal notranslate"><span class="pre">UserGeneratedCRS</span></code> so it appears in the output-CRS chooser. The store is identical
+whether the CRS came from the parameter form or from a pasted string, so a
+string-imported CRS is usable as an output CRS just like any other. The stored
+<code class="docutils literal notranslate"><span class="pre">CrsCreatorState</span></code> is what lets the CRS Creator reload a previously created CRS back into
+its fields (parameter tab) or its pasted text (string tab, via <code class="docutils literal notranslate"><span class="pre">source_wkt</span></code>) for
 editing. See <a class="reference internal" href="georeferencer-internals.html"><span class="std std-doc">Georeferencer Internals</span></a> for how the resulting
 CRS feeds the warp.</p>
 </section>
@@ -1167,7 +1235,12 @@ CRS feeds the warp.</p>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-state">Class &amp; State</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-workflow">UI / Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ui-workflow">UI / Workflow</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-parameters-tab">From Parameters tab</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-crs-string-tab">From CRS String tab</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#validating-a-pasted-crs-string">Validating a pasted CRS string</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#crs-construction-create-crs">CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration">Integration</a></li>
 </ul>
