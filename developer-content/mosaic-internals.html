@@ -924,10 +924,18 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#entry-point-and-dialog-lifecycle">Entry Point and Dialog Lifecycle</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scene-ingestion-pipeline">Scene Ingestion Pipeline</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-validate-scene-mosaic-ingestion-py">Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-build-display-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.build_display_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overviews-build-overviews-mosaic-ingestion-py">Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py">Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-reporting">Progress reporting</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen Metadata</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-artifacts-two-moments">Two artifacts, two moments</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#which-display-bands-get-baked-in">Which display bands get baked in</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#freezing-the-metadata-scenemetadatasnapshot">Freezing the metadata (<code class="docutils literal notranslate"><span class="pre">SceneMetadataSnapshot</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#drift-warning-on-export">Drift warning on export</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#out-of-scope-follow-up">Out of scope (follow-up)</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-common-grid-and-crs-resolution">The Common Grid and CRS Resolution</a><ul class="visible nav section-nav flex-column">
@@ -978,13 +986,15 @@ intended for developers reading, debugging, or extending the tool.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
-materialization, common-grid/CRS resolution, the <strong>vector overlay</strong> (footprints,
-bounding box, overlap highlight), the <strong>static-scene pixel compositor</strong> (the composited
-preview, with an off-thread debounced per-scene cache), the <strong>control panel</strong>
-(drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
-chooser), and the <strong>full-resolution export path</strong> (streaming ENVI compositor on the
-common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export Path</span></a>) are implemented and wired into
-the GUI.</p>
+materialization (a <strong>display-only</strong> preview artifact baked eagerly at ingest with the
+full-band cube materialized <strong>lazily at export</strong> — see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
+Metadata</span></a>), common-grid/CRS resolution, the
+<strong>vector overlay</strong> (footprints, bounding box, overlap highlight), the <strong>static-scene
+pixel compositor</strong> (the composited preview, with an off-thread debounced per-scene
+cache), the <strong>control panel</strong> (drag-to-reorder z-order, resolution mode, resampling
+method, and the band-metadata chooser), and the <strong>full-resolution export path</strong>
+(streaming ENVI compositor on the common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
+Path</span></a>) are implemented and wired into the GUI.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
 in the repo root. There is no user-facing guide yet since the feature is not
@@ -1011,9 +1021,14 @@ and, on top, the <strong>vector overlay</strong> (footprints, bounding box, over
 <a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>).</p></li>
 </ul>
 <p>Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
-is first turned into a warpable, disk-backed tiled GeoTIFF by a <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> —
-the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> is the source of truth for metadata, so materialization stamps
-SRS/geotransform/nodata/band metadata from the dataset object, not from its <code class="docutils literal notranslate"><span class="pre">_impl</span></code>.</p>
+is turned into a warpable, disk-backed tiled GeoTIFF by a <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> — the
+<code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> is the source of truth for metadata, so materialization stamps
+SRS/geotransform/nodata/band metadata from the dataset object, not from its <code class="docutils literal notranslate"><span class="pre">_impl</span></code>.
+As of #677 there are <strong>two</strong> materialization moments: at ingest the pane bakes a
+small <strong>display-only</strong> GeoTIFF (just the 1 or 3 display bands) that the preview reads,
+and at export the full-band cube is materialized <strong>lazily</strong>, stamped from a metadata
+snapshot <strong>frozen at ingest</strong>. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
+Metadata</span></a>.</p>
 <p><strong>Core files:</strong></p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -1026,7 +1041,7 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its <cod
 <td><p><code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> — top-level dialog shell, owns the session <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> — control panel; ingestion orchestration, scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> — control panel; ingestion orchestration (display-band resolution + metadata freeze), scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls, export (drift warning)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_view.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> — the two-layer paint surface (pixel + vector), currently a stub</p></td>
@@ -1034,25 +1049,28 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its <cod
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_crs_dialog.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> — modal target-CRS chooser</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_controller.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code>, <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>, <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> — the non-GUI model</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">App.get_current_display_bands</span></code> — narrow accessor for the main view’s live per-dataset band selection (the display-band resolver injected into the mosaic)</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_ingestion.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_controller.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code>, <code class="docutils literal notranslate"><span class="pre">SceneMetadataSnapshot</span></code>, <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>, <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> — the non-GUI model</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_ingestion.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code> — Qt-free ingestion gates</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_compositor.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_compositor.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer; reads the display-only artifact’s bands in order</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_export.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> — warps each scene onto the common grid and streams the mosaic to ENVI</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_export.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> — lazily materializes each scene’s full-band cube (from live pixels + frozen snapshot), warps onto the common grid, streams to ENVI</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_materialize.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code>, <code class="docutils literal notranslate"><span class="pre">materialize_to_tiled_geotiff</span></code> — the object-model adapter</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_materialize.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> (<code class="docutils literal notranslate"><span class="pre">build_display_source</span></code>), <code class="docutils literal notranslate"><span class="pre">materialize_to_tiled_geotiff</span></code>, <code class="docutils literal notranslate"><span class="pre">materialize_display_only_to_tiled_geotiff</span></code>, <code class="docutils literal notranslate"><span class="pre">materialize_full_band_from_snapshot</span></code> — the object-model adapter</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/utils/progress.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/utils/progress.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code> — Qt-free progress plumbing shared with any scheduler task</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/progress_task.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/progress_task.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> — reusable modal + Activity Monitor bridge for scheduler tasks</p></td>
 </tr>
 </tbody>
@@ -1113,6 +1131,8 @@ boxes). <code class="docutils literal notranslate"><span class="pre">MosaicPane<
         mosaic_materialize.py
         -_tmp : TemporaryDirectory
         -_cache : dict
+        -_display_cache : dict
+        +build_display_source(dataset, display_bands, progress) str
         +gdal_source(dataset, progress) str
         +close()
     }
@@ -1164,6 +1184,14 @@ the pane, so it appears only once above.</p>
         +gdal_path : str
         +footprint_wkt : str
         +has_overviews : bool
+        +snapshot : SceneMetadataSnapshot
+    }
+
+    class SceneMetadataSnapshot {
+        &lt;&lt;dataclass&gt;&gt;
+        +spatial : SpatialMetadata
+        +spectral : SpectralMetadata
+        +display_bands : tuple
     }
 
     class CommonGrid {
@@ -1177,6 +1205,7 @@ the pane, so it appears only once above.</p>
     MosaicController --&gt; MosaicScene : owns list (bottom-to-top)
     MosaicController --&gt; CommonGrid : owns cached result
     MosaicScene --&gt; RasterDataSet : wraps
+    MosaicScene --&gt; SceneMetadataSnapshot : frozen at ingest
     </pre><p>The controller’s scene list is <strong>bottom-to-top</strong>: index 0 renders first (bottom),
 the last index is the top scene and wins z-order overlap. This convention is used
 consistently by <code class="docutils literal notranslate"><span class="pre">scene_crs_summary</span></code>/<code class="docutils literal notranslate"><span class="pre">scene_crs_choices</span></code> (bottom-to-top) and the
@@ -1215,20 +1244,27 @@ with <code class="docutils literal notranslate"><span class="pre">TemporaryDirec
     alt validation fails
         Pane--&gt;&gt;User: QMessageBox.warning
     else validation passes
-        Pane-&gt;&gt;Sched: run_with_progress(_ingest_scene, dataset, materializer)
+        Pane-&gt;&gt;Pane: resolve display bands (main-view selection → find_display_bands)
+        Pane-&gt;&gt;Pane: SceneMetadataSnapshot.from_dataset(dataset, display_bands)
+        Pane-&gt;&gt;Sched: run_with_progress(_ingest_scene, dataset, materializer, snapshot)
         Note over Pane: ProgressDialog shown, block_window disabled
         Sched-&gt;&gt;Ingest: run on scheduler thread
-        Ingest-&gt;&gt;Mat: gdal_source(dataset) → materialize/warp-ready GeoTIFF
+        Ingest-&gt;&gt;Mat: build_display_source(dataset, snapshot.display_bands) → display-only GeoTIFF
         Ingest-&gt;&gt;Ingest: build_overviews(gdal_path)
         Ingest-&gt;&gt;Ingest: compute_footprint_wkt(gdal_path)
-        Ingest--&gt;&gt;Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True)
+        Ingest--&gt;&gt;Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True, snapshot)
         Sched--&gt;&gt;Pane: on_success(scene) [GUI thread]
         Pane-&gt;&gt;Ctrl: add_scene(scene)
         Pane-&gt;&gt;Pane: _refresh_scene_list()
         Pane-&gt;&gt;Pane: _ensure_common_grid()
         Pane-&gt;&gt;Pane: _mosaic_view.update()
     end
-    </pre><section id="validation-validate-scene-mosaic-ingestion-py">
+    </pre><p>Note the display-band resolution and the metadata snapshot are computed on the <strong>GUI
+thread</strong> before the worker starts (both must read live main-view / dataset state at
+add-time); only the display-only materialization, overviews, and footprint run on the
+background thread. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
+Metadata</span></a>.</p>
+<section id="validation-validate-scene-mosaic-ingestion-py">
 <h3>Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#validation-validate-scene-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Runs synchronously on the <strong>main thread</strong> before any background work starts, so
 rejection is immediate (no spinner churn). Rejects:</p>
@@ -1243,33 +1279,40 @@ still valid) and dtype mismatches across scenes (the future compositor promotes 
 widest common type at warp time). See <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">TODO(#640)</span></code> in the source for a planned
 warn-but-allow path for band-count mismatches.</p>
 </section>
-<section id="materialization-scenematerializer-gdal-source-mosaic-materialize-py">
-<h3>Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)<a class="headerlink" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py" title="Link to this heading">#</a></h3>
-<p>Every scene — GDAL-backed or not — is materialized to a disk-backed, tiled GeoTIFF
-(<code class="docutils literal notranslate"><span class="pre">TILED=YES</span></code>, 256×256 blocks) under a per-session temp directory
-(<code class="docutils literal notranslate"><span class="pre">wiser.utils.primitives.temp_dir()</span></code>), <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">/vsimem</span></code> (RAM-backed), so GDAL reads
-only the requested windows. Metadata (geotransform, SRS, nodata, per-band wavelength,
-bad bands, default display bands) is stamped from the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> object, mirroring
-the georeferencer’s numpy→GDAL-dataset trick but disk-backed. A per-scene dedup cache
-(keyed by dataset id, or <code class="docutils literal notranslate"><span class="pre">id(dataset)</span></code> as a fallback) keeps this to one write per scene
-per session — re-adding the same dataset is a cache hit.</p>
-<p>The user’s original dataset is <strong>never modified</strong>; the materialized copy is a
-WISER-owned temp artifact.</p>
+<section id="materialization-scenematerializer-build-display-source-mosaic-materialize-py">
+<h3>Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.build_display_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)<a class="headerlink" href="#materialization-scenematerializer-build-display-source-mosaic-materialize-py" title="Link to this heading">#</a></h3>
+<p>At ingest each scene — GDAL-backed or not — is materialized to a <strong>display-only</strong>
+disk-backed, tiled GeoTIFF (<code class="docutils literal notranslate"><span class="pre">TILED=YES</span></code>, 256×256 blocks) under a per-session temp
+directory (<code class="docutils literal notranslate"><span class="pre">wiser.utils.primitives.temp_dir()</span></code>), <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">/vsimem</span></code> (RAM-backed), so
+GDAL reads only the requested windows. It contains only the frozen <strong>display bands</strong>
+(1 for grayscale, 3 for RGB — bands 1/2/3 <em>are</em> R/G/B), so every warp and overview
+level touches 1–3 bands instead of all N — the whole point of #677 (see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only
+Preview and Frozen Metadata</span></a>). Metadata
+(geotransform, SRS, nodata, per-band wavelength) is stamped from the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>
+object band-remapped onto the kept bands, with nodata preserved so the preview alpha
+mask still works. A per-scene dedup cache keyed by <code class="docutils literal notranslate"><span class="pre">(dataset</span> <span class="pre">id,</span> <span class="pre">display</span> <span class="pre">bands)</span></code> keeps
+this to one write per scene/band-choice per session.</p>
+<p>The full-band GeoTIFF (<code class="docutils literal notranslate"><span class="pre">materialize_to_tiled_geotiff</span></code> /
+<code class="docutils literal notranslate"><span class="pre">materialize_full_band_from_snapshot</span></code>) is materialized <strong>lazily at export</strong>, not here.
+The user’s original dataset is <strong>never modified</strong>; the materialized copies are all
+WISER-owned temp artifacts.</p>
 </section>
 <section id="overviews-build-overviews-mosaic-ingestion-py">
 <h3>Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#overviews-build-overviews-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Builds internal pyramid overviews (<code class="docutils literal notranslate"><span class="pre">NEAREST</span></code>, levels <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">4,</span> <span class="pre">8,</span> <span class="pre">16]</span></code>) directly inside
-the materialized temp GeoTIFF (<code class="docutils literal notranslate"><span class="pre">GA_Update</span></code> + <code class="docutils literal notranslate"><span class="pre">BuildOverviews</span></code>), so preview rendering
-has no first-paint stutter. Because materialization already produces a WISER-owned
-temp copy, overviews can be written internally rather than as external <code class="docutils literal notranslate"><span class="pre">.ovr</span></code>
-sidecars.</p>
+the materialized <strong>display-only</strong> temp GeoTIFF (<code class="docutils literal notranslate"><span class="pre">GA_Update</span></code> + <code class="docutils literal notranslate"><span class="pre">BuildOverviews</span></code>), so
+preview rendering has no first-paint stutter. Because materialization already produces
+a WISER-owned temp copy, overviews can be written internally rather than as external
+<code class="docutils literal notranslate"><span class="pre">.ovr</span></code> sidecars — and with only 1–3 bands the pyramid is a fraction of the full-cube
+cost.</p>
 </section>
 <section id="footprint-compute-footprint-wkt-mosaic-ingestion-py">
 <h3>Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
-<p>Derives the valid-pixel outline via <code class="docutils literal notranslate"><span class="pre">gdal.Footprint(...,</span> <span class="pre">format=&quot;WKT&quot;)</span></code>, in the
-scene’s <strong>own</strong> CRS (no reprojection here — that happens later, in the grid builder).
-With a nodata value set, this traces the true valid-pixel boundary; without one, it
-falls back to the full raster rectangle.</p>
+<p>Derives the valid-pixel outline via <code class="docutils literal notranslate"><span class="pre">gdal.Footprint(...,</span> <span class="pre">format=&quot;WKT&quot;)</span></code> on the
+display-only artifact, in the scene’s <strong>own</strong> CRS (no reprojection here — that happens
+later, in the grid builder). The nodata is preserved on the display-only file, so with
+a nodata value set this traces the true valid-pixel boundary; without one, it falls
+back to the full raster rectangle.</p>
 </section>
 <section id="progress-reporting">
 <h3>Progress reporting<a class="headerlink" href="#progress-reporting" title="Link to this heading">#</a></h3>
@@ -1289,6 +1332,82 @@ checkpoints between phases.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">_ingest_scene</span></code> is intentionally plain — it prints nothing and does not use the
 logging module; progress and errors are the only channel out of a scheduler worker.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="display-only-preview-and-frozen-metadata">
+<h2>Display-Only Preview and Frozen Metadata<a class="headerlink" href="#display-only-preview-and-frozen-metadata" title="Link to this heading">#</a></h2>
+<p>Issue #677 splits scene materialization into two artifacts and freezes the dataset
+metadata at ingest, so the preview is fast and the whole session is deterministic
+against concurrent edits in main WISER.</p>
+<section id="two-artifacts-two-moments">
+<h3>Two artifacts, two moments<a class="headerlink" href="#two-artifacts-two-moments" title="Link to this heading">#</a></h3>
+<p>The preview compositor only ever reads the <strong>display bands</strong> (1 for grayscale, 3 for
+RGB), so carrying every non-display band through each <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> and every overview
+level was pure overhead — a large multiplier for hyperspectral scenes. So:</p>
+<ul class="simple">
+<li><p><strong>At ingest</strong> the pane bakes a <strong>display-only</strong> GeoTIFF containing just the resolved
+display bands (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.build_display_source</span></code> →
+<code class="docutils literal notranslate"><span class="pre">materialize_display_only_to_tiled_geotiff</span></code>). Its bands 1/2/3 <em>are</em> R/G/B, nodata is
+preserved for the alpha mask, and overviews + footprint are built on it. This is what
+<code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code> points at and what the pixel layer reads. The session dedup cache
+holds <strong>only</strong> these small artifacts.</p></li>
+<li><p><strong>At export</strong> the full-band cube is materialized <strong>lazily and uncached</strong>
+(<code class="docutils literal notranslate"><span class="pre">materialize_full_band_from_snapshot</span></code>), the only moment all bands are actually needed
+— see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export Path</span></a>.</p></li>
+</ul>
+<p>Band selection therefore moves from <strong>read time to materialize time</strong>: the compositor no
+longer picks 3-of-N, it reads the small file’s bands in order.</p>
+</section>
+<section id="which-display-bands-get-baked-in">
+<h3>Which display bands get baked in<a class="headerlink" href="#which-display-bands-get-baked-in" title="Link to this heading">#</a></h3>
+<p>The display-only file uses the bands <strong>currently shown in the main view</strong> for that
+dataset, not <code class="docutils literal notranslate"><span class="pre">dataset.get_default_display_bands()</span></code> — a dataset may have no defaults, and
+even when it does the user may have changed the displayed bands via the band chooser, a
+choice the mosaic should honor. Those bands are <strong>GUI state</strong> (<code class="docutils literal notranslate"><span class="pre">RasterPane._display_bands</span></code>),
+so at ingest <code class="docutils literal notranslate"><span class="pre">MosaicPane._resolve_display_bands</span></code> resolves them in order:</p>
+<ol class="arabic simple">
+<li><p>the main view’s current selection for the dataset, via the injected resolver
+(<code class="docutils literal notranslate"><span class="pre">App.get_current_display_bands</span></code> — a narrow public accessor, so the mosaic does not
+reach into <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> internals);</p></li>
+<li><p>otherwise <code class="docutils literal notranslate"><span class="pre">find_display_bands(dataset)</span></code> (<code class="docutils literal notranslate"><span class="pre">dataset.py</span></code>) — the defaults → human-eye
+wavelength → first 1/3 bands fallback chain (also covers “never shown in the main
+view”).</p></li>
+</ol>
+</section>
+<section id="freezing-the-metadata-scenemetadatasnapshot">
+<h3>Freezing the metadata (<code class="docutils literal notranslate"><span class="pre">SceneMetadataSnapshot</span></code>)<a class="headerlink" href="#freezing-the-metadata-scenemetadatasnapshot" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> metadata (data-ignore, wavelengths, default display bands) can be edited
+in main WISER while the mosaic dialog is open (via <code class="docutils literal notranslate"><span class="pre">dataset_editor_dialog.py</span></code>), and
+<code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> is <strong>not</strong> a <code class="docutils literal notranslate"><span class="pre">QObject</span></code> — it emits no change signal, only sets a dirty
+flag. So at ingest the pane snapshots the relevant metadata onto the scene:
+<code class="docutils literal notranslate"><span class="pre">SceneMetadataSnapshot.from_dataset(dataset,</span> <span class="pre">display_bands)</span></code> <strong>deep-copies</strong> the dataset’s
+<code class="docutils literal notranslate"><span class="pre">SpatialMetadata</span></code> and <code class="docutils literal notranslate"><span class="pre">SpectralMetadata</span></code> (a shallow copy would share the dataset’s
+internal <code class="docutils literal notranslate"><span class="pre">band_info</span></code> list) and stores the resolved <code class="docutils literal notranslate"><span class="pre">display_bands</span></code> alongside. Both the
+display-only materialization and the lazy full-band export stamp <strong>from this snapshot</strong>,
+never the live dataset, so a mid-session edit cannot silently change the mosaic. The
+display-band resolution and the snapshot are both built on the <strong>GUI thread</strong> before the
+worker starts, since both read live main-view / dataset state at add-time.</p>
+<p>Data-ignore is <strong>not</strong> cosmetic here: changing it moves the footprint, the alpha validity
+mask, and potentially the common grid — which is exactly why freezing (rather than
+consuming a live value at export) is the safe default.</p>
+</section>
+<section id="drift-warning-on-export">
+<h3>Drift warning on export<a class="headerlink" href="#drift-warning-on-export" title="Link to this heading">#</a></h3>
+<p>Because the snapshot may diverge from a later live edit, <code class="docutils literal notranslate"><span class="pre">_on_export_clicked</span></code> compares
+each visible scene’s frozen <code class="docutils literal notranslate"><span class="pre">snapshot.spectral</span></code> against a freshly-read
+<code class="docutils literal notranslate"><span class="pre">dataset.get_spectral_metadata()</span></code> (<code class="docutils literal notranslate"><span class="pre">_scene_metadata_drifted</span></code>, using <code class="docutils literal notranslate"><span class="pre">SpectralMetadata</span></code>’s
+own <code class="docutils literal notranslate"><span class="pre">__eq__</span></code>) and, if any drifted, shows a <strong>warn-and-proceed</strong> dialog naming them: the
+export will use the frozen values, so the user can proceed knowingly or cancel and re-add
+the scene to pick up the edit.</p>
+</section>
+<section id="out-of-scope-follow-up">
+<h3>Out of scope (follow-up)<a class="headerlink" href="#out-of-scope-follow-up" title="Link to this heading">#</a></h3>
+<p>The nicer end-state is to <em>listen</em> for changes and re-run the affected ingest phases
+(a main-view display-band change already emits <code class="docutils literal notranslate"><span class="pre">RasterPane.display_bands_change</span></code>; the
+dataset-model edits do not, so they need new signal infrastructure). The frozen snapshot
+is a prerequisite either way — it is how “did it change?” is detected — but the reactive
+re-ingest is deliberately deferred.</p>
 </section>
 </section>
 <hr class="docutils" />
@@ -1447,12 +1566,14 @@ the internal <strong>overviews</strong> built in #634 (the whole point of buildi
 outside-coverage pixels, so the alpha channel <em>is</em> the validity mask (no manual
 mask-band read). This mirrors the warp seam already used by <code class="docutils literal notranslate"><span class="pre">_warped_resolution</span></code>.</p></li>
 </ul>
-<p>RGB comes from the dataset’s <code class="docutils literal notranslate"><span class="pre">get_default_display_bands()</span></code> (1 band → grayscale, 3 →
-RGB), contrast-stretched per band over the valid pixels (2–98 percentile). Invalid
-pixels are forced fully clear <code class="docutils literal notranslate"><span class="pre">(0,0,0,0)</span></code> so nothing bleeds under a transparent alpha.
-It is Qt-free (produces a NumPy array) so it is unit-testable without a running app and
-can run on a background thread; the view wraps the array into a <code class="docutils literal notranslate"><span class="pre">QImage</span></code> on the GUI
-thread.</p>
+<p>Since #677 <code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code> is the <strong>display-only</strong> artifact whose bands already <em>are</em>
+the resolved display bands, so RGB is read straight from bands 1..N <strong>in order</strong> (1 band
+→ grayscale, 3 → RGB) — <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> no longer picks 3-of-N or consults the
+dataset’s display bands (that decision moved upstream to materialize time). Each band is
+contrast-stretched over the valid pixels (2–98 percentile); invalid pixels are forced
+fully clear <code class="docutils literal notranslate"><span class="pre">(0,0,0,0)</span></code> so nothing bleeds under a transparent alpha. It is Qt-free
+(produces a NumPy array) so it is unit-testable without a running app and can run on a
+background thread; the view wraps the array into a <code class="docutils literal notranslate"><span class="pre">QImage</span></code> on the GUI thread.</p>
 </section>
 <section id="the-per-scene-cache-and-composite">
 <h3>The per-scene cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code><a class="headerlink" href="#the-per-scene-cache-and-composite" title="Link to this heading">#</a></h3>
@@ -1695,18 +1816,28 @@ It consumes the same <code class="docutils literal notranslate"><span class="pre
 CRS logic.</p>
 <section id="the-compositor-export-mosaic-qt-free">
 <h3>The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)<a class="headerlink" href="#the-compositor-export-mosaic-qt-free" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">export_mosaic(scenes,</span> <span class="pre">grid,</span> <span class="pre">target_wkt,</span> <span class="pre">resample_alg,</span> <span class="pre">output_nodata,</span> <span class="pre">band_metadata_dataset,</span> <span class="pre">out_path,</span> <span class="pre">progress)</span></code> is two GDAL stages, both lazy until the final
-streamed write:</p>
-<ol class="arabic simple">
-<li><p><strong>Warp each visible scene onto the common grid as a warped VRT</strong>
+<p><code class="docutils literal notranslate"><span class="pre">export_mosaic(scenes,</span> <span class="pre">grid,</span> <span class="pre">target_wkt,</span> <span class="pre">resample_alg,</span> <span class="pre">output_nodata,</span> <span class="pre">band_metadata_snapshot,</span> <span class="pre">out_path,</span> <span class="pre">progress)</span></code> is now three lazy stages per scene, all
+lazy until the final streamed write:</p>
+<ol class="arabic simple" start="0">
+<li><p><strong>Materialize the full-band cube lazily</strong> (#677, <code class="docutils literal notranslate"><span class="pre">_warp_scene_to_grid_vrt</span></code> is fed
+from <code class="docutils literal notranslate"><span class="pre">materialize_full_band_from_snapshot</span></code>). The preview reads a display-only
+artifact, so export is the only moment all bands are actually needed. Each scene’s
+full-band GeoTIFF is materialized here into the export temp dir from the <strong>live</strong>
+<code class="docutils literal notranslate"><span class="pre">scene.dataset</span></code> pixels but stamped with the scene’s <strong>frozen</strong> <code class="docutils literal notranslate"><span class="pre">snapshot</span></code> metadata
+(geotransform, SRS, nodata, band metadata) — so a mid-session metadata edit never
+silently alters the product and the export stays aligned with the ingest-frozen
+footprint / common grid. This full-band artifact is <strong>not</strong> cached — it is discarded
+after the streamed write, keeping the session’s temp footprint to the small
+display-only files.</p></li>
+<li><p><strong>Warp each full-band scene onto the common grid as a warped VRT</strong>
 (<code class="docutils literal notranslate"><span class="pre">_warp_scene_to_grid_vrt</span></code>). <code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> does <strong>not</strong> reproject, so this
 per-scene <code class="docutils literal notranslate"><span class="pre">gdal.Warp(...,</span> <span class="pre">format=&quot;VRT&quot;)</span></code> is what applies the CRS transform + resample +
 grid alignment — mirroring the preview warp in <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, but keeping the raw
-band values (no percentile stretch, no <code class="docutils literal notranslate"><span class="pre">dstAlpha</span></code>). Each scene’s Data Ignore Value
-becomes the warp <code class="docutils literal notranslate"><span class="pre">srcNodata</span></code> and <code class="docutils literal notranslate"><span class="pre">output_nodata</span></code> becomes the <code class="docutils literal notranslate"><span class="pre">dstNodata</span></code>, so invalid /
-outside-footprint pixels are marked for the compositor. VRTs are lazy — no pixels are
-materialized here. A scene whose window is disjoint from the grid warps to <code class="docutils literal notranslate"><span class="pre">None</span></code> and
-is simply skipped.</p></li>
+band values (no percentile stretch, no <code class="docutils literal notranslate"><span class="pre">dstAlpha</span></code>). The scene’s <strong>frozen</strong> Data Ignore
+Value (from the snapshot) becomes the warp <code class="docutils literal notranslate"><span class="pre">srcNodata</span></code> and <code class="docutils literal notranslate"><span class="pre">output_nodata</span></code> becomes the
+<code class="docutils literal notranslate"><span class="pre">dstNodata</span></code>, so invalid / outside-footprint pixels are marked for the compositor. VRTs
+are lazy — no pixels are materialized here. A scene whose window is disjoint from the
+grid warps to <code class="docutils literal notranslate"><span class="pre">None</span></code> and is simply skipped.</p></li>
 <li><p><strong>Composite + stream to ENVI</strong> (<code class="docutils literal notranslate"><span class="pre">_run_raster_mosaic</span></code>) via
 <code class="docutils literal notranslate"><span class="pre">gdal.Run(&quot;raster&quot;,</span> <span class="pre">&quot;mosaic&quot;,</span> <span class="pre">input=[...],</span> <span class="pre">output=...,</span> <span class="pre">output_format=&quot;ENVI&quot;,</span> <span class="pre">...)</span></code>
 (GDAL ≥ 3.11, guaranteed by #631; the doc’s <code class="docutils literal notranslate"><span class="pre">BuildVRT</span></code>/<code class="docutils literal notranslate"><span class="pre">Translate</span></code> fallback is not
@@ -1715,18 +1846,21 @@ needed). Inputs are passed <strong>bottom→top</strong> (the top scene last) so
 block-by-block, so no full-image buffer is held in RAM. GDAL’s own progress callback is
 forwarded through the <code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code>.</p></li>
 </ol>
-<p>The VRTs live in a <code class="docutils literal notranslate"><span class="pre">TemporaryDirectory</span></code> scoped around the mosaic call — they are only
-referenced until <code class="docutils literal notranslate"><span class="pre">gdal.Run</span></code> finishes the streamed write, then discarded.</p>
+<p>Both the lazily-materialized full-band tiffs and the warped VRTs live in a
+<code class="docutils literal notranslate"><span class="pre">TemporaryDirectory</span></code> scoped around the mosaic call — they are only referenced until
+<code class="docutils literal notranslate"><span class="pre">gdal.Run</span></code> finishes the streamed write, then discarded.</p>
 </section>
 <section id="band-metadata-stamping-and-the-envi-header-patch">
 <h3>Band-metadata stamping and the ENVI-header patch<a class="headerlink" href="#band-metadata-stamping-and-the-envi-header-patch" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> writes correct pixels, geotransform, and <code class="docutils literal notranslate"><span class="pre">map</span> <span class="pre">info</span></code>, but no spectral
 metadata, so <code class="docutils literal notranslate"><span class="pre">_patch_envi_band_metadata</span></code> reopens the GDAL-written <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> and rewrites it
 with WISER’s own ENVI header helpers (<code class="docutils literal notranslate"><span class="pre">envi.load_envi_header</span></code> / <code class="docutils literal notranslate"><span class="pre">write_envi_header</span></code>),
-stamping the canonical band metadata from <code class="docutils literal notranslate"><span class="pre">controller.get_band_metadata_source()</span></code>:
-wavelengths / units, band names, the bad-band list (<code class="docutils literal notranslate"><span class="pre">bbl</span></code>), and the output nodata. This
-keeps the exported file self-describing so it re-opens in WISER with the right spectral
-labels.</p>
+stamping the canonical band metadata from the <strong>frozen snapshot</strong> of the scene chosen by
+<code class="docutils literal notranslate"><span class="pre">controller.get_band_metadata_source()</span></code> (its <code class="docutils literal notranslate"><span class="pre">band_metadata_snapshot</span></code>): wavelengths /
+units, band names, the bad-band list (<code class="docutils literal notranslate"><span class="pre">bbl</span></code>), and the output nodata. Reading from the
+snapshot rather than the live dataset keeps the export deterministic against concurrent
+edits. This keeps the exported file self-describing so it re-opens in WISER with the
+right spectral labels.</p>
 <p>One subtlety is called out because it caused a crash-on-open regression:</p>
 <blockquote>
 <div><p><strong>GDAL’s ENVI writer stamps a <em>1-based</em> <code class="docutils literal notranslate"><span class="pre">default</span> <span class="pre">bands</span></code> placeholder</strong> (e.g. <code class="docutils literal notranslate"><span class="pre">{1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>
@@ -1735,9 +1869,9 @@ for RGB inputs). WISER’s ENVI reader reads <code class="docutils literal notra
 leaving that placeholder (or copying an out-of-range source value) makes the exported
 file raise <code class="docutils literal notranslate"><span class="pre">GDALDataset::GetRasterBand(4)</span> <span class="pre">-</span> <span class="pre">Illegal</span> <span class="pre">band</span> <span class="pre">#</span></code> when opened in a raster
 view. <code class="docutils literal notranslate"><span class="pre">_resolve_default_bands</span></code> therefore always resolves the field explicitly: it keeps
-the canonical source’s default display bands only when every index is in range for the
-output, and otherwise <strong>clears</strong> it so WISER derives display bands from the stamped
-wavelengths (truecolor) or the first bands.</p>
+the snapshot’s frozen resolved <code class="docutils literal notranslate"><span class="pre">display_bands</span></code> (the canonical display choice) only when
+every index is in range for the output, and otherwise <strong>clears</strong> it so WISER derives
+display bands from the stamped wavelengths (truecolor) or the first bands.</p>
 </div></blockquote>
 <p>The result is <strong>not</strong> loaded back into the running session — export writes the file and
 the user opens it manually via <strong>File → Open</strong> (a deliberate product decision), which is
@@ -1745,16 +1879,21 @@ why the on-disk header must be fully self-describing.</p>
 </section>
 <section id="gui-wiring-and-threading">
 <h3>GUI wiring and threading<a class="headerlink" href="#gui-wiring-and-threading" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">MosaicPane._on_export_clicked</span></code> (GUI thread) requires ≥1 visible scene, resolves the grid
-via <code class="docutils literal notranslate"><span class="pre">_ensure_common_grid()</span></code> (surfacing <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code>/<code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> as a
+<p><code class="docutils literal notranslate"><span class="pre">MosaicPane._on_export_clicked</span></code> (GUI thread) requires ≥1 visible scene, <strong>warns on
+metadata drift</strong> (<code class="docutils literal notranslate"><span class="pre">_scene_metadata_drifted</span></code>: any visible scene whose live dataset
+spectral metadata differs from its frozen snapshot — a warn-and-proceed prompt, since
+the export will use the frozen values; see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
+Metadata</span></a>), resolves the grid via
+<code class="docutils literal notranslate"><span class="pre">_ensure_common_grid()</span></code> (surfacing <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code>/<code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> as a
 warning), asks for an output path with <code class="docutils literal notranslate"><span class="pre">QFileDialog.getSaveFileName</span></code>, resolves the output
-nodata (<code class="docutils literal notranslate"><span class="pre">_resolve_output_nodata</span></code>: the band-metadata dataset’s Data Ignore Value, else the
-top-most visible scene that has one), snapshots the controller state, and hands the heavy
-work to a scheduler thread via the same <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> bridge the ingestion path uses
-(progress modal + Activity Monitor row + cancellation, blocking only the mosaic dialog).
-The module-level worker <code class="docutils literal notranslate"><span class="pre">_export_mosaic_task</span></code> just calls <code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> and returns the
-written path; <code class="docutils literal notranslate"><span class="pre">_on_export_finished</span></code> shows a confirmation dialog. Like <code class="docutils literal notranslate"><span class="pre">_ingest_scene</span></code>, the
-worker never logs — progress and raised exceptions are its only channels out.</p>
+nodata (<code class="docutils literal notranslate"><span class="pre">_resolve_output_nodata</span></code>: the band-metadata scene’s <strong>frozen</strong> Data Ignore Value,
+else the top-most visible scene that has one), snapshots the controller state, and hands
+the heavy work to a scheduler thread via the same <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> bridge the ingestion
+path uses (progress modal + Activity Monitor row + cancellation, blocking only the mosaic
+dialog). The module-level worker <code class="docutils literal notranslate"><span class="pre">_export_mosaic_task</span></code> just calls <code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> and
+returns the written path; <code class="docutils literal notranslate"><span class="pre">_on_export_finished</span></code> shows a confirmation dialog. Like
+<code class="docutils literal notranslate"><span class="pre">_ingest_scene</span></code>, the worker never logs — progress and raised exceptions are its only
+channels out.</p>
 </section>
 </section>
 <hr class="docutils" />
@@ -1785,7 +1924,16 @@ world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ra
 preservation (pure <code class="docutils literal notranslate"><span class="pre">QTransform</span></code> math, no widget shown).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_compositor.py</span></code> — the Qt-free <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>: alpha is 0
 exactly on the nodata collar and 255 on the valid interior, RGBA shape/dtype, valid
-pixels get color, a disjoint viewport comes back fully transparent (no Qt).</p></li>
+pixels get color, a disjoint viewport comes back fully transparent (no Qt); plus (#677)
+it reads the display-only bands <strong>in order</strong> (column gradient → R, row gradient → G)
+and <strong>ignores</strong> the dataset’s display bands (a post-ingest display-band edit can’t
+change the preview).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_materialize.py</span></code> — the materialization adapter: full-band
+round-trip metadata + tiled layout, window reads, <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> overriding its GDAL
+backing, dedup, temp-dir lifecycle; plus (#677) <code class="docutils literal notranslate"><span class="pre">build_display_source</span></code> bakes only the
+chosen bands in order with nodata preserved, is cached by <code class="docutils literal notranslate"><span class="pre">(scene,</span> <span class="pre">bands)</span></code>, rejects
+non-1/3 band counts, and <code class="docutils literal notranslate"><span class="pre">materialize_full_band_from_snapshot</span></code> takes live pixels but
+<strong>frozen</strong> nodata/metadata.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_view_gui.py</span></code> — the overlay <strong>and</strong> pixel-layer wiring end to
 end, driven through the real <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> ingestion path: geometry cache populates /
 re-invalidates; <code class="docutils literal notranslate"><span class="pre">composite()</span></code> stacks known ARGB layers (top opaque wins, holes reveal
@@ -1803,12 +1951,15 @@ nodata passthrough (a hole in the top scene reveals the lower one; outside every
 footprint is the output nodata), Nearest-Neighbor value preservation (exact source
 values), band count + canonical metadata round-tripped through the written ENVI, and the
 <code class="docutils literal notranslate"><span class="pre">default</span> <span class="pre">bands</span></code> guards (GDAL’s 1-based RGB placeholder is cleared; an out-of-range source
-default is dropped so the file opens without an <code class="docutils literal notranslate"><span class="pre">Illegal</span> <span class="pre">band</span> <span class="pre">#</span></code> crash).</p></li>
+default is dropped so the file opens without an <code class="docutils literal notranslate"><span class="pre">Illegal</span> <span class="pre">band</span> <span class="pre">#</span></code> crash); plus (#677)
+export stamps the <strong>frozen</strong> default bands even after the live dataset is edited.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_export_gui.py</span></code> — the Export button end to end via <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code>:
 ingest two scenes, patch the save dialog, click Export, and assert the ENVI <code class="docutils literal notranslate"><span class="pre">.img</span></code>/<code class="docutils literal notranslate"><span class="pre">.hdr</span></code>
 are written on the common grid with nodata carried through while <strong>nothing is loaded back
-into WISER</strong> (dataset count unchanged); plus the no-scenes guard (informs and never
-reaches the file picker).</p></li>
+into WISER</strong> (dataset count unchanged); the no-scenes guard (informs and never reaches the
+file picker); and (#677) the metadata-drift warning — a post-ingest edit surfaces the
+warn-and-proceed prompt, where declining aborts before the file picker and accepting
+proceeds past it.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_ingestion.py</span></code> — <code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>,
 <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_dialog.py</span></code> — <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in isolation
@@ -1878,10 +2029,18 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#entry-point-and-dialog-lifecycle">Entry Point and Dialog Lifecycle</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scene-ingestion-pipeline">Scene Ingestion Pipeline</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-validate-scene-mosaic-ingestion-py">Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-build-display-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.build_display_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overviews-build-overviews-mosaic-ingestion-py">Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py">Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-reporting">Progress reporting</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen Metadata</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-artifacts-two-moments">Two artifacts, two moments</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#which-display-bands-get-baked-in">Which display bands get baked in</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#freezing-the-metadata-scenemetadatasnapshot">Freezing the metadata (<code class="docutils literal notranslate"><span class="pre">SceneMetadataSnapshot</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#drift-warning-on-export">Drift warning on export</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#out-of-scope-follow-up">Out of scope (follow-up)</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-common-grid-and-crs-resolution">The Common Grid and CRS Resolution</a><ul class="visible nav section-nav flex-column">
