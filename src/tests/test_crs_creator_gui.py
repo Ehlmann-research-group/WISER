@@ -301,6 +301,106 @@ class TestCRSCreator(unittest.TestCase):
 
         self.assertTrue(np.allclose(test_geo_transform, ground_truth_geo_transform))
 
+    # ------------------------------------------------------------------
+    # "From CRS String" tab
+    # ------------------------------------------------------------------
+
+    # A minimal, valid WKT (WGS 84 geographic) used across the string-tab tests.
+    VALID_WKT = (
+        'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],'
+        'PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]'
+    )
+
+    def test_string_tab_validate_valid(self):
+        """A valid CRS string validates, reports success, and enables Add."""
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_select_string_tab()
+
+        self.test_model.crs_creator_set_crs_string(self.VALID_WKT)
+        self.test_model.crs_creator_press_validate_string()
+
+        result = self.test_model.crs_creator_get_string_result()
+        self.assertIn("Valid", result)
+        self.assertTrue(self.test_model.crs_creator_string_add_enabled())
+
+    def test_string_tab_validate_epsg_code(self):
+        """An authority code (EPSG:4326) is accepted, not just full WKT."""
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_select_string_tab()
+
+        self.test_model.crs_creator_set_crs_string("EPSG:4326")
+        self.test_model.crs_creator_press_validate_string()
+
+        self.assertIn("Valid", self.test_model.crs_creator_get_string_result())
+        self.assertTrue(self.test_model.crs_creator_string_add_enabled())
+
+    def test_string_tab_validate_invalid(self):
+        """A garbage string reports an error, leaves Add disabled, stores nothing."""
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_select_string_tab()
+
+        self.test_model.crs_creator_set_crs_string("this is not a CRS")
+        self.test_model.crs_creator_press_validate_string()
+
+        result = self.test_model.crs_creator_get_string_result()
+        self.assertIn("Invalid", result)
+        self.assertFalse(self.test_model.crs_creator_string_add_enabled())
+        self.assertNotIn("bad_crs", self.test_model.app_state.get_user_created_crs())
+
+    def test_string_tab_add_persists_crs(self):
+        """Validating + naming + Add stores a usable CRS in ApplicationState."""
+        name = "wkt_crs"
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_select_string_tab()
+
+        self.test_model.crs_creator_set_crs_string(self.VALID_WKT)
+        self.test_model.crs_creator_press_validate_string()
+        self.test_model.crs_creator_set_string_crs_name(name)
+        self.test_model.crs_creator_press_add_string()
+
+        stored = self.test_model.app_state.get_user_created_crs()
+        self.assertIn(name, stored)
+
+        srs = stored[name][0]
+        self.assertTrue(srs.IsGeographic())
+        # The stored state remembers it came from a pasted string.
+        self.assertTrue(stored[name][1].is_string_origin)
+
+    def test_string_tab_editing_text_invalidates_validation(self):
+        """Editing the pasted text after validating disables Add again."""
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_select_string_tab()
+
+        self.test_model.crs_creator_set_crs_string(self.VALID_WKT)
+        self.test_model.crs_creator_press_validate_string()
+        self.assertTrue(self.test_model.crs_creator_string_add_enabled())
+
+        # Any change to the text should require re-validation.
+        self.test_model.crs_creator_set_crs_string("EPSG:4326 changed")
+        self.assertFalse(self.test_model.crs_creator_string_add_enabled())
+
+    def test_string_origin_crs_reloads_into_string_tab(self):
+        """
+        Selecting a string-origin CRS as the 'Starting Ref System' switches to the
+        string tab and repopulates the pasted text rather than the param fields.
+        """
+        name = "reload_wkt"
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_select_string_tab()
+        self.test_model.crs_creator_set_crs_string(self.VALID_WKT)
+        self.test_model.crs_creator_press_validate_string()
+        self.test_model.crs_creator_set_string_crs_name(name)
+        self.test_model.crs_creator_press_add_string()
+
+        # Reopen, clear, and reload the saved CRS.
+        self.test_model.open_crs_creator()
+        self.test_model.crs_creator_press_field_reset()
+        self.test_model.crs_creator_set_starting_crs(name)
+
+        self.assertEqual("string", self.test_model.crs_creator_get_active_tab())
+        self.assertEqual(name, self.test_model.crs_creator_get_string_crs_name())
+        self.assertIn("6378137", self.test_model.crs_creator_get_crs_string())
+
 
 """
 The below code is just for testing the tests so we know the tests
