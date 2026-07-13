@@ -950,6 +950,7 @@ window.runMermaid = runMermaid;</script>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-control-panel">The Control Panel</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
@@ -973,9 +974,10 @@ intended for developers reading, debugging, or extending the tool.</p>
 <p class="admonition-title">Note</p>
 <p>This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
 materialization, common-grid/CRS resolution, the <strong>vector overlay</strong> (footprints,
-bounding box, overlap highlight), and the <strong>static-scene pixel compositor</strong> (the
-composited preview, with an off-thread debounced per-scene cache) are implemented and
-wired into the GUI. The remaining gaps are the richer control panel and export — see
+bounding box, overlap highlight), the <strong>static-scene pixel compositor</strong> (the composited
+preview, with an off-thread debounced per-scene cache), and the <strong>control panel</strong>
+(drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
+chooser) are implemented and wired into the GUI. The one remaining gap is export — see
 <a class="reference internal" href="#what-isnt-built-yet"><span class="xref myst">What Isn’t Built Yet</span></a>.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
@@ -987,8 +989,9 @@ preview/export complete.</p>
 <ul class="simple">
 <li><p><strong>The UI / control layer</strong> — <code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> is a non-modal, cached top-level
 window (like the other tool dialogs) that hosts a <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>. The pane owns an
-“Add Scene” picker, a scene stack (z-order + visibility), and a target-CRS control,
-and drives the ingestion pipeline on a background thread.</p></li>
+“Add Scene” picker, a scene stack (drag-to-reorder z-order + visibility), and the
+resolution / target-CRS / resampling / band-metadata controls (see <a class="reference internal" href="#the-control-panel"><span class="xref myst">The Control
+Panel</span></a>), and drives the ingestion pipeline on a background thread.</p></li>
 <li><p><strong>The non-GUI model</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> is the single source of truth for the
 scene list, z-order, resolution mode, target CRS, and the computed <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>. It
 is deliberately Qt-free (may use <code class="docutils literal notranslate"><span class="pre">osgeo.gdal/ogr/osr</span></code>) so it is unit-testable without
@@ -1017,7 +1020,7 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its <cod
 <td><p><code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> — top-level dialog shell, owns the session <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> — control panel; ingestion orchestration, scene list, CRS controls</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> — control panel; ingestion orchestration, scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_view.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> — the two-layer paint surface (pixel + vector), currently a stub</p></td>
@@ -1617,23 +1620,74 @@ fully custom <code class="docutils literal notranslate"><span class="pre">Author
 selected.</p>
 </section>
 <hr class="docutils" />
+<section id="the-control-panel">
+<h2>The Control Panel<a class="headerlink" href="#the-control-panel" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code> (issue #638)</p>
+<p>The right-hand controls area of <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> (hosted in a vertically-scrolling
+<code class="docutils literal notranslate"><span class="pre">QScrollArea</span></code> so the stack stays reachable on short windows) exposes the model’s
+handles. Every control mutates the shared <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> and then invalidates the
+view following the same tiered contract the compositor defines — a <strong>pure restack</strong>
+(<code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code>, no GDAL reads) for z-order/visibility, a <strong>re-read</strong>
+(<code class="docutils literal notranslate"><span class="pre">invalidate_pixels()</span></code>) when the pixels themselves change, and a <strong>grid rebuild</strong> when
+the output geometry changes:</p>
+<ul class="simple">
+<li><p><strong>Scene list — drag-to-reorder (z-order).</strong> The <code class="docutils literal notranslate"><span class="pre">QListWidget</span></code> is
+<code class="docutils literal notranslate"><span class="pre">InternalMove</span></code>-enabled; items are checkable and draggable but <em>not</em> drop targets
+(<code class="docutils literal notranslate"><span class="pre">~ItemIsDropEnabled</span></code>) so a dragged row lands between rows. On drop, <code class="docutils literal notranslate"><span class="pre">model().rowsMoved</span></code>
+fires <code class="docutils literal notranslate"><span class="pre">_on_scene_rows_moved</span></code>, which translates the <strong>visual</strong> move into a controller
+z-order move. Two index subtleties are handled: the list is shown <strong>top-first</strong> while
+the controller stores scenes <strong>bottom-to-top</strong> (visual row <code class="docutils literal notranslate"><span class="pre">v</span></code> ↔ controller index
+<code class="docutils literal notranslate"><span class="pre">n-1-v</span></code>), and Qt’s destination <code class="docutils literal notranslate"><span class="pre">row</span></code> is indexed <em>before</em> the dragged row is removed
+(shifted down by one on a downward move). It then <code class="docutils literal notranslate"><span class="pre">move_scene</span></code>s, rebuilds the grid
+quietly (a reorder can change the top scene, hence the <code class="docutils literal notranslate"><span class="pre">TOP</span></code>-mode pixel size, but never
+the CRS constraint), defers a <code class="docutils literal notranslate"><span class="pre">_refresh_scene_list()</span></code> to rewrite the now-stale
+<code class="docutils literal notranslate"><span class="pre">Qt.UserRole</span></code> indices safely after the drop, and does the pure-restack invalidation.</p></li>
+<li><p><strong>Resolution mode.</strong> A combo over <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> (Top / Highest / Lowest / Average /
+Custom); Custom reveals two positive-only pixel-size spin boxes (target-CRS units),
+seeded from the current grid on first use so <code class="docutils literal notranslate"><span class="pre">build_common_grid</span></code> never sees <code class="docutils literal notranslate"><span class="pre">CUSTOM</span></code>
+without a size. A change rebuilds the grid quietly. Note the resolution only sizes the
+<strong>export</strong> grid — the preview always warps at <em>viewport</em> resolution (see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel
+Layer</span></a>), so changing it has no on-screen
+effect.</p></li>
+<li><p><strong>Resampling method.</strong> A curated combo — Nearest Neighbor (default), Bilinear, Cubic
+Convolution — whose <code class="docutils literal notranslate"><span class="pre">userData</span></code> is the <code class="docutils literal notranslate"><span class="pre">gdal.GRA_*</span></code> constant. Any non-Nearest-Neighbor
+choice <strong>always</strong> warns (interpolation invents pixel values; there is no product-type
+detection), then <code class="docutils literal notranslate"><span class="pre">set_resample_alg</span></code> + <code class="docutils literal notranslate"><span class="pre">invalidate_pixels</span></code>. The chosen algorithm is
+snapshotted on the GUI thread in <code class="docutils literal notranslate"><span class="pre">_start_pixel_read</span></code> and threaded through the per-scene
+<code class="docutils literal notranslate"><span class="pre">jobs</span></code> into <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>’s <code class="docutils literal notranslate"><span class="pre">resample_alg</span></code>.</p></li>
+<li><p><strong>Band-metadata chooser.</strong> A revisitable combo picking which scene’s band metadata
+(wavelengths / names) becomes the <strong>canonical</strong> metadata stamped on the exported output
+(consumed by #639). It is <strong>metadata/labeling only</strong> — it never changes the output band
+count, an invariant guaranteed for free by the ingestion band-count gate. The controller
+stores the choice as a <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code> reference (stable across reorder/remove) and
+<code class="docutils literal notranslate"><span class="pre">get_band_metadata_source()</span></code> falls back to the top visible scene when nothing is chosen
+or the chosen scene is removed/hidden. Neither this nor the resampling method invalidates
+the grid (both are output-content, not grid geometry).</p></li>
+<li><p><strong>Export / Finish</strong> is present but <strong>disabled</strong> until the export path (#639) lands; the
+v1 preview toggle is intentionally deferred.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> change, band-metadata selection, resampling warning, and
+reorder-without-reads are covered by <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_pane_gui.py</span></code>, with the
+controller-side surface (resample round-trip, band-metadata fallback, no-grid-invalidation)
+in <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_controller.py</span></code>.</p>
+</section>
+<hr class="docutils" />
 <section id="what-isn-t-built-yet">
 <h2>What Isn’t Built Yet<a class="headerlink" href="#what-isn-t-built-yet" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">MosaicView.paintEvent</span></code> now draws both layers — the pixel compositor (#637, see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The
-Pixel Layer</span></a>) beneath the vector overlay (#636,
-see <a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>). The remaining gaps are
-the richer control panel and export:</p>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView.paintEvent</span></code> draws both layers — the pixel compositor (#637, see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel
+Layer</span></a>) beneath the vector overlay (#636, see
+<a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>) — and the control panel
+(#638, see <a class="reference internal" href="#the-control-panel"><span class="xref myst">The Control Panel</span></a>) exposes the model’s handles. The one
+remaining gap is export:</p>
 <ul class="simple">
-<li><p><strong>Control panel additions (issue #638)</strong> — drag-to-reorder z-order, resampling
-method selector, and a band-metadata chooser are not yet in <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>; today’s
-panel only has Add Scene, the scene list (visibility toggle + remove), and the
-target-CRS controls.</p></li>
 <li><p><strong>Export (issue #639)</strong> — writing the mosaic via <code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> (or the
 GDAL &lt; 3.11 <code class="docutils literal notranslate"><span class="pre">BuildVRT</span></code>/<code class="docutils literal notranslate"><span class="pre">Translate</span></code> fallback), ordered by z-order, resolved against
-the common grid, and loaded back into WISER as a new dataset.</p></li>
+the common grid, and loaded back into WISER as a new dataset. It will consume the
+control panel’s canonical band-metadata source and resampling method, and the common
+grid’s resolution/CRS.</p></li>
 </ul>
-<p>None of these gaps affect the ingestion/CRS-resolution logic documented above — they
-consume the same <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> state once implemented.</p>
+<p>Export does not affect the ingestion/CRS-resolution logic documented above — it consumes
+the same <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> state.</p>
 </section>
 <hr class="docutils" />
 <section id="integration-with-wiser">
@@ -1670,6 +1724,11 @@ re-invalidates; <code class="docutils literal notranslate"><span class="pre">com
 below); the per-scene cache populates; z-order reorder / visibility toggle trigger <strong>no
 GDAL reads</strong> (spy on <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>); and a pan burst <strong>coalesces into a single
 debounced background read</strong>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_pane_gui.py</span></code> — the control panel (#638) end to end through the
+real ingestion path: drag-reorder updates controller z-order and triggers <strong>no GDAL
+reads</strong>; a resolution-mode change rebuilds the grid; a band-metadata selection sets the
+canonical source without changing band count; and a non-Nearest-Neighbor resampling
+choice surfaces the warning and invalidates the pixel cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_ingestion.py</span></code> — <code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>,
 <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_dialog.py</span></code> — <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in isolation
@@ -1765,6 +1824,7 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-control-panel">The Control Panel</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>

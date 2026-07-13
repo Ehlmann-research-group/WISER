@@ -7,9 +7,10 @@ intended for developers reading, debugging, or extending the tool.
 ```{note}
 This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
 materialization, common-grid/CRS resolution, the **vector overlay** (footprints,
-bounding box, overlap highlight), and the **static-scene pixel compositor** (the
-composited preview, with an off-thread debounced per-scene cache) are implemented and
-wired into the GUI. The remaining gaps are the richer control panel and export — see
+bounding box, overlap highlight), the **static-scene pixel compositor** (the composited
+preview, with an off-thread debounced per-scene cache), and the **control panel**
+(drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
+chooser) are implemented and wired into the GUI. The one remaining gap is export — see
 [What Isn't Built Yet](#what-isnt-built-yet).
 ```
 
@@ -23,8 +24,9 @@ The feature is built from three cooperating layers:
 
 - **The UI / control layer** — `SeamlessMosaicDialog` is a non-modal, cached top-level
   window (like the other tool dialogs) that hosts a `MosaicPane`. The pane owns an
-  "Add Scene" picker, a scene stack (z-order + visibility), and a target-CRS control,
-  and drives the ingestion pipeline on a background thread.
+  "Add Scene" picker, a scene stack (drag-to-reorder z-order + visibility), and the
+  resolution / target-CRS / resampling / band-metadata controls (see [The Control
+  Panel](#the-control-panel)), and drives the ingestion pipeline on a background thread.
 
 - **The non-GUI model** — `MosaicController` is the single source of truth for the
   scene list, z-order, resolution mode, target CRS, and the computed `CommonGrid`. It
@@ -49,7 +51,7 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its `_im
 | File | Responsibility |
 |------|----------------|
 | `src/wiser/gui/mosaic_dialog.py` | `SeamlessMosaicDialog` — top-level dialog shell, owns the session `SceneMaterializer` |
-| `src/wiser/gui/mosaic_pane.py` | `MosaicPane` — control panel; ingestion orchestration, scene list, CRS controls |
+| `src/wiser/gui/mosaic_pane.py` | `MosaicPane` — control panel; ingestion orchestration, scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls |
 | `src/wiser/gui/mosaic_view.py` | `MosaicView` — the two-layer paint surface (pixel + vector), currently a stub |
 | `src/wiser/gui/mosaic_crs_dialog.py` | `ReprojectPromptDialog` — modal target-CRS chooser |
 | `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
@@ -640,23 +642,80 @@ selected.
 
 ---
 
+## The Control Panel
+
+**File:** `src/wiser/gui/mosaic_pane.py` (issue #638)
+
+The right-hand controls area of `MosaicPane` (hosted in a vertically-scrolling
+`QScrollArea` so the stack stays reachable on short windows) exposes the model's
+handles. Every control mutates the shared `MosaicController` and then invalidates the
+view following the same tiered contract the compositor defines — a **pure restack**
+(`recomposite_only()`, no GDAL reads) for z-order/visibility, a **re-read**
+(`invalidate_pixels()`) when the pixels themselves change, and a **grid rebuild** when
+the output geometry changes:
+
+- **Scene list — drag-to-reorder (z-order).** The `QListWidget` is
+  `InternalMove`-enabled; items are checkable and draggable but *not* drop targets
+  (`~ItemIsDropEnabled`) so a dragged row lands between rows. On drop, `model().rowsMoved`
+  fires `_on_scene_rows_moved`, which translates the **visual** move into a controller
+  z-order move. Two index subtleties are handled: the list is shown **top-first** while
+  the controller stores scenes **bottom-to-top** (visual row `v` ↔ controller index
+  `n-1-v`), and Qt's destination `row` is indexed *before* the dragged row is removed
+  (shifted down by one on a downward move). It then `move_scene`s, rebuilds the grid
+  quietly (a reorder can change the top scene, hence the `TOP`-mode pixel size, but never
+  the CRS constraint), defers a `_refresh_scene_list()` to rewrite the now-stale
+  `Qt.UserRole` indices safely after the drop, and does the pure-restack invalidation.
+
+- **Resolution mode.** A combo over `ResolutionMode` (Top / Highest / Lowest / Average /
+  Custom); Custom reveals two positive-only pixel-size spin boxes (target-CRS units),
+  seeded from the current grid on first use so `build_common_grid` never sees `CUSTOM`
+  without a size. A change rebuilds the grid quietly. Note the resolution only sizes the
+  **export** grid — the preview always warps at *viewport* resolution (see [The Pixel
+  Layer](#the-pixel-layer-static-scene-compositor)), so changing it has no on-screen
+  effect.
+
+- **Resampling method.** A curated combo — Nearest Neighbor (default), Bilinear, Cubic
+  Convolution — whose `userData` is the `gdal.GRA_*` constant. Any non-Nearest-Neighbor
+  choice **always** warns (interpolation invents pixel values; there is no product-type
+  detection), then `set_resample_alg` + `invalidate_pixels`. The chosen algorithm is
+  snapshotted on the GUI thread in `_start_pixel_read` and threaded through the per-scene
+  `jobs` into `render_scene_argb`'s `resample_alg`.
+
+- **Band-metadata chooser.** A revisitable combo picking which scene's band metadata
+  (wavelengths / names) becomes the **canonical** metadata stamped on the exported output
+  (consumed by #639). It is **metadata/labeling only** — it never changes the output band
+  count, an invariant guaranteed for free by the ingestion band-count gate. The controller
+  stores the choice as a `MosaicScene` reference (stable across reorder/remove) and
+  `get_band_metadata_source()` falls back to the top visible scene when nothing is chosen
+  or the chosen scene is removed/hidden. Neither this nor the resampling method invalidates
+  the grid (both are output-content, not grid geometry).
+
+- **Export / Finish** is present but **disabled** until the export path (#639) lands; the
+  v1 preview toggle is intentionally deferred.
+
+`ResolutionMode` change, band-metadata selection, resampling warning, and
+reorder-without-reads are covered by `src/tests/test_mosaic_pane_gui.py`, with the
+controller-side surface (resample round-trip, band-metadata fallback, no-grid-invalidation)
+in `src/tests/test_mosaic_controller.py`.
+
+---
+
 ## What Isn't Built Yet
 
-`MosaicView.paintEvent` now draws both layers — the pixel compositor (#637, see [The
-Pixel Layer](#the-pixel-layer-static-scene-compositor)) beneath the vector overlay (#636,
-see [The Geometry Overlay](#the-geometry-overlay-vector-layer)). The remaining gaps are
-the richer control panel and export:
+`MosaicView.paintEvent` draws both layers — the pixel compositor (#637, see [The Pixel
+Layer](#the-pixel-layer-static-scene-compositor)) beneath the vector overlay (#636, see
+[The Geometry Overlay](#the-geometry-overlay-vector-layer)) — and the control panel
+(#638, see [The Control Panel](#the-control-panel)) exposes the model's handles. The one
+remaining gap is export:
 
-- **Control panel additions (issue #638)** — drag-to-reorder z-order, resampling
-  method selector, and a band-metadata chooser are not yet in `MosaicPane`; today's
-  panel only has Add Scene, the scene list (visibility toggle + remove), and the
-  target-CRS controls.
 - **Export (issue #639)** — writing the mosaic via `gdal raster mosaic` (or the
   GDAL < 3.11 `BuildVRT`/`Translate` fallback), ordered by z-order, resolved against
-  the common grid, and loaded back into WISER as a new dataset.
+  the common grid, and loaded back into WISER as a new dataset. It will consume the
+  control panel's canonical band-metadata source and resampling method, and the common
+  grid's resolution/CRS.
 
-None of these gaps affect the ingestion/CRS-resolution logic documented above — they
-consume the same `MosaicController` state once implemented.
+Export does not affect the ingestion/CRS-resolution logic documented above — it consumes
+the same `MosaicController` state.
 
 ---
 
@@ -691,6 +750,11 @@ consume the same `MosaicController` state once implemented.
   below); the per-scene cache populates; z-order reorder / visibility toggle trigger **no
   GDAL reads** (spy on `render_scene_argb`); and a pan burst **coalesces into a single
   debounced background read**.
+- `src/tests/test_mosaic_pane_gui.py` — the control panel (#638) end to end through the
+  real ingestion path: drag-reorder updates controller z-order and triggers **no GDAL
+  reads**; a resolution-mode change rebuilds the grid; a band-metadata selection sets the
+  canonical source without changing band count; and a non-Nearest-Neighbor resampling
+  choice surfaces the warning and invalidates the pixel cache.
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
   `compute_footprint_wkt`, and progress-reporting behavior.
 - `src/tests/test_mosaic_crs_dialog.py` — `ReprojectPromptDialog` in isolation
