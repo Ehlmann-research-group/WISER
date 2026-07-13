@@ -103,7 +103,6 @@ def render_scene_argb(
         # No data bands, or nothing valid in view: leave RGB black, alpha as computed.
         return rgba
 
-    display_bands = select_display_bands(scene.dataset, num_data_bands)
     channels = [
         _stretch_band(
             warped.GetRasterBand(band_idx + 1).ReadAsArray().astype(np.float32),
