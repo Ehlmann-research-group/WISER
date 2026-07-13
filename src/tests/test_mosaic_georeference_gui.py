@@ -108,6 +108,19 @@ class TestMosaicPendingScene(unittest.TestCase):
         self.assertFalse(item.icon().isNull())
         self.assertIn("no CRS", item.toolTip())
 
+        # A pending scene offers "Georeference…" (to fix it) but NOT "Zoom to Scene"
+        # (it has no placeable footprint on the common canvas).
+        with mock.patch("wiser.gui.mosaic_pane.QMenu") as MenuCls, mock.patch.object(
+            pane._scene_list, "itemAt", return_value=item
+        ):
+            menu = MenuCls.return_value
+            menu.addAction.side_effect = lambda *_a: mock.Mock()
+            menu.isEmpty.return_value = False
+            pane._on_scene_context_menu(QPoint(0, 0))
+            labels = [call.args[0] for call in menu.addAction.call_args_list]
+            self.assertTrue(any("Georeference" in label for label in labels))
+            self.assertFalse(any("Zoom to Scene" in label for label in labels))
+
         self.test_model.close_seamless_mosaic_dialog()
 
 
@@ -164,30 +177,57 @@ class TestMosaicRegeoreferenceEntryPoint(unittest.TestCase):
         self.assertEqual(pane._scene_list.contextMenuPolicy(), Qt.CustomContextMenu)
         self.test_model.close_seamless_mosaic_dialog()
 
-    def test_context_menu_offers_georeference(self):
+    def test_context_menu_offers_georeference_and_zoom_for_live(self):
         _dlg, pane, controller = self._open_with_two_scenes()
         # Row 0 is the top scene; it carries its real controller index in UserRole.
         item = pane._scene_list.item(0)
         index = item.data(Qt.UserRole)
 
-        # Patch QMenu so exec_ does not block, and _on_georeference_scene so we can
-        # confirm the action targets the right controller index.
+        # Patch QMenu so exec_ does not block, and the handlers so we can confirm each
+        # action targets the right controller index. A live scene gets both actions.
         with mock.patch("wiser.gui.mosaic_pane.QMenu") as MenuCls, mock.patch.object(
             pane._scene_list, "itemAt", return_value=item
-        ), mock.patch.object(pane, "_on_georeference_scene") as geo:
+        ), mock.patch.object(pane, "_on_georeference_scene") as geo, mock.patch.object(
+            pane, "_on_zoom_to_scene"
+        ) as zoom:
             menu = MenuCls.return_value
-            action = menu.addAction.return_value
+            georef_action, zoom_action = mock.Mock(), mock.Mock()
+            menu.addAction.side_effect = [georef_action, zoom_action]
+            menu.isEmpty.return_value = False
             pane._on_scene_context_menu(QPoint(0, 0))
 
-            menu.addAction.assert_called_once()
-            (label,), _ = menu.addAction.call_args
-            self.assertIn("Georeference", label)
+            labels = [call.args[0] for call in menu.addAction.call_args_list]
+            self.assertEqual(len(labels), 2)
+            self.assertIn("Georeference", labels[0])
+            self.assertIn("Zoom to Scene", labels[1])
             menu.exec_.assert_called_once()
 
-            # Firing the action re-georeferences the clicked row's scene.
-            (slot,), _ = action.triggered.connect.call_args
-            slot()
+            # Firing each action routes to the right handler with the clicked index.
+            (geo_slot,), _ = georef_action.triggered.connect.call_args
+            geo_slot()
             geo.assert_called_once_with(index)
+            (zoom_slot,), _ = zoom_action.triggered.connect.call_args
+            zoom_slot()
+            zoom.assert_called_once_with(index)
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_zoom_to_scene_reframes_view_on_the_scene(self):
+        _dlg, pane, controller = self._open_with_two_scenes()
+        view = pane._mosaic_view
+        view.resize(300, 300)  # give the canvas a real size so the camera math runs
+        index = 0
+        scene = controller.get_scenes()[index]
+        extent = controller.scene_extent_in_common_crs(scene)
+        self.assertIsNotNone(extent)
+        min_x, min_y, max_x, max_y = extent
+
+        pane._on_zoom_to_scene(index)
+
+        # The camera centers on the scene's footprint (padding is symmetric, so the
+        # center is unshifted) and zooms in to frame it.
+        self.assertAlmostEqual(view._transform.center_x, (min_x + max_x) / 2.0, places=3)
+        self.assertAlmostEqual(view._transform.center_y, (min_y + max_y) / 2.0, places=3)
+        self.assertGreater(view._transform.world_units_per_pixel, 0.0)
         self.test_model.close_seamless_mosaic_dialog()
 
     def test_context_menu_no_op_without_item(self):
