@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication
 
 from wiser.gui.save_project_dialog import SaveProjectDialog
 from wiser.project.resolver import Dependency
+from wiser.raster.stretch import StretchLinear
 
 
 def _qapp():
@@ -55,10 +56,11 @@ class _FakeROI:
 
 
 class _FakeAppState:
-    def __init__(self, datasets, rois=(), bandmath=()):
+    def __init__(self, datasets, rois=(), bandmath=(), stretches=None):
         self._datasets = datasets
         self._rois = list(rois)
         self._bandmath = list(bandmath)
+        self._stretches = dict(stretches or {})
 
     def get_datasets(self):
         return list(self._datasets)
@@ -70,7 +72,7 @@ class _FakeAppState:
         return None
 
     def get_all_stretches(self):
-        return {}
+        return dict(self._stretches)
 
     def get_rois(self):
         return list(self._rois)
@@ -173,6 +175,38 @@ def test_self_contained_checkbox_reflects_choice():
     assert dialog.get_self_contained() is False
     dialog._self_contained.setChecked(True)
     assert dialog.get_self_contained() is True
+
+
+def test_unchecking_an_roi_excludes_it():
+    _qapp()
+    app_state = _FakeAppState([_FakeDataset(1, [], "a")], rois=[_FakeROI(5, "crater")])
+    dialog = SaveProjectDialog(app_state, None)
+    assert dialog.get_resolver().is_saved(Dependency("roi", 5))
+
+    dialog._item_widgets[("roi", 5)].setCheckState(0, Qt.Unchecked)
+    assert not dialog.get_resolver().is_saved(Dependency("roi", 5))
+
+
+def test_group_shows_partial_when_some_items_unchecked():
+    _qapp()
+    app_state = _FakeAppState([_FakeDataset(1, [], "a"), _FakeDataset(2, [], "b")])
+    dialog = SaveProjectDialog(app_state, None)
+    assert _groups(dialog)["datasets"].checkState(0) == Qt.Checked
+
+    dialog._item_widgets[("dataset", 1)].setCheckState(0, Qt.Unchecked)  # one of two
+    assert _groups(dialog)["datasets"].checkState(0) == Qt.PartiallyChecked
+
+
+def test_unchecking_a_dataset_reannotates_its_cascade_in_place():
+    # The headline dialog behavior: toggling a dataset re-annotates its cascade child
+    # in place (the tree is never rebuilt), folding in the old consequences table.
+    _qapp()
+    app_state = _FakeAppState([_FakeDataset(1, [], "cube")], stretches={(1, 0): StretchLinear(0.2, 0.8)})
+    dialog = SaveProjectDialog(app_state, None)
+    assert "(dropped)" not in dialog._item_widgets[("dataset", 1)].child(0).text(0)
+
+    dialog._item_widgets[("dataset", 1)].setCheckState(0, Qt.Unchecked)
+    assert "(dropped)" in dialog._item_widgets[("dataset", 1)].child(0).text(0)
 
 
 def test_app_module_imports():
