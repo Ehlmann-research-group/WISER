@@ -10,21 +10,27 @@ few gates before it can be displayed or composited:
      (see the function docstring).
   2. :func:`build_overviews` — build internal pyramid overviews on the materialized
      temp GeoTIFF so preview rendering (#637) is fast without a first-paint stutter.
-  3. :func:`compute_footprint_wkt` — derive the valid-pixel outline via
+  3. :func:`compute_stretch_bounds` — sample a stable, extent-independent contrast
+     stretch per display band from an internal overview, so the pixel compositor's
+     contrast (#637) does not drift as the user zooms (#675).
+  4. :func:`compute_footprint_wkt` — derive the valid-pixel outline via
      ``gdal.Footprint`` so geometry rendering (#636) has the real shape.
 
 This module is **Qt-free** (GDAL + stdlib only) so it is unit-testable without a
 running application. The GUI orchestration (materialize -> build_overviews ->
-compute_footprint on a background thread) lives in the mosaic pane (#638-adjacent).
+compute_stretch_bounds -> compute_footprint on a background thread) lives in the
+mosaic pane (#638-adjacent).
 """
 
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
+import numpy as np
 from osgeo import gdal
 
+from wiser.raster.mosaic_compositor import STRETCH_HI_PCT, STRETCH_LO_PCT, select_display_bands
 from wiser.utils.progress import ProgressReporter, gdal_progress_callback
 
 if TYPE_CHECKING:
@@ -46,6 +52,12 @@ _IDENTITY_GEO_TRANSFORM: Tuple[float, float, float, float, float, float] = (
 # Pyramid decimation levels for preview overviews. Powers of two keep GDAL's
 # averaging cheap and cover a wide zoom range for typical scene sizes.
 _OVERVIEW_LEVELS: List[int] = [2, 4, 8, 16]
+
+# Overview decimation level compute_stretch_bounds samples from: coarser than the
+# finest overview (cheap -- no full-resolution read), but finer than the coarsest, so
+# the sample is large enough that a small bright/dark feature isn't missed by the
+# NEAREST-resampled overview's sparser pixels (#675).
+_STRETCH_SAMPLE_OVERVIEW_LEVEL = 4
 
 
 class SceneValidationError(ValueError):
@@ -144,6 +156,73 @@ def build_overviews(gdal_path: str, progress: Optional[ProgressReporter] = None)
         ds.BuildOverviews("NEAREST", _OVERVIEW_LEVELS, callback=gdal_progress_callback(progress))
     finally:
         ds = None  # flush/close
+
+
+def _stretch_sample_source(band: gdal.Band) -> gdal.Band:
+    """
+    Pick what :func:`compute_stretch_bounds` reads for one band: the
+    ``_STRETCH_SAMPLE_OVERVIEW_LEVEL`` overview when it was built, else the coarsest
+    overview available, else the full-resolution band (no overviews at all).
+    """
+    count = band.GetOverviewCount()
+    if count == 0:
+        return band
+    if _STRETCH_SAMPLE_OVERVIEW_LEVEL in _OVERVIEW_LEVELS:
+        target_index = _OVERVIEW_LEVELS.index(_STRETCH_SAMPLE_OVERVIEW_LEVEL)
+        if target_index < count:
+            return band.GetOverview(target_index)
+    return band.GetOverview(count - 1)
+
+
+def compute_stretch_bounds(
+    gdal_path: str,
+    dataset: "RasterDataSet",
+    progress: Optional[ProgressReporter] = None,
+) -> Dict[int, Tuple[float, float]]:
+    """
+    Compute stable, extent-independent 2-98 percentile stretch bounds per display
+    band for the materialized scene at ``gdal_path``.
+
+    Cached once at ingest (issue #675) so the pixel compositor's on-screen contrast
+    no longer drifts as the user zooms: :func:`wiser.raster.mosaic_compositor.render_scene_argb`
+    stretches every render against these fixed bounds instead of recomputing
+    percentiles from whatever pixels happen to be in the current viewport. Samples
+    from an internal overview (see :func:`_stretch_sample_source`) rather than a
+    full-resolution read, since ``build_overviews`` -- which always runs immediately
+    before this in the ingestion pipeline -- makes that cheap regardless of the
+    source's full-resolution size.
+
+    Returns a dict keyed by **source band index** (0-based, matching
+    :func:`~wiser.raster.mosaic_compositor.select_display_bands`), so it stays correct
+    regardless of channel ordering. A band with no valid (non-nodata) pixels in the
+    sample is simply omitted; :func:`~wiser.raster.mosaic_compositor._stretch_band`
+    falls back to an on-the-fly stretch for it.
+
+    ``progress`` reports coarse per-band fractions and defaults to a no-op reporter.
+    """
+    progress = progress or ProgressReporter()
+    gdal.UseExceptions()
+    ds = gdal.Open(gdal_path)
+    if ds is None:
+        raise RuntimeError(f"Cannot open {gdal_path} for stretch-bounds computation")
+
+    num_data_bands = ds.RasterCount
+    display_bands = select_display_bands(dataset, num_data_bands)
+
+    bounds: Dict[int, Tuple[float, float]] = {}
+    for i, band_idx in enumerate(display_bands):
+        band = ds.GetRasterBand(band_idx + 1)
+        arr = _stretch_sample_source(band).ReadAsArray().astype(np.float64)
+        nodata = band.GetNoDataValue()
+        valid = arr != nodata if nodata is not None else np.ones(arr.shape, dtype=bool)
+        values = arr[valid]
+        if values.size:
+            bounds[band_idx] = (
+                float(np.percentile(values, STRETCH_LO_PCT)),
+                float(np.percentile(values, STRETCH_HI_PCT)),
+            )
+        progress.report_fraction((i + 1) / len(display_bands), "Computing stretch bounds")
+    return bounds
 
 
 def compute_footprint_wkt(gdal_path: str, progress: Optional[ProgressReporter] = None) -> str:

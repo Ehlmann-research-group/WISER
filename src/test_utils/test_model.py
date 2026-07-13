@@ -1183,6 +1183,11 @@ class WiserTestModel:
     def open_geo_referencer(self):
         self.main_window.show_geo_reference_dialog(in_test_mode=True)
 
+    @run_in_wiser_decorator
+    def apply_geo_ref_config(self, config) -> None:
+        """Apply a ``GeoReferencerConfig`` to the (already open) georeferencer dialog."""
+        self.main_window._geo_ref_dialog._apply_config(config)
+
     def close_geo_referencer(self):
         def func():
             self.main_window._geo_ref_dialog.close()
@@ -1191,6 +1196,21 @@ class WiserTestModel:
 
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
+
+    @run_in_wiser_decorator
+    def get_geo_ref_target_scale(self) -> float:
+        """Return the current zoom scale of the georeferencer's target pane."""
+        return self.main_window._geo_ref_dialog._target_rasterpane.get_scale()
+
+    @run_in_wiser_decorator
+    def set_geo_ref_target_scale(self, scale: float) -> None:
+        """Set the zoom scale of the georeferencer's target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane.set_scale(scale)
+
+    @run_in_wiser_decorator
+    def click_geo_ref_target_zoom_to_fit(self) -> None:
+        """Trigger the 'Zoom to fit' toolbar action on the target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane._act_zoom_to_fit.trigger()
 
     # region State Setting
 
@@ -1276,10 +1296,35 @@ class WiserTestModel:
         QTest.keyClicks(ledit, path)
         self.main_window._geo_ref_dialog._georeference()
 
-    @run_in_wiser_decorator
-    def click_run_warp(self) -> None:
-        btn = self.main_window._geo_ref_dialog._ui.btn_run_warp
-        QTest.mouseClick(btn, Qt.LeftButton)
+    def click_run_warp(self, timeout_ms: int = 60000) -> None:
+        """
+        Click "Run Warp" and pump the event loop until the (threaded) warp finishes.
+
+        The warp now runs off the GUI thread via ``run_with_progress`` and signals
+        completion through ``warp_completed``, so this helper waits for that signal (up to
+        ``timeout_ms``) before returning, keeping callers effectively synchronous.
+        """
+        dialog = self.main_window._geo_ref_dialog
+        completed = []
+
+        def _on_done(path):
+            completed.append(path)
+
+        dialog.warp_completed.connect(_on_done)
+        try:
+
+            def func():
+                QTest.mouseClick(dialog._ui.btn_run_warp, Qt.LeftButton)
+
+            self.app.postEvent(self.testing_widget, FunctionEvent(func))
+
+            waited = 0
+            step_ms = 50
+            while not completed and waited < timeout_ms:
+                QTest.qWait(step_ms)
+                waited += step_ms
+        finally:
+            dialog.warp_completed.disconnect(_on_done)
 
     # ---------- GCP creation helpers ----------
 
@@ -1682,6 +1727,65 @@ class WiserTestModel:
         if button is None:
             raise RuntimeError("OK/Cancel buttons not found in buttonBox")
         QTest.mouseClick(button, Qt.LeftButton)
+
+    # ------------------------------------------
+    # "From CRS String" tab helpers
+    # ------------------------------------------
+    @run_in_wiser_decorator
+    def crs_creator_select_string_tab(self) -> None:
+        """Switch the CRS creator to the 'From CRS String' tab."""
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.tabWidget.setCurrentWidget(dlg._ui.page_string)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_active_tab(self) -> str:
+        """Return 'params' or 'string' for the currently active tab."""
+        dlg = self.main_window._crs_creator_dialog
+        current = dlg._ui.tabWidget.currentWidget()
+        return "string" if current is dlg._ui.page_string else "params"
+
+    @run_in_wiser_decorator
+    def crs_creator_set_crs_string(self, text: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.pedit_crs_string.setPlainText(text)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_string_crs_name(self, name: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_string_crs_name
+        le.clear()
+        QTest.keyClicks(le, name)
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_press_validate_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_validate_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_add_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_add_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_result(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string_result.toPlainText()
+
+    @run_in_wiser_decorator
+    def crs_creator_string_add_enabled(self) -> bool:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.btn_add_crs_string.isEnabled()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_crs_name(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.ledit_string_crs_name.text().strip()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_crs_string(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string.toPlainText()
 
     # ==========================================
     # region Similarity Transform

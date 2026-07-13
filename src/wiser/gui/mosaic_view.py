@@ -17,6 +17,8 @@ Later issues fill in the two layers, both drawn through the seams stubbed here:
 """
 
 import logging
+import math
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
@@ -46,24 +48,108 @@ logger = logging.getLogger(__name__)
 
 # Debounce window for pan/zoom pixel re-reads: coalesce a gesture's burst of paints
 # into one background read once the camera settles for this long.
-_PIXEL_READ_DEBOUNCE_MS = 120
+_PIXEL_READ_DEBOUNCE_MS = 80
+
+# Tile-based pixel cache (#674). World space is quantized into a fixed grid of ARGB
+# tiles per discrete zoom bucket; a pan/zoom reuses already-cached tiles and only warps
+# the newly-exposed ones, so the loaded margin travels with the user without re-warping
+# the whole viewport each time.
+#
+#  * _TILE_PX        — the output size (px, square) each tile is warped at.
+#  * _TILE_CACHE_MAX — LRU bound on the number of cached tiles (~256 tiles of 256x256
+#                      ARGB ~= 64 MB). Tune alongside the debounce interval.
+#  * _PREFETCH_RING  — how many extra tile rings around the viewport to read, so the
+#                      loaded margin extends past the visible edge in every direction.
+_TILE_PX = 256
+_TILE_CACHE_MAX = 256
+_PREFETCH_RING = 1
+
+# Nudge the exclusive upper edge off an exact tile boundary so a rectangle whose max
+# lands precisely on a cell border does not pull in the next (empty) cell.
+_TILE_EPS = 1e-9
+
+
+def _zoom_bucket(world_units_per_pixel: float) -> int:
+    """
+    Snap a continuous camera scale to a discrete power-of-two zoom bucket.
+
+    The camera's ``world_units_per_pixel`` (wupp) is continuous, but caching tiles at
+    every exact wupp would make the tiniest zoom invalidate the whole cache. Instead we
+    render tiles at the nearest power-of-two resolution ``bucket_wupp = 2 ** bucket`` and
+    let the world->screen affine scale them to the actual zoom (the standard slippy-map
+    look), so a whole range of zooms shares one set of cached tiles.
+
+    ``round`` keeps the draw scale ``bucket_wupp / wupp`` within ``[1/sqrt2, sqrt2]``
+    (~[0.71, 1.41]); it is defined purely in terms of wupp, so it is CRS-agnostic
+    (degrees or metres, no per-CRS constant). Non-finite/non-positive scales fall back
+    to bucket 0.
+    """
+    if not math.isfinite(world_units_per_pixel) or world_units_per_pixel <= 0.0:
+        return 0
+    return round(math.log2(world_units_per_pixel))
+
+
+def _bucket_wupp(bucket: int) -> float:
+    """The quantized render resolution (world units per pixel) for a zoom ``bucket``."""
+    return 2.0**bucket
+
+
+def _tile_world_extent(bucket: int, col: int, row: int) -> Tuple[float, float, float, float]:
+    """
+    The world rectangle ``(min_x, min_y, max_x, max_y)`` a ``(col, row)`` cell covers.
+
+    Tiles are ``_TILE_PX`` pixels square at the bucket's resolution, so a cell spans
+    ``tws = _TILE_PX * bucket_wupp`` world units, anchored at the CRS's real ``(0, 0)``
+    origin. The anchoring makes the grid stable across pans at a fixed bucket, so the
+    same world area always maps to the same cell (hence a cache hit after a pan).
+    """
+    tws = _TILE_PX * _bucket_wupp(bucket)
+    return (col * tws, row * tws, (col + 1) * tws, (row + 1) * tws)
+
+
+def _tiles_covering_extent(
+    bucket: int, world_extent: Tuple[float, float, float, float], ring: int = 0
+) -> List[Tuple[int, int]]:
+    """
+    The ``(col, row)`` cells whose tiles cover ``world_extent`` at ``bucket``, plus an
+    optional ``ring`` of extra cells on every side (the prefetch margin).
+
+    ``world_extent`` is ``(min_x, min_y, max_x, max_y)`` in the target CRS. Returns the
+    cells in row-major order; an empty/degenerate extent yields no cells.
+    """
+    min_x, min_y, max_x, max_y = world_extent
+    if max_x <= min_x or max_y <= min_y:
+        return []
+    tws = _TILE_PX * _bucket_wupp(bucket)
+    col_lo = math.floor(min_x / tws) - ring
+    col_hi = math.floor((max_x - _TILE_EPS) / tws) + ring
+    row_lo = math.floor(min_y / tws) - ring
+    row_hi = math.floor((max_y - _TILE_EPS) / tws) + ring
+    return [(c, r) for r in range(row_lo, row_hi + 1) for c in range(col_lo, col_hi + 1)]
+
+
+# Identity of one cached tile: (id(scene), zoom bucket, tile col, tile row). Used as the
+# opaque key threaded through the warp worker and back so the GUI thread knows which cell
+# a returned RGBA array belongs to.
+_TileKey = Tuple[int, int, int, int]
 
 
 def _render_scene_layers(
-    jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int]],
-) -> List[Tuple[int, np.ndarray]]:
+    jobs: List[Tuple[_TileKey, MosaicScene, str, Tuple[float, float, float, float], int, int, int]],
+) -> List[Tuple[_TileKey, np.ndarray]]:
     """
-    Warp each job's scene into an RGBA array. Runs on a **scheduler thread** (no Qt).
+    Warp each job's tile into an RGBA array. Runs on a **scheduler thread** (no Qt).
 
-    ``jobs`` is ``(scene_key, scene, target_wkt, world_extent, width, height)``; the
-    result pairs each key with its ``(H, W, 4)`` RGBA array for the GUI thread to wrap
-    into a ``QImage``. A single scene that fails to render is skipped rather than
-    failing the whole batch (mirrors the per-scene guard in the synchronous path).
+    ``jobs`` is ``(tile_key, scene, target_wkt, world_extent, width, height,
+    resample_alg)``; the result pairs each key with its ``(H, W, 4)`` RGBA array for
+    the GUI thread to wrap into a ``QImage``. A single tile that fails to render is
+    skipped rather than failing the whole batch (mirrors the per-scene guard in the
+    synchronous path).
     """
-    out: List[Tuple[int, np.ndarray]] = []
-    for key, scene, target_wkt, world_extent, width, height in jobs:
+    out: List[Tuple[_TileKey, np.ndarray]] = []
+    for key, scene, target_wkt, world_extent, width, height, resample_alg in jobs:
         try:
-            out.append((key, render_scene_argb(scene, target_wkt, world_extent, width, height)))
+            out.append((key, render_scene_argb(scene, target_wkt, world_extent, width, height, resample_alg)))
         except Exception:  # noqa: BLE001 — a bad scene must not break the batch
             pass
     return out
@@ -214,30 +300,30 @@ class MosaicView(QWidget):
         self._mosaicpane = mosaicpane
         self._app_services = app_services
 
-        # Pixel layer (#637): the composited, screen-resolution mosaic image plus the
-        # per-scene ARGB caches it is stacked from.
+        # Pixel layer (#674): a tiled ARGB cache. World space is quantized into a fixed
+        # grid of _TILE_PX-square tiles per discrete zoom bucket; each cached tile is one
+        # scene's warp of one cell (keyed by _TileKey = (id(scene), bucket, col, row)).
+        # A pan/zoom reuses already-cached tiles and only warps the newly-exposed ones,
+        # so the loaded margin travels with the user instead of the whole viewport being
+        # re-warped on every settle (fixes the black pan edge, #674).
         #
-        # _scene_layers holds one ARGB QImage per visible scene (keyed by id(scene)) at
-        # the *current viewport* — the render signature below. Any pan/zoom changes the
-        # signature and re-reads every layer; the cache's payoff is that a z-order
-        # reorder or visibility toggle at a fixed viewport is a pure restack with no
-        # GDAL reads. _read_scene_ids records which scenes were visible at the last read
-        # so a restack can tell "legitimately not cached (non-intersecting)" from
-        # "was hidden, needs a read to reveal".
-        self._composite_pixmap: Optional[QPixmap] = None
-        self._composite_world_extent: Optional[Tuple[float, float, float, float]] = None
-        # Below, int is the id() of a MosaicScene in the current viewport
-        self._scene_layers: Dict[int, QImage] = {}
-        self._read_scene_ids: Set[int] = set()
-        self._render_signature: Optional[Tuple[float, float, float, int, int]] = None
+        # _tile_cache is an LRU (insertion-ordered, oldest first) bounded to
+        # _TILE_CACHE_MAX. _inflight_tiles holds keys currently being warped so a tile is
+        # never submitted twice. _read_epoch bumps whenever the cache is invalidated
+        # (add/remove scene, CRS change) so a read submitted before the invalidation is
+        # dropped instead of inserting now-stale pixels.
+        self._tile_cache: "OrderedDict[_TileKey, QImage]" = OrderedDict()
+        self._inflight_tiles: Set[_TileKey] = set()
+        self._read_epoch = 0
         self._pixels_dirty = True
+        # Camera identity at the last paint, so pan/zoom (which moves the camera) arms a
+        # debounced read while a pure restack (reorder/visibility) does not.
+        self._last_paint_signature: Optional[Tuple[float, float, float, int, int]] = None
 
-        # Off-thread + debounced pixel reads (#637). Pan/zoom paints coalesce into one
+        # Off-thread + debounced tile reads (#674). Pan/zoom paints coalesce into one
         # background read once the camera settles for _PIXEL_READ_DEBOUNCE_MS. Reads are
-        # submitted to the scheduler (when available); the prior composite is drawn,
-        # scaled by the camera, in the interim. _reading_signature is the viewport the
-        # in-flight read targets, so a superseded read's late result is discarded.
-        self._reading_signature: Optional[Tuple[float, float, float, int, int]] = None
+        # submitted to the scheduler (when available); cached tiles (including a nearest
+        # other-bucket fallback) keep drawing in the interim so there is no black frame.
         self._pending_future = None
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -319,32 +405,35 @@ class MosaicView(QWidget):
 
     def invalidate_pixels(self) -> None:
         """
-        Mark the per-scene pixel cache stale (a GDAL re-read is required) and repaint.
+        Drop the whole tile cache (a GDAL re-read is required) and repaint.
 
-        Called after a controller change that alters *which pixels* to read — a scene
-        added/removed or a target-CRS change. The rebuild runs lazily in
-        :meth:`paintEvent`. Distinct from :meth:`recomposite_only`, which restacks the
-        existing cache without any reads.
+        Called after a controller change that alters *which pixels* a tile maps to — a
+        scene added/removed or a target-CRS change (world coordinates keep the same
+        ``(col, row)`` key but now cover different data, so the cached pixels are no
+        longer valid). Bumping ``_read_epoch`` makes any read already in flight drop its
+        result instead of inserting stale tiles. The refill is scheduled lazily by the
+        next :meth:`paintEvent`. Distinct from :meth:`recomposite_only`, which reuses the
+        cache with no reads.
         """
+        self._read_epoch += 1
+        self._tile_cache.clear()
+        self._inflight_tiles.clear()
         self._pixels_dirty = True
         self.update()
 
     def recomposite_only(self) -> None:
         """
-        Restack the cached per-scene layers with **no GDAL reads** and repaint.
+        Repaint from the existing tile cache, reading **only** genuinely missing tiles.
 
-        This is the fast path for a z-order reorder or a visibility toggle at a fixed
-        viewport: the cached layers are still valid, only their stacking order or
-        which ones are drawn changes. Falls back to :meth:`invalidate_pixels` when a
-        now-visible scene has no cached layer because it was hidden at the last read
-        (revealing it genuinely needs a read); a visible scene that is merely off-view
-        was still *considered* at the last read, so it stays on the no-read path.
+        The fast path for a z-order reorder or a visibility toggle: the cached tiles are
+        still valid (they are keyed per scene, independent of order/visibility), so a
+        reorder or a hide is a pure repaint with no reads, and re-showing a scene reuses
+        its still-cached tiles for free. The only case that reads is *revealing* a scene
+        that was hidden at every prior read of this viewport (so its tiles were never
+        warped); :meth:`_start_pixel_read` detects those missing tiles and warps just
+        them — an all-cached restack submits zero warp jobs.
         """
-        visible_ids = {id(s) for s in self._controller.get_scenes() if s.visible}
-        if not visible_ids.issubset(self._read_scene_ids):
-            self.invalidate_pixels()
-            return
-        self._recomposite()
+        self._schedule_pixel_read()
         self.update()
 
     def _visible_world_extent(self) -> Tuple[float, float, float, float]:
@@ -389,9 +478,32 @@ class MosaicView(QWidget):
             self.height(),
         )
 
+    def _render_bucket(self) -> int:
+        """
+        The zoom bucket tiles are rendered at — the camera's bucket, but never finer
+        than the mosaic's own resolution.
+
+        Rendering finer than the source data is pointless work: ``gdal.Warp`` would just
+        upsample the common grid onto a denser grid, producing no new detail while
+        (deeply below native) getting very slow. So the render bucket is floored at the
+        common grid's resolution: once the user zooms past native, the same
+        grid-resolution tiles are reused and the world->screen affine scales them up (one
+        source pixel drawn as a block), which is both correct and free. The floor is a
+        single view-wide value, so every scene still renders at one shared bucket and the
+        per-cell :meth:`composite` stays pixel-aligned.
+        """
+        camera_bucket = _zoom_bucket(self._transform.world_units_per_pixel)
+        gt = self._controller.get_common_grid().geotransform
+        if gt is None:
+            return camera_bucket
+        grid_res = min(abs(gt[1]), abs(gt[5]))  # finest of the grid's x/y pixel size
+        if grid_res <= 0.0:
+            return camera_bucket
+        return max(camera_bucket, _zoom_bucket(grid_res))  # never finer than the grid
+
     def _schedule_pixel_read(self) -> None:
         """
-        Ask for a fresh per-scene read of the current viewport.
+        Ask for a read of any tiles the current viewport needs but does not have.
 
         With a scheduler, this (re)starts the debounce timer so a pan/zoom gesture's
         burst of paints collapses into a single background read once the camera
@@ -405,49 +517,60 @@ class MosaicView(QWidget):
 
     def _start_pixel_read(self) -> None:
         """
-        Snapshot the current viewport on the GUI thread, then read its scenes.
+        Snapshot the viewport on the GUI thread and warp its **missing** tiles.
 
         The cheap, Qt-adjacent work (resolving the target CRS, reprojecting footprints,
-        the in-view intersect test) happens here; only the heavy per-scene warps are
-        handed to the worker. With no scheduler the worker runs inline.
+        the per-tile intersect test) happens here; only the heavy per-tile warps are
+        handed to the worker. Tiles already cached or already in flight are skipped, so
+        a pan warps only the newly-exposed cells and an all-cached restack warps
+        nothing. With no scheduler the worker runs inline.
         """
-        signature = self._current_signature()
         target_wkt = self._controller.get_target_crs()
         w, h = self.width(), self.height()
         if target_wkt is None or w <= 1 or h <= 1:
-            # Nothing to read; clear the cache and mark this viewport as done so we
-            # don't reschedule every paint.
-            self._apply_pixel_read((signature, None, set(), []))
-            self._reading_signature = signature
-            return
+            return  # nothing to read yet (no grid, or the widget has no real size)
 
         world_extent = self._visible_world_extent()
+        bucket = self._render_bucket()
         try:
             footprints = self._controller.visible_scene_footprints_in_common_crs()
         except Exception:  # noqa: BLE001 — never let a paint-driven read raise
             logger.exception("Failed to resolve mosaic scene footprints")
             footprints = []
 
-        read_scene_ids: Set[int] = set()
-        jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int]] = []
+        # Snapshot the resampling method on the GUI thread so the warp (which runs off
+        # the GUI thread) uses the controller's current choice (#638).
+        resample_alg = self._controller.get_resample_alg()
+        cells = _tiles_covering_extent(bucket, world_extent, _PREFETCH_RING)
+        jobs: List[Tuple[_TileKey, MosaicScene, str, Tuple[float, float, float, float], int, int, int]] = []
         for scene, geom in footprints:
-            read_scene_ids.add(id(scene))
-            if self._envelope_intersects(geom, world_extent):
-                jobs.append((id(scene), scene, target_wkt, world_extent, w, h))
+            for col, row in cells:
+                key: _TileKey = (id(scene), bucket, col, row)
+                if key in self._tile_cache or key in self._inflight_tiles:
+                    continue
+                tile_extent = _tile_world_extent(bucket, col, row)
+                if not self._envelope_intersects(geom, tile_extent):
+                    continue  # this scene's data does not reach this cell — never warp it
+                jobs.append((key, scene, target_wkt, tile_extent, _TILE_PX, _TILE_PX, resample_alg))
 
-        self._reading_signature = signature
+        if not jobs:
+            return  # every needed tile is cached or already being read
+
+        submitted = tuple(job[0] for job in jobs)
+        self._inflight_tiles.update(submitted)
+        epoch = self._read_epoch
         if self._app_services is None:
-            self._apply_pixel_read((signature, world_extent, read_scene_ids, _render_scene_layers(jobs)))
+            self._apply_pixel_read((epoch, submitted, _render_scene_layers(jobs)))
             return
 
-        def _done(future, signature=signature, world_extent=world_extent, read_scene_ids=read_scene_ids):
+        def _done(future, epoch=epoch, submitted=submitted):
             # Runs on the scheduler thread; hop back to the GUI thread via the signal.
             try:
                 results = future.result()
             except Exception:  # noqa: BLE001 — surface nothing rather than crash a worker
                 logger.exception("Mosaic pixel read failed")
                 results = []
-            self._read_ready.emit((signature, world_extent, read_scene_ids, results))
+            self._read_ready.emit((epoch, submitted, results))
 
         self._pending_future = self._app_services.scheduler.submit_thread(
             PriorityClass.BACKGROUND, _render_scene_layers, jobs
@@ -456,38 +579,27 @@ class MosaicView(QWidget):
 
     def _apply_pixel_read(self, payload) -> None:
         """
-        Install a completed read on the GUI thread, unless it has been superseded.
+        Insert completed tiles into the LRU cache on the GUI thread.
 
-        Only the most recently *submitted* read (``_reading_signature``) is applied;
-        an out-of-order or stale result for an older viewport is dropped so it can
-        never clobber newer pixels. Wrapping RGBA into ``QImage`` happens here (Qt
-        objects must be built on the GUI thread), then the layers are restacked.
+        ``payload`` is ``(epoch, submitted_keys, results)``. Every submitted key is
+        cleared from ``_inflight_tiles`` first — including tiles the worker skipped on
+        error — so a transient failure can be retried on the next settle. Results are
+        dropped without inserting when ``epoch`` is stale (the cache was invalidated
+        after this read was submitted), so a CRS change / add / remove never installs
+        tiles that no longer match. Reads are otherwise **additive**: a late tile from a
+        superseded pan is still a valid entry for its cell, kept or evicted by the LRU.
         """
-        signature, world_extent, read_scene_ids, results = payload
-        if signature != self._reading_signature:
-            return  # superseded by a newer read; discard
-        self._reading_signature = None
-        self._scene_layers = {key: self._numpy_to_argb_qimage(rgba) for key, rgba in results}
-        self._read_scene_ids = read_scene_ids
-        self._composite_world_extent = world_extent
-        self._render_signature = signature
+        epoch, submitted_keys, results = payload
+        self._inflight_tiles.difference_update(submitted_keys)
+        if epoch != self._read_epoch:
+            return  # cache was invalidated since this read was submitted; drop it
+        for key, rgba in results:
+            self._tile_cache[key] = self._numpy_to_argb_qimage(rgba)
+            self._tile_cache.move_to_end(key)
+        while len(self._tile_cache) > _TILE_CACHE_MAX:
+            self._tile_cache.popitem(last=False)  # evict the least-recently-used tile
         self._pixels_dirty = False
-        self._recomposite()
         self.update()
-
-    def _recomposite(self) -> None:
-        """
-        Stack the cached per-scene layers bottom-to-top into ``_composite_pixmap``.
-
-        Walks the controller's bottom-to-top scene order and takes each visible
-        scene's cached layer (``None`` for hidden scenes or scenes with no cached
-        layer), so z-order and visibility are honored here purely from the cache — no
-        reads. ``_composite_world_extent`` is left as the last read set it.
-        """
-        scenes = self._controller.get_scenes()
-        layers = [self._scene_layers.get(id(s)) if s.visible else None for s in scenes]
-        result = self.composite(layers)
-        self._composite_pixmap = QPixmap.fromImage(result) if result is not None else None
 
     # -- pan / zoom -----------------------------------------------------------
 
@@ -517,6 +629,91 @@ class MosaicView(QWidget):
         if event.button() == Qt.MiddleButton and self._pan_anchor is not None:
             self._pan_anchor = None
             event.accept()
+
+    # -- tile drawing (#674) --------------------------------------------------
+
+    def _draw_pixel_layer(self, painter: QPainter) -> None:
+        """
+        Draw the tiled pixel layer for the current viewport, in two passes.
+
+        Pass 1 (fallback) draws the nearest *other* zoom bucket's cached tiles that
+        intersect the viewport, scaled through the camera, so a zoom into a not-yet-read
+        bucket is never black. Pass 2 (sharp) draws the current bucket: per cell it
+        stacks each visible scene's tile via :meth:`composite` (the single stacking
+        indirection point) and blits the result at the cell's world rect. Both passes
+        map world rects through the world->screen affine, so off-screen tiles simply do
+        not land on the widget.
+        """
+        w2s = self._transform.world_to_screen(self.size())
+        world_extent = self._visible_world_extent()
+        bucket = self._render_bucket()
+        # bottom-to-top so later (upper) scenes composite over lower ones
+        visible_scenes = [s for s in self._controller.get_scenes() if s.visible]
+        scene_order = {id(s): i for i, s in enumerate(visible_scenes)}
+
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        self._draw_fallback_tiles(painter, w2s, scene_order, bucket, world_extent)
+
+        for col, row in _tiles_covering_extent(bucket, world_extent):
+            layers: List[Optional[QImage]] = []
+            for scene in visible_scenes:
+                key: _TileKey = (id(scene), bucket, col, row)
+                img = self._tile_cache.get(key)
+                if img is not None:
+                    self._tile_cache.move_to_end(key)  # drawn => most-recently-used
+                layers.append(img)
+            cell = self.composite(layers)
+            if cell is not None:
+                self._draw_tile_image(painter, w2s, bucket, col, row, cell)
+
+    def _draw_fallback_tiles(
+        self,
+        painter: QPainter,
+        w2s: QTransform,
+        scene_order: Dict[int, int],
+        bucket: int,
+        world_extent: Tuple[float, float, float, float],
+    ) -> None:
+        """
+        Under-draw the nearest cached bucket other than ``bucket`` (a scaled preview).
+
+        Picks, among cached tiles of currently-visible scenes that intersect the
+        viewport, the bucket closest to the current one and draws its tiles bottom-to-top
+        directly (no per-cell :meth:`composite` — cross-bucket tiles are not cell-aligned
+        across scenes, and this is only a transient fill under the sharp pass). Bounded by
+        the cache size, so it is cheap.
+        """
+        candidates = [
+            key
+            for key in self._tile_cache
+            if key[1] != bucket
+            and key[0] in scene_order
+            and self._tile_intersects_viewport(key[1], key[2], key[3], world_extent)
+        ]
+        if not candidates:
+            return
+        best_bucket = min(candidates, key=lambda k: abs(k[1] - bucket))[1]
+        tiles = [k for k in candidates if k[1] == best_bucket]
+        tiles.sort(key=lambda k: scene_order[k[0]])  # bottom-to-top
+        for _sid, b, col, row in tiles:
+            self._draw_tile_image(painter, w2s, b, col, row, self._tile_cache[(_sid, b, col, row)])
+
+    @staticmethod
+    def _tile_intersects_viewport(
+        bucket: int, col: int, row: int, world_extent: Tuple[float, float, float, float]
+    ) -> bool:
+        """Does a tile's world rect overlap the visible world rectangle?"""
+        tx0, ty0, tx1, ty1 = _tile_world_extent(bucket, col, row)
+        vx0, vy0, vx1, vy1 = world_extent
+        return not (tx1 <= vx0 or tx0 >= vx1 or ty1 <= vy0 or ty0 >= vy1)
+
+    def _draw_tile_image(
+        self, painter: QPainter, w2s: QTransform, bucket: int, col: int, row: int, img: QImage
+    ) -> None:
+        """Blit one tile ``img`` at its ``(bucket, col, row)`` world rect through ``w2s``."""
+        min_x, min_y, max_x, max_y = _tile_world_extent(bucket, col, row)
+        target_rect = w2s.mapRect(QRectF(min_x, min_y, max_x - min_x, max_y - min_y))
+        painter.drawImage(target_rect, img)
 
     def composite(self, layers: List[Optional[QImage]]) -> Optional[QImage]:
         """
@@ -567,29 +764,23 @@ class MosaicView(QWidget):
             self._rebuild_overlay_geometry()
             self._geometry_dirty = False
 
-        # Pixel layer: when the viewport (render signature) changed or the cache was
-        # explicitly invalidated, schedule a debounced background re-read — unless a
-        # read for this exact viewport is already in flight (wait for it instead). The
-        # prior composite keeps drawing, scaled by the camera, in the interim.
+        # Pixel layer: when the camera moved (pan/zoom) or the cache was explicitly
+        # invalidated, schedule a debounced read of whatever tiles the new viewport is
+        # missing. A pure restack (reorder/visibility) leaves the camera put, so it does
+        # not arm here — it schedules its own (usually no-op) read via recomposite_only.
         signature = self._current_signature()
-        if (
-            self._pixels_dirty or self._render_signature != signature
-        ) and signature != self._reading_signature:
+        if self._pixels_dirty or self._last_paint_signature != signature:
+            self._pixels_dirty = False
+            self._last_paint_signature = signature
             self._schedule_pixel_read()
 
         with get_painter(self) as painter:
             painter.fillRect(self.rect(), self.palette().window())
 
-            # --- Layer 1: pixel layer (#637) -------------------------------------
-            # Draw the composited pixmap mapped by the world->screen affine, so an
-            # interim pan/zoom simply scales the last composite until the next rebuild.
-            if self._composite_pixmap is not None and self._composite_world_extent is not None:
-                painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-                min_x, min_y, max_x, max_y = self._composite_world_extent
-                target_rect = self._transform.world_to_screen(self.size()).mapRect(
-                    QRectF(min_x, min_y, max_x - min_x, max_y - min_y)
-                )
-                painter.drawPixmap(target_rect, self._composite_pixmap, QRectF(self._composite_pixmap.rect()))
+            # --- Layer 1: pixel layer (#674, tiled) ------------------------------
+            # Cached tiles drawn in world coordinates through the affine; a nearest
+            # other-bucket fallback under-draws so pan/zoom never shows a black frame.
+            self._draw_pixel_layer(painter)
 
             # --- Layer 2: vector overlay (#636) ----------------------------------
             painter.setRenderHint(QPainter.Antialiasing, True)
