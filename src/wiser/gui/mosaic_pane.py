@@ -15,7 +15,8 @@ z-order/visibility, a re-read (``invalidate_pixels``) when the pixels change, an
 rebuild when the output geometry changes.
 """
 
-from typing import Optional, TYPE_CHECKING
+from pathlib import Path
+from typing import Optional, Sequence, TYPE_CHECKING
 
 from osgeo import gdal, osr
 
@@ -30,12 +31,14 @@ from .mosaic_view import MosaicView
 from .progress_task import run_with_progress
 
 from wiser.raster.mosaic_controller import (
+    CommonGrid,
     MosaicController,
     MosaicScene,
     ResolutionMode,
     TargetCrsRequired,
     UnmappableCrsError,
 )
+from wiser.raster.mosaic_export import export_mosaic
 from wiser.raster.mosaic_ingestion import (
     SceneValidationError,
     build_overviews,
@@ -81,6 +84,38 @@ def _ingest_scene(
         footprint_wkt=footprint_wkt,
         has_overviews=True,
     )
+
+
+def _export_mosaic_task(
+    scenes: Sequence[MosaicScene],
+    grid: CommonGrid,
+    target_wkt: str,
+    resample_alg: int,
+    output_nodata: Optional[float],
+    band_metadata_dataset: Optional["RasterDataSet"],
+    out_path: str,
+    progress: Optional[ProgressReporter] = None,
+) -> str:
+    """
+    Background full-resolution export: composite the visible scenes onto the common
+    grid and stream the mosaic to ``out_path`` as ENVI.
+
+    Runs on a scheduler thread (no Qt here). Delegates to the Qt-free
+    :func:`wiser.raster.mosaic_export.export_mosaic` and returns the written path as
+    a string for the main thread's success callback. The result is intentionally
+    *not* loaded back into WISER — the user opens the file manually.
+    """
+    result = export_mosaic(
+        scenes,
+        grid,
+        target_wkt,
+        resample_alg,
+        output_nodata,
+        band_metadata_dataset,
+        Path(out_path),
+        progress=progress,
+    )
+    return str(result)
 
 
 class MosaicPane(QWidget):
@@ -142,11 +177,12 @@ class MosaicPane(QWidget):
         # Preview toggle deferred for v1 (#638): intentionally not added yet.
         # self._controls_layout.addWidget(self._build_preview_toggle())
 
-        # Export / Finish hands off to the export path (#639), which is not built yet,
-        # so the button is present (final layout) but disabled until then.
+        # Export / Finish streams the full-resolution mosaic to an ENVI file (#639).
         self._export_button = QPushButton(self.tr("Export / Finish…"), self._controls)
-        self._export_button.setEnabled(False)
-        self._export_button.setToolTip(self.tr("Export lands in issue #639."))
+        self._export_button.setToolTip(
+            self.tr("Composite the visible scenes at full resolution and write an ENVI file.")
+        )
+        self._export_button.clicked.connect(self._on_export_clicked)
         self._controls_layout.addWidget(self._export_button)
 
         # The controls stack can grow taller than a short window, so host it in a
@@ -558,6 +594,103 @@ class MosaicPane(QWidget):
         self._controller.set_resample_alg(alg)
         # The warp algorithm changes the rendered pixels, so force a fresh read.
         self._mosaic_view.invalidate_pixels()
+
+    # -- export ---------------------------------------------------------------
+
+    def _on_export_clicked(self) -> None:
+        """
+        Composite the visible scenes at full resolution and stream the result to an
+        ENVI file the user picks. Runs on a scheduler thread with a progress modal +
+        Activity Monitor row (mirroring the ingestion path); the written file is *not*
+        loaded back into WISER — the user opens it manually.
+        """
+        if self._app_services is None:
+            return
+
+        visible = [scene for scene in self._controller.get_scenes() if scene.visible]
+        if not visible:
+            QMessageBox.information(
+                self,
+                self.tr("Nothing to export"),
+                self.tr("Add at least one visible scene before exporting."),
+            )
+            return
+
+        # Resolve the output grid first (may prompt for a target CRS), then confirm it
+        # actually produced a usable extent before asking for an output path.
+        if not self._ensure_common_grid():
+            return
+        grid = self._controller.get_common_grid()
+        if grid.extent is None or not grid.width or not grid.height:
+            QMessageBox.warning(
+                self,
+                self.tr("Cannot export"),
+                self.tr("The common output grid is not resolved yet."),
+            )
+            return
+
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export mosaic as ENVI"),
+            "",
+            self.tr("ENVI raster (*.img);;All files (*)"),
+        )
+        if not path:
+            return
+
+        band_source = self._controller.get_band_metadata_source()
+        band_metadata_dataset = band_source.dataset if band_source is not None else None
+        output_nodata = self._resolve_output_nodata(band_metadata_dataset, visible)
+
+        # Snapshot the controller state on the GUI thread and hand the heavy work to a
+        # scheduler thread; block only the mosaic dialog while it runs.
+        self._active_progress_task = run_with_progress(
+            app_services=self._app_services,
+            block_window=self.window(),
+            title=self.tr("Exporting mosaic"),
+            fn=_export_mosaic_task,
+            scenes=visible,
+            grid=grid,
+            target_wkt=self._controller.get_target_crs(),
+            resample_alg=self._controller.get_resample_alg(),
+            output_nodata=output_nodata,
+            band_metadata_dataset=band_metadata_dataset,
+            out_path=path,
+            on_success=self._on_export_finished,
+            on_error=self._on_export_failed,
+            description=self.tr("Compositing mosaic…"),
+            meta={"scenes": str(len(visible))},
+        )
+
+    @staticmethod
+    def _resolve_output_nodata(
+        band_metadata_dataset: Optional["RasterDataSet"],
+        visible_scenes: Sequence[MosaicScene],
+    ) -> Optional[float]:
+        """
+        Pick the output Data Ignore Value: the canonical band-metadata dataset's if it
+        has one, else the top-most visible scene that has one (top → bottom), else
+        ``None`` (no scene defines a nodata, so nodata compositing is a no-op).
+        """
+        if band_metadata_dataset is not None:
+            nodata = band_metadata_dataset.get_data_ignore_value()
+            if nodata is not None:
+                return nodata
+        for scene in reversed(list(visible_scenes)):
+            nodata = scene.dataset.get_data_ignore_value()
+            if nodata is not None:
+                return nodata
+        return None
+
+    def _on_export_finished(self, out_path: str) -> None:
+        QMessageBox.information(
+            self,
+            self.tr("Export complete"),
+            self.tr("Mosaic written to:\n{0}").format(out_path),
+        )
+
+    def _on_export_failed(self, message: str) -> None:
+        QMessageBox.warning(self, self.tr("Export failed"), message)
 
     # -- common grid / target CRS ---------------------------------------------
 
