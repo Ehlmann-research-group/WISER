@@ -926,6 +926,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-validate-scene-mosaic-ingestion-py">Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-build-display-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.build_display_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overviews-build-overviews-mosaic-ingestion-py">Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py">Stretch bounds (<code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py">Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-reporting">Progress reporting</a></li>
 </ul>
@@ -947,8 +948,8 @@ window.runMermaid = runMermaid;</script>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-pixel-layer-static-scene-compositor">The Pixel Layer (Static-Scene Compositor)</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-per-scene-renderer-render-scene-argb-qt-free">The per-scene renderer (<code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, Qt-free)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-per-scene-cache-and-composite">The per-scene cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#off-thread-debounced-reads">Off-thread, debounced reads</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-tiled-cache-and-composite">The tiled cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#off-thread-debounced-reads-and-the-two-pass-paint">Off-thread, debounced reads, and the two-pass paint</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-geometry-overlay-vector-layer">The Geometry Overlay (Vector Layer)</a><ul class="visible nav section-nav flex-column">
@@ -998,8 +999,10 @@ materialization (a <strong>display-only</strong> preview artifact baked eagerly 
 full-band cube materialized <strong>lazily at export</strong> — see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
 Metadata</span></a>), common-grid/CRS resolution, the
 <strong>vector overlay</strong> (footprints, bounding box, overlap highlight), the <strong>static-scene
-pixel compositor</strong> (the composited preview, with an off-thread debounced per-scene
-cache), the <strong>control panel</strong> (drag-to-reorder z-order, resolution mode, resampling
+pixel compositor</strong> (the composited
+preview, with an off-thread debounced tiled cache (#674) and a stable, zoom-independent
+per-scene contrast stretch cached at ingest — see <a class="reference internal" href="#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy"><span class="xref myst">Stretch
+bounds</span></a>), the <strong>control panel</strong> (drag-to-reorder z-order, resolution mode, resampling
 method, and the band-metadata chooser), the <strong>full-resolution export path</strong>
 (streaming ENVI compositor on the common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
 Path</span></a>), and <strong>in-place scene
@@ -1026,7 +1029,7 @@ a running application.</p></li>
 (not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
 zoomed). It draws two layers on a QGIS-style unbounded canvas via a world→screen
 camera (<code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code>): the <strong>pixel layer</strong> (the composited scenes, from a
-per-scene ARGB cache — see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel Layer</span></a>)
+tiled ARGB cache — see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel Layer</span></a>)
 and, on top, the <strong>vector overlay</strong> (footprints, bounding box, overlap highlight — see
 <a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>).</p></li>
 </ul>
@@ -1066,7 +1069,7 @@ Metadata</span></a>.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">MosaicController</span></code>, <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code>, <code class="docutils literal notranslate"><span class="pre">SceneMetadataSnapshot</span></code>, <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>, <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> — the non-GUI model</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_ingestion.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code> — Qt-free ingestion gates</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code> — Qt-free ingestion gates</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_compositor.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer; reads the display-only artifact’s bands in order</p></td>
@@ -1124,9 +1127,9 @@ boxes). <code class="docutils literal notranslate"><span class="pre">MosaicPane<
     class MosaicView {
         mosaic_view.py
         -_controller : MosaicController
-        -_composite_pixmap : QPixmap
-        -_scene_layers : Dict~int, QImage~
-        -_render_signature : tuple
+        -_tile_cache : OrderedDict~TileKey, QImage~
+        -_inflight_tiles : Set~TileKey~
+        -_read_epoch : int
         -_transform : MosaicViewTransform
         -_footprint_paths : List~QPainterPath~
         -_hidden_paths : List~QPainterPath~
@@ -1238,7 +1241,7 @@ with <code class="docutils literal notranslate"><span class="pre">TemporaryDirec
 <hr class="docutils" />
 <section id="scene-ingestion-pipeline">
 <h2>Scene Ingestion Pipeline<a class="headerlink" href="#scene-ingestion-pipeline" title="Link to this heading">#</a></h2>
-<p>Adding a scene runs three gated phases on a background thread, orchestrated by
+<p>Adding a scene runs four gated phases on a background thread, orchestrated by
 <code class="docutils literal notranslate"><span class="pre">_ingest_scene()</span></code> (<code class="docutils literal notranslate"><span class="pre">mosaic_pane.py</span></code>):</p>
 <pre  class="mermaid">
         sequenceDiagram
@@ -1261,8 +1264,9 @@ with <code class="docutils literal notranslate"><span class="pre">TemporaryDirec
         Sched-&gt;&gt;Ingest: run on scheduler thread
         Ingest-&gt;&gt;Mat: build_display_source(dataset, snapshot.display_bands) → display-only GeoTIFF
         Ingest-&gt;&gt;Ingest: build_overviews(gdal_path)
+        Ingest-&gt;&gt;Ingest: compute_stretch_bounds(gdal_path, dataset)
         Ingest-&gt;&gt;Ingest: compute_footprint_wkt(gdal_path)
-        Ingest--&gt;&gt;Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True, snapshot)
+        Ingest--&gt;&gt;Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True, stretch_bounds)
         Sched--&gt;&gt;Pane: on_success(scene) [GUI thread]
         Pane-&gt;&gt;Ctrl: add_scene(scene)
         Pane-&gt;&gt;Pane: _refresh_scene_list()
@@ -1316,6 +1320,23 @@ a WISER-owned temp copy, overviews can be written internally rather than as exte
 <code class="docutils literal notranslate"><span class="pre">.ovr</span></code> sidecars — and with only 1–3 bands the pyramid is a fraction of the full-cube
 cost.</p>
 </section>
+<section id="stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py">
+<h3>Stretch bounds (<code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<p>Computes stable, extent-independent 2-98 percentile contrast-stretch bounds per
+display band (issue #675), stored on <code class="docutils literal notranslate"><span class="pre">MosaicScene.stretch_bounds</span></code> (source band index
+→ <code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code>). Runs right after overviews, since it samples one: reads the
+level-4 internal overview (falling back to the coarsest available, or the full band
+if no overviews exist) rather than the full-resolution data, so a whole-scene
+percentile pass stays cheap regardless of the source’s size — level 4 rather than the
+coarsest level trades a little ingest time for a larger, more representative sample
+(the coarsest overview’s sparser <code class="docutils literal notranslate"><span class="pre">NEAREST</span></code>-resampled pixels risk missing a small
+bright/dark feature). A band with no valid (non-nodata) pixels in the sample is simply
+omitted from the result.</p>
+<p>This is what fixes the bug the pixel layer’s per-scene renderer used to have: see
+<a class="reference internal" href="#the-per-scene-renderer-render_scene_argb-qt-free"><span class="xref myst">The per-scene renderer</span></a> below for
+how the compositor consumes these bounds instead of recomputing a stretch from
+whatever happens to be in the current viewport.</p>
+</section>
 <section id="footprint-compute-footprint-wkt-mosaic-ingestion-py">
 <h3>Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Derives the valid-pixel outline via <code class="docutils literal notranslate"><span class="pre">gdal.Footprint(...,</span> <span class="pre">format=&quot;WKT&quot;)</span></code> on the
@@ -1326,10 +1347,10 @@ back to the full raster rectangle.</p>
 </section>
 <section id="progress-reporting">
 <h3>Progress reporting<a class="headerlink" href="#progress-reporting" title="Link to this heading">#</a></h3>
-<p>All three phases share one <code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code> (<code class="docutils literal notranslate"><span class="pre">wiser/utils/progress.py</span></code>), split by
-weight — materialize 0.5, overviews 0.35, footprint 0.15 — so the overall bar advances
-smoothly across phases that report in very different native units (per-band count vs.
-GDAL’s own <code class="docutils literal notranslate"><span class="pre">0..1</span></code> callbacks). The reporter is Qt-free; <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code>
+<p>All four phases share one <code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code> (<code class="docutils literal notranslate"><span class="pre">wiser/utils/progress.py</span></code>), split by
+weight — materialize 0.45, overviews 0.30, stretch bounds 0.10, footprint 0.15 — so the
+overall bar advances smoothly across phases that report in very different native units
+(per-band count vs. GDAL’s own <code class="docutils literal notranslate"><span class="pre">0..1</span></code> callbacks). The reporter is Qt-free; <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code>
 (<code class="docutils literal notranslate"><span class="pre">wiser/gui/progress_task.py</span></code>) is the reusable GUI bridge that:</p>
 <ul class="simple">
 <li><p>shows a non-blocking-to-the-rest-of-WISER <code class="docutils literal notranslate"><span class="pre">ProgressDialog</span></code> (disables only the mosaic
@@ -1558,15 +1579,19 @@ convention used throughout WISER (see the georeferencer’s identical convention
 <p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_compositor.py</span></code> (Qt-free per-scene renderer) and
 <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_view.py</span></code> (cache, compositing, drawing, threading).</p>
 <p>Beneath the vector overlay, <code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> draws the actual composited scenes (issue
-#637): each visible scene is read at <strong>screen resolution</strong> into an <strong>ARGB <code class="docutils literal notranslate"><span class="pre">QImage</span></code></strong>
+#637): each visible scene is warped, one <strong>tile</strong> at a time, into an <strong>ARGB <code class="docutils literal notranslate"><span class="pre">QImage</span></code></strong>
 whose alpha is its validity mask, and the scenes are stacked bottom-to-top honoring
-z-order so lower scenes show through upper scenes’ nodata holes.</p>
+z-order so lower scenes show through upper scenes’ nodata holes. The tiling and caching
+(#674) live in <code class="docutils literal notranslate"><span class="pre">mosaic_view.py</span></code>; the renderer below is unchanged — it just receives a
+tile’s world rectangle rather than the whole viewport.</p>
 <section id="the-per-scene-renderer-render-scene-argb-qt-free">
 <h3>The per-scene renderer (<code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, Qt-free)<a class="headerlink" href="#the-per-scene-renderer-render-scene-argb-qt-free" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">mosaic_compositor.render_scene_argb(scene,</span> <span class="pre">target_wkt,</span> <span class="pre">world_extent,</span> <span class="pre">w,</span> <span class="pre">h)</span></code> warps one
-scene onto the current viewport rectangle at output size <code class="docutils literal notranslate"><span class="pre">w×h</span></code> via
+scene onto the requested <code class="docutils literal notranslate"><span class="pre">world_extent</span></code> at output size <code class="docutils literal notranslate"><span class="pre">w×h</span></code> via
 <code class="docutils literal notranslate"><span class="pre">gdal.Warp(...,</span> <span class="pre">dstSRS=target_wkt,</span> <span class="pre">outputBounds=world_extent,</span> <span class="pre">dstAlpha=True)</span></code> and returns
-an <code class="docutils literal notranslate"><span class="pre">(h,</span> <span class="pre">w,</span> <span class="pre">4)</span></code> uint8 RGBA array. A single <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> does four jobs at once:</p>
+an <code class="docutils literal notranslate"><span class="pre">(h,</span> <span class="pre">w,</span> <span class="pre">4)</span></code> uint8 RGBA array. Callers pass one tile’s world rectangle at <code class="docutils literal notranslate"><span class="pre">256×256</span></code>
+(see <a class="reference internal" href="#the-tiled-cache-and-composite"><span class="xref myst">The tiled cache</span></a>), but the renderer neither knows
+nor cares that it is a tile. A single <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> does four jobs at once:</p>
 <ul class="simple">
 <li><p><strong>reprojection</strong> onto the target CRS,</p></li>
 <li><p><strong>downsampling</strong> — because the output is far coarser than the source, GDAL reads from
@@ -1576,55 +1601,127 @@ the internal <strong>overviews</strong> built in #634 (the whole point of buildi
 outside-coverage pixels, so the alpha channel <em>is</em> the validity mask (no manual
 mask-band read). This mirrors the warp seam already used by <code class="docutils literal notranslate"><span class="pre">_warped_resolution</span></code>.</p></li>
 </ul>
-<p>Since #677 <code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code> is the <strong>display-only</strong> artifact whose bands already <em>are</em>
-the resolved display bands, so RGB is read straight from bands 1..N <strong>in order</strong> (1 band
-→ grayscale, 3 → RGB) — <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> no longer picks 3-of-N or consults the
-dataset’s display bands (that decision moved upstream to materialize time). Each band is
-contrast-stretched over the valid pixels (2–98 percentile); invalid pixels are forced
-fully clear <code class="docutils literal notranslate"><span class="pre">(0,0,0,0)</span></code> so nothing bleeds under a transparent alpha. It is Qt-free
-(produces a NumPy array) so it is unit-testable without a running app and can run on a
+<p>RGB comes from the dataset’s <code class="docutils literal notranslate"><span class="pre">get_default_display_bands()</span></code> (1 band → grayscale, 3 →
+RGB), contrast-stretched per band (2–98 percentile). Invalid pixels are forced fully
+clear <code class="docutils literal notranslate"><span class="pre">(0,0,0,0)</span></code> so nothing bleeds under a transparent alpha. It is Qt-free (produces
+a NumPy array) so it is unit-testable without a running app and can run on a
 background thread; the view wraps the array into a <code class="docutils literal notranslate"><span class="pre">QImage</span></code> on the GUI thread.</p>
+<blockquote>
+<div><p><strong>The stretch is against <code class="docutils literal notranslate"><span class="pre">scene.stretch_bounds</span></code>, not the viewport’s pixels</strong> (issue
+#675). Originally the 2-98 percentile was computed from whatever pixels happened to
+land in the current warp output — so zooming in fed a smaller, different pixel
+population into the percentile on every paint, and a scene’s on-screen contrast
+visibly drifted as the user zoomed, even though nothing about the data changed.
+<code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> now looks up <code class="docutils literal notranslate"><span class="pre">scene.stretch_bounds[band_idx]</span></code> — precomputed once
+at ingest by
+<a class="reference internal" href="#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code></span></a>
+from a whole-scene overview sample — and stretches every render against those fixed
+bounds, so contrast is identical whether the viewport shows the full scene or a
+single zoomed-in pixel. <code class="docutils literal notranslate"><span class="pre">_stretch_band</span></code> still falls back to the old viewport
+percentile when <code class="docutils literal notranslate"><span class="pre">bounds</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> (a <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code> built directly, e.g. in a unit
+test, without running ingestion).</p>
+<p>The bounds are <strong>per scene</strong>, not combined across the mosaic’s visible scenes, even
+though a shared min/max across all visible scenes would look more consistent when
+scenes have very different value ranges. That was a deliberate trade-off: combined
+bounds would have to change (and force a re-render) whenever visibility changes, which
+breaks the <code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code> <strong>zero-GDAL-reads</strong> guarantee for visibility/z-order
+changes described in <a class="reference internal" href="#the-tiled-cache-and-composite"><span class="xref myst">The tiled cache and
+<code class="docutils literal notranslate"><span class="pre">composite()</span></code></span></a> below — a guarantee
+<code class="docutils literal notranslate"><span class="pre">test_mosaic_view_gui.py</span></code> asserts by spying on <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>. Independent
+per-scene bounds fully fix the zoom-instability bug (the actual report) without
+touching that contract.</p>
+</div></blockquote>
 </section>
-<section id="the-per-scene-cache-and-composite">
-<h3>The per-scene cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code><a class="headerlink" href="#the-per-scene-cache-and-composite" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> holds one ARGB <code class="docutils literal notranslate"><span class="pre">QImage</span></code> per visible scene in <code class="docutils literal notranslate"><span class="pre">_scene_layers</span></code> (keyed by
-<code class="docutils literal notranslate"><span class="pre">id(scene)</span></code>), built for the <strong>current viewport</strong> — the <em>render signature</em>
-<code class="docutils literal notranslate"><span class="pre">(center_x,</span> <span class="pre">center_y,</span> <span class="pre">world_units_per_pixel,</span> <span class="pre">width,</span> <span class="pre">height)</span></code>. <code class="docutils literal notranslate"><span class="pre">composite(layers)</span></code> stacks
-those layers bottom-to-top with <code class="docutils literal notranslate"><span class="pre">QPainter</span></code> <code class="docutils literal notranslate"><span class="pre">SourceOver</span></code> into a single image; <code class="docutils literal notranslate"><span class="pre">layers</span></code> is
-already in render order (index 0 = bottom), so z-order is encoded in the list and hidden
-scenes are simply <code class="docutils literal notranslate"><span class="pre">None</span></code>. <code class="docutils literal notranslate"><span class="pre">composite()</span></code> is the <strong>single indirection point</strong> where
-deferred seamline/feathering work will later re-implement the stacking (by territory
-mask) without touching callers.</p>
-<p>This split gives the caching tiers the design calls for:</p>
+<section id="the-tiled-cache-and-composite">
+<h3>The tiled cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code><a class="headerlink" href="#the-tiled-cache-and-composite" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView</span></code> caches the pixel layer as a grid of <strong>tiles</strong>, not one viewport-sized image
+per scene (issue #674). World space is quantized, <strong>per discrete zoom bucket</strong>, into a
+fixed grid of <code class="docutils literal notranslate"><span class="pre">_TILE_PX</span></code>-square (256×256) cells; one cached ARGB <code class="docutils literal notranslate"><span class="pre">QImage</span></code> is one scene’s
+warp of one cell, keyed by <code class="docutils literal notranslate"><span class="pre">_TileKey</span> <span class="pre">=</span> <span class="pre">(id(scene),</span> <span class="pre">bucket,</span> <span class="pre">col,</span> <span class="pre">row)</span></code>. <code class="docutils literal notranslate"><span class="pre">_tile_cache</span></code> is an
+insertion-ordered LRU bounded to <code class="docutils literal notranslate"><span class="pre">_TILE_CACHE_MAX</span></code> tiles; <code class="docutils literal notranslate"><span class="pre">_inflight_tiles</span></code> holds the keys
+currently being warped so a tile is never submitted twice.</p>
+<p>The bucket is <code class="docutils literal notranslate"><span class="pre">round(log2(world_units_per_pixel))</span></code>, and a bucket’s tiles are rendered at
+<code class="docutils literal notranslate"><span class="pre">bucket_wupp</span> <span class="pre">=</span> <span class="pre">2**bucket</span></code> world-units-per-pixel — a power-of-two “pyramid level” (aligned
+with the #634 overviews) chosen so a whole <em>range</em> of continuous zooms reuses one set of
+tiles: the world→screen affine scales those tiles to the exact zoom (the standard
+slippy-map look) instead of re-reading on every scale change. Tiles are anchored at the
+CRS’s real <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">0)</span></code>, so the same world area always maps to the same cell — which is why a
+pan is a cache hit on the tiles it slides back over.</p>
+<p><code class="docutils literal notranslate"><span class="pre">_render_bucket()</span></code> <strong>floors</strong> that bucket at the common grid’s resolution so the preview
+is never rendered <em>finer</em> than the mosaic’s real data. Rendering finer would be pure
+waste — <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> would upsample the grid onto a denser output, producing no new detail
+(and, several multiples below native, getting slow). Past native zoom the render bucket
+is therefore pinned at the grid-resolution level: the same grid-resolution tiles are
+reused and the affine scales them up (one source pixel drawn as a screen block), so a deep
+zoom-in is <strong>all cache hits, zero reads</strong>. The floor is one view-wide value (the grid’s
+finest pixel size), so every scene still renders at one shared bucket and the per-cell
+<code class="docutils literal notranslate"><span class="pre">composite()</span></code> stays pixel-aligned — a per-scene floor would put mixed-resolution scenes on
+different grids and break that alignment.</p>
+<p><code class="docutils literal notranslate"><span class="pre">composite(layers)</span></code> is unchanged and remains the <strong>single indirection point</strong>: it stacks a
+list of ARGB layers bottom-to-top with <code class="docutils literal notranslate"><span class="pre">QPainter</span></code> <code class="docutils literal notranslate"><span class="pre">SourceOver</span></code>. It is now called <strong>per
+cell</strong> — every visible scene’s tile at one <code class="docutils literal notranslate"><span class="pre">(bucket,</span> <span class="pre">col,</span> <span class="pre">row)</span></code> is the same size and
+pixel-aligned, so it stacks them exactly as it stacked full-viewport layers before, and
+deferred seamline/feathering still re-implements only its internals (by territory mask)
+without touching callers.</p>
+<p>This gives the same three caching tiers, now in tile terms:</p>
 <ul class="simple">
-<li><p><strong>Z-order reorder / visibility toggle</strong> (<code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code>) — a pure restack of the
-cached layers, <strong>no GDAL reads</strong>. Hiding a scene just drops it from the composite (its
-<code class="docutils literal notranslate"><span class="pre">visible</span></code> flag), and unhiding at the same viewport reuses its still-cached layer.
-<code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code> falls back to a read only when <em>revealing</em> a scene that was hidden
-at the last read (so it was never cached at this viewport).</p></li>
-<li><p><strong>Pan / zoom</strong> — changes the render signature, so every layer is re-read. This is the
-cache’s deliberate trade-off: it does <strong>not</strong> survive pan/zoom (the composite is
-re-read), but it makes reorder/visibility at a fixed viewport free.</p></li>
-<li><p><strong>Add / remove scene, target-CRS change</strong> (<code class="docutils literal notranslate"><span class="pre">invalidate_pixels()</span></code>) — marks the cache
-stale so the next paint re-reads.</p></li>
+<li><p><strong>Z-order reorder / visibility toggle</strong> (<code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code>) — a pure repaint from the
+cache, <strong>no GDAL reads</strong>. Draw order in <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> applies z-order; hidden scenes are
+skipped; re-showing a scene reuses its still-cached tiles (they are keyed per scene and
+never evicted on hide). The only case that reads is <em>revealing</em> a scene hidden at every
+prior read of this viewport — <code class="docutils literal notranslate"><span class="pre">_start_pixel_read</span></code> finds its cells missing and warps just
+them, so an all-cached restack submits <strong>zero</strong> warp jobs (asserted in
+<code class="docutils literal notranslate"><span class="pre">test_mosaic_view_gui.py</span></code> by spying on <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>).</p></li>
+<li><p><strong>Pan / zoom</strong> — reuses every tile the new viewport shares with the old and warps <strong>only
+the newly-exposed cells</strong>, plus a one-tile prefetch ring (<code class="docutils literal notranslate"><span class="pre">_PREFETCH_RING</span></code>) so the loaded
+margin travels ahead of the viewport. This is the #674 fix: the per-read cost scales with
+the <em>newly-exposed</em> strip, not the whole viewport, so a pan no longer re-warps everything
+and the black edge around the viewport is gone. Zoom reuses tiles too, because a range of
+zooms shares one bucket.</p></li>
+<li><p><strong>Add / remove scene, target-CRS change</strong> (<code class="docutils literal notranslate"><span class="pre">invalidate_pixels()</span></code>) — clears the whole
+cache and bumps <code class="docutils literal notranslate"><span class="pre">_read_epoch</span></code>, so a read already in flight drops its result instead of
+inserting now-stale tiles; the next paint refills.</p></li>
 </ul>
 </section>
-<section id="off-thread-debounced-reads">
-<h3>Off-thread, debounced reads<a class="headerlink" href="#off-thread-debounced-reads" title="Link to this heading">#</a></h3>
+<section id="off-thread-debounced-reads-and-the-two-pass-paint">
+<h3>Off-thread, debounced reads, and the two-pass paint<a class="headerlink" href="#off-thread-debounced-reads-and-the-two-pass-paint" title="Link to this heading">#</a></h3>
 <p>Reads run <strong>off the UI thread</strong> and pan/zoom re-reads are <strong>debounced</strong> so the view stays
-responsive. A <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> whose render signature changed (re)starts a single-shot
-<code class="docutils literal notranslate"><span class="pre">QTimer</span></code> (<code class="docutils literal notranslate"><span class="pre">_PIXEL_READ_DEBOUNCE_MS</span></code>, ~120 ms); a gesture’s burst of paints collapses into
-one read once the camera settles. On fire, <code class="docutils literal notranslate"><span class="pre">_start_pixel_read</span></code> snapshots the viewport on
-the GUI thread (resolving footprints and the in-view intersect test — cheap OSR work),
-then hands only the heavy per-scene warps to <code class="docutils literal notranslate"><span class="pre">app_services.scheduler.submit_thread</span></code>. The
-worker returns NumPy arrays (no Qt off-thread); the future’s done-callback emits the
-<code class="docutils literal notranslate"><span class="pre">_read_ready</span></code> signal, whose queued connection wraps them into <code class="docutils literal notranslate"><span class="pre">QImage</span></code>s and restacks on
-the GUI thread. <code class="docutils literal notranslate"><span class="pre">_reading_signature</span></code> tracks the in-flight read so a superseded (or
-out-of-order) result is discarded and never clobbers newer pixels. In the interim the
-prior composite keeps drawing, scaled by the camera (it is drawn mapped from its own
-<code class="docutils literal notranslate"><span class="pre">_composite_world_extent</span></code> through the world→screen affine), so pan/zoom shows a scaled
-preview until the sharp re-read lands. With no scheduler (e.g. a bare view in a unit
-test) the read falls back to synchronous.</p>
+responsive. A <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> whose camera moved — plus <code class="docutils literal notranslate"><span class="pre">invalidate_pixels()</span></code> /
+<code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code> — (re)starts a single-shot <code class="docutils literal notranslate"><span class="pre">QTimer</span></code> (<code class="docutils literal notranslate"><span class="pre">_PIXEL_READ_DEBOUNCE_MS</span></code>,
+~80 ms); a gesture’s burst of paints collapses into one read once the camera settles. On
+fire, <code class="docutils literal notranslate"><span class="pre">_start_pixel_read</span></code> snapshots the viewport on the GUI thread (target CRS, resampling
+method, footprints and the per-tile intersect test — cheap OSR work) and builds a warp job
+<strong>only for each cell missing from <code class="docutils literal notranslate"><span class="pre">_tile_cache</span></code> and not already in <code class="docutils literal notranslate"><span class="pre">_inflight_tiles</span></code></strong>,
+then hands the heavy per-tile warps to <code class="docutils literal notranslate"><span class="pre">app_services.scheduler.submit_thread</span></code>. The worker
+returns NumPy arrays (no Qt off-thread); the done-callback emits the <code class="docutils literal notranslate"><span class="pre">_read_ready</span></code> signal,
+whose queued connection wraps them into <code class="docutils literal notranslate"><span class="pre">QImage</span></code>s and inserts them (evicting LRU) on the
+GUI thread. Reads are <strong>additive</strong> — a late or superseded result is still a valid tile for
+its cell — so there is no per-read “discard superseded” step; clearing the submitted keys
+from <code class="docutils literal notranslate"><span class="pre">_inflight_tiles</span></code> (and the <code class="docutils literal notranslate"><span class="pre">_read_epoch</span></code> check for invalidations) is all the
+bookkeeping needed. With no scheduler (a bare view in a unit test) the read runs
+synchronously.</p>
+<p><code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> draws the pixel layer in <strong>two passes</strong>, both mapping each tile’s world rect
+through the world→screen affine (so off-screen tiles never land on the widget):</p>
+<ol class="arabic simple">
+<li><p><strong>Fallback pass</strong> — under-draws the nearest <em>other</em> populated zoom bucket’s cached tiles
+that intersect the viewport, drawn scaled by the camera. This keeps the frame filled
+during a zoom into a not-yet-read bucket (coarser/finer tiles stretch until the sharp
+bucket lands); a pan’s leading edge is already covered by the prefetch ring, so together
+they eliminate the black frame between a gesture and its read.</p></li>
+<li><p><strong>Sharp pass</strong> — for each current-bucket cell covering the viewport, gathers each
+visible scene’s cached tile, <code class="docutils literal notranslate"><span class="pre">composite()</span></code>s them into one cell image, and blits it at the
+cell’s world rect. Cells still missing are exactly what the debounced read above is
+fetching.</p></li>
+</ol>
+<blockquote>
+<div><p><strong>The render bucket is floored at the grid resolution (<code class="docutils literal notranslate"><span class="pre">_render_bucket()</span></code>), so the
+preview never warps finer than the mosaic’s real data.</strong> Beyond native zoom, tiles are
+reused and scaled by the affine rather than re-warped — which both matches what the
+viewer would actually see (upsampling adds no detail) and avoids the deep-upsample warp
+cost, since <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> past native would read full-resolution source (no coarser
+overview to shortcut through) for every tile. <code class="docutils literal notranslate"><span class="pre">test_mosaic_view_gui.py</span></code> asserts a deep
+zoom-in past native triggers <strong>zero</strong> <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> calls.</p>
+</div></blockquote>
 </section>
 </section>
 <hr class="docutils" />
@@ -1648,10 +1745,10 @@ decides which pixel wins (that is z-order in the compositor/export, #637/#639).<
     E --&gt; F
     F --&gt;|yes| G[&quot;_rebuild_overlay_geometry()&lt;br/&gt;geometry_dirty = False&quot;]
     F --&gt;|no, cache is fresh| H
-    G --&gt; P{&quot;render signature&lt;br/&gt;changed / pixels dirty?&quot;}
-    P --&gt;|yes| Q[&quot;_schedule_pixel_read()&lt;br/&gt;(debounced, off-thread)&quot;]
+    G --&gt; P{&quot;camera moved&lt;br/&gt;or pixels dirty?&quot;}
+    P --&gt;|yes| Q[&quot;_schedule_pixel_read()&lt;br/&gt;(debounced, off-thread, missing tiles only)&quot;]
     P --&gt;|no| H
-    Q --&gt; H[&quot;draw pixel layer:&lt;br/&gt;_composite_pixmap mapped by world_to_screen&quot;]
+    Q --&gt; H[&quot;draw pixel layer:&lt;br/&gt;fallback bucket + per-cell composite tiles,&lt;br/&gt;each mapped by world_to_screen&quot;]
     H --&gt; H2[&quot;painter.setWorldTransform(world_to_screen)&quot;]
     H2 --&gt; J[&quot;draw bounding box (_bbox_extent)&quot;]
     J --&gt; K[&quot;per scene: clip to hidden_path (if any),&lt;br/&gt;fill + outline in the highlight color&quot;]
@@ -1723,7 +1820,7 @@ in <code class="docutils literal notranslate"><span class="pre">paintEvent</span
 rebuild) and is fully guarded: any OGR/OSR failure clears the cache and logs rather
 than letting an exception escape a paint. Pens are <strong>cosmetic</strong>, so outline width stays
 constant in screen pixels regardless of zoom.</p>
-<p><code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> draws, in order: the pixel layer (still stubbed, #637), then the bounding
+<p><code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> draws, in order: the tiled pixel layer (#637/#674), then the bounding
 box, then per scene a clip to its hidden region filled + outlined in the highlight
 color, then all footprint outlines on top in green (so every boundary stays visible
 even where it crosses an overlap region).</p>
@@ -1807,8 +1904,8 @@ the grid (both are output-content, not grid geometry).</p></li>
 Path</span></a>); the v1 preview toggle is intentionally deferred.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> change, band-metadata selection, resampling warning, and
-reorder-without-reads are covered by <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_pane_gui.py</span></code>, with the
-controller-side surface (resample round-trip, band-metadata fallback, no-grid-invalidation)
+reorder-without-reads are covered by <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_control_panel_gui.py</span></code>, with
+the controller-side surface (resample round-trip, band-metadata fallback, no-grid-invalidation)
 in <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_controller.py</span></code>.</p>
 </section>
 <hr class="docutils" />
@@ -2061,10 +2158,11 @@ world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ra
 preservation (pure <code class="docutils literal notranslate"><span class="pre">QTransform</span></code> math, no widget shown).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_compositor.py</span></code> — the Qt-free <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>: alpha is 0
 exactly on the nodata collar and 255 on the valid interior, RGBA shape/dtype, valid
-pixels get color, a disjoint viewport comes back fully transparent (no Qt); plus (#677)
-it reads the display-only bands <strong>in order</strong> (column gradient → R, row gradient → G)
-and <strong>ignores</strong> the dataset’s display bands (a post-ingest display-band edit can’t
-change the preview).</p></li>
+pixels get color, a disjoint viewport comes back fully transparent (no Qt). Issue
+#675: with explicit <code class="docutils literal notranslate"><span class="pre">stretch_bounds</span></code> set on the scene, a gradient fixture renders
+identically whether read at the full extent or a further-zoomed-in crop; a paired
+test with <code class="docutils literal notranslate"><span class="pre">stretch_bounds=None</span></code> proves the same fixture <em>does</em> drift under the old
+viewport-percentile fallback, confirming the regression coverage is meaningful.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_materialize.py</span></code> — the materialization adapter: full-band
 round-trip metadata + tiled layout, window reads, <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> overriding its GDAL
 backing, dedup, temp-dir lifecycle; plus (#677) <code class="docutils literal notranslate"><span class="pre">build_display_source</span></code> bakes only the
@@ -2074,14 +2172,18 @@ non-1/3 band counts, and <code class="docutils literal notranslate"><span class=
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_view_gui.py</span></code> — the overlay <strong>and</strong> pixel-layer wiring end to
 end, driven through the real <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> ingestion path: geometry cache populates /
 re-invalidates; <code class="docutils literal notranslate"><span class="pre">composite()</span></code> stacks known ARGB layers (top opaque wins, holes reveal
-below); the per-scene cache populates; z-order reorder / visibility toggle trigger <strong>no
-GDAL reads</strong> (spy on <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>); and a pan burst <strong>coalesces into a single
-debounced background read</strong>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_pane_gui.py</span></code> — the control panel (#638) end to end through the
-real ingestion path: drag-reorder updates controller z-order and triggers <strong>no GDAL
-reads</strong>; a resolution-mode change rebuilds the grid; a band-metadata selection sets the
-canonical source without changing band count; and a non-Nearest-Neighbor resampling
-choice surfaces the warning and invalidates the pixel cache.</p></li>
+below); the tile cache populates; z-order reorder / visibility toggle trigger <strong>no GDAL
+reads</strong> (spy on <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>); a pan burst <strong>coalesces into a single debounced
+background read</strong>; and, for #674, a pan <strong>reuses cached tiles and warps only the
+newly-exposed cells</strong>, a zoom bucket is <strong>read once then reused</strong> on return, a deep
+zoom <strong>past native reads nothing</strong> (the render bucket is floored at the grid
+resolution), and the cache is <strong>LRU-bounded</strong> by <code class="docutils literal notranslate"><span class="pre">_TILE_CACHE_MAX</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_control_panel_gui.py</span></code> — the control panel (#638) end to end
+through the real ingestion path: drag-reorder updates controller z-order and triggers
+<strong>no GDAL reads</strong>; a resolution-mode change rebuilds the grid; a band-metadata
+selection sets the canonical source without changing band count; and a
+non-Nearest-Neighbor resampling choice surfaces the warning and invalidates the pixel
+cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_export.py</span></code> — the Qt-free <code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> (#639): two overlapping
 fixtures give the correct z-order winner per pixel (and the reversed order flips it),
 nodata passthrough (a hole in the top scene reveals the lower one; outside every
@@ -2098,7 +2200,10 @@ file picker); and (#677) the metadata-drift warning — a post-ingest edit surfa
 warn-and-proceed prompt, where declining aborts before the file picker and accepting
 proceeds past it.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_ingestion.py</span></code> — <code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>,
-<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior.</p></li>
+<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior. <code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>
+(#675): nodata is excluded from the sampled bounds, a value gradient produces a
+meaningfully wide (not collapsed) range, an all-nodata band is omitted from the
+result rather than raising, and the no-overviews fallback (reads the full band).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_dialog.py</span></code> — <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in isolation
 (offscreen Qt), constructed directly from plain lists.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_gui.py</span></code> — end-to-end through the real
@@ -2106,7 +2211,8 @@ proceeds past it.</p></li>
 the auto-lock behavior described above with <code class="docutils literal notranslate"><span class="pre">mock.patch</span></code> on
 <code class="docutils literal notranslate"><span class="pre">wiser.gui.mosaic_pane.ReprojectPromptDialog</span></code> so nothing blocks the test.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_dialog_gui.py</span></code> — dialog shell, Add Scene ingestion flow,
-progress modal.</p></li>
+progress modal; asserts the ingested <code class="docutils literal notranslate"><span class="pre">MosaicScene.stretch_bounds</span></code> is populated
+(#675).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_georeference_gui.py</span></code> — re-georeferencing a scene in place
 (#685) end to end via <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code>: the context menu opens a <code class="docutils literal notranslate"><span class="pre">GeoReferencerDialog</span></code>
 locked onto the scene (target + save path); a simulated <code class="docutils literal notranslate"><span class="pre">warp_completed</span></code> reingests and
@@ -2175,6 +2281,7 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-validate-scene-mosaic-ingestion-py">Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#materialization-scenematerializer-build-display-source-mosaic-materialize-py">Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.build_display_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overviews-build-overviews-mosaic-ingestion-py">Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py">Stretch bounds (<code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py">Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-reporting">Progress reporting</a></li>
 </ul>
@@ -2196,8 +2303,8 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-pixel-layer-static-scene-compositor">The Pixel Layer (Static-Scene Compositor)</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-per-scene-renderer-render-scene-argb-qt-free">The per-scene renderer (<code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, Qt-free)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-per-scene-cache-and-composite">The per-scene cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#off-thread-debounced-reads">Off-thread, debounced reads</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-tiled-cache-and-composite">The tiled cache and <code class="docutils literal notranslate"><span class="pre">composite()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#off-thread-debounced-reads-and-the-two-pass-paint">Off-thread, debounced reads, and the two-pass paint</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-geometry-overlay-vector-layer">The Geometry Overlay (Vector Layer)</a><ul class="visible nav section-nav flex-column">
