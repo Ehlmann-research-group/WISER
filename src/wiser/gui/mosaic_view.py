@@ -461,6 +461,33 @@ class MosaicView(QWidget):
         self._has_fitted = True
         self.update()
 
+    def ensure_scenes_in_view(self) -> None:
+        """
+        Reframe to the whole-mosaic extent **iff** no live scene is currently visible.
+
+        The camera stores raw world coordinates (``center_x`` / ``center_y``) that are
+        *not* transformed when the target CRS changes, so after a reprojection the
+        parked camera often points at a region the mosaic no longer occupies — a blank
+        canvas. Called after such a move (see
+        :meth:`~wiser.gui.mosaic_pane.MosaicPane._on_choose_target_crs`), this checks
+        whether any live scene footprint (already reprojected into the new target CRS)
+        still intersects the viewport; if one does, the user's pan/zoom is left alone,
+        and only when **none** do is the camera reframed to the union extent so every
+        scene is visible again. No-op until the widget has a real size or while the
+        mosaic has no resolved footprints.
+        """
+        if self.width() <= 1 or self.height() <= 1:
+            return
+        footprints = self._controller.visible_scene_footprints_in_common_crs()
+        if not footprints:
+            return
+        viewport = self._visible_world_extent()
+        if any(self._envelope_intersects(geom, viewport) for _scene, geom in footprints):
+            return
+        grid = self._controller.get_common_grid()
+        if grid.extent is not None:
+            self.zoom_to_extent(grid.extent)
+
     def _visible_world_extent(self) -> Tuple[float, float, float, float]:
         """The camera's visible rectangle as ``(min_x, min_y, max_x, max_y)`` in world."""
         size = self.size()

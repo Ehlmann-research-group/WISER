@@ -1120,6 +1120,9 @@ class MosaicPane(QWidget):
         self._refresh_scene_list()
         self._mosaic_view.invalidate_overlay()
         self._mosaic_view.invalidate_pixels()
+        # A CRS change moves the world grid but not the parked camera, so the mosaic can
+        # land entirely off-screen; reframe to show every scene when none is left in view.
+        self._mosaic_view.ensure_scenes_in_view()
         if not self._controller.has_live_scenes():
             QMessageBox.warning(
                 self,
