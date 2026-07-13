@@ -127,3 +127,12 @@ def test_bad_enum_value_degrades_field_but_keeps_crs():
     assert crs.IsSame(_wgs84()) == 1
     assert state.proj_type is None  # bad enum degrades to None
     assert state.lon_meridian == 5.0  # the valid field survives
+
+
+def test_non_dict_crs_entries_and_sections_are_dropped_not_fatal():
+    dst = _FakeAppState()
+    # Non-dict entries are reported; a non-list section is ignored -- never a crash.
+    assert load_user_crs({"user_crs": ["x", None, 5]}, dst) == ["x", None, 5]
+    assert dst.get_user_created_crs() == {}
+    assert load_user_crs({"user_crs": {"c": {}}}, dst) == []
+    assert dst.get_user_created_crs() == {}

@@ -44,7 +44,15 @@ def load_user_crs(manifest: Dict[str, Any], app_state: "ApplicationState") -> Li
     """
     registry = app_state.get_user_created_crs()
     dropped: List[Dict[str, Any]] = []
-    for entry in manifest.get("user_crs", []):
+    entries = manifest.get("user_crs", [])
+    if not isinstance(entries, list):
+        # A non-list user_crs section (hand-edited/corrupt manifest) has nothing
+        # to restore; ignore it rather than iterating a dict's keys.
+        return dropped
+    for entry in entries:
+        if not isinstance(entry, dict):
+            dropped.append(entry)
+            continue
         name = entry.get("name")
         crs = _crs_from_wkt(entry.get("wkt"))
         if name is None or crs is None:
