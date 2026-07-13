@@ -18,10 +18,11 @@ method, and the band-metadata chooser), the **full-resolution export path**
 (streaming ENVI compositor on the common grid — see [The Export
 Path](#the-export-path)), and **in-place scene
 re-georeferencing** (right-click → warp → swap; see [Re-georeferencing a Scene In
-Place](#re-georeferencing-a-scene-in-place)), and **pending (disabled) scenes**
+Place](#re-georeferencing-a-scene-in-place)), **pending (disabled) scenes**
 (non-georeferenced or CRS-incompatible scenes carried in the list until georeferenced;
-see [Pending Scenes](#pending-scenes-disabled-scenes)) are implemented and wired into
-the GUI.
+see [Pending Scenes](#pending-scenes-disabled-scenes)), and **zoom-to-scene**
+(right-click a live scene → frame the camera on its footprint; see [Zoom to
+Scene](#zoom-to-scene)) are implemented and wired into the GUI.
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -1090,9 +1091,19 @@ GCP, or CRS logic is added here.
 `_build_scene_list_group` gives `self._scene_list` a `Qt.CustomContextMenu` policy;
 `_on_scene_context_menu(pos)` resolves the clicked row to a **controller** index via
 `item.data(Qt.UserRole)` (the list is shown top-first but each item carries its real
-bottom-to-top index) and pops a one-action `QMenu` → `_on_georeference_scene(index)`. The
-menu is suppressed when the scheduler or the session materializer is absent, since the
-swap reingests (the same requirement Add Scene guards on).
+bottom-to-top index) and pops a `QMenu` whose actions are built **per-scene**:
+
+- **"Georeference…"** → `_on_georeference_scene(index)`. Offered only when the scheduler
+  **and** the session materializer are present, since the swap reingests (the same
+  requirement Add Scene guards on).
+- **"Zoom to Scene"** → `_on_zoom_to_scene(index)`. Offered only for **live** scenes
+  (`not controller.is_scene_pending(scene)`) — a pending scene has no placeable footprint
+  on the common canvas, so there is nothing to frame. See [Zoom to
+  Scene](#zoom-to-scene) below.
+
+The menu gates are **per-action**, not on the whole menu: the georeference guard no
+longer suppresses the entire menu, so a live scene on a materializer-less pane still gets
+"Zoom to Scene". If no action qualifies the menu is simply not shown (`menu.isEmpty()`).
 
 ### Opening the dialog (locked target + locked save path)
 
@@ -1201,6 +1212,41 @@ exactly why the design reingests rather than patching caches in place — one co
 rebuild, and the export path picks it up for free. (The correction lives only for the
 session; the mosaic export re-warps from the temp at full resolution, so the on-disk
 product is correct without persisting the single corrected scene separately.)
+
+---
+
+## Zoom to Scene
+
+**Files:** `src/wiser/raster/mosaic_controller.py` (the extent helper),
+`src/wiser/gui/mosaic_view.py` (the camera move), and `src/wiser/gui/mosaic_pane.py`
+(the menu action).
+
+Right-clicking a **live** scene offers **"Zoom to Scene"**, which frames the map camera
+on just that scene's footprint — the per-scene analogue of the one-time whole-mosaic
+auto-fit. It is a thin glue layer over three pieces that already existed; no new
+geometry, reprojection, or camera math is added.
+
+- **`MosaicController.scene_extent_in_common_crs(scene)`** (Qt-free) returns
+  `(min_x, min_y, max_x, max_y)` of the scene's footprint in the **resolved target CRS**,
+  reusing `_footprint_envelope` / `reprojected_footprint_geometry` (the same reprojection
+  the grid builder and overlay use). It returns `None` — so the action is a safe no-op —
+  when the scene is pending, has no footprint, or no target CRS is resolved yet. This
+  mirrors `build_common_grid`'s union extent, but for a single scene.
+- **`MosaicView.zoom_to_extent(extent, margin=0.05)`** pads the extent by a small margin
+  (so the footprint isn't flush against the viewport edges), calls the camera's existing
+  `MosaicViewTransform.fit_to_extent`, and repaints. It is a no-op until the widget has a
+  real size. It sets `_has_fitted = True` so the initial-fit branch in `paintEvent` can
+  never later snap the camera back to the whole-grid extent — a deliberate zoom is never
+  yanked away. A plain `self.update()` is enough: the moved camera makes `paintEvent`
+  schedule the debounced, off-thread tile read for the newly-visible cells (the same path
+  a pan/zoom gesture takes), so no `invalidate_pixels` full-cache clear is needed.
+- **`MosaicPane._on_zoom_to_scene(index)`** resolves the scene, asks the controller for
+  its extent, and (if not `None`) calls `zoom_to_extent`. The menu only shows the action
+  for live scenes, but the handler re-checks for `None` in case the scene went pending
+  between the menu opening and the click.
+
+The margin is symmetric, so the camera **center** lands exactly on the footprint's
+midpoint — which is what the GUI test asserts.
 
 ---
 
@@ -1330,7 +1376,10 @@ channels out.
   grid, an all-pending mosaic yields an empty grid, and an ingested-but-incompatible
   scene (built incrementally so the first scene auto-locks the target) is
   `INCOMPATIBLE_CRS`-pending — asserting `is_scene_pending`, `scene_pending_reason`,
-  `has_live_scenes`, `has_pending_scenes`, and `_live_scenes`.
+  `has_live_scenes`, `has_pending_scenes`, and `_live_scenes`. Zoom to Scene:
+  `scene_extent_in_common_crs` returns a live scene's footprint envelope (matching
+  `_footprint_envelope`, ordered `min_x/min_y/max_x/max_y`) and `None` for a pending
+  scene.
 - `src/tests/test_mosaic_view_transform.py` — `MosaicViewTransform` camera math:
   world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ratio
   preservation (pure `QTransform` math, no widget shown).
@@ -1405,7 +1454,11 @@ channels out.
   warp output is **not** registered as a global dataset; Cancel restores the original at
   its slot while "Save to Mosaic" keeps the warped one. `test_add_non_georeferenced_scene_is_pending`
   loads a truly ungeoreferenced TIFF, adds it, and asserts it lands as a `NO_CRS`-pending
-  placeholder with the warning icon/tooltip and excluded from the grid.
+  placeholder with the warning icon/tooltip and excluded from the grid — and that its
+  context menu offers "Georeference…" but **not** "Zoom to Scene". Zoom to Scene: a live
+  scene's menu offers **both** actions and each routes to the right handler/index;
+  `_on_zoom_to_scene` moves the camera so its center lands on the scene footprint's
+  midpoint.
 
 GUI tests use `@pytest.mark.functional`/`@pytest.mark.smoke` with the
 `WiserTestModel` harness (`src/test_utils/test_model.py`), not pytest-qt/qtbot. Run
