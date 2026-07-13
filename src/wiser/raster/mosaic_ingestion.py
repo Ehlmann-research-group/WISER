@@ -84,40 +84,34 @@ def _is_identity_geo_transform(geo_transform: Tuple[float, ...]) -> bool:
     )
 
 
-def validate_scene(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"]) -> None:
+def is_dataset_georeferenced(dataset: "RasterDataSet") -> bool:
     """
-    Validate a candidate ``dataset`` against the mosaic's existing scenes.
+    True if ``dataset`` is placeable on a mosaic grid: it has a real (non-identity)
+    geotransform **and** a non-empty spatial reference.
 
-    Raises :class:`SceneValidationError` with a specific reason for each rejected
-    case; returns ``None`` when the scene is acceptable.
-
-    Rejected:
-      * **Ungeoreferenced** — the geotransform is GDAL's identity sentinel. This is
-        a defensive gate against bad inputs. Note ``get_geo_transform()`` never
-        returns ``None`` (it returns the identity transform for ungeoreferenced
-        data), so the check is identity-based, not ``is None``.
-      * **No SRS** — ``get_wkt_spatial_reference()`` is empty/None.
-      * **Band-count mismatch** — the candidate's band count differs from the first
-        existing scene's. See ``# TODO(#640)`` for the future warn-but-allow path.
-
-    Deliberately NOT rejected:
-      * **No nodata value** — many valid datasets lack one. nodata only sharpens the
-        footprint; ``gdal.Footprint`` without it returns the full raster rectangle,
-        which is a valid (coarser) footprint.
-      * **Data-type mismatch across scenes** — no dtype consistency is required at
-        ingestion. The compositor (#635/#637) promotes to the widest common type at
-        warp time, so enforcing equal dtypes here would only cause false rejections.
+    This is the single definition of "georeferenced" shared by the strict
+    :func:`validate_scene` gate and the mosaic's live/pending classification (the
+    "pending scene" feature). A dataset that fails this cannot be materialized onto the
+    common grid and is carried as a pending placeholder until it is georeferenced.
+    Note ``get_geo_transform()`` never returns ``None`` (it returns the identity
+    transform for ungeoreferenced data), so the geotransform check is identity-based.
     """
-    if _is_identity_geo_transform(dataset.get_geo_transform()):
-        raise SceneValidationError(
-            "Scene is not georeferenced (no geotransform); it cannot be placed on the " "mosaic grid."
-        )
+    return not _is_identity_geo_transform(dataset.get_geo_transform()) and bool(
+        dataset.get_wkt_spatial_reference()
+    )
 
-    if not dataset.get_wkt_spatial_reference():
-        raise SceneValidationError(
-            "Scene has no spatial reference system (SRS); it cannot be placed on the " "mosaic grid."
-        )
 
+def validate_scene_addable(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"]) -> None:
+    """
+    Enforce only the gates that make a candidate **fundamentally un-addable**, regardless
+    of whether it is georeferenced yet: a duplicate scene, or a band-count mismatch.
+
+    Unlike :func:`validate_scene`, this deliberately does *not* reject an
+    ungeoreferenced or CRS-incompatible dataset — those are added as disabled "pending"
+    scenes (the mosaic pane branches on :func:`is_dataset_georeferenced`) and fixed later
+    via the in-place georeferencer. Raises :class:`SceneValidationError` with a specific
+    reason for each rejected case; returns ``None`` when the scene may be added.
+    """
     if any(scene.dataset.get_id() == dataset.get_id() for scene in existing_scenes):
         raise SceneValidationError(f'"{dataset.get_name() or dataset.get_id()}" is already in the mosaic.')
 
@@ -131,6 +125,45 @@ def validate_scene(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"
                 f"Scene has {candidate_bands} band(s) but the mosaic's scenes have "
                 f"{expected_bands}. All scenes must share a band count."
             )
+
+
+def validate_scene(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"]) -> None:
+    """
+    Validate a candidate ``dataset`` against the mosaic's existing scenes (strict gate).
+
+    Raises :class:`SceneValidationError` with a specific reason for each rejected
+    case; returns ``None`` when the scene is acceptable.
+
+    Rejected:
+      * **Ungeoreferenced** — the geotransform is GDAL's identity sentinel. Note
+        ``get_geo_transform()`` never returns ``None`` (it returns the identity
+        transform for ungeoreferenced data), so the check is identity-based.
+      * **No SRS** — ``get_wkt_spatial_reference()`` is empty/None.
+      * **Duplicate / band-count mismatch** — see :func:`validate_scene_addable`.
+
+    Deliberately NOT rejected:
+      * **No nodata value** — many valid datasets lack one. nodata only sharpens the
+        footprint; ``gdal.Footprint`` without it returns the full raster rectangle,
+        which is a valid (coarser) footprint.
+      * **Data-type mismatch across scenes** — no dtype consistency is required at
+        ingestion. The compositor (#635/#637) promotes to the widest common type at
+        warp time, so enforcing equal dtypes here would only cause false rejections.
+
+    This remains the strict "must be immediately placeable" gate. The mosaic pane no
+    longer calls it directly (it splits the georef check off so ungeoreferenced scenes
+    can be added as pending), but it is kept as the canonical full check.
+    """
+    if _is_identity_geo_transform(dataset.get_geo_transform()):
+        raise SceneValidationError(
+            "Scene is not georeferenced (no geotransform); it cannot be placed on the " "mosaic grid."
+        )
+
+    if not dataset.get_wkt_spatial_reference():
+        raise SceneValidationError(
+            "Scene has no spatial reference system (SRS); it cannot be placed on the " "mosaic grid."
+        )
+
+    validate_scene_addable(dataset, existing_scenes)
 
 
 def build_overviews(gdal_path: str, progress: Optional[ProgressReporter] = None) -> None:

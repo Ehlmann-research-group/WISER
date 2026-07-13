@@ -20,6 +20,7 @@ from PySide6.QtTest import QTest
 import tests.context  # noqa: F401  (adds src/ to sys.path)
 from test_utils.test_model import WiserTestModel
 from wiser.gui.geo_reference_config import GeoReferencerConfig
+from wiser.raster.mosaic_controller import ScenePendingReason
 from wiser.utils.primitives import temp_dir
 
 import pytest
@@ -56,6 +57,58 @@ def _write_tiff(path, origin, epsg=32611, pixel=30.0, size=20, collar=2, bands=3
         band.SetNoDataValue(-9999.0)
     ds.FlushCache()
     ds = None
+
+
+def _write_ungeoreferenced_tiff(path, size=20, bands=3):
+    """Write a TIFF with no geotransform and no projection (an ungeoreferenced image)."""
+    ds = gdal.GetDriverByName("GTiff").Create(path, size, size, bands, gdal.GDT_Float32)
+    for b in range(1, bands + 1):
+        ds.GetRasterBand(b).WriteArray(np.full((size, size), 7, dtype=np.float32))
+    ds.FlushCache()
+    ds = None
+
+
+class TestMosaicPendingScene(unittest.TestCase):
+    """Adding a non-georeferenced dataset yields a disabled 'pending' scene (#685+)."""
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        self._tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(self._tmp.cleanup)
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def test_add_non_georeferenced_scene_is_pending(self):
+        path = os.path.join(self._tmp.name, "plain.tif")
+        _write_ungeoreferenced_tiff(path)
+        dataset = self.test_model.load_dataset(path)
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+
+        index = pane._dataset_combo.findData(dataset.get_id())
+        self.assertGreaterEqual(index, 0)
+        pane._dataset_combo.setCurrentIndex(index)
+        # Non-georeferenced scenes are added synchronously (no ingest pipeline).
+        pane._add_scene_button.click()
+
+        # It is in the mosaic, but pending (NO_CRS) and excluded from the live set.
+        self.assertEqual(controller.scene_count(), 1)
+        scene = controller.get_scenes()[0]
+        self.assertTrue(controller.is_scene_pending(scene))
+        self.assertIs(controller.scene_pending_reason(scene), ScenePendingReason.NO_CRS)
+        self.assertFalse(controller.has_live_scenes())
+        self.assertTrue(controller.has_pending_scenes())
+
+        # The list row carries the warning icon + an explanatory tooltip.
+        item = pane._scene_list.item(0)
+        self.assertFalse(item.icon().isNull())
+        self.assertIn("no CRS", item.toolTip())
+
+        self.test_model.close_seamless_mosaic_dialog()
 
 
 class TestMosaicRegeoreferenceEntryPoint(unittest.TestCase):
