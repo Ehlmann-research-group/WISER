@@ -99,6 +99,9 @@ class TestSimliarityTransformGUI(unittest.TestCase):
 
         self.test_model.run_rotate_scale()
 
+        msg = self.test_model.wait_for_sim_transform_finished(translate=False)
+        self.assertTrue(msg.startswith("Finished"), f"Rotate/scale did not finish: {msg}")
+
         self.test_model.close_similarity_transform_dialog()
 
         gt_ds = self.test_model.load_dataset(ground_truth_path)
@@ -168,6 +171,10 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.test_model.set_save_path_translate(temp_save_path)
 
         self.test_model.run_create_translation()
+
+        # The translate write now runs off-thread; wait for it before reading output.
+        msg = self.test_model.wait_for_sim_transform_finished(translate=True)
+        self.assertTrue(msg.startswith("Finished"), f"Translation did not finish: {msg}")
 
         self.test_model.close_similarity_transform_dialog()
 
