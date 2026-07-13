@@ -55,8 +55,11 @@ def render_scene_argb(
     an ``(out_height, out_width, 4)`` uint8 RGBA array.
 
     ``world_extent`` is ``(min_x, min_y, max_x, max_y)`` in the target CRS (the
-    view's visible world rectangle). RGB comes from the dataset's default display
-    bands (1 band -> grayscale, 3 bands -> RGB), contrast-stretched per band against
+    view's visible world rectangle). ``scene.gdal_path`` is the **display-only**
+    artifact (#677) whose bands already *are* the resolved display bands, so RGB is
+    read straight from bands 1..N in order (1 band -> grayscale, 3 bands -> RGB) --
+    the "which source bands" decision was made upstream at materialize time, not here.
+    Contrast-stretch is done per band against
     ``scene.stretch_bounds`` -- precomputed, extent-independent 2-98 percentile bounds
     cached at ingest (issue #675), so contrast does not drift with zoom -- falling back
     to a viewport percentile stretch when a scene has no cached bounds. Alpha is the
@@ -100,19 +103,18 @@ def render_scene_argb(
         # No data bands, or nothing valid in view: leave RGB black, alpha as computed.
         return rgba
 
-    display_bands = select_display_bands(scene.dataset, num_data_bands)
     channels = [
         _stretch_band(
             warped.GetRasterBand(band_idx + 1).ReadAsArray().astype(np.float32),
             valid,
             bounds=scene.stretch_bounds.get(band_idx) if scene.stretch_bounds else None,
         )
-        for band_idx in display_bands
+        for band_idx in range(min(num_data_bands, 3))
     ]
 
-    if len(channels) == 1:  # grayscale: replicate into R=G=B
+    if len(channels) == 1:  # grayscale (single display band): replicate into R=G=B
         rgba[:, :, 0] = rgba[:, :, 1] = rgba[:, :, 2] = channels[0]
-    else:
+    else:  # bands are already R, G, B
         rgba[:, :, 0], rgba[:, :, 1], rgba[:, :, 2] = channels[0], channels[1], channels[2]
     # Force invalid pixels fully clear (0, 0, 0, 0) so RGB never bleeds under a
     # transparent alpha (the flat-band stretch otherwise whitens them).

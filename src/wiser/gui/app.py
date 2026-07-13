@@ -1081,17 +1081,43 @@ class DataVisualizerApp(QMainWindow):
 
     def show_similarity_transform_dialog(self, in_test_mode=False):
         if self._similarity_transform_dialog is None:
-            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
-        if not in_test_mode:
-            if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
-                pass
-        else:
-            self._similarity_transform_dialog.show()
+            self._similarity_transform_dialog = SimilarityTransformDialog(
+                self._app_state, self._app_services, parent=self
+            )
+        # Non-modal: the transform now runs off-thread with a cancelable progress modal
+        # (like the Seamless Mosaic dialog), so the dialog must stay non-modal for the
+        # progress dialog's Cancel button to remain clickable and the main window usable.
+        self._similarity_transform_dialog.show()
+        self._similarity_transform_dialog.raise_()
+        self._similarity_transform_dialog.activateWindow()
+
+    def get_current_display_bands(self, dataset: RasterDataSet) -> Optional[Tuple[int, ...]]:
+        """
+        Return the display bands currently selected for ``dataset`` in the main view,
+        or ``None`` if the dataset is not currently shown there.
+
+        This is the live per-dataset band selection the user sees in the main view
+        (kept in ``RasterPane._display_bands``, mutated by the band chooser). The
+        Seamless Mosaic uses it -- in preference to the dataset's stored defaults --
+        to decide which bands to bake into a scene's display-only preview (#677),
+        honoring a user's band-chooser choice rather than silently reverting to
+        defaults. ``None`` means "never shown in the main view", in which case the
+        mosaic falls back to ``find_display_bands(dataset)``.
+
+        Exposed as a narrow public accessor so the mosaic depends on this surface
+        rather than reaching into the main view's ``RasterPane`` internals.
+        """
+        if dataset is None:
+            return None
+        return self._main_view.get_display_bands().get(dataset.get_id())
 
     def show_seamless_mosaic_dialog(self, in_test_mode=False):
         if self._seamless_mosaic_dialog is None:
             self._seamless_mosaic_dialog = SeamlessMosaicDialog(
-                self._app_state, self._app_services, parent=self
+                self._app_state,
+                self._app_services,
+                display_bands_resolver=self.get_current_display_bands,
+                parent=self,
             )
         # Non-modal: the mosaic is a long-lived, multi-step workflow (add scenes,
         # reorder, export), so it stays open alongside the main window.
