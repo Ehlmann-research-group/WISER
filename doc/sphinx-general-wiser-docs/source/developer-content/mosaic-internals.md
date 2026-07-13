@@ -710,6 +710,11 @@ go live. If the change leaves no live scenes at all, the pane warns that the pre
 empty but still keeps the chosen CRS. Removal / visibility changes rebuild quietly as before
 (see [Removal and visibility changes](#removal-and-visibility-changes)).
 
+A CRS change also moves the world grid without moving the camera, so `_on_choose_target_crs`
+then calls `MosaicView.ensure_scenes_in_view()` to reframe the preview when the mosaic
+landed off-screen — see [Reframing after a target-CRS
+change](#reframing-after-a-target-crs-change).
+
 ### Export guard
 
 Export operates on `live_scenes()`. If `has_pending_scenes()` is `True`,
@@ -1248,6 +1253,24 @@ geometry, reprojection, or camera math is added.
 The margin is symmetric, so the camera **center** lands exactly on the footprint's
 midpoint — which is what the GUI test asserts.
 
+### Reframing after a target-CRS change
+
+The camera holds raw world coordinates (`center_x` / `center_y`) that are **not**
+transformed when the target CRS changes, so after a manual **"Choose Target CRS…"**
+switch the parked camera often points at a region the mosaic no longer occupies (e.g.
+switching UTM → geographic moves every footprint from eastings ~4×10⁵ to lon/lat ~−117/34)
+— the preview goes blank even though the scenes are fine.
+
+`MosaicView.ensure_scenes_in_view()`, called from `_on_choose_target_crs` right after the
+grid rebuild + view invalidation, fixes this **conservatively**: it reprojects the live
+footprints into the new CRS (`visible_scene_footprints_in_common_crs()`), tests each
+against the current viewport (`_visible_world_extent` + `_envelope_intersects`), and
+reframes to the union extent (`get_common_grid().extent`, via `zoom_to_extent`) **only
+when none is visible**. If any scene still intersects the viewport the user's pan/zoom is
+left untouched — the reframe rescues the off-screen case without yanking the camera on a
+CRS change that happened to keep the mosaic in view. It reuses the same `zoom_to_extent`
+(hence the same margin) as [Zoom to Scene](#zoom-to-scene).
+
 ---
 
 ## The Export Path
@@ -1442,7 +1465,10 @@ channels out.
   `wiser.gui.mosaic_pane.ReprojectPromptDialog` so nothing blocks the test. Also
   `test_manual_choose_target_crs_incompatible_marks_pending`: choosing an incompatible
   target CRS **commits** the choice, leaves no live scenes, marks the scenes pending, and
-  warns (rather than rejecting the change).
+  warns (rather than rejecting the change). Reframing: switching UTM → geographic pushes
+  the mosaic off the parked camera, and `_on_choose_target_crs` reframes to the new union
+  extent (`test_choose_target_crs_reframes_when_mosaic_off_screen`); when a scene is still
+  in view the camera is left untouched (`test_ensure_scenes_in_view_is_noop_when_a_scene_is_visible`).
 - `src/tests/test_mosaic_dialog_gui.py` — dialog shell, Add Scene ingestion flow,
   progress modal; asserts the ingested `MosaicScene.stretch_bounds` is populated
   (#675).
