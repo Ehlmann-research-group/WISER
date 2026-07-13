@@ -403,7 +403,7 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr("Similarity Transform"))
         act.triggered.connect(self.show_similarity_transform_dialog)
 
-        act = self._tools_menu.addAction(self.tr("Seamless Mosaic"))
+        act = self._tools_menu.addAction(self.tr("Mosaic"))
         act.triggered.connect(self.show_seamless_mosaic_dialog)
 
         # Help menu

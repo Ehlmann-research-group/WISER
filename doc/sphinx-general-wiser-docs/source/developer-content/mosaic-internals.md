@@ -10,8 +10,10 @@ materialization (a **display-only** preview artifact baked eagerly at ingest wit
 full-band cube materialized **lazily at export** — see [Display-Only Preview and Frozen
 Metadata](#display-only-preview-and-frozen-metadata)), common-grid/CRS resolution, the
 **vector overlay** (footprints, bounding box, overlap highlight), the **static-scene
-pixel compositor** (the composited preview, with an off-thread debounced per-scene
-cache), the **control panel** (drag-to-reorder z-order, resolution mode, resampling
+pixel compositor** (the composited
+preview, with an off-thread debounced tiled cache (#674) and a stable, zoom-independent
+per-scene contrast stretch cached at ingest — see [Stretch
+bounds](#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy)), the **control panel** (drag-to-reorder z-order, resolution mode, resampling
 method, and the band-metadata chooser), the **full-resolution export path**
 (streaming ENVI compositor on the common grid — see [The Export
 Path](#the-export-path)), and **in-place scene
@@ -42,7 +44,7 @@ The feature is built from three cooperating layers:
   (not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
   zoomed). It draws two layers on a QGIS-style unbounded canvas via a world→screen
   camera (`MosaicViewTransform`): the **pixel layer** (the composited scenes, from a
-  per-scene ARGB cache — see [The Pixel Layer](#the-pixel-layer-static-scene-compositor))
+  tiled ARGB cache — see [The Pixel Layer](#the-pixel-layer-static-scene-compositor))
   and, on top, the **vector overlay** (footprints, bounding box, overlap highlight — see
   [The Geometry Overlay](#the-geometry-overlay-vector-layer)).
 
@@ -66,7 +68,7 @@ Metadata](#display-only-preview-and-frozen-metadata).
 | `src/wiser/gui/mosaic_crs_dialog.py` | `ReprojectPromptDialog` — modal target-CRS chooser |
 | `src/wiser/gui/app.py` | `App.get_current_display_bands` — narrow accessor for the main view's live per-dataset band selection (the display-band resolver injected into the mosaic) |
 | `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `SceneMetadataSnapshot`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
-| `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_footprint_wkt` — Qt-free ingestion gates |
+| `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_stretch_bounds`, `compute_footprint_wkt` — Qt-free ingestion gates |
 | `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer; reads the display-only artifact's bands in order |
 | `src/wiser/raster/mosaic_export.py` | `export_mosaic` — lazily materializes each scene's full-band cube (from live pixels + frozen snapshot), warps onto the common grid, streams to ENVI |
 | `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer` (`build_display_source`), `materialize_to_tiled_geotiff`, `materialize_display_only_to_tiled_geotiff`, `materialize_full_band_from_snapshot` — the object-model adapter |
@@ -112,9 +114,9 @@ classDiagram
     class MosaicView {
         mosaic_view.py
         -_controller : MosaicController
-        -_composite_pixmap : QPixmap
-        -_scene_layers : Dict~int, QImage~
-        -_render_signature : tuple
+        -_tile_cache : OrderedDict~TileKey, QImage~
+        -_inflight_tiles : Set~TileKey~
+        -_read_epoch : int
         -_transform : MosaicViewTransform
         -_footprint_paths : List~QPainterPath~
         -_hidden_paths : List~QPainterPath~
@@ -234,7 +236,7 @@ with `TemporaryDirectory`'s own finalizer as a backstop on GC/interpreter exit.
 
 ## Scene Ingestion Pipeline
 
-Adding a scene runs three gated phases on a background thread, orchestrated by
+Adding a scene runs four gated phases on a background thread, orchestrated by
 `_ingest_scene()` (`mosaic_pane.py`):
 
 ```{mermaid}
@@ -258,8 +260,9 @@ sequenceDiagram
         Sched->>Ingest: run on scheduler thread
         Ingest->>Mat: build_display_source(dataset, snapshot.display_bands) → display-only GeoTIFF
         Ingest->>Ingest: build_overviews(gdal_path)
+        Ingest->>Ingest: compute_stretch_bounds(gdal_path, dataset)
         Ingest->>Ingest: compute_footprint_wkt(gdal_path)
-        Ingest-->>Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True, snapshot)
+        Ingest-->>Sched: MosaicScene(dataset, gdal_path, footprint_wkt, has_overviews=True, stretch_bounds)
         Sched-->>Pane: on_success(scene) [GUI thread]
         Pane->>Ctrl: add_scene(scene)
         Pane->>Pane: _refresh_scene_list()
@@ -317,6 +320,24 @@ a WISER-owned temp copy, overviews can be written internally rather than as exte
 `.ovr` sidecars — and with only 1–3 bands the pyramid is a fraction of the full-cube
 cost.
 
+### Stretch bounds (`compute_stretch_bounds`, `mosaic_ingestion.py`)
+
+Computes stable, extent-independent 2-98 percentile contrast-stretch bounds per
+display band (issue #675), stored on `MosaicScene.stretch_bounds` (source band index
+→ `(lo, hi)`). Runs right after overviews, since it samples one: reads the
+level-4 internal overview (falling back to the coarsest available, or the full band
+if no overviews exist) rather than the full-resolution data, so a whole-scene
+percentile pass stays cheap regardless of the source's size — level 4 rather than the
+coarsest level trades a little ingest time for a larger, more representative sample
+(the coarsest overview's sparser `NEAREST`-resampled pixels risk missing a small
+bright/dark feature). A band with no valid (non-nodata) pixels in the sample is simply
+omitted from the result.
+
+This is what fixes the bug the pixel layer's per-scene renderer used to have: see
+[The per-scene renderer](#the-per-scene-renderer-render_scene_argb-qt-free) below for
+how the compositor consumes these bounds instead of recomputing a stretch from
+whatever happens to be in the current viewport.
+
 ### Footprint (`compute_footprint_wkt`, `mosaic_ingestion.py`)
 
 Derives the valid-pixel outline via `gdal.Footprint(..., format="WKT")` on the
@@ -327,10 +348,10 @@ back to the full raster rectangle.
 
 ### Progress reporting
 
-All three phases share one `ProgressReporter` (`wiser/utils/progress.py`), split by
-weight — materialize 0.5, overviews 0.35, footprint 0.15 — so the overall bar advances
-smoothly across phases that report in very different native units (per-band count vs.
-GDAL's own `0..1` callbacks). The reporter is Qt-free; `run_with_progress`
+All four phases share one `ProgressReporter` (`wiser/utils/progress.py`), split by
+weight — materialize 0.45, overviews 0.30, stretch bounds 0.10, footprint 0.15 — so the
+overall bar advances smoothly across phases that report in very different native units
+(per-band count vs. GDAL's own `0..1` callbacks). The reporter is Qt-free; `run_with_progress`
 (`wiser/gui/progress_task.py`) is the reusable GUI bridge that:
 
 - shows a non-blocking-to-the-rest-of-WISER `ProgressDialog` (disables only the mosaic
@@ -549,16 +570,20 @@ convention used throughout WISER (see the georeferencer's identical convention i
 `src/wiser/gui/mosaic_view.py` (cache, compositing, drawing, threading).
 
 Beneath the vector overlay, `MosaicView` draws the actual composited scenes (issue
-#637): each visible scene is read at **screen resolution** into an **ARGB `QImage`**
+#637): each visible scene is warped, one **tile** at a time, into an **ARGB `QImage`**
 whose alpha is its validity mask, and the scenes are stacked bottom-to-top honoring
-z-order so lower scenes show through upper scenes' nodata holes.
+z-order so lower scenes show through upper scenes' nodata holes. The tiling and caching
+(#674) live in `mosaic_view.py`; the renderer below is unchanged — it just receives a
+tile's world rectangle rather than the whole viewport.
 
 ### The per-scene renderer (`render_scene_argb`, Qt-free)
 
 `mosaic_compositor.render_scene_argb(scene, target_wkt, world_extent, w, h)` warps one
-scene onto the current viewport rectangle at output size `w×h` via
+scene onto the requested `world_extent` at output size `w×h` via
 `gdal.Warp(..., dstSRS=target_wkt, outputBounds=world_extent, dstAlpha=True)` and returns
-an `(h, w, 4)` uint8 RGBA array. A single `gdal.Warp` does four jobs at once:
+an `(h, w, 4)` uint8 RGBA array. Callers pass one tile's world rectangle at `256×256`
+(see [The tiled cache](#the-tiled-cache-and-composite)), but the renderer neither knows
+nor cares that it is a tile. A single `gdal.Warp` does four jobs at once:
 
 - **reprojection** onto the target CRS,
 - **downsampling** — because the output is far coarser than the source, GDAL reads from
@@ -568,55 +593,129 @@ an `(h, w, 4)` uint8 RGBA array. A single `gdal.Warp` does four jobs at once:
   outside-coverage pixels, so the alpha channel *is* the validity mask (no manual
   mask-band read). This mirrors the warp seam already used by `_warped_resolution`.
 
-Since #677 `scene.gdal_path` is the **display-only** artifact whose bands already *are*
-the resolved display bands, so RGB is read straight from bands 1..N **in order** (1 band
-→ grayscale, 3 → RGB) — `render_scene_argb` no longer picks 3-of-N or consults the
-dataset's display bands (that decision moved upstream to materialize time). Each band is
-contrast-stretched over the valid pixels (2–98 percentile); invalid pixels are forced
-fully clear `(0,0,0,0)` so nothing bleeds under a transparent alpha. It is Qt-free
-(produces a NumPy array) so it is unit-testable without a running app and can run on a
+RGB comes from the dataset's `get_default_display_bands()` (1 band → grayscale, 3 →
+RGB), contrast-stretched per band (2–98 percentile). Invalid pixels are forced fully
+clear `(0,0,0,0)` so nothing bleeds under a transparent alpha. It is Qt-free (produces
+a NumPy array) so it is unit-testable without a running app and can run on a
 background thread; the view wraps the array into a `QImage` on the GUI thread.
 
-### The per-scene cache and `composite()`
+> **The stretch is against `scene.stretch_bounds`, not the viewport's pixels** (issue
+> #675). Originally the 2-98 percentile was computed from whatever pixels happened to
+> land in the current warp output — so zooming in fed a smaller, different pixel
+> population into the percentile on every paint, and a scene's on-screen contrast
+> visibly drifted as the user zoomed, even though nothing about the data changed.
+> `render_scene_argb` now looks up `scene.stretch_bounds[band_idx]` — precomputed once
+> at ingest by
+> [`compute_stretch_bounds`](#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy)
+> from a whole-scene overview sample — and stretches every render against those fixed
+> bounds, so contrast is identical whether the viewport shows the full scene or a
+> single zoomed-in pixel. `_stretch_band` still falls back to the old viewport
+> percentile when `bounds` is `None` (a `MosaicScene` built directly, e.g. in a unit
+> test, without running ingestion).
+>
+> The bounds are **per scene**, not combined across the mosaic's visible scenes, even
+> though a shared min/max across all visible scenes would look more consistent when
+> scenes have very different value ranges. That was a deliberate trade-off: combined
+> bounds would have to change (and force a re-render) whenever visibility changes, which
+> breaks the `recomposite_only()` **zero-GDAL-reads** guarantee for visibility/z-order
+> changes described in [The tiled cache and
+> `composite()`](#the-tiled-cache-and-composite) below — a guarantee
+> `test_mosaic_view_gui.py` asserts by spying on `render_scene_argb`. Independent
+> per-scene bounds fully fix the zoom-instability bug (the actual report) without
+> touching that contract.
 
-`MosaicView` holds one ARGB `QImage` per visible scene in `_scene_layers` (keyed by
-`id(scene)`), built for the **current viewport** — the *render signature*
-`(center_x, center_y, world_units_per_pixel, width, height)`. `composite(layers)` stacks
-those layers bottom-to-top with `QPainter` `SourceOver` into a single image; `layers` is
-already in render order (index 0 = bottom), so z-order is encoded in the list and hidden
-scenes are simply `None`. `composite()` is the **single indirection point** where
-deferred seamline/feathering work will later re-implement the stacking (by territory
-mask) without touching callers.
+### The tiled cache and `composite()`
 
-This split gives the caching tiers the design calls for:
+`MosaicView` caches the pixel layer as a grid of **tiles**, not one viewport-sized image
+per scene (issue #674). World space is quantized, **per discrete zoom bucket**, into a
+fixed grid of `_TILE_PX`-square (256×256) cells; one cached ARGB `QImage` is one scene's
+warp of one cell, keyed by `_TileKey = (id(scene), bucket, col, row)`. `_tile_cache` is an
+insertion-ordered LRU bounded to `_TILE_CACHE_MAX` tiles; `_inflight_tiles` holds the keys
+currently being warped so a tile is never submitted twice.
 
-- **Z-order reorder / visibility toggle** (`recomposite_only()`) — a pure restack of the
-  cached layers, **no GDAL reads**. Hiding a scene just drops it from the composite (its
-  `visible` flag), and unhiding at the same viewport reuses its still-cached layer.
-  `recomposite_only()` falls back to a read only when *revealing* a scene that was hidden
-  at the last read (so it was never cached at this viewport).
-- **Pan / zoom** — changes the render signature, so every layer is re-read. This is the
-  cache's deliberate trade-off: it does **not** survive pan/zoom (the composite is
-  re-read), but it makes reorder/visibility at a fixed viewport free.
-- **Add / remove scene, target-CRS change** (`invalidate_pixels()`) — marks the cache
-  stale so the next paint re-reads.
+The bucket is `round(log2(world_units_per_pixel))`, and a bucket's tiles are rendered at
+`bucket_wupp = 2**bucket` world-units-per-pixel — a power-of-two "pyramid level" (aligned
+with the #634 overviews) chosen so a whole *range* of continuous zooms reuses one set of
+tiles: the world→screen affine scales those tiles to the exact zoom (the standard
+slippy-map look) instead of re-reading on every scale change. Tiles are anchored at the
+CRS's real `(0, 0)`, so the same world area always maps to the same cell — which is why a
+pan is a cache hit on the tiles it slides back over.
 
-### Off-thread, debounced reads
+`_render_bucket()` **floors** that bucket at the common grid's resolution so the preview
+is never rendered *finer* than the mosaic's real data. Rendering finer would be pure
+waste — `gdal.Warp` would upsample the grid onto a denser output, producing no new detail
+(and, several multiples below native, getting slow). Past native zoom the render bucket
+is therefore pinned at the grid-resolution level: the same grid-resolution tiles are
+reused and the affine scales them up (one source pixel drawn as a screen block), so a deep
+zoom-in is **all cache hits, zero reads**. The floor is one view-wide value (the grid's
+finest pixel size), so every scene still renders at one shared bucket and the per-cell
+`composite()` stays pixel-aligned — a per-scene floor would put mixed-resolution scenes on
+different grids and break that alignment.
+
+`composite(layers)` is unchanged and remains the **single indirection point**: it stacks a
+list of ARGB layers bottom-to-top with `QPainter` `SourceOver`. It is now called **per
+cell** — every visible scene's tile at one `(bucket, col, row)` is the same size and
+pixel-aligned, so it stacks them exactly as it stacked full-viewport layers before, and
+deferred seamline/feathering still re-implements only its internals (by territory mask)
+without touching callers.
+
+This gives the same three caching tiers, now in tile terms:
+
+- **Z-order reorder / visibility toggle** (`recomposite_only()`) — a pure repaint from the
+  cache, **no GDAL reads**. Draw order in `paintEvent` applies z-order; hidden scenes are
+  skipped; re-showing a scene reuses its still-cached tiles (they are keyed per scene and
+  never evicted on hide). The only case that reads is *revealing* a scene hidden at every
+  prior read of this viewport — `_start_pixel_read` finds its cells missing and warps just
+  them, so an all-cached restack submits **zero** warp jobs (asserted in
+  `test_mosaic_view_gui.py` by spying on `render_scene_argb`).
+- **Pan / zoom** — reuses every tile the new viewport shares with the old and warps **only
+  the newly-exposed cells**, plus a one-tile prefetch ring (`_PREFETCH_RING`) so the loaded
+  margin travels ahead of the viewport. This is the #674 fix: the per-read cost scales with
+  the *newly-exposed* strip, not the whole viewport, so a pan no longer re-warps everything
+  and the black edge around the viewport is gone. Zoom reuses tiles too, because a range of
+  zooms shares one bucket.
+- **Add / remove scene, target-CRS change** (`invalidate_pixels()`) — clears the whole
+  cache and bumps `_read_epoch`, so a read already in flight drops its result instead of
+  inserting now-stale tiles; the next paint refills.
+
+### Off-thread, debounced reads, and the two-pass paint
 
 Reads run **off the UI thread** and pan/zoom re-reads are **debounced** so the view stays
-responsive. A `paintEvent` whose render signature changed (re)starts a single-shot
-`QTimer` (`_PIXEL_READ_DEBOUNCE_MS`, ~120 ms); a gesture's burst of paints collapses into
-one read once the camera settles. On fire, `_start_pixel_read` snapshots the viewport on
-the GUI thread (resolving footprints and the in-view intersect test — cheap OSR work),
-then hands only the heavy per-scene warps to `app_services.scheduler.submit_thread`. The
-worker returns NumPy arrays (no Qt off-thread); the future's done-callback emits the
-`_read_ready` signal, whose queued connection wraps them into `QImage`s and restacks on
-the GUI thread. `_reading_signature` tracks the in-flight read so a superseded (or
-out-of-order) result is discarded and never clobbers newer pixels. In the interim the
-prior composite keeps drawing, scaled by the camera (it is drawn mapped from its own
-`_composite_world_extent` through the world→screen affine), so pan/zoom shows a scaled
-preview until the sharp re-read lands. With no scheduler (e.g. a bare view in a unit
-test) the read falls back to synchronous.
+responsive. A `paintEvent` whose camera moved — plus `invalidate_pixels()` /
+`recomposite_only()` — (re)starts a single-shot `QTimer` (`_PIXEL_READ_DEBOUNCE_MS`,
+~80 ms); a gesture's burst of paints collapses into one read once the camera settles. On
+fire, `_start_pixel_read` snapshots the viewport on the GUI thread (target CRS, resampling
+method, footprints and the per-tile intersect test — cheap OSR work) and builds a warp job
+**only for each cell missing from `_tile_cache` and not already in `_inflight_tiles`**,
+then hands the heavy per-tile warps to `app_services.scheduler.submit_thread`. The worker
+returns NumPy arrays (no Qt off-thread); the done-callback emits the `_read_ready` signal,
+whose queued connection wraps them into `QImage`s and inserts them (evicting LRU) on the
+GUI thread. Reads are **additive** — a late or superseded result is still a valid tile for
+its cell — so there is no per-read "discard superseded" step; clearing the submitted keys
+from `_inflight_tiles` (and the `_read_epoch` check for invalidations) is all the
+bookkeeping needed. With no scheduler (a bare view in a unit test) the read runs
+synchronously.
+
+`paintEvent` draws the pixel layer in **two passes**, both mapping each tile's world rect
+through the world→screen affine (so off-screen tiles never land on the widget):
+
+1. **Fallback pass** — under-draws the nearest *other* populated zoom bucket's cached tiles
+   that intersect the viewport, drawn scaled by the camera. This keeps the frame filled
+   during a zoom into a not-yet-read bucket (coarser/finer tiles stretch until the sharp
+   bucket lands); a pan's leading edge is already covered by the prefetch ring, so together
+   they eliminate the black frame between a gesture and its read.
+2. **Sharp pass** — for each current-bucket cell covering the viewport, gathers each
+   visible scene's cached tile, `composite()`s them into one cell image, and blits it at the
+   cell's world rect. Cells still missing are exactly what the debounced read above is
+   fetching.
+
+> **The render bucket is floored at the grid resolution (`_render_bucket()`), so the
+> preview never warps finer than the mosaic's real data.** Beyond native zoom, tiles are
+> reused and scaled by the affine rather than re-warped — which both matches what the
+> viewer would actually see (upsampling adds no detail) and avoids the deep-upsample warp
+> cost, since `gdal.Warp` past native would read full-resolution source (no coarser
+> overview to shortcut through) for every tile. `test_mosaic_view_gui.py` asserts a deep
+> zoom-in past native triggers **zero** `render_scene_argb` calls.
 
 ---
 
@@ -642,10 +741,10 @@ flowchart TD
     E --> F
     F -->|yes| G["_rebuild_overlay_geometry()<br/>geometry_dirty = False"]
     F -->|no, cache is fresh| H
-    G --> P{"render signature<br/>changed / pixels dirty?"}
-    P -->|yes| Q["_schedule_pixel_read()<br/>(debounced, off-thread)"]
+    G --> P{"camera moved<br/>or pixels dirty?"}
+    P -->|yes| Q["_schedule_pixel_read()<br/>(debounced, off-thread, missing tiles only)"]
     P -->|no| H
-    Q --> H["draw pixel layer:<br/>_composite_pixmap mapped by world_to_screen"]
+    Q --> H["draw pixel layer:<br/>fallback bucket + per-cell composite tiles,<br/>each mapped by world_to_screen"]
     H --> H2["painter.setWorldTransform(world_to_screen)"]
     H2 --> J["draw bounding box (_bbox_extent)"]
     J --> K["per scene: clip to hidden_path (if any),<br/>fill + outline in the highlight color"]
@@ -723,7 +822,7 @@ rebuild) and is fully guarded: any OGR/OSR failure clears the cache and logs rat
 than letting an exception escape a paint. Pens are **cosmetic**, so outline width stays
 constant in screen pixels regardless of zoom.
 
-`paintEvent` draws, in order: the pixel layer (still stubbed, #637), then the bounding
+`paintEvent` draws, in order: the tiled pixel layer (#637/#674), then the bounding
 box, then per scene a clip to its hidden region filled + outlined in the highlight
 color, then all footprint outlines on top in green (so every boundary stays visible
 even where it crosses an overlap region).
@@ -811,8 +910,8 @@ the output geometry changes:
   Path](#the-export-path)); the v1 preview toggle is intentionally deferred.
 
 `ResolutionMode` change, band-metadata selection, resampling warning, and
-reorder-without-reads are covered by `src/tests/test_mosaic_pane_gui.py`, with the
-controller-side surface (resample round-trip, band-metadata fallback, no-grid-invalidation)
+reorder-without-reads are covered by `src/tests/test_mosaic_control_panel_gui.py`, with
+the controller-side surface (resample round-trip, band-metadata fallback, no-grid-invalidation)
 in `src/tests/test_mosaic_controller.py`.
 
 ---
@@ -1074,10 +1173,11 @@ channels out.
   preservation (pure `QTransform` math, no widget shown).
 - `src/tests/test_mosaic_compositor.py` — the Qt-free `render_scene_argb`: alpha is 0
   exactly on the nodata collar and 255 on the valid interior, RGBA shape/dtype, valid
-  pixels get color, a disjoint viewport comes back fully transparent (no Qt); plus (#677)
-  it reads the display-only bands **in order** (column gradient → R, row gradient → G)
-  and **ignores** the dataset's display bands (a post-ingest display-band edit can't
-  change the preview).
+  pixels get color, a disjoint viewport comes back fully transparent (no Qt). Issue
+  #675: with explicit `stretch_bounds` set on the scene, a gradient fixture renders
+  identically whether read at the full extent or a further-zoomed-in crop; a paired
+  test with `stretch_bounds=None` proves the same fixture *does* drift under the old
+  viewport-percentile fallback, confirming the regression coverage is meaningful.
 - `src/tests/test_mosaic_materialize.py` — the materialization adapter: full-band
   round-trip metadata + tiled layout, window reads, `RasterDataSet` overriding its GDAL
   backing, dedup, temp-dir lifecycle; plus (#677) `build_display_source` bakes only the
@@ -1087,14 +1187,18 @@ channels out.
 - `src/tests/test_mosaic_view_gui.py` — the overlay **and** pixel-layer wiring end to
   end, driven through the real `MosaicPane` ingestion path: geometry cache populates /
   re-invalidates; `composite()` stacks known ARGB layers (top opaque wins, holes reveal
-  below); the per-scene cache populates; z-order reorder / visibility toggle trigger **no
-  GDAL reads** (spy on `render_scene_argb`); and a pan burst **coalesces into a single
-  debounced background read**.
-- `src/tests/test_mosaic_pane_gui.py` — the control panel (#638) end to end through the
-  real ingestion path: drag-reorder updates controller z-order and triggers **no GDAL
-  reads**; a resolution-mode change rebuilds the grid; a band-metadata selection sets the
-  canonical source without changing band count; and a non-Nearest-Neighbor resampling
-  choice surfaces the warning and invalidates the pixel cache.
+  below); the tile cache populates; z-order reorder / visibility toggle trigger **no GDAL
+  reads** (spy on `render_scene_argb`); a pan burst **coalesces into a single debounced
+  background read**; and, for #674, a pan **reuses cached tiles and warps only the
+  newly-exposed cells**, a zoom bucket is **read once then reused** on return, a deep
+  zoom **past native reads nothing** (the render bucket is floored at the grid
+  resolution), and the cache is **LRU-bounded** by `_TILE_CACHE_MAX`.
+- `src/tests/test_mosaic_control_panel_gui.py` — the control panel (#638) end to end
+  through the real ingestion path: drag-reorder updates controller z-order and triggers
+  **no GDAL reads**; a resolution-mode change rebuilds the grid; a band-metadata
+  selection sets the canonical source without changing band count; and a
+  non-Nearest-Neighbor resampling choice surfaces the warning and invalidates the pixel
+  cache.
 - `src/tests/test_mosaic_export.py` — the Qt-free `export_mosaic` (#639): two overlapping
   fixtures give the correct z-order winner per pixel (and the reversed order flips it),
   nodata passthrough (a hole in the top scene reveals the lower one; outside every
@@ -1111,7 +1215,10 @@ channels out.
   warn-and-proceed prompt, where declining aborts before the file picker and accepting
   proceeds past it.
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
-  `compute_footprint_wkt`, and progress-reporting behavior.
+  `compute_footprint_wkt`, and progress-reporting behavior. `compute_stretch_bounds`
+  (#675): nodata is excluded from the sampled bounds, a value gradient produces a
+  meaningfully wide (not collapsed) range, an all-nodata band is omitted from the
+  result rather than raising, and the no-overviews fallback (reads the full band).
 - `src/tests/test_mosaic_crs_dialog.py` — `ReprojectPromptDialog` in isolation
   (offscreen Qt), constructed directly from plain lists.
 - `src/tests/test_mosaic_crs_gui.py` — end-to-end through the real
@@ -1119,7 +1226,8 @@ channels out.
   the auto-lock behavior described above with `mock.patch` on
   `wiser.gui.mosaic_pane.ReprojectPromptDialog` so nothing blocks the test.
 - `src/tests/test_mosaic_dialog_gui.py` — dialog shell, Add Scene ingestion flow,
-  progress modal.
+  progress modal; asserts the ingested `MosaicScene.stretch_bounds` is populated
+  (#675).
 - `src/tests/test_mosaic_georeference_gui.py` — re-georeferencing a scene in place
   (#685) end to end via `WiserTestModel`: the context menu opens a `GeoReferencerDialog`
   locked onto the scene (target + save path); a simulated `warp_completed` reingests and

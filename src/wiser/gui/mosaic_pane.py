@@ -4,9 +4,10 @@ Control panel for the Seamless Mosaic feature (EPIC #629).
 Hosts the :class:`MosaicView` alongside a controls area and owns the non-GUI
 :class:`MosaicController` that both share. The controls area offers: an "Add Scene"
 action (a dataset picker plus a button that ingests the chosen dataset -- materialize
--> build overviews -> compute footprint -- on a background thread and appends it to the
-controller); the scene stack with **drag-to-reorder** z-order and per-scene visibility
-(#638); resolution-mode, target-CRS, resampling-method, and canonical band-metadata
+-> build overviews -> compute stretch bounds -> compute footprint -- on a background
+thread and appends it to the controller); the scene stack with **drag-to-reorder**
+z-order and per-scene visibility (#638); resolution-mode, target-CRS,
+resampling-method, and canonical band-metadata
 controls (#638); and a disabled Export button (the export path lands in #639).
 
 Each control mutates the shared controller and then invalidates the view following the
@@ -49,6 +50,7 @@ from wiser.raster.mosaic_ingestion import (
     SceneValidationError,
     build_overviews,
     compute_footprint_wkt,
+    compute_stretch_bounds,
     validate_scene,
 )
 from wiser.utils.primitives import temp_dir
@@ -70,7 +72,7 @@ def _ingest_scene(
     GeoTIFF (just the frozen display bands), build internal overviews on it, and
     compute the valid-pixel footprint.
 
-    Runs on a scheduler thread (no Qt here). ``progress`` is split across the three
+    Runs on a scheduler thread (no Qt here). ``progress`` is split across the four
     phases (weighted by their rough cost) so the overall bar advances smoothly;
     each phase reports fine-grained progress internally. Returns the fully-populated
     :class:`MosaicScene` for the main thread to append to the controller.
@@ -89,9 +91,10 @@ def _ingest_scene(
         snapshot = SceneMetadataSnapshot.from_dataset(dataset, find_display_bands(dataset))
 
     progress = progress or ProgressReporter()
-    materialize_progress, overview_progress, footprint_progress = progress.split(
-        (0.5, "Materializing display bands"),
-        (0.35, "Building overviews"),
+    materialize_progress, overview_progress, stretch_progress, footprint_progress = progress.split(
+        (0.45, "Materializing scene"),
+        (0.30, "Building overviews"),
+        (0.10, "Computing stretch bounds"),
         (0.15, "Computing footprint"),
     )
     gdal_path = materializer.build_display_source(
@@ -100,6 +103,8 @@ def _ingest_scene(
     progress.raise_if_cancelled()
     build_overviews(gdal_path, progress=overview_progress)
     progress.raise_if_cancelled()
+    stretch_bounds = compute_stretch_bounds(gdal_path, dataset, progress=stretch_progress)
+    progress.raise_if_cancelled()
     footprint_wkt = compute_footprint_wkt(gdal_path, progress=footprint_progress)
     progress.report_fraction(1.0, "Done")
     return MosaicScene(
@@ -107,6 +112,7 @@ def _ingest_scene(
         gdal_path=gdal_path,
         footprint_wkt=footprint_wkt,
         has_overviews=True,
+        stretch_bounds=stretch_bounds,
         snapshot=snapshot,
     )
 
