@@ -21,10 +21,12 @@ from osgeo import gdal, osr
 import tests.context  # noqa: F401  (sets up sys.path for `wiser` imports)
 
 from tests.mosaic_fixtures import make_numpy_scene, wkt_for_epsg, write_gtiff
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.dataset_impl import GTiff_GDALRasterDataImpl
+from wiser.raster.mosaic_controller import SceneMetadataSnapshot
 from wiser.raster.mosaic_materialize import (
     SceneMaterializer,
+    materialize_full_band_from_snapshot,
     materialize_to_tiled_geotiff,
     read_materialized_geotiff,
 )
@@ -172,6 +174,91 @@ def test_dedup_single_write() -> None:
         assert first == second
         tifs = list(materializer.temp_path.glob("*.tif"))
         assert len(tifs) == 1
+
+
+# -- display-only materialization (#677) -------------------------------------
+
+
+def test_build_display_source_bakes_only_display_bands(tmp_path: Path) -> None:
+    """The display-only artifact holds exactly the chosen bands, in order, with the
+    nodata preserved so the preview alpha mask still works."""
+    scene = make_numpy_scene(width=8, height=6, num_bands=5, nodata=-9999.0)
+    display_bands = (1, 3, 4)  # an arbitrary 3-of-5 selection
+
+    with SceneMaterializer() as materializer:
+        path = materializer.build_display_source(scene, display_bands)
+        ds = gdal.Open(path)
+        try:
+            assert ds.RasterCount == 3
+            assert ds.GetRasterBand(1).GetNoDataValue() == pytest.approx(-9999.0)
+            # Output band k is source band display_bands[k] (band 1/2/3 = R/G/B).
+            for out_index, src_band in enumerate(display_bands):
+                expected = np.asarray(scene.get_band_data(src_band, filter_data_ignore_value=False))
+                np.testing.assert_array_equal(ds.GetRasterBand(out_index + 1).ReadAsArray(), expected)
+        finally:
+            ds = None
+
+
+def test_build_display_source_grayscale_single_band(tmp_path: Path) -> None:
+    scene = make_numpy_scene(num_bands=4)
+    with SceneMaterializer() as materializer:
+        path = materializer.build_display_source(scene, (2,))
+        ds = gdal.Open(path)
+        try:
+            assert ds.RasterCount == 1
+            expected = np.asarray(scene.get_band_data(2, filter_data_ignore_value=False))
+            np.testing.assert_array_equal(ds.GetRasterBand(1).ReadAsArray(), expected)
+        finally:
+            ds = None
+
+
+def test_build_display_source_cache_keyed_by_bands() -> None:
+    """The display cache is keyed by (scene, display bands): same bands hit, different
+    bands produce a distinct artifact (so a remove -> edit-bands -> re-add is correct)."""
+    scene = make_numpy_scene(num_bands=3)
+    with SceneMaterializer() as materializer:
+        first = materializer.build_display_source(scene, (0, 1, 2))
+        first_again = materializer.build_display_source(scene, (0, 1, 2))
+        different = materializer.build_display_source(scene, (2, 1, 0))
+
+        assert first == first_again  # same bands -> cache hit, no new file
+        assert first != different  # different bands -> distinct artifact
+        assert len(list(materializer.temp_path.glob("*.tif"))) == 2
+
+
+def test_build_display_source_rejects_non_1_or_3_bands() -> None:
+    scene = make_numpy_scene(num_bands=3)
+    with SceneMaterializer() as materializer:
+        with pytest.raises(ValueError):
+            materializer.build_display_source(scene, (0, 1))
+
+
+# -- lazy full-band export materialization from the frozen snapshot (#677) ----
+
+
+def test_full_band_from_snapshot_pixels_live_metadata_frozen(tmp_path: Path) -> None:
+    """Export-time materialization takes pixels from the live dataset but stamps the
+    nodata / metadata from the ingest snapshot, so a later live edit does not leak in."""
+    scene = make_numpy_scene(num_bands=3, nodata=-9999.0)
+    snapshot = SceneMetadataSnapshot.from_dataset(scene, find_display_bands(scene))
+
+    # Edit the live dataset's nodata *after* freezing the snapshot.
+    scene.set_data_ignore_value(-1.0)
+
+    dest = tmp_path / "full.tif"
+    materialize_full_band_from_snapshot(scene, snapshot, dest)
+
+    ds = gdal.Open(str(dest))
+    try:
+        assert ds.RasterCount == 3
+        # nodata is the FROZEN value, not the post-ingest live edit.
+        assert ds.GetRasterBand(1).GetNoDataValue() == pytest.approx(-9999.0)
+        # pixels come from the live dataset (all bands present, in order).
+        for b in range(3):
+            expected = np.asarray(scene.get_band_data(b, filter_data_ignore_value=False))
+            np.testing.assert_array_equal(ds.GetRasterBand(b + 1).ReadAsArray(), expected)
+    finally:
+        ds = None
 
 
 def test_temp_dir_lifecycle() -> None:

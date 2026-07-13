@@ -25,10 +25,10 @@ from osgeo import gdal
 import tests.context  # noqa: F401  (sets up sys.path for `wiser` imports)
 
 from tests.mosaic_fixtures import make_numpy_scene, wkt_for_epsg
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.dataset_impl import NumPyRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.mosaic_controller import CommonGrid, MosaicScene
+from wiser.raster.mosaic_controller import CommonGrid, MosaicScene, SceneMetadataSnapshot
 from wiser.raster.mosaic_export import MosaicExportError, export_mosaic
 from wiser.raster.mosaic_materialize import materialize_to_tiled_geotiff
 
@@ -63,10 +63,17 @@ def _union_grid(width_px: int = 8, height_px: int = 6) -> CommonGrid:
 
 
 def _materialized_scene(dataset: RasterDataSet, tmp_path: Path, name: str) -> MosaicScene:
-    """Materialize ``dataset`` to a tiled GeoTIFF and wrap it as a MosaicScene."""
+    """
+    Wrap ``dataset`` as a MosaicScene with a frozen ingest snapshot (#677).
+
+    Export lazily re-materializes each scene's full-band cube from ``scene.dataset`` +
+    ``scene.snapshot``, so it no longer reads ``gdal_path``; we still materialize a
+    tiled GeoTIFF (some tests poke at it) and attach the snapshot the export path needs.
+    """
     path = tmp_path / f"{name}.tif"
     materialize_to_tiled_geotiff(dataset, path)
-    return MosaicScene(dataset=dataset, gdal_path=str(path))
+    snapshot = SceneMetadataSnapshot.from_dataset(dataset, find_display_bands(dataset))
+    return MosaicScene(dataset=dataset, gdal_path=str(path), snapshot=snapshot)
 
 
 def _numpy_scene_from_cube(cube: np.ndarray, origin, tmp_path: Path, name: str) -> MosaicScene:
@@ -100,7 +107,7 @@ def test_z_order_top_scene_wins_overlap(tmp_path: Path) -> None:
         wkt_for_epsg(EPSG),
         gdal.GRA_NearestNeighbour,
         NODATA,
-        scene_a.dataset,
+        scene_a.snapshot,
         out,
     )
     band = _read_band(out)
@@ -128,7 +135,7 @@ def test_z_order_reversed_flips_winner(tmp_path: Path) -> None:
         wkt_for_epsg(EPSG),
         gdal.GRA_NearestNeighbour,
         NODATA,
-        scene_a.dataset,
+        scene_a.snapshot,
         out,
     )
     band = _read_band(out)
@@ -154,7 +161,7 @@ def test_nodata_hole_in_top_reveals_lower(tmp_path: Path) -> None:
         wkt_for_epsg(EPSG),
         gdal.GRA_NearestNeighbour,
         NODATA,
-        scene_a.dataset,
+        scene_a.snapshot,
         out,
     )
     band = _read_band(out)
@@ -185,7 +192,7 @@ def test_band_count_and_metadata_round_trip(tmp_path: Path) -> None:
         wkt_for_epsg(EPSG),
         gdal.GRA_NearestNeighbour,
         NODATA,
-        band_source,
+        scene_a.snapshot,
         out,
     )
 
@@ -225,7 +232,7 @@ def test_gdal_rgb_default_bands_placeholder_is_cleared(tmp_path: Path) -> None:
         wkt_for_epsg(EPSG),
         gdal.GRA_NearestNeighbour,
         NODATA,
-        band_source,
+        scene_a.snapshot,
         out,
     )
 
@@ -257,7 +264,7 @@ def test_out_of_range_default_bands_are_dropped(tmp_path: Path) -> None:
         wkt_for_epsg(EPSG),
         gdal.GRA_NearestNeighbour,
         NODATA,
-        band_source,
+        scene_a.snapshot,
         out,
     )
 
@@ -271,6 +278,45 @@ def test_out_of_range_default_bands_are_dropped(tmp_path: Path) -> None:
     if stored is not None:
         assert all(0 <= int(b) < reloaded.num_bands() for b in stored)
     assert all(0 <= int(b) < reloaded.num_bands() for b in find_display_bands(reloaded))
+
+
+def test_export_metadata_frozen_against_live_edit(tmp_path: Path) -> None:
+    """
+    #677: export stamps the header from the ingest-time snapshot, so a metadata edit
+    made in main WISER *after* a scene was added is not applied. Freeze a scene with
+    default bands [2, 1, 0], then edit the live dataset, and confirm the exported file
+    keeps the frozen choice.
+    """
+    band_source = make_numpy_scene(
+        origin=ORIGIN_A,
+        base_value=0.0,
+        wavelengths=[450.0, 550.0, 650.0],
+        wavelength_units="nm",
+        default_display_bands=[2, 1, 0],
+    )
+    scene_a = _materialized_scene(band_source, tmp_path, "a")  # snapshot frozen here
+    scene_b = _materialized_scene(make_numpy_scene(origin=ORIGIN_B, base_value=1000.0), tmp_path, "b")
+
+    # Edit the live dataset AFTER ingest; these must NOT reach the export.
+    band_source.set_default_display_bands((0, 1, 2))
+    band_source.set_data_ignore_value(4242.0)
+
+    out = tmp_path / "mosaic.img"
+    export_mosaic(
+        [scene_a, scene_b],
+        _union_grid(),
+        wkt_for_epsg(EPSG),
+        gdal.GRA_NearestNeighbour,
+        NODATA,
+        scene_a.snapshot,
+        out,
+    )
+
+    reloaded = RasterDataLoader().load_from_file(path=str(out), data_cache=None)[0]
+    # The frozen [2, 1, 0] is stamped, not the live edit [0, 1, 2].
+    assert list(reloaded.default_display_bands()) == [2, 1, 0]
+    # The output nodata is the export nodata we passed, unaffected by the live edit.
+    assert reloaded.get_data_ignore_value() == pytest.approx(NODATA)
 
 
 def test_empty_scene_list_raises(tmp_path: Path) -> None:
@@ -295,6 +341,6 @@ def test_unresolved_grid_raises(tmp_path: Path) -> None:
             wkt_for_epsg(EPSG),
             gdal.GRA_NearestNeighbour,
             NODATA,
-            scene_a.dataset,
+            scene_a.snapshot,
             tmp_path / "x.img",
         )
