@@ -1288,14 +1288,31 @@ class WiserTestModel:
         The warp now runs off the GUI thread via ``run_with_progress`` and signals
         completion through ``warp_completed``, so this helper waits for that signal (up to
         ``timeout_ms``) before returning, keeping callers effectively synchronous.
+
+        If the warp *fails*, the dialog's ``_on_warp_error`` would normally pop a modal
+        ``QMessageBox.critical`` — which has no one to dismiss it in a headless test and
+        would block the event loop until the whole run times out (240s), hiding the real
+        GDAL error. To keep failures debuggable, this helper temporarily shadows
+        ``_on_warp_error`` for the duration of the wait: it captures the error message,
+        stops waiting, and re-raises it as a ``RuntimeError`` so the test fails fast with
+        the actual message instead of hanging.
         """
         dialog = self.main_window._geo_ref_dialog
         completed = []
+        errors = []
 
         def _on_done(path):
             completed.append(path)
 
+        def _capture_error(message):
+            # Record the failure without showing the blocking modal dialog.
+            errors.append(message)
+
         dialog.warp_completed.connect(_on_done)
+        # Shadow the bound method with an instance attribute *before* the click, since
+        # ``_create_warped_output`` reads ``self._on_warp_error`` when it launches the warp.
+        original_on_warp_error = dialog.__dict__.get("_on_warp_error", None)
+        dialog._on_warp_error = _capture_error
         try:
 
             def func():
@@ -1305,11 +1322,19 @@ class WiserTestModel:
 
             waited = 0
             step_ms = 50
-            while not completed and waited < timeout_ms:
+            while not completed and not errors and waited < timeout_ms:
                 QTest.qWait(step_ms)
                 waited += step_ms
         finally:
             dialog.warp_completed.disconnect(_on_done)
+            if original_on_warp_error is None:
+                # Remove the instance-level shadow so the class method is used again.
+                dialog.__dict__.pop("_on_warp_error", None)
+            else:
+                dialog._on_warp_error = original_on_warp_error
+
+        if errors:
+            raise RuntimeError(f"Warp failed: {errors[0]}")
 
     # ---------- GCP creation helpers ----------
 
