@@ -21,6 +21,7 @@ renders last (top) and wins z-order overlap.
 
 from __future__ import annotations
 
+import copy
 import enum
 import math
 from dataclasses import dataclass, field
@@ -31,9 +32,12 @@ from osgeo import gdal, ogr, osr
 from wiser.raster.utils import can_transform_between_srs
 
 if TYPE_CHECKING:
-    # Type-only import; RasterDataSet is itself Qt-free, but keeping this under
-    # TYPE_CHECKING avoids any runtime import cost and keeps the seam obvious.
-    from wiser.raster.dataset import RasterDataSet
+    # Type-only imports. ``wiser.raster.dataset`` pulls in Qt at import time (via
+    # ``dataset_editor_dialog``), so keeping these under TYPE_CHECKING is what keeps
+    # this controller Qt-free and unit-testable without a running application. The
+    # snapshot below is built by calling the dataset's own metadata accessors +
+    # ``copy.deepcopy``, so it never needs these classes at runtime.
+    from wiser.raster.dataset import RasterDataSet, SpatialMetadata, SpectralMetadata
 
 
 class TargetCrsRequired(Exception):
@@ -72,6 +76,100 @@ class ResolutionMode(enum.Enum):
 
 
 @dataclass
+class SceneMetadataSnapshot:
+    """
+    The dataset metadata **frozen at ingest** for one mosaic scene (issue #677).
+
+    ``RasterDataSet`` metadata (data-ignore value, wavelengths / band names, default
+    display bands, geotransform, SRS, …) can be edited in main WISER (via
+    ``dataset_editor_dialog.py``) while the mosaic dialog is open, and
+    ``RasterDataSet`` emits no change signal. To keep a mosaic session deterministic,
+    the dataset's metadata is snapshotted onto the :class:`MosaicScene` at ingest and
+    both the display-only preview materialization and the lazy full-band export
+    materialization stamp **from this snapshot**, never from the live dataset. Export
+    additionally compares the live dataset against this snapshot and warns the user if
+    it has drifted (a cheap ``==`` on the metadata objects, which both implement it).
+
+    Rather than re-enumerate individual fields, this houses the dataset's own
+    :class:`~wiser.raster.dataset.SpatialMetadata` and
+    :class:`~wiser.raster.dataset.SpectralMetadata` value objects — which already
+    carry the full spatial (geotransform, SRS) and spectral (band info, bad bands,
+    default display bands, nodata, wavelengths + units, band count) picture — plus:
+
+      * ``display_bands`` — the resolved 0-based band indices (a 1- or 3-tuple) shown
+        for this scene, resolved at ingest from the main view's current selection or
+        :func:`~wiser.raster.dataset.find_display_bands`. This is **GUI state, not
+        dataset state**, so it lives here rather than inside the spectral metadata: it
+        is the bands baked into the display-only artifact (band 1/2/3 *are* R/G/B) and
+        the canonical display-band choice for export.
+
+    The spatial/spectral objects are **deep-copied** at construction so later live
+    edits to the dataset cannot mutate the snapshot (``get_spectral_metadata`` shares
+    the dataset's internal ``band_info`` list by reference, so a shallow copy would
+    not be safe). Treated as immutable by convention thereafter.
+    """
+
+    spatial: "SpatialMetadata"
+    spectral: "SpectralMetadata"
+    display_bands: Tuple[int, ...]
+
+    @classmethod
+    def from_dataset(
+        cls,
+        dataset: "RasterDataSet",
+        display_bands: Tuple[int, ...],
+    ) -> "SceneMetadataSnapshot":
+        """
+        Build a snapshot from ``dataset`` and the already-resolved ``display_bands``.
+
+        ``display_bands`` is resolved by the caller (the GUI ingest path) from the
+        main view's current selection or :func:`~wiser.raster.dataset.find_display_bands`
+        — it is intentionally *not* read from the dataset here, since the displayed
+        bands are GUI state, not dataset state. The spatial and spectral metadata are
+        read from the ``RasterDataSet`` object and **deep-copied** so later live edits
+        cannot mutate the snapshot.
+        """
+        return cls(
+            spatial=copy.deepcopy(dataset.get_spatial_metadata()),
+            spectral=copy.deepcopy(dataset.get_spectral_metadata()),
+            display_bands=tuple(int(b) for b in display_bands),
+        )
+
+    # -- convenience accessors (delegate to the housed value objects) ----------
+    #
+    # Later steps (display-only materialize #677-step4, lazy full-band export
+    # #677-step7) read these; exposing them here keeps those call sites readable.
+
+    @property
+    def geo_transform(self) -> Tuple[float, float, float, float, float, float]:
+        return self.spatial.get_geo_transform()
+
+    @property
+    def wkt_spatial_reference(self) -> Optional[str]:
+        return self.spatial.get_wkt_spatial_reference()
+
+    @property
+    def data_ignore_value(self):
+        return self.spectral.get_data_ignore_value()
+
+    @property
+    def band_info(self):
+        return self.spectral.get_band_info()
+
+    @property
+    def bad_bands(self):
+        return self.spectral.get_bad_bands()
+
+    @property
+    def default_display_bands(self):
+        return self.spectral.get_default_display_bands()
+
+    @property
+    def num_bands(self) -> int:
+        return self.spectral.get_num_bands()
+
+
+@dataclass
 class MosaicScene:
     """
     One scene in the mosaic.
@@ -82,7 +180,10 @@ class MosaicScene:
       * ``gdal_path`` — the materialized, warpable tiled GeoTIFF (a WISER-owned temp
         copy from :class:`~wiser.raster.mosaic_materialize.SceneMaterializer`; the
         user's opened dataset is never modified). Overviews are built *internally*
-        into this same file, so there is exactly one artifact file per scene.
+        into this same file, so there is exactly one artifact file per scene. Since
+        #677 this is the **display-only** artifact (just the 1 or 3 display bands),
+        which is what the preview compositor reads; the full-band GeoTIFF is
+        materialized lazily at export time and is not stored here.
       * ``footprint_wkt`` — the valid-pixel polygon as WKT in the dataset's own CRS.
       * ``has_overviews`` — whether pyramid overviews were built on ``gdal_path``.
       * ``stretch_bounds`` — precomputed, extent-independent 2-98 percentile stretch
@@ -90,8 +191,10 @@ class MosaicScene:
         ingest by :func:`wiser.raster.mosaic_ingestion.compute_stretch_bounds` so the
         pixel compositor's contrast stays stable across zoom (issue #675). ``None``
         until ingestion computes it.
+      * ``snapshot`` — the dataset metadata frozen at ingest (#677); see
+        :class:`SceneMetadataSnapshot`. ``None`` on a bare scaffolding scene.
 
-    All fields besides ``dataset`` default to ``None``/``False`` so a bare
+    All artifact fields default to ``None``/``False`` so a bare
     ``MosaicScene(dataset=...)`` (as used by the scaffolding tests) is still valid.
     """
 
@@ -101,6 +204,7 @@ class MosaicScene:
     footprint_wkt: Optional[str] = None
     has_overviews: bool = False
     stretch_bounds: Optional[Dict[int, Tuple[float, float]]] = None
+    snapshot: Optional[SceneMetadataSnapshot] = None
 
 
 @dataclass

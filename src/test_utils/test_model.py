@@ -1728,6 +1728,65 @@ class WiserTestModel:
             raise RuntimeError("OK/Cancel buttons not found in buttonBox")
         QTest.mouseClick(button, Qt.LeftButton)
 
+    # ------------------------------------------
+    # "From CRS String" tab helpers
+    # ------------------------------------------
+    @run_in_wiser_decorator
+    def crs_creator_select_string_tab(self) -> None:
+        """Switch the CRS creator to the 'From CRS String' tab."""
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.tabWidget.setCurrentWidget(dlg._ui.page_string)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_active_tab(self) -> str:
+        """Return 'params' or 'string' for the currently active tab."""
+        dlg = self.main_window._crs_creator_dialog
+        current = dlg._ui.tabWidget.currentWidget()
+        return "string" if current is dlg._ui.page_string else "params"
+
+    @run_in_wiser_decorator
+    def crs_creator_set_crs_string(self, text: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.pedit_crs_string.setPlainText(text)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_string_crs_name(self, name: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_string_crs_name
+        le.clear()
+        QTest.keyClicks(le, name)
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_press_validate_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_validate_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_add_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_add_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_result(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string_result.toPlainText()
+
+    @run_in_wiser_decorator
+    def crs_creator_string_add_enabled(self) -> bool:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.btn_add_crs_string.isEnabled()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_crs_name(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.ledit_string_crs_name.text().strip()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_crs_string(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string.toPlainText()
+
     # ==========================================
     # region Similarity Transform
     # ==========================================

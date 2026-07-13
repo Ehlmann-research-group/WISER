@@ -47,11 +47,11 @@ from typing import List, Optional, Sequence, TYPE_CHECKING
 from osgeo import gdal
 
 from wiser.raster.loaders import envi
+from wiser.raster.mosaic_materialize import materialize_full_band_from_snapshot
 from wiser.utils.progress import ProgressReporter, gdal_progress_callback
 
 if TYPE_CHECKING:
-    from wiser.raster.dataset import RasterDataSet
-    from wiser.raster.mosaic_controller import CommonGrid, MosaicScene
+    from wiser.raster.mosaic_controller import CommonGrid, MosaicScene, SceneMetadataSnapshot
 
 
 class MosaicExportError(RuntimeError):
@@ -64,7 +64,7 @@ def export_mosaic(
     target_wkt: str,
     resample_alg: int,
     output_nodata: Optional[float],
-    band_metadata_dataset: Optional["RasterDataSet"],
+    band_metadata_snapshot: Optional["SceneMetadataSnapshot"],
     out_path: Path,
     progress: Optional[ProgressReporter] = None,
 ) -> Path:
@@ -73,14 +73,20 @@ def export_mosaic(
     ``out_path`` as an ENVI raster. Returns ``out_path``.
 
     ``scenes`` must be the visible scenes in **bottom-to-top** z-order (the order
-    :meth:`MosaicController.get_scenes` returns, filtered to visible), each with a
-    materialized ``gdal_path``. ``grid`` is the resolved
-    :class:`~wiser.raster.mosaic_controller.CommonGrid` (extent + width/height in
+    :meth:`MosaicController.get_scenes` returns, filtered to visible), each carrying
+    its ingest-time :class:`~wiser.raster.mosaic_controller.SceneMetadataSnapshot`.
+    Each scene's **full-band** GeoTIFF is materialized here, lazily, from the live
+    ``scene.dataset`` pixels but stamped with the frozen ``scene.snapshot`` metadata
+    (#677) -- so a mid-session metadata edit never silently alters the exported
+    product, and the export stays aligned with the frozen footprint / common grid.
+    The scenes' display-only preview ``gdal_path`` is intentionally *not* used here.
+
+    ``grid`` is the resolved :class:`CommonGrid` (extent + width/height in
     ``target_wkt`` units). ``resample_alg`` is a ``gdal.GRA_*`` constant.
-    ``output_nodata`` is the Data Ignore Value carried through to the output (and
-    used to mark invalid pixels for compositing); ``None`` disables nodata handling
-    (only sensible when no scene has a nodata value). ``band_metadata_dataset`` is
-    the scene dataset whose canonical band metadata is stamped onto the output.
+    ``output_nodata`` is the Data Ignore Value carried through to the output (and used
+    to mark invalid pixels for compositing); ``None`` disables nodata handling.
+    ``band_metadata_snapshot`` is the frozen snapshot whose canonical band metadata is
+    stamped onto the output header.
 
     Nothing is loaded back into the running application; the caller owns the file.
     """
@@ -94,24 +100,38 @@ def export_mosaic(
 
     out_path = Path(out_path)
 
-    # Warping to lazy VRTs is cheap (no pixels); the streamed ENVI write is the
-    # heavy phase, so give it the bulk of the progress range.
-    prep, compose = progress.split((0.1, "Preparing scenes"), (0.9, "Compositing mosaic"))
+    # Materializing each scene's full band cube is the heavy per-scene phase; the
+    # streamed ENVI compose is the heavy shared phase. Split the bar roughly evenly.
+    prep, compose = progress.split((0.5, "Preparing scenes"), (0.5, "Compositing mosaic"))
 
-    # The warped VRTs reference the composited output only until the streamed write
+    # The full-band tiffs and warped VRTs are referenced only until the streamed write
     # completes inside gdal.Run, so a temp dir scoped around the mosaic call is enough.
     with tempfile.TemporaryDirectory(prefix="wiser_mosaic_export_") as tmp_str:
         tmp_dir = Path(tmp_str)
         vrt_paths: List[str] = []
         total = len(scenes)
-        for i, scene in enumerate(scenes):
+        # One equal progress slice per scene (materialize + warp); split normalizes.
+        scene_progs = prep.split_weights([(1.0, "Preparing scene") for _ in range(total)])
+        for i, (scene, scene_prog) in enumerate(zip(scenes, scene_progs)):
             progress.raise_if_cancelled()
+            snapshot = scene.snapshot
+            if snapshot is None:
+                raise MosaicExportError("A scene is missing its ingest metadata snapshot; cannot export.")
+            # Lazily materialize the full-band cube (uncached) from live pixels + frozen
+            # metadata, then warp that onto the common grid as a lazy VRT.
+            full_band_path = tmp_dir / f"scene_{i}_full.tif"
+            materialize_full_band_from_snapshot(scene.dataset, snapshot, full_band_path, progress=scene_prog)
             vrt = _warp_scene_to_grid_vrt(
-                scene, grid, target_wkt, resample_alg, output_nodata, tmp_dir / f"scene_{i}.vrt"
+                str(full_band_path),
+                snapshot,
+                grid,
+                target_wkt,
+                resample_alg,
+                output_nodata,
+                tmp_dir / f"scene_{i}.vrt",
             )
             if vrt is not None:
                 vrt_paths.append(vrt)
-            prep.report(i + 1, total, "Preparing scenes")
 
         if not vrt_paths:
             raise MosaicExportError("No scenes overlap the output grid; nothing to export.")
@@ -122,13 +142,14 @@ def export_mosaic(
     # The pixels are fully written; patch the text header with canonical band
     # metadata so the file re-opens in WISER with the right spectral labels.
     progress.raise_if_cancelled()
-    _patch_envi_band_metadata(out_path, band_metadata_dataset, output_nodata)
+    _patch_envi_band_metadata(out_path, band_metadata_snapshot, output_nodata)
 
     return out_path
 
 
 def _warp_scene_to_grid_vrt(
-    scene: "MosaicScene",
+    src_path: str,
+    snapshot: "SceneMetadataSnapshot",
     grid: "CommonGrid",
     target_wkt: str,
     resample_alg: int,
@@ -136,23 +157,17 @@ def _warp_scene_to_grid_vrt(
     vrt_path: Path,
 ) -> Optional[str]:
     """
-    Warp one scene's materialized GeoTIFF onto the common grid as a lazy warped
-    VRT, returning its path (or ``None`` if the scene does not overlap the grid).
+    Warp one scene's full-band GeoTIFF (at ``src_path``) onto the common grid as a
+    lazy warped VRT, returning its path (or ``None`` if it does not overlap the grid).
 
-    The scene's own Data Ignore Value becomes the warp source nodata (so its
-    invalid pixels stay invalid), and ``output_nodata`` becomes the destination
-    nodata (so outside-footprint fill is marked invalid for the compositor and the
-    final output nodata is consistent).
+    The scene's **frozen** Data Ignore Value (from ``snapshot``) becomes the warp
+    source nodata (so its invalid pixels stay invalid), and ``output_nodata`` becomes
+    the destination nodata (so outside-footprint fill is marked invalid for the
+    compositor and the final output nodata is consistent).
     """
     min_x, min_y, max_x, max_y = grid.extent
 
-    src_nodata: Optional[float] = None
-    getter = getattr(scene.dataset, "get_data_ignore_value", None)
-    if getter is not None:
-        try:
-            src_nodata = getter()
-        except Exception:  # noqa: BLE001 - metadata access must not break export
-            src_nodata = None
+    src_nodata = snapshot.data_ignore_value
 
     warp_kwargs = dict(
         format="VRT",
@@ -168,7 +183,7 @@ def _warp_scene_to_grid_vrt(
     if output_nodata is not None:
         warp_kwargs["dstNodata"] = output_nodata
 
-    warped = gdal.Warp(str(vrt_path), scene.gdal_path, **warp_kwargs)
+    warped = gdal.Warp(str(vrt_path), src_path, **warp_kwargs)
     if warped is None:
         # Warp can decline when the output window is fully disjoint from the source;
         # that scene simply contributes nothing to the mosaic.
@@ -205,13 +220,14 @@ def _run_raster_mosaic(
 
 def _patch_envi_band_metadata(
     out_path: Path,
-    band_metadata_dataset: Optional["RasterDataSet"],
+    band_metadata_snapshot: Optional["SceneMetadataSnapshot"],
     output_nodata: Optional[float],
 ) -> None:
     """
     Rewrite the GDAL-written ENVI header for ``out_path`` in place, stamping the
     canonical band metadata (wavelengths / units / band names / bad-band list /
-    default display bands) and the output nodata.
+    default display bands) from the frozen ``band_metadata_snapshot`` (#677) and the
+    output nodata.
 
     ``gdal raster mosaic`` writes correct pixels, geotransform, and ``map info``,
     but no spectral metadata, so this fills that in using WISER's own ENVI header
@@ -222,7 +238,7 @@ def _patch_envi_band_metadata(
     hdr_filename, _img_filename = envi.find_envi_filenames(str(out_path))
     metadata = envi.load_envi_header(hdr_filename)
 
-    _apply_band_metadata(metadata, band_metadata_dataset)
+    _apply_band_metadata(metadata, band_metadata_snapshot)
 
     if output_nodata is not None:
         metadata["data ignore value"] = output_nodata
@@ -230,7 +246,7 @@ def _patch_envi_band_metadata(
     envi.write_envi_header(hdr_filename, metadata)
 
 
-def _resolve_default_bands(band_metadata_dataset: Optional["RasterDataSet"]) -> Optional[list]:
+def _resolve_default_bands(band_metadata_snapshot: Optional["SceneMetadataSnapshot"]) -> Optional[list]:
     """
     Choose the ``default bands`` (0-based band indices) to write to the export header,
     or ``None`` to omit them entirely.
@@ -238,41 +254,43 @@ def _resolve_default_bands(band_metadata_dataset: Optional["RasterDataSet"]) -> 
     ``gdal raster mosaic`` writes a **1-based** ``default bands`` placeholder (e.g.
     ``{1, 2, 3}`` for RGB inputs). WISER reads ``default bands`` verbatim -- it does no
     1-based->0-based conversion and no bounds check -- so leaving GDAL's placeholder (or
-    stamping an out-of-range source value) makes the exported file crash the raster view
-    on open (``Illegal band #``). We therefore keep the canonical source's default
-    display bands only when every index is in range for the output, and otherwise clear
-    the field so WISER derives display bands from the stamped wavelengths (truecolor) or
-    the first bands.
+    stamping an out-of-range value) makes the exported file crash the raster view on
+    open (``Illegal band #``). We therefore use the snapshot's frozen resolved
+    ``display_bands`` (the canonical display choice) only when every index is in range
+    for the output, and otherwise clear the field so WISER derives display bands from
+    the stamped wavelengths (truecolor) or the first bands.
     """
-    if band_metadata_dataset is None:
+    if band_metadata_snapshot is None:
         return None
-    defaults = band_metadata_dataset.default_display_bands()
-    num_bands = band_metadata_dataset.num_bands()
+    defaults = band_metadata_snapshot.display_bands
+    num_bands = band_metadata_snapshot.num_bands
     if defaults and all(0 <= int(band) < num_bands for band in defaults):
         return list(defaults)
     return None
 
 
-def _apply_band_metadata(metadata: dict, band_metadata_dataset: Optional["RasterDataSet"]) -> None:
+def _apply_band_metadata(metadata: dict, band_metadata_snapshot: Optional["SceneMetadataSnapshot"]) -> None:
     """
-    Merge the canonical band metadata from ``band_metadata_dataset`` into an ENVI
+    Merge the canonical band metadata from ``band_metadata_snapshot`` into an ENVI
     header ``metadata`` dict, mirroring the per-band conventions of
     :meth:`ENVI_GDALRasterDataImpl.save_dataset_as` (default display bands, band names,
     wavelength / wavelength units, ``bbl``).
 
-    ``band_metadata_dataset`` may be ``None`` (no canonical source); even then the
+    ``band_metadata_snapshot`` may be ``None`` (no canonical source); even then the
     ``default bands`` field is resolved -- see below -- so this is always called.
     """
     # Always resolve `default bands` explicitly (see _resolve_default_bands): GDAL's
     # ENVI writer stamps a 1-based placeholder that WISER cannot read, so it must be
     # replaced or cleared here regardless of whether we have a band-metadata source.
-    metadata["default bands"] = _resolve_default_bands(band_metadata_dataset)
+    metadata["default bands"] = _resolve_default_bands(band_metadata_snapshot)
 
-    if band_metadata_dataset is None:
+    if band_metadata_snapshot is None:
         return
 
-    band_info = band_metadata_dataset.band_list()
-    num_bands = band_metadata_dataset.num_bands()
+    # snapshot.band_info is a deep copy of the source dataset's band_list() (identical
+    # shape), so the same key access applies band-for-band.
+    band_info = band_metadata_snapshot.band_info
+    num_bands = band_metadata_snapshot.num_bands
 
     names: List[str] = []
     wavelengths: List[str] = []
@@ -297,6 +315,6 @@ def _apply_band_metadata(metadata: dict, band_metadata_dataset: Optional["Raster
             metadata["wavelength units"] = envi.wiser_unitstr_to_envi_str(units)
 
     # Bad-band list (bbl): only meaningful when at least one band is flagged bad.
-    bad_bands = band_metadata_dataset.get_bad_bands()
+    bad_bands = band_metadata_snapshot.bad_bands
     if bad_bands and 0 in bad_bands:
         metadata["bbl"] = list(bad_bands)
