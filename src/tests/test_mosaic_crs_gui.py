@@ -249,6 +249,77 @@ class TestMosaicCrsGui(unittest.TestCase):
 
         self.test_model.close_seamless_mosaic_dialog()
 
+    # -- CRS change reframes the camera when the mosaic lands off-screen -------
+
+    def test_choose_target_crs_reframes_when_mosaic_off_screen(self):
+        # Two UTM (32611) scenes -> the camera is framed on eastings ~4e5. Switching the
+        # target to geographic (4326) reprojects the footprints to ~(-117, 34), far from
+        # the parked camera, so the mosaic lands off-screen and must be reframed.
+        ds_a = self._load("a_utm.tif", 32611)
+        ds_b = self._load("b_utm.tif", 32611)
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+        view = pane._mosaic_view
+
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            self._ingest(pane, controller, ds_a, 1)
+            self._ingest(pane, controller, ds_b, 2)
+
+        # Frame the camera on the UTM mosaic, as the user would be viewing it.
+        view.resize(300, 300)
+        view.zoom_to_extent(controller.get_common_grid().extent)
+        self.assertGreater(view._transform.center_x, 100000.0)  # parked over UTM easting
+
+        target_geo = osr.SpatialReference()
+        target_geo.ImportFromEPSG(4326)
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog") as Dlg:
+            inst = Dlg.return_value
+            inst.exec.return_value = QDialog.Accepted
+            inst.selected_target_wkt.return_value = target_geo.ExportToWkt()
+            pane._on_choose_target_crs()
+
+        self.assertTrue(_same_as_epsg(controller.get_target_crs(), 4326))
+        # The camera reframed to the new (geographic) union extent center.
+        geo_extent = controller.get_common_grid().extent
+        self.assertAlmostEqual(view._transform.center_x, (geo_extent[0] + geo_extent[2]) / 2.0, places=3)
+        self.assertAlmostEqual(view._transform.center_y, (geo_extent[1] + geo_extent[3]) / 2.0, places=3)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_ensure_scenes_in_view_is_noop_when_a_scene_is_visible(self):
+        # No CRS change: the scene is already framed, so ensure_scenes_in_view must leave
+        # the user's pan/zoom untouched (only an off-screen mosaic gets reframed).
+        ds_a = self._load("a_utm.tif", 32611)
+
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+        view = pane._mosaic_view
+
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            self._ingest(pane, controller, ds_a, 1)
+
+        view.resize(300, 300)
+        view.zoom_to_extent(controller.get_common_grid().extent)
+        before = (
+            view._transform.center_x,
+            view._transform.center_y,
+            view._transform.world_units_per_pixel,
+        )
+
+        view.ensure_scenes_in_view()
+
+        after = (
+            view._transform.center_x,
+            view._transform.center_y,
+            view._transform.world_units_per_pixel,
+        )
+        self.assertEqual(before, after)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
 
 if __name__ == "__main__":
     unittest.main()
