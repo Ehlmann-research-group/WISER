@@ -207,6 +207,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -715,9 +716,12 @@ WISER cannot identify the file’s contents automatically.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset">
-<span class="sig-name descname"><span class="pre">add_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">view_dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">add_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet" title="wiser.raster.dataset.RasterDataSet"><span class="pre">wiser.raster.dataset.RasterDataSet</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">view_dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.add_dataset" title="Link to this definition">#</a></dt>
 <dd><p>Add a dataset to the application state.  A unique numeric ID is assigned
 to the dataset, which is also set on the dataset itself.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">ds_id</span></code> is given (project restore), that id is used verbatim
+instead of allocating a new one, and the internal id counter is advanced
+past it so later allocations do not collide.</p>
 <p>The method will fire a signal indicating that the dataset was added.</p>
 </dd></dl>
 
