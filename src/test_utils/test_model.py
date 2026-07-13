@@ -749,6 +749,12 @@ class WiserTestModel:
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
 
+    def get_main_view_scale(self):
+        """
+        Returns the current zoom scale of the main view's raster panes.
+        """
+        return self.main_view.get_scale()
+
     # region State setting
 
     def click_link_button(self) -> bool:
@@ -834,6 +840,39 @@ class WiserTestModel:
             QPoint(dx, dy),  # angleDelta: values such as 120 typically indicate one notch
             Qt.NoButton,  # buttons (wheel events usually have no button pressed)
             Qt.NoModifier,  # keyboard modifiers
+            Qt.ScrollUpdate,  # scroll phase: ScrollUpdate indicates the wheel is in motion
+            False,  # inverted scrolling: False means normal behavior
+        )
+
+        # Post the event to the viewport so that it is handled as if a user scrolled.
+        self.app.postEvent(viewport, wheel_event)
+        self.run()
+
+    def ctrl_scroll_main_view_rv(self, rv_pos: Tuple[int, int], notches: int):
+        """
+        Simulates holding Ctrl and scrolling the mouse wheel over the specified main
+        view rasterview, which should zoom in (positive notches) or out (negative
+        notches) centered on the middle of the viewport.
+
+        One notch corresponds to the standard Qt wheel delta of 120 units.
+        """
+        rv = self.get_main_view_rv(rv_pos)
+        scroll_area = rv._scroll_area
+
+        # The viewport is the widget that actually receives the wheel events.
+        viewport = scroll_area.viewport()
+
+        # Scroll from the center of the viewport.
+        pos = QPointF(viewport.width() / 2, viewport.height() / 2)
+        global_pos = viewport.mapToGlobal(pos.toPoint())
+
+        wheel_event = QWheelEvent(
+            pos,  # local position (QPointF)
+            global_pos,  # global position (QPointF)
+            QPoint(0, 0),  # pixelDelta (unused here)
+            QPoint(0, notches * 120),  # angleDelta: 120 units is a single notch
+            Qt.NoButton,  # buttons (wheel events usually have no button pressed)
+            Qt.ControlModifier,  # keyboard modifiers: Ctrl triggers zoom instead of scroll
             Qt.ScrollUpdate,  # scroll phase: ScrollUpdate indicates the wheel is in motion
             False,  # inverted scrolling: False means normal behavior
         )
@@ -1144,6 +1183,11 @@ class WiserTestModel:
     def open_geo_referencer(self):
         self.main_window.show_geo_reference_dialog(in_test_mode=True)
 
+    @run_in_wiser_decorator
+    def apply_geo_ref_config(self, config) -> None:
+        """Apply a ``GeoReferencerConfig`` to the (already open) georeferencer dialog."""
+        self.main_window._geo_ref_dialog._apply_config(config)
+
     def close_geo_referencer(self):
         def func():
             self.main_window._geo_ref_dialog.close()
@@ -1152,6 +1196,21 @@ class WiserTestModel:
 
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
+
+    @run_in_wiser_decorator
+    def get_geo_ref_target_scale(self) -> float:
+        """Return the current zoom scale of the georeferencer's target pane."""
+        return self.main_window._geo_ref_dialog._target_rasterpane.get_scale()
+
+    @run_in_wiser_decorator
+    def set_geo_ref_target_scale(self, scale: float) -> None:
+        """Set the zoom scale of the georeferencer's target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane.set_scale(scale)
+
+    @run_in_wiser_decorator
+    def click_geo_ref_target_zoom_to_fit(self) -> None:
+        """Trigger the 'Zoom to fit' toolbar action on the target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane._act_zoom_to_fit.trigger()
 
     # region State Setting
 
@@ -1237,10 +1296,35 @@ class WiserTestModel:
         QTest.keyClicks(ledit, path)
         self.main_window._geo_ref_dialog._georeference()
 
-    @run_in_wiser_decorator
-    def click_run_warp(self) -> None:
-        btn = self.main_window._geo_ref_dialog._ui.btn_run_warp
-        QTest.mouseClick(btn, Qt.LeftButton)
+    def click_run_warp(self, timeout_ms: int = 60000) -> None:
+        """
+        Click "Run Warp" and pump the event loop until the (threaded) warp finishes.
+
+        The warp now runs off the GUI thread via ``run_with_progress`` and signals
+        completion through ``warp_completed``, so this helper waits for that signal (up to
+        ``timeout_ms``) before returning, keeping callers effectively synchronous.
+        """
+        dialog = self.main_window._geo_ref_dialog
+        completed = []
+
+        def _on_done(path):
+            completed.append(path)
+
+        dialog.warp_completed.connect(_on_done)
+        try:
+
+            def func():
+                QTest.mouseClick(dialog._ui.btn_run_warp, Qt.LeftButton)
+
+            self.app.postEvent(self.testing_widget, FunctionEvent(func))
+
+            waited = 0
+            step_ms = 50
+            while not completed and waited < timeout_ms:
+                QTest.qWait(step_ms)
+                waited += step_ms
+        finally:
+            dialog.warp_completed.disconnect(_on_done)
 
     # ---------- GCP creation helpers ----------
 
@@ -1644,6 +1728,65 @@ class WiserTestModel:
             raise RuntimeError("OK/Cancel buttons not found in buttonBox")
         QTest.mouseClick(button, Qt.LeftButton)
 
+    # ------------------------------------------
+    # "From CRS String" tab helpers
+    # ------------------------------------------
+    @run_in_wiser_decorator
+    def crs_creator_select_string_tab(self) -> None:
+        """Switch the CRS creator to the 'From CRS String' tab."""
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.tabWidget.setCurrentWidget(dlg._ui.page_string)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_active_tab(self) -> str:
+        """Return 'params' or 'string' for the currently active tab."""
+        dlg = self.main_window._crs_creator_dialog
+        current = dlg._ui.tabWidget.currentWidget()
+        return "string" if current is dlg._ui.page_string else "params"
+
+    @run_in_wiser_decorator
+    def crs_creator_set_crs_string(self, text: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.pedit_crs_string.setPlainText(text)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_string_crs_name(self, name: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_string_crs_name
+        le.clear()
+        QTest.keyClicks(le, name)
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_press_validate_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_validate_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_add_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_add_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_result(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string_result.toPlainText()
+
+    @run_in_wiser_decorator
+    def crs_creator_string_add_enabled(self) -> bool:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.btn_add_crs_string.isEnabled()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_crs_name(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.ledit_string_crs_name.text().strip()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_crs_string(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string.toPlainText()
+
     # ==========================================
     # region Similarity Transform
     # ==========================================
@@ -1792,6 +1935,28 @@ class WiserTestModel:
     def run_create_translation(self) -> None:
         dlg = self.main_window._similarity_transform_dialog
         QTest.mouseClick(dlg._ui.btn_create_translation, Qt.LeftButton)
+
+    def wait_for_sim_transform_finished(
+        self, translate: bool = False, timeout_ms: int = 30000, step_ms: int = 50
+    ) -> str:
+        """Pump the Qt loop until the off-thread transform task finishes.
+
+        Rotate/scale and translate now run on a background scheduler thread via
+        ``run_with_progress``; the completion callbacks set the tab's status label to
+        ``"Finished ..."`` (or ``"Error ..."`` on failure). Poll that label, pumping the
+        event loop so the worker's queued completion signal is delivered, and return the
+        final label text so callers can assert the outcome.
+        """
+        dlg = self.main_window._similarity_transform_dialog
+        label = dlg._ui.lbl_translate_message if translate else dlg._ui.lbl_rotate_scale_message
+        waited = 0
+        while waited < timeout_ms:
+            text = label.text()
+            if text.startswith("Finished") or text.startswith("Error"):
+                return text
+            QTest.qWait(step_ms)
+            waited += step_ms
+        return label.text()
 
     def select_dataset_translate(
         self, dataset: RasterDataSet, rasterview_pos: tuple[int, int] = (0, 0)

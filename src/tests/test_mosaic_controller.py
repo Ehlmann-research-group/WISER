@@ -104,6 +104,52 @@ class TestMosaicController(unittest.TestCase):
         self.controller.set_target_crs("EPSG:4326-wkt")
         self.assertEqual(self.controller.get_target_crs(), "EPSG:4326-wkt")
 
+    # -- resampling method (#638) --------------------------------------------
+
+    def test_resample_alg_defaults_to_nearest_and_round_trips(self):
+        self.assertEqual(self.controller.get_resample_alg(), gdal.GRA_NearestNeighbour)
+        self.controller.set_resample_alg(gdal.GRA_Bilinear)
+        self.assertEqual(self.controller.get_resample_alg(), gdal.GRA_Bilinear)
+
+    # -- canonical band-metadata source (#638) -------------------------------
+
+    def test_band_metadata_source_none_when_empty(self):
+        self.assertIsNone(self.controller.get_band_metadata_source())
+
+    def test_band_metadata_source_defaults_to_top_visible(self):
+        self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
+        top = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("b")))
+        # No explicit choice -> the top (last) visible scene.
+        self.assertIs(self.controller.get_band_metadata_source(), top)
+
+    def test_band_metadata_source_explicit_choice(self):
+        bottom = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
+        self.controller.add_scene(MosaicScene(dataset=_FakeDataset("b")))
+        self.controller.set_band_metadata_source(bottom)
+        self.assertIs(self.controller.get_band_metadata_source(), bottom)
+
+    def test_band_metadata_source_falls_back_when_chosen_removed(self):
+        bottom = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
+        top = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("b")))
+        self.controller.set_band_metadata_source(bottom)
+        self.controller.remove_scene(0)  # remove the chosen scene
+        # Degrades gracefully to the top visible scene.
+        self.assertIs(self.controller.get_band_metadata_source(), top)
+
+    def test_band_metadata_source_falls_back_when_chosen_hidden(self):
+        bottom = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
+        top = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("b")))
+        self.controller.set_band_metadata_source(top)
+        self.controller.set_visibility(1, False)  # hide the chosen (top) scene
+        self.assertIs(self.controller.get_band_metadata_source(), bottom)
+
+    def test_band_metadata_selection_leaves_scene_list_untouched(self):
+        a = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("a")))
+        b = self.controller.add_scene(MosaicScene(dataset=_FakeDataset("b")))
+        self.controller.set_band_metadata_source(a)
+        # Labeling-only: the scene list (hence the output band count) is unchanged.
+        self.assertEqual([id(s) for s in self.controller.get_scenes()], [id(a), id(b)])
+
 
 # ---------------------------------------------------------------------------
 # Real grid math + CRS resolution (issue #635).
@@ -485,6 +531,23 @@ def test_build_common_grid_is_cached_and_invalidated(tmp_path):
     c.add_scene(_make_scene(tmp_path, "cc", epsg=32611, origin=(401000.0, 3801000.0)))
     grid5 = c.build_common_grid()
     assert grid5 is not grid4
+
+
+def test_resample_and_band_metadata_do_not_invalidate_grid(tmp_path):
+    # Resampling method and band-metadata source are output-content concerns, not grid
+    # geometry, so changing them must leave the cached grid intact (same object).
+    a = _make_scene(tmp_path, "a", epsg=32611)
+    b = _make_scene(tmp_path, "b", epsg=32611, origin=(400500.0, 3800500.0))
+    c = MosaicController()
+    c.add_scene(a)
+    c.add_scene(b)
+    grid1 = c.build_common_grid()
+
+    c.set_resample_alg(gdal.GRA_Bilinear)
+    assert c.build_common_grid() is grid1  # resampling doesn't touch the grid
+
+    c.set_band_metadata_source(a)
+    assert c.build_common_grid() is grid1  # nor does the band-metadata choice
 
 
 if __name__ == "__main__":

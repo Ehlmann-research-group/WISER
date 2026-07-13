@@ -26,6 +26,7 @@ from wiser.gui.geo_reference_dialog import (
     UserGeneratedCRS,
     GeneralCRS,
 )
+from wiser.gui.geo_reference_config import GeoReferencerConfig
 
 import numpy as np
 
@@ -255,6 +256,116 @@ class TestGeoReferencerGUI(unittest.TestCase):
 
         warped_transform = ds_warp.get_geo_transform()
         self.assertTrue(np.allclose(warped_transform, ground_truth_geo_transform))
+
+    def test_config_driven_locking(self):
+        """A GeoReferencerConfig presets + locks the choosers; config=None restores them.
+
+        Verifies:
+        - presetting target dataset + save path populates the panes/fields,
+        - lock flags disable exactly the right widgets,
+        - a custom accept_button_text relabels the OK button,
+        - re-applying config=None (the Tools-menu path) re-enables everything.
+        """
+        rel_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
+        ds = self.test_model.load_dataset(rel_path)
+        self.test_model.open_geo_referencer()
+        dialog = self.test_model.main_window._geo_ref_dialog
+
+        save_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "artifacts",
+            "config_locked_output.tif",
+        )
+        config = GeoReferencerConfig(
+            target_dataset=ds,
+            save_path=save_path,
+            allow_change_target=False,
+            allow_change_save_path=False,
+            accept_button_text="Save to Mosaic",
+        )
+        self.test_model.apply_geo_ref_config(config)
+
+        # Presets applied.
+        self.assertEqual(dialog._target_rasterpane.get_rasterview().get_raster_data().get_id(), ds.get_id())
+        self.assertEqual(dialog._ui.ledit_save_path.text(), save_path)
+
+        # Locks disable exactly the right widgets.
+        self.assertFalse(dialog._target_cbox.isEnabled())
+        self.assertTrue(dialog._ui.ledit_save_path.isReadOnly())
+        self.assertFalse(dialog._ui.btn_save_path.isEnabled())
+        # Reference was left unlocked.
+        self.assertTrue(dialog._reference_cbox.isEnabled())
+
+        # Accept button relabeled.
+        ok_btn = dialog._ui.buttonBox.button(QDialogButtonBox.Ok)
+        self.assertEqual(ok_btn.text(), "Save to Mosaic")
+
+        # config=None restores the classic Tools-menu state.
+        self.test_model.apply_geo_ref_config(None)
+        self.assertTrue(dialog._target_cbox.isEnabled())
+        self.assertFalse(dialog._ui.ledit_save_path.isReadOnly())
+        self.assertTrue(dialog._ui.btn_save_path.isEnabled())
+        self.assertEqual(ok_btn.text(), self._default_ok_text(dialog))
+
+    def test_zoom_to_fit(self):
+        """The georeferencer panes auto-fit on load and expose a Zoom-to-fit button.
+
+        Verifies:
+        - each pane has a "Zoom to fit" toolbar action,
+        - loading a dataset auto-fits the target pane,
+        - the button re-frames the image after the user has zoomed away, back to
+          the same auto-fit scale.
+        """
+        rel_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
+        ds = self.test_model.load_dataset(rel_path)
+        self.test_model.open_geo_referencer()
+        dialog = self.test_model.main_window._geo_ref_dialog
+
+        # Both panes expose the Zoom-to-fit action.
+        self.assertTrue(hasattr(dialog._target_rasterpane, "_act_zoom_to_fit"))
+        self.assertTrue(hasattr(dialog._reference_rasterpane, "_act_zoom_to_fit"))
+
+        # Loading a dataset auto-fits the target pane.  The fit is deferred to a
+        # single-shot timer that fires in the event loop pumped by
+        # apply_geo_ref_config; an extra run() gives it a safety turn.
+        config = GeoReferencerConfig(target_dataset=ds)
+        self.test_model.apply_geo_ref_config(config)
+        self.test_model.run()
+
+        auto_fit_scale = self.test_model.get_geo_ref_target_scale()
+        self.assertGreater(auto_fit_scale, 0.0)
+
+        # Zoom the user well away from the fit...
+        self.test_model.set_geo_ref_target_scale(8.0)
+        self.assertAlmostEqual(self.test_model.get_geo_ref_target_scale(), 8.0, places=5)
+
+        # ...then the Zoom-to-fit button re-frames the image, back to the same
+        # scale the auto-fit produced (proving the button is not a no-op and that
+        # the auto-fit ran).
+        self.test_model.click_geo_ref_target_zoom_to_fit()
+        button_fit_scale = self.test_model.get_geo_ref_target_scale()
+        self.assertNotAlmostEqual(button_fit_scale, 8.0, places=5)
+        self.assertAlmostEqual(button_fit_scale, auto_fit_scale, places=5)
+
+    @staticmethod
+    def _default_ok_text(dialog):
+        # The remembered original label of the OK button.
+        return dialog._default_accept_button_text
 
 
 """

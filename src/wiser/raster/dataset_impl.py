@@ -36,6 +36,7 @@ from PySide6.QtWidgets import *
 import difflib
 
 from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
+from wiser.utils.progress import ProgressCancelled, ProgressReporter
 
 logger = logging.getLogger(__name__)
 
@@ -1780,7 +1781,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         src_dataset: "RasterDataSet",
         path: str,
         options: Optional[Dict[str, Any]] = None,
+        progress: Optional[ProgressReporter] = None,
     ) -> "ENVI_GDALRasterDataImpl":
+        # A no-op reporter keeps this callable from non-GUI/test contexts without
+        # threading a real reporter through every caller.
+        progress = progress or ProgressReporter()
+
         def map_default_display_bands(display_bands, include_bands):
             # Build a mapping of source-image band-indexes to
             # destination-image band-indexes
@@ -1951,62 +1957,86 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_bad_bands = []
         dst_index = 1
 
+        # Band writes dominate the runtime; reserve a small slice for the trailing
+        # header write so the reported progress reaches 1.0 only once we are done.
+        bands_progress, header_progress = progress.split((0.97, "Saving bands"), (0.03, "Writing header"))
+
         chunk_size = 0
-        for band_info in src_dataset.band_list():
-            src_index = band_info["index"]
+        bands_written = 0
+        try:
+            for band_info in src_dataset.band_list():
+                # Cooperative cancellation checkpoint at each band boundary.
+                bands_progress.raise_if_cancelled()
 
-            # If band is to be excluded, continue.
-            if not dst_include_bands[src_index]:
-                # print(f'Skipping source-band {src_index}; excluded from destination.')
-                continue
+                src_index = band_info["index"]
 
-            dst_band = dst_gdal_dataset.GetRasterBand(dst_index)
-            src_data = src_dataset.get_band_data(src_index)
+                # If band is to be excluded, continue.
+                if not dst_include_bands[src_index]:
+                    # print(f'Skipping source-band {src_index}; excluded from destination.')
+                    continue
 
-            # Apply spatial subsetting here
+                dst_band = dst_gdal_dataset.GetRasterBand(dst_index)
+                src_data = src_dataset.get_band_data(src_index)
 
-            # print(f'Source-array shape:  {src_data.shape}')
-            dst_data = src_data[
-                src_offset_y : src_offset_y + dst_height,
-                src_offset_x : src_offset_x + dst_width,
-            ]
-            # print(f"Destination-array size: {dst_data.size}")
-            # print(f'Destination-array shape:  {dst_data.shape}')
-            if dst_data.dtype != band_write_dtype:
-                dst_data = np.asarray(dst_data, dtype=band_write_dtype)
-            dst_band.WriteArray(dst_data, 0, 0)
-            chunk_size += dst_data.size
-            if chunk_size >= CHUNK_WRITE_SIZE:
-                chunk_size = 0
-                dst_gdal_dataset.FlushCache()
+                # Apply spatial subsetting here
 
-            # Metadata for the band
+                # print(f'Source-array shape:  {src_data.shape}')
+                dst_data = src_data[
+                    src_offset_y : src_offset_y + dst_height,
+                    src_offset_x : src_offset_x + dst_width,
+                ]
+                # print(f"Destination-array size: {dst_data.size}")
+                # print(f'Destination-array shape:  {dst_data.shape}')
+                if dst_data.dtype != band_write_dtype:
+                    dst_data = np.asarray(dst_data, dtype=band_write_dtype)
+                dst_band.WriteArray(dst_data, 0, 0)
+                chunk_size += dst_data.size
+                if chunk_size >= CHUNK_WRITE_SIZE:
+                    chunk_size = 0
+                    dst_gdal_dataset.FlushCache()
 
-            # TODO(donnie):  This fails with an error.  Not supported by ENVI format?
-            # if dst_data_ignore is not None:
-            #     dst_band.SetNoDataValue(float(dst_data_ignore))
+                bands_written += 1
+                bands_progress.report(bands_written, dst_bands, f"Saving band {bands_written} of {dst_bands}")
 
-            if "wavelength_str" in band_info:
-                dst_wavelengths.append(band_info["wavelength_str"])
+                # Metadata for the band
 
-                if dst_wavelength_units is None:
-                    dst_wavelength_units = band_info["wavelength_units"]
+                # TODO(donnie):  This fails with an error.  Not supported by ENVI format?
+                # if dst_data_ignore is not None:
+                #     dst_band.SetNoDataValue(float(dst_data_ignore))
 
-                # TODO(donnie):  This check doesn't play well when we are
-                #     _changing_ the unit-type from the source dataset's unit-
-                #     type to some other unit-type.  Not sure of the best
-                #     solution
-                # else:
-                #     if band_info['wavelength_units'] != dst_wavelength_units:
-                #         print('WARNING:  wavelength_units differs across bands')
+                if "wavelength_str" in band_info:
+                    dst_wavelengths.append(band_info["wavelength_str"])
 
-            dst_bad_bands.append(src_bad_bands[src_index])
+                    if dst_wavelength_units is None:
+                        dst_wavelength_units = band_info["wavelength_units"]
 
-            dst_index += 1
+                    # TODO(donnie):  This check doesn't play well when we are
+                    #     _changing_ the unit-type from the source dataset's unit-
+                    #     type to some other unit-type.  Not sure of the best
+                    #     solution
+                    # else:
+                    #     if band_info['wavelength_units'] != dst_wavelength_units:
+                    #         print('WARNING:  wavelength_units differs across bands')
+
+                dst_bad_bands.append(src_bad_bands[src_index])
+
+                dst_index += 1
+        except ProgressCancelled:
+            # (Rebind to None rather than `del` so the name stays bound for the
+            # linter's control-flow analysis on the normal path below.)
+            dst_gdal_dataset = None
+            for fname in ENVI_GDALRasterDataImpl.get_save_filenames(path):
+                try:
+                    os.remove(fname)
+                except OSError:
+                    pass
+            raise
 
         # Make sure all the data is written to the file.
         dst_gdal_dataset.FlushCache()
         del dst_gdal_dataset
+
+        header_progress.report_fraction(1.0, "Writing header")
 
         # Generate the header file now.
         # TODO(donnie):  What to do if an exception is raised???

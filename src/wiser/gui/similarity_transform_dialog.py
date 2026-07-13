@@ -14,6 +14,8 @@ from wiser.raster.dataset_impl import GDALRasterDataImpl
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
+from .progress_task import run_with_progress
+
 from .util import (
     pillow_rotate_scale_expand,
     cv2_rotate_scale_expand,
@@ -28,6 +30,8 @@ from wiser.bandmath.utils import write_raster_to_dataset
 
 from wiser.raster.utils import copy_metadata_to_gdal_dataset, numpy_dtype_to_gdal_export_types
 
+from wiser.utils.progress import ProgressReporter, gdal_progress_callback
+
 import numpy as np
 
 import cv2
@@ -40,12 +44,215 @@ INTERPOLATION_TYPES = {
     "Area": cv2.INTER_AREA,
 }
 
+# ``cv2.warpAffine`` treats the band axis as image channels and rejects arrays
+# with more than 128 channels (it hands warpAffine an empty Mat, which fails the
+# ``src.cols > 0 && src.rows > 0`` assertion). Chunks passed to the warp must stay
+# at or below this limit regardless of the RAM budget.
+OPENCV_MAX_WARP_CHANNELS = 128
+
+
+def create_rotated_scaled_dataset(
+    dataset: RasterDataSet,
+    rotation: float,
+    scale: float,
+    interp: int,
+    out_width: int,
+    out_height: int,
+    save_path: str,
+    progress: Optional[ProgressReporter] = None,
+) -> None:
+    """
+    Rotate + scale ``dataset`` and write the result to a GeoTIFF at ``save_path``.
+
+    Qt-free worker: runs on a scheduler thread (no Qt widgets, no ``self``). The
+    output raster size (``out_width`` / ``out_height``) and interpolation mode are
+    computed on the GUI thread and passed in. Bands are processed in RAM-bounded
+    chunks; ``progress`` reports per-chunk completion and is polled for cancellation
+    at each chunk boundary. Errors propagate to the caller (``run_with_progress``
+    routes them to ``on_error``).
+    """
+    progress = progress or ProgressReporter()
+    driver: gdal.Driver = gdal.GetDriverByName("GTiff")
+    new_dataset = None
+    try:
+        pixmap_width = out_width
+        pixmap_height = out_height
+        num_bands = dataset.num_bands()
+        np_dtype = dataset.get_elem_type()  # Returns a numpy dtype
+        gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
+
+        output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
+
+        if output_bytes > MAX_RAM_BYTES:
+            ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
+        else:
+            ratio = 1
+        # Create the actual dataset that we want
+        new_dataset = driver.Create(
+            save_path,
+            pixmap_width,
+            pixmap_height,
+            num_bands,
+            gdal_data_type,
+        )
+        if new_dataset is None:
+            raise RuntimeError("Failed to create the output dataset")
+        # The number of bands we operate on per iteration of creating
+        # th rotated and scaled dataset. Capped at OpenCV's channel limit so the
+        # per-chunk warp never exceeds what cv2.warpAffine can handle.
+        num_bands_per = int(ratio * num_bands)
+        if num_bands_per <= 0:
+            num_bands_per = 1
+        num_bands_per = min(num_bands_per, OPENCV_MAX_WARP_CHANNELS)
+        ds_data_ignore = dataset.get_data_ignore_value()
+        data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
+        # Rotate and scale bands at the appropriate interval
+        for band_index in range(0, num_bands, num_bands_per):
+            # Cooperative cancellation checkpoint before each chunk of work.
+            progress.raise_if_cancelled()
+            band_list_index = [
+                band for band in range(band_index, band_index + num_bands_per) if band < num_bands
+            ]
+            band_arr = dataset.get_multiple_band_data(band_list_index)
+            # We have to transpose because opencv expects the columns in a certain order
+            if len(band_arr.shape) == 2:
+                np_corrected_band_arr = band_arr
+            elif len(band_arr.shape) == 3:
+                np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))  # b, y ,x -> y, x, b
+            else:
+                raise RuntimeError(
+                    f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}"
+                )
+            rotated_scaled_band_arr = cv2_rotate_scale_expand(
+                np_corrected_band_arr,
+                rotation,
+                scale,
+                interp=interp,
+                mask_fill_value=0,
+            )
+            if len(rotated_scaled_band_arr.shape) == 2:
+                rotated_scaled_band_arr = rotated_scaled_band_arr
+            elif len(rotated_scaled_band_arr.shape) == 3:
+                # y, x, b -> b, y, x
+                rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
+            else:
+                raise RuntimeError(
+                    f"The rotated and scaled array dimension is neither 2 or 3, "
+                    f"its {len(rotated_scaled_band_arr.shape)}"
+                )
+            # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
+            if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
+                rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
+            write_raster_to_dataset(
+                new_dataset,
+                band_list_index,
+                rotated_scaled_band_arr,
+                gdal_data_type,
+            )
+            progress.report(min(band_index + num_bands_per, num_bands), num_bands, "Rotating & scaling")
+        # Copies numeric metadata like wavelenghs, bad bands, data ignore, and default bands
+        copy_metadata_to_gdal_dataset(new_dataset, dataset)
+        new_dataset.FlushCache()
+        # Copies geographic data separately
+        if dataset.has_geographic_info():
+            new_dataset.SetSpatialRef(dataset.get_spatial_ref())
+            gt = dataset.get_geo_transform()
+            width = dataset.get_width()
+            height = dataset.get_height()
+            # The scale is baked into rotated_scaled_band_arr
+            rotated_scaled_gt = rotate_scale_geotransform(
+                gt,
+                -rotation,
+                width,
+                height,
+                rotated_scaled_band_arr.shape[2],
+                rotated_scaled_band_arr.shape[1],
+            )
+            new_dataset.SetGeoTransform(rotated_scaled_gt)
+        new_dataset = None
+        progress.report_fraction(1.0, "Done")
+    finally:
+        new_dataset = None
+
+
+def create_translated_dataset(
+    dataset: RasterDataSet,
+    new_geo_transform: tuple,
+    save_path: str,
+    progress: Optional[ProgressReporter] = None,
+) -> None:
+    """
+    Write a copy of ``dataset`` with ``new_geo_transform`` to a GeoTIFF at ``save_path``.
+
+    Qt-free worker: runs on a scheduler thread. GDAL-backed datasets use a fast
+    ``CreateCopy`` (progress driven by GDAL's own callback); other backings fall back
+    to a RAM-bounded per-band copy that reports per chunk and honors cancellation.
+    The translated geotransform is computed on the GUI thread and passed in.
+    """
+    progress = progress or ProgressReporter()
+    driver: gdal.Driver = gdal.GetDriverByName("GTiff")
+    new_dataset = None
+    try:
+        if isinstance(dataset.get_impl(), GDALRasterDataImpl):
+            impl = dataset.get_impl()
+            translation_gdal_dataset = impl.gdal_dataset
+            if driver is None:
+                raise RuntimeError("GDAL driver not available")
+            new_dataset: gdal.Dataset = driver.CreateCopy(
+                save_path,
+                translation_gdal_dataset,
+                0,
+                callback=gdal_progress_callback(progress),
+            )
+            new_dataset.SetGeoTransform(new_geo_transform)
+            copy_metadata_to_gdal_dataset(new_dataset, dataset)
+            new_dataset.FlushCache()
+            new_dataset = None
+        else:
+            height = dataset.get_height()
+            width = dataset.get_width()
+            num_bands = dataset.num_bands()
+            np_dtype = dataset.get_elem_type()  # Returns a numpy dtype
+            gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
+
+            output_bytes = width * height * num_bands * np_dtype.itemsize
+            ratio = MAX_RAM_BYTES / output_bytes
+
+            # Create the GDAL dataset
+            new_dataset = driver.Create(save_path, width, height, num_bands, gdal_data_type)
+            if new_dataset is None:
+                raise RuntimeError("Failed to create the output dataset")
+            num_bands_per = int(ratio * num_bands)
+            if num_bands_per <= 0:
+                num_bands_per = 1
+            for band_index in range(0, num_bands, num_bands_per):
+                # Cooperative cancellation checkpoint before each chunk of work.
+                progress.raise_if_cancelled()
+                band_list_index = [
+                    band for band in range(band_index, band_index + num_bands_per) if band < num_bands
+                ]
+                band_arr = dataset.get_multiple_band_data(band_list_index)
+                write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
+                progress.report(min(band_index + num_bands_per, num_bands), num_bands, "Translating")
+            copy_metadata_to_gdal_dataset(new_dataset, dataset)
+            new_dataset.FlushCache()
+            new_dataset.SetSpatialRef(dataset.get_spatial_ref())
+            new_dataset.SetGeoTransform(new_geo_transform)
+            new_dataset = None
+        progress.report_fraction(1.0, "Done")
+    finally:
+        new_dataset = None
+
 
 class SimilarityTransformDialog(QDialog):
-    def __init__(self, app_state: ApplicationState, parent=None):
+    def __init__(self, app_state: ApplicationState, app_services=None, parent=None):
         super().__init__(parent=parent)
 
         self._app_state = app_state
+        self._app_services = app_services
+        # Holds the in-flight transform task (progress modal + background work) so it is
+        # not garbage-collected mid-run; overwritten on the next run.
+        self._active_progress_task = None
 
         self._ui = Ui_SimilarityTransform()
         self._ui.setupUi(self)
@@ -101,6 +308,11 @@ class SimilarityTransformDialog(QDialog):
         self._translation_dataset: Optional[RasterDataSet] = None
         self._rotate_scale_dataset: Optional[RasterDataSet] = None
         self._selected_point: Optional[Tuple[int, int]] = None
+
+        # The dialog is non-modal, so datasets can be closed while it is open. Drop any
+        # stale reference to a removed dataset (the panes' DatasetChooser refreshes its
+        # own list; adding a dataset needs no dialog-side handling).
+        self._app_state.dataset_removed.connect(self._on_app_dataset_removed)
 
         self._init_file_saver_rotate_scale()
         self._init_file_saver_translate()
@@ -474,7 +686,6 @@ class SimilarityTransformDialog(QDialog):
                 self.tr("You have no rotate/scale dataset selected.\n Please select a rotate/scale dataset."),
             )
             return
-        driver: gdal.Driver = gdal.GetDriverByName("GTiff")
         save_path = self._get_save_file_path_rs()
         if save_path is None:
             QMessageBox.warning(
@@ -495,110 +706,59 @@ class SimilarityTransformDialog(QDialog):
             )
             return
 
-        try:
-            self.set_rotate_scale_message_text("Starting Rotate and Scale.")
-            pixmap = self._rotate_scale_pane.get_rasterview().get_unscaled_pixmap()
-            pixmap_height = pixmap.height()
-            pixmap_width = pixmap.width()
-            num_bands = self._rotate_scale_dataset.num_bands()
-            np_dtype = self._rotate_scale_dataset.get_elem_type()  # Returns a numpy dtype
-            gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
+        # Gather Qt-dependent parameters on the GUI thread; the worker is Qt-free. The
+        # output raster size is the size of the (already rotated/scaled) preview pixmap.
+        dataset = self._rotate_scale_dataset
+        pixmap = self._rotate_scale_pane.get_rasterview().get_unscaled_pixmap()
+        out_width = pixmap.width()
+        out_height = pixmap.height()
+        rotation = self._image_rotation
+        scale = self._image_scale
+        interp = self._get_interpolation_type()
+        name = dataset.get_name()
 
-            output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
+        self.set_rotate_scale_message_text("Starting Rotate and Scale.")
 
-            if output_bytes > MAX_RAM_BYTES:
-                ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
-            else:
-                ratio = 1
-            # Create the actual dataset that we want
-            new_dataset = driver.Create(
-                save_path,
-                pixmap_width,
-                pixmap_height,
-                num_bands,
-                gdal_data_type,
-            )
-            if new_dataset is None:
-                raise RuntimeError("Failed to create the output dataset")
-            # The number of bands we operate on per iteration of creating
-            # th rotated and scaled dataset
-            num_bands_per = int(ratio * num_bands)
-            if num_bands_per <= 0:
-                num_bands_per == 1
-            ds_data_ignore = self._rotate_scale_dataset.get_data_ignore_value()
-            data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
-            # Rotate and scale bands at the appropriate interval
-            for band_index in range(0, num_bands, num_bands_per):
-                band_list_index = [
-                    band for band in range(band_index, band_index + num_bands_per) if band < num_bands
-                ]
-                band_arr = self._rotate_scale_dataset.get_multiple_band_data(band_list_index)
-                # We have to transpose because opencv expects the columns in a certain order
-                if len(band_arr.shape) == 2:
-                    np_corrected_band_arr = band_arr
-                elif len(band_arr.shape) == 3:
-                    np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))  # b, y ,x -> y, x, b
-                else:
-                    raise RuntimeError(
-                        f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}"
-                    )
-                rotated_scaled_band_arr = cv2_rotate_scale_expand(
-                    np_corrected_band_arr,
-                    self._image_rotation,
-                    self._image_scale,
-                    interp=self._get_interpolation_type(),
-                    mask_fill_value=0,
+        # No scheduler available (e.g. dialog built without AppServices): run inline.
+        if self._app_services is None:
+            try:
+                create_rotated_scaled_dataset(
+                    dataset, rotation, scale, interp, out_width, out_height, save_path
                 )
-                if len(rotated_scaled_band_arr.shape) == 2:
-                    rotated_scaled_band_arr = rotated_scaled_band_arr
-                elif len(rotated_scaled_band_arr.shape) == 3:
-                    # y, x, b -> b, y, x
-                    rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
-                else:
-                    raise RuntimeError(
-                        f"The rotated and scaled array dimension is neither 2 or 3, "
-                        f"its {len(rotated_scaled_band_arr.shape)}"
-                    )
-                # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
-                if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
-                    rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
-                write_raster_to_dataset(
-                    new_dataset,
-                    band_list_index,
-                    rotated_scaled_band_arr,
-                    gdal_data_type,
-                )
-            # Copies numeric metadata like wavelenghs, bad bands, data ignore, and default bands
-            copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
-            new_dataset.FlushCache()
-            # Copies geographic data separately
-            if self._rotate_scale_dataset.has_geographic_info():
-                new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
-                gt = self._rotate_scale_dataset.get_geo_transform()
-                rotation = self._image_rotation
-                width = self._rotate_scale_dataset.get_width()
-                height = self._rotate_scale_dataset.get_height()
-                # The scale is baked into rotated_scaled_band_arr
-                rotated_scaled_gt = rotate_scale_geotransform(
-                    gt,
-                    -rotation,
-                    width,
-                    height,
-                    rotated_scaled_band_arr.shape[2],
-                    rotated_scaled_band_arr.shape[1],
-                )
-                new_dataset.SetGeoTransform(rotated_scaled_gt)
-            new_dataset = None
-            self.set_rotate_scale_message_text("Finished Rotate and Scale.")
-        except BaseException as e:
-            QMessageBox.critical(
-                self,
-                self.tr("Error While Rotating & Scaling Dataset"),
-                self.tr(f"Error:\n\n{e}"),
-            )
+            except BaseException as e:
+                self._on_rotate_scale_failed(str(e))
+                return
+            self._on_rotate_scale_finished(None)
             return
-        finally:
-            new_dataset = None
+
+        self._active_progress_task = run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Rotating & scaling: {0}").format(name),
+            create_rotated_scaled_dataset,
+            dataset,
+            rotation,
+            scale,
+            interp,
+            out_width,
+            out_height,
+            save_path,
+            on_success=self._on_rotate_scale_finished,
+            on_error=self._on_rotate_scale_failed,
+            description=self.tr("Rotating & scaling…"),
+            meta={"bands": str(dataset.num_bands())},
+        )
+
+    def _on_rotate_scale_finished(self, _result=None):
+        self.set_rotate_scale_message_text("Finished Rotate and Scale.")
+
+    def _on_rotate_scale_failed(self, message: str):
+        self.set_rotate_scale_message_text("Error while rotating & scaling.")
+        QMessageBox.critical(
+            self,
+            self.tr("Error While Rotating & Scaling Dataset"),
+            self.tr("Error:\n\n{0}").format(message),
+        )
 
     def _on_create_translated_dataset(self):
         if self._translation_dataset is None:
@@ -608,7 +768,7 @@ class SimilarityTransformDialog(QDialog):
                 self.tr("You have no translation dataset selected.\n" "Please select a translation dataset."),
             )
             return
-        driver: gdal.Driver = gdal.GetDriverByName("GTiff")
+        # Computed on the GUI thread: its asserts read the UL coordinate line-edits.
         new_geo_transform = self._get_translated_geotransform()
         save_path = self._get_save_file_path_translate()
         if save_path is None:
@@ -629,51 +789,64 @@ class SimilarityTransformDialog(QDialog):
             )
             return
 
-        try:
-            self.set_translate_message_text(self.tr("Starting Translation."))
-            if isinstance(self._translation_dataset.get_impl(), GDALRasterDataImpl):
-                impl = self._translation_dataset.get_impl()
-                translation_gdal_dataset = impl.gdal_dataset
-                if driver is None:
-                    raise RuntimeError(self.tr("GDAL driver not available"))
-                new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
-                new_dataset.SetGeoTransform(new_geo_transform)
-                copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
-                new_dataset.FlushCache()
-                new_dataset = None
-            else:
-                height = self._translation_dataset.get_height()
-                width = self._translation_dataset.get_width()
-                num_bands = self._translation_dataset.num_bands()
-                np_dtype = self._translation_dataset.get_elem_type()  # Returns a numpy dtype
-                gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
+        dataset = self._translation_dataset
+        name = dataset.get_name()
 
-                output_bytes = width * height * num_bands * np_dtype.itemsize
-                ratio = MAX_RAM_BYTES / output_bytes
+        self.set_translate_message_text(self.tr("Starting Translation."))
 
-                # Create the GDAL dataset
-                new_dataset = driver.Create(save_path, width, height, num_bands, gdal_data_type)
-                if new_dataset is None:
-                    raise RuntimeError("Failed to create the output dataset")
-                num_bands_per = int(ratio * num_bands)
-                for band_index in range(0, num_bands, num_bands_per):
-                    band_list_index = [
-                        band for band in range(band_index, band_index + num_bands_per) if band < num_bands
-                    ]
-                    band_arr = self._translation_dataset.get_multiple_band_data(band_list_index)
-                    write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
-                copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
-                new_dataset.FlushCache()
-                new_dataset.SetSpatialRef(self._translation_dataset.get_spatial_ref())
-                new_dataset.SetGeoTransform(new_geo_transform)
-                new_dataset = None
-            self.set_translate_message_text("Finished Translation.")
-        except BaseException as e:
-            QMessageBox.critical(
-                self,
-                self.tr("Error While Translating Dataset"),
-                self.tr(f"Error:\n\n{e}"),
-            )
+        # No scheduler available (e.g. dialog built without AppServices): run inline.
+        if self._app_services is None:
+            try:
+                create_translated_dataset(dataset, new_geo_transform, save_path)
+            except BaseException as e:
+                self._on_translate_failed(str(e))
+                return
+            self._on_translate_finished(None)
             return
-        finally:
-            new_dataset = None
+
+        self._active_progress_task = run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Translating: {0}").format(name),
+            create_translated_dataset,
+            dataset,
+            new_geo_transform,
+            save_path,
+            on_success=self._on_translate_finished,
+            on_error=self._on_translate_failed,
+            description=self.tr("Translating…"),
+            meta={"bands": str(dataset.num_bands())},
+        )
+
+    def _on_translate_finished(self, _result=None):
+        self.set_translate_message_text("Finished Translation.")
+
+    def _on_translate_failed(self, message: str):
+        self.set_translate_message_text("Error while translating.")
+        QMessageBox.critical(
+            self,
+            self.tr("Error While Translating Dataset"),
+            self.tr("Error:\n\n{0}").format(message),
+        )
+
+    @Slot(int)
+    def _on_app_dataset_removed(self, ds_id: int):
+        """Drop any tracked dataset (and its dependent UI) that was just closed.
+
+        The dialog is non-modal, so a dataset selected here can be removed from WISER
+        while the dialog is open. Clearing the stale reference makes the run handlers'
+        ``is None`` guards fire correctly instead of operating on a closed dataset.
+        """
+        if self._rotate_scale_dataset is not None and self._rotate_scale_dataset.get_id() == ds_id:
+            self._rotate_scale_dataset = None
+            self.set_rotate_scale_message_text("")
+
+        if self._translation_dataset is not None and self._translation_dataset.get_id() == ds_id:
+            self._translation_dataset = None
+            self._selected_point = None
+            self.set_crs_text("")
+            self.set_lat_north_ul_text("")
+            self.set_lon_east_ul_text("")
+            self.set_orig_coord_text("")
+            self.set_new_coord_text("")
+            self.set_translate_message_text("")

@@ -549,7 +549,7 @@ class ImageScrollArea(QScrollArea):
         if event.modifiers() & Qt.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:
-                viewport_pos = event.pos()  # pos() is in viewport coords
+                viewport_pos = event.position().toPoint()  # position() is in viewport coords
                 widget_pos = self.widget().mapFrom(self.viewport(), viewport_pos)
                 # Position as a ratio of the full image ­– stays constant after resize
                 rx = widget_pos.x() / max(1, self.widget().width())

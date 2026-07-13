@@ -25,7 +25,15 @@
     </widget>
    </item>
    <item row="2" column="0">
-    <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="page_params">
+      <attribute name="title">
+       <string>From Parameters</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0">
      <item>
       <layout class="QGridLayout" name="gridLayout">
        <property name="sizeConstraint">
@@ -374,7 +382,75 @@
        </item>
       </layout>
      </item>
-    </layout>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="page_string">
+      <attribute name="title">
+       <string>From CRS String</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="vlayout_string">
+       <item>
+        <widget class="QLabel" name="lbl_string_instructions">
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>Paste a CRS definition string (WKT, PROJ, or an authority code such as EPSG:4326) and click Validate to check whether WISER can load it. If it is valid you can give it a name and add it to WISER.</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="hlayout_string_name">
+         <item>
+          <widget class="QLabel" name="lbl_string_crs_name">
+           <property name="text">
+            <string>Ref System Name</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="ledit_string_crs_name"/>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QPlainTextEdit" name="pedit_crs_string">
+         <property name="placeholderText">
+          <string>Paste WKT / PROJ / EPSG:xxxx here…</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="hlayout_string_buttons">
+         <item>
+          <widget class="QPushButton" name="btn_validate_crs_string">
+           <property name="text">
+            <string>Validate</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_add_crs_string">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>Add to WISER</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QPlainTextEdit" name="pedit_crs_string_result">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
    </item>
   </layout>
  </widget>

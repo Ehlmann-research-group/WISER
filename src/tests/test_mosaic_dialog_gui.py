@@ -151,6 +151,9 @@ class TestSeamlessMosaicAddScene(unittest.TestCase):
         self.assertTrue(scene.has_overviews)
         self.assertIsNotNone(scene.footprint_wkt)
         self.assertIsNotNone(scene.gdal_path)
+        # Stable stretch bounds (#675) are computed at ingest, before the scene is
+        # ever rendered.
+        self.assertTrue(scene.stretch_bounds)
 
         # Progress was reported and reached 100%.
         self.assertTrue(seen, "no progress was reported")

@@ -6,6 +6,7 @@ from PySide6.QtGui import QDoubleValidator, QIntValidator
 from PySide6.QtWidgets import (
     QDialog,
     QLabel,
+    QCheckBox,
     QComboBox,
     QGridLayout,
     QDialogButtonBox,
@@ -108,6 +109,7 @@ class DynamicInputType(IntEnum):
     INT_NO_UNITS = 3
     INT_UNITS = 4
     STRING = 5
+    CHECK_BOX = 6
 
 
 class DynamicInputDialog(QDialog):
@@ -143,8 +145,10 @@ class DynamicInputDialog(QDialog):
                     ]
 
                 For ``DynamicInputType.COMBO_BOX``, provide a 4th element: a list
-                of items for the combo box. No other ``DynamicInputType`` values
-                need this element.
+                of items for the combo box. For ``DynamicInputType.CHECK_BOX``,
+                the 4th element is optional and, if given, its first item is used
+                as the initial checked state (defaults to unchecked). No other
+                ``DynamicInputType`` values need this element.
 
         Returns:
             Optional[Dict]: ``{"<return_key>": value, ...}`` on Accept, or
@@ -256,6 +260,20 @@ class DynamicInputDialog(QDialog):
 
                 self._return_dict[return_key] = None
                 layout.addWidget(line, row, 1)
+            elif input_type == DynamicInputType.CHECK_BOX:
+                checkbox = QCheckBox(self)
+
+                # An optional 4th element supplies the initial checked state.
+                initial_checked = bool(options[0]) if options else False
+                checkbox.setChecked(initial_checked)
+
+                self._return_dict[return_key] = initial_checked
+
+                checkbox.toggled.connect(
+                    lambda checked, key=return_key: self._return_dict.__setitem__(key, checked)
+                )
+
+                layout.addWidget(checkbox, row, 1)
             else:
                 raise ValueError(f"Unsupported DynamicInputType for '{display_name}'.")
 
