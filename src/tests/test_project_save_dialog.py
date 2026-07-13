@@ -1,10 +1,11 @@
-"""Tests for the Save-Project dialog wiring (issue #626).
+"""Tests for the unified Save-Project dialog (issue #626).
 
 The dialog's dependency logic lives in and is tested through
-``wiser.project.save_plan``; here we only check the thin Qt glue -- that a
-RAM-backed dataset becomes a checkable root, a file-backed one does not, and the
-resolver returned by the dialog reflects the checkbox state -- plus a smoke
-import of ``wiser.gui.app`` to catch the menu-wiring edits.
+``wiser.project.save_plan``; here we check the Qt glue -- the three-group
+checkable tree, that unchecking an item or a whole group is reflected in the
+resolver the dialog returns, that a file-backed dataset is now deselectable, the
+self-contained checkbox, and a smoke import of ``wiser.gui.app`` to catch the
+menu-wiring edits.
 """
 
 import tests.context  # noqa: F401
@@ -54,9 +55,10 @@ class _FakeROI:
 
 
 class _FakeAppState:
-    def __init__(self, datasets, rois=()):
+    def __init__(self, datasets, rois=(), bandmath=()):
         self._datasets = datasets
         self._rois = list(rois)
+        self._bandmath = list(bandmath)
 
     def get_datasets(self):
         return list(self._datasets)
@@ -85,62 +87,92 @@ class _FakeAppState:
     def get_kmeans_history(self):
         return _EmptyHistory()
 
+    def get_spectral_libraries(self):
+        return []
 
-def test_dialog_resolver_reflects_selection():
+    def get_user_created_crs(self):
+        return {}
+
+    def get_bandmath_expressions(self):
+        return list(self._bandmath)
+
+
+def _groups(dialog):
+    tree = dialog._tree
+    return {
+        tree.topLevelItem(i).data(0, Qt.UserRole)[1]: tree.topLevelItem(i)
+        for i in range(tree.topLevelItemCount())
+    }
+
+
+def test_dialog_shows_three_groups():
     _qapp()
-    app_state = _FakeAppState([_FakeDataset(1, [], "cube")])
+    app_state = _FakeAppState([_FakeDataset(1, [], "cube")], rois=[_FakeROI(5, "crater")])
     dialog = SaveProjectDialog(app_state, None)
-
-    # Checked by default -> the dataset is saved.
-    assert dialog.get_resolver().is_saved(Dependency("dataset", 1))
-
-    # Unchecking the root excludes it from the resolver.
-    dialog._roots_table.item(0, 0).setCheckState(Qt.Unchecked)
-    assert not dialog.get_resolver().is_saved(Dependency("dataset", 1))
+    assert set(_groups(dialog)) == {"datasets", "rois", "outputs"}
 
 
-def test_file_backed_dataset_is_not_a_checkable_root():
+def test_resolver_saves_everything_by_default():
     _qapp()
-    app_state = _FakeAppState([_FakeDataset(1, [], "ram"), _FakeDataset(2, ["/data/dem.tif"], "on-disk")])
+    app_state = _FakeAppState([_FakeDataset(1, [], "cube")], rois=[_FakeROI(5, "crater")])
     dialog = SaveProjectDialog(app_state, None)
+    resolver = dialog.get_resolver()
+    assert resolver.is_saved(Dependency("dataset", 1))
+    assert resolver.is_saved(Dependency("roi", 5))
 
-    # Only the RAM-backed dataset gets a checkbox row...
-    assert dialog._roots_table.rowCount() == 1
-    # ...and the file-backed dataset is saved regardless (referenced, not a decision).
+
+def test_unchecking_a_file_backed_dataset_excludes_it():
+    # File-backed datasets are now deselectable; previously they were always referenced.
+    _qapp()
+    app_state = _FakeAppState([_FakeDataset(2, ["/data/dem.tif"], "on-disk")])
+    dialog = SaveProjectDialog(app_state, None)
     assert dialog.get_resolver().is_saved(Dependency("dataset", 2))
 
+    dialog._item_widgets[("dataset", 2)].setCheckState(0, Qt.Unchecked)
+    assert not dialog.get_resolver().is_saved(Dependency("dataset", 2))
 
-def _top_labels(tree):
-    return [tree.topLevelItem(i).text(0) for i in range(tree.topLevelItemCount())]
 
-
-def test_inventory_tree_lists_saved_datasets_and_rois():
+def test_unchecking_a_group_excludes_all_its_items():
     _qapp()
-    app_state = _FakeAppState(
-        [_FakeDataset(1, [], "ram"), _FakeDataset(2, ["/data/dem.tif"], "on-disk")],
-        rois=[_FakeROI(5, "crater")],
-    )
+    app_state = _FakeAppState([_FakeDataset(1, [], "a"), _FakeDataset(2, ["/d.tif"], "b")])
     dialog = SaveProjectDialog(app_state, None)
 
-    labels = _top_labels(dialog._inventory)
-    assert dialog._inventory.topLevelItemCount() == 3
-    assert any("on-disk" in t for t in labels)  # file-backed dataset is visible, not empty
-    assert any("ram" in t for t in labels)
-    assert any("crater" in t for t in labels)
+    _groups(dialog)["datasets"].setCheckState(0, Qt.Unchecked)
+    resolver = dialog.get_resolver()
+    assert not resolver.is_saved(Dependency("dataset", 1))
+    assert not resolver.is_saved(Dependency("dataset", 2))
 
 
-def test_inventory_tree_drops_excluded_ram_dataset():
+def test_exclude_all_then_include_all():
     _qapp()
-    app_state = _FakeAppState(
-        [_FakeDataset(1, [], "ram"), _FakeDataset(2, ["/data/dem.tif"], "on-disk")],
-    )
+    app_state = _FakeAppState([_FakeDataset(1, [], "a")], rois=[_FakeROI(5, "r")])
     dialog = SaveProjectDialog(app_state, None)
-    assert dialog._inventory.topLevelItemCount() == 2
 
-    dialog._roots_table.item(0, 0).setCheckState(Qt.Unchecked)  # exclude the RAM dataset
-    labels = _top_labels(dialog._inventory)
-    assert dialog._inventory.topLevelItemCount() == 1
-    assert any("on-disk" in t for t in labels)  # only the file-backed dataset remains
+    dialog._set_all(excluded=True)
+    assert not dialog.get_resolver().is_saved(Dependency("dataset", 1))
+    assert not dialog.get_resolver().is_saved(Dependency("roi", 5))
+
+    dialog._set_all(excluded=False)
+    assert dialog.get_resolver().is_saved(Dependency("dataset", 1))
+    assert dialog.get_resolver().is_saved(Dependency("roi", 5))
+
+
+def test_bandmath_expression_is_an_excludable_output():
+    _qapp()
+    app_state = _FakeAppState([_FakeDataset(1, [], "a")], bandmath=["b1 + b2"])
+    dialog = SaveProjectDialog(app_state, None)
+    # Listed under Analysis outputs with a (bandmath, index) exclusion handle.
+    assert ("bandmath", 0) in dialog._item_widgets
+    dialog._item_widgets[("bandmath", 0)].setCheckState(0, Qt.Unchecked)
+    assert not dialog.get_resolver().is_saved(Dependency("bandmath", 0))
+
+
+def test_self_contained_checkbox_reflects_choice():
+    _qapp()
+    dialog = SaveProjectDialog(_FakeAppState([_FakeDataset(1, [], "a")]), None)
+    assert dialog.get_self_contained() is False
+    dialog._self_contained.setChecked(True)
+    assert dialog.get_self_contained() is True
 
 
 def test_app_module_imports():

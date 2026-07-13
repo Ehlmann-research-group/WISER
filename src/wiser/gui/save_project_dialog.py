@@ -1,159 +1,238 @@
-"""Dependency-aware Save-Project dialog (issue #626).
+"""Unified Save-Project dialog (issue #626).
 
-Presents the only real decision when saving a project: which in-memory
-("RAM-backed") datasets to include.  File-backed datasets are referenced by path
-for free; everything else cascades from the dataset choice, so the dialog shows a
-live consequence list -- the dataset-backed spectra that will freeze to a
-snapshot and the stretches that will be dropped -- recomputed as the user toggles
-a dataset.  The chosen :class:`~wiser.project.resolver.DependencyResolver` is
-handed to :func:`~wiser.project.orchestrate.save_project`.
+One checkable tree is the whole decision.  Three top-level groups -- Datasets,
+ROIs, and Analysis outputs -- list every item in the session, checked by default;
+unchecking an item leaves it out of the project.  Unchecking a dataset or ROI
+cascades to the products under it -- a dependent spectrum freezes to a snapshot, a
+stretch is dropped -- shown live as a ``(snapshot)`` / ``(dropped)`` annotation on
+the child.  A top checkbox chooses a self-contained (portable) save that copies
+file-backed data into the bundle instead of referencing it.
 
-The dialog is a thin view over :mod:`wiser.project.save_plan`; all the
-dependency logic (and its tests) live there.
+The dialog is a thin view over :mod:`wiser.project.save_plan`: :func:`save_tree`
+builds the model and :func:`resolver_for_selection` turns the user's exclusions
+into the :class:`~wiser.project.resolver.DependencyResolver` handed to
+:func:`~wiser.project.orchestrate.save_project`.  The tree is built once and its
+annotations and group tri-states are updated in place as the user toggles, so the
+item whose signal is being handled is never deleted mid-update.
 """
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QHeaderView,
+    QHBoxLayout,
     QLabel,
-    QTableWidget,
-    QTableWidgetItem,
+    QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
 )
 
-from wiser.project.resolver import SavePolicy
-from wiser.project.save_plan import (
-    resolver_for_selection,
-    save_inventory,
-    save_plan,
-    savable_dataset_roots,
-)
+from wiser.project.save_plan import resolver_for_selection, save_tree
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
     from wiser.project.resolver import DependencyResolver
+
+Handle = Tuple[str, object]  # (kind, id) -- the resolver's exclusion key for an item
 
 
 class SaveProjectDialog(QDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(parent)
         self._app_state = app_state
-        self._ram_datasets, self._file_datasets = savable_dataset_roots(app_state)
+        self._excluded: Set[Handle] = set()
+        self._updating = False
+        self._item_widgets: Dict[Handle, QTreeWidgetItem] = {}
+        self._group_handles: Dict[str, List[Handle]] = {}
         self.setWindowTitle(self.tr("Save Project"))
 
         layout = QVBoxLayout(self)
-        layout.addWidget(
-            QLabel(
-                self.tr(
-                    "Choose which in-memory datasets to include. File-backed datasets are "
-                    "referenced automatically, and everything else follows from your choice."
-                )
+        intro = QLabel(
+            self.tr(
+                "Choose what to include in the project. Everything is included by default; "
+                "uncheck an item to leave it out. A product under a dataset or ROI follows it "
+                "-- a spectrum freezes to a snapshot and a stretch is dropped when its dataset "
+                "is left out."
             )
         )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
 
-        self._roots_table = QTableWidget(len(self._ram_datasets), 2, self)
-        self._roots_table.setHorizontalHeaderLabels([self.tr("Include"), self.tr("In-memory dataset")])
-        self._roots_table.verticalHeader().setVisible(False)
-        self._roots_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._roots_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        for row, dataset in enumerate(self._ram_datasets):
-            check = QTableWidgetItem()
-            check.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-            check.setCheckState(Qt.Checked)
-            self._roots_table.setItem(row, 0, check)
-            label = dataset.get_name() or self.tr("dataset {0}").format(dataset.get_id())
-            self._roots_table.setItem(row, 1, QTableWidgetItem(label))
-        # Connect after populating so seeding the checkboxes doesn't fire refresh.
-        self._roots_table.itemChanged.connect(self._refresh_consequences)
-        layout.addWidget(self._roots_table)
+        self._self_contained = QCheckBox(
+            self.tr("Save self-contained (copy data into the project so it can be shared or moved)")
+        )
+        layout.addWidget(self._self_contained)
 
-        if self._file_datasets:
-            layout.addWidget(
-                QLabel(
-                    self.tr("{0} file-backed dataset(s) will be referenced (not copied).").format(
-                        len(self._file_datasets)
-                    )
-                )
-            )
+        self._tree = QTreeWidget(self)
+        self._tree.setColumnCount(1)
+        self._tree.setHeaderHidden(True)
+        self._tree.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        layout.addWidget(self._tree)
 
-        layout.addWidget(QLabel(self.tr("Consequences of your selection:")))
-        self._consequences = QTableWidget(0, 2, self)
-        self._consequences.setHorizontalHeaderLabels([self.tr("Item"), self.tr("Result")])
-        self._consequences.verticalHeader().setVisible(False)
-        self._consequences.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._consequences.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        layout.addWidget(self._consequences)
-
-        layout.addWidget(QLabel(self.tr("Will be saved:")))
-        self._inventory = QTreeWidget(self)
-        self._inventory.setColumnCount(1)
-        self._inventory.setHeaderHidden(True)
-        self._inventory.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._inventory.header().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self._inventory.header().setStretchLastSection(False)
-        layout.addWidget(self._inventory)
+        row = QHBoxLayout()
+        include_all = QPushButton(self.tr("Include All"))
+        exclude_all = QPushButton(self.tr("Exclude All"))
+        include_all.clicked.connect(lambda: self._set_all(excluded=False))
+        exclude_all.clicked.connect(lambda: self._set_all(excluded=True))
+        row.addWidget(include_all)
+        row.addWidget(exclude_all)
+        row.addStretch()
+        layout.addLayout(row)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-        self._refresh_consequences()
+        self._build_tree()
+        self._tree.itemChanged.connect(self._on_item_changed)
 
-    def _excluded_dataset_ids(self) -> List[int]:
-        excluded = []
-        for row, dataset in enumerate(self._ram_datasets):
-            item = self._roots_table.item(row, 0)
-            if item is not None and item.checkState() != Qt.Checked:
-                excluded.append(dataset.get_id())
-        return excluded
+    # -- resolver / mode ---------------------------------------------------
 
-    def _refresh_consequences(self, *args) -> None:
-        resolver = resolver_for_selection(self._app_state, self._excluded_dataset_ids())
-        affected = [
-            row for row in save_plan(self._app_state, resolver) if row["policy"] != SavePolicy.FAITHFUL.value
-        ]
-        self._consequences.setRowCount(len(affected))
-        for i, row in enumerate(affected):
-            self._consequences.setItem(i, 0, QTableWidgetItem(row["item"]))
-            self._consequences.setItem(i, 1, QTableWidgetItem(self._policy_text(row["policy"])))
-        self._refresh_inventory()
-
-    def _refresh_inventory(self) -> None:
-        resolver = resolver_for_selection(self._app_state, self._excluded_dataset_ids())
-        self._inventory.clear()
-        for node in save_inventory(self._app_state, resolver):
-            top = QTreeWidgetItem(self._inventory)
-            top.setText(0, self._node_label(node))
-            top.setData(0, Qt.UserRole, node["id"])
-            for child in node["children"]:
-                item = QTreeWidgetItem(top)
-                label = child["label"]
-                if child["policy"] == SavePolicy.SNAPSHOT.value:
-                    label = self.tr("{0} (snapshot)").format(label)
-                item.setText(0, label)
-            top.setExpanded(True)
-
-    def _node_label(self, node) -> str:
-        if node["kind"] == "dataset":
-            backing = self.tr("file") if node["backing"] == "file" else self.tr("in-memory")
-            return self.tr("Dataset {0} ({1})").format(node["label"], backing)
-        return self.tr("ROI {0}").format(node["label"])
+    def _current_resolver(self) -> "DependencyResolver":
+        excluded_datasets = [i for (k, i) in self._excluded if k == "dataset"]
+        excluded_rois = [i for (k, i) in self._excluded if k == "roi"]
+        excluded_items = {(k, i) for (k, i) in self._excluded if k not in ("dataset", "roi")}
+        return resolver_for_selection(self._app_state, excluded_datasets, excluded_rois, excluded_items)
 
     def get_resolver(self) -> "DependencyResolver":
         """The resolver for the user's current selection (call after ``exec()``)."""
-        return resolver_for_selection(self._app_state, self._excluded_dataset_ids())
+        return self._current_resolver()
 
-    def _policy_text(self, policy: str) -> str:
-        if policy == SavePolicy.SNAPSHOT.value:
-            return self.tr("frozen to a snapshot")
-        if policy == SavePolicy.DROP.value:
-            return self.tr("dropped")
-        return policy
+    def get_self_contained(self) -> bool:
+        """Whether the user asked for a portable, self-contained save."""
+        return self._self_contained.isChecked()
+
+    # -- build (once) ------------------------------------------------------
+
+    def _build_tree(self) -> None:
+        self._tree.clear()
+        self._item_widgets.clear()
+        self._group_handles.clear()
+        for group in save_tree(self._app_state, self._current_resolver()):
+            group_item = QTreeWidgetItem(self._tree)
+            group_item.setText(0, group["label"])
+            group_item.setData(0, Qt.UserRole, ("group", group["group"]))
+            group_item.setFlags(group_item.flags() | Qt.ItemIsUserCheckable)
+            group_item.setCheckState(0, Qt.Checked)
+            group_item.setExpanded(True)
+            handles: List[Handle] = []
+            for node in group["children"]:
+                handle: Handle = (node["kind"], node["id"])
+                handles.append(handle)
+                item = QTreeWidgetItem(group_item)
+                item.setText(0, self._item_label(node))
+                item.setData(0, Qt.UserRole, ("item", node["kind"], node["id"]))
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                item.setCheckState(0, Qt.Checked)
+                item.setExpanded(True)
+                self._item_widgets[handle] = item
+                for child in node.get("children", []):
+                    leaf = QTreeWidgetItem(item)
+                    leaf.setText(0, self._child_label(child))
+                    leaf.setFlags(leaf.flags() & ~Qt.ItemIsUserCheckable)
+            self._group_handles[group["group"]] = handles
+
+    # -- toggles -----------------------------------------------------------
+
+    def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
+        if self._updating:
+            return
+        data = item.data(0, Qt.UserRole)
+        if not data:
+            return
+        self._updating = True
+        try:
+            excluded = item.checkState(0) != Qt.Checked
+            if data[0] == "group":
+                self._apply_group(data[1], excluded)
+            elif data[0] == "item":
+                self._set_excluded((data[1], data[2]), excluded)
+            self._sync()
+        finally:
+            self._updating = False
+
+    def _set_all(self, excluded: bool) -> None:
+        self._updating = True
+        try:
+            for handles in self._group_handles.values():
+                for handle in handles:
+                    self._set_excluded(handle, excluded)
+                    self._reflect_checkbox(handle, excluded)
+            self._sync()
+        finally:
+            self._updating = False
+
+    def _apply_group(self, group_key: str, excluded: bool) -> None:
+        for handle in self._group_handles.get(group_key, []):
+            self._set_excluded(handle, excluded)
+            self._reflect_checkbox(handle, excluded)
+
+    def _set_excluded(self, handle: Handle, excluded: bool) -> None:
+        if excluded:
+            self._excluded.add(handle)
+        else:
+            self._excluded.discard(handle)
+
+    def _reflect_checkbox(self, handle: Handle, excluded: bool) -> None:
+        widget = self._item_widgets.get(handle)
+        if widget is not None:
+            widget.setCheckState(0, Qt.Unchecked if excluded else Qt.Checked)
+
+    def _sync(self) -> None:
+        # Re-annotate each cascade child with the policy it now takes, and recompute
+        # every group's tri-state -- in place, so the tree is never rebuilt.
+        for group in save_tree(self._app_state, self._current_resolver()):
+            for node in group["children"]:
+                widget = self._item_widgets.get((node["kind"], node["id"]))
+                if widget is None:
+                    continue
+                for index, child in enumerate(node.get("children", [])):
+                    if index < widget.childCount():
+                        widget.child(index).setText(0, self._child_label(child))
+        self._update_group_states()
+
+    def _update_group_states(self) -> None:
+        for i in range(self._tree.topLevelItemCount()):
+            group_item = self._tree.topLevelItem(i)
+            items = [
+                group_item.child(j)
+                for j in range(group_item.childCount())
+                if (group_item.child(j).data(0, Qt.UserRole) or (None,))[0] == "item"
+            ]
+            checked = sum(1 for it in items if it.checkState(0) == Qt.Checked)
+            if not items or checked == len(items):
+                state = Qt.Checked
+            elif checked == 0:
+                state = Qt.Unchecked
+            else:
+                state = Qt.PartiallyChecked
+            group_item.setCheckState(0, state)
+
+    # -- labels ------------------------------------------------------------
+
+    def _item_label(self, node: Dict[str, Any]) -> str:
+        kind = node["kind"]
+        if kind == "dataset":
+            backing = self.tr("file") if node.get("backing") == "file" else self.tr("in-memory")
+            return self.tr("{0} ({1})").format(node["label"], backing)
+        if kind == "library":
+            return self.tr("Library: {0}").format(node["label"])
+        if kind == "crs":
+            return self.tr("CRS: {0}").format(node["label"])
+        if kind == "bandmath":
+            return self.tr("Band math: {0}").format(node["label"])
+        return node["label"]
+
+    def _child_label(self, child: Dict[str, Any]) -> str:
+        label = child["label"]
+        if child["policy"] == "snapshot":
+            return self.tr("{0} (snapshot)").format(label)
+        if child["policy"] == "drop":
+            return self.tr("{0} (dropped)").format(label)
+        return label

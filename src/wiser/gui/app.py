@@ -152,6 +152,7 @@ class DataVisualizerApp(QMainWindow):
         # Path of the project file the session was last saved to / opened from,
         # so "Save Project" re-saves in place.  ``None`` until a Save As / Open.
         self._current_project_path: Optional[str] = None
+        self._current_self_contained: bool = False
         self._project_extract_dir: Optional[str] = None
 
         self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
@@ -686,7 +687,11 @@ class DataVisualizerApp(QMainWindow):
             self.on_save_project_as()
             return
         try:
-            save_project(self._app_state, self._current_project_path)
+            save_project(
+                self._app_state,
+                self._current_project_path,
+                self_contained=self._current_self_contained,
+            )
         except Exception as e:
             logger.exception("Failed to save project")
             QMessageBox.critical(
@@ -701,6 +706,7 @@ class DataVisualizerApp(QMainWindow):
         if dialog.exec() != QDialog.Accepted:
             return
         resolver = dialog.get_resolver()
+        self_contained = dialog.get_self_contained()
 
         (path, _) = QFileDialog.getSaveFileName(
             self,
@@ -714,7 +720,7 @@ class DataVisualizerApp(QMainWindow):
             path += ProjectBundle.EXTENSION
 
         try:
-            save_project(self._app_state, path, resolver)
+            save_project(self._app_state, path, resolver, self_contained=self_contained)
         except Exception as e:
             logger.exception("Failed to save project")
             QMessageBox.critical(
@@ -724,6 +730,7 @@ class DataVisualizerApp(QMainWindow):
             )
             return
         self._current_project_path = path
+        self._current_self_contained = self_contained
         self._app_state.update_cwd_from_path(path)
 
     def on_open_project(self, checked=False):
