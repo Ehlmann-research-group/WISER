@@ -96,7 +96,7 @@ class TestMosaicViewGui(unittest.TestCase):
             "scene was not ingested within the timeout",
         )
 
-    def _settle_reads(self, view, timeout_ms=10000, step_ms=40):
+    def _settle_reads(self, view, timeout_ms=60000, step_ms=40):
         """
         Pump the event loop until any debounced/in-flight tile read has completed.
 

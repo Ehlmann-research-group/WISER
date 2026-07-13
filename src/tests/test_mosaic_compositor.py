@@ -237,3 +237,65 @@ def test_uncached_bounds_still_drift_with_viewport(tmp_path):
 
     full_slice = full[:, _COLLAR : _COLLAR + 2, :3]
     assert not np.array_equal(full_slice, narrow[:, :, :3])
+
+
+def _write_gradient_tiff(path):
+    """
+    Write an all-valid 3-band GeoTIFF whose bands carry *distinguishable* patterns so
+    channel ordering is observable after the per-band stretch:
+      * band 1 = column index  (increases left -> right)
+      * band 2 = row index     (increases top -> bottom)
+      * band 3 = flat constant
+    Returns the projection WKT.
+    """
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(_EPSG)
+    ds = gdal.GetDriverByName("GTiff").Create(path, _SIZE, _SIZE, 3, gdal.GDT_Float32)
+    ox, oy = _ORIGIN
+    ds.SetGeoTransform([ox, _PIXEL, 0.0, oy, 0.0, -_PIXEL])
+    ds.SetProjection(srs.ExportToWkt())
+    cols = np.tile(np.arange(_SIZE, dtype=np.float32), (_SIZE, 1))  # varies along x
+    rows = np.tile(np.arange(_SIZE, dtype=np.float32).reshape(_SIZE, 1), (1, _SIZE))  # along y
+    flat = np.full((_SIZE, _SIZE), 3.0, dtype=np.float32)
+    for b, arr in enumerate((cols, rows, flat)):
+        ds.GetRasterBand(b + 1).WriteArray(arr)
+    ds.FlushCache()
+    ds = None
+    return srs.ExportToWkt()
+
+
+def test_reads_display_bands_in_order(tmp_path):
+    """
+    #677: the compositor reads the display-only artifact's bands *in order* (band
+    1/2/3 = R/G/B) rather than picking bands from the dataset. A column gradient in
+    band 1 must land in R and a row gradient in band 2 must land in G.
+    """
+    path = os.path.join(str(tmp_path), "gradient.tif")
+    wkt = _write_gradient_tiff(path)
+    scene = MosaicScene(dataset=_DatasetStub(wkt, (0, 1, 2)), gdal_path=path)
+
+    rgba = render_scene_argb(scene, wkt, _source_extent(), _SIZE, _SIZE)
+
+    # R came from band 1 (column gradient): rightmost column brighter than leftmost.
+    assert rgba[:, -1, 0].mean() > rgba[:, 0, 0].mean()
+    # G came from band 2 (row gradient): bottom row brighter than top.
+    assert rgba[-1, :, 1].mean() > rgba[0, :, 1].mean()
+
+
+def test_preview_ignores_dataset_display_bands(tmp_path):
+    """
+    #677: band selection moved to materialize time, so the compositor no longer reads
+    the dataset's display bands. Two scenes which should map to the same display bands
+    do.
+    """
+    path = os.path.join(str(tmp_path), "gradient.tif")
+    wkt = _write_gradient_tiff(path)
+    ext = _source_extent()
+
+    sane = MosaicScene(dataset=_DatasetStub(wkt, (0, 1, 2)), gdal_path=path)
+    garbage = MosaicScene(dataset=_DatasetStub(wkt, (9, 9, 9)), gdal_path=path)
+
+    np.testing.assert_array_equal(
+        render_scene_argb(sane, wkt, ext, _SIZE, _SIZE),
+        render_scene_argb(garbage, wkt, ext, _SIZE, _SIZE),
+    )
