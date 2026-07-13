@@ -19,6 +19,7 @@ from wiser.raster.mosaic_ingestion import (
     SceneValidationError,
     build_overviews,
     compute_footprint_wkt,
+    compute_stretch_bounds,
     validate_scene,
 )
 from wiser.raster.mosaic_materialize import materialize_to_tiled_geotiff, read_materialized_geotiff
@@ -218,6 +219,82 @@ def test_overviews_written_to_file():
             assert reopened.GetRasterBand(1).GetOverviewCount() > 0
         finally:
             reopened = None
+
+
+# -- compute_stretch_bounds (#675) ---------------------------------------------
+
+
+def test_stretch_bounds_excludes_nodata():
+    with tempfile.TemporaryDirectory() as d:
+        # A large collar relative to the level-4 overview's decimation, so the
+        # nodata region still shows up in the sampled overview -- if nodata masking
+        # were broken, it would drag the bounds far from the flat fill value.
+        path = _make_georeffed_tiff(d, nodata=-9999, bands=1, collar=8, size=64)
+        build_overviews(path)
+        bounds = compute_stretch_bounds(path, _valid_fake(bands=1))
+
+    assert 0 in bounds
+    lo, hi = bounds[0]
+    assert lo == pytest.approx(7.0)
+    assert hi == pytest.approx(7.0)
+
+
+def test_stretch_bounds_reflects_value_spread():
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "gradient.tif")
+        size = 64
+        driver = gdal.GetDriverByName("GTiff")
+        ds = driver.Create(
+            path, size, size, 1, gdal.GDT_Float32, options=["TILED=YES", "BLOCKXSIZE=16", "BLOCKYSIZE=16"]
+        )
+        ds.SetGeoTransform(list(_GOOD_GEO_TRANSFORM))
+        ds.SetProjection(_utm_wkt())
+        gradient = np.linspace(0.0, 1000.0, size, dtype=np.float32)
+        ds.GetRasterBand(1).WriteArray(np.tile(gradient, (size, 1)))
+        ds.FlushCache()
+        ds = None
+        build_overviews(path)
+        bounds = compute_stretch_bounds(path, _valid_fake(bands=1))
+
+    lo, hi = bounds[0]
+    assert 0.0 <= lo < hi <= 1000.0
+    # A 2-98 percentile of a 0..1000 gradient should span most of that range, not
+    # collapse to a narrow slice -- a coarse sanity check on the overview sampling.
+    assert hi - lo > 500.0
+
+
+def test_stretch_bounds_all_nodata_band_is_omitted():
+    with tempfile.TemporaryDirectory() as d:
+        path = _make_georeffed_tiff(d, nodata=-9999, bands=1, collar=0, size=16)
+        ds = gdal.Open(path, gdal.GA_Update)
+        ds.GetRasterBand(1).WriteArray(np.full((16, 16), -9999, dtype=np.float32))
+        ds.FlushCache()
+        ds = None
+        bounds = compute_stretch_bounds(path, _valid_fake(bands=1))
+
+    assert bounds == {}
+
+
+def test_stretch_bounds_falls_back_without_overviews():
+    with tempfile.TemporaryDirectory() as d:
+        path = _make_georeffed_tiff(d, nodata=-9999, bands=1, collar=2, size=16)
+        # No build_overviews() call: exercises the GetOverviewCount() == 0 fallback
+        # to a full-resolution read.
+        bounds = compute_stretch_bounds(path, _valid_fake(bands=1))
+
+    assert 0 in bounds
+    lo, hi = bounds[0]
+    assert lo == pytest.approx(7.0)
+    assert hi == pytest.approx(7.0)
+
+
+def test_stretch_bounds_reports_progress():
+    rec = _Recorder()
+    with tempfile.TemporaryDirectory() as d:
+        path = _make_georeffed_tiff(d, nodata=-9999, bands=3, collar=0, size=32)
+        build_overviews(path)
+        compute_stretch_bounds(path, _valid_fake(bands=3), progress=ProgressReporter(sink=rec))
+    _assert_monotonic_to_one(rec.fractions)
 
 
 # -- progress reporting -------------------------------------------------------

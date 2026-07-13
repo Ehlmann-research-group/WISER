@@ -78,9 +78,9 @@ class TestMosaicViewGui(unittest.TestCase):
             waited += step_ms
         return predicate()
 
-    def _load(self, name, origin):
+    def _load(self, name, origin, **kwargs):
         path = os.path.join(self._tmp.name, name)
-        _write_overlapping_tiff(path, origin)
+        _write_overlapping_tiff(path, origin, **kwargs)
         return self.test_model.load_dataset(path)
 
     def _ingest(self, pane, controller, dataset, expected_count):
@@ -88,10 +88,47 @@ class TestMosaicViewGui(unittest.TestCase):
         self.assertGreaterEqual(index, 0)
         pane._dataset_combo.setCurrentIndex(index)
         pane._add_scene_button.click()
+        # Generous timeout: the larger tile-reuse fixtures (1024 px, with overviews +
+        # stretch) can take a while to materialize under load. This returns as soon as
+        # ingest finishes, so it does not slow the small-scene tests.
         self.assertTrue(
-            self._wait_for(lambda: controller.scene_count() == expected_count),
+            self._wait_for(lambda: controller.scene_count() == expected_count, timeout_ms=60000),
             "scene was not ingested within the timeout",
         )
+
+    def _settle_reads(self, view, timeout_ms=60000, step_ms=40):
+        """
+        Pump the event loop until any debounced/in-flight tile read has completed.
+
+        A tile read is armed by the debounce timer, runs on a scheduler thread, and lands
+        via a queued signal, so a plain ``grab()`` is not enough to observe it. This grabs
+        (to arm/repaint) and waits until neither the debounce timer nor an in-flight read
+        is outstanding across two consecutive checks, so the tile cache has stabilized.
+        """
+        waited = 0
+        while waited < timeout_ms:
+            view.grab()
+            QTest.qWait(step_ms)
+            waited += step_ms
+            if not view._debounce_timer.isActive() and not view._inflight_tiles:
+                view.grab()
+                QTest.qWait(step_ms)
+                waited += step_ms
+                if not view._debounce_timer.isActive() and not view._inflight_tiles:
+                    return True
+        return False
+
+    def _open_pane_with_scenes(self, *scenes):
+        """Open the mosaic dialog and ingest ``scenes`` (RasterDataSets) in order."""
+        dlg = self.test_model.open_seamless_mosaic_dialog()
+        pane = dlg.get_mosaic_pane()
+        controller = pane.get_controller()
+        view = pane.get_mosaic_view()
+        view.resize(800, 600)
+        with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog"):
+            for i, ds in enumerate(scenes, start=1):
+                self._ingest(pane, controller, ds, i)
+        return dlg, pane, controller, view
 
     def test_overlay_geometry_populates_for_overlapping_scenes(self):
         # Two same-CRS scenes whose valid footprints overlap in one corner.
@@ -255,14 +292,16 @@ class TestMosaicViewGui(unittest.TestCase):
             self._ingest(pane, controller, ds_b, 2)
 
         # The read is off the UI thread and debounced, so force a paint to schedule it
-        # then pump the loop until the layers arrive.
+        # then pump the loop until the tiles arrive.
         view.grab()
         self.assertTrue(
-            self._wait_for(lambda: len(view._scene_layers) == 2),
-            "per-scene layers were not read within the timeout",
+            self._wait_for(lambda: len(view._tile_cache) > 0),
+            "tiles were not read within the timeout",
         )
-        self.assertIsNotNone(view._composite_pixmap)
-        self.assertIsNotNone(view._composite_world_extent)
+        # Both scenes contributed tiles at the current viewport's zoom bucket.
+        scene_ids = {id(s) for s in controller.get_scenes()}
+        cached_scene_ids = {key[0] for key in view._tile_cache}
+        self.assertEqual(cached_scene_ids, scene_ids)
 
         self.test_model.close_seamless_mosaic_dialog()
 
@@ -282,14 +321,18 @@ class TestMosaicViewGui(unittest.TestCase):
 
         real_render = mosaic_view.render_scene_argb
         with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
-            # Initial debounced read populates the cache.
+            # Initial debounced read populates the tile cache.
             view.grab()
-            self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+            self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
             self.assertGreater(spy.call_count, 0)
 
             def _assert_no_read(mutate):
                 spy.reset_mock()
                 mutate()
+                # The pane rebuilds the grid before restacking (e.g. _on_scene_rows_moved
+                # -> _rebuild_grid_quietly); do the same so the render bucket, which is
+                # floored at the grid resolution, stays consistent with the cached tiles.
+                controller.build_common_grid()
                 view.recomposite_only()
                 view.grab()
                 QTest.qWait(2 * _PIXEL_READ_DEBOUNCE_MS)  # past the debounce window — nothing should read
@@ -317,12 +360,15 @@ class TestMosaicViewGui(unittest.TestCase):
             self._ingest(pane, controller, ds_b, 2)
 
         view.grab()
-        self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+        self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
 
-        # A burst of pans must collapse into one background read, not one per event.
+        # Drop the cache so the pan below genuinely warps tiles (these ~600 m fixtures
+        # otherwise fit entirely inside the first read + prefetch ring, so a pan would
+        # reuse cached tiles and read nothing). This isolates the property under test:
+        # a burst of pan paints coalesces into a *single* background read.
+        view._tile_cache.clear()
         real_worker = mosaic_view._render_scene_layers
         with mock.patch.object(mosaic_view, "_render_scene_layers", side_effect=real_worker) as worker_spy:
-            initial_extent = view._composite_world_extent
             for _ in range(5):
                 view._transform.pan(40, 0)
                 view.grab()  # each paint restarts the debounce timer
@@ -330,11 +376,147 @@ class TestMosaicViewGui(unittest.TestCase):
             # Still mid-gesture: the debounce timer keeps restarting, so no read yet.
             self.assertEqual(worker_spy.call_count, 0)
 
-            # Once the gesture settles, the composite updates to the panned viewport...
-            self.assertTrue(self._wait_for(lambda: view._composite_world_extent != initial_extent))
+            # Once the gesture settles, the viewport's tiles are read back in...
+            self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
             # ...via a single coalesced read, not one per pan event.
             QTest.qWait(2 * _PIXEL_READ_DEBOUNCE_MS)
             self.assertEqual(worker_spy.call_count, 1)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    # -- tile reuse across pan / zoom (#674) ----------------------------------
+
+    def _big_scene_pair(self):
+        """
+        Two overlapping scenes large enough to span several tiles when zoomed in.
+
+        The default fixtures are 20x30 m == 600 m and fit inside a single tile, so a pan
+        never exposes a fresh in-footprint tile. These are 1024 px at 1 m == 1024 m with a
+        32 px nodata collar, giving a ~1280 m union — much larger than the viewport once
+        zoomed in ~4x, so the viewport + prefetch ring covers only a slice and a pan
+        crosses tile boundaries into new, still-in-data cells. At 4x the read lands on
+        bucket -1 (0.5 m, a mild 2x upsample) rather than a pathological deep upsample.
+        """
+        ds_a = self._load("big_a.tif", origin=(400000.0, 3800000.0), pixel=1.0, size=1024, collar=32)
+        ds_b = self._load("big_b.tif", origin=(400512.0, 3799488.0), pixel=1.0, size=1024, collar=32)
+        return ds_a, ds_b
+
+    def test_pan_reuses_cached_tiles(self):
+        ds_a, ds_b = self._big_scene_pair()
+        _dlg, _pane, _controller, view = self._open_pane_with_scenes(ds_a, ds_b)
+
+        # Settle once so the first paint frames the mosaic (the camera fit runs in
+        # paintEvent), then view a small window at the scenes' native 1 m resolution
+        # centered on the fitted (union-center) point. A small viewport at bucket 0 (no
+        # upsampling — fast/reliable) leaves most of the ~1536 m union uncached, so a pan
+        # is guaranteed to slide into fresh in-data cells.
+        self.assertTrue(self._settle_reads(view))
+        view.resize(256, 256)
+        view._transform.world_units_per_pixel = 1.0
+        self.assertTrue(self._settle_reads(view))
+        before = set(view._tile_cache.keys())
+        self.assertTrue(before, "native-resolution read cached no tiles")
+
+        real_render = mosaic_view.render_scene_argb
+        with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
+            view._transform.pan(300, 0)  # slide well past one tile to expose new cells
+            self.assertTrue(self._settle_reads(view))
+
+            after = set(view._tile_cache.keys())
+            new_keys = after - before
+            reused = before & after
+            # The pan exposed brand-new cells...
+            self.assertTrue(new_keys, "pan exposed no new tiles")
+            # ...while the already-loaded tiles were kept, not re-read...
+            self.assertTrue(reused, "pan dropped previously-cached tiles")
+            # ...and *only* the newly-exposed cells were warped (the whole point: the
+            # overlap region is reused with zero GDAL work, not re-warped).
+            self.assertEqual(spy.call_count, len(new_keys))
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_zoom_bucket_is_read_then_reused(self):
+        ds_a, ds_b = self._big_scene_pair()
+        _dlg, _pane, _controller, view = self._open_pane_with_scenes(ds_a, ds_b)
+        center = QPointF(view.width() / 2.0, view.height() / 2.0)
+
+        self.assertTrue(self._settle_reads(view))
+        fit_state = (
+            view._transform.center_x,
+            view._transform.center_y,
+            view._transform.world_units_per_pixel,
+        )
+        fit_bucket = view._render_bucket()
+        before = set(view._tile_cache.keys())
+        self.assertTrue(before)
+
+        real_render = mosaic_view.render_scene_argb
+        # Zooming across a bucket boundary reads the new bucket's tiles. (3x from the
+        # fit zoom lands on the grid's native bucket, so the render floor does not clamp
+        # it — it is a genuine new, finer bucket.)
+        with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy_in:
+            view._transform.zoom(3.0, center, view.size())
+            self.assertTrue(self._settle_reads(view))
+            self.assertNotEqual(view._render_bucket(), fit_bucket)
+            new_bucket_keys = {k for k in view._tile_cache if k[1] != fit_bucket}
+            self.assertTrue(new_bucket_keys, "crossing a bucket read no new-bucket tiles")
+            self.assertGreater(spy_in.call_count, 0)
+
+        # Returning to the exact fit camera reuses the still-cached fit-bucket tiles.
+        with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy_back:
+            (
+                view._transform.center_x,
+                view._transform.center_y,
+                view._transform.world_units_per_pixel,
+            ) = fit_state
+            self.assertTrue(self._settle_reads(view))
+            self.assertTrue(before.issubset(view._tile_cache.keys()))
+            self.assertEqual(spy_back.call_count, 0)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_zoom_past_native_reuses_tiles_without_reading(self):
+        ds_a, ds_b = self._big_scene_pair()
+        _dlg, _pane, controller, view = self._open_pane_with_scenes(ds_a, ds_b)
+
+        # Settle, then view a small window at the mosaic's native (common-grid)
+        # resolution so a handful of grid-resolution tiles are cached.
+        self.assertTrue(self._settle_reads(view))
+        view.resize(256, 256)
+        gt = controller.get_common_grid().geotransform
+        grid_res = min(abs(gt[1]), abs(gt[5]))
+        view._transform.world_units_per_pixel = grid_res
+        self.assertTrue(self._settle_reads(view))
+        native_bucket = view._render_bucket()
+        before = set(view._tile_cache.keys())
+        self.assertTrue(before)
+
+        # Zooming far past native must NOT warp finer tiles: the render bucket stays
+        # floored at the grid resolution, and the cached grid-resolution tiles are reused
+        # (drawn scaled by the affine — one source pixel becomes a block on screen), so a
+        # deep zoom-in reads nothing.
+        real_render = mosaic_view.render_scene_argb
+        with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
+            view._transform.world_units_per_pixel = grid_res / 16.0
+            self.assertEqual(view._render_bucket(), native_bucket)
+            self.assertTrue(self._settle_reads(view))
+            self.assertEqual(spy.call_count, 0)
+            # No finer tiles were cached; the tiny viewport reuses a subset of native ones.
+            self.assertTrue(set(view._tile_cache.keys()).issubset(before))
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_tile_cache_is_lru_bounded(self):
+        ds_a = self._load("a.tif", origin=(400000.0, 3800000.0))
+        ds_b = self._load("b.tif", origin=(400300.0, 3799700.0))
+
+        # A tiny cap makes the initial viewport+ring read (dozens of tiles) overflow the
+        # LRU, so eviction must hold the cache at the bound.
+        with mock.patch.object(mosaic_view, "_TILE_CACHE_MAX", 8):
+            _dlg, _pane, _controller, view = self._open_pane_with_scenes(ds_a, ds_b)
+            self.assertTrue(self._settle_reads(view))
+            self.assertGreater(len(view._tile_cache), 0)
+            self.assertLessEqual(len(view._tile_cache), 8)
 
         self.test_model.close_seamless_mosaic_dialog()
 

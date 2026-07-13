@@ -14,12 +14,16 @@ from test_utils.test_function_decorator import run_in_wiser_decorator
 import numpy as np
 from astropy import units as u
 
+from unittest.mock import patch
+
 from wiser.gui.ui_library import (
     DatasetChooserDialog,
     SpectrumChooserDialog,
     ROIChooserDialog,
     BandChooserDialog,
     TableDisplayWidget,
+    DynamicInputDialog,
+    DynamicInputType,
 )
 
 from wiser.raster.spectrum import NumPyArraySpectrum
@@ -183,6 +187,32 @@ class TestUILibrary(unittest.TestCase):
         self.assertTrue(table_widget._table.columnCount() == len(header))
         self.assertTrue(table_widget.windowTitle() == window_title)
         self.assertTrue(table_widget._description_label.text() == description)
+
+    def test_dynamic_input_dialog_checkbox(self):
+        """A CHECK_BOX input returns a bool and honors its initial state."""
+        dialog = DynamicInputDialog(dialog_title="Checkbox Test")
+
+        inputs = [
+            # 4th element seeds the initial checked state
+            ("Enable feature", "enabled", DynamicInputType.CHECK_BOX, [True]),
+            # No 4th element -> defaults to unchecked
+            ("Verbose", "verbose", DynamicInputType.CHECK_BOX, None),
+        ]
+
+        # Patch exec so the modal dialog doesn't block the test.
+        with patch.object(DynamicInputDialog, "exec", return_value=QDialog.Accepted):
+            result = dialog.create_input_dialog(inputs)
+
+        self.assertIsInstance(result["enabled"], bool)
+        self.assertTrue(result["enabled"])
+        self.assertIsInstance(result["verbose"], bool)
+        self.assertFalse(result["verbose"])
+
+        # Toggling a checkbox updates the returned value.
+        checkboxes = dialog.findChildren(QCheckBox)
+        self.assertEqual(len(checkboxes), 2)
+        checkboxes[0].setChecked(False)
+        self.assertFalse(result["enabled"])
 
     def test_spectrum_plot_generic(self):
         test_spectrum_y = np.array(
