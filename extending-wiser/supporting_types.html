@@ -589,6 +589,7 @@
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_NO_UNITS"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_NO_UNITS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_UNITS"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_UNITS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.CHECK_BOX"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.CHECK_BOX</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1728,8 +1729,10 @@ once, even if the pixel appears within multiple selections in the ROI.</p>
     ]
 
 For ``DynamicInputType.COMBO_BOX``, provide a 4th element: a list
-of items for the combo box. No other ``DynamicInputType`` values
-need this element.
+of items for the combo box. For ``DynamicInputType.CHECK_BOX``,
+the 4th element is optional and, if given, its first item is used
+as the initial checked state (defaults to unchecked). No other
+``DynamicInputType`` values need this element.
 </pre></div>
 </div>
 </dd>
@@ -1791,6 +1794,11 @@ need this element.
 <dl class="py attribute">
 <dt class="sig sig-object py" id="wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING">
 <span class="sig-name descname"><span class="pre">STRING</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></span><a class="headerlink" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.CHECK_BOX">
+<span class="sig-name descname"><span class="pre">CHECK_BOX</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">6</span></span><a class="headerlink" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.CHECK_BOX" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -2106,6 +2114,7 @@ can optionally set the window title and provide a description.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_NO_UNITS"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_NO_UNITS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_UNITS"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.INT_UNITS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.STRING</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType.CHECK_BOX"><code class="docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType.DynamicInputType.CHECK_BOX</span></code></a></li>
 </ul>
 </li>
 </ul>
