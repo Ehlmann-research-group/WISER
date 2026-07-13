@@ -30,13 +30,24 @@ objects, the transform is a `gdal.Transformer` / `gdal.Warp` call, and CRSs are
 `osr.SpatialReference` objects.
 
 The dialog is created lazily from `App.show_geo_reference_dialog` in
-`src/wiser/gui/app.py`, passed the shared `ApplicationState` and the main view.
+`src/wiser/gui/app.py`, passed the shared `ApplicationState` and `app_services` (the latter
+provides the work scheduler and progress infrastructure used to run warps off the GUI
+thread). The old `main_view` constructor argument was dead and has been removed.
+
+As of WISER#684 the dialog is a thin UI/controller: the GDAL warp engine, GCP file I/O,
+and the CRS model have each been extracted into Qt-free modules under `src/wiser/raster/`
+(mirroring the Seamless Mosaic's `mosaic_export.py` split), so warp correctness, GCP
+round-tripping, and CRS resolution are all unit-testable without a running app.
 
 **Core files:**
 
 | File | Responsibility |
 |------|----------------|
-| `src/wiser/gui/geo_reference_dialog.py` | Dialog/controller, GCP table, CRS classes, residual + warp pipeline |
+| `src/wiser/gui/geo_reference_dialog.py` | Dialog/controller and GCP table; delegates warp, GCP I/O, and CRS to the modules below |
+| `src/wiser/gui/geo_reference_config.py` | `GeoReferencerConfig` — presets + lock flags to drive the dialog programmatically |
+| `src/wiser/raster/georef_warp.py` | Qt-free warp engine: `build_warp_kwargs`, `compute_residuals`, `warp_dataset_to_path` (+ `TRANSFORM_TYPES`, `RESAMPLE_ALGORITHMS`) |
+| `src/wiser/raster/gcp_io.py` | Qt-free GCP persistence: `read_gcp_file`, `write_qgis_points`, `write_envi_pts` |
+| `src/wiser/raster/crs_model.py` | Shared Qt-free CRS hierarchy (`GeneralCRS` and subclasses, `COMMON_SRS`) |
 | `src/wiser/gui/geo_reference_task_delegate.py` | Input event state machine, GCP data model |
 | `src/wiser/gui/geo_reference_pane.py` | `GeoReferencerPane` — a stripped-down `RasterPane` |
 | `src/wiser/raster/dataset.py` | Pixel ↔ spatial coordinate helpers used to build GCPs |
@@ -57,11 +68,12 @@ classDiagram
         geo_reference_dialog.py
         +gcp_pair_added : Signal
         +gcp_add_attempt : Signal
+        +warp_completed : Signal
         -_table_entry_list : list~GeoRefTableEntry~
-        -_warp_kwargs : dict
-        +_georeference()
+        +set_target_dataset() / set_reference_dataset()
+        +_apply_config(GeoReferencerConfig)
+        +_schedule_residual_recompute()
         +_create_warped_output()
-        +accept()
     }
 
     class GeoReferencerPane {
@@ -108,6 +120,7 @@ classDiagram
 
     class GeneralCRS {
         <<abstract>>
+        crs_model.py
         +get_osr_crs()
     }
     class AuthorityCodeCRS
@@ -153,9 +166,10 @@ final warp.
   enable/disable, per-row color, and inline coordinate edits
 - The output controls: output CRS chooser (`cbox_srs`), resampling algorithm
   (`cbox_interpolation`), transform type (`cbox_poly_order`), and the save path
-- Triggering `_georeference()` (recompute residuals) on every relevant change, and
-  `_create_warped_output()` when the dialog is accepted
-- Saving/loading GCPs to/from disk
+- Scheduling a debounced, off-thread residual recompute (`_schedule_residual_recompute()`)
+  on every relevant change, and launching the threaded output warp
+  (`_create_warped_output()`) from the **Run Warp** button
+- Saving/loading GCPs to/from disk (thin wrappers over `wiser.raster.gcp_io`)
 
 **Does not control:**
 - Per-click GCP state transitions (delegated to `GeoReferencerTaskDelegate`)
@@ -169,6 +183,7 @@ final warp.
 |--------|----------|--------------|
 | `gcp_pair_added` | `GroundControlPointPair` | A complete target+reference pair is finalized |
 | `gcp_add_attempt` | `GroundControlPoint` | A reference point is added via manual lat/lon entry |
+| `warp_completed` | `str` (output path) | A **Run Warp** finishes successfully on its worker thread |
 
 ---
 
@@ -248,11 +263,14 @@ the `COLUMN_ID` enum.
 
 ### The CRS model
 
-**File:** `src/wiser/gui/geo_reference_dialog.py`
+**File:** `src/wiser/raster/crs_model.py`
 
 All CRSs are represented through the `GeneralCRS` ABC, whose single contract is
 `get_osr_crs() -> osr.SpatialReference`. This lets the dialog treat every CRS source
-uniformly (and compare them by WKT via `__eq__`):
+uniformly (and compare them by WKT via `__eq__`). The hierarchy is Qt-free and now shared
+with the Seamless Mosaic's CRS chooser (`mosaic_crs_dialog.py`), so both features offer the
+same CRSs from a single source of truth (`geo_reference_dialog.py` re-exports the names for
+backwards compatibility):
 
 | Class | Built from |
 |-------|------------|
@@ -337,20 +355,23 @@ sequenceDiagram
     Pane->>Del: on_key_release()
     Del->>Dlg: gcp_pair_added.emit(pair)
     Dlg->>Table: _on_gcp_pair_added()<br/>add GeoRefTableEntry row
-    Dlg->>Dlg: _georeference() (recompute residuals)
-    Dlg->>Table: _update_residuals() per row
+    Dlg->>Dlg: _schedule_residual_recompute()<br/>(debounced, off-thread)
+    Dlg->>Table: _apply_residuals() per row (GUI thread)
 ```
 
 Editing a cell in the table (`_on_cell_changed`), toggling a row's *enabled* checkbox,
-or switching the output CRS / reference CRS / transform type all re-enter
-`_georeference()` so the residual columns stay live.
+or switching the output CRS / reference CRS / transform type all call
+`_schedule_residual_recompute()` so the residual columns stay live — see
+[Residual Computation](#residual-computation-schedule_residual_recompute) for how that runs
+off the GUI thread.
 
 ---
 
 ## Transformation Models
 
-The transform type is chosen from the `TRANSFORM_TYPES` enum. Each maps to a GDAL
-transformer method and has a minimum GCP count (`min_points_per_transform`):
+The transform type is chosen from the `TRANSFORM_TYPES` enum (defined in
+`wiser.raster.georef_warp`). Each maps to a GDAL transformer method and has a minimum GCP
+count (`min_points_per_transform`):
 
 | Transform | `TRANSFORM_TYPES` | Min GCPs | GDAL mapping | Use when |
 |-----------|-------------------|----------|--------------|----------|
@@ -359,27 +380,47 @@ transformer method and has a minimum GCP count (`min_points_per_transform`):
 | Polynomial 3 | `POLY_3` | 10 | `METHOD=GCP_POLYNOMIAL`, `MAX_GCP_ORDER=3` | Stronger distortion |
 | Thin Plate Spline | `TPS` | 10 | `tps=True`, `METHOD=GCP_TPS`, `MAX_GCP_ORDER=-1` | Local, non-uniform warping; passes through all GCPs |
 
-These selections are written into `_warp_kwargs` and `_transform_options` in
-`_georeference()`, and reused unchanged by `_create_warped_output()`.
+The mapping lives in one place — `georef_warp.build_warp_kwargs(resample_alg,
+transform_type, output_srs)` — which returns the `gdal.Warp` kwargs plus the matching
+`gdal.Transformer` options. Both the residual calc and the final warp call it, so they can
+never drift apart.
 
 ---
 
-## Residual Computation (`_georeference`)
+## Residual Computation (`_schedule_residual_recompute`)
 
-`_georeference()` runs after every change to give the user immediate feedback on how
-well each GCP fits the chosen transform. It does **not** warp the real image — it builds
-a 1×1 placeholder dataset purely to drive GDAL's transformer.
+Residuals are recomputed after every change to give the user immediate feedback on how
+well each GCP fits the chosen transform. The math itself
+(`georef_warp.compute_residuals`) does **not** warp the real image — it builds a 1×1
+placeholder dataset purely to drive GDAL's transformer — but because it runs a full
+`gdal.Warp` per call it must not block the GUI.
+
+The dialog therefore **debounces and single-flights** the recompute (mirroring
+`MosaicView`'s off-thread pixel reads):
+
+1. An edit calls `_schedule_residual_recompute()`, which (re)starts a ~150 ms single-shot
+   `QTimer`.
+2. When the timer fires, `_recompute_residuals_async()` snapshots the GCPs + SRSs on the
+   GUI thread (`_snapshot_residual_inputs()`), bumps an in-flight token
+   (`_residual_signature`), and submits `compute_residuals` to
+   `app_services.scheduler.submit_thread`.
+3. The worker's result is delivered back to the GUI thread via the queued `_residuals_ready`
+   signal; `_apply_residuals()` drops it if a newer recompute has superseded the token,
+   otherwise writes the residual columns.
+
+(When no scheduler is available — e.g. some unit contexts — it falls back to a synchronous
+`_georeference()`.)
 
 ```{mermaid}
 flowchart TD
     A["_get_entry_gcp_list()<br/>enabled rows → gdal.GCP"] --> B["build output_srs + ref_srs<br/>(OAMS_TRADITIONAL_GIS_ORDER)"]
-    B --> C["assemble _warp_kwargs +<br/>transformerOptions (per transform type)"]
+    B --> C["build_warp_kwargs()<br/>→ warp_kwargs + transformerOptions"]
     C --> D["gdal.Transformer(temp_ds, options)<br/>pixel → output SRS"]
     D --> E["per GCP: TransformPoint(pixel)<br/>→ output-SRS coord"]
     E --> F["CoordinateTransformation<br/>output SRS → reference SRS"]
     F --> G["spatial error = gcp.GCPX/Y − transformed X/Y"]
     G --> H["pixel error = spatial error ÷<br/>warped geotransform pixel size"]
-    H --> I["entry.set_residual_x/y()<br/>→ dX/dY columns"]
+    H --> I["return residuals →<br/>entry.set_residual_x/y() on GUI thread"]
 ```
 
 Key details:
@@ -396,26 +437,37 @@ Key details:
 
 ---
 
-## Warp / Output Pipeline (`_create_warped_output`)
+## Warp / Output Pipeline (`warp_dataset_to_path`)
 
-Accepting the dialog calls `accept()` → `_create_warped_output()`, which produces the
-georeferenced GeoTIFF. Because hyperspectral cubes can be very large, the band data is
-processed in RAM-bounded chunks.
+The **Run Warp** button (`_on_warp_button_clicked` → `_create_warped_output()`) produces
+the georeferenced GeoTIFF. `_create_warped_output()` only *validates and launches*: it
+gathers the GCPs, resolves the SRSs, builds the warp kwargs, and hands
+`georef_warp.warp_dataset_to_path` to `run_with_progress`, which runs it on the work
+scheduler with a progress dialog and cancellation. On success `_on_warp_done` emits
+`warp_completed(path)`; on failure/cancel `_on_warp_error` surfaces the message. The dialog's
+`accept()` no longer warps — the previous double-warp (both `accept()` **and** the button
+calling the warp) is gone, so the OK button is now a plain commit/close.
+
+Because hyperspectral cubes can be very large, `warp_dataset_to_path` processes the band
+data in RAM-bounded chunks, reporting `progress` and calling `raise_if_cancelled()` between
+chunks.
 
 ```{mermaid}
 flowchart TD
-    V["validate: save path, enough GCPs, target selected"] --> P["probe output size:<br/>warp band 0 to /vsimem"]
+    V["_create_warped_output: validate<br/>+ build_warp_kwargs"] --> R["run_with_progress →<br/>warp_dataset_to_path (worker thread)"]
+    R --> P["probe output size:<br/>warp band 0 to /vsimem"]
     P --> Branch{target impl & size}
     Branch -->|"GDALRasterDataImpl"| G["Translate → VRT,<br/>SetGCPs, gdal.Warp whole dataset"]
     Branch -->|"numpy & fits in RAM"| N["OpenNumPyArray,<br/>SetGCPs, gdal.Warp whole array"]
-    Branch -->|"too big for RAM"| C["chunk bands by MAX_RAM_BYTES:<br/>warp each chunk, write incrementally"]
+    Branch -->|"too big for RAM"| C["chunk bands by MAX_RAM_BYTES:<br/>warp each chunk, write incrementally<br/>(progress + raise_if_cancelled)"]
     C --> M["driver.Create GTiff,<br/>SetGeoTransform + SetSpatialRef"]
     G --> F["copy_metadata_to_gdal_dataset, FlushCache"]
     N --> F
     M --> F
+    F --> S["warp_completed.emit(path)"]
 ```
 
-`_warp_kwargs` carries everything GDAL needs:
+`warp_kwargs` carries everything GDAL needs:
 
 | Key | Value | Notes |
 |-----|-------|-------|
@@ -425,7 +477,8 @@ flowchart TD
 | `polynomialOrder` / `tps` | `1`/`2`/`3` or `True` | Set per transform type |
 | `transformerOptions` | `["METHOD=…", "MAX_GCP_ORDER=…"]` | Mirrors the transform type |
 
-The available resampling algorithms are discovered dynamically:
+The available resampling algorithms are discovered dynamically (in
+`wiser.raster.georef_warp`):
 `RESAMPLE_ALGORITHMS = {name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")}`
 — i.e. all of GDAL's `GRA_NearestNeighbour`, `GRA_Bilinear`, `GRA_Cubic`,
 `GRA_CubicSpline`, `GRA_Lanczos`, etc.
@@ -438,18 +491,54 @@ transform from the GCPs rather than from any pre-existing geotransform on the so
 
 ## GCP Persistence
 
-GCPs can be saved and reloaded in two formats, chosen by file extension in
-`_on_save_gcps_clicked` / `_on_load_gcps_clicked`:
+GCPs can be saved and reloaded in two formats, chosen by file extension. The parsing /
+writing is Qt-free and lives in `wiser.raster.gcp_io`; the dialog's
+`_on_save_gcps_clicked` / `_on_load_gcps_clicked` are thin wrappers (the writers take the
+dialog's flattened `(map_x, map_y, pixel_x, pixel_y, enabled)` rows from `_get_gcp_rows()`):
 
-| Format | Extension | CRS header | Writer / reader |
+| Format | Extension | CRS header | Writer / reader (`gcp_io`) |
 |--------|-----------|------------|-----------------|
-| QGIS points | `.points` | `# CRS, EPSG:code` row (CSV) | `_write_qgis_points_file` / `_read_qgis_points_file` |
-| ENVI points | `.pts` | `; projection info = {auth, code, units=Degrees}` comment | `_write_envi_pts_file` / `_read_envi_pts_file` |
+| QGIS points | `.points` | `# CRS, EPSG:code` row (CSV) | `write_qgis_points` / `read_qgis_points_file` |
+| ENVI points | `.pts` | `; projection info = {auth, code, units=Degrees}` comment | `write_envi_pts` / `read_envi_pts_file` |
 
-On load, `_read_gcp_file` dispatches by extension; `load_gcps_and_srs` rebuilds the
-`GeoRefTableEntry` rows and the associated `GeneralCRS`. Both readers fall back to an
-embedded WKT line if the authority header is missing. `compare_srs_lenient` is used to
+On load, `gcp_io.read_gcp_file` dispatches by extension; the dialog's `load_gcps_and_srs`
+rebuilds the `GeoRefTableEntry` rows and the associated `GeneralCRS`. Both readers fall back
+to an embedded WKT line if the authority header is missing. `compare_srs_lenient` is used to
 reconcile a loaded file's CRS against the current reference CRS.
+
+---
+
+## Programmatic Configuration & Locking
+
+The dialog can be driven entirely through code — not just its own combo boxes — via a
+`GeoReferencerConfig` (`src/wiser/gui/geo_reference_config.py`). This is what lets another
+feature reuse the dialog with a fixed target, a caller-owned save path, and a custom accept
+button, without touching the Tools-menu flow. The Seamless Mosaic's
+[**Re-georeferencing a Scene In Place**](mosaic-internals.md#re-georeferencing-a-scene-in-place)
+is the production consumer: it opens a task-scoped dialog locked onto a mosaic scene, then
+reingests the `warp_completed` output and swaps the corrected scene back into the mosaic.
+
+`show(config=None)` / `exec_(config=None)` accept an optional config and delegate to
+`_apply_config`, which first resets the dialog to its classic baseline (repopulate choosers,
+clear any prior locks / accept-button label) and then, if a config is given, applies presets
+**before** locks:
+
+| Config field | Effect |
+|--------------|--------|
+| `target_dataset` | `set_target_dataset(ds)` — show it in the target pane |
+| `reference_dataset` | `set_reference_dataset(ds)` — show it in the reference pane |
+| `reference_crs` | `set_reference_crs(crs)` — manual reference CRS (used when there is no reference dataset) |
+| `save_path` | `set_save_path(path)` — preset the output path |
+| `allow_change_target` = False | `_set_target_locked(True)` — disable the target chooser |
+| `allow_change_reference` = False | `_set_reference_locked(True)` — disable the reference chooser + suppress the manual-ref toggle |
+| `allow_change_save_path` = False | `_set_save_path_locked(True)` — make the path read-only, disable the choose button, skip its validation |
+| `accept_button_text` | relabel the OK button (e.g. "Save to Mosaic") |
+
+The `set_*` setters are the single shared apply-path: the interactive chooser slots
+(`_on_switch_target_dataset` / `_on_switch_reference_dataset`) keep the user-facing
+confirm-discard-GCPs prompts, then funnel through the same setters, while a programmatic
+caller calls the setters directly (no prompts). `config=None` reproduces the Tools-menu
+behavior exactly, so the reused singleton is safe to reopen either way.
 
 ---
 
@@ -467,6 +556,11 @@ reconcile a loaded file's CRS against the current reference CRS.
 - **`RasterDataSet`** — GCP spatial coordinates come from
   `RasterDataSet.to_geographic_coords()` and `geo_to_pixel_coords_exact()`, and CRSs
   from `get_spatial_ref()` (`src/wiser/raster/dataset.py`).
+- **Work scheduler / progress** — the final warp and the interactive residual recompute
+  both run off the GUI thread through `app_services` (`run_with_progress` +
+  `scheduler.submit_thread`), the same stack the Seamless Mosaic uses; see
+  [Residual Computation](#residual-computation-schedule_residual_recompute) and
+  [Warp / Output Pipeline](#warp-output-pipeline-warp_dataset_to_path).
 - **Entry point** — `App.show_geo_reference_dialog` (`src/wiser/gui/app.py`) constructs
-  the dialog lazily with the shared `ApplicationState` and the main view, then
-  `exec_()`s it.
+  the dialog lazily with the shared `ApplicationState` and `app_services`, then
+  `exec_()`s it (optionally with a `GeoReferencerConfig`).

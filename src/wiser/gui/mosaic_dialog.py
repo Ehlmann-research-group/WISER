@@ -11,7 +11,7 @@ All real workflow (add scenes, reorder, choose grid/CRS/resampling, export) land
 later issues via the :class:`MosaicPane` and :class:`MosaicController`.
 """
 
-from typing import Optional
+from typing import Callable, Optional, Tuple, TYPE_CHECKING
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -22,6 +22,14 @@ from .app_services import AppServices
 from .mosaic_pane import MosaicPane
 
 from wiser.raster.mosaic_materialize import SceneMaterializer
+
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
+
+# Resolves a dataset to the display bands currently shown for it in the main view
+# (or None if not shown). Injected by the app so the mosaic can honor the user's live
+# band-chooser choice when baking display-only preview artifacts (#677).
+DisplayBandsResolver = Callable[["RasterDataSet"], Optional[Tuple[int, ...]]]
 
 
 class SeamlessMosaicDialog(QDialog):
@@ -37,11 +45,13 @@ class SeamlessMosaicDialog(QDialog):
         self,
         app_state: ApplicationState,
         app_services: AppServices,
+        display_bands_resolver: Optional[DisplayBandsResolver] = None,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent=parent)
         self._app_state = app_state
         self._app_services = app_services
+        self._display_bands_resolver = display_bands_resolver
 
         self.setModal(False)
         self.setWindowTitle(self.tr("Seamless Mosaic"))
@@ -62,6 +72,7 @@ class SeamlessMosaicDialog(QDialog):
             app_state=app_state,
             app_services=app_services,
             materializer=self._materializer,
+            display_bands_resolver=display_bands_resolver,
             parent=self,
         )
 

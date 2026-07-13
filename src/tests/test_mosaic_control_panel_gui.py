@@ -129,7 +129,7 @@ class TestMosaicPaneGui(unittest.TestCase):
         real_render = mosaic_view.render_scene_argb
         with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
             view.grab()
-            self.assertTrue(self._wait_for(lambda: len(view._scene_layers) == 2))
+            self.assertTrue(self._wait_for(lambda: len(view._tile_cache) > 0))
             spy.reset_mock()
 
             # A reorder through the drag handler is a pure restack — no GDAL reads.
