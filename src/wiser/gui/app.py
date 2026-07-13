@@ -1,4 +1,3 @@
-import json
 import logging
 import platform
 import pprint
@@ -320,12 +319,6 @@ class DataVisualizerApp(QMainWindow):
         # act.setStatusTip(self.tr('Open an existing project or file'))
         act.setStatusTip(self.tr("Open a raster dataset or spectral library"))
         act.triggered.connect(self.show_open_file_dialog)
-
-        # TODO(donnie):  Commented out until project-file code is updated for
-        #     current version of WISER.  (Same with line commented-out above.)
-        # act = self._file_menu.addAction(self.tr('Save &project file...'))
-        # act.setStatusTip(self.tr('Save the current project configuration'))
-        # act.triggered.connect(self.show_save_project_dialog)
 
         self._file_menu.addSeparator()
 
@@ -679,8 +672,6 @@ class DataVisualizerApp(QMainWindow):
             self.tr("PDS raster files (*.PDS *.img *.lbl *.xml)"),
             self.tr("ENVI spectral libraries (*.sli *.hdr)"),
             self.tr("Try luck with GDAL (*)"),
-            # self.tr('WISER project files (*.wiser)'),
-            # self.tr('All files (*)'),
         ]
 
         # Let the user select one or more files to open.
@@ -708,159 +699,6 @@ class DataVisualizerApp(QMainWindow):
                 mbox.setDetailedText(traceback.format_exc())
 
                 mbox.exec()
-
-    def show_save_project_dialog(self, evt):
-        """
-        Shows the "Save Project..." dialog in the user interface.  If the user
-        successfully chooses a file, the save_project_file() method is called to
-        perform the actual operation of saving the project details.
-        """
-
-        # These are all file formats that will appear in the file-open dialog
-        supported_formats = [
-            self.tr("WISER project files (*.wiser)"),
-            self.tr("All files (*)"),
-        ]
-
-        selected = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Save WISER Project File"),
-            self._app_state.get_current_dir(),
-            ";;".join(supported_formats),
-        )
-        # print(selected)
-
-        if len(selected[0]) > 0:
-            try:
-                self.save_project_file(selected[0])
-            except:
-                mbox = QMessageBox(
-                    QMessageBox.Critical,
-                    self.tr("Could not save project"),
-                    QMessageBox.Ok,
-                    self,
-                )
-
-                mbox.setText(self.tr("Could not write project file."))
-                mbox.setInformativeText(file_path)
-
-                # TODO(donnie):  Add exception-trace info here, using
-                #     mbox.setDetailedText()
-
-                mbox.exec()
-
-    def save_project_file(self, file_path, force=False):
-        """
-        Saves the entire project state to the specified file path.  This
-        includes the following:
-
-        *   Data sets that are loaded
-        *   Regions of interest
-        *   Qt application state including window geometry and open/close state
-        """
-        # TODO(donnie):  If the project file already exists, and force is False,
-        #     prompt the user about overwriting the file.
-
-        project_info = self.generate_project_info()
-        with open(file_path, "w") as f:
-            # Make the JSON output pretty so that advanced users can understand
-            # it.
-            json.dump(project_info, f, sort_keys=True, indent=4)
-
-        msg = self.tr("Saved project to {}").format(file_path)
-        self.statusBar().showMessage(msg, 5000)
-
-    def generate_project_info(self):
-        """
-        Generates a Python dictionary containing the current project state,
-        which can then be written out as a JSON file.  This includes the
-        following:
-
-        *   Data sets that are loaded
-        *   Regions of interest
-        *   Qt application state including window geometry and open/close state
-        """
-        project_info = {}
-
-        # TODO(donnie):  Project description, owner, email, ...
-
-        # Data sets
-        # TODO(donnie):  This will get more sophisticated when we have multiple
-        #     layers, and the like.
-
-        project_info["datasets"] = []
-        for data_set in self._app_state.get_datasets():
-            ds_info = {
-                "files": data_set.get_filepaths(),
-            }
-
-            # TODO(donnie):  data-set stretch, current display bands
-
-            project_info["datasets"].append(ds_info)
-
-        # Regions of interest
-
-        project_info["regions_of_interest"] = []
-        for name, roi in self._app_state.get_rois().items():
-            assert name == roi.get_name()
-            roi_info = roi_to_pyrep(roi)
-            project_info["regions_of_interest"].append(roi_info)
-
-        # The .toBase64() function returns a QByteArray, which we then convert
-        # to a Python byte-array.  Finally, convert to Python str object to
-        # save.  The base-64 encoding should be fine for UTF-8 conversion.
-        project_info["qt_geometry"] = self.saveGeometry().toBase64().data().decode()
-        project_info["qt_window_state"] = self.saveState().toBase64().data().decode()
-
-        return project_info
-
-    def load_project_file(self, file_path, force=False):
-        """
-        Loads project state from the specified file path.  This includes the
-        following:
-
-        *   Data sets that are loaded
-        *   Regions of interest
-        *   Qt application state including window geometry and open/close state
-        """
-        # TODO(donnie):  If we have in-memory-only project state, and force is
-        #     False, prompt the user about loading the file.
-
-        with open(file_path) as f:
-            # Make the JSON output pretty so that advanced users can understand
-            # it.
-            project_info = json.load(f)
-            self.apply_project_info(project_info)
-
-    def apply_project_info(self, project_info):
-        # TODO(donnie):  Surely we will also have to reset the UI widgets.
-        #     Perhaps it would be better to put a clear_all() or reset()
-        #     operation on the ApplicationState class, which can fire an event
-        #     to views.
-        # self._app_state = ApplicationState()
-        for ds_info in project_info["datasets"]:
-            # The first file in the list is usually the one that we load.
-            filename = ds_info["files"][0]
-            self._app_state.open_file(filename)
-
-            # TODO(donnie):  data-set stretch, current display bands
-
-        # Regions of interest
-
-        for roi_info in project_info["regions_of_interest"]:
-            # Reconstruct the region of interest
-            roi = roi_from_pyrep(roi_info)
-            self._app_state.add_roi(roi)
-
-        # Qt window state/geometry
-
-        s = project_info["qt_geometry"]
-        qba = QByteArray(bytes(s, "utf-8"))
-        self.restoreGeometry(QByteArray.fromBase64(qba))
-
-        s = project_info["qt_window_state"]
-        qba = QByteArray(bytes(s, "utf-8"))
-        self.restoreState(QByteArray.fromBase64(qba))
 
     def save_qt_settings(self):
         """
