@@ -512,9 +512,11 @@ reconcile a loaded file's CRS against the current reference CRS.
 
 The dialog can be driven entirely through code — not just its own combo boxes — via a
 `GeoReferencerConfig` (`src/wiser/gui/geo_reference_config.py`). This is what lets another
-feature (e.g. re-georeferencing a scene from the Seamless Mosaic pane) reuse the dialog with
-a fixed target, a caller-owned save path, and a custom accept button, without touching the
-Tools-menu flow.
+feature reuse the dialog with a fixed target, a caller-owned save path, and a custom accept
+button, without touching the Tools-menu flow. The Seamless Mosaic's
+[**Re-georeferencing a Scene In Place**](mosaic-internals.md#re-georeferencing-a-scene-in-place)
+is the production consumer: it opens a task-scoped dialog locked onto a mosaic scene, then
+reingests the `warp_completed` output and swaps the corrected scene back into the mosaic.
 
 `show(config=None)` / `exec_(config=None)` accept an optional config and delegate to
 `_apply_config`, which first resets the dialog to its classic baseline (repopulate choosers,

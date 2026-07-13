@@ -1589,9 +1589,11 @@ reconcile a loaded file’s CRS against the current reference CRS.</p>
 <h2>Programmatic Configuration &amp; Locking<a class="headerlink" href="#programmatic-configuration-locking" title="Link to this heading">#</a></h2>
 <p>The dialog can be driven entirely through code — not just its own combo boxes — via a
 <code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_config.py</span></code>). This is what lets another
-feature (e.g. re-georeferencing a scene from the Seamless Mosaic pane) reuse the dialog with
-a fixed target, a caller-owned save path, and a custom accept button, without touching the
-Tools-menu flow.</p>
+feature reuse the dialog with a fixed target, a caller-owned save path, and a custom accept
+button, without touching the Tools-menu flow. The Seamless Mosaic’s
+<a class="reference internal" href="mosaic-internals.html#re-georeferencing-a-scene-in-place"><span class="std std-ref"><strong>Re-georeferencing a Scene In Place</strong></span></a>
+is the production consumer: it opens a task-scoped dialog locked onto a mosaic scene, then
+reingests the <code class="docutils literal notranslate"><span class="pre">warp_completed</span></code> output and swaps the corrected scene back into the mosaic.</p>
 <p><code class="docutils literal notranslate"><span class="pre">show(config=None)</span></code> / <code class="docutils literal notranslate"><span class="pre">exec_(config=None)</span></code> accept an optional config and delegate to
 <code class="docutils literal notranslate"><span class="pre">_apply_config</span></code>, which first resets the dialog to its classic baseline (repopulate choosers,
 clear any prior locks / accept-button label) and then, if a config is given, applies presets

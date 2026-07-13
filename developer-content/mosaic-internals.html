@@ -959,6 +959,14 @@ window.runMermaid = runMermaid;</script>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-control-panel">The Control Panel</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-georeferencing-a-scene-in-place">Re-georeferencing a Scene In Place</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#entry-point-the-scene-list-context-menu">Entry point: the scene-list context menu</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#opening-the-dialog-locked-target-locked-save-path">Opening the dialog (locked target + locked save path)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-threaded-phases-warp-then-reingest-and-swap">Two threaded phases: warp, then reingest-and-swap</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#save-vs-revert">Save vs. revert</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-reingest-and-how-the-fix-reaches-the-export">Why reingest, and how the fix reaches the export</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-export-path">The Export Path</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-compositor-export-mosaic-qt-free">The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata-stamping-and-the-envi-header-patch">Band-metadata stamping and the ENVI-header patch</a></li>
@@ -992,9 +1000,11 @@ Metadata</span></a>), common-grid/CRS resolution, the
 <strong>vector overlay</strong> (footprints, bounding box, overlap highlight), the <strong>static-scene
 pixel compositor</strong> (the composited preview, with an off-thread debounced per-scene
 cache), the <strong>control panel</strong> (drag-to-reorder z-order, resolution mode, resampling
-method, and the band-metadata chooser), and the <strong>full-resolution export path</strong>
+method, and the band-metadata chooser), the <strong>full-resolution export path</strong>
 (streaming ENVI compositor on the common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
-Path</span></a>) are implemented and wired into the GUI.</p>
+Path</span></a>), and <strong>in-place scene
+re-georeferencing</strong> (right-click → warp → swap; see <a class="reference internal" href="#re-georeferencing-a-scene-in-place"><span class="xref myst">Re-georeferencing a Scene In
+Place</span></a>) are implemented and wired into the GUI.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
 in the repo root. There is no user-facing guide yet since the feature is not
@@ -1802,6 +1812,133 @@ controller-side surface (resample round-trip, band-metadata fallback, no-grid-in
 in <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_controller.py</span></code>.</p>
 </section>
 <hr class="docutils" />
+<section id="re-georeferencing-a-scene-in-place">
+<h2>Re-georeferencing a Scene In Place<a class="headerlink" href="#re-georeferencing-a-scene-in-place" title="Link to this heading">#</a></h2>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code> (issue #685)</p>
+<p>A scene may be <strong>mis-registered</strong> — its spatial information places it wrong relative to
+the other scenes. Rather than sending the user out to Tools → Georeferencer and back
+through a file round-trip, <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code> lets them fix it <strong>in place</strong>: right-click a
+scene → <strong>“Georeference…”</strong>, warp it, and the corrected result is swapped into the
+mosaic live, with a clean revert on cancel. This reuses the configurable
+<code class="docutils literal notranslate"><span class="pre">GeoReferencerDialog</span></code> (see <a class="reference internal" href="georeferencer-internals.html#programmatic-configuration-locking"><span class="std std-ref">Programmatic Configuration &amp;
+Locking</span></a>) — no new warp,
+GCP, or CRS logic is added here.</p>
+<section id="entry-point-the-scene-list-context-menu">
+<h3>Entry point: the scene-list context menu<a class="headerlink" href="#entry-point-the-scene-list-context-menu" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">_build_scene_list_group</span></code> gives <code class="docutils literal notranslate"><span class="pre">self._scene_list</span></code> a <code class="docutils literal notranslate"><span class="pre">Qt.CustomContextMenu</span></code> policy;
+<code class="docutils literal notranslate"><span class="pre">_on_scene_context_menu(pos)</span></code> resolves the clicked row to a <strong>controller</strong> index via
+<code class="docutils literal notranslate"><span class="pre">item.data(Qt.UserRole)</span></code> (the list is shown top-first but each item carries its real
+bottom-to-top index) and pops a one-action <code class="docutils literal notranslate"><span class="pre">QMenu</span></code> → <code class="docutils literal notranslate"><span class="pre">_on_georeference_scene(index)</span></code>. The
+menu is suppressed when the scheduler or the session materializer is absent, since the
+swap reingests (the same requirement Add Scene guards on).</p>
+</section>
+<section id="opening-the-dialog-locked-target-locked-save-path">
+<h3>Opening the dialog (locked target + locked save path)<a class="headerlink" href="#opening-the-dialog-locked-target-locked-save-path" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">_on_georeference_scene(index)</span></code> builds a <code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code> that locks the two things
+the mosaic owns and leaves the reference user-chosen:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">target_dataset</span> <span class="pre">=</span> <span class="pre">scene.dataset</span></code> (the <strong>original</strong> dataset, not a copy) with
+<code class="docutils literal notranslate"><span class="pre">allow_change_target=False</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save_path</span></code> = a fresh temp path with <code class="docutils literal notranslate"><span class="pre">allow_change_save_path=False</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reference_dataset=None</span></code> (unlocked — the user picks a reference or a manual CRS),</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">accept_button_text=&quot;Save</span> <span class="pre">to</span> <span class="pre">Mosaic&quot;</span></code>.</p></li>
+</ul>
+<p>It constructs a <strong>fresh, task-scoped</strong> <code class="docutils literal notranslate"><span class="pre">GeoReferencerDialog</span></code> (not the Tools-menu
+singleton, so the lock state can never leak back into that flow), connects
+<code class="docutils literal notranslate"><span class="pre">warp_completed</span></code> → <code class="docutils literal notranslate"><span class="pre">_on_scene_rewarped</span></code> and <code class="docutils literal notranslate"><span class="pre">finished</span></code> → <code class="docutils literal notranslate"><span class="pre">_on_geodialog_finished</span></code>,
+stashes the in-flight state in a <code class="docutils literal notranslate"><span class="pre">_RegeorefContext</span></code> (<code class="docutils literal notranslate"><span class="pre">orig_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">orig_index</span></code>,
+<code class="docutils literal notranslate"><span class="pre">dialog</span></code>, <code class="docutils literal notranslate"><span class="pre">warped_scene</span></code>), and <code class="docutils literal notranslate"><span class="pre">show(config)</span></code>s it <strong>non-modally</strong> (the mosaic dialog is
+non-modal, so the georeferencer must not block it).</p>
+<blockquote>
+<div><p><strong>The save path is a <em>fresh</em> name per warp</strong> (<code class="docutils literal notranslate"><span class="pre">regeoref_{id(scene)}_{uuid4}.tif</span></code> under
+<code class="docutils literal notranslate"><span class="pre">wiser.utils.primitives.temp_dir()</span></code>), not one reused path. The previous warped
+<code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> keeps its GeoTIFF open, and on Windows an open file cannot be
+overwritten — so a repeated “Run Warp” onto one fixed path would fail. The file is a
+throwaway regardless: reingestion re-materializes it into the mosaic’s own copy.</p>
+</div></blockquote>
+</section>
+<section id="two-threaded-phases-warp-then-reingest-and-swap">
+<h3>Two threaded phases: warp, then reingest-and-swap<a class="headerlink" href="#two-threaded-phases-warp-then-reingest-and-swap" title="Link to this heading">#</a></h3>
+<pre  class="mermaid">
+        sequenceDiagram
+    participant User
+    participant Pane as MosaicPane
+    participant Dlg as GeoReferencerDialog
+    participant Sched as WorkScheduler
+    participant Ctrl as MosaicController
+    participant View as MosaicView
+
+    User-&gt;&gt;Pane: right-click scene → &quot;Georeference…&quot;
+    Pane-&gt;&gt;Dlg: show(GeoReferencerConfig, locked target+save)
+    User-&gt;&gt;Dlg: place GCPs, click &quot;Run Warp&quot;
+    Dlg-&gt;&gt;Sched: warp_dataset_to_path (bg thread, own progress modal)
+    Sched--&gt;&gt;Dlg: written path
+    Dlg--&gt;&gt;Pane: warp_completed(path)
+    Pane-&gt;&gt;Pane: load path → RasterDataSet (NOT registered)
+    Pane-&gt;&gt;Sched: _ingest_scene(dataset, materializer) [blocks the dialog]
+    Sched--&gt;&gt;Pane: MosaicScene (materialized + overviews + footprint)
+    Pane-&gt;&gt;Ctrl: remove current occupant, add_scene, move_scene(→ orig slot)
+    Pane-&gt;&gt;Pane: _ensure_common_grid + _refresh_scene_list
+    Pane-&gt;&gt;View: invalidate_overlay + invalidate_pixels
+    User-&gt;&gt;Dlg: &quot;Save to Mosaic&quot; (accept) or Cancel (revert)
+    Dlg--&gt;&gt;Pane: finished(result) → finalize or _revert_regeoref
+    </pre><p><strong>Run Warp</strong> is phase one: the dialog threads the full-resolution GDAL warp (PR 1) and
+emits <code class="docutils literal notranslate"><span class="pre">warp_completed(path)</span></code>. <code class="docutils literal notranslate"><span class="pre">_on_scene_rewarped(path)</span></code> then wraps that output into a
+<code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> via the shared loader
+(<code class="docutils literal notranslate"><span class="pre">app_state.get_loader().load_from_file(path,</span> <span class="pre">data_cache=app_state.get_cache())[0]</span></code>) but
+<strong>does not register it</strong> in <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> — it is a mosaic-owned throwaway, so it
+must never pollute the global dataset list or the Add-Scene combo. Phase two runs
+<code class="docutils literal notranslate"><span class="pre">_ingest_scene</span></code> on the scheduler (the <strong>same</strong> materialize → overviews → footprint
+pipeline as Add Scene) with its own progress modal, <strong>blocking the georeferencer dialog</strong>
+(not the mosaic window) so the user cannot re-run the warp mid-reingest.</p>
+<p><code class="docutils literal notranslate"><span class="pre">_on_rewarp_ingested(scene)</span></code> does the swap on the GUI thread. It replaces the slot’s
+<strong>current occupant</strong> — the original on the first warp, or the previous warped scene on a
+repeat, so warps never stack — located by <strong>object identity</strong> (robust to a user reorder
+while the non-modal dialog is open), falling back to the recorded <code class="docutils literal notranslate"><span class="pre">orig_index</span></code>:
+<code class="docutils literal notranslate"><span class="pre">remove_scene(slot)</span></code> → <code class="docutils literal notranslate"><span class="pre">add_scene(scene)</span></code> (appends to the top) → <code class="docutils literal notranslate"><span class="pre">move_scene(scene_count-1,</span> <span class="pre">slot)</span></code> to restore the z-order slot. It then runs the normal ingest epilogue
+(<code class="docutils literal notranslate"><span class="pre">_ensure_common_grid</span></code>, <code class="docutils literal notranslate"><span class="pre">_refresh_scene_list</span></code>, <code class="docutils literal notranslate"><span class="pre">invalidate_overlay</span></code>, <code class="docutils literal notranslate"><span class="pre">invalidate_pixels</span></code>),
+because the warp changed the geotransform, footprint, and extent/resolution, so the whole
+derived state must rebuild. The original <code class="docutils literal notranslate"><span class="pre">MosaicScene</span></code> is held aside in the context and
+<strong>never mutated</strong>.</p>
+</section>
+<section id="save-vs-revert">
+<h3>Save vs. revert<a class="headerlink" href="#save-vs-revert" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">_on_geodialog_finished(result)</span></code> centralizes the outcome. On <strong>accept</strong> (“Save to
+Mosaic”) the warped scene is already live, so it just drops the revert handle. On
+<strong>reject / close</strong> it calls <code class="docutils literal notranslate"><span class="pre">_revert_regeoref</span></code>, which removes the swapped-in warped scene
+(by identity) and re-adds the original at its slot, rebuilding <strong>quietly</strong>
+(<code class="docutils literal notranslate"><span class="pre">_rebuild_grid_quietly</span></code> — a revert restores a previously-valid state, so a reproject
+prompt would be a surprising interruption); it is a no-op if no warp ever ran. Either way
+the task-scoped dialog is <code class="docutils literal notranslate"><span class="pre">deleteLater()</span></code>d.</p>
+</section>
+<section id="why-reingest-and-how-the-fix-reaches-the-export">
+<h3>Why reingest, and how the fix reaches the export<a class="headerlink" href="#why-reingest-and-how-the-fix-reaches-the-export" title="Link to this heading">#</a></h3>
+<p>This is the part most likely to confuse a new reader, so it is called out explicitly:</p>
+<blockquote>
+<div><p><strong>The georeferencer’s “Run Warp” produces a real, full-resolution, all-bands raster
+whose pixels are physically resampled onto the new georeferencing — not merely a
+re-tagged preview.</strong> The mosaic then makes <em>that file</em> the scene’s backing data: after
+the swap, <code class="docutils literal notranslate"><span class="pre">scene.dataset</span></code> is the warped dataset and <code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code> is its
+materialized tiled copy; the original (unwarped) dataset is removed from the mosaic
+entirely. So there is no “unwarped full dataset” left behind to reconcile.</p>
+</div></blockquote>
+<p>Both the preview compositor
+(<a class="reference internal" href="#the-per-scene-renderer-render_scene_argb-qt-free"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code></span></a>)
+and the export compositor
+(<a class="reference internal" href="#the-compositor-export_mosaic-qt-free"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">_warp_scene_to_grid_vrt</span></code></span></a>) read pixels <strong>and</strong>
+the geotransform from <code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code>. They differ only in output resolution (screen
+vs. full), so they are always consistent. The re-georeferenced scene therefore reaches
+export the same way any scene does — <strong>twice-warped in sequence</strong>: warp #1 (the
+georeferencer) baked the correction into <code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code>, and export’s per-scene warp #2
+reprojects that corrected file onto the shared common grid. The common grid itself
+rebuilds off the corrected <code class="docutils literal notranslate"><span class="pre">footprint_wkt</span></code>, so extent and overlap follow too. This is
+exactly why the design reingests rather than patching caches in place — one coherent
+rebuild, and the export path picks it up for free. (The correction lives only for the
+session; the mosaic export re-warps from the temp at full resolution, so the on-disk
+product is correct without persisting the single corrected scene separately.)</p>
+</section>
+</section>
+<hr class="docutils" />
 <section id="the-export-path">
 <h2>The Export Path<a class="headerlink" href="#the-export-path" title="Link to this heading">#</a></h2>
 <p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_export.py</span></code> (Qt-free) and the
@@ -1970,6 +2107,13 @@ the auto-lock behavior described above with <code class="docutils literal notran
 <code class="docutils literal notranslate"><span class="pre">wiser.gui.mosaic_pane.ReprojectPromptDialog</span></code> so nothing blocks the test.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_dialog_gui.py</span></code> — dialog shell, Add Scene ingestion flow,
 progress modal.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_georeference_gui.py</span></code> — re-georeferencing a scene in place
+(#685) end to end via <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code>: the context menu opens a <code class="docutils literal notranslate"><span class="pre">GeoReferencerDialog</span></code>
+locked onto the scene (target + save path); a simulated <code class="docutils literal notranslate"><span class="pre">warp_completed</span></code> reingests and
+swaps the corrected scene in at its original z-order slot (blocking the georeferencer
+dialog, not the mosaic window); a repeated warp <strong>replaces</strong> rather than stacks; the
+warp output is <strong>not</strong> registered as a global dataset; Cancel restores the original at
+its slot while “Save to Mosaic” keeps the warped one.</p></li>
 </ul>
 <p>GUI tests use <code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.functional</span></code>/<code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.smoke</span></code> with the
 <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code> harness (<code class="docutils literal notranslate"><span class="pre">src/test_utils/test_model.py</span></code>), not pytest-qt/qtbot. Run
@@ -2064,6 +2208,14 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-control-panel">The Control Panel</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#re-georeferencing-a-scene-in-place">Re-georeferencing a Scene In Place</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#entry-point-the-scene-list-context-menu">Entry point: the scene-list context menu</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#opening-the-dialog-locked-target-locked-save-path">Opening the dialog (locked target + locked save path)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-threaded-phases-warp-then-reingest-and-swap">Two threaded phases: warp, then reingest-and-swap</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#save-vs-revert">Save vs. revert</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-reingest-and-how-the-fix-reaches-the-export">Why reingest, and how the fix reaches the export</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-export-path">The Export Path</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-compositor-export-mosaic-qt-free">The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata-stamping-and-the-envi-header-patch">Band-metadata stamping and the ENVI-header patch</a></li>
