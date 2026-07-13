@@ -1,6 +1,7 @@
 import math
 import os
 import unittest
+from unittest import mock
 
 import numpy as np
 from osgeo import gdal, ogr, osr
@@ -10,6 +11,7 @@ from wiser.raster.mosaic_controller import (
     MosaicController,
     MosaicScene,
     ResolutionMode,
+    ScenePendingReason,
     TargetCrsRequired,
     UnmappableCrsError,
     compute_union_overlaps,
@@ -473,6 +475,82 @@ def test_validate_target_crs_names_unmappable_scene(tmp_path):
     with pytest.raises(UnmappableCrsError) as excinfo:
         c.validate_target_crs(_wkt_for_epsg(32611))
     assert "no_crs_scene" in str(excinfo.value)
+
+
+# -- live / pending scene status ---------------------------------------------
+
+
+def test_non_georeferenced_scene_is_pending_and_excluded(tmp_path):
+    # A real (ingested) scene plus a bare, non-georeferenced placeholder.
+    live = _make_scene(tmp_path, "live", epsg=32611)
+    ghost = _no_crs_scene("ghost")
+    c = MosaicController()
+    c.add_scene(live)
+    c.add_scene(ghost)
+
+    # The placeholder is pending (NO_CRS); the real scene is live.
+    assert c.is_scene_pending(ghost) is True
+    assert c.scene_pending_reason(ghost) is ScenePendingReason.NO_CRS
+    assert c.is_scene_pending(live) is False
+    assert c.scene_pending_reason(live) is None
+    assert c.has_pending_scenes() is True
+    assert c.has_live_scenes() is True
+    assert [s.dataset.get_name() for s in c.live_scenes()] == ["live"]
+
+    # The grid builds from the live scene alone (the placeholder never reaches it), and
+    # the target auto-locks to the live scene's CRS.
+    grid = c.build_common_grid()
+    assert grid.geotransform is not None
+    assert c.get_target_crs() is not None
+    # Footprint overlay excludes the placeholder too.
+    fps = c.visible_scene_footprints_in_common_crs()
+    assert [s.dataset.get_name() for s, _ in fps] == ["live"]
+
+
+def test_all_pending_yields_empty_grid():
+    c = MosaicController()
+    c.add_scene(_no_crs_scene("only_ghost"))
+    # Nothing placeable -> an empty grid (blank preview), not an error.
+    grid = c.build_common_grid()
+    assert grid.geotransform is None
+    assert grid.extent is None
+    assert c.has_live_scenes() is False
+
+
+def test_incompatible_crs_scene_is_pending(tmp_path):
+    a = _make_scene(tmp_path, "a", epsg=32611)
+    b = _make_scene(tmp_path, "b", epsg=4326, origin=(-117.0, 34.0), pixel=0.001)
+    c = MosaicController()
+    c.add_scene(a)
+    c.build_common_grid()  # locks the target to a's CRS (32611) while it is alone
+    c.add_scene(b)  # 4326 maps to the locked 32611 target -> live
+    c.build_common_grid()
+    assert c.has_pending_scenes() is False
+
+    # Force b's CRS to be un-transformable to the (locked) target: it becomes pending
+    # with an INCOMPATIBLE_CRS reason, while a stays live.
+    target_srs = a.dataset.get_spatial_ref()
+    with mock.patch(
+        "wiser.raster.mosaic_controller.can_transform_between_srs",
+        side_effect=lambda srs, tgt: srs.IsSame(target_srs),
+    ):
+        assert c.is_scene_pending(b) is True
+        assert c.scene_pending_reason(b) is ScenePendingReason.INCOMPATIBLE_CRS
+        assert c.is_scene_pending(a) is False
+        assert [s.dataset.get_name() for s in c.live_scenes()] == ["a"]
+
+
+def test_hidden_scene_is_not_live_but_may_be_pending(tmp_path):
+    a = _make_scene(tmp_path, "a", epsg=32611)
+    b = _make_scene(tmp_path, "b", epsg=32611, origin=(400500.0, 3800500.0))
+    c = MosaicController()
+    c.add_scene(a)
+    c.add_scene(b)
+    c.build_common_grid()
+
+    c.set_visibility(1, False)  # hide b
+    # A hidden scene is not part of the live set (visibility still gates rendering).
+    assert [s.dataset.get_name() for s in c.live_scenes()] == ["a"]
 
 
 # -- scene_crs_choices -------------------------------------------------------
