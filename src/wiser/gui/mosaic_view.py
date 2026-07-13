@@ -50,20 +50,21 @@ _PIXEL_READ_DEBOUNCE_MS = 120
 
 
 def _render_scene_layers(
-    jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int]],
+    jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int, int]],
 ) -> List[Tuple[int, np.ndarray]]:
     """
     Warp each job's scene into an RGBA array. Runs on a **scheduler thread** (no Qt).
 
-    ``jobs`` is ``(scene_key, scene, target_wkt, world_extent, width, height)``; the
-    result pairs each key with its ``(H, W, 4)`` RGBA array for the GUI thread to wrap
-    into a ``QImage``. A single scene that fails to render is skipped rather than
-    failing the whole batch (mirrors the per-scene guard in the synchronous path).
+    ``jobs`` is ``(scene_key, scene, target_wkt, world_extent, width, height,
+    resample_alg)``; the result pairs each key with its ``(H, W, 4)`` RGBA array for
+    the GUI thread to wrap into a ``QImage``. A single scene that fails to render is
+    skipped rather than failing the whole batch (mirrors the per-scene guard in the
+    synchronous path).
     """
     out: List[Tuple[int, np.ndarray]] = []
-    for key, scene, target_wkt, world_extent, width, height in jobs:
+    for key, scene, target_wkt, world_extent, width, height, resample_alg in jobs:
         try:
-            out.append((key, render_scene_argb(scene, target_wkt, world_extent, width, height)))
+            out.append((key, render_scene_argb(scene, target_wkt, world_extent, width, height, resample_alg)))
         except Exception:  # noqa: BLE001 — a bad scene must not break the batch
             pass
     return out
@@ -428,12 +429,15 @@ class MosaicView(QWidget):
             logger.exception("Failed to resolve mosaic scene footprints")
             footprints = []
 
+        # Snapshot the resampling method on the GUI thread so the warp (which runs off
+        # the GUI thread) uses the controller's current choice (#638).
+        resample_alg = self._controller.get_resample_alg()
         read_scene_ids: Set[int] = set()
-        jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int]] = []
+        jobs: List[Tuple[int, MosaicScene, str, Tuple[float, float, float, float], int, int, int]] = []
         for scene, geom in footprints:
             read_scene_ids.add(id(scene))
             if self._envelope_intersects(geom, world_extent):
-                jobs.append((id(scene), scene, target_wkt, world_extent, w, h))
+                jobs.append((id(scene), scene, target_wkt, world_extent, w, h, resample_alg))
 
         self._reading_signature = signature
         if self._app_services is None:

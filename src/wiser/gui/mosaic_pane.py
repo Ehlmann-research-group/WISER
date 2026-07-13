@@ -2,20 +2,22 @@
 Control panel for the Seamless Mosaic feature (EPIC #629).
 
 Hosts the :class:`MosaicView` alongside a controls area and owns the non-GUI
-:class:`MosaicController` that both share. In this issue (#634) the controls area
-gains a minimal "Add Scene" action: a dataset picker plus a button that ingests the
-chosen dataset (materialize -> build overviews -> compute footprint) on a background
-thread and appends it to the controller.
+:class:`MosaicController` that both share. The controls area offers: an "Add Scene"
+action (a dataset picker plus a button that ingests the chosen dataset -- materialize
+-> build overviews -> compute footprint -- on a background thread and appends it to the
+controller); the scene stack with **drag-to-reorder** z-order and per-scene visibility
+(#638); resolution-mode, target-CRS, resampling-method, and canonical band-metadata
+controls (#638); and a disabled Export button (the export path lands in #639).
 
-The richer control panel (scene list with drag-to-reorder, per-scene visibility,
-resolution / CRS / resampling selectors, export) still lands in #638. The full
-"add from file" picker is also #638; here the combo reads datasets already loaded in
-``app_state``.
+Each control mutates the shared controller and then invalidates the view following the
+compositor's tiered contract -- a pure restack (``recomposite_only``) for
+z-order/visibility, a re-read (``invalidate_pixels``) when the pixels change, and a grid
+rebuild when the output geometry changes.
 """
 
 from typing import Optional, TYPE_CHECKING
 
-from osgeo import osr
+from osgeo import gdal, osr
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -30,6 +32,7 @@ from .progress_task import run_with_progress
 from wiser.raster.mosaic_controller import (
     MosaicController,
     MosaicScene,
+    ResolutionMode,
     TargetCrsRequired,
     UnmappableCrsError,
 )
@@ -121,18 +124,38 @@ class MosaicPane(QWidget):
         self._splitter.addWidget(self._mosaic_view)
 
         # Controls area: a slim side panel with stacked sections — add a scene, the
-        # current scene stack (per-scene visibility + remove), and target-CRS
-        # resolution. #638 extends this further (drag-to-reorder, resampling, export).
-        self._controls = QWidget(self._splitter)
-        self._controls.setMinimumWidth(280)
+        # scene stack (drag-reorder z-order + visibility + remove), resolution mode,
+        # target CRS, resampling method, band-metadata source, and a (disabled) export.
+        # Built parentless; the scroll area below takes ownership via setWidget().
+        self._controls = QWidget()
         self._controls_layout = QVBoxLayout(self._controls)
         self._controls_layout.setContentsMargins(8, 8, 8, 8)
         self._controls_layout.setSpacing(10)
 
         self._controls_layout.addWidget(self._build_add_scene_group())
         self._controls_layout.addWidget(self._build_scene_list_group(), 1)
+        self._controls_layout.addWidget(self._build_resolution_group())
         self._controls_layout.addWidget(self._build_target_crs_group())
-        self._splitter.addWidget(self._controls)
+        self._controls_layout.addWidget(self._build_resampling_group())
+        self._controls_layout.addWidget(self._build_band_metadata_group())
+
+        # Preview toggle deferred for v1 (#638): intentionally not added yet.
+        # self._controls_layout.addWidget(self._build_preview_toggle())
+
+        # Export / Finish hands off to the export path (#639), which is not built yet,
+        # so the button is present (final layout) but disabled until then.
+        self._export_button = QPushButton(self.tr("Export / Finish…"), self._controls)
+        self._export_button.setEnabled(False)
+        self._export_button.setToolTip(self.tr("Export lands in issue #639."))
+        self._controls_layout.addWidget(self._export_button)
+
+        # The controls stack can grow taller than a short window, so host it in a
+        # vertically-scrolling area; the fixed minimum width keeps groups from cramping.
+        self._controls_scroll = QScrollArea(self._splitter)
+        self._controls_scroll.setWidgetResizable(True)
+        self._controls_scroll.setWidget(self._controls)
+        self._controls_scroll.setMinimumWidth(280)
+        self._splitter.addWidget(self._controls_scroll)
 
         # Give the view the bulk of the width; controls stay a slim side panel.
         self._splitter.setStretchFactor(0, 1)
@@ -175,11 +198,17 @@ class MosaicPane(QWidget):
 
         self._scene_list = QListWidget(group)
         self._scene_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        # Drag-to-reorder == z-order: dropping a row to a new position restacks the
+        # scenes (top of the list = top scene). The move is applied to the controller
+        # in _on_scene_rows_moved; the widget's own reorder is then overwritten by the
+        # authoritative rebuild in _refresh_scene_list.
+        self._scene_list.setDragDropMode(QAbstractItemView.InternalMove)
         self._scene_list.setToolTip(
-            self.tr("Scenes in top-to-bottom stacking order. Uncheck to hide a scene.")
+            self.tr("Drag to reorder (top = top of the stack). Uncheck to hide a scene.")
         )
         self._scene_list.itemSelectionChanged.connect(self._on_scene_selection_changed)
         self._scene_list.itemChanged.connect(self._on_scene_item_changed)
+        self._scene_list.model().rowsMoved.connect(self._on_scene_rows_moved)
         layout.addWidget(self._scene_list)
 
         self._remove_scene_button = QPushButton(self.tr("Remove Selected"), group)
@@ -187,6 +216,47 @@ class MosaicPane(QWidget):
         self._remove_scene_button.clicked.connect(self._on_remove_scene_clicked)
         layout.addWidget(self._remove_scene_button)
         return group
+
+    def _build_resolution_group(self) -> QGroupBox:
+        group = QGroupBox(self.tr("Output Spatial Resolution"), self._controls)
+        layout = QVBoxLayout(group)
+
+        self._resolution_combo = QComboBox(group)
+        # userData is the ResolutionMode member itself, read back in the handler.
+        self._resolution_combo.addItem(self.tr("Top scene"), ResolutionMode.TOP)
+        self._resolution_combo.addItem(self.tr("Highest (finest)"), ResolutionMode.HIGHEST)
+        self._resolution_combo.addItem(self.tr("Lowest (coarsest)"), ResolutionMode.LOWEST)
+        self._resolution_combo.addItem(self.tr("Average"), ResolutionMode.AVERAGE)
+        self._resolution_combo.addItem(self.tr("Custom…"), ResolutionMode.CUSTOM)
+        current = self._controller.get_resolution_mode()
+        restored = self._resolution_combo.findData(current)
+        if restored >= 0:
+            self._resolution_combo.setCurrentIndex(restored)
+        self._resolution_combo.currentIndexChanged.connect(self._on_resolution_mode_changed)
+        layout.addWidget(self._resolution_combo)
+
+        # Custom pixel-size inputs (in target-CRS units), shown only in Custom mode.
+        self._custom_res_widget = QWidget(group)
+        custom_layout = QFormLayout(self._custom_res_widget)
+        custom_layout.setContentsMargins(0, 0, 0, 0)
+        self._custom_xres_spin = self._make_resolution_spinbox()
+        self._custom_yres_spin = self._make_resolution_spinbox()
+        custom_layout.addRow(self.tr("X size:"), self._custom_xres_spin)
+        custom_layout.addRow(self.tr("Y size:"), self._custom_yres_spin)
+        self._custom_res_widget.setVisible(current is ResolutionMode.CUSTOM)
+        layout.addWidget(self._custom_res_widget)
+        return group
+
+    def _make_resolution_spinbox(self) -> QDoubleSpinBox:
+        """A positive-only pixel-size spinbox (target-CRS units, so a wide range)."""
+        spin = QDoubleSpinBox()
+        spin.setDecimals(6)
+        # Minimum is a tiny positive so value() is always > 0 (set_custom_resolution
+        # rejects non-positive sizes); the range spans degrees to metres.
+        spin.setRange(1e-6, 1e9)
+        spin.setValue(1.0)
+        spin.valueChanged.connect(self._on_custom_resolution_changed)
+        return spin
 
     def _build_target_crs_group(self) -> QGroupBox:
         group = QGroupBox(self.tr("Target CRS"), self._controls)
@@ -199,6 +269,47 @@ class MosaicPane(QWidget):
         self._choose_crs_button = QPushButton(self.tr("Choose Target CRS…"), group)
         self._choose_crs_button.clicked.connect(self._on_choose_target_crs)
         layout.addWidget(self._choose_crs_button)
+        return group
+
+    def _build_resampling_group(self) -> QGroupBox:
+        group = QGroupBox(self.tr("Resampling"), self._controls)
+        layout = QVBoxLayout(group)
+
+        self._resample_combo = QComboBox(group)
+        # userData is the GDAL GRA_* constant passed straight to gdal.Warp.
+        self._resample_combo.addItem(self.tr("Nearest Neighbor"), gdal.GRA_NearestNeighbour)
+        self._resample_combo.addItem(self.tr("Bilinear"), gdal.GRA_Bilinear)
+        self._resample_combo.addItem(self.tr("Cubic Convolution"), gdal.GRA_Cubic)
+        restored = self._resample_combo.findData(self._controller.get_resample_alg())
+        if restored >= 0:
+            self._resample_combo.setCurrentIndex(restored)
+        # Connect after seeding so the initial selection doesn't fire the warning.
+        self._resample_combo.currentIndexChanged.connect(self._on_resample_changed)
+        layout.addWidget(self._resample_combo)
+        return group
+
+    def _build_band_metadata_group(self) -> QGroupBox:
+        group = QGroupBox(self.tr("Band metadata"), self._controls)
+        layout = QVBoxLayout(group)
+
+        blurb = QLabel(
+            self.tr("Which scene's band metadata (wavelengths, names) labels the output."),
+            group,
+        )
+        blurb.setWordWrap(True)
+        layout.addWidget(blurb)
+
+        self._band_metadata_combo = QComboBox(group)
+        self._band_metadata_combo.setToolTip(
+            self.tr(
+                "Metadata/labeling only — does not change the output band count or which "
+                "bands are included."
+            )
+        )
+        # Populated by _refresh_band_metadata_combo (called from _refresh_scene_list);
+        # userData is the MosaicScene, or None for the "top scene" default.
+        self._band_metadata_combo.currentIndexChanged.connect(self._on_band_metadata_changed)
+        layout.addWidget(self._band_metadata_combo)
         return group
 
     # -- dataset picker -------------------------------------------------------
@@ -288,13 +399,50 @@ class MosaicPane(QWidget):
             name, crs_display = summary[index]
             item = QListWidgetItem(f"{name}   ·   {crs_display}")
             item.setData(Qt.UserRole, index)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            # Checkable + draggable, but not a drop target itself, so a dragged row
+            # lands *between* rows (reorder) rather than "onto" another row.
+            item.setFlags((item.flags() | Qt.ItemIsUserCheckable) & ~Qt.ItemIsDropEnabled)
             item.setCheckState(Qt.Checked if scenes[index].visible else Qt.Unchecked)
             self._scene_list.addItem(item)
             if index == previous:
                 self._scene_list.setCurrentItem(item)
         self._scene_list.blockSignals(False)
         self._on_scene_selection_changed()
+        self._refresh_band_metadata_combo()
+
+    def _refresh_band_metadata_combo(self) -> None:
+        """
+        Rebuild the band-metadata source combo from the controller, preserving the
+        current selection by object identity so it survives add/remove/reorder.
+        """
+        combo = self._band_metadata_combo
+        previous = combo.currentData()  # a MosaicScene, or None for the default
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(self.tr("Top scene (default)"), None)
+        scenes = self._controller.get_scenes()
+        # Top-most first, matching the scene list's visual order.
+        for index in reversed(range(len(scenes))):
+            scene = scenes[index]
+            name = scene.dataset.get_name() or f"Scene {index}"
+            try:
+                label = self.tr("{0} ({1} bands)").format(name, scene.dataset.num_bands())
+            except Exception:  # noqa: BLE001 — metadata access must never break the UI
+                label = name
+            combo.addItem(label, scene)
+        restored = 0
+        if previous is not None:
+            for i in range(combo.count()):
+                if combo.itemData(i) is previous:
+                    restored = i
+                    break
+        combo.setCurrentIndex(restored)
+        combo.blockSignals(False)
+
+    def _on_band_metadata_changed(self, *_args) -> None:
+        # Metadata/labeling only — no grid or view invalidation, and the ingest
+        # band-count gate guarantees the output band count is unaffected.
+        self._controller.set_band_metadata_source(self._band_metadata_combo.currentData())
 
     def _selected_scene_index(self) -> Optional[int]:
         item = self._scene_list.currentItem()
@@ -315,6 +463,36 @@ class MosaicPane(QWidget):
         # falls back to a read if a revealed scene was never cached at this viewport).
         self._mosaic_view.recomposite_only()
 
+    def _on_scene_rows_moved(self, parent, start, end, destination, row) -> None:
+        """
+        Drag-to-reorder handler: translate the visual move into a controller z-order
+        move and restack.
+
+        The list is shown top-first while the controller stores scenes bottom-to-top,
+        so a visual row ``v`` maps to controller index ``n - 1 - v``. Qt's ``row``
+        (the destination) is indexed *before* the dragged row is removed, so it is
+        shifted down by one when a row moves downward. A reorder is a pure restack (no
+        GDAL reads), mirroring the visibility toggle's invalidation path.
+        """
+        count = self._controller.scene_count()
+        if count < 2:
+            return
+        src_visual = start
+        dst_visual = row - 1 if row > src_visual else row
+        if dst_visual == src_visual:
+            return  # dropped back onto its own position — no move
+        from_index = (count - 1) - src_visual
+        to_index = (count - 1) - dst_visual
+        self._controller.move_scene(from_index, to_index)
+        # Reorder can change the top scene, so the TOP resolution mode's grid may shift;
+        # rebuild quietly (z-order never changes the CRS constraint, so no prompt).
+        self._rebuild_grid_quietly()
+        # Re-sync the now-stale Qt.UserRole indices after Qt's own reorder. Defer so the
+        # rebuild runs after the drop finishes rather than mid-signal.
+        QTimer.singleShot(0, self._refresh_scene_list)
+        self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.recomposite_only()
+
     def _on_remove_scene_clicked(self) -> None:
         index = self._selected_scene_index()
         if index is None:
@@ -325,6 +503,60 @@ class MosaicPane(QWidget):
         # popping the reproject dialog.
         self._rebuild_grid_quietly()
         self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
+
+    # -- resolution -----------------------------------------------------------
+
+    def _on_resolution_mode_changed(self, *_args) -> None:
+        mode = self._resolution_combo.currentData()
+        is_custom = mode is ResolutionMode.CUSTOM
+        self._custom_res_widget.setVisible(is_custom)
+        if is_custom:
+            # Seed the spinboxes from the current grid (a sensible starting size) the
+            # first time Custom is chosen, then hand the controller a size so
+            # build_common_grid never sees CUSTOM without one.
+            grid = self._controller.get_common_grid()
+            if grid.geotransform is not None and self._controller.get_custom_resolution() is None:
+                self._custom_xres_spin.blockSignals(True)
+                self._custom_yres_spin.blockSignals(True)
+                self._custom_xres_spin.setValue(abs(grid.geotransform[1]))
+                self._custom_yres_spin.setValue(abs(grid.geotransform[5]))
+                self._custom_xres_spin.blockSignals(False)
+                self._custom_yres_spin.blockSignals(False)
+            self._controller.set_custom_resolution(
+                self._custom_xres_spin.value(), self._custom_yres_spin.value()
+            )
+        self._controller.set_resolution_mode(mode)
+        # Resolution changes the output grid's pixel size, not the on-screen preview
+        # (the compositor warps at viewport resolution), so a grid rebuild is the whole
+        # effect; the CRS constraint is unchanged, so rebuild quietly (no prompt).
+        self._rebuild_grid_quietly()
+
+    def _on_custom_resolution_changed(self, *_args) -> None:
+        if self._resolution_combo.currentData() is not ResolutionMode.CUSTOM:
+            return
+        self._controller.set_custom_resolution(self._custom_xres_spin.value(), self._custom_yres_spin.value())
+        self._rebuild_grid_quietly()
+
+    # -- resampling -----------------------------------------------------------
+
+    def _on_resample_changed(self, *_args) -> None:
+        alg = self._resample_combo.currentData()
+        # Always warn on a non-Nearest-Neighbor choice: interpolation invents new pixel
+        # values, which distorts quantitative products (there is no product-type
+        # detection — we warn unconditionally).
+        if alg != gdal.GRA_NearestNeighbour:
+            QMessageBox.warning(
+                self,
+                self.tr("Resampling may alter pixel values"),
+                self.tr(
+                    "Non-Nearest-Neighbor resampling interpolates new pixel values, "
+                    "which can distort quantitative data. Use Nearest Neighbor to "
+                    "preserve the original values."
+                ),
+            )
+        self._controller.set_resample_alg(alg)
+        # The warp algorithm changes the rendered pixels, so force a fresh read.
         self._mosaic_view.invalidate_pixels()
 
     # -- common grid / target CRS ---------------------------------------------
