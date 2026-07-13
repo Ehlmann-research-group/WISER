@@ -13,9 +13,12 @@ per-scene contrast stretch cached at ingest — see [Stretch
 bounds](#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy)), the **control panel**
 (drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
 chooser), the **full-resolution export path** (streaming ENVI compositor on the
-common grid — see [The Export Path](#the-export-path)), and **in-place scene
+common grid — see [The Export Path](#the-export-path)), **in-place scene
 re-georeferencing** (right-click → warp → swap; see [Re-georeferencing a Scene In
-Place](#re-georeferencing-a-scene-in-place)) are implemented and wired into the GUI.
+Place](#re-georeferencing-a-scene-in-place)), and **pending (disabled) scenes**
+(non-georeferenced or CRS-incompatible scenes carried in the list until georeferenced;
+see [Pending Scenes](#pending-scenes-disabled-scenes)) are implemented and wired into
+the GUI.
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -58,8 +61,8 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its `_im
 | `src/wiser/gui/mosaic_pane.py` | `MosaicPane` — control panel; ingestion orchestration, scene list (drag-reorder + visibility), resolution / CRS / resampling / band-metadata controls |
 | `src/wiser/gui/mosaic_view.py` | `MosaicView` — the two-layer paint surface (pixel + vector), currently a stub |
 | `src/wiser/gui/mosaic_crs_dialog.py` | `ReprojectPromptDialog` — modal target-CRS chooser |
-| `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode` — the non-GUI model |
-| `src/wiser/raster/mosaic_ingestion.py` | `validate_scene`, `build_overviews`, `compute_stretch_bounds`, `compute_footprint_wkt` — Qt-free ingestion gates |
+| `src/wiser/raster/mosaic_controller.py` | `MosaicController`, `MosaicScene`, `CommonGrid`, `ResolutionMode`, `ScenePendingReason` — the non-GUI model (incl. the live/pending classifier) |
+| `src/wiser/raster/mosaic_ingestion.py` | `is_dataset_georeferenced`, `validate_scene_addable`, `validate_scene`, `build_overviews`, `compute_stretch_bounds`, `compute_footprint_wkt` — Qt-free ingestion gates |
 | `src/wiser/raster/mosaic_compositor.py` | `render_scene_argb` — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer |
 | `src/wiser/raster/mosaic_export.py` | `export_mosaic` — warps each scene onto the common grid and streams the mosaic to ENVI |
 | `src/wiser/raster/mosaic_materialize.py` | `SceneMaterializer`, `materialize_to_tiled_geotiff` — the object-model adapter |
@@ -167,6 +170,10 @@ classDiagram
         +scene_crs_summary()
         +scene_crs_choices()
         +validate_target_crs(wkt)
+        +is_scene_pending(scene) bool
+        +scene_pending_reason(scene) ScenePendingReason
+        +live_scenes() List~MosaicScene~
+        +has_pending_scenes() bool
     }
 
     class MosaicScene {
@@ -229,10 +236,13 @@ sequenceDiagram
     participant Ctrl as MosaicController
 
     User->>Pane: click "Add Scene…"
-    Pane->>Pane: validate_scene(dataset, existing_scenes)
-    alt validation fails
+    Pane->>Pane: validate_scene_addable(dataset, existing_scenes)
+    alt duplicate / band-count mismatch
         Pane-->>User: QMessageBox.warning
-    else validation passes
+    else not georeferenced
+        Pane->>Ctrl: add_scene(MosaicScene(dataset)) [pending placeholder]
+        Pane->>Pane: _refresh_scene_list() [warning icon + tooltip]
+    else georeferenced (may still land pending)
         Pane->>Sched: run_with_progress(_ingest_scene, dataset, materializer)
         Note over Pane: ProgressDialog shown, block_window disabled
         Sched->>Ingest: run on scheduler thread
@@ -249,20 +259,35 @@ sequenceDiagram
     end
 ```
 
-### Validation (`validate_scene`, `mosaic_ingestion.py`)
+### Validation (`validate_scene_addable`, `mosaic_ingestion.py`)
 
 Runs synchronously on the **main thread** before any background work starts, so
-rejection is immediate (no spinner churn). Rejects:
+rejection is immediate (no spinner churn). The pane calls **`validate_scene_addable`**,
+which enforces only the two gates that make a scene *fundamentally un-addable*
+regardless of georeferencing:
 
-- **Ungeoreferenced scenes** — geotransform is GDAL's identity sentinel.
-- **No SRS** — empty/missing spatial reference.
 - **Duplicate** — the dataset is already in the mosaic (by dataset id).
 - **Band-count mismatch** — differs from the first existing scene's band count.
 
-Deliberately **not** rejected: missing nodata (a coarser, full-rectangle footprint is
-still valid) and dtype mismatches across scenes (the future compositor promotes to the
-widest common type at warp time). See `# TODO(#640)` in the source for a planned
+Being ungeoreferenced or CRS-incompatible is **no longer a rejection**: such scenes are
+added as disabled **pending** scenes (see [Pending
+Scenes](#pending-scenes-disabled-scenes)). The pane branches on
+`is_dataset_georeferenced(dataset)` (a non-identity geotransform **and** a non-empty
+SRS): a georeferenced dataset runs the full ingest pipeline below (it may still land
+pending if its CRS can't reach the target), while a non-georeferenced one is appended
+immediately as a bare `MosaicScene(dataset=...)` placeholder with **no** background work.
+
+Deliberately **not** rejected either: missing nodata (a coarser, full-rectangle
+footprint is still valid) and dtype mismatches across scenes (the compositor promotes to
+the widest common type at warp time). See `# TODO(#640)` in the source for a planned
 warn-but-allow path for band-count mismatches.
+
+```{note}
+`validate_scene` (the strict "must be immediately placeable" gate that also rejects
+ungeoreferenced / no-SRS inputs) is retained in `mosaic_ingestion.py` and now delegates
+to `is_dataset_georeferenced` + `validate_scene_addable`. The pane no longer calls it —
+it is kept as the canonical full check and for its unit tests.
+```
 
 ### Materialization (`SceneMaterializer.gdal_source`, `mosaic_materialize.py`)
 
@@ -344,13 +369,13 @@ the scene list, z-order, visibility, resolution mode, custom resolution, or targ
 flowchart TD
     A[build_common_grid] --> B{grid_dirty?}
     B -->|no| C[return cached CommonGrid]
-    B -->|yes| D{any visible scenes?}
+    B -->|yes| D{"any live scenes?<br/>(visible, non-pending)"}
     D -->|no| E[return empty CommonGrid]
-    D -->|yes| F["target = target_crs_wkt or common_scene_crs_wkt()"]
+    D -->|yes| F["target = target_crs_wkt or<br/>_common_crs_wkt(live scenes)"]
     F --> G{target resolved?}
     G -->|no| H[raise TargetCrsRequired]
-    G -->|yes| I["persist target_crs_wkt<br/>validate_target_crs(target)"]
-    I --> J["per scene: reproject footprint envelope<br/>into target CRS → union extent"]
+    G -->|yes| I["persist target_crs_wkt"]
+    I --> J["per live scene: reproject footprint envelope<br/>into target CRS → union extent"]
     J --> K["per scene: SuggestedWarpOutput resolution<br/>in target CRS (AutoCreateWarpedVRT)"]
     K --> L["pick xres/yres from ResolutionMode"]
     L --> M["north-up geotransform:<br/>(min_x, xres, 0, max_y, 0, -yres)<br/>width/height = ceil(extent / res)"]
@@ -397,10 +422,15 @@ In practice this means:
   manual **"Choose Target CRS…"** button (`MosaicPane._on_choose_target_crs`), which
   calls `_prompt_for_target_crs()` unconditionally — not gated on
   `TargetCrsRequired` — so the user can override the auto-locked target at any time.
-- `validate_target_crs()` still runs on every `build_common_grid()` call, so an
-  incoming scene that is genuinely unmappable to the locked target (e.g. no CRS at
-  all) still raises `UnmappableCrsError`, which `_ensure_common_grid` surfaces as a
-  `QMessageBox.warning` rather than a dialog.
+- **Changing the target CRS no longer rejects incompatible scenes.** `build_common_grid`
+  builds from **live** scenes only, and `_prompt_for_target_crs` sets the chosen target
+  unconditionally (it no longer calls `validate_target_crs` as a blocker). A scene the new
+  target can't reach simply becomes [pending](#pending-scenes-disabled-scenes) instead of
+  failing the change; if the choice leaves *no* live scenes, `_on_choose_target_crs` warns
+  that the preview is empty but still commits the CRS.
+
+`validate_target_crs()` and `validate_new_scene_crs()` remain on the controller (and are
+still unit-tested) but are now **advisory** — no GUI path uses them as hard gates.
 
 `_ensure_common_grid()` (`mosaic_pane.py`) is the call site, and stays a standalone
 method (not inlined into `_on_scene_ingested`) so a future resolution-mode/CRS control
@@ -422,7 +452,12 @@ flowchart TD
 
 As noted above, the `TargetCrsRequired` branch is effectively dead in the ingestion
 path today but is kept because it is the correct, defensive behavior if the locking
-assumption ever changes (e.g. a future "clear target CRS" control).
+assumption ever changes (e.g. a future "clear target CRS" control). The
+`UnmappableCrsError` branches are likewise defensive now: since the pending-scene work,
+`build_common_grid` builds from `_live_scenes()` — scenes that are *by construction*
+mappable to the target — and no longer calls `validate_target_crs`, so an incompatible
+scene becomes [pending](#pending-scenes-disabled-scenes) instead of raising here. The
+`except` clauses are retained as a safety net.
 
 ### Removal and visibility changes
 
@@ -443,12 +478,130 @@ since a prompt triggered by a *removal* would be a surprising, unrelated interru
   scene's CRS; seeds the dialog's target-CRS combo and its default selection.
 - `validate_target_crs(target_wkt)` — raises `UnmappableCrsError` naming any scene
   (by name) that cannot be transformed to the target, via
-  `wiser.raster.utils.can_transform_between_srs`.
+  `wiser.raster.utils.can_transform_between_srs`. Now **advisory** — the GUI classifies
+  incompatible scenes as pending rather than calling this as a hard gate (see [Pending
+  Scenes](#pending-scenes-disabled-scenes)).
+- `is_scene_pending(scene)` / `scene_pending_reason(scene)` — classify a scene as
+  live (`None`) or pending (`ScenePendingReason.NO_CRS` / `INCOMPATIBLE_CRS`).
+- `live_scenes()` / `has_live_scenes()` / `has_pending_scenes()` — the live/pending
+  partition used by the grid builder, overlay, compositor, and export.
 
 All SRS objects used for transforms are built with
 `OAMS_TRADITIONAL_GIS_ORDER` (long/lat, x/y axis order), matching the geotransform
 convention used throughout WISER (see the georeferencer's identical convention in
 [Georeferencer Internals](georeferencer-internals.md)).
+
+---
+
+## Pending Scenes (Disabled Scenes)
+
+**Files:** `src/wiser/raster/mosaic_controller.py` (the classifier),
+`src/wiser/raster/mosaic_ingestion.py` (the add gate), and `src/wiser/gui/mosaic_pane.py`
+(add path, list decoration, CRS change, export guard).
+
+A scene can now be added to the mosaic even when it cannot yet be placed on the common
+grid — because it is **not georeferenced**, or because its CRS **cannot be transformed**
+into the mosaic's locked target CRS. Rather than rejecting it at Add-Scene time, the
+mosaic carries it as a **pending** (disabled) scene: it stays in the list, greyed out with
+a warning icon, and is excluded from the grid, the overlay, the pixel compositor, and
+export until it is georeferenced into a compatible CRS. This lets a user assemble a
+working set — including scenes they still intend to register — without the add being a
+dead end.
+
+### Live vs. pending is a derived classification, not stored state
+
+There is no `pending` flag on `MosaicScene`. A scene's status is **computed on demand**
+from the controller's current state by `scene_pending_reason(scene)`, so it re-evaluates
+for free whenever the target CRS or the scene's own georeferencing changes — no bookkeeping
+to keep in sync. A scene is pending when:
+
+- **`ScenePendingReason.NO_CRS`** — it never went through ingestion (no `gdal_path` /
+  `footprint_wkt`). `_is_ingested` is the controller's Qt-free proxy for "georeferenced":
+  the pane only runs the ingest pipeline on georeferenced datasets, so the presence of
+  ingestion artifacts *is* the georeferenced signal (and it works with the lightweight
+  dataset stand-ins used in tests, without re-reading a geotransform).
+- **`ScenePendingReason.INCOMPATIBLE_CRS`** — it is ingested, but its SRS cannot be
+  transformed (`can_transform_between_srs`) into the **resolved target CRS**.
+
+`_resolved_target_wkt()` defines what "compatible" is measured against: the explicit
+`_target_crs_wkt` if one is set (or was auto-locked by the first grid build), otherwise the
+shared CRS of the *georeferenced* visible scenes. When it returns `None` (empty mosaic,
+all-pending mosaic, or georeferenced scenes that disagree with no explicit target), an
+ingested scene is treated as **live** — there is nothing yet to be incompatible with, and a
+multi-CRS disagreement is still the existing `TargetCrsRequired` path, unchanged.
+
+### The live-scene partition drives everything downstream
+
+`_live_scenes()` = visible scenes that are not pending, and it is the input to every
+grid-consuming operation:
+
+- `build_common_grid()` unions extents and picks resolution from `_live_scenes()` only, so
+  a pending scene never perturbs the output grid.
+- `visible_scene_footprints_in_common_crs()` (the overlay) and the pixel compositor iterate
+  live scenes, so a pending scene draws nothing.
+- Export composites `live_scenes()` (see [The Export Path](#the-export-path)).
+
+Because the grid is built from live scenes, an **all-pending mosaic yields an empty grid**
+(not an error): `has_live_scenes()` is `False`, the view shows blank canvas, and the CRS
+stays unlocked until the first live scene resolves it.
+
+### Add path (`MosaicPane._on_add_scene_clicked`)
+
+Add-Scene calls `validate_scene_addable` (duplicate + band-count only) and then branches on
+`is_dataset_georeferenced`:
+
+```{mermaid}
+flowchart TD
+    A["Add Scene…"] --> B["validate_scene_addable<br/>(duplicate / band count)"]
+    B -->|fails| W[QMessageBox.warning, stop]
+    B -->|ok| C{is_dataset_georeferenced?}
+    C -->|no| D["add_scene(MosaicScene(dataset))<br/>bare pending placeholder"]
+    C -->|yes| E["run ingest pipeline<br/>(materialize/overviews/stretch/footprint)"]
+    D --> F["_refresh_scene_list()<br/>(warning icon + tooltip)"]
+    E --> G["_on_scene_ingested → add_scene,<br/>_ensure_common_grid"]
+    G --> H{scene compatible<br/>with target?}
+    H -->|yes| I[live: grid rebuilds, preview shows it]
+    H -->|no| J["INCOMPATIBLE_CRS pending<br/>(ingested but off-grid)"]
+```
+
+A non-georeferenced dataset is appended as a bare `MosaicScene(dataset=...)` with **no**
+background work — there is nothing to materialize until it has real georeferencing. A
+georeferenced dataset still runs the full pipeline (its artifacts are what a later
+compatibility check reads), and may end up live or `INCOMPATIBLE_CRS`-pending depending on
+the locked target.
+
+### List decoration (`_refresh_scene_list`)
+
+For each pending scene the list item gets a warning icon (`SP_MessageBoxWarning`), a greyed
+foreground, and a hover tooltip explaining *why* it is disabled (no georeferencing vs.
+incompatible CRS) and how to fix it. The visibility checkbox is deliberately left
+**enabled** — pending is an independent axis from user-hidden, and a scene's classification
+is what excludes it from the grid, not its checkbox.
+
+### Promotion: georeference in place
+
+A pending scene is fixed through the **same** right-click → "Georeference…" flow documented
+in [Re-georeferencing a Scene In Place](#re-georeferencing-a-scene-in-place). The warp bakes
+a real CRS + geotransform into the scene and reingests it, so it gains `gdal_path` /
+`footprint_wkt` in a CRS that (if compatible) makes `scene_pending_reason` return `None` on
+the next `_ensure_common_grid` — the scene goes live and the grid rebuilds to include it.
+No separate "promote" code path exists; promotion is just "it is no longer pending after the
+re-georeference reingest."
+
+### Target-CRS change re-evaluates every scene
+
+Because status is derived, `_on_choose_target_crs` doesn't reject an incompatible target —
+it commits the new target and lets the classifier re-partition: scenes that can't reach the
+new CRS become `INCOMPATIBLE_CRS`-pending, and previously-pending scenes that *can* reach it
+go live. If the change leaves no live scenes at all, the pane warns that the preview is
+empty but still keeps the chosen CRS. Removal / visibility changes rebuild quietly as before
+(see [Removal and visibility changes](#removal-and-visibility-changes)).
+
+### Export guard
+
+Export operates on `live_scenes()`. If `has_pending_scenes()` is `True`,
+`_on_export_clicked` warns and asks for confirmation before proceeding, then **skips** the
+pending scenes (they are silently absent from the output rather than blocking the export).
 
 ---
 
@@ -767,8 +920,11 @@ the output geometry changes:
   `n-1-v`), and Qt's destination `row` is indexed *before* the dragged row is removed
   (shifted down by one on a downward move). It then `move_scene`s, rebuilds the grid
   quietly (a reorder can change the top scene, hence the `TOP`-mode pixel size, but never
-  the CRS constraint), defers a `_refresh_scene_list()` to rewrite the now-stale
+  the CRS constraint),   defers a `_refresh_scene_list()` to rewrite the now-stale
   `Qt.UserRole` indices safely after the drop, and does the pure-restack invalidation.
+  `_refresh_scene_list()` also decorates any [pending](#pending-scenes-disabled-scenes)
+  scene with a warning icon, greyed text, and a why-disabled tooltip (visibility checkbox
+  left enabled).
 
 - **Resolution mode.** A combo over `ResolutionMode` (Top / Highest / Lowest / Average /
   Custom); Custom reveals two positive-only pixel-size spin boxes (target-CRS units),
@@ -1005,8 +1161,11 @@ why the on-disk header must be fully self-describing.
 
 ### GUI wiring and threading
 
-`MosaicPane._on_export_clicked` (GUI thread) requires ≥1 visible scene, resolves the grid
-via `_ensure_common_grid()` (surfacing `TargetCrsRequired`/`UnmappableCrsError` as a
+`MosaicPane._on_export_clicked` (GUI thread) requires ≥1 **live** scene
+(`live_scenes()` — pending scenes can't be placed and are excluded), and if any pending
+scenes exist it **warns and asks for confirmation** before continuing (they are then
+silently skipped — see [Pending Scenes](#pending-scenes-disabled-scenes)). It resolves the
+grid via `_ensure_common_grid()` (surfacing `TargetCrsRequired`/`UnmappableCrsError` as a
 warning), asks for an output path with `QFileDialog.getSaveFileName`, resolves the output
 nodata (`_resolve_output_nodata`: the band-metadata dataset's Data Ignore Value, else the
 top-most visible scene that has one), snapshots the controller state, and hands the heavy
@@ -1037,6 +1196,11 @@ worker never logs — progress and raised exceptions are its only channels out.
   resolution/validation, cache invalidation, and the Qt-free geometry helpers
   (`reprojected_footprint_geometry`, `compute_union_overlaps`,
   `visible_scene_footprints_in_common_crs`) — all pure `MosaicController`, no Qt.
+  Pending scenes: a non-georeferenced scene is `NO_CRS`-pending and excluded from the
+  grid, an all-pending mosaic yields an empty grid, and an ingested-but-incompatible
+  scene (built incrementally so the first scene auto-locks the target) is
+  `INCOMPATIBLE_CRS`-pending — asserting `is_scene_pending`, `scene_pending_reason`,
+  `has_live_scenes`, `has_pending_scenes`, and `_live_scenes`.
 - `src/tests/test_mosaic_view_transform.py` — `MosaicViewTransform` camera math:
   world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ratio
   preservation (pure `QTransform` math, no widget shown).
@@ -1075,7 +1239,10 @@ worker never logs — progress and raised exceptions are its only channels out.
   into WISER** (dataset count unchanged); plus the no-scenes guard (informs and never
   reaches the file picker).
 - `src/tests/test_mosaic_ingestion.py` — `validate_scene`, `build_overviews`,
-  `compute_footprint_wkt`, and progress-reporting behavior. `compute_stretch_bounds`
+  `compute_footprint_wkt`, and progress-reporting behavior, plus the pending-scene add
+  split: `is_dataset_georeferenced` (real geotransform + SRS vs. identity/no-SRS) and
+  `validate_scene_addable` (duplicate + band-count only; does **not** reject
+  ungeoreferenced input). `compute_stretch_bounds`
   (#675): nodata is excluded from the sampled bounds, a value gradient produces a
   meaningfully wide (not collapsed) range, an all-nodata band is omitted from the
   result rather than raising, and the no-overviews fallback (reads the full band).
@@ -1084,7 +1251,10 @@ worker never logs — progress and raised exceptions are its only channels out.
 - `src/tests/test_mosaic_crs_gui.py` — end-to-end through the real
   `MosaicPane._on_scene_ingested` path via the `WiserTestModel` harness; documents
   the auto-lock behavior described above with `mock.patch` on
-  `wiser.gui.mosaic_pane.ReprojectPromptDialog` so nothing blocks the test.
+  `wiser.gui.mosaic_pane.ReprojectPromptDialog` so nothing blocks the test. Also
+  `test_manual_choose_target_crs_incompatible_marks_pending`: choosing an incompatible
+  target CRS **commits** the choice, leaves no live scenes, marks the scenes pending, and
+  warns (rather than rejecting the change).
 - `src/tests/test_mosaic_dialog_gui.py` — dialog shell, Add Scene ingestion flow,
   progress modal; asserts the ingested `MosaicScene.stretch_bounds` is populated
   (#675).
@@ -1094,7 +1264,9 @@ worker never logs — progress and raised exceptions are its only channels out.
   swaps the corrected scene in at its original z-order slot (blocking the georeferencer
   dialog, not the mosaic window); a repeated warp **replaces** rather than stacks; the
   warp output is **not** registered as a global dataset; Cancel restores the original at
-  its slot while "Save to Mosaic" keeps the warped one.
+  its slot while "Save to Mosaic" keeps the warped one. `test_add_non_georeferenced_scene_is_pending`
+  loads a truly ungeoreferenced TIFF, adds it, and asserts it lands as a `NO_CRS`-pending
+  placeholder with the warning icon/tooltip and excluded from the grid.
 
 GUI tests use `@pytest.mark.functional`/`@pytest.mark.smoke` with the
 `WiserTestModel` harness (`src/test_utils/test_model.py`), not pytest-qt/qtbot. Run
