@@ -42,12 +42,15 @@ def save_project(
     app_state: "ApplicationState",
     dest: PathLike,
     resolver: Optional[DependencyResolver] = None,
+    self_contained: bool = False,
 ) -> Path:
     """Save the current session to ``dest``.
 
     A ``dest`` ending in ``.wiserproj`` is written as a single zip file; any
     other path is a bundle *directory*.  Without an explicit ``resolver`` every
     dataset is treated as saved (the #626 dialog supplies a user-driven one).
+    When ``self_contained`` is set, file-backed datasets are copied into the bundle
+    (rather than referenced by path) so the project is portable/shareable.
     Returns the path written.
     """
     dest = Path(dest)
@@ -57,10 +60,10 @@ def save_project(
     if dest.suffix == ProjectBundle.EXTENSION:
         with tempfile.TemporaryDirectory(prefix="wiserproj-save-") as work:
             bundle = ProjectBundle.create(work)
-            _write_bundle(app_state, bundle, resolver)
+            _write_bundle(app_state, bundle, resolver, self_contained)
             zip_bundle(bundle, dest)
     else:
-        _write_bundle(app_state, ProjectBundle.create(dest), resolver)
+        _write_bundle(app_state, ProjectBundle.create(dest), resolver, self_contained)
     return dest
 
 
@@ -95,7 +98,12 @@ def load_project(
     return _restore(bundle, app_state)
 
 
-def _write_bundle(app_state: "ApplicationState", bundle: ProjectBundle, resolver: DependencyResolver) -> None:
+def _write_bundle(
+    app_state: "ApplicationState",
+    bundle: ProjectBundle,
+    resolver: DependencyResolver,
+    self_contained: bool = False,
+) -> None:
     # Clear any prior contents so re-saving over an existing bundle directory does
     # not leave stale sidecars the new manifest no longer references.
     bundle.clear_contents()
@@ -109,10 +117,10 @@ def _write_bundle(app_state: "ApplicationState", bundle: ProjectBundle, resolver
         for ds in app_state.get_datasets()
         if not resolver.is_saved(Dependency("dataset", ds.get_id()))
     )
-    save_datasets(app_state, manifest, bundle, excluded_ids)
+    save_datasets(app_state, manifest, bundle, excluded_ids, embed_file_backed=self_contained)
     save_user_crs(app_state, manifest)
     save_bandmath(app_state, manifest)
-    save_rois(app_state, manifest)
+    save_rois(app_state, manifest, resolver)
     save_stretches(app_state, manifest, resolver)
     save_spectra(app_state, manifest, resolver)
     save_libraries(app_state, manifest, resolver)

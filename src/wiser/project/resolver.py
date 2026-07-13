@@ -33,8 +33,8 @@ class SavePolicy(enum.Enum):
 class Dependency:
     """A reference from a saveable item to something it depends on."""
 
-    kind: str  # "dataset" | "roi"
-    id: object  # the dependency's numeric id (or None if unresolved)
+    kind: str  # "dataset" | "roi" | "run" | "library" | "crs" | "bandmath"
+    id: object  # the dependency's id/handle (or None if unresolved)
 
 
 @dataclass
@@ -49,20 +49,28 @@ class Decision:
 class DependencyResolver:
     """Classify saveable items given which roots the user is saving.
 
-    ``saved_dataset_ids`` is the set of dataset ids being written to the project
-    file -- the only roots that require a user decision.  ``saved_roi_ids`` is
-    accepted for symmetry but defaults to "all ROIs saved", since ROIs are
-    standalone ``[SOURCE]`` state with no dependencies of their own (#619); pass
-    an explicit set only once ROI selection becomes a user choice.
+    ``saved_dataset_ids`` and ``saved_roi_ids`` are the datasets and ROIs being
+    written -- the roots that dependent items cascade from.  Either defaults to
+    "all saved"; the Save dialog passes an explicit set once the user deselects
+    datasets or ROIs.  ``excluded_items`` holds ``(kind, id)`` pairs for the
+    standalone kinds that no other item depends on (a run, library, user CRS, or
+    band-math expression saved on its own); an item there is simply omitted, with
+    nothing to cascade.
     """
+
+    #: Item kinds that are saved on their own and only ever user-excluded, never
+    #: cut as someone else's dependency.
+    STANDALONE_KINDS = frozenset({"run", "library", "crs", "bandmath"})
 
     def __init__(
         self,
         saved_dataset_ids: Iterable[int],
         saved_roi_ids: Optional[Iterable[int]] = None,
+        excluded_items: Optional[Iterable[Tuple[str, object]]] = None,
     ):
         self._saved_datasets: Set[int] = set(saved_dataset_ids)
         self._saved_rois: Optional[Set[int]] = None if saved_roi_ids is None else set(saved_roi_ids)
+        self._excluded_items: Set[Tuple[str, object]] = set(excluded_items or ())
 
     def is_saved(self, dep: Dependency) -> bool:
         """Whether a single dependency will be present in the restored session."""
@@ -75,6 +83,8 @@ class DependencyResolver:
             return dep.id in self._saved_datasets
         if dep.kind == "roi":
             return self._saved_rois is None or dep.id in self._saved_rois
+        if dep.kind in self.STANDALONE_KINDS:
+            return (dep.kind, dep.id) not in self._excluded_items
         raise ValueError(f"unknown dependency kind: {dep.kind!r}")
 
     def classify(self, dependencies: Iterable[Dependency], *, snapshotable: bool) -> Decision:

@@ -15,7 +15,7 @@ dataset is cut.  Run records always save (they are self-contained), and library
 members are self-contained numpy, so neither appears in the cascade.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 from wiser.raster.spectrum import ROIAverageSpectrum
 
@@ -41,12 +41,25 @@ def savable_dataset_roots(app_state: "ApplicationState") -> Tuple[List[Any], Lis
 
 
 def resolver_for_selection(
-    app_state: "ApplicationState", excluded_dataset_ids: Iterable[int]
+    app_state: "ApplicationState",
+    excluded_dataset_ids: Iterable[int],
+    excluded_roi_ids: Optional[Iterable[int]] = None,
+    excluded_items: Optional[Iterable[Tuple[str, object]]] = None,
 ) -> DependencyResolver:
-    """Build a resolver treating every dataset as saved except the excluded ids."""
-    excluded = set(excluded_dataset_ids)
-    saved = {ds.get_id() for ds in app_state.get_datasets() if ds.get_id() not in excluded}
-    return DependencyResolver(saved)
+    """Build a resolver treating everything as saved except the excluded ids.
+
+    ``excluded_dataset_ids`` / ``excluded_roi_ids`` are the datasets/ROIs the user
+    deselected -- their dependents cascade to snapshots or drops.  ``excluded_items``
+    is the ``(kind, id)`` set of deselected standalone items (runs, libraries, user
+    CRSs, band-math expressions), which simply omit with nothing to cascade.
+    """
+    excluded_ds = set(excluded_dataset_ids)
+    saved_ds = {ds.get_id() for ds in app_state.get_datasets() if ds.get_id() not in excluded_ds}
+    saved_rois: Optional[set] = None
+    if excluded_roi_ids:
+        excluded_r = set(excluded_roi_ids)
+        saved_rois = {roi.get_id() for roi in app_state.get_rois() if roi.get_id() not in excluded_r}
+    return DependencyResolver(saved_ds, saved_roi_ids=saved_rois, excluded_items=excluded_items)
 
 
 def save_plan(app_state: "ApplicationState", resolver: DependencyResolver) -> List[Dict[str, Any]]:

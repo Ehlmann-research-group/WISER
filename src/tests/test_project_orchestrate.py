@@ -8,6 +8,7 @@ destination's prior state first.
 """
 
 import datetime
+import shutil
 
 import numpy as np
 
@@ -186,6 +187,25 @@ def _data(dataset):
     return np.asarray(dataset.get_image_data(filter_data_ignore_value=False))
 
 
+def _file_backed_dataset(app, src_dir, name):
+    """Materialize an ENVI file on disk under ``src_dir`` and open it file-backed.
+
+    Unlike the in-memory ``dataset_from_numpy_array`` cubes the other tests use, a
+    file-backed dataset is normally *referenced* by path -- so deleting ``src_dir``
+    after a save is what distinguishes an embedded (self-contained) save from a
+    referenced one.
+    """
+    src_dir.mkdir(parents=True, exist_ok=True)
+    loader = app.get_loader()
+    mem = loader.dataset_from_numpy_array(_sample_array(), None)
+    ext_path = src_dir / f"{name}.img"
+    loader.save_dataset_as(mem, str(ext_path), format="ENVI", config=None)
+    ds = loader.load_from_file(str(ext_path), data_cache=None, interactive=False)[0]
+    ds.set_name(name)
+    app.add_dataset(ds)
+    return ds
+
+
 def _populated_session():
     app = _FakeAppState()
 
@@ -314,6 +334,77 @@ def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
     restored_roi = dst.get_roi(id=roi.get_id())
     assert restored_roi is not None
     assert restored_roi.get_id() == roi.get_id()
+
+
+def test_self_contained_save_embeds_file_backed_dataset(tmp_path):
+    # A self-contained save copies file-backed pixels into the bundle, so the project
+    # reopens intact even after the original source files are gone -- the shareable case.
+    src = _FakeAppState()
+    src_dir = tmp_path / "sources"
+    ds = _file_backed_dataset(src, src_dir, "scene")
+    ds.set_data_ignore_value(-9999.0)
+
+    proj = tmp_path / "portable.wiserproj"
+    save_project(src, proj, self_contained=True)
+
+    shutil.rmtree(src_dir)  # the original data is gone
+
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []  # embedded, so not dropped
+    (restored,) = dst.get_datasets()
+    assert restored.get_id() == ds.get_id()
+    assert restored.get_data_ignore_value() == -9999.0  # metadata snapshot survived
+    np.testing.assert_array_equal(_data(restored), _sample_array())
+
+
+def test_referenced_save_drops_a_deleted_source(tmp_path):
+    # The default (referenced) save records file-backed data by path and does not copy
+    # it, so a source gone at open time is dropped and reported -- the contrast that
+    # motivates the self-contained option above.
+    src = _FakeAppState()
+    src_dir = tmp_path / "sources"
+    ds = _file_backed_dataset(src, src_dir, "scene")
+
+    proj = tmp_path / "referenced.wiserproj"
+    save_project(src, proj)  # default: self_contained=False
+
+    shutil.rmtree(src_dir)
+
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == [ds.get_id()]  # referenced source gone -> dropped
+    assert dst.get_datasets() == []
+
+
+def test_excluding_an_roi_omits_it_and_snapshots_its_average(tmp_path):
+    # Excluding an ROI omits it AND cascades: its ROI-average spectrum, which depends
+    # on the now-cut ROI, freezes to a self-contained snapshot instead of dropping.
+    # The canonical standalone-item exclusion path (ROI via the resolver's saved set).
+    from wiser.project.save_plan import resolver_for_selection
+    from wiser.raster.spectrum import NumPyArraySpectrum, ROIAverageSpectrum
+
+    src = _FakeAppState()
+    ds = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    ds.set_name("cube")
+    src.add_dataset(ds)
+    roi = RegionOfInterest(name="rim", color="red")
+    roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(2, 2)))
+    src.add_roi(roi)
+    src.collect_spectrum(ROIAverageSpectrum(ds, roi))
+
+    resolver = resolver_for_selection(src, excluded_dataset_ids=[], excluded_roi_ids=[roi.get_id()])
+    save_project(src, tmp_path / "sess", resolver=resolver)
+
+    dst = _FakeAppState()
+    report = load_project(tmp_path / "sess", dst)
+    assert report["rois"] == []
+    assert dst.get_rois() == []  # the excluded ROI is omitted
+
+    # Its ROI-average froze to a self-contained snapshot rather than dropping.
+    (spec,) = dst.get_collected_spectra()
+    assert isinstance(spec, NumPyArraySpectrum)
+    assert not isinstance(spec, ROIAverageSpectrum)
 
 
 def test_restore_contains_a_failing_persister(tmp_path, monkeypatch):
