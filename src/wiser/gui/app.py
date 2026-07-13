@@ -37,7 +37,7 @@ from wiser.raster.spectrum import (
     SpectrumAtPoint,
     SpectrumAverageMode,
 )
-from wiser.utils.primitives import ExternalRasterHandle, PriorityClass
+from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
 from wiser.utils.task_system import SemanticTask
 from . import bug_reporting
@@ -56,6 +56,7 @@ from .import_spectra_text import ImportSpectraTextDialog
 from .infoview import DatasetInfoView
 from .main_view import MainViewWidget
 from .pixel_value_widget import PixelValueWidget
+from .progress_task import run_with_progress
 from .rasterpane import RecenterMode
 from .reference_creator_dialog import ReferenceCreatorDialog
 from .mosaic_dialog import SeamlessMosaicDialog
@@ -403,7 +404,7 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr("Similarity Transform"))
         act.triggered.connect(self.show_similarity_transform_dialog)
 
-        act = self._tools_menu.addAction(self.tr("Seamless Mosaic"))
+        act = self._tools_menu.addAction(self.tr("Mosaic"))
         act.triggered.connect(self.show_seamless_mosaic_dialog)
 
         # Help menu
@@ -571,22 +572,29 @@ class DataVisualizerApp(QMainWindow):
         """
         We use the dataset helper to consolidate the actual saving functionality
         into one function. This way we can more easily test the saving functionality.
+
+        The save runs on a worker thread via ``run_with_progress`` so it can report
+        fine-grained per-band progress (and be cancelled) through both a progress
+        dialog and the Activity Monitor.
         """
-        dataset_ref = self._app_services.storage_service.register_external(
-            ExternalRasterHandle(dataset_obj=dataset)
-        )
-        save_task = SaveDatasetSemanticTask(
-            app_state=self._app_state,
-            dataset=dataset,
-            input_ref=dataset_ref,
-            path=path,
-            format=format,
-            config=config,
-        )
-        task_plan = self._app_services.task_planner.plan_semantic_task(save_task)
-        return self._app_services.task_manager.register_and_submit_task_plan(
-            self._app_services.scheduler,
-            task_plan,
+        dataset_id = dataset.get_id()
+
+        def _do_save(progress):
+            self._app_state.get_loader().save_dataset_as(dataset, path, format, config, progress=progress)
+
+        def _on_ok(_result):
+            # Mark the dataset clean now that its contents are safely on disk.
+            if dataset_id is not None and self._app_state.has_dataset(dataset_id):
+                self._app_state.get_dataset(dataset_id).set_dirty(False)
+
+        return run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Saving dataset"),
+            _do_save,
+            on_success=_on_ok,
+            on_error=lambda msg: logger.error("Save dataset failed: %s", msg),
+            meta={"Dataset": dataset.get_name(), "Path": path},
         )
 
     def _on_close_dataset(self, ds_id: int):
@@ -1054,7 +1062,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:
-            self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
+            self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._app_services, parent=self)
         # Note the best solution to the inability to properly close QDialogs
         # in our tests, but for now it gets the job done
         if not in_test_mode:
@@ -1073,17 +1081,43 @@ class DataVisualizerApp(QMainWindow):
 
     def show_similarity_transform_dialog(self, in_test_mode=False):
         if self._similarity_transform_dialog is None:
-            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
-        if not in_test_mode:
-            if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
-                pass
-        else:
-            self._similarity_transform_dialog.show()
+            self._similarity_transform_dialog = SimilarityTransformDialog(
+                self._app_state, self._app_services, parent=self
+            )
+        # Non-modal: the transform now runs off-thread with a cancelable progress modal
+        # (like the Seamless Mosaic dialog), so the dialog must stay non-modal for the
+        # progress dialog's Cancel button to remain clickable and the main window usable.
+        self._similarity_transform_dialog.show()
+        self._similarity_transform_dialog.raise_()
+        self._similarity_transform_dialog.activateWindow()
+
+    def get_current_display_bands(self, dataset: RasterDataSet) -> Optional[Tuple[int, ...]]:
+        """
+        Return the display bands currently selected for ``dataset`` in the main view,
+        or ``None`` if the dataset is not currently shown there.
+
+        This is the live per-dataset band selection the user sees in the main view
+        (kept in ``RasterPane._display_bands``, mutated by the band chooser). The
+        Seamless Mosaic uses it -- in preference to the dataset's stored defaults --
+        to decide which bands to bake into a scene's display-only preview (#677),
+        honoring a user's band-chooser choice rather than silently reverting to
+        defaults. ``None`` means "never shown in the main view", in which case the
+        mosaic falls back to ``find_display_bands(dataset)``.
+
+        Exposed as a narrow public accessor so the mosaic depends on this surface
+        rather than reaching into the main view's ``RasterPane`` internals.
+        """
+        if dataset is None:
+            return None
+        return self._main_view.get_display_bands().get(dataset.get_id())
 
     def show_seamless_mosaic_dialog(self, in_test_mode=False):
         if self._seamless_mosaic_dialog is None:
             self._seamless_mosaic_dialog = SeamlessMosaicDialog(
-                self._app_state, self._app_services, parent=self
+                self._app_state,
+                self._app_services,
+                display_bands_resolver=self.get_current_display_bands,
+                parent=self,
             )
         # Non-modal: the mosaic is a long-lived, multi-step workflow (add scenes,
         # reorder, export), so it stays open alongside the main window.

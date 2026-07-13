@@ -8,7 +8,6 @@ from PySide6.QtWidgets import *
 from .generated.geo_referencer_dialog_ui import Ui_GeoReferencerDialog
 
 from wiser.gui.app_state import ApplicationState
-from wiser.gui.rasterpane import RasterPane
 from wiser.gui.geo_reference_pane import GeoReferencerPane
 from wiser.gui.geo_reference_task_delegate import (
     GeoReferencerTaskDelegate,
@@ -26,32 +25,35 @@ from wiser.gui.util import (
 )
 
 from wiser.raster.dataset import RasterDataSet
-from wiser.raster.dataset_impl import GDALRasterDataImpl
-from wiser.raster.utils import (
-    copy_metadata_to_gdal_dataset,
-    numpy_dtype_to_gdal_export_types,
-    set_data_ignore_of_gdal_dataset,
+from wiser.raster.crs_model import (
+    AVAILABLE_AUTHORITIES,
+    GeneralCRS,
+    AuthorityCodeCRS,
+    UserGeneratedCRS,
+    WktGeneratedCRS,
+    COMMON_SRS,
+)
+from wiser.raster import gcp_io
+from wiser.raster.georef_warp import (
+    RESAMPLE_ALGORITHMS,
+    TRANSFORM_TYPES,
+    min_points_per_transform,
+    build_warp_kwargs,
+    compute_residuals,
+    warp_dataset_to_path,
 )
 
-from wiser.bandmath.utils import write_raster_to_dataset
+from wiser.gui.progress_task import run_with_progress
+from wiser.gui.geo_reference_config import GeoReferencerConfig
+from wiser.utils.primitives import PriorityClass
 
-from enum import IntEnum, Enum
+from enum import IntEnum
 
-from osgeo import gdal, osr, gdal_array
+from osgeo import gdal, osr
 
-import numpy as np
-
-from abc import ABC
-
-import csv
 from pathlib import Path
 
 from pyproj import CRS
-from pyproj.database import get_authorities
-
-from wiser.bandmath.builtins.constants import MAX_RAM_BYTES
-
-AVAILABLE_AUTHORITIES = get_authorities()
 
 
 class COLUMN_ID(IntEnum):
@@ -67,97 +69,15 @@ class COLUMN_ID(IntEnum):
     REMOVAL_COL = 9
 
 
-RESAMPLE_ALGORITHMS = {name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")}
+# RESAMPLE_ALGORITHMS, TRANSFORM_TYPES, and min_points_per_transform now live in
+# wiser.raster.georef_warp alongside the Qt-free warp engine; they are imported at the top
+# of this module and re-exported here for backwards compatibility.
 
 
-class TRANSFORM_TYPES(Enum):
-    POLY_1 = "Affine (Polynomial 1)"
-    POLY_2 = "Polynomial 2"
-    POLY_3 = "Polynomial 3"
-    TPS = "Thin Plate Spline (TPS)"
-
-
-min_points_per_transform = {
-    TRANSFORM_TYPES.POLY_1: 3,
-    TRANSFORM_TYPES.POLY_2: 6,
-    TRANSFORM_TYPES.POLY_3: 10,
-    TRANSFORM_TYPES.TPS: 10,
-}
-
-
-class GeneralCRS(ABC):
-    """
-    The base class representing a generic coordinate reference system
-    """
-
-    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
-        """
-        Gets a osr.SpatialReference object for this class
-        """
-        raise NotImplementedError("Function has not yet been implemented.")
-
-    def __eq__(self, other: "GeneralCRS"):
-        return self.get_osr_crs().ExportToWkt() == other.get_osr_crs().ExportToWkt()
-
-
-class AuthorityCodeCRS(GeneralCRS):
-    """
-    This class represents a coordinate reference system that is made
-    from just the autority name and the authority code.
-    """
-
-    def __init__(self, authority_name: str, authority_code: int):
-        self.authority_name = authority_name
-        self.authority_code = authority_code
-
-    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
-        # Build the AUTH:CODE string
-        auth_code_str = f"{self.authority_name}:{self.authority_code}"
-
-        # Create and populate the SpatialReference
-        srs = osr.SpatialReference()
-        err = srs.SetFromUserInput(auth_code_str)
-        if err != 0:
-            raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
-
-        return srs
-
-
-class UserGeneratedCRS(GeneralCRS):
-    """
-    This class represents a CRS that the user made in the
-    reference_creator_dialog
-    """
-
-    def __init__(self, name: str, crs: osr.SpatialReference):
-        self._name = name
-        self._crs = crs
-
-    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
-        return self._crs
-
-
-class WktGeneratedCRS(GeneralCRS):
-    """
-    A coordinate reference system generated from a wkt string
-    """
-
-    def __init__(self, name: str, wkt: str):
-        self._name = name
-        self._wkt = wkt
-        crs = osr.SpatialReference()
-        crs.ImportFromWkt(wkt)
-        self._crs = crs
-
-    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
-        return self._crs
-
-
-COMMON_SRS = {
-    "WGS84 EPSG:4326": AuthorityCodeCRS("EPSG", 4326),
-    "Web Mercator EPSG:3857": AuthorityCodeCRS("EPSG", 3857),
-    "NAD83 / UTM zone 15N EPSG:26915": AuthorityCodeCRS("EPSG", 26915),
-}
+# The CRS model (GeneralCRS and subclasses, COMMON_SRS, AVAILABLE_AUTHORITIES) now lives
+# in wiser.raster.crs_model so it can be shared Qt-free with the mosaic CRS chooser. It is
+# imported at the top of this module and re-exported here for backwards compatibility with
+# existing callers that import these names from geo_reference_dialog.
 
 
 class GeoRefTableEntry:
@@ -265,10 +185,21 @@ class GeoReferencerDialog(QDialog):
 
     gcp_add_attempt = Signal(GroundControlPoint)
 
-    def __init__(self, app_state: ApplicationState, main_view: RasterPane, parent=None):
+    # Emitted with the written output path once a "Run Warp" finishes on its worker thread.
+    warp_completed = Signal(str)
+
+    # Internal: carries a completed residual computation (payload includes an in-flight
+    # token) back to the GUI thread from the scheduler worker. Connected queued so the
+    # table update always runs on the GUI thread.
+    _residuals_ready = Signal(object)
+
+    # Debounce window (ms) for coalescing a burst of GCP edits into one residual recompute.
+    _RESIDUAL_DEBOUNCE_MS = 150
+
+    def __init__(self, app_state: ApplicationState, app_services, parent=None):
         super().__init__(parent=parent)
         self._app_state = app_state
-        self._main_view = main_view
+        self._app_services = app_services
 
         # Set up the UI state
         self._ui = Ui_GeoReferencerDialog()
@@ -305,11 +236,33 @@ class GeoReferencerDialog(QDialog):
         self._manual_entry_spacer = None
         self._manual_entry_shown = False
 
-        self._first_init()
+        # Chooser lock flags (set from a GeoReferencerConfig). When locked, the matching
+        # chooser is caller-owned and the interactive prompts/validation are suppressed.
+        self._target_locked = False
+        self._reference_locked = False
+        self._save_path_locked = False
+
+        # Remembers the accept button's original label so a config-supplied
+        # accept_button_text can be reverted on the next (config-less) open.
+        self._default_accept_button_text: Optional[str] = None
 
         self._warp_kwargs: Dict = None
         self._transform_options: List[str] = None
         self._suppress_cell_changed: bool = False
+
+        # Off-thread + debounced residual recompute. A burst of GCP edits coalesces into a
+        # single background compute_residuals() once edits settle for _RESIDUAL_DEBOUNCE_MS.
+        # _residual_signature is the token of the in-flight compute; a superseded result is
+        # dropped so a stale computation can never clobber newer residuals. Created before
+        # _first_init() because chooser wiring can trigger a residual recompute immediately.
+        self._residual_signature: int = 0
+        self._residual_debounce_timer = QTimer(self)
+        self._residual_debounce_timer.setSingleShot(True)
+        self._residual_debounce_timer.setInterval(self._RESIDUAL_DEBOUNCE_MS)
+        self._residual_debounce_timer.timeout.connect(self._recompute_residuals_async)
+        self._residuals_ready.connect(self._apply_residuals)
+
+        self._first_init()
 
         self._prev_chosen_ref_crs_index: int = 0
 
@@ -319,12 +272,12 @@ class GeoReferencerDialog(QDialog):
         self._prev_ref_dataset_index: int = None
         self._prev_target_dataset_index: int = None
 
-    def exec_(self):
-        self._refresh_init()
+    def exec_(self, config: Optional[GeoReferencerConfig] = None):
+        self._apply_config(config)
         super().exec_()
 
-    def show(self):
-        self._refresh_init()
+    def show(self, config: Optional[GeoReferencerConfig] = None):
+        self._apply_config(config)
         super().show()
 
     # region Initialization
@@ -346,10 +299,63 @@ class GeoReferencerDialog(QDialog):
         self._init_help_button()
         self._init_gcp_io_buttons()
 
-    def _refresh_init(self):
+    def _apply_config(self, config: Optional[GeoReferencerConfig] = None):
+        """
+        Reset the dialog to its baseline, then apply a :class:`GeoReferencerConfig`.
+
+        ``config=None`` reproduces the classic Tools-menu behavior exactly: repopulate the
+        choosers and clear any locks / custom accept-button text left over from a prior
+        (config-driven) open of this reused dialog.
+        """
+        # Baseline: repopulate choosers and clear prior locks / accept-button label.
         self._update_dataset_choosers()
         self._update_ref_crs_cbox_items()
         self._update_output_srs_cbox_items()
+        self._set_target_locked(False)
+        self._set_reference_locked(False)
+        self._set_save_path_locked(False)
+        self._restore_default_accept_button_text()
+
+        if config is None:
+            return
+
+        # Presets are applied before locks so the setters (and the manual-ref chooser) can
+        # still act while the reference is momentarily unlocked.
+        if config.target_dataset is not None:
+            self.set_target_dataset(config.target_dataset)
+        if config.reference_dataset is not None:
+            self.set_reference_dataset(config.reference_dataset)
+        elif config.reference_crs is not None:
+            self.set_reference_crs(config.reference_crs)
+        if config.save_path is not None:
+            self.set_save_path(config.save_path)
+
+        if config.accept_button_text is not None:
+            self._set_accept_button_text(config.accept_button_text)
+
+        self._set_target_locked(not config.allow_change_target)
+        self._set_reference_locked(not config.allow_change_reference)
+        self._set_save_path_locked(not config.allow_change_save_path)
+
+        # Now that presets are in place, refresh the residual columns.
+        self._schedule_residual_recompute()
+
+    def _set_accept_button_text(self, text: str):
+        """Relabel the accept (OK) button, remembering the original text for restore."""
+        btn = self._ui.buttonBox.button(QDialogButtonBox.Ok)
+        if btn is None:
+            return
+        if self._default_accept_button_text is None:
+            self._default_accept_button_text = btn.text()
+        btn.setText(text)
+
+    def _restore_default_accept_button_text(self):
+        """Revert the accept button to its original label (if it was changed)."""
+        if self._default_accept_button_text is None:
+            return
+        btn = self._ui.buttonBox.button(QDialogButtonBox.Ok)
+        if btn is not None:
+            btn.setText(self._default_accept_button_text)
 
     def _init_gcp_io_buttons(self):
         self._ui.btn_save_gcps.clicked.connect(self._on_save_gcps_clicked)
@@ -427,6 +433,10 @@ class GeoReferencerDialog(QDialog):
         Shows the manual reference chooser UI if there is no dataset passed in. Shows
         the reference dataset if there is a dataset passed in.
         """
+        # When the reference is locked (caller-owned), suppress toggling the manual chooser
+        # so the reference display cannot be changed out from under the caller.
+        if self._reference_locked:
+            return
         if self._manual_entry_spacer is None:
             self._manual_entry_spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         self._manual_entry_shown = show_manual_chooser
@@ -696,18 +706,32 @@ class GeoReferencerDialog(QDialog):
             if wkt_auth is not None:
                 auth_name, auth_code = wkt_auth
 
+        rows = self._get_gcp_rows()
         ext = Path(filename).suffix.lower()
         try:
             if ext == ".points":
-                self._write_qgis_points_file(filename, auth_name, auth_code, wkt_str)
+                gcp_io.write_qgis_points(filename, rows, auth_name, auth_code, wkt_str)
             elif ext == ".pts":
-                self._write_envi_pts_file(filename, auth_name, auth_code, wkt_str)
+                gcp_io.write_envi_pts(filename, rows, auth_name, auth_code, wkt_str)
             else:
                 QMessageBox.warning(self, "Extension error", "Please use either *.points or *.pts")
                 return
             self.set_message_text(f"GCPs saved to {filename}")
         except Exception as e:
             QMessageBox.critical(self, "Save failed", str(e))
+
+    def _get_gcp_rows(self) -> List[Tuple[float, float, float, float, bool]]:
+        """
+        Flatten the current table entries into ``(map_x, map_y, pixel_x, pixel_y,
+        enabled)`` rows for the Qt-free GCP writers in :mod:`wiser.raster.gcp_io`.
+        """
+        rows = []
+        for entry in self._table_entry_list:
+            pair = entry.get_gcp_pair()
+            map_x, map_y = pair.get_reference_gcp_spatial_coord()
+            pix_x, pix_y = pair.get_target_gcp().get_point()
+            rows.append((map_x, map_y, pix_x, pix_y, entry.is_enabled()))
+        return rows
 
     def _on_load_gcps_clicked(self, checked: bool):
         filename, _ = QFileDialog.getOpenFileName(
@@ -719,7 +743,7 @@ class GeoReferencerDialog(QDialog):
             return
 
         try:
-            points, gcp_srs = self._read_gcp_file(filename)
+            points, gcp_srs = gcp_io.read_gcp_file(filename)
             if points is None or gcp_srs is None:
                 raise RuntimeError(
                     "Passed-in reference system can't be parsed. Reference system WKT:\n"
@@ -813,7 +837,7 @@ class GeoReferencerDialog(QDialog):
             target_gcp = list_entry.get_gcp_pair().get_target_gcp()
             curr_point = target_gcp.get_point()
             target_gcp.set_point([new_target_x, curr_point[1]])
-            self._georeference()
+            self._schedule_residual_recompute()
         elif col == COLUMN_ID.TARGET_Y_COL:
             item = table_widget.item(row, col)
             new_val = item.text()
@@ -822,7 +846,7 @@ class GeoReferencerDialog(QDialog):
             target_gcp = list_entry.get_gcp_pair().get_target_gcp()
             curr_point = target_gcp.get_point()
             target_gcp.set_point([curr_point[0], new_target_y])
-            self._georeference()
+            self._schedule_residual_recompute()
         elif col == COLUMN_ID.REF_X_COL:
             item = table_widget.item(row, col)
             new_val = item.text()
@@ -831,7 +855,7 @@ class GeoReferencerDialog(QDialog):
             gcp_pair = list_entry.get_gcp_pair()
             ref_gcp = gcp_pair.get_reference_gcp()
             ref_gcp.set_spatial_point((new_ref_spatial_x, gcp_pair.get_reference_gcp_spatial_coord()[1]))
-            self._georeference()
+            self._schedule_residual_recompute()
         elif col == COLUMN_ID.REF_Y_COL:
             item = table_widget.item(row, col)
             new_val = item.text()
@@ -840,7 +864,7 @@ class GeoReferencerDialog(QDialog):
             gcp_pair = list_entry.get_gcp_pair()
             ref_gcp = gcp_pair.get_reference_gcp()
             ref_gcp.set_spatial_point((gcp_pair.get_reference_gcp_spatial_coord()[0], new_ref_spatial_y))
-            self._georeference()
+            self._schedule_residual_recompute()
         else:
             return
         self._update_panes()
@@ -849,6 +873,10 @@ class GeoReferencerDialog(QDialog):
         """
         A handler for when the file-chooser for the "save-filename" is shown.
         """
+        # A locked save path is caller-owned: do not let the user re-choose it, and skip the
+        # save-path-vs-dataset-path validation below (which assumes a user-chosen path).
+        if self._save_path_locked:
+            return
         file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
@@ -888,12 +916,12 @@ class GeoReferencerDialog(QDialog):
                 )
                 return
             self._ui.ledit_save_path.setText(filename)
-            self._georeference()
+            self._schedule_residual_recompute()
 
     def _on_switch_output_srs(self, index: int):
         # We don't record the output srs because we get this
         # directly from the combo box.
-        self._georeference()
+        self._schedule_residual_recompute()
 
     def _on_switch_chosen_ref_srs(self, index: int):
         if self._prev_chosen_ref_crs_index != index:
@@ -915,7 +943,7 @@ class GeoReferencerDialog(QDialog):
     def _on_switch_transform_type(self, index: int):
         transform_type = self._ui.cbox_poly_order.itemData(index)
         self._curr_transform_type = transform_type
-        self._georeference()
+        self._schedule_residual_recompute()
 
     def _on_choose_default_color(self):
         """
@@ -961,7 +989,7 @@ class GeoReferencerDialog(QDialog):
         row_to_add = table_entry.get_id()
         self._set_row_enabled_state(row_to_add, checked)
         self._update_panes()
-        self._georeference()
+        self._schedule_residual_recompute()
 
     def _on_gcp_pair_added(self, gcp_pair: GroundControlPointPair):
         # Create new table entry
@@ -976,99 +1004,176 @@ class GeoReferencerDialog(QDialog):
         # geo referencer task delegate point list
         self._add_entry_to_table(table_entry)
         self._clear_manual_ref_ledits()
-        self._georeference()
+        self._schedule_residual_recompute()
 
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
         """
         Removes an row from the table
         """
         self._remove_table_entry(table_entry)
-        self._georeference()
+        self._schedule_residual_recompute()
 
     def _on_switch_target_dataset(self, index: int):
+        """
+        User-initiated target chooser slot: run the guard + confirm-discard prompts, then
+        funnel through :meth:`set_target_dataset` (the shared, prompt-free apply path).
+        """
         ds_id = self._target_cbox.itemData(index)
-        dataset = None
         try:
-            # Check if the file save path already there matches this
-            current_save_path = self._get_current_save_path()
             dataset = self._app_state.get_dataset(ds_id)
-            if dataset is not None:
-                if current_save_path in dataset.get_filepaths():
-                    QMessageBox.information(
-                        self,
-                        self.tr("Target Dataset Path Equals Save Path"),
-                        self.tr(
-                            "The target dataset path equals the save path.\n"
-                            "Change the save path before selecting this target dataset."
-                        ),
-                    )
-                    self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
-                    return
-            # Check if there are already GCPs
-            if len(self._table_entry_list) > 0 and self._prev_target_dataset_index != index:
-                confirm = QMessageBox.question(
-                    self,
-                    self.tr("Change Target Dataset?"),
-                    self.tr("Are you sure you want to change the target dataset?")
-                    + "\n\nThis will discard all selected GCPs. Do you want\n"
-                    "to continue?",
-                )
-                if confirm == QMessageBox.Yes:
-                    self._reset_gcps()
-                else:
-                    self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
-                    return
-        except:
-            pass
+        except Exception as e:
+            self.set_message_text(f"Could not load target dataset: {e}")
+            self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
+            return
+
+        # The target's file must not equal the save path.
+        current_save_path = self._get_current_save_path()
+        if dataset is not None and current_save_path in dataset.get_filepaths():
+            QMessageBox.information(
+                self,
+                self.tr("Target Dataset Path Equals Save Path"),
+                self.tr(
+                    "The target dataset path equals the save path.\n"
+                    "Change the save path before selecting this target dataset."
+                ),
+            )
+            self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
+            return
+
+        # Changing the target discards existing GCPs; confirm first.
+        if len(self._table_entry_list) > 0 and self._prev_target_dataset_index != index:
+            confirm = QMessageBox.question(
+                self,
+                self.tr("Change Target Dataset?"),
+                self.tr("Are you sure you want to change the target dataset?")
+                + "\n\nThis will discard all selected GCPs. Do you want\n"
+                "to continue?",
+            )
+            if confirm == QMessageBox.Yes:
+                self._reset_gcps()
+            else:
+                self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
+                return
+
+        self.set_target_dataset(dataset)
+
+    def set_target_dataset(self, dataset: Optional[RasterDataSet]):
+        """
+        Show ``dataset`` in the target pane without any user prompts (programmatic path,
+        shared by the chooser slot). Syncs the chooser to match.
+        """
+        self._select_dataset_in_combo(self._target_cbox, dataset)
         self._target_rasterpane.show_dataset(dataset)
         self._prev_target_dataset_index = self._target_cbox.currentIndex()
 
+    def _select_dataset_in_combo(self, combo: QComboBox, dataset: Optional[RasterDataSet]):
+        """Point ``combo`` at ``dataset`` (or the "(no data)" -1 entry when None)."""
+        ds_id = dataset.get_id() if dataset is not None else -1
+        idx = combo.findData(ds_id)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+
     def _on_switch_reference_dataset(self, index: int):
+        """
+        User-initiated reference chooser slot: run the guard + confirm-discard prompts, then
+        funnel through :meth:`set_reference_dataset` (the shared, prompt-free apply path).
+        """
         ds_id = self._reference_cbox.itemData(index)
-        dataset = None
         try:
-            # Check if the file save path already there matches this
-            current_save_path = self._get_current_save_path()
             dataset = self._app_state.get_dataset(ds_id)
-            if dataset is not None:
-                if current_save_path in dataset.get_filepaths():
-                    QMessageBox.information(
-                        self,
-                        self.tr("Reference Dataset Path Equals Save Path"),
-                        self.tr(
-                            "The reference dataset path equals the save path.\n"
-                            "Change the save path before selecting this reference dataset."
-                        ),
-                    )
-                    self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
-                    return
-            if len(self._table_entry_list) > 0 and self._prev_ref_dataset_index != index:
-                confirm = QMessageBox.question(
-                    self,
-                    self.tr("Change Reference Dataset?"),
-                    self.tr("Are you sure you want to change the reference dataset?")
-                    + "\n\nThis will discard all selected GCPs. Do you want\n"
-                    "to continue?",
-                )
-                if confirm == QMessageBox.Yes:
-                    self._reset_gcps()
-                else:
-                    self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
-                    return
-            if not dataset.has_geographic_info():
-                QMessageBox.warning(
-                    self,
-                    self.tr("Unreferenced Dataset"),
-                    self.tr("You must choose a dataset with a spatial reference system"),
-                )
+        except Exception as e:
+            self.set_message_text(f"Could not load reference dataset: {e}")
+            self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
+            return
+
+        # The reference's file must not equal the save path.
+        current_save_path = self._get_current_save_path()
+        if dataset is not None and current_save_path in dataset.get_filepaths():
+            QMessageBox.information(
+                self,
+                self.tr("Reference Dataset Path Equals Save Path"),
+                self.tr(
+                    "The reference dataset path equals the save path.\n"
+                    "Change the save path before selecting this reference dataset."
+                ),
+            )
+            self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
+            return
+
+        # Changing the reference discards existing GCPs; confirm first.
+        if len(self._table_entry_list) > 0 and self._prev_ref_dataset_index != index:
+            confirm = QMessageBox.question(
+                self,
+                self.tr("Change Reference Dataset?"),
+                self.tr("Are you sure you want to change the reference dataset?")
+                + "\n\nThis will discard all selected GCPs. Do you want\n"
+                "to continue?",
+            )
+            if confirm == QMessageBox.Yes:
+                self._reset_gcps()
+            else:
                 self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                 return
-        except:
-            pass
+
+        # A real reference dataset must carry a spatial reference; guard against None so we
+        # do not call has_geographic_info() on the "(no data)" selection.
+        if dataset is not None and not dataset.has_geographic_info():
+            QMessageBox.warning(
+                self,
+                self.tr("Unreferenced Dataset"),
+                self.tr("You must choose a dataset with a spatial reference system"),
+            )
+            self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
+            return
+
+        self.set_reference_dataset(dataset)
+
+    def set_reference_dataset(self, dataset: Optional[RasterDataSet]):
+        """
+        Show ``dataset`` in the reference pane without any user prompts (programmatic path,
+        shared by the chooser slot). Syncs the chooser to match.
+        """
+        self._select_dataset_in_combo(self._reference_cbox, dataset)
         self._reference_rasterpane.show_dataset(dataset)
         self._update_output_srs_cbox_items()
         self._show_manual_ref_chooser_display(False)
         self._prev_ref_dataset_index = self._reference_cbox.currentIndex()
+
+    def set_reference_crs(self, crs: Optional[GeneralCRS]):
+        """
+        Use a manual reference CRS (no reference dataset): show the manual chooser and
+        select ``crs`` in it. Used to preset the reference when a config supplies a CRS
+        instead of a reference dataset.
+        """
+        if crs is None:
+            return
+        self._select_dataset_in_combo(self._reference_cbox, None)
+        self._show_manual_ref_chooser_display(True)
+        srs = crs.get_osr_crs()
+        name = srs.GetName() if srs is not None else "Reference CRS"
+        self._add_srs_to_ref_choose_cbox(name, crs)
+
+    def set_save_path(self, path: Optional[str]):
+        """Preset the output save path (programmatic path)."""
+        if path is None:
+            return
+        self._ui.ledit_save_path.setText(path)
+
+    def _set_target_locked(self, locked: bool):
+        """Lock the target chooser (caller owns the target dataset)."""
+        self._target_locked = locked
+        self._target_cbox.setEnabled(not locked)
+
+    def _set_reference_locked(self, locked: bool):
+        """Lock the reference chooser (caller owns the reference dataset/CRS)."""
+        self._reference_locked = locked
+        self._reference_cbox.setEnabled(not locked)
+
+    def _set_save_path_locked(self, locked: bool):
+        """Lock the save path (caller owns the output path)."""
+        self._save_path_locked = locked
+        self._ui.ledit_save_path.setReadOnly(locked)
+        self._ui.btn_save_path.setEnabled(not locked)
 
     # region Helpers
 
@@ -1199,194 +1304,6 @@ class GeoReferencerDialog(QDialog):
                 info_lines.append("")  # blank line between entries
 
             QMessageBox.information(self, "Skipped GCPs", "\n".join(info_lines).rstrip())
-
-    def _read_gcp_file(self, path: str):
-        ext = Path(path).suffix.lower()
-        if ext == ".points":
-            return self._read_qgis_points_file(path)
-        elif ext == ".pts":
-            return self._read_envi_pts_file(path)
-        raise RuntimeError("Unsupported GCP file extension")
-
-    def _read_qgis_points_file(self, path: str) -> Tuple[List, GeneralCRS]:
-        """Read a QGIS ``*.points`` file.
-
-        If the header contains ``# CRS`` the routine returns an
-        :class:`AuthorityCodeCRS`; otherwise it looks for ``# WKT`` and
-        returns a :class:`WktGeneratedCRS`.
-
-        Returns
-        -------
-        points : list[tuple[float, float, float, float]]
-            ``(map_x, map_y, pixel_x, pixel_y)`` tuples.
-        gcp_srs : GeneralCRS
-            Extracted from the header
-        """
-        points = []
-        gcp_srs = None
-        pending_wkt = None
-
-        with open(path, newline="") as f:
-            rdr = csv.reader(f)
-            for row in rdr:
-                if not row:
-                    continue
-                if row[0].startswith("# CRS"):
-                    _, authcode = row[:2]
-                    auth, code = authcode.split(":")
-                    gcp_srs = AuthorityCodeCRS(auth, int(code))
-                    continue
-                if row[0].startswith("# WKT"):
-                    # WKT may contain commas, so rebuild the original line
-                    pending_wkt = ",".join(row[1:]).strip()
-                    continue
-                if row[0].startswith("mapX"):
-                    continue
-                map_x, map_y, pix_x, pix_y, *_ = map(float, row[:5])
-                points.append((map_x, map_y, pix_x, pix_y))
-
-        if gcp_srs is None and pending_wkt:
-            gcp_srs = WktGeneratedCRS("WKT", pending_wkt)
-        if gcp_srs is None:
-            raise RuntimeError("No CRS or WKT line found in .points file")
-        return points, gcp_srs
-
-    def _read_envi_pts_file(self, path: str) -> Tuple[List, GeneralCRS]:
-        """Read an ENVI ``*.pts`` file with optional embedded WKT.
-
-        The routine first tries the traditional ``; projection info`` comment
-        to extract *(authority, code)*.  If that is missing it looks for a
-        line beginning ``; wkt =`` and constructs a
-        :class:`WktGeneratedCRS`.
-
-        Returns
-        -------
-        points : list[tuple[float, float, float, float]]
-            ``(map_x, map_y, pixel_x, pixel_y)`` tuples.
-        gcp_srs : GeneralCRS
-            Extracted from the header
-        """
-        points = []
-        gcp_srs = None
-        pending_wkt = None
-        with open(path) as f:
-            for ln in f:
-                ln = ln.strip()
-                if ln.lower().startswith("; projection info"):
-                    inside = ln.split("{", 1)[-1].split("}", 1)[0]
-                    auth, code, *_ = [x.strip().split(",")[0] for x in inside.split()]
-                    gcp_srs = AuthorityCodeCRS(auth, int(code))
-                elif ln.lower().startswith("; wkt ="):
-                    pending_wkt = ln.split("=", 1)[1].strip()
-                elif ln.startswith(";") or not ln:
-                    continue
-                else:
-                    parts = list(map(float, ln.split()))
-                    if len(parts) >= 5:
-                        map_x, map_y, _elev, pix_x, pix_y = parts[:5]
-                        points.append((map_x, map_y, pix_x, pix_y))
-        if gcp_srs is None and pending_wkt:
-            gcp_srs = WktGeneratedCRS("WKT", pending_wkt)
-        if gcp_srs is None:
-            raise RuntimeError("No projection info or WKT found in .pts file")
-        return points, gcp_srs
-
-    def _write_qgis_points_file(
-        self,
-        path: str,
-        auth: Optional[str] = None,
-        code: Optional[str] = None,
-        wkt: Optional[str] = None,
-    ) -> None:
-        """Write ground-control points to a QGIS ``*.points`` file.
-
-        Parameters
-        ----------
-        path : str
-            Destination filepath (should end with ``.points``).
-        auth : str or None, optional
-            Authority name (e.g. ``"EPSG"``).  If *None*, the ``# CRS``
-            header line is **omitted**.
-        code : str or None, optional
-            Authority code (e.g. ``"4326"``).  Ignored when *auth* is
-            *None*.
-        wkt : str or None, optional
-            Well-Known Text definition of the CRS.  When provided it is
-            written on a dedicated line starting with ``# WKT``.  QGIS
-            will ignore this line, but *WISER* can parse it on load.
-
-        Notes
-        -----
-        The file layout becomes::
-
-            # CRS, EPSG:4326  ← optional
-            # WKT,<LONG_WKT> ← optional
-            mapX,mapY,pixelX,pixelY,enable
-            123.4, 45.6, 100.0, 200.0, 1
-            ...
-
-        Only ASCII commas are used as delimiters so the routine is
-        locale-independent.
-        """
-        header_rows = []
-        if auth and code:
-            header_rows.append(["# CRS", f"{auth}:{code}"])
-        if wkt:
-            header_rows.append(["# WKT", wkt])
-
-        with open(path, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(header_rows)
-            writer.writerow(["mapX", "mapY", "pixelX", "pixelY", "enable"])
-
-            for entry in self._table_entry_list:
-                pair = entry.get_gcp_pair()
-                map_x, map_y = pair.get_reference_gcp_spatial_coord()
-                pix_x, pix_y = pair.get_target_gcp().get_point()
-                writer.writerow(
-                    [
-                        map_x,
-                        map_y,
-                        pix_x,
-                        pix_y,
-                        1 if entry.is_enabled() else 0,
-                    ]
-                )
-
-    def _write_envi_pts_file(
-        self,
-        path: str,
-        auth: Optional[str] = None,
-        code: Optional[str] = None,
-        wkt: Optional[str] = None,
-    ) -> None:
-        """Write ground-control points to an ENVI ``*.pts`` file. auth and code
-        must be non-None or wkt must be non-None
-
-        Parameters
-        ----------
-        path : str
-            Destination filepath (should end with ``.pts``).
-        auth, code : str or None, optional
-            Authority name and code.  When either is *None*, the traditional
-            ``; projection info`` comment is skipped.
-        wkt : str or None, optional
-            Well-Known Text to embed after a ``; wkt = `` comment.  ENVI will
-            ignore this line; *WISER* uses it when the authority pair is
-            missing.
-        """
-        with open(path, "w") as f:
-            f.write("; ENVI Ground Control Points File\n")
-            if auth and code:
-                f.write(f"; projection info = {{{auth}, {code}, units=Degrees}}\n")
-            if wkt:
-                f.write(f"; wkt = {wkt}\n")
-            f.write("; Map (x,y,elev), Image (x,y)\n;\n")
-            for entry in self._table_entry_list:
-                pair = entry.get_gcp_pair()
-                map_x, map_y = pair.get_reference_gcp_spatial_coord()
-                pix_x, pix_y = pair.get_target_gcp().get_point()
-                f.write(f"{map_x:.10f} {map_y:.10f} 0.0 {pix_x:.3f} {pix_y:.3f}\n")
 
     def _get_current_save_path(self):
         return self._ui.ledit_save_path.text()
@@ -1830,75 +1747,77 @@ class GeoReferencerDialog(QDialog):
         else:
             raise RuntimeError("Both the dataset shown is none and the manual entry widget is None")
 
-    def _georeference(self):
+    def _snapshot_residual_inputs(self) -> Optional[dict]:
+        """
+        Gather everything :func:`compute_residuals` needs, on the GUI thread.
+
+        Returns a dict of the snapshotted inputs, or ``None`` if residuals cannot be
+        computed yet (no save path, no target, or too few points). The GDAL/OSR objects
+        captured here are plain data that can be safely handed to a worker thread.
+        """
         save_path = self._get_save_file_path()
         if save_path is None:
             self.set_message_text("Must enter a save path for geo referencing to occur!")
-            return
+            return None
 
         if self._target_rasterpane.get_rasterview().get_raster_data() is None:
-            self.set_message_text("Must select a targetr dataset for geo referencing to occur!")
-            return
+            self.set_message_text("Must select a target dataset for geo referencing to occur!")
+            return None
 
         if not self._enough_points_for_transform():
             self._set_all_residuals_NA()
-            return
+            return None
 
-        gdal.UseExceptions()
+        entries_and_gcps = self._get_entry_gcp_list()
+        entries = [entry for entry, _ in entries_and_gcps]
+        gcps = [gcp for _, gcp in entries_and_gcps]
 
-        gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
-
-        output_srs = osr.SpatialReference()
         output_srs = self._import_current_output_srs()
         output_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
         ref_srs = self._get_reference_srs()
         ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        ref_projection = ref_srs.ExportToWkt()
-        # If it doesn't have a gdal dataset, instead we create one from a smaller
-        # array just to do geo referencing
-        assert (
-            ref_projection is not None and ref_srs is not None
-        ), f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
 
-        # We need a temporary gdal dataset so we can calculate the residuals
-        # without making a massive data object
-        temp_gdal_ds = None
-        place_holder_arr = np.zeros((1, 1), np.uint8)
-        temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
-        temp_gdal_ds.SetSpatialRef(ref_srs)
-        temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+        warp_kwargs, transformer_options = build_warp_kwargs(
+            self._curr_resample_alg, self._curr_transform_type, output_srs
+        )
+        # Retain the last-built kwargs/options for any callers that still read them.
+        self._warp_kwargs = warp_kwargs
+        self._transform_options = transformer_options
 
-        # Set all of the metadata we need to
-        self._warp_kwargs = {
-            "copyMetadata": True,
-            "resampleAlg": self._curr_resample_alg,
-            "dstSRS": output_srs,
+        return {
+            "entries": entries,
+            "gcps": gcps,
+            "ref_srs": ref_srs,
+            "output_srs": output_srs,
+            "warp_kwargs": warp_kwargs,
+            "transformer_options": transformer_options,
         }
 
-        self._transform_options = [f"DST_SRS={output_srs.ExportToWkt()}"]
+    def _apply_residuals_to_entries(self, entries, residuals):
+        """Write computed residuals back onto the table entries (GUI thread)."""
+        for entry, (residual_x, residual_y) in zip(entries, residuals):
+            entry.set_residual_x(round(residual_x, 6))
+            entry.set_residual_y(round(residual_y, 6))
+            self._update_residuals(entry)
 
-        if self._curr_transform_type == TRANSFORM_TYPES.TPS:
-            self._warp_kwargs["tps"] = True
-            self._transform_options += ["METHOD=GCP_TPS", "MAX_GCP_ORDER=-1"]
-        elif self._curr_transform_type == TRANSFORM_TYPES.POLY_1:
-            self._warp_kwargs["polynomialOrder"] = 1
-            self._transform_options += ["METHOD=GCP_POLYNOMIAL", "MAX_GCP_ORDER=1"]
-        elif self._curr_transform_type == TRANSFORM_TYPES.POLY_2:
-            self._warp_kwargs["polynomialOrder"] = 2
-            self._transform_options += ["METHOD=GCP_POLYNOMIAL", "MAX_GCP_ORDER=2"]
-        elif self._curr_transform_type == TRANSFORM_TYPES.POLY_3:
-            self._warp_kwargs["polynomialOrder"] = 3
-            self._transform_options += ["METHOD=GCP_POLYNOMIAL", "MAX_GCP_ORDER=3"]
-        else:
-            raise RuntimeError(f"Unknown self._curr_transform_type: {self._curr_transform_type}")
-        self._warp_kwargs["transformerOptions"] = self._transform_options
+    def _georeference(self):
+        """
+        Synchronously recompute residuals and update the table.
 
+        Kept for tests and as the no-scheduler fallback; interactive edits go through
+        :meth:`_schedule_residual_recompute` so the GUI never blocks on a warp.
+        """
+        snapshot = self._snapshot_residual_inputs()
+        if snapshot is None:
+            return
         try:
-            # This will be used to transform the pixel coordinate to the
-            # output srs coordinate that has undergone the spatial warping
-            tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(
-                temp_gdal_ds, None, self._transform_options
+            residuals = compute_residuals(
+                snapshot["gcps"],
+                snapshot["ref_srs"],
+                snapshot["output_srs"],
+                snapshot["warp_kwargs"],
+                snapshot["transformer_options"],
             )
         except BaseException as e:
             msg = str(e)
@@ -1906,76 +1825,79 @@ class GeoReferencerDialog(QDialog):
                 msg = msg[:197] + "..."
             QMessageBox.critical(self, self.tr("Error!"), self.tr(f"Error:\n{msg}"), QMessageBox.Ok)
             return
+        self._apply_residuals_to_entries(snapshot["entries"], residuals)
 
-        try:
-            # Sneak peek into the transformed dataset's geo transform so we can use them later
-            # when calculating residuals. We don't just use the geotransform here to calculate
-            # residuals because transformed_gt goes from the warped datasets pixel coordinates
-            # to the warped dataset's spatial coordinates. Our GCPs are just in the target
-            # dataset's pixel coordinates and reference srs's spatial coordinates.
-            warp_options = gdal.WarpOptions(**self._warp_kwargs)
-            warp_save_path = f"/vsimem/temp_band_{0}"
-            place_holder_arr = np.zeros((1, 1), np.uint8)
-            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
-            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
-            transformed_gt = transformed_ds.GetGeoTransform()
+    def _schedule_residual_recompute(self):
+        """
+        Request a residual recompute after edits settle.
 
-            # The output_srs here is the target spatial reference system (srs). In case
-            # the target srs is different from the reference srs, then we need a way to
-            # go between them.
-            tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
+        Coalesces a burst of GCP edits into a single background compute. When no scheduler
+        is available (e.g. some unit contexts), falls back to a synchronous recompute.
+        """
+        scheduler = getattr(self._app_services, "scheduler", None) if self._app_services else None
+        if scheduler is None:
+            self._georeference()
+            return
+        self._residual_debounce_timer.start()
 
-            residuals = []
-            # The general flow of calculating the residuals is to go from our target
-            # dataset's pixel coordinate (gcp.GCPPixel, gcp.GCPLine) to our output
-            # srs coordinates. Then we go from the output srs coordinate to the
-            # reference srs coordinate. We then get the difference in reference srs
-            # coordinates from the original GCP to get the spatial error. Then to make
-            # it a pixel error we divide by the width/height per pixel of the warped
-            # dataset's geo transform.
-            for entry, gcp in gcps:
-                # These coordinates could get back to us in either lat/lon, lon/lat,
-                # or north/easting, easting/north
-                (
-                    ok,
-                    (output_spatial_x, output_spatial_y, z),
-                ) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
+    def _recompute_residuals_async(self):
+        """
+        Fired by the debounce timer: snapshot inputs on the GUI thread and run
+        :func:`compute_residuals` on the work scheduler, tracking an in-flight token so a
+        superseded result is dropped.
+        """
+        snapshot = self._snapshot_residual_inputs()
+        if snapshot is None:
+            return
 
-                # Since we use OAMS_TRADITIONAL_GIS_ORDER on both reference and output CRS, we don't need
-                # to swap the spatial coordinates
-                ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(
-                    output_spatial_x, output_spatial_y, 0
+        scheduler = getattr(self._app_services, "scheduler", None) if self._app_services else None
+        if scheduler is None:
+            try:
+                residuals = compute_residuals(
+                    snapshot["gcps"],
+                    snapshot["ref_srs"],
+                    snapshot["output_srs"],
+                    snapshot["warp_kwargs"],
+                    snapshot["transformer_options"],
                 )
+            except BaseException as e:
+                self.set_message_text(f"Error computing residuals: {e}")
+                return
+            self._apply_residuals_to_entries(snapshot["entries"], residuals)
+            return
 
-                ref_spatial_x, ref_spatial_y = (
-                    ref_spatial_coord[0],
-                    ref_spatial_coord[1],
-                )
+        self._residual_signature += 1
+        token = self._residual_signature
+        entries = snapshot["entries"]
 
-                error_spatial_x = gcp.GCPX - ref_spatial_x
-                error_spatial_y = gcp.GCPY - ref_spatial_y
+        def _done(future):
+            try:
+                residuals = future.result()
+            except BaseException:
+                residuals = None
+            # Deliver back to the GUI thread; a stale token is dropped in _apply_residuals.
+            self._residuals_ready.emit((token, entries, residuals))
 
-                error_raster_x = error_spatial_x / transformed_gt[1]
-                error_raster_y = error_spatial_y / transformed_gt[5]
+        future = scheduler.submit_thread(
+            PriorityClass.INTERACTIVE,
+            compute_residuals,
+            snapshot["gcps"],
+            snapshot["ref_srs"],
+            snapshot["output_srs"],
+            snapshot["warp_kwargs"],
+            snapshot["transformer_options"],
+        )
+        future.add_done_callback(_done)
 
-                entry.set_residual_x(round(error_raster_x, 6))
-                entry.set_residual_y(round(error_raster_y, 6))
-
-                self._update_residuals(entry)
-
-                residuals.append((error_raster_x, error_raster_y))
-
-            tr_pixel_to_output_srs = None
-            tr_output_srs_to_ref_srs = None
-            temp_gdal_ds = None
-        except BaseException as e:
-            QMessageBox.warning(self, self.tr("Error"), self.tr(f"Error:\n{e}"), QMessageBox.Ok)
-            print(f"Error:\n{e}")
-        finally:
-            tr_pixel_to_output_srs = None
-            tr_output_srs_to_ref_srs = None
-            temp_gdal_ds = None
+    def _apply_residuals(self, payload):
+        """Install a completed residual computation on the GUI thread (unless superseded)."""
+        token, entries, residuals = payload
+        if token != self._residual_signature:
+            return  # superseded by a newer recompute; discard
+        if residuals is None:
+            self.set_message_text("Error computing residuals.")
+            return
+        self._apply_residuals_to_entries(entries, residuals)
 
     # ========================
     # region Accepting
@@ -1983,182 +1905,83 @@ class GeoReferencerDialog(QDialog):
 
     def _create_warped_output(self) -> bool:
         """
-        Returns a bool on whether this function created the warped dataset correctly.
+        Validate inputs and launch the multi-band warp on a background thread.
+
+        Returns ``True`` if the warp was successfully *started* (inputs valid), ``False``
+        otherwise. The GDAL work runs off the GUI thread via
+        :func:`~wiser.gui.progress_task.run_with_progress`; on completion
+        :meth:`_on_warp_done` emits :attr:`warp_completed` and updates the status label.
         """
-        try:
-            save_path = self._get_save_file_path()
-            if save_path is None:
-                QMessageBox.information(
-                    self,
-                    self.tr("No Save Path Selected"),
-                    self.tr(
-                        "In order to georeference, a save path "
-                        "must be selected. There is no save path "
-                        "selected, so georeferencing will not occur.\n\n"
-                        "Please select a save path."
-                    ),
-                )
-                return False
-
-            if not self._enough_points_for_transform() or self._warp_kwargs is None:
-                QMessageBox.information(
-                    self,
-                    self.tr("Can't Run Georeferencer"),
-                    self.tr("Not enough points to run georeferencer"),
-                )
-                return False
-
-            if self._target_rasterpane.get_rasterview().get_raster_data() is None:
-                QMessageBox.information(
-                    self,
-                    self.tr("No Target Dataset Selected"),
-                    self.tr("A target dataset is not selected. Please select a target dataset."),
-                )
-                return False
-
-            gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
-
-            target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
-            target_dataset_impl = target_dataset.get_impl()
-
-            ref_srs = self._get_reference_srs()
-            ref_projection = ref_srs.ExportToWkt()
-            temp_gdal_ds = None
-            output_dataset = None
-
-            self.set_message_text(self.tr("Starting warp..."))
-
-            # We warp one band of the input dataset to a virtual memory file,
-            # so we can create the correct output data size.
-            # Then we create the output dataset with width and height equal to the warp,
-            # but correct number of bands.
-            # Then we override each band in the created array and flush cache.
-            output_size: Tuple[int, int] = None
-            output_dataset: gdal.Dataset = None
-            driver: gdal.Driver = gdal.GetDriverByName("GTiff")
-            gdal_dtype, _ = numpy_dtype_to_gdal_export_types(target_dataset.get_elem_type())
-
-            # Get the output size
-            warp_options = gdal.WarpOptions(**self._warp_kwargs)
-            warp_save_path = f"/vsimem/temp_band_{0}"
-            band_arr = target_dataset.get_band_data(0)
-            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
-            # Make sure dataset has no spatial information that could mess with warping
-            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
-
-            width = transformed_ds.RasterXSize
-            height = transformed_ds.RasterYSize
-            output_size = (width, height)
-            output_bytes = (
-                width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
+        save_path = self._get_save_file_path()
+        if save_path is None:
+            QMessageBox.information(
+                self,
+                self.tr("No Save Path Selected"),
+                self.tr(
+                    "In order to georeference, a save path "
+                    "must be selected. There is no save path "
+                    "selected, so georeferencing will not occur.\n\n"
+                    "Please select a save path."
+                ),
             )
-
-            gdal.Unlink(warp_save_path)
-            output_gt = None
-
-            ratio = MAX_RAM_BYTES / output_bytes
-            if isinstance(target_dataset_impl, GDALRasterDataImpl):
-                # Saving the full gdal dataste
-                target_gdal_dataset = target_dataset_impl.gdal_dataset
-                temp_vrt_path = "/vsimem/ref.vrt"
-                translate_opts = None
-                if target_dataset.get_data_ignore_value() is not None:
-                    translate_opts = gdal.TranslateOptions(
-                        format="VRT",
-                        noData=target_dataset.get_data_ignore_value(),
-                    )
-                else:
-                    translate_opts = gdal.TranslateOptions(
-                        format="VRT",
-                    )
-                temp_gdal_ds = gdal.Translate(temp_vrt_path, target_gdal_dataset, options=translate_opts)
-                # Make sure dataset has no spatial information that could mess with warping
-                temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-                warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
-            elif not isinstance(target_dataset_impl, GDALRasterDataImpl) and ratio > 1.0:
-                # Saving the full object array
-                warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                dataset_arr = target_dataset.get_image_data()
-                temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(dataset_arr, True)
-                # Make sure dataset has no spatial information that could mess with warping
-                temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-                set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
-                output_dataset: gdal.Dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
-                output_dataset.FlushCache()
-            else:
-                # Saving incrementally using the numpy dataset
-                num_bands_per = int(ratio * target_dataset.num_bands())
-                for band_index in range(0, target_dataset.num_bands(), num_bands_per):
-                    band_list_index = [
-                        band
-                        for band in range(band_index, band_index + num_bands_per)
-                        if band < target_dataset.num_bands()
-                    ]
-                    warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                    warp_save_path = f"/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}"
-                    # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
-
-                    band_arr = target_dataset.get_multiple_band_data(band_list_index)
-                    temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
-                    # Make sure dataset has no spatial information that could mess with warping
-                    temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-                    set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
-                    transformed_ds: gdal.Dataset = gdal.Warp(
-                        warp_save_path, temp_gdal_ds, options=warp_options
-                    )
-
-                    width = transformed_ds.RasterXSize
-                    height = transformed_ds.RasterYSize
-                    assert (
-                        width == output_size[0] and height == output_size[1]
-                    ), "Width and/or height of warped band does not equal a previous warped band"
-
-                    if output_dataset is None:
-                        output_dataset = driver.Create(
-                            save_path,
-                            width,
-                            height,
-                            target_dataset.num_bands(),
-                            gdal_dtype,
-                        )
-                        output_gt = transformed_ds.GetGeoTransform()
-
-                    write_raster_to_dataset(
-                        output_dataset,
-                        band_list_index,
-                        transformed_ds.ReadAsArray(),
-                        gdal_dtype,
-                    )
-
-                    gdal.Unlink(warp_save_path)
-                    transformed_ds = None
-                output_dataset.SetGeoTransform(output_gt)
-                output_dataset.SetSpatialRef(ref_srs)
-
-            if output_dataset is None:
-                raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
-
-            copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
-            gt = output_dataset.GetGeoTransform()
-            if gt is None:
-                raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
-
-            output_dataset.FlushCache()
-            output_dataset = None
-
-            self.set_message_text(self.tr("Done warping!"))
-        except BaseException as e:
-            QMessageBox.critical(self, self.tr("Error While Creating Output"), self.tr(f"Error:\n{e}"))
             return False
+
+        if not self._enough_points_for_transform():
+            QMessageBox.information(
+                self,
+                self.tr("Can't Run Georeferencer"),
+                self.tr("Not enough points to run georeferencer"),
+            )
+            return False
+
+        if self._target_rasterpane.get_rasterview().get_raster_data() is None:
+            QMessageBox.information(
+                self,
+                self.tr("No Target Dataset Selected"),
+                self.tr("A target dataset is not selected. Please select a target dataset."),
+            )
+            return False
+
+        target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
+        gcps = [gcp for _, gcp in self._get_entry_gcp_list()]
+
+        output_srs = self._import_current_output_srs()
+        output_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        warp_kwargs, _ = build_warp_kwargs(self._curr_resample_alg, self._curr_transform_type, output_srs)
+
+        # The reference SRS supplies the projection attached to the GCPs. Left in its
+        # native axis mapping to match the original in-dialog warp exactly.
+        ref_srs = self._get_reference_srs()
+
+        self.set_message_text(self.tr("Starting warp..."))
+        run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Warping…"),
+            warp_dataset_to_path,
+            target_dataset,
+            gcps,
+            warp_kwargs,
+            ref_srs,
+            save_path,
+            on_success=self._on_warp_done,
+            on_error=self._on_warp_error,
+        )
         return True
 
-    def accept(self):
-        should_continue = self._create_warped_output()
+    def _on_warp_done(self, written_path: str):
+        """GUI-thread callback when a warp finishes: announce it and update status."""
+        self.set_message_text(self.tr("Done warping!"))
+        self.warp_completed.emit(written_path)
 
-        if should_continue:
-            super().accept()
+    def _on_warp_error(self, message: str):
+        """GUI-thread callback when a warp fails (or is cancelled)."""
+        QMessageBox.critical(self, self.tr("Error While Creating Output"), self.tr(f"Error:\n{message}"))
+
+    def accept(self):
+        # The warp is produced by the dedicated "Run Warp" button (threaded); accept() is a
+        # plain commit/close so the OK button no longer double-warps.
+        super().accept()
 
     # region Event overrides
 

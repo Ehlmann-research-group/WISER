@@ -35,9 +35,9 @@ from PySide6.QtWidgets import (
 
 from wiser.gui.app_state import ApplicationState
 
-# Reuse the CRS building blocks from the georeferencer so the target chooser behaves
-# identically to the one users already know (same common CRSs, same authority lookup).
-from wiser.gui.geo_reference_dialog import (
+# Reuse the CRS building blocks from the shared, Qt-free CRS model so the target chooser
+# behaves identically to the georeferencer's
+from wiser.raster.crs_model import (
     AVAILABLE_AUTHORITIES,
     COMMON_SRS,
     AuthorityCodeCRS,
