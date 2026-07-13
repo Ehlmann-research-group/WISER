@@ -478,6 +478,29 @@ class MosaicView(QWidget):
             self.height(),
         )
 
+    def _render_bucket(self) -> int:
+        """
+        The zoom bucket tiles are rendered at — the camera's bucket, but never finer
+        than the mosaic's own resolution.
+
+        Rendering finer than the source data is pointless work: ``gdal.Warp`` would just
+        upsample the common grid onto a denser grid, producing no new detail while
+        (deeply below native) getting very slow. So the render bucket is floored at the
+        common grid's resolution: once the user zooms past native, the same
+        grid-resolution tiles are reused and the world->screen affine scales them up (one
+        source pixel drawn as a block), which is both correct and free. The floor is a
+        single view-wide value, so every scene still renders at one shared bucket and the
+        per-cell :meth:`composite` stays pixel-aligned.
+        """
+        camera_bucket = _zoom_bucket(self._transform.world_units_per_pixel)
+        gt = self._controller.get_common_grid().geotransform
+        if gt is None:
+            return camera_bucket
+        grid_res = min(abs(gt[1]), abs(gt[5]))  # finest of the grid's x/y pixel size
+        if grid_res <= 0.0:
+            return camera_bucket
+        return max(camera_bucket, _zoom_bucket(grid_res))  # never finer than the grid
+
     def _schedule_pixel_read(self) -> None:
         """
         Ask for a read of any tiles the current viewport needs but does not have.
@@ -508,7 +531,7 @@ class MosaicView(QWidget):
             return  # nothing to read yet (no grid, or the widget has no real size)
 
         world_extent = self._visible_world_extent()
-        bucket = _zoom_bucket(self._transform.world_units_per_pixel)
+        bucket = self._render_bucket()
         try:
             footprints = self._controller.visible_scene_footprints_in_common_crs()
         except Exception:  # noqa: BLE001 — never let a paint-driven read raise
@@ -623,7 +646,7 @@ class MosaicView(QWidget):
         """
         w2s = self._transform.world_to_screen(self.size())
         world_extent = self._visible_world_extent()
-        bucket = _zoom_bucket(self._transform.world_units_per_pixel)
+        bucket = self._render_bucket()
         # bottom-to-top so later (upper) scenes composite over lower ones
         visible_scenes = [s for s in self._controller.get_scenes() if s.visible]
         scene_order = {id(s): i for i, s in enumerate(visible_scenes)}
