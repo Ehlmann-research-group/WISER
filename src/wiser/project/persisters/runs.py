@@ -74,6 +74,10 @@ def load_runs(manifest: Dict[str, Any], app_state: "ApplicationState") -> List[D
     """
     section = manifest.get("runs", {})
     dropped: List[Dict[str, Any]] = []
+    if not isinstance(section, dict):
+        # A non-dict runs section (hand-edited/corrupt manifest) has nothing to
+        # restore; ignore it rather than calling .get on a list/None.
+        return dropped
     _load_tool(section.get(TOOL_PCA, []), app_state.get_pca_history(), _pca_from_pyrep, app_state, dropped)
     _load_tool(section.get(TOOL_MNF, []), app_state.get_mnf_history(), _mnf_from_pyrep, app_state, dropped)
     _load_tool(
@@ -96,6 +100,9 @@ def _load_tool(
     app_state: "ApplicationState",
     dropped: List[Dict[str, Any]],
 ) -> None:
+    if not isinstance(entries, list):
+        # A non-list tool value (hand-edited/corrupt manifest) has no records.
+        return
     for entry in entries:
         try:
             record = reconstruct(entry, app_state)

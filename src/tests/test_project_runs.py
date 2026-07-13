@@ -236,3 +236,13 @@ def test_unmixing_record_with_no_endmembers_dropped():
     dropped = load_runs(manifest, dst)
     assert len(dropped) == 1
     assert dst.get_linear_unmix_history().get_records() == []
+
+
+def test_non_dict_runs_section_and_non_list_tool_are_ignored():
+    dst = _FakeAppState()
+    # A non-dict runs section is ignored; a non-list tool value has no records.
+    assert load_runs({"runs": ["not-a-dict"]}, dst) == []
+    assert load_runs({"runs": {"pca": "not-a-list"}}, dst) == []
+    # A non-dict entry inside a tool list is dropped-and-reported, not crashed on.
+    assert load_runs({"runs": {"pca": ["x", None]}}, dst) == ["x", None]
+    assert dst.get_pca_history().get_records() == []
