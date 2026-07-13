@@ -1197,6 +1197,21 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
+    @run_in_wiser_decorator
+    def get_geo_ref_target_scale(self) -> float:
+        """Return the current zoom scale of the georeferencer's target pane."""
+        return self.main_window._geo_ref_dialog._target_rasterpane.get_scale()
+
+    @run_in_wiser_decorator
+    def set_geo_ref_target_scale(self, scale: float) -> None:
+        """Set the zoom scale of the georeferencer's target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane.set_scale(scale)
+
+    @run_in_wiser_decorator
+    def click_geo_ref_target_zoom_to_fit(self) -> None:
+        """Trigger the 'Zoom to fit' toolbar action on the target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane._act_zoom_to_fit.trigger()
+
     # region State Setting
 
     @run_in_wiser_decorator
