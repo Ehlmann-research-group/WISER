@@ -145,7 +145,7 @@ class _FakeAppState:
     def get_rois(self):
         return list(self._rois)
 
-    def add_roi(self, roi, make_name_unique=False):
+    def add_roi(self, roi, make_name_unique=False, roi_id=None):
         self._rois.append(roi)
 
 

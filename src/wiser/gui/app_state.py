@@ -672,10 +672,15 @@ class ApplicationState(QObject):
         """
         self._config.set(option, value)
 
-    def add_roi(self, roi: RegionOfInterest, make_name_unique=False) -> None:
+    def add_roi(self, roi: RegionOfInterest, make_name_unique=False, roi_id: Optional[int] = None) -> None:
         """
         Add a Region of Interest to WISER's state.  A ``ValueError`` is raised
         if the ROI does not have a unique name.
+
+        When ``roi_id`` is given (project restore), that id is used verbatim
+        instead of allocating a new one, and the internal id counter is advanced
+        past it so later allocations do not collide.  Preserving the id keeps
+        ROI-average spectra, which reference their ROI by id, resolvable on load.
         """
 
         if roi is None:
@@ -713,7 +718,12 @@ class ApplicationState(QObject):
             color = get_random_matplotlib_color(colors_in_use)
             roi.set_color(color)
 
-        roi_id = self.take_next_id()
+        if roi_id is None:
+            roi_id = self.take_next_id()
+        elif roi_id in self._regions_of_interest:
+            raise ValueError(f"ROI id {roi_id} is already in use")
+        else:
+            self._next_id = max(self._next_id, roi_id + 1)
         roi.set_id(roi_id)
         self._regions_of_interest[roi_id] = roi
         self.roi_added.emit(roi)

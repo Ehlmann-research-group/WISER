@@ -92,11 +92,12 @@ class _FakeAppState:
     def get_rois(self):
         return list(self._rois.values())
 
-    def add_roi(self, roi, make_name_unique=False):
-        roi_id = roi.get_id()
+    def add_roi(self, roi, make_name_unique=False, roi_id=None):
+        if roi_id is None:
+            roi_id = roi.get_id()
         if roi_id is None:
             roi_id = self.take_next_id()
-            roi.set_id(roi_id)
+        roi.set_id(roi_id)
         self._rois[roi_id] = roi
 
     def get_roi(self, id=None, **kwargs):
@@ -282,3 +283,34 @@ def test_load_clears_prior_session(tmp_path):
     assert 99 not in dst._datasets  # the stale dataset is gone
     assert dst.get_bandmath_expressions() == ["b1 + b2"]
     _assert_restored(dst, ds)
+
+
+def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
+    # A real ApplicationState (not the fakes, which honor an incoming id): reproduce
+    # the realistic flow where an id is allocated between the dataset and the ROI, so
+    # a plain add_roi would mint a different id on restore.  ROI-average spectra resolve
+    # their ROI by id, so the ROI must restore under its original id or they drop.
+    from PySide6.QtWidgets import QApplication
+    from wiser.gui.app_state import ApplicationState
+    from wiser.raster.spectrum import ROIAverageSpectrum
+
+    QApplication.instance() or QApplication([])
+
+    src = ApplicationState(None)
+    ds = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    src.add_dataset(ds)  # id 1
+    src.take_next_id()  # an id allocated between the dataset and the ROI
+    roi = RegionOfInterest(name="rim", color="red")
+    roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(3, 3)))
+    src.add_roi(roi)  # id 3 -- a plain restore would mint 2 instead
+    src.collect_spectrum(ROIAverageSpectrum(ds, roi))
+
+    save_project(src, tmp_path / "sess")
+    dst = ApplicationState(None)
+    report = load_project(tmp_path / "sess", dst)
+
+    assert report["spectra"] == []  # the ROI-average was not dropped
+    assert any(isinstance(s, ROIAverageSpectrum) for s in dst.get_collected_spectra())
+    restored_roi = dst.get_roi(id=roi.get_id())
+    assert restored_roi is not None
+    assert restored_roi.get_id() == roi.get_id()

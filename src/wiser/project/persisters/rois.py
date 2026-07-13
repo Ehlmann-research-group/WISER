@@ -36,7 +36,8 @@ def load_rois(manifest: Dict[str, Any], app_state: "ApplicationState") -> List[D
         return dropped
     for data in rois:
         try:
-            app_state.add_roi(roi_from_pyrep(data))
+            roi = roi_from_pyrep(data)
+            app_state.add_roi(roi, roi_id=roi.get_id())
         except (KeyError, TypeError, ValueError, AttributeError):
             dropped.append(data)
     return dropped
