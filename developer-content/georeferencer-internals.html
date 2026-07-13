@@ -933,9 +933,10 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-gcp-collection-state-machine">The GCP Collection State Machine</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#click-gcp-table-data-flow">Click → GCP → Table Data Flow</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transformation-models">Transformation Models</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#residual-computation-georeference">Residual Computation (<code class="docutils literal notranslate"><span class="pre">_georeference</span></code>)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#warp-output-pipeline-create-warped-output">Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">_create_warped_output</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#residual-computation-schedule-residual-recompute">Residual Computation (<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#warp-output-pipeline-warp-dataset-to-path">Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code>)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gcp-persistence">GCP Persistence</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#programmatic-configuration-locking">Programmatic Configuration &amp; Locking</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
 </ul>
             </nav>
@@ -976,7 +977,13 @@ subclasses).</p></li>
 objects, the transform is a <code class="docutils literal notranslate"><span class="pre">gdal.Transformer</span></code> / <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> call, and CRSs are
 <code class="docutils literal notranslate"><span class="pre">osr.SpatialReference</span></code> objects.</p>
 <p>The dialog is created lazily from <code class="docutils literal notranslate"><span class="pre">App.show_geo_reference_dialog</span></code> in
-<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>, passed the shared <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> and the main view.</p>
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>, passed the shared <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> and <code class="docutils literal notranslate"><span class="pre">app_services</span></code> (the latter
+provides the work scheduler and progress infrastructure used to run warps off the GUI
+thread). The old <code class="docutils literal notranslate"><span class="pre">main_view</span></code> constructor argument was dead and has been removed.</p>
+<p>As of WISER#684 the dialog is a thin UI/controller: the GDAL warp engine, GCP file I/O,
+and the CRS model have each been extracted into Qt-free modules under <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/</span></code>
+(mirroring the Seamless Mosaic’s <code class="docutils literal notranslate"><span class="pre">mosaic_export.py</span></code> split), so warp correctness, GCP
+round-tripping, and CRS resolution are all unit-testable without a running app.</p>
 <p><strong>Core files:</strong></p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -986,7 +993,19 @@ objects, the transform is a <code class="docutils literal notranslate"><span cla
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_dialog.py</span></code></p></td>
-<td><p>Dialog/controller, GCP table, CRS classes, residual + warp pipeline</p></td>
+<td><p>Dialog/controller and GCP table; delegates warp, GCP I/O, and CRS to the modules below</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_config.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code> — presets + lock flags to drive the dialog programmatically</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/georef_warp.py</span></code></p></td>
+<td><p>Qt-free warp engine: <code class="docutils literal notranslate"><span class="pre">build_warp_kwargs</span></code>, <code class="docutils literal notranslate"><span class="pre">compute_residuals</span></code>, <code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code> (+ <code class="docutils literal notranslate"><span class="pre">TRANSFORM_TYPES</span></code>, <code class="docutils literal notranslate"><span class="pre">RESAMPLE_ALGORITHMS</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/gcp_io.py</span></code></p></td>
+<td><p>Qt-free GCP persistence: <code class="docutils literal notranslate"><span class="pre">read_gcp_file</span></code>, <code class="docutils literal notranslate"><span class="pre">write_qgis_points</span></code>, <code class="docutils literal notranslate"><span class="pre">write_envi_pts</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/crs_model.py</span></code></p></td>
+<td><p>Shared Qt-free CRS hierarchy (<code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code> and subclasses, <code class="docutils literal notranslate"><span class="pre">COMMON_SRS</span></code>)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_task_delegate.py</span></code></p></td>
 <td><p>Input event state machine, GCP data model</p></td>
@@ -1016,11 +1035,12 @@ objects, the transform is a <code class="docutils literal notranslate"><span cla
         geo_reference_dialog.py
         +gcp_pair_added : Signal
         +gcp_add_attempt : Signal
+        +warp_completed : Signal
         -_table_entry_list : list~GeoRefTableEntry~
-        -_warp_kwargs : dict
-        +_georeference()
+        +set_target_dataset() / set_reference_dataset()
+        +_apply_config(GeoReferencerConfig)
+        +_schedule_residual_recompute()
         +_create_warped_output()
-        +accept()
     }
 
     class GeoReferencerPane {
@@ -1067,6 +1087,7 @@ objects, the transform is a <code class="docutils literal notranslate"><span cla
 
     class GeneralCRS {
         &lt;&lt;abstract&gt;&gt;
+        crs_model.py
         +get_osr_crs()
     }
     class AuthorityCodeCRS
@@ -1109,9 +1130,10 @@ shared <code class="docutils literal notranslate"><span class="pre">GeoReference
 enable/disable, per-row color, and inline coordinate edits</p></li>
 <li><p>The output controls: output CRS chooser (<code class="docutils literal notranslate"><span class="pre">cbox_srs</span></code>), resampling algorithm
 (<code class="docutils literal notranslate"><span class="pre">cbox_interpolation</span></code>), transform type (<code class="docutils literal notranslate"><span class="pre">cbox_poly_order</span></code>), and the save path</p></li>
-<li><p>Triggering <code class="docutils literal notranslate"><span class="pre">_georeference()</span></code> (recompute residuals) on every relevant change, and
-<code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code> when the dialog is accepted</p></li>
-<li><p>Saving/loading GCPs to/from disk</p></li>
+<li><p>Scheduling a debounced, off-thread residual recompute (<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute()</span></code>)
+on every relevant change, and launching the threaded output warp
+(<code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>) from the <strong>Run Warp</strong> button</p></li>
+<li><p>Saving/loading GCPs to/from disk (thin wrappers over <code class="docutils literal notranslate"><span class="pre">wiser.raster.gcp_io</span></code>)</p></li>
 </ul>
 <p><strong>Does not control:</strong></p>
 <ul class="simple">
@@ -1136,6 +1158,10 @@ enable/disable, per-row color, and inline coordinate edits</p></li>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gcp_add_attempt</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">GroundControlPoint</span></code></p></td>
 <td><p>A reference point is added via manual lat/lon entry</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">warp_completed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code> (output path)</p></td>
+<td><p>A <strong>Run Warp</strong> finishes successfully on its worker thread</p></td>
 </tr>
 </tbody>
 </table>
@@ -1218,10 +1244,13 @@ the <code class="docutils literal notranslate"><span class="pre">COLUMN_ID</span
 </section>
 <section id="the-crs-model">
 <h3>The CRS model<a class="headerlink" href="#the-crs-model" title="Link to this heading">#</a></h3>
-<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_dialog.py</span></code></p>
+<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/crs_model.py</span></code></p>
 <p>All CRSs are represented through the <code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code> ABC, whose single contract is
 <code class="docutils literal notranslate"><span class="pre">get_osr_crs()</span> <span class="pre">-&gt;</span> <span class="pre">osr.SpatialReference</span></code>. This lets the dialog treat every CRS source
-uniformly (and compare them by WKT via <code class="docutils literal notranslate"><span class="pre">__eq__</span></code>):</p>
+uniformly (and compare them by WKT via <code class="docutils literal notranslate"><span class="pre">__eq__</span></code>). The hierarchy is Qt-free and now shared
+with the Seamless Mosaic’s CRS chooser (<code class="docutils literal notranslate"><span class="pre">mosaic_crs_dialog.py</span></code>), so both features offer the
+same CRSs from a single source of truth (<code class="docutils literal notranslate"><span class="pre">geo_reference_dialog.py</span></code> re-exports the names for
+backwards compatibility):</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Class</p></th>
@@ -1352,17 +1381,20 @@ residuals.</p>
     Pane-&gt;&gt;Del: on_key_release()
     Del-&gt;&gt;Dlg: gcp_pair_added.emit(pair)
     Dlg-&gt;&gt;Table: _on_gcp_pair_added()&lt;br/&gt;add GeoRefTableEntry row
-    Dlg-&gt;&gt;Dlg: _georeference() (recompute residuals)
-    Dlg-&gt;&gt;Table: _update_residuals() per row
+    Dlg-&gt;&gt;Dlg: _schedule_residual_recompute()&lt;br/&gt;(debounced, off-thread)
+    Dlg-&gt;&gt;Table: _apply_residuals() per row (GUI thread)
     </pre><p>Editing a cell in the table (<code class="docutils literal notranslate"><span class="pre">_on_cell_changed</span></code>), toggling a row’s <em>enabled</em> checkbox,
-or switching the output CRS / reference CRS / transform type all re-enter
-<code class="docutils literal notranslate"><span class="pre">_georeference()</span></code> so the residual columns stay live.</p>
+or switching the output CRS / reference CRS / transform type all call
+<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute()</span></code> so the residual columns stay live — see
+<a class="reference internal" href="#residual-computation-schedule_residual_recompute"><span class="xref myst">Residual Computation</span></a> for how that runs
+off the GUI thread.</p>
 </section>
 <hr class="docutils" />
 <section id="transformation-models">
 <h2>Transformation Models<a class="headerlink" href="#transformation-models" title="Link to this heading">#</a></h2>
-<p>The transform type is chosen from the <code class="docutils literal notranslate"><span class="pre">TRANSFORM_TYPES</span></code> enum. Each maps to a GDAL
-transformer method and has a minimum GCP count (<code class="docutils literal notranslate"><span class="pre">min_points_per_transform</span></code>):</p>
+<p>The transform type is chosen from the <code class="docutils literal notranslate"><span class="pre">TRANSFORM_TYPES</span></code> enum (defined in
+<code class="docutils literal notranslate"><span class="pre">wiser.raster.georef_warp</span></code>). Each maps to a GDAL transformer method and has a minimum GCP
+count (<code class="docutils literal notranslate"><span class="pre">min_points_per_transform</span></code>):</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Transform</p></th>
@@ -1400,25 +1432,43 @@ transformer method and has a minimum GCP count (<code class="docutils literal no
 </tbody>
 </table>
 </div>
-<p>These selections are written into <code class="docutils literal notranslate"><span class="pre">_warp_kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">_transform_options</span></code> in
-<code class="docutils literal notranslate"><span class="pre">_georeference()</span></code>, and reused unchanged by <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>.</p>
+<p>The mapping lives in one place — <code class="docutils literal notranslate"><span class="pre">georef_warp.build_warp_kwargs(resample_alg,</span> <span class="pre">transform_type,</span> <span class="pre">output_srs)</span></code> — which returns the <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> kwargs plus the matching
+<code class="docutils literal notranslate"><span class="pre">gdal.Transformer</span></code> options. Both the residual calc and the final warp call it, so they can
+never drift apart.</p>
 </section>
 <hr class="docutils" />
-<section id="residual-computation-georeference">
-<h2>Residual Computation (<code class="docutils literal notranslate"><span class="pre">_georeference</span></code>)<a class="headerlink" href="#residual-computation-georeference" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">_georeference()</span></code> runs after every change to give the user immediate feedback on how
-well each GCP fits the chosen transform. It does <strong>not</strong> warp the real image — it builds
-a 1×1 placeholder dataset purely to drive GDAL’s transformer.</p>
+<section id="residual-computation-schedule-residual-recompute">
+<h2>Residual Computation (<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute</span></code>)<a class="headerlink" href="#residual-computation-schedule-residual-recompute" title="Link to this heading">#</a></h2>
+<p>Residuals are recomputed after every change to give the user immediate feedback on how
+well each GCP fits the chosen transform. The math itself
+(<code class="docutils literal notranslate"><span class="pre">georef_warp.compute_residuals</span></code>) does <strong>not</strong> warp the real image — it builds a 1×1
+placeholder dataset purely to drive GDAL’s transformer — but because it runs a full
+<code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> per call it must not block the GUI.</p>
+<p>The dialog therefore <strong>debounces and single-flights</strong> the recompute (mirroring
+<code class="docutils literal notranslate"><span class="pre">MosaicView</span></code>’s off-thread pixel reads):</p>
+<ol class="arabic simple">
+<li><p>An edit calls <code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute()</span></code>, which (re)starts a ~150 ms single-shot
+<code class="docutils literal notranslate"><span class="pre">QTimer</span></code>.</p></li>
+<li><p>When the timer fires, <code class="docutils literal notranslate"><span class="pre">_recompute_residuals_async()</span></code> snapshots the GCPs + SRSs on the
+GUI thread (<code class="docutils literal notranslate"><span class="pre">_snapshot_residual_inputs()</span></code>), bumps an in-flight token
+(<code class="docutils literal notranslate"><span class="pre">_residual_signature</span></code>), and submits <code class="docutils literal notranslate"><span class="pre">compute_residuals</span></code> to
+<code class="docutils literal notranslate"><span class="pre">app_services.scheduler.submit_thread</span></code>.</p></li>
+<li><p>The worker’s result is delivered back to the GUI thread via the queued <code class="docutils literal notranslate"><span class="pre">_residuals_ready</span></code>
+signal; <code class="docutils literal notranslate"><span class="pre">_apply_residuals()</span></code> drops it if a newer recompute has superseded the token,
+otherwise writes the residual columns.</p></li>
+</ol>
+<p>(When no scheduler is available — e.g. some unit contexts — it falls back to a synchronous
+<code class="docutils literal notranslate"><span class="pre">_georeference()</span></code>.)</p>
 <pre  class="mermaid">
         flowchart TD
     A[&quot;_get_entry_gcp_list()&lt;br/&gt;enabled rows → gdal.GCP&quot;] --&gt; B[&quot;build output_srs + ref_srs&lt;br/&gt;(OAMS_TRADITIONAL_GIS_ORDER)&quot;]
-    B --&gt; C[&quot;assemble _warp_kwargs +&lt;br/&gt;transformerOptions (per transform type)&quot;]
+    B --&gt; C[&quot;build_warp_kwargs()&lt;br/&gt;→ warp_kwargs + transformerOptions&quot;]
     C --&gt; D[&quot;gdal.Transformer(temp_ds, options)&lt;br/&gt;pixel → output SRS&quot;]
     D --&gt; E[&quot;per GCP: TransformPoint(pixel)&lt;br/&gt;→ output-SRS coord&quot;]
     E --&gt; F[&quot;CoordinateTransformation&lt;br/&gt;output SRS → reference SRS&quot;]
     F --&gt; G[&quot;spatial error = gcp.GCPX/Y − transformed X/Y&quot;]
     G --&gt; H[&quot;pixel error = spatial error ÷&lt;br/&gt;warped geotransform pixel size&quot;]
-    H --&gt; I[&quot;entry.set_residual_x/y()&lt;br/&gt;→ dX/dY columns&quot;]
+    H --&gt; I[&quot;return residuals →&lt;br/&gt;entry.set_residual_x/y() on GUI thread&quot;]
     </pre><p>Key details:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">_get_entry_gcp_list()</span></code> skips disabled rows and builds
@@ -1433,23 +1483,33 @@ dividing by the warped geotransform’s pixel width/height (<code class="docutil
 </ul>
 </section>
 <hr class="docutils" />
-<section id="warp-output-pipeline-create-warped-output">
-<h2>Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">_create_warped_output</span></code>)<a class="headerlink" href="#warp-output-pipeline-create-warped-output" title="Link to this heading">#</a></h2>
-<p>Accepting the dialog calls <code class="docutils literal notranslate"><span class="pre">accept()</span></code> → <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>, which produces the
-georeferenced GeoTIFF. Because hyperspectral cubes can be very large, the band data is
-processed in RAM-bounded chunks.</p>
+<section id="warp-output-pipeline-warp-dataset-to-path">
+<h2>Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code>)<a class="headerlink" href="#warp-output-pipeline-warp-dataset-to-path" title="Link to this heading">#</a></h2>
+<p>The <strong>Run Warp</strong> button (<code class="docutils literal notranslate"><span class="pre">_on_warp_button_clicked</span></code> → <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>) produces
+the georeferenced GeoTIFF. <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code> only <em>validates and launches</em>: it
+gathers the GCPs, resolves the SRSs, builds the warp kwargs, and hands
+<code class="docutils literal notranslate"><span class="pre">georef_warp.warp_dataset_to_path</span></code> to <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code>, which runs it on the work
+scheduler with a progress dialog and cancellation. On success <code class="docutils literal notranslate"><span class="pre">_on_warp_done</span></code> emits
+<code class="docutils literal notranslate"><span class="pre">warp_completed(path)</span></code>; on failure/cancel <code class="docutils literal notranslate"><span class="pre">_on_warp_error</span></code> surfaces the message. The dialog’s
+<code class="docutils literal notranslate"><span class="pre">accept()</span></code> no longer warps — the previous double-warp (both <code class="docutils literal notranslate"><span class="pre">accept()</span></code> <strong>and</strong> the button
+calling the warp) is gone, so the OK button is now a plain commit/close.</p>
+<p>Because hyperspectral cubes can be very large, <code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code> processes the band
+data in RAM-bounded chunks, reporting <code class="docutils literal notranslate"><span class="pre">progress</span></code> and calling <code class="docutils literal notranslate"><span class="pre">raise_if_cancelled()</span></code> between
+chunks.</p>
 <pre  class="mermaid">
         flowchart TD
-    V[&quot;validate: save path, enough GCPs, target selected&quot;] --&gt; P[&quot;probe output size:&lt;br/&gt;warp band 0 to /vsimem&quot;]
+    V[&quot;_create_warped_output: validate&lt;br/&gt;+ build_warp_kwargs&quot;] --&gt; R[&quot;run_with_progress →&lt;br/&gt;warp_dataset_to_path (worker thread)&quot;]
+    R --&gt; P[&quot;probe output size:&lt;br/&gt;warp band 0 to /vsimem&quot;]
     P --&gt; Branch{target impl &amp; size}
     Branch --&gt;|&quot;GDALRasterDataImpl&quot;| G[&quot;Translate → VRT,&lt;br/&gt;SetGCPs, gdal.Warp whole dataset&quot;]
     Branch --&gt;|&quot;numpy &amp; fits in RAM&quot;| N[&quot;OpenNumPyArray,&lt;br/&gt;SetGCPs, gdal.Warp whole array&quot;]
-    Branch --&gt;|&quot;too big for RAM&quot;| C[&quot;chunk bands by MAX_RAM_BYTES:&lt;br/&gt;warp each chunk, write incrementally&quot;]
+    Branch --&gt;|&quot;too big for RAM&quot;| C[&quot;chunk bands by MAX_RAM_BYTES:&lt;br/&gt;warp each chunk, write incrementally&lt;br/&gt;(progress + raise_if_cancelled)&quot;]
     C --&gt; M[&quot;driver.Create GTiff,&lt;br/&gt;SetGeoTransform + SetSpatialRef&quot;]
     G --&gt; F[&quot;copy_metadata_to_gdal_dataset, FlushCache&quot;]
     N --&gt; F
     M --&gt; F
-    </pre><p><code class="docutils literal notranslate"><span class="pre">_warp_kwargs</span></code> carries everything GDAL needs:</p>
+    F --&gt; S[&quot;warp_completed.emit(path)&quot;]
+    </pre><p><code class="docutils literal notranslate"><span class="pre">warp_kwargs</span></code> carries everything GDAL needs:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Key</p></th>
@@ -1481,7 +1541,8 @@ processed in RAM-bounded chunks.</p>
 </tbody>
 </table>
 </div>
-<p>The available resampling algorithms are discovered dynamically:
+<p>The available resampling algorithms are discovered dynamically (in
+<code class="docutils literal notranslate"><span class="pre">wiser.raster.georef_warp</span></code>):
 <code class="docutils literal notranslate"><span class="pre">RESAMPLE_ALGORITHMS</span> <span class="pre">=</span> <span class="pre">{name:</span> <span class="pre">getattr(gdal,</span> <span class="pre">name)</span> <span class="pre">for</span> <span class="pre">name</span> <span class="pre">in</span> <span class="pre">dir(gdal)</span> <span class="pre">if</span> <span class="pre">name.startswith(&quot;GRA_&quot;)}</span></code>
 — i.e. all of GDAL’s <code class="docutils literal notranslate"><span class="pre">GRA_NearestNeighbour</span></code>, <code class="docutils literal notranslate"><span class="pre">GRA_Bilinear</span></code>, <code class="docutils literal notranslate"><span class="pre">GRA_Cubic</span></code>,
 <code class="docutils literal notranslate"><span class="pre">GRA_CubicSpline</span></code>, <code class="docutils literal notranslate"><span class="pre">GRA_Lanczos</span></code>, etc.</p>
@@ -1492,34 +1553,88 @@ transform from the GCPs rather than from any pre-existing geotransform on the so
 <hr class="docutils" />
 <section id="gcp-persistence">
 <h2>GCP Persistence<a class="headerlink" href="#gcp-persistence" title="Link to this heading">#</a></h2>
-<p>GCPs can be saved and reloaded in two formats, chosen by file extension in
-<code class="docutils literal notranslate"><span class="pre">_on_save_gcps_clicked</span></code> / <code class="docutils literal notranslate"><span class="pre">_on_load_gcps_clicked</span></code>:</p>
+<p>GCPs can be saved and reloaded in two formats, chosen by file extension. The parsing /
+writing is Qt-free and lives in <code class="docutils literal notranslate"><span class="pre">wiser.raster.gcp_io</span></code>; the dialog’s
+<code class="docutils literal notranslate"><span class="pre">_on_save_gcps_clicked</span></code> / <code class="docutils literal notranslate"><span class="pre">_on_load_gcps_clicked</span></code> are thin wrappers (the writers take the
+dialog’s flattened <code class="docutils literal notranslate"><span class="pre">(map_x,</span> <span class="pre">map_y,</span> <span class="pre">pixel_x,</span> <span class="pre">pixel_y,</span> <span class="pre">enabled)</span></code> rows from <code class="docutils literal notranslate"><span class="pre">_get_gcp_rows()</span></code>):</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Format</p></th>
 <th class="head"><p>Extension</p></th>
 <th class="head"><p>CRS header</p></th>
-<th class="head"><p>Writer / reader</p></th>
+<th class="head"><p>Writer / reader (<code class="docutils literal notranslate"><span class="pre">gcp_io</span></code>)</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>QGIS points</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.points</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">CRS,</span> <span class="pre">EPSG:code</span></code> row (CSV)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">_write_qgis_points_file</span></code> / <code class="docutils literal notranslate"><span class="pre">_read_qgis_points_file</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">write_qgis_points</span></code> / <code class="docutils literal notranslate"><span class="pre">read_qgis_points_file</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>ENVI points</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.pts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">;</span> <span class="pre">projection</span> <span class="pre">info</span> <span class="pre">=</span> <span class="pre">{auth,</span> <span class="pre">code,</span> <span class="pre">units=Degrees}</span></code> comment</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">_write_envi_pts_file</span></code> / <code class="docutils literal notranslate"><span class="pre">_read_envi_pts_file</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">write_envi_pts</span></code> / <code class="docutils literal notranslate"><span class="pre">read_envi_pts_file</span></code></p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>On load, <code class="docutils literal notranslate"><span class="pre">_read_gcp_file</span></code> dispatches by extension; <code class="docutils literal notranslate"><span class="pre">load_gcps_and_srs</span></code> rebuilds the
-<code class="docutils literal notranslate"><span class="pre">GeoRefTableEntry</span></code> rows and the associated <code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code>. Both readers fall back to an
-embedded WKT line if the authority header is missing. <code class="docutils literal notranslate"><span class="pre">compare_srs_lenient</span></code> is used to
+<p>On load, <code class="docutils literal notranslate"><span class="pre">gcp_io.read_gcp_file</span></code> dispatches by extension; the dialog’s <code class="docutils literal notranslate"><span class="pre">load_gcps_and_srs</span></code>
+rebuilds the <code class="docutils literal notranslate"><span class="pre">GeoRefTableEntry</span></code> rows and the associated <code class="docutils literal notranslate"><span class="pre">GeneralCRS</span></code>. Both readers fall back
+to an embedded WKT line if the authority header is missing. <code class="docutils literal notranslate"><span class="pre">compare_srs_lenient</span></code> is used to
 reconcile a loaded file’s CRS against the current reference CRS.</p>
+</section>
+<hr class="docutils" />
+<section id="programmatic-configuration-locking">
+<h2>Programmatic Configuration &amp; Locking<a class="headerlink" href="#programmatic-configuration-locking" title="Link to this heading">#</a></h2>
+<p>The dialog can be driven entirely through code — not just its own combo boxes — via a
+<code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_config.py</span></code>). This is what lets another
+feature (e.g. re-georeferencing a scene from the Seamless Mosaic pane) reuse the dialog with
+a fixed target, a caller-owned save path, and a custom accept button, without touching the
+Tools-menu flow.</p>
+<p><code class="docutils literal notranslate"><span class="pre">show(config=None)</span></code> / <code class="docutils literal notranslate"><span class="pre">exec_(config=None)</span></code> accept an optional config and delegate to
+<code class="docutils literal notranslate"><span class="pre">_apply_config</span></code>, which first resets the dialog to its classic baseline (repopulate choosers,
+clear any prior locks / accept-button label) and then, if a config is given, applies presets
+<strong>before</strong> locks:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Config field</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">target_dataset</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">set_target_dataset(ds)</span></code> — show it in the target pane</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">reference_dataset</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">set_reference_dataset(ds)</span></code> — show it in the reference pane</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reference_crs</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">set_reference_crs(crs)</span></code> — manual reference CRS (used when there is no reference dataset)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">save_path</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">set_save_path(path)</span></code> — preset the output path</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">allow_change_target</span></code> = False</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_set_target_locked(True)</span></code> — disable the target chooser</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">allow_change_reference</span></code> = False</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_set_reference_locked(True)</span></code> — disable the reference chooser + suppress the manual-ref toggle</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">allow_change_save_path</span></code> = False</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_set_save_path_locked(True)</span></code> — make the path read-only, disable the choose button, skip its validation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">accept_button_text</span></code></p></td>
+<td><p>relabel the OK button (e.g. “Save to Mosaic”)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">set_*</span></code> setters are the single shared apply-path: the interactive chooser slots
+(<code class="docutils literal notranslate"><span class="pre">_on_switch_target_dataset</span></code> / <code class="docutils literal notranslate"><span class="pre">_on_switch_reference_dataset</span></code>) keep the user-facing
+confirm-discard-GCPs prompts, then funnel through the same setters, while a programmatic
+caller calls the setters directly (no prompts). <code class="docutils literal notranslate"><span class="pre">config=None</span></code> reproduces the Tools-menu
+behavior exactly, so the reused singleton is safe to reopen either way.</p>
 </section>
 <hr class="docutils" />
 <section id="integration-with-wiser">
@@ -1537,9 +1652,14 @@ selection on top.</p></li>
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code></strong> — GCP spatial coordinates come from
 <code class="docutils literal notranslate"><span class="pre">RasterDataSet.to_geographic_coords()</span></code> and <code class="docutils literal notranslate"><span class="pre">geo_to_pixel_coords_exact()</span></code>, and CRSs
 from <code class="docutils literal notranslate"><span class="pre">get_spatial_ref()</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>).</p></li>
+<li><p><strong>Work scheduler / progress</strong> — the final warp and the interactive residual recompute
+both run off the GUI thread through <code class="docutils literal notranslate"><span class="pre">app_services</span></code> (<code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> +
+<code class="docutils literal notranslate"><span class="pre">scheduler.submit_thread</span></code>), the same stack the Seamless Mosaic uses; see
+<a class="reference internal" href="#residual-computation-schedule_residual_recompute"><span class="xref myst">Residual Computation</span></a> and
+<a class="reference internal" href="#warp-output-pipeline-warp_dataset_to_path"><span class="xref myst">Warp / Output Pipeline</span></a>.</p></li>
 <li><p><strong>Entry point</strong> — <code class="docutils literal notranslate"><span class="pre">App.show_geo_reference_dialog</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code>) constructs
-the dialog lazily with the shared <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> and the main view, then
-<code class="docutils literal notranslate"><span class="pre">exec_()</span></code>s it.</p></li>
+the dialog lazily with the shared <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> and <code class="docutils literal notranslate"><span class="pre">app_services</span></code>, then
+<code class="docutils literal notranslate"><span class="pre">exec_()</span></code>s it (optionally with a <code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code>).</p></li>
 </ul>
 </section>
 </section>
@@ -1605,9 +1725,10 @@ the dialog lazily with the shared <code class="docutils literal notranslate"><sp
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-gcp-collection-state-machine">The GCP Collection State Machine</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#click-gcp-table-data-flow">Click → GCP → Table Data Flow</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transformation-models">Transformation Models</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#residual-computation-georeference">Residual Computation (<code class="docutils literal notranslate"><span class="pre">_georeference</span></code>)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#warp-output-pipeline-create-warped-output">Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">_create_warped_output</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#residual-computation-schedule-residual-recompute">Residual Computation (<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#warp-output-pipeline-warp-dataset-to-path">Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code>)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gcp-persistence">GCP Persistence</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#programmatic-configuration-locking">Programmatic Configuration &amp; Locking</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
 </ul>
   </nav></div>
