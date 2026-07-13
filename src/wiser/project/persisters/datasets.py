@@ -109,7 +109,15 @@ def load_datasets(
     cache = app_state.get_cache()
     dropped: List[int] = []
 
-    for entry in manifest.get("datasets", []):
+    entries = manifest.get("datasets", [])
+    if not isinstance(entries, list):
+        # A non-list datasets section (hand-edited/corrupt manifest) has nothing
+        # to restore; ignore it rather than iterating a dict's keys.
+        return dropped
+    for entry in entries:
+        if not isinstance(entry, dict):
+            # A non-dict entry has no id to preserve or report; skip it.
+            continue
         ds_id = entry.get("id")
         if not isinstance(ds_id, int):
             # A non-int id passed to add_dataset would silently mint a new one

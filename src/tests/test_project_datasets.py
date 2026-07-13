@@ -345,3 +345,14 @@ def test_malformed_id_is_skipped(tmp_path):
     # No integer id to preserve or report: skipped entirely, not in dropped.
     assert load_datasets(manifest, dst, bundle) == []
     assert dst.get_datasets() == []
+
+
+def test_non_dict_and_non_list_dataset_entries_are_skipped(tmp_path):
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    dst = _FakeAppState()
+    # A non-dict entry (string/null/number) is skipped without crashing the load.
+    assert load_datasets({"datasets": ["not-a-dict", None, 5]}, dst, bundle) == []
+    assert dst.get_datasets() == []
+    # A non-list section (hand-edited/corrupt) is ignored, not iterated as keys.
+    assert load_datasets({"datasets": {"0": {"id": 1}}}, dst, bundle) == []
+    assert dst.get_datasets() == []
