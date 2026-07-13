@@ -1,0 +1,86 @@
+name: Publish release assets
+
+# Attaches the Linux tarballs from a specific "Build and Smoke Test WISER" run to an
+# existing release, instead of rebuilding them at release time. The build already ran the
+# full --test_mode suite per distro (a Linux leg only produces a tarball if its tests
+# passed), so this promotes those exact, already-tested artifacts. Windows/macOS are signed
+# locally and uploaded separately via the sign scripts' RELEASE_TAG option.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build run ID (from 'Build and Smoke Test WISER') to promote"
+        required: true
+      tag:
+        description: "Release tag to attach the Linux assets to (the release must already exist)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-release-assets-${{ github.event.inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # upload assets to the release
+      actions: read     # download artifacts from the build run
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.inputs.run_id }}
+      TAG: ${{ github.event.inputs.tag }}
+    steps:
+      - name: Verify the build run succeeded and matches the tag
+        run: |
+          set -euo pipefail
+
+          # Validate the shape of the dispatch inputs up front so a typo fails fast with a
+          # clear message (they are passed via env, so they cannot inject shell in any case).
+          [[ "${RUN_ID}" =~ ^[0-9]+$ ]] || { echo "::error::run_id must be a positive integer."; exit 1; }
+          [[ "${TAG}" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "::error::tag has unexpected characters."; exit 1; }
+
+          # The build run must have finished successfully. For Linux that already implies
+          # every distro's in-container --test_mode passed, since a failed suite yields no
+          # tarball and fails the leg.
+          read -r conclusion run_sha < <(gh api "repos/${REPO}/actions/runs/${RUN_ID}" \
+            --jq '(.conclusion // "pending") + " " + .head_sha')
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::Build run ${RUN_ID} concluded '${conclusion}', not 'success'. Refusing to promote."
+            exit 1
+          fi
+
+          # The tag must point at the exact commit that was built. A draft release has no
+          # tag ref yet, so we warn instead of failing; a published (pre-)release gives the
+          # strong check.
+          tag_sha="$(gh api "repos/${REPO}/commits/${TAG}" --jq '.sha' 2>/dev/null || true)"
+          if [ -z "$tag_sha" ]; then
+            echo "::warning::Tag ${TAG} has no commit yet (draft release?). Skipping tag==build-commit check."
+          elif [ "$tag_sha" != "$run_sha" ]; then
+            echo "::error::Tag ${TAG} points at ${tag_sha} but run ${RUN_ID} built ${run_sha}. Refusing to promote."
+            exit 1
+          fi
+          echo "Verified run ${RUN_ID} (success, ${run_sha})."
+
+      - name: Download the Linux tarballs from the build run
+        run: |
+          set -euo pipefail
+          mkdir -p promote
+          gh run download "${RUN_ID}" -R "${REPO}" --pattern 'wiser-linux-*' --dir promote
+          find promote -type f -name 'WISER-*-linux-*.tar.gz' | sort
+
+      - name: Attach the tarballs to the release
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          assets=(promote/**/WISER-*-linux-*.tar.gz)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::No Linux tarballs found in run ${RUN_ID} artifacts."
+            exit 1
+          fi
+          printf '%s\n' "${assets[@]}"
+          gh release upload "${TAG}" "${assets[@]}" --clobber -R "${REPO}"
+          echo "Attached ${#assets[@]} Linux asset(s) to ${TAG}."
