@@ -951,7 +951,12 @@ window.runMermaid = runMermaid;</script>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-control-panel">The Control Panel</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-export-path">The Export Path</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-compositor-export-mosaic-qt-free">The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata-stamping-and-the-envi-header-patch">Band-metadata stamping and the ENVI-header patch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-wiring-and-threading">GUI wiring and threading</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
 </ul>
@@ -975,10 +980,11 @@ intended for developers reading, debugging, or extending the tool.</p>
 <p>This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
 materialization, common-grid/CRS resolution, the <strong>vector overlay</strong> (footprints,
 bounding box, overlap highlight), the <strong>static-scene pixel compositor</strong> (the composited
-preview, with an off-thread debounced per-scene cache), and the <strong>control panel</strong>
+preview, with an off-thread debounced per-scene cache), the <strong>control panel</strong>
 (drag-to-reorder z-order, resolution mode, resampling method, and the band-metadata
-chooser) are implemented and wired into the GUI. The one remaining gap is export — see
-<a class="reference internal" href="#what-isnt-built-yet"><span class="xref myst">What Isn’t Built Yet</span></a>.</p>
+chooser), and the <strong>full-resolution export path</strong> (streaming ENVI compositor on the
+common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export Path</span></a>) are implemented and wired into
+the GUI.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
 in the repo root. There is no user-facing guide yet since the feature is not
@@ -1037,13 +1043,16 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its <cod
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_compositor.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> — Qt-free per-scene warp→RGBA renderer (alpha = validity) for the pixel layer</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_materialize.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_export.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> — warps each scene onto the common grid and streams the mosaic to ENVI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_materialize.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code>, <code class="docutils literal notranslate"><span class="pre">materialize_to_tiled_geotiff</span></code> — the object-model adapter</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/utils/progress.py</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/utils/progress.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code> — Qt-free progress plumbing shared with any scheduler task</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/progress_task.py</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/wiser/gui/progress_task.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> — reusable modal + Activity Monitor bridge for scheduler tasks</p></td>
 </tr>
 </tbody>
@@ -1663,8 +1672,8 @@ stores the choice as a <code class="docutils literal notranslate"><span class="p
 <code class="docutils literal notranslate"><span class="pre">get_band_metadata_source()</span></code> falls back to the top visible scene when nothing is chosen
 or the chosen scene is removed/hidden. Neither this nor the resampling method invalidates
 the grid (both are output-content, not grid geometry).</p></li>
-<li><p><strong>Export / Finish</strong> is present but <strong>disabled</strong> until the export path (#639) lands; the
-v1 preview toggle is intentionally deferred.</p></li>
+<li><p><strong>Export / Finish</strong> runs the full-resolution export path (see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
+Path</span></a>); the v1 preview toggle is intentionally deferred.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> change, band-metadata selection, resampling warning, and
 reorder-without-reads are covered by <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_pane_gui.py</span></code>, with the
@@ -1672,22 +1681,81 @@ controller-side surface (resample round-trip, band-metadata fallback, no-grid-in
 in <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_controller.py</span></code>.</p>
 </section>
 <hr class="docutils" />
-<section id="what-isn-t-built-yet">
-<h2>What Isn’t Built Yet<a class="headerlink" href="#what-isn-t-built-yet" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">MosaicView.paintEvent</span></code> draws both layers — the pixel compositor (#637, see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel
-Layer</span></a>) beneath the vector overlay (#636, see
-<a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>) — and the control panel
-(#638, see <a class="reference internal" href="#the-control-panel"><span class="xref myst">The Control Panel</span></a>) exposes the model’s handles. The one
-remaining gap is export:</p>
-<ul class="simple">
-<li><p><strong>Export (issue #639)</strong> — writing the mosaic via <code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> (or the
-GDAL &lt; 3.11 <code class="docutils literal notranslate"><span class="pre">BuildVRT</span></code>/<code class="docutils literal notranslate"><span class="pre">Translate</span></code> fallback), ordered by z-order, resolved against
-the common grid, and loaded back into WISER as a new dataset. It will consume the
-control panel’s canonical band-metadata source and resampling method, and the common
-grid’s resolution/CRS.</p></li>
-</ul>
-<p>Export does not affect the ingestion/CRS-resolution logic documented above — it consumes
-the same <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> state.</p>
+<section id="the-export-path">
+<h2>The Export Path<a class="headerlink" href="#the-export-path" title="Link to this heading">#</a></h2>
+<p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_export.py</span></code> (Qt-free) and the
+<code class="docutils literal notranslate"><span class="pre">_on_export_clicked</span></code> / <code class="docutils literal notranslate"><span class="pre">_export_mosaic_task</span></code> handlers in <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code>
+(issue #639).</p>
+<p>Export is the “Finish” half of the mosaic: where the pixel layer renders a
+screen-resolution <em>preview</em> per scene, export runs <strong>once</strong> at full resolution and writes
+a real, value-preserving raster to disk. It composites the visible scenes by <strong>z-order +
+per-source nodata</strong> (last valid source wins, never blends) onto the resolved common grid,
+and streams the result block-by-block so a mosaic larger than RAM is never buffered whole.
+It consumes the same <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> state as everything above — no new ingestion or
+CRS logic.</p>
+<section id="the-compositor-export-mosaic-qt-free">
+<h3>The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)<a class="headerlink" href="#the-compositor-export-mosaic-qt-free" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">export_mosaic(scenes,</span> <span class="pre">grid,</span> <span class="pre">target_wkt,</span> <span class="pre">resample_alg,</span> <span class="pre">output_nodata,</span> <span class="pre">band_metadata_dataset,</span> <span class="pre">out_path,</span> <span class="pre">progress)</span></code> is two GDAL stages, both lazy until the final
+streamed write:</p>
+<ol class="arabic simple">
+<li><p><strong>Warp each visible scene onto the common grid as a warped VRT</strong>
+(<code class="docutils literal notranslate"><span class="pre">_warp_scene_to_grid_vrt</span></code>). <code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> does <strong>not</strong> reproject, so this
+per-scene <code class="docutils literal notranslate"><span class="pre">gdal.Warp(...,</span> <span class="pre">format=&quot;VRT&quot;)</span></code> is what applies the CRS transform + resample +
+grid alignment — mirroring the preview warp in <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, but keeping the raw
+band values (no percentile stretch, no <code class="docutils literal notranslate"><span class="pre">dstAlpha</span></code>). Each scene’s Data Ignore Value
+becomes the warp <code class="docutils literal notranslate"><span class="pre">srcNodata</span></code> and <code class="docutils literal notranslate"><span class="pre">output_nodata</span></code> becomes the <code class="docutils literal notranslate"><span class="pre">dstNodata</span></code>, so invalid /
+outside-footprint pixels are marked for the compositor. VRTs are lazy — no pixels are
+materialized here. A scene whose window is disjoint from the grid warps to <code class="docutils literal notranslate"><span class="pre">None</span></code> and
+is simply skipped.</p></li>
+<li><p><strong>Composite + stream to ENVI</strong> (<code class="docutils literal notranslate"><span class="pre">_run_raster_mosaic</span></code>) via
+<code class="docutils literal notranslate"><span class="pre">gdal.Run(&quot;raster&quot;,</span> <span class="pre">&quot;mosaic&quot;,</span> <span class="pre">input=[...],</span> <span class="pre">output=...,</span> <span class="pre">output_format=&quot;ENVI&quot;,</span> <span class="pre">...)</span></code>
+(GDAL ≥ 3.11, guaranteed by #631; the doc’s <code class="docutils literal notranslate"><span class="pre">BuildVRT</span></code>/<code class="docutils literal notranslate"><span class="pre">Translate</span></code> fallback is not
+needed). Inputs are passed <strong>bottom→top</strong> (the top scene last) so the algorithm’s
+“last valid source wins” composites z-order correctly, and it writes ENVI
+block-by-block, so no full-image buffer is held in RAM. GDAL’s own progress callback is
+forwarded through the <code class="docutils literal notranslate"><span class="pre">ProgressReporter</span></code>.</p></li>
+</ol>
+<p>The VRTs live in a <code class="docutils literal notranslate"><span class="pre">TemporaryDirectory</span></code> scoped around the mosaic call — they are only
+referenced until <code class="docutils literal notranslate"><span class="pre">gdal.Run</span></code> finishes the streamed write, then discarded.</p>
+</section>
+<section id="band-metadata-stamping-and-the-envi-header-patch">
+<h3>Band-metadata stamping and the ENVI-header patch<a class="headerlink" href="#band-metadata-stamping-and-the-envi-header-patch" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">gdal</span> <span class="pre">raster</span> <span class="pre">mosaic</span></code> writes correct pixels, geotransform, and <code class="docutils literal notranslate"><span class="pre">map</span> <span class="pre">info</span></code>, but no spectral
+metadata, so <code class="docutils literal notranslate"><span class="pre">_patch_envi_band_metadata</span></code> reopens the GDAL-written <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> and rewrites it
+with WISER’s own ENVI header helpers (<code class="docutils literal notranslate"><span class="pre">envi.load_envi_header</span></code> / <code class="docutils literal notranslate"><span class="pre">write_envi_header</span></code>),
+stamping the canonical band metadata from <code class="docutils literal notranslate"><span class="pre">controller.get_band_metadata_source()</span></code>:
+wavelengths / units, band names, the bad-band list (<code class="docutils literal notranslate"><span class="pre">bbl</span></code>), and the output nodata. This
+keeps the exported file self-describing so it re-opens in WISER with the right spectral
+labels.</p>
+<p>One subtlety is called out because it caused a crash-on-open regression:</p>
+<blockquote>
+<div><p><strong>GDAL’s ENVI writer stamps a <em>1-based</em> <code class="docutils literal notranslate"><span class="pre">default</span> <span class="pre">bands</span></code> placeholder</strong> (e.g. <code class="docutils literal notranslate"><span class="pre">{1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>
+for RGB inputs). WISER’s ENVI reader reads <code class="docutils literal notranslate"><span class="pre">default</span> <span class="pre">bands</span></code> <strong>verbatim</strong> — no
+1-based→0-based conversion — and <code class="docutils literal notranslate"><span class="pre">find_display_bands</span></code> does <strong>no</strong> bounds check, so
+leaving that placeholder (or copying an out-of-range source value) makes the exported
+file raise <code class="docutils literal notranslate"><span class="pre">GDALDataset::GetRasterBand(4)</span> <span class="pre">-</span> <span class="pre">Illegal</span> <span class="pre">band</span> <span class="pre">#</span></code> when opened in a raster
+view. <code class="docutils literal notranslate"><span class="pre">_resolve_default_bands</span></code> therefore always resolves the field explicitly: it keeps
+the canonical source’s default display bands only when every index is in range for the
+output, and otherwise <strong>clears</strong> it so WISER derives display bands from the stamped
+wavelengths (truecolor) or the first bands.</p>
+</div></blockquote>
+<p>The result is <strong>not</strong> loaded back into the running session — export writes the file and
+the user opens it manually via <strong>File → Open</strong> (a deliberate product decision), which is
+why the on-disk header must be fully self-describing.</p>
+</section>
+<section id="gui-wiring-and-threading">
+<h3>GUI wiring and threading<a class="headerlink" href="#gui-wiring-and-threading" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicPane._on_export_clicked</span></code> (GUI thread) requires ≥1 visible scene, resolves the grid
+via <code class="docutils literal notranslate"><span class="pre">_ensure_common_grid()</span></code> (surfacing <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code>/<code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> as a
+warning), asks for an output path with <code class="docutils literal notranslate"><span class="pre">QFileDialog.getSaveFileName</span></code>, resolves the output
+nodata (<code class="docutils literal notranslate"><span class="pre">_resolve_output_nodata</span></code>: the band-metadata dataset’s Data Ignore Value, else the
+top-most visible scene that has one), snapshots the controller state, and hands the heavy
+work to a scheduler thread via the same <code class="docutils literal notranslate"><span class="pre">run_with_progress</span></code> bridge the ingestion path uses
+(progress modal + Activity Monitor row + cancellation, blocking only the mosaic dialog).
+The module-level worker <code class="docutils literal notranslate"><span class="pre">_export_mosaic_task</span></code> just calls <code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> and returns the
+written path; <code class="docutils literal notranslate"><span class="pre">_on_export_finished</span></code> shows a confirmation dialog. Like <code class="docutils literal notranslate"><span class="pre">_ingest_scene</span></code>, the
+worker never logs — progress and raised exceptions are its only channels out.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="integration-with-wiser">
@@ -1729,6 +1797,18 @@ real ingestion path: drag-reorder updates controller z-order and triggers <stron
 reads</strong>; a resolution-mode change rebuilds the grid; a band-metadata selection sets the
 canonical source without changing band count; and a non-Nearest-Neighbor resampling
 choice surfaces the warning and invalidates the pixel cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_export.py</span></code> — the Qt-free <code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code> (#639): two overlapping
+fixtures give the correct z-order winner per pixel (and the reversed order flips it),
+nodata passthrough (a hole in the top scene reveals the lower one; outside every
+footprint is the output nodata), Nearest-Neighbor value preservation (exact source
+values), band count + canonical metadata round-tripped through the written ENVI, and the
+<code class="docutils literal notranslate"><span class="pre">default</span> <span class="pre">bands</span></code> guards (GDAL’s 1-based RGB placeholder is cleared; an out-of-range source
+default is dropped so the file opens without an <code class="docutils literal notranslate"><span class="pre">Illegal</span> <span class="pre">band</span> <span class="pre">#</span></code> crash).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_export_gui.py</span></code> — the Export button end to end via <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code>:
+ingest two scenes, patch the save dialog, click Export, and assert the ENVI <code class="docutils literal notranslate"><span class="pre">.img</span></code>/<code class="docutils literal notranslate"><span class="pre">.hdr</span></code>
+are written on the common grid with nodata carried through while <strong>nothing is loaded back
+into WISER</strong> (dataset count unchanged); plus the no-scenes guard (informs and never
+reaches the file picker).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_ingestion.py</span></code> — <code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>,
 <code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, and progress-reporting behavior.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_crs_dialog.py</span></code> — <code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code> in isolation
@@ -1825,7 +1905,12 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reprojectpromptdialog"><code class="docutils literal notranslate"><span class="pre">ReprojectPromptDialog</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-control-panel">The Control Panel</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-isn-t-built-yet">What Isn’t Built Yet</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-export-path">The Export Path</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-compositor-export-mosaic-qt-free">The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata-stamping-and-the-envi-header-patch">Band-metadata stamping and the ENVI-header patch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-wiring-and-threading">GUI wiring and threading</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#integration-with-wiser">Integration with WISER</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
 </ul>
