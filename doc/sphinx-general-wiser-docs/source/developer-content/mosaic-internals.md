@@ -12,9 +12,11 @@ Metadata](#display-only-preview-and-frozen-metadata)), common-grid/CRS resolutio
 **vector overlay** (footprints, bounding box, overlap highlight), the **static-scene
 pixel compositor** (the composited preview, with an off-thread debounced per-scene
 cache), the **control panel** (drag-to-reorder z-order, resolution mode, resampling
-method, and the band-metadata chooser), and the **full-resolution export path**
+method, and the band-metadata chooser), the **full-resolution export path**
 (streaming ENVI compositor on the common grid — see [The Export
-Path](#the-export-path)) are implemented and wired into the GUI.
+Path](#the-export-path)), and **in-place scene
+re-georeferencing** (right-click → warp → swap; see [Re-georeferencing a Scene In
+Place](#re-georeferencing-a-scene-in-place)) are implemented and wired into the GUI.
 ```
 
 For the design rationale and full child-issue breakdown, see `EPIC_seamless_mosaic.md`
@@ -815,6 +817,138 @@ in `src/tests/test_mosaic_controller.py`.
 
 ---
 
+## Re-georeferencing a Scene In Place
+
+**File:** `src/wiser/gui/mosaic_pane.py` (issue #685)
+
+A scene may be **mis-registered** — its spatial information places it wrong relative to
+the other scenes. Rather than sending the user out to Tools → Georeferencer and back
+through a file round-trip, `MosaicPane` lets them fix it **in place**: right-click a
+scene → **"Georeference…"**, warp it, and the corrected result is swapped into the
+mosaic live, with a clean revert on cancel. This reuses the configurable
+`GeoReferencerDialog` (see [Programmatic Configuration &
+Locking](georeferencer-internals.md#programmatic-configuration-locking)) — no new warp,
+GCP, or CRS logic is added here.
+
+### Entry point: the scene-list context menu
+
+`_build_scene_list_group` gives `self._scene_list` a `Qt.CustomContextMenu` policy;
+`_on_scene_context_menu(pos)` resolves the clicked row to a **controller** index via
+`item.data(Qt.UserRole)` (the list is shown top-first but each item carries its real
+bottom-to-top index) and pops a one-action `QMenu` → `_on_georeference_scene(index)`. The
+menu is suppressed when the scheduler or the session materializer is absent, since the
+swap reingests (the same requirement Add Scene guards on).
+
+### Opening the dialog (locked target + locked save path)
+
+`_on_georeference_scene(index)` builds a `GeoReferencerConfig` that locks the two things
+the mosaic owns and leaves the reference user-chosen:
+
+- `target_dataset = scene.dataset` (the **original** dataset, not a copy) with
+  `allow_change_target=False`,
+- `save_path` = a fresh temp path with `allow_change_save_path=False`,
+- `reference_dataset=None` (unlocked — the user picks a reference or a manual CRS),
+- `accept_button_text="Save to Mosaic"`.
+
+It constructs a **fresh, task-scoped** `GeoReferencerDialog` (not the Tools-menu
+singleton, so the lock state can never leak back into that flow), connects
+`warp_completed` → `_on_scene_rewarped` and `finished` → `_on_geodialog_finished`,
+stashes the in-flight state in a `_RegeorefContext` (`orig_scene`, `orig_index`,
+`dialog`, `warped_scene`), and `show(config)`s it **non-modally** (the mosaic dialog is
+non-modal, so the georeferencer must not block it).
+
+> **The save path is a *fresh* name per warp** (`regeoref_{id(scene)}_{uuid4}.tif` under
+> `wiser.utils.primitives.temp_dir()`), not one reused path. The previous warped
+> `RasterDataSet` keeps its GeoTIFF open, and on Windows an open file cannot be
+> overwritten — so a repeated "Run Warp" onto one fixed path would fail. The file is a
+> throwaway regardless: reingestion re-materializes it into the mosaic's own copy.
+
+### Two threaded phases: warp, then reingest-and-swap
+
+```{mermaid}
+sequenceDiagram
+    participant User
+    participant Pane as MosaicPane
+    participant Dlg as GeoReferencerDialog
+    participant Sched as WorkScheduler
+    participant Ctrl as MosaicController
+    participant View as MosaicView
+
+    User->>Pane: right-click scene → "Georeference…"
+    Pane->>Dlg: show(GeoReferencerConfig, locked target+save)
+    User->>Dlg: place GCPs, click "Run Warp"
+    Dlg->>Sched: warp_dataset_to_path (bg thread, own progress modal)
+    Sched-->>Dlg: written path
+    Dlg-->>Pane: warp_completed(path)
+    Pane->>Pane: load path → RasterDataSet (NOT registered)
+    Pane->>Sched: _ingest_scene(dataset, materializer) [blocks the dialog]
+    Sched-->>Pane: MosaicScene (materialized + overviews + footprint)
+    Pane->>Ctrl: remove current occupant, add_scene, move_scene(→ orig slot)
+    Pane->>Pane: _ensure_common_grid + _refresh_scene_list
+    Pane->>View: invalidate_overlay + invalidate_pixels
+    User->>Dlg: "Save to Mosaic" (accept) or Cancel (revert)
+    Dlg-->>Pane: finished(result) → finalize or _revert_regeoref
+```
+
+**Run Warp** is phase one: the dialog threads the full-resolution GDAL warp (PR 1) and
+emits `warp_completed(path)`. `_on_scene_rewarped(path)` then wraps that output into a
+`RasterDataSet` via the shared loader
+(`app_state.get_loader().load_from_file(path, data_cache=app_state.get_cache())[0]`) but
+**does not register it** in `ApplicationState` — it is a mosaic-owned throwaway, so it
+must never pollute the global dataset list or the Add-Scene combo. Phase two runs
+`_ingest_scene` on the scheduler (the **same** materialize → overviews → footprint
+pipeline as Add Scene) with its own progress modal, **blocking the georeferencer dialog**
+(not the mosaic window) so the user cannot re-run the warp mid-reingest.
+
+`_on_rewarp_ingested(scene)` does the swap on the GUI thread. It replaces the slot's
+**current occupant** — the original on the first warp, or the previous warped scene on a
+repeat, so warps never stack — located by **object identity** (robust to a user reorder
+while the non-modal dialog is open), falling back to the recorded `orig_index`:
+`remove_scene(slot)` → `add_scene(scene)` (appends to the top) → `move_scene(scene_count-1,
+slot)` to restore the z-order slot. It then runs the normal ingest epilogue
+(`_ensure_common_grid`, `_refresh_scene_list`, `invalidate_overlay`, `invalidate_pixels`),
+because the warp changed the geotransform, footprint, and extent/resolution, so the whole
+derived state must rebuild. The original `MosaicScene` is held aside in the context and
+**never mutated**.
+
+### Save vs. revert
+
+`_on_geodialog_finished(result)` centralizes the outcome. On **accept** ("Save to
+Mosaic") the warped scene is already live, so it just drops the revert handle. On
+**reject / close** it calls `_revert_regeoref`, which removes the swapped-in warped scene
+(by identity) and re-adds the original at its slot, rebuilding **quietly**
+(`_rebuild_grid_quietly` — a revert restores a previously-valid state, so a reproject
+prompt would be a surprising interruption); it is a no-op if no warp ever ran. Either way
+the task-scoped dialog is `deleteLater()`d.
+
+### Why reingest, and how the fix reaches the export
+
+This is the part most likely to confuse a new reader, so it is called out explicitly:
+
+> **The georeferencer's "Run Warp" produces a real, full-resolution, all-bands raster
+> whose pixels are physically resampled onto the new georeferencing — not merely a
+> re-tagged preview.** The mosaic then makes *that file* the scene's backing data: after
+> the swap, `scene.dataset` is the warped dataset and `scene.gdal_path` is its
+> materialized tiled copy; the original (unwarped) dataset is removed from the mosaic
+> entirely. So there is no "unwarped full dataset" left behind to reconcile.
+
+Both the preview compositor
+([`render_scene_argb`](mosaic-internals.md#the-per-scene-renderer-render_scene_argb-qt-free))
+and the export compositor
+([`_warp_scene_to_grid_vrt`](#the-compositor-export_mosaic-qt-free)) read pixels **and**
+the geotransform from `scene.gdal_path`. They differ only in output resolution (screen
+vs. full), so they are always consistent. The re-georeferenced scene therefore reaches
+export the same way any scene does — **twice-warped in sequence**: warp #1 (the
+georeferencer) baked the correction into `scene.gdal_path`, and export's per-scene warp #2
+reprojects that corrected file onto the shared common grid. The common grid itself
+rebuilds off the corrected `footprint_wkt`, so extent and overlap follow too. This is
+exactly why the design reingests rather than patching caches in place — one coherent
+rebuild, and the export path picks it up for free. (The correction lives only for the
+session; the mosaic export re-warps from the temp at full resolution, so the on-disk
+product is correct without persisting the single corrected scene separately.)
+
+---
+
 ## The Export Path
 
 **Files:** `src/wiser/raster/mosaic_export.py` (Qt-free) and the
@@ -986,6 +1120,13 @@ channels out.
   `wiser.gui.mosaic_pane.ReprojectPromptDialog` so nothing blocks the test.
 - `src/tests/test_mosaic_dialog_gui.py` — dialog shell, Add Scene ingestion flow,
   progress modal.
+- `src/tests/test_mosaic_georeference_gui.py` — re-georeferencing a scene in place
+  (#685) end to end via `WiserTestModel`: the context menu opens a `GeoReferencerDialog`
+  locked onto the scene (target + save path); a simulated `warp_completed` reingests and
+  swaps the corrected scene in at its original z-order slot (blocking the georeferencer
+  dialog, not the mosaic window); a repeated warp **replaces** rather than stacks; the
+  warp output is **not** registered as a global dataset; Cancel restores the original at
+  its slot while "Save to Mosaic" keeps the warped one.
 
 GUI tests use `@pytest.mark.functional`/`@pytest.mark.smoke` with the
 `WiserTestModel` harness (`src/test_utils/test_model.py`), not pytest-qt/qtbot. Run

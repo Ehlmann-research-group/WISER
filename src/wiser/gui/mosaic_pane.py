@@ -15,8 +15,10 @@ z-order/visibility, a re-read (``invalidate_pixels``) when the pixels change, an
 rebuild when the output geometry changes.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Sequence, Tuple, TYPE_CHECKING
+from uuid import uuid4
 
 from osgeo import gdal, osr
 
@@ -26,6 +28,8 @@ from PySide6.QtWidgets import *
 
 from .app_state import ApplicationState
 from .app_services import AppServices
+from .geo_reference_config import GeoReferencerConfig
+from .geo_reference_dialog import GeoReferencerDialog
 from .mosaic_crs_dialog import ReprojectPromptDialog
 from .mosaic_view import MosaicView
 from .progress_task import run_with_progress
@@ -47,6 +51,7 @@ from wiser.raster.mosaic_ingestion import (
     compute_footprint_wkt,
     validate_scene,
 )
+from wiser.utils.primitives import temp_dir
 from wiser.utils.progress import ProgressReporter
 
 if TYPE_CHECKING:
@@ -139,6 +144,24 @@ def _export_mosaic_task(
     return str(result)
 
 
+@dataclass
+class _RegeorefContext:
+    """
+    In-flight state for a right-click "Georeference…" session on one mosaic scene
+    (#685).
+
+    Holds the original scene aside (it is never mutated) so a cancel can restore it,
+    remembers the z-order slot to swap results back into, owns the task-scoped
+    :class:`GeoReferencerDialog`, and tracks the currently swapped-in warped scene (if
+    any) so a repeated warp *replaces* rather than stacks.
+    """
+
+    orig_scene: MosaicScene
+    orig_index: int
+    dialog: GeoReferencerDialog
+    warped_scene: Optional[MosaicScene] = None
+
+
 class MosaicPane(QWidget):
     """
     Hosts a :class:`MosaicView` plus a controls area with the Add-Scene action.
@@ -169,6 +192,8 @@ class MosaicPane(QWidget):
         # Holds the in-flight ingestion task (progress modal + background work) so it
         # is not garbage-collected mid-run; overwritten on the next add.
         self._active_progress_task = None
+        # In-flight right-click "Georeference…" session (#685), or None when idle.
+        self._regeoref_ctx: Optional[_RegeorefContext] = None
 
         self._init_ui()
 
@@ -272,6 +297,9 @@ class MosaicPane(QWidget):
         self._scene_list.itemSelectionChanged.connect(self._on_scene_selection_changed)
         self._scene_list.itemChanged.connect(self._on_scene_item_changed)
         self._scene_list.model().rowsMoved.connect(self._on_scene_rows_moved)
+        # Right-click a row to re-georeference that scene in place (#685).
+        self._scene_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._scene_list.customContextMenuRequested.connect(self._on_scene_context_menu)
         layout.addWidget(self._scene_list)
 
         self._remove_scene_button = QPushButton(self.tr("Remove Selected"), group)
@@ -594,6 +622,188 @@ class MosaicPane(QWidget):
         # A removal can only relax the CRS constraint, so rebuild silently rather than
         # popping the reproject dialog.
         self._rebuild_grid_quietly()
+        self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
+
+    # -- re-georeference a scene in place (#685) -------------------------------
+
+    def _on_scene_context_menu(self, pos) -> None:
+        """
+        Right-click on a scene row: offer "Georeference…" for that scene.
+
+        Re-georeferencing reingests the warped result, which needs the scheduler and
+        the session materializer -- the same requirement Add Scene guards on -- so the
+        menu is suppressed when either is absent (e.g. a display-only pane).
+        """
+        if self._app_services is None or self._materializer is None:
+            return
+        item = self._scene_list.itemAt(pos)
+        if item is None:
+            return
+        index = item.data(Qt.UserRole)
+        if index is None:
+            return
+        menu = QMenu(self._scene_list)
+        action = menu.addAction(self.tr("Georeference…"))
+        action.triggered.connect(lambda *_a, i=index: self._on_georeference_scene(i))
+        menu.exec_(self._scene_list.mapToGlobal(pos))
+
+    def _regeoref_save_path(self, scene: MosaicScene) -> str:
+        """
+        Allocate a fresh, unique temp path for a re-georeference warp under the session
+        temp dir.
+
+        A new name per warp is deliberate: the previous warped ``RasterDataSet`` may
+        still hold its GeoTIFF open (a real hazard on Windows), so reusing one path
+        would risk overwriting a locked file. The file is a throwaway -- reingestion
+        re-materializes it into the mosaic's own copy.
+        """
+        out_dir = temp_dir()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        return str(out_dir / f"regeoref_{id(scene)}_{uuid4().hex}.tif")
+
+    def _on_georeference_scene(self, index: int) -> None:
+        """
+        Open a task-scoped :class:`GeoReferencerDialog` locked onto the scene at
+        controller ``index``.
+
+        The target dataset and the save path are locked (the mosaic owns both); only
+        the reference is user-chosen. The warped result is swapped into the mosaic in
+        place when the user runs a warp (see :meth:`_on_scene_rewarped`), and reverted
+        on cancel (see :meth:`_on_geodialog_finished`).
+        """
+        scenes = self._controller.get_scenes()
+        if index < 0 or index >= len(scenes):
+            return
+        scene = scenes[index]
+
+        config = GeoReferencerConfig(
+            target_dataset=scene.dataset,  # the ORIGINAL dataset -- never a copy
+            allow_change_target=False,  # locked: this is the scene being fixed
+            reference_dataset=None,  # user picks (unlocked)
+            save_path=self._regeoref_save_path(scene),
+            allow_change_save_path=False,  # locked: the mosaic owns the output path
+            accept_button_text=self.tr("Save to Mosaic"),
+        )
+
+        # A fresh, task-scoped instance (not the Tools-menu singleton) so the locked
+        # config cannot leak back into that flow; it is destroyed when the dialog
+        # finishes. The context holds the reference so it is not GC'd while shown.
+        dialog = GeoReferencerDialog(self._app_state, self._app_services, parent=self.window())
+        dialog.warp_completed.connect(self._on_scene_rewarped)
+        dialog.finished.connect(self._on_geodialog_finished)
+
+        self._regeoref_ctx = _RegeorefContext(
+            orig_scene=scene,
+            orig_index=index,
+            dialog=dialog,
+            warped_scene=None,
+        )
+        # Non-modal, matching the (non-modal) mosaic dialog so it never blocks it.
+        dialog.show(config)
+
+    def _on_scene_rewarped(self, path: str) -> None:
+        """
+        A "Run Warp" finished: reingest the warped output at ``path`` and swap the
+        corrected scene into the mosaic in place (see :meth:`_on_rewarp_ingested`).
+
+        The output is wrapped into a ``RasterDataSet`` with the shared loader but is
+        deliberately **not** registered in ``ApplicationState`` -- it is a
+        mosaic-owned throwaway that reingestion re-materializes, so it must never
+        pollute the global dataset list or the Add-Scene combo.
+        """
+        ctx = self._regeoref_ctx
+        if ctx is None or self._app_services is None or self._materializer is None:
+            return
+        new_dataset = self._app_state.get_loader().load_from_file(
+            path=path, data_cache=self._app_state.get_cache()
+        )[0]
+        # Reingest on the scheduler (materialize -> overviews -> footprint) with its own
+        # progress modal. Block the georeference dialog (not the mosaic window) so the
+        # user cannot re-run the warp mid-reingest; the mosaic view updates when done.
+        self._active_progress_task = run_with_progress(
+            self._app_services,
+            ctx.dialog,
+            self.tr("Updating scene…"),
+            _ingest_scene,
+            new_dataset,
+            self._materializer,
+            on_success=self._on_rewarp_ingested,
+            on_error=self._on_scene_failed,
+            description=self.tr("Re-materializing warped scene…"),
+        )
+
+    def _on_rewarp_ingested(self, scene: MosaicScene) -> None:
+        """
+        Swap the freshly-reingested warped ``scene`` into the mosaic at the original
+        scene's z-order slot.
+
+        Replaces whatever currently occupies that slot -- the original on the first
+        warp, or the previous warped scene on a repeat -- so repeated warps never
+        stack. The occupant is located by object identity (robust to a user reorder
+        while the non-modal dialog is open), falling back to the recorded slot index.
+        """
+        ctx = self._regeoref_ctx
+        if ctx is None:
+            return
+        scenes = self._controller.get_scenes()
+        current = ctx.warped_scene if ctx.warped_scene is not None else ctx.orig_scene
+        slot = next((i for i, s in enumerate(scenes) if s is current), None)
+        if slot is None:
+            slot = ctx.orig_index
+        else:
+            self._controller.remove_scene(slot)
+        # add_scene appends to the top of the z-order, so move it back down to the slot.
+        self._controller.add_scene(scene)
+        self._controller.move_scene(self._controller.scene_count() - 1, slot)
+        ctx.warped_scene = scene
+        # The warp changed geotransform/footprint/extent, so the whole derived state
+        # must rebuild -- exactly the normal-ingest epilogue.
+        self._ensure_common_grid()
+        self._refresh_scene_list()
+        self._mosaic_view.invalidate_overlay()
+        self._mosaic_view.invalidate_pixels()
+
+    def _on_geodialog_finished(self, result: int) -> None:
+        """
+        Finalize or revert the re-georeference session, then destroy the task-scoped
+        dialog.
+
+        "Save to Mosaic" (accept): the warped scene is already live, so this just drops
+        the revert handle. Cancel / close (reject): restore the original scene at its
+        slot via :meth:`_revert_regeoref` (a no-op if no warp ever ran). Either way the
+        task-scoped dialog is scheduled for deletion.
+        """
+        ctx = self._regeoref_ctx
+        if ctx is None:
+            return
+        if result != QDialog.Accepted:
+            self._revert_regeoref(ctx)
+        self._regeoref_ctx = None
+        ctx.dialog.deleteLater()
+
+    def _revert_regeoref(self, ctx: "_RegeorefContext") -> None:
+        """
+        Undo an in-place re-georeference: remove the swapped-in warped scene (if any)
+        and restore the original scene at its z-order slot.
+
+        A no-op when the user never ran a warp (nothing was swapped in). The warped
+        scene is located by identity (robust to a user reorder), falling back to the
+        recorded slot. Rebuilds the grid *quietly* -- a revert restores a previously
+        valid state, so a reproject prompt here would be a surprising interruption.
+        """
+        if ctx.warped_scene is None:
+            return
+        scenes = self._controller.get_scenes()
+        slot = next((i for i, s in enumerate(scenes) if s is ctx.warped_scene), None)
+        if slot is None:
+            slot = ctx.orig_index
+        else:
+            self._controller.remove_scene(slot)
+        self._controller.add_scene(ctx.orig_scene)
+        self._controller.move_scene(self._controller.scene_count() - 1, slot)
+        self._rebuild_grid_quietly()
+        self._refresh_scene_list()
         self._mosaic_view.invalidate_overlay()
         self._mosaic_view.invalidate_pixels()
 
