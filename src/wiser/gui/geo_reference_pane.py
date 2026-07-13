@@ -33,6 +33,10 @@ class GeoReferencerPane(RasterPane, PointSelector):
         )
         self._pane_type = pane_type
 
+        # Whether a dataset has been loaded but not yet auto-fitted.  The fit is
+        # deferred until the pane is actually laid out (see _run_pending_fit).
+        self._pending_fit = False
+
     def get_point_selector_type(self):
         return self._pane_type
 
@@ -56,6 +60,75 @@ class GeoReferencerPane(RasterPane, PointSelector):
         tools
         """
         return
+
+    def _init_zoom_tools(self):
+        """
+        Add a "Zoom to fit" button to the base zoom tools, so the user can
+        quickly frame the whole image while placing control points.
+        """
+        super()._init_zoom_tools()
+
+        self._act_zoom_to_fit = add_toolbar_action(
+            self._toolbar,
+            ":/icons/zoom-to-fit.svg",
+            self.tr("Zoom to fit"),
+            self,
+            before=self._act_cbox_zoom,
+        )
+        self._act_zoom_to_fit.triggered.connect(self._on_zoom_to_fit)
+
+    def _on_zoom_to_fit(self):
+        """Zoom the view such that the entire image fits in the view."""
+        # Use the rasterview at (0, 0) to compute the scale for the image to fit
+        rasterview = self.get_rasterview()
+        rasterview.scale_image_to_fit()
+
+        # If we are in a multi-view mode, propagate that scale to all views
+        if self.is_multi_view():
+            self.set_scale(rasterview.get_scale())
+
+        self._update_zoom_widgets()
+
+    def show_dataset(self, dataset, rasterview_pos=(0, 0)):
+        """
+        Show a dataset, and auto-fit it the first time it is loaded so large
+        images are immediately usable.  The fit itself is deferred until the
+        pane is laid out (see _run_pending_fit).
+        """
+        super().show_dataset(dataset, rasterview_pos=rasterview_pos)
+
+        if dataset is not None:
+            self._pending_fit = True
+            # Attempt the fit on the next event-loop turn (handles switching
+            # datasets while the dialog is already open).  If the pane isn't
+            # laid out yet -- e.g. the dataset was set via GeoReferencerConfig
+            # before the dialog was shown -- _run_pending_fit bails and showEvent
+            # schedules another attempt once the pane is visible.
+            QTimer.singleShot(0, self._run_pending_fit)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Datasets are commonly set (via GeoReferencerConfig) before the dialog
+        # is shown, when the viewport is not yet laid out.  Run any pending fit
+        # now that the pane is visible.
+        if self._pending_fit:
+            QTimer.singleShot(0, self._run_pending_fit)
+
+    def _run_pending_fit(self):
+        """Perform a deferred auto-fit once the pane's viewport is laid out."""
+        if not self._pending_fit:
+            return
+
+        rasterview = self.get_rasterview()
+        # Bail if there is no data or the pane isn't laid out yet; showEvent /
+        # show_dataset will schedule another attempt.
+        if rasterview.get_raster_data() is None:
+            return
+        if rasterview.width() <= 1:
+            return
+
+        self._on_zoom_to_fit()
+        self._pending_fit = False
 
     def _on_band_chooser(self, checked=False, rasterview_pos=(0, 0)):
         super()._on_band_chooser(
