@@ -88,8 +88,11 @@ class TestMosaicViewGui(unittest.TestCase):
         self.assertGreaterEqual(index, 0)
         pane._dataset_combo.setCurrentIndex(index)
         pane._add_scene_button.click()
+        # Generous timeout: the larger tile-reuse fixtures (1024 px, with overviews +
+        # stretch) can take a while to materialize under load. This returns as soon as
+        # ingest finishes, so it does not slow the small-scene tests.
         self.assertTrue(
-            self._wait_for(lambda: controller.scene_count() == expected_count),
+            self._wait_for(lambda: controller.scene_count() == expected_count, timeout_ms=60000),
             "scene was not ingested within the timeout",
         )
 
@@ -326,6 +329,10 @@ class TestMosaicViewGui(unittest.TestCase):
             def _assert_no_read(mutate):
                 spy.reset_mock()
                 mutate()
+                # The pane rebuilds the grid before restacking (e.g. _on_scene_rows_moved
+                # -> _rebuild_grid_quietly); do the same so the render bucket, which is
+                # floored at the grid resolution, stays consistent with the cached tiles.
+                controller.build_common_grid()
                 view.recomposite_only()
                 view.grab()
                 QTest.qWait(2 * _PIXEL_READ_DEBOUNCE_MS)  # past the debounce window — nothing should read
@@ -439,16 +446,18 @@ class TestMosaicViewGui(unittest.TestCase):
             view._transform.center_y,
             view._transform.world_units_per_pixel,
         )
-        fit_bucket = mosaic_view._zoom_bucket(fit_state[2])
+        fit_bucket = view._render_bucket()
         before = set(view._tile_cache.keys())
         self.assertTrue(before)
 
         real_render = mosaic_view.render_scene_argb
-        # Zooming across a bucket boundary reads the new bucket's tiles.
+        # Zooming across a bucket boundary reads the new bucket's tiles. (3x from the
+        # fit zoom lands on the grid's native bucket, so the render floor does not clamp
+        # it — it is a genuine new, finer bucket.)
         with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy_in:
             view._transform.zoom(3.0, center, view.size())
             self.assertTrue(self._settle_reads(view))
-            self.assertNotEqual(mosaic_view._zoom_bucket(view._transform.world_units_per_pixel), fit_bucket)
+            self.assertNotEqual(view._render_bucket(), fit_bucket)
             new_bucket_keys = {k for k in view._tile_cache if k[1] != fit_bucket}
             self.assertTrue(new_bucket_keys, "crossing a bucket read no new-bucket tiles")
             self.assertGreater(spy_in.call_count, 0)
@@ -463,6 +472,37 @@ class TestMosaicViewGui(unittest.TestCase):
             self.assertTrue(self._settle_reads(view))
             self.assertTrue(before.issubset(view._tile_cache.keys()))
             self.assertEqual(spy_back.call_count, 0)
+
+        self.test_model.close_seamless_mosaic_dialog()
+
+    def test_zoom_past_native_reuses_tiles_without_reading(self):
+        ds_a, ds_b = self._big_scene_pair()
+        _dlg, _pane, controller, view = self._open_pane_with_scenes(ds_a, ds_b)
+
+        # Settle, then view a small window at the mosaic's native (common-grid)
+        # resolution so a handful of grid-resolution tiles are cached.
+        self.assertTrue(self._settle_reads(view))
+        view.resize(256, 256)
+        gt = controller.get_common_grid().geotransform
+        grid_res = min(abs(gt[1]), abs(gt[5]))
+        view._transform.world_units_per_pixel = grid_res
+        self.assertTrue(self._settle_reads(view))
+        native_bucket = view._render_bucket()
+        before = set(view._tile_cache.keys())
+        self.assertTrue(before)
+
+        # Zooming far past native must NOT warp finer tiles: the render bucket stays
+        # floored at the grid resolution, and the cached grid-resolution tiles are reused
+        # (drawn scaled by the affine — one source pixel becomes a block on screen), so a
+        # deep zoom-in reads nothing.
+        real_render = mosaic_view.render_scene_argb
+        with mock.patch.object(mosaic_view, "render_scene_argb", side_effect=real_render) as spy:
+            view._transform.world_units_per_pixel = grid_res / 16.0
+            self.assertEqual(view._render_bucket(), native_bucket)
+            self.assertTrue(self._settle_reads(view))
+            self.assertEqual(spy.call_count, 0)
+            # No finer tiles were cached; the tiny viewport reuses a subset of native ones.
+            self.assertTrue(set(view._tile_cache.keys()).issubset(before))
 
         self.test_model.close_seamless_mosaic_dialog()
 
