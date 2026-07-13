@@ -224,3 +224,12 @@ def test_null_and_empty_stretch_entries_dropped_not_fatal():
     dropped = load_stretches(manifest, dst)
     assert len(dropped) == 2
     assert dst.get_all_stretches() == {}
+
+
+def test_non_dict_stretch_entries_and_sections_are_dropped_not_fatal():
+    dst = _FakeAppState()
+    # Non-dict entries are reported; a non-list section is ignored -- never a crash.
+    assert load_stretches({"stretches": ["x", None, 5]}, dst) == ["x", None, 5]
+    assert dst.get_all_stretches() == {}
+    assert load_stretches({"stretches": {"0": {}}}, dst) == []
+    assert dst.get_all_stretches() == {}

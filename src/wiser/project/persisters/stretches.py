@@ -103,7 +103,15 @@ def load_stretches(manifest: Dict[str, Any], app_state: "ApplicationState") -> L
     the caller can warn without aborting the load.
     """
     dropped: List[Dict[str, Any]] = []
-    for entry in manifest.get("stretches", []):
+    entries = manifest.get("stretches", [])
+    if not isinstance(entries, list):
+        # A non-list stretches section (hand-edited/corrupt manifest) has nothing
+        # to restore; ignore it rather than iterating a dict's keys.
+        return dropped
+    for entry in entries:
+        if not isinstance(entry, dict):
+            dropped.append(entry)
+            continue
         ds_id = entry.get("dataset_id")
         band_index = entry.get("band_index")
         if ds_id is None or band_index is None or not app_state.has_dataset(ds_id):
