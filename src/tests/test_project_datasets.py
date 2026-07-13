@@ -9,6 +9,7 @@ a malformed id.
 
 import os
 
+import netCDF4 as nc
 import numpy as np
 from astropy import units as u
 
@@ -331,6 +332,69 @@ def test_subdataset_recorded_as_base_path_and_descriptor():
     assert entry["path"] == "/data/scene.nc"
     assert entry["subdataset_name"] == descriptor
     assert entry["metadata"] == {}
+
+
+def _netcdf_with_subdatasets(tmp_path, name="scene.nc"):
+    """Write a NetCDF whose two variables surface as GDAL subdatasets.
+
+    ``reflectance`` is what the loader's non-interactive auto-pick heuristic
+    selects; ``temperature`` scores zero, so opening it exercises an explicit,
+    non-default subdataset choice a reopen must preserve rather than re-derive.
+    """
+    path = tmp_path / name
+    ds = nc.Dataset(str(path), "w")
+    try:
+        ds.createDimension("band", 4)
+        ds.createDimension("y", 5)
+        ds.createDimension("x", 6)
+        refl = ds.createVariable("reflectance", "f4", ("band", "y", "x"))
+        refl[:] = np.arange(4 * 5 * 6, dtype=np.float32).reshape(4, 5, 6)
+        temp = ds.createVariable("temperature", "f4", ("y", "x"))
+        temp[:] = np.arange(5 * 6, dtype=np.float32).reshape(5, 6) + 1000.0
+    finally:
+        ds.close()
+    return str(path)
+
+
+def test_netcdf_subdataset_round_trips(tmp_path):
+    # A file-backed NetCDF subdataset must reopen to the SAME subdataset, not the
+    # one the non-interactive auto-pick heuristic would choose.  The manifest
+    # records the base .nc path plus the full GDAL descriptor.
+    nc_path = _netcdf_with_subdatasets(tmp_path)
+    src = _FakeAppState()
+    loader = src.get_loader()
+
+    # The heuristic's default pick is reflectance; temperature is the deliberate
+    # non-default choice the round-trip must hold onto.
+    auto = loader.load_from_file(nc_path, data_cache=None, interactive=False)[0]
+    assert auto.get_subdataset_name().endswith(":reflectance")
+
+    descriptor = f'NETCDF:"{nc_path}":temperature'
+    file_ds = loader.load_from_file(nc_path, data_cache=None, interactive=False, subdataset_name=descriptor)[
+        0
+    ]
+    assert file_ds.get_subdataset_name() == descriptor
+    src.add_dataset(file_ds)
+
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    manifest = {}
+    save_datasets(src, manifest, bundle)
+
+    (entry,) = manifest["datasets"]
+    assert entry["storage"] == STORAGE_REFERENCE
+    assert entry["path"] == nc_path  # base file, not the GDAL descriptor
+    assert entry["subdataset_name"] == descriptor
+    # A subdataset is referenced, not copied into the bundle.
+    assert not (bundle.root / ProjectBundle.DATASETS_DIR).exists()
+
+    dst = _FakeAppState()
+    assert load_datasets(manifest, dst, bundle) == []
+    (restored,) = dst.get_datasets()
+    assert restored.get_id() == file_ds.get_id()
+    # Reopened to temperature, not the auto-pick's reflectance.
+    assert restored.get_subdataset_name() == descriptor
+    assert restored.get_subdataset_name() != auto.get_subdataset_name()
+    np.testing.assert_array_equal(_data(restored), _data(file_ds))
 
 
 def test_malformed_id_is_skipped(tmp_path):
