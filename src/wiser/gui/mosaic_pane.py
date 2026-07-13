@@ -668,24 +668,38 @@ class MosaicPane(QWidget):
 
     def _on_scene_context_menu(self, pos) -> None:
         """
-        Right-click on a scene row: offer "Georeference…" for that scene.
+        Right-click on a scene row: offer per-scene actions.
 
-        Re-georeferencing reingests the warped result, which needs the scheduler and
-        the session materializer -- the same requirement Add Scene guards on -- so the
-        menu is suppressed when either is absent (e.g. a display-only pane).
+        "Georeference…" reingests the warped result, which needs the scheduler and the
+        session materializer -- the same requirement Add Scene guards on -- so that
+        action is offered only when both are present (e.g. not on a display-only pane).
+        "Zoom to Scene" frames the map on the scene's footprint and is offered only for
+        live scenes: a pending scene has no placeable footprint on the common canvas.
         """
-        if self._app_services is None or self._materializer is None:
-            return
         item = self._scene_list.itemAt(pos)
         if item is None:
             return
         index = item.data(Qt.UserRole)
         if index is None:
             return
+        scene = self._controller.get_scenes()[index]
         menu = QMenu(self._scene_list)
-        action = menu.addAction(self.tr("Georeference…"))
-        action.triggered.connect(lambda *_a, i=index: self._on_georeference_scene(i))
-        menu.exec_(self._scene_list.mapToGlobal(pos))
+        if self._app_services is not None and self._materializer is not None:
+            georef = menu.addAction(self.tr("Georeference…"))
+            georef.triggered.connect(lambda *_a, i=index: self._on_georeference_scene(i))
+        if not self._controller.is_scene_pending(scene):
+            zoom = menu.addAction(self.tr("Zoom to Scene"))
+            zoom.triggered.connect(lambda *_a, i=index: self._on_zoom_to_scene(i))
+        if not menu.isEmpty():
+            menu.exec_(self._scene_list.mapToGlobal(pos))
+
+    def _on_zoom_to_scene(self, index: int) -> None:
+        """Frame the map view on the scene at controller ``index``'s footprint."""
+        scene = self._controller.get_scenes()[index]
+        extent = self._controller.scene_extent_in_common_crs(scene)
+        if extent is None:  # became pending / lost its target CRS since the menu opened
+            return
+        self._mosaic_view.zoom_to_extent(extent)
 
     def _regeoref_save_path(self, scene: MosaicScene) -> str:
         """
