@@ -1,11 +1,13 @@
 import logging
 import os
 
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import numpy as np
 
 from osgeo import gdal
+
+from wiser.utils.progress import ProgressReporter
 
 from .dataset import RasterDataSet
 from .dataset_impl import (
@@ -151,10 +153,15 @@ class RasterDataLoader:
             raise ValueError(f'Unsupported format "{format}"')
 
     def save_dataset_as(
-        self, dataset: RasterDataSet, path: str, format: str, config: Dict[str, Any]
+        self,
+        dataset: RasterDataSet,
+        path: str,
+        format: str,
+        config: Dict[str, Any],
+        progress: Optional[ProgressReporter] = None,
     ) -> ENVI_GDALRasterDataImpl:
         if format == "ENVI":
-            return ENVI_GDALRasterDataImpl.save_dataset_as(dataset, path, config)
+            return ENVI_GDALRasterDataImpl.save_dataset_as(dataset, path, config, progress=progress)
         else:
             raise ValueError(f'Unsupported format "{format}"')
 

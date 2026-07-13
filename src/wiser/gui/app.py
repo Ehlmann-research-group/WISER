@@ -37,7 +37,7 @@ from wiser.raster.spectrum import (
     SpectrumAtPoint,
     SpectrumAverageMode,
 )
-from wiser.utils.primitives import ExternalRasterHandle, PriorityClass
+from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
 from wiser.utils.task_system import SemanticTask
 from . import bug_reporting
@@ -56,6 +56,7 @@ from .import_spectra_text import ImportSpectraTextDialog
 from .infoview import DatasetInfoView
 from .main_view import MainViewWidget
 from .pixel_value_widget import PixelValueWidget
+from .progress_task import run_with_progress
 from .rasterpane import RecenterMode
 from .reference_creator_dialog import ReferenceCreatorDialog
 from .mosaic_dialog import SeamlessMosaicDialog
@@ -571,22 +572,29 @@ class DataVisualizerApp(QMainWindow):
         """
         We use the dataset helper to consolidate the actual saving functionality
         into one function. This way we can more easily test the saving functionality.
+
+        The save runs on a worker thread via ``run_with_progress`` so it can report
+        fine-grained per-band progress (and be cancelled) through both a progress
+        dialog and the Activity Monitor.
         """
-        dataset_ref = self._app_services.storage_service.register_external(
-            ExternalRasterHandle(dataset_obj=dataset)
-        )
-        save_task = SaveDatasetSemanticTask(
-            app_state=self._app_state,
-            dataset=dataset,
-            input_ref=dataset_ref,
-            path=path,
-            format=format,
-            config=config,
-        )
-        task_plan = self._app_services.task_planner.plan_semantic_task(save_task)
-        return self._app_services.task_manager.register_and_submit_task_plan(
-            self._app_services.scheduler,
-            task_plan,
+        dataset_id = dataset.get_id()
+
+        def _do_save(progress):
+            self._app_state.get_loader().save_dataset_as(dataset, path, format, config, progress=progress)
+
+        def _on_ok(_result):
+            # Mark the dataset clean now that its contents are safely on disk.
+            if dataset_id is not None and self._app_state.has_dataset(dataset_id):
+                self._app_state.get_dataset(dataset_id).set_dirty(False)
+
+        return run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Saving dataset"),
+            _do_save,
+            on_success=_on_ok,
+            on_error=lambda msg: logger.error("Save dataset failed: %s", msg),
+            meta={"Dataset": dataset.get_name(), "Path": path},
         )
 
     def _on_close_dataset(self, ds_id: int):
