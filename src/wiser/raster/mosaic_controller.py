@@ -578,6 +578,24 @@ class MosaicController:
 
     # -- geometry overlay (#636) ---------------------------------------------
 
+    def scene_extent_in_common_crs(self, scene: MosaicScene) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Return ``(min_x, min_y, max_x, max_y)`` of ``scene``'s footprint in the
+        resolved target CRS, or ``None`` when the scene cannot be placed on the
+        common canvas: it is pending, has no footprint, or no target CRS is resolved
+        yet. This is a single-scene analogue of the union extent
+        :meth:`build_common_grid` computes, reused by the view's "zoom to scene".
+        """
+        if self.is_scene_pending(scene):
+            return None
+        target_wkt = self._resolved_target_wkt()
+        if target_wkt is None:
+            return None
+        src_srs = scene.dataset.get_spatial_ref()
+        if src_srs is None or scene.footprint_wkt is None:
+            return None
+        return _footprint_envelope(scene, src_srs, _srs_from_wkt(target_wkt))
+
     def visible_scene_footprints_in_common_crs(
         self,
     ) -> List[Tuple[MosaicScene, ogr.Geometry]]:
