@@ -24,7 +24,6 @@ import numpy as np
 
 import tests.context  # noqa: F401  (adds src/ to sys.path)
 from test_utils.test_model import WiserTestModel
-from wiser.raster.mosaic_controller import UnmappableCrsError
 
 import pytest
 
@@ -209,9 +208,9 @@ class TestMosaicCrsGui(unittest.TestCase):
 
         self.test_model.close_seamless_mosaic_dialog()
 
-    # -- manual "Choose Target CRS": unmappable choice warns, no commit -------
+    # -- manual "Choose Target CRS": incompatible choice commits + marks pending --
 
-    def test_manual_choose_target_crs_unmappable_warns(self):
+    def test_manual_choose_target_crs_incompatible_marks_pending(self):
         ds_a = self._load("a_utm.tif", 32611)
         ds_b = self._load("b_geo.tif", 4326)
 
@@ -225,21 +224,28 @@ class TestMosaicCrsGui(unittest.TestCase):
 
         target_geo = osr.SpatialReference()
         target_geo.ImportFromEPSG(4326)
+        # Force every scene to be un-transformable to the chosen target so the change
+        # exercises the "no live scenes" path. The new behavior *accepts* the CRS and
+        # marks the scenes pending instead of rejecting the choice.
+        # Pending status is computed live, so the incompatibility patch must stay active
+        # while we assert on it (it reverts the moment the patch exits).
         with mock.patch("wiser.gui.mosaic_pane.ReprojectPromptDialog") as Dlg, mock.patch(
             "wiser.gui.mosaic_pane.QMessageBox.warning"
-        ) as warn, mock.patch.object(
-            controller,
-            "validate_target_crs",
-            side_effect=UnmappableCrsError("cannot map"),
+        ) as warn, mock.patch(
+            "wiser.raster.mosaic_controller.can_transform_between_srs",
+            return_value=False,
         ):
             inst = Dlg.return_value
             inst.exec.return_value = QDialog.Accepted
             inst.selected_target_wkt.return_value = target_geo.ExportToWkt()
             pane._on_choose_target_crs()
 
-        warn.assert_called_once()
-        # The unmappable choice was not committed; the locked 32611 target stands.
-        self.assertTrue(_same_as_epsg(controller.get_target_crs(), 32611))
+            # The choice is committed (not rejected), every scene is now pending, and the
+            # user is warned that the preview has nothing left to show.
+            self.assertTrue(_same_as_epsg(controller.get_target_crs(), 4326))
+            self.assertFalse(controller.has_live_scenes())
+            self.assertTrue(controller.has_pending_scenes())
+            warn.assert_called_once()
 
         self.test_model.close_seamless_mosaic_dialog()
 
