@@ -67,6 +67,7 @@ class CrsCreatorState:
         polar_stereo_scale: Optional[float] = None,
         polar_stereo_latitude_sign: Optional[str] = None,
         shape_type: Optional[ShapeTypes] = None,
+        source_wkt: Optional[str] = None,
     ):
         self._lon_meridian = lon_meridian
         self._proj_type = proj_type
@@ -79,6 +80,11 @@ class CrsCreatorState:
         self._polar_stereo_scale = polar_stereo_scale
         self._polar_stereo_latitude_sign = polar_stereo_latitude_sign
         self._shape_type = shape_type
+        # When set, this CRS was built by pasting a raw CRS string on the "From
+        # CRS String" tab rather than from the parameter fields.  The stored WKT
+        # lets the dialog reload it into the string tab instead of trying (and
+        # failing) to drive the parameter widgets.
+        self._source_wkt = source_wkt
 
     @property
     def lon_meridian(self) -> Optional[float]:
@@ -124,6 +130,14 @@ class CrsCreatorState:
     def shape_type(self) -> Optional[str]:
         return self._shape_type
 
+    @property
+    def source_wkt(self) -> Optional[str]:
+        return self._source_wkt
+
+    @property
+    def is_string_origin(self) -> bool:
+        return self._source_wkt is not None
+
 
 class ReferenceCreatorDialog(QDialog):
     def __init__(self, app_state: ApplicationState, parent=None):
@@ -150,6 +164,9 @@ class ReferenceCreatorDialog(QDialog):
         self._current_starting_crs_name: Optional[str] = None
         self._crs_name: Optional[str] = None
 
+        # The last CRS successfully parsed on the "From CRS String" tab, if any.
+        self._validated_string_srs: Optional[osr.SpatialReference] = None
+
         # Initialize UI
         self._init_user_created_crs()
         self._init_projection_chooser()
@@ -163,6 +180,7 @@ class ReferenceCreatorDialog(QDialog):
         self._init_reset_button()
         self._init_create_crs_button()
         self._init_extra_polar_stereo_params()
+        self._init_crs_string_tab()
 
     def _init_extra_polar_stereo_params(self):
         # Initialize the central lat cbox
@@ -241,6 +259,14 @@ class ReferenceCreatorDialog(QDialog):
         ):
             le.clear()
 
+        # Clear the "From CRS String" tab too, if it has been built yet.
+        if hasattr(self._ui, "pedit_crs_string"):
+            self._validated_string_srs = None
+            self._ui.pedit_crs_string.clear()
+            self._ui.ledit_string_crs_name.clear()
+            self._ui.pedit_crs_string_result.clear()
+            self._ui.btn_add_crs_string.setEnabled(False)
+
         # Put the "Starting CRS" combo back to "(None)"
         cbox = self._ui.cbox_user_crs
         none_idx = cbox.findText(self.tr(NO_CRS_NAME))
@@ -261,6 +287,140 @@ class ReferenceCreatorDialog(QDialog):
             raise AttributeError("Create-CRS button not found in UI")
 
         create_btn.clicked.connect(self._create_crs)
+
+    # region CRS-string tab
+
+    def _init_crs_string_tab(self):
+        """
+        Wire up the "From CRS String" tab, where a user pastes a raw CRS
+        definition (WKT, PROJ, or an authority code such as ``EPSG:4326``) and
+        checks whether WISER can load it.
+        """
+        # Restrict the name to the same character set as the parameter tab.
+        regex = QRegularExpression(r"^[A-Za-z0-9_]+$")
+        validator = QRegularExpressionValidator(regex, self._ui.ledit_string_crs_name)
+        self._ui.ledit_string_crs_name.setValidator(validator)
+
+        self._ui.btn_validate_crs_string.clicked.connect(self._on_validate_crs_string)
+        self._ui.btn_add_crs_string.clicked.connect(self._on_add_crs_string)
+
+        # Any edit to the pasted text invalidates the previous validation.
+        self._ui.pedit_crs_string.textChanged.connect(self._on_crs_string_text_changed)
+
+        self._validated_string_srs = None
+        self._ui.btn_add_crs_string.setEnabled(False)
+
+    def _build_srs_from_string(self, text: str):
+        """
+        Try to build an ``osr.SpatialReference`` from a user-supplied CRS
+        string.  Returns ``(srs, None)`` on success or ``(None, error)`` on
+        failure, where ``error`` is a human-readable message.
+        """
+        srs = osr.SpatialReference()
+        try:
+            # SetFromUserInput accepts WKT (1 & 2), PROJ strings, and authority
+            # codes like "EPSG:4326" - the broadest entry point GDAL offers.
+            err = srs.SetFromUserInput(text)
+        except Exception as exc:  # GDAL may raise when exceptions are enabled
+            return None, str(exc)
+
+        if err != 0:
+            return None, "GDAL could not interpret the given CRS string."
+
+        # Match the axis convention the parameter path (and the georeferencer)
+        # uses, so the CRS behaves the same everywhere in WISER.
+        srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        return srs, None
+
+    def _describe_srs(self, srs: osr.SpatialReference) -> str:
+        """Build a short success summary for a validated CRS."""
+        name = srs.GetName() or "(unnamed)"
+        if srs.IsProjected():
+            kind = "Projected CRS"
+        elif srs.IsGeographic():
+            kind = "Geographic CRS"
+        else:
+            kind = "CRS"
+
+        lines = [
+            "Valid — WISER can load this CRS.",
+            "",
+            f"Name: {name}",
+            f"Type: {kind}",
+        ]
+        authority = srs.GetAuthorityName(None)
+        code = srs.GetAuthorityCode(None)
+        if authority and code:
+            lines.append(f"Authority: {authority}:{code}")
+        return "\n".join(lines)
+
+    def _set_string_result(self, text: str, ok: bool) -> None:
+        """Show ``text`` in the result box, coloured green (ok) or red (error)."""
+        self._ui.pedit_crs_string_result.setPlainText(text)
+        color = "#137333" if ok else "#a50e0e"
+        self._ui.pedit_crs_string_result.setStyleSheet(f"color: {color};")
+
+    def _on_crs_string_text_changed(self) -> None:
+        """Invalidate any prior validation whenever the pasted text changes."""
+        self._validated_string_srs = None
+        self._ui.btn_add_crs_string.setEnabled(False)
+
+    def _on_validate_crs_string(self) -> None:
+        """Validate the pasted CRS string and report success or the error."""
+        self._validated_string_srs = None
+        self._ui.btn_add_crs_string.setEnabled(False)
+
+        text = self._ui.pedit_crs_string.toPlainText().strip()
+        if not text:
+            self._set_string_result("Please paste a CRS string to validate.", ok=False)
+            return
+
+        srs, error = self._build_srs_from_string(text)
+        if srs is None:
+            self._set_string_result(f"Invalid — WISER cannot load this CRS.\n\n{error}", ok=False)
+            return
+
+        self._validated_string_srs = srs
+        self._ui.btn_add_crs_string.setEnabled(True)
+        self._set_string_result(self._describe_srs(srs), ok=True)
+
+    def _on_add_crs_string(self) -> bool:
+        """
+        Persist the validated string CRS into ``ApplicationState`` under the
+        name in the name field.  Returns ``True`` on success.
+        """
+        name = self._ui.ledit_string_crs_name.text().strip()
+        if not name:
+            QMessageBox.warning(
+                self,
+                self.tr("Missing value"),
+                self.tr("Please supply a name for the CRS."),
+            )
+            return False
+
+        srs = self._validated_string_srs
+        if srs is None:
+            # The user may click Add without validating first - try now.
+            text = self._ui.pedit_crs_string.toPlainText().strip()
+            srs, error = self._build_srs_from_string(text)
+            if srs is None:
+                self._set_string_result(f"Invalid — WISER cannot load this CRS.\n\n{error}", ok=False)
+                QMessageBox.warning(
+                    self,
+                    self.tr("Invalid CRS"),
+                    self.tr("The CRS string could not be validated. Fix it and try again."),
+                )
+                return False
+            self._validated_string_srs = srs
+            self._set_string_result(self._describe_srs(srs), ok=True)
+
+        state = self._export_creator_state(source_wkt=srs.ExportToWkt())
+        self._app_state.add_user_created_crs(name, srs, state)
+        self._update_user_created_crs_cbox()
+        self._switch_user_crs_cbox_selection(name)
+        return True
+
+    # endregion
 
     def _init_user_created_crs(self):
         """
@@ -358,6 +518,18 @@ class ReferenceCreatorDialog(QDialog):
                     cbox.blockSignals(True)
                     cbox.setCurrentIndex(old_idx)
                     cbox.blockSignals(False)
+            return
+
+        # A CRS that was created by pasting a raw string has no parameter state
+        # to reload into the form.  Show it on the "From CRS String" tab
+        # instead of driving the parameter widgets (which would fail).
+        if creator_state is not None and creator_state.is_string_origin:
+            self._ui.tabWidget.setCurrentWidget(self._ui.page_string)
+            self._ui.ledit_string_crs_name.setText(name)
+            self._ui.pedit_crs_string.setPlainText(creator_state.source_wkt)
+            self._on_validate_crs_string()
+            self._crs_name = name
+            self._current_starting_crs_name = name
             return
 
         # Convert to pyproj for convenient interrogation
@@ -835,7 +1007,7 @@ class ReferenceCreatorDialog(QDialog):
 
         self._switch_user_crs_cbox_selection(self._crs_name)
 
-    def _export_creator_state(self) -> CrsCreatorState:
+    def _export_creator_state(self, source_wkt: Optional[str] = None) -> CrsCreatorState:
         crs_creator_state = CrsCreatorState(
             lon_meridian=self._lon_meridian,
             proj_type=self._proj_type,
@@ -848,10 +1020,19 @@ class ReferenceCreatorDialog(QDialog):
             polar_stereo_scale=self._polar_stereo_scale,
             polar_stereo_latitude_sign=self._polar_stereo_latitude_sign,
             shape_type=self._shape_type,
+            source_wkt=source_wkt,
         )
         return crs_creator_state
 
     def accept(self):
-        self._create_crs()
+        # Which builder runs depends on the active tab: the parameter form or
+        # the pasted-string tab.
+        if self._ui.tabWidget.currentWidget() is self._ui.page_string:
+            if not self._on_add_crs_string():
+                # Validation/name problem - keep the dialog open so the user
+                # can fix it rather than silently discarding their input.
+                return
+        else:
+            self._create_crs()
 
         super().accept()

@@ -1197,6 +1197,21 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
+    @run_in_wiser_decorator
+    def get_geo_ref_target_scale(self) -> float:
+        """Return the current zoom scale of the georeferencer's target pane."""
+        return self.main_window._geo_ref_dialog._target_rasterpane.get_scale()
+
+    @run_in_wiser_decorator
+    def set_geo_ref_target_scale(self, scale: float) -> None:
+        """Set the zoom scale of the georeferencer's target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane.set_scale(scale)
+
+    @run_in_wiser_decorator
+    def click_geo_ref_target_zoom_to_fit(self) -> None:
+        """Trigger the 'Zoom to fit' toolbar action on the target pane."""
+        self.main_window._geo_ref_dialog._target_rasterpane._act_zoom_to_fit.trigger()
+
     # region State Setting
 
     @run_in_wiser_decorator
@@ -1738,6 +1753,65 @@ class WiserTestModel:
             raise RuntimeError("OK/Cancel buttons not found in buttonBox")
         QTest.mouseClick(button, Qt.LeftButton)
 
+    # ------------------------------------------
+    # "From CRS String" tab helpers
+    # ------------------------------------------
+    @run_in_wiser_decorator
+    def crs_creator_select_string_tab(self) -> None:
+        """Switch the CRS creator to the 'From CRS String' tab."""
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.tabWidget.setCurrentWidget(dlg._ui.page_string)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_active_tab(self) -> str:
+        """Return 'params' or 'string' for the currently active tab."""
+        dlg = self.main_window._crs_creator_dialog
+        current = dlg._ui.tabWidget.currentWidget()
+        return "string" if current is dlg._ui.page_string else "params"
+
+    @run_in_wiser_decorator
+    def crs_creator_set_crs_string(self, text: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        dlg._ui.pedit_crs_string.setPlainText(text)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_string_crs_name(self, name: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_string_crs_name
+        le.clear()
+        QTest.keyClicks(le, name)
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_press_validate_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_validate_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_add_string(self) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        QTest.mouseClick(dlg._ui.btn_add_crs_string, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_result(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string_result.toPlainText()
+
+    @run_in_wiser_decorator
+    def crs_creator_string_add_enabled(self) -> bool:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.btn_add_crs_string.isEnabled()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_string_crs_name(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.ledit_string_crs_name.text().strip()
+
+    @run_in_wiser_decorator
+    def crs_creator_get_crs_string(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.pedit_crs_string.toPlainText()
+
     # ==========================================
     # region Similarity Transform
     # ==========================================
@@ -1886,6 +1960,28 @@ class WiserTestModel:
     def run_create_translation(self) -> None:
         dlg = self.main_window._similarity_transform_dialog
         QTest.mouseClick(dlg._ui.btn_create_translation, Qt.LeftButton)
+
+    def wait_for_sim_transform_finished(
+        self, translate: bool = False, timeout_ms: int = 30000, step_ms: int = 50
+    ) -> str:
+        """Pump the Qt loop until the off-thread transform task finishes.
+
+        Rotate/scale and translate now run on a background scheduler thread via
+        ``run_with_progress``; the completion callbacks set the tab's status label to
+        ``"Finished ..."`` (or ``"Error ..."`` on failure). Poll that label, pumping the
+        event loop so the worker's queued completion signal is delivered, and return the
+        final label text so callers can assert the outcome.
+        """
+        dlg = self.main_window._similarity_transform_dialog
+        label = dlg._ui.lbl_translate_message if translate else dlg._ui.lbl_rotate_scale_message
+        waited = 0
+        while waited < timeout_ms:
+            text = label.text()
+            if text.startswith("Finished") or text.startswith("Error"):
+                return text
+            QTest.qWait(step_ms)
+            waited += step_ms
+        return label.text()
 
     def select_dataset_translate(
         self, dataset: RasterDataSet, rasterview_pos: tuple[int, int] = (0, 0)
