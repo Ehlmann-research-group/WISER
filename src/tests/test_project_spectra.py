@@ -293,3 +293,16 @@ def test_malformed_numpy_entry_is_dropped_not_fatal():
     dropped = load_spectra(manifest, dst)
     assert len(dropped) == 1
     assert dst.get_collected_spectra() == []
+
+
+def test_non_dict_spectra_entries_and_sections_are_dropped_not_fatal():
+    # Non-dict collected entries and a non-dict active are dropped-and-reported;
+    # a non-dict section or a non-list "collected" is ignored -- never crashing the load.
+    dst = _FakeAppState()
+    dropped = load_spectra({"spectra": {"collected": ["x", None, 5], "active": "nope"}}, dst)
+    assert len(dropped) == 4  # three collected + one active
+    assert dst.get_collected_spectra() == []
+    assert dst.get_active_spectrum() is None
+
+    assert load_spectra({"spectra": ["not-a-dict"]}, _FakeAppState()) == []
+    assert load_spectra({"spectra": {"collected": "not-a-list"}}, _FakeAppState()) == []

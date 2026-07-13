@@ -102,8 +102,15 @@ def load_spectra(manifest: Dict[str, Any], app_state: "ApplicationState") -> Lis
     """
     section = manifest.get("spectra", {})
     dropped: List[Dict[str, Any]] = []
+    if not isinstance(section, dict):
+        # A non-dict spectra section (hand-edited/corrupt manifest) has nothing to
+        # restore; ignore it rather than calling .get on a list/None.
+        return dropped
 
-    for entry in section.get("collected", []):
+    collected = section.get("collected", [])
+    if not isinstance(collected, list):
+        collected = []
+    for entry in collected:
         spectrum = spectrum_from_pyrep(entry, app_state)
         if spectrum is None:
             dropped.append(entry)
@@ -129,6 +136,8 @@ def spectrum_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationState") ->
     bad entry is dropped and reported by :func:`load_spectra`, never allowed to
     abort opening the project.
     """
+    if not isinstance(entry, dict):
+        return None
     kind = entry.get("kind")
     try:
         if kind == KIND_NUMPY:
