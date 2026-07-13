@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -5,11 +7,14 @@ import numpy as np
 import gc
 import tests.context
 
+from PySide6.QtTest import QTest
+
 from test_utils.test_model import WiserTestModel
 from wiser.raster.dataset import RasterDataSet, band_info_list_equal
-from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+from wiser.raster.dataset_impl import ENVI_GDALRasterDataImpl, NetCDF_GDALRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import spectral_unit_to_string
+from wiser.utils.progress import ProgressCancelled, ProgressReporter
 
 ID_SET_1 = 6174
 ID_SET_2 = 42
@@ -37,6 +42,16 @@ class TestSaveDataset(unittest.TestCase):
             np.asarray(expected_ma.data)[valid],
             equal_nan=True,
         )
+
+    def _wait_for(self, predicate, timeout_ms: int = 180000, step_ms: int = 50) -> bool:
+        """Pump the Qt event loop until ``predicate()`` is true or the timeout elapses."""
+        waited = 0
+        while waited < timeout_ms:
+            if predicate():
+                return True
+            QTest.qWait(step_ms)
+            waited += step_ms
+        return predicate()
 
     def _assert_equal_or_both_none_or_empty(self, left, right, msg=None) -> None:
         """``None`` and ``''`` compare equal to each other; otherwise require ``==``."""
@@ -77,13 +92,17 @@ class TestSaveDataset(unittest.TestCase):
 
         reopened = None
         try:
-            future = self.test_model.main_window._save_dataset_helper(
+            # The save now runs on a worker thread via run_with_progress and reports
+            # completion through the returned runner (its `_done` flag flips on the GUI
+            # thread once the threaded write finishes).
+            runner = self.test_model.main_window._save_dataset_helper(
                 dataset=dataset,
                 path=str(save_path),
                 format="ENVI",
                 config=config,
             )
-            future.result(timeout=180)
+            completed = self._wait_for(lambda: getattr(runner, "_done", False))
+            self.assertTrue(completed, "save did not complete within timeout")
             self.test_model.app.processEvents()
 
             self.assertTrue(save_path.exists())
@@ -217,3 +236,48 @@ class TestSaveDataset(unittest.TestCase):
             / "netcdf_reflectance_saved.img"
         ).resolve()
         self._run_save_roundtrip_test(dataset, save_path)
+
+    def _make_small_float_dataset(self, num_bands: int = 4) -> RasterDataSet:
+        loader = RasterDataLoader()
+        cache = self.test_model.app_state.get_cache()
+        arr = np.arange(num_bands * 3 * 5, dtype=np.float32).reshape(num_bands, 3, 5)
+        dataset = loader.dataset_from_numpy_array(arr, cache)
+        dataset.set_id(ID_SET_1)
+        return dataset
+
+    def test_save_dataset_reports_monotonic_per_band_progress(self):
+        """The writer reports non-decreasing progress that reaches 1.0, with at least
+        one report per band."""
+        dataset = self._make_small_float_dataset(num_bands=4)
+        with tempfile.TemporaryDirectory() as tmp:
+            save_path = os.path.join(tmp, "progress_test.img")
+            fractions = []
+            reporter = ProgressReporter(sink=lambda frac, _msg: fractions.append(frac))
+
+            ENVI_GDALRasterDataImpl.save_dataset_as(dataset, save_path, {}, progress=reporter)
+
+            self.assertTrue(fractions, "no progress was reported")
+            self.assertEqual(fractions, sorted(fractions), "progress must be non-decreasing")
+            self.assertLessEqual(max(fractions), 1.0)
+            self.assertAlmostEqual(fractions[-1], 1.0, places=6)
+            # One report per written band, plus the trailing header report.
+            self.assertGreaterEqual(len(fractions), dataset.num_bands())
+
+    def test_save_dataset_cancellation_removes_partial_files(self):
+        """A cancelled save raises ProgressCancelled and leaves no partial output."""
+        dataset = self._make_small_float_dataset(num_bands=4)
+        with tempfile.TemporaryDirectory() as tmp:
+            save_path = os.path.join(tmp, "cancel_test.img")
+            # Report "already cancelled" so the first band-boundary checkpoint raises,
+            # after GDAL has already created the (now partial) output file.
+            reporter = ProgressReporter(sink=lambda frac, _msg: None, is_cancelled=lambda: True)
+
+            with self.assertRaises(ProgressCancelled):
+                ENVI_GDALRasterDataImpl.save_dataset_as(dataset, save_path, {}, progress=reporter)
+
+            gc.collect()
+            for fname in ENVI_GDALRasterDataImpl.get_save_filenames(save_path):
+                self.assertFalse(
+                    os.path.exists(fname),
+                    f"cancelled save left a partial file behind: {fname}",
+                )
