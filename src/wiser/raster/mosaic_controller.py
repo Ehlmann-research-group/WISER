@@ -55,6 +55,26 @@ class UnmappableCrsError(Exception):
     """
 
 
+class ScenePendingReason(enum.Enum):
+    """
+    Why a scene is currently **pending** (disabled: excluded from the common grid, the
+    vector overlay, the pixel compositor, and export) rather than live.
+
+    A scene is pending when it cannot be placed on the mosaic's shared grid yet. The
+    reason drives the scene-list warning tooltip and is recomputed on every scene-list
+    or target-CRS change (pending is a status, not a one-way creation mode):
+
+      * ``NO_CRS`` — never ingested: added as a raw, non-georeferenced placeholder (no
+        geotransform / no SRS). Right-click → Georeference… to fix it.
+      * ``INCOMPATIBLE_CRS`` — georeferenced and ingested, but its CRS cannot be
+        transformed into the mosaic's resolved target CRS (e.g. a different planet, or
+        the target CRS was changed to one this scene can't reach).
+    """
+
+    NO_CRS = "no-crs"
+    INCOMPATIBLE_CRS = "incompatible-crs"
+
+
 class ResolutionMode(enum.Enum):
     """
     How the common output grid's pixel size is chosen.
@@ -276,12 +296,28 @@ class MosaicController:
     def _visible_scenes(self) -> List[MosaicScene]:
         return [s for s in self._scenes if s.visible]
 
-    def common_scene_crs_wkt(self) -> Optional[str]:
+    @staticmethod
+    def _is_ingested(scene: MosaicScene) -> bool:
         """
-        Return the shared CRS (as WKT) if every visible scene's spatial reference is
-        the same; otherwise ``None`` (a target CRS must then be chosen explicitly).
+        True if ``scene`` has been through the ingestion pipeline (materialized to a
+        warpable GeoTIFF with a footprint).
+
+        This is the controller's proxy for "georeferenced": the mosaic pane only runs
+        ingestion on georeferenced datasets, so a scene with both a ``gdal_path`` and a
+        ``footprint_wkt`` is georeferenced and placeable, while a non-georeferenced
+        placeholder has neither. Keying off the artifacts (rather than re-reading the
+        dataset's geotransform) keeps this pure and works with the lightweight dataset
+        stand-ins used in tests.
         """
-        scenes = self._visible_scenes()
+        return scene.gdal_path is not None and scene.footprint_wkt is not None
+
+    @staticmethod
+    def _common_crs_wkt(scenes: List[MosaicScene]) -> Optional[str]:
+        """
+        Return the shared CRS (as WKT) if every scene in ``scenes`` has the same spatial
+        reference; otherwise ``None``. An empty list or any scene without a CRS yields
+        ``None``.
+        """
         if not scenes:
             return None
         first_srs = scenes[0].dataset.get_spatial_ref()
@@ -292,6 +328,69 @@ class MosaicController:
             if srs is None or not first_srs.IsSame(srs):
                 return None
         return first_srs.ExportToWkt()
+
+    def common_scene_crs_wkt(self) -> Optional[str]:
+        """
+        Return the shared CRS (as WKT) if every visible scene's spatial reference is
+        the same; otherwise ``None`` (a target CRS must then be chosen explicitly).
+        """
+        return self._common_crs_wkt(self._visible_scenes())
+
+    # -- live / pending status (pending-scene feature) ------------------------
+
+    def _resolved_target_wkt(self) -> Optional[str]:
+        """
+        The CRS a scene's compatibility is measured against: the explicit target if the
+        user (or a prior grid build) has set one, otherwise the shared CRS of the
+        *georeferenced* visible scenes.
+
+        Returns ``None`` when there is nothing to be compatible with yet — an empty
+        mosaic, an all-pending mosaic, or georeferenced scenes that disagree on a CRS
+        with no explicit target chosen (the latter is the existing ``TargetCrsRequired``
+        prompt path, unchanged by the pending-scene feature).
+        """
+        if self._target_crs_wkt is not None:
+            return self._target_crs_wkt
+        georeferenced = [s for s in self._visible_scenes() if self._is_ingested(s)]
+        return self._common_crs_wkt(georeferenced)
+
+    def is_scene_pending(self, scene: MosaicScene) -> bool:
+        """True if ``scene`` is currently excluded from the grid/overlay/compositor/export."""
+        return self.scene_pending_reason(scene) is not None
+
+    def scene_pending_reason(self, scene: MosaicScene) -> Optional[ScenePendingReason]:
+        """
+        Classify ``scene`` as live (``None``) or pending (a :class:`ScenePendingReason`).
+
+        Pending when the scene was never ingested (``NO_CRS`` — a non-georeferenced
+        placeholder), or when it is ingested but its CRS cannot be transformed into the
+        resolved target CRS (``INCOMPATIBLE_CRS``). When no target is resolved yet, an
+        ingested scene is treated as live (there is nothing to be incompatible with).
+        """
+        if not self._is_ingested(scene):
+            return ScenePendingReason.NO_CRS
+        target_wkt = self._resolved_target_wkt()
+        if target_wkt is None:
+            return None
+        srs = scene.dataset.get_spatial_ref()
+        if srs is None or not can_transform_between_srs(srs, _srs_from_wkt(target_wkt)):
+            return ScenePendingReason.INCOMPATIBLE_CRS
+        return None
+
+    def _live_scenes(self) -> List[MosaicScene]:
+        """Visible scenes that are placeable on the grid right now (not pending)."""
+        return [s for s in self._visible_scenes() if not self.is_scene_pending(s)]
+
+    def live_scenes(self) -> List[MosaicScene]:
+        """Public copy of the current live (visible, non-pending) scenes, bottom-to-top."""
+        return list(self._live_scenes())
+
+    def has_live_scenes(self) -> bool:
+        return any(not self.is_scene_pending(s) for s in self._visible_scenes())
+
+    def has_pending_scenes(self) -> bool:
+        """True if any scene in the mosaic (visible or not) is currently pending."""
+        return any(self.is_scene_pending(s) for s in self._scenes)
 
     def scene_crs_summary(self) -> List[Tuple[str, str]]:
         """
@@ -394,7 +493,9 @@ class MosaicController:
             return []
         target_srs = _srs_from_wkt(target_wkt)
         result: List[Tuple[MosaicScene, ogr.Geometry]] = []
-        for scene in self._visible_scenes():
+        # Only live scenes: pending scenes have no footprint (non-georeferenced) or a
+        # CRS that cannot reach the target, so neither can be drawn on the common canvas.
+        for scene in self._live_scenes():
             src_srs = scene.dataset.get_spatial_ref()
             if src_srs is None or scene.footprint_wkt is None:
                 continue
@@ -419,21 +520,25 @@ class MosaicController:
         if not self._grid_dirty:
             return self._common_grid
 
-        scenes = self._visible_scenes()
+        # Only live (placeable) scenes participate in the grid. Pending scenes —
+        # non-georeferenced placeholders or scenes whose CRS can't reach the target —
+        # are excluded, so an all-pending mosaic yields an empty grid (blank preview)
+        # rather than an error.
+        scenes = self._live_scenes()
         if not scenes:
             self._common_grid = CommonGrid()
             self._grid_dirty = False
             return self._common_grid
 
-        # 1) Resolve the target CRS: an explicit choice wins, else the shared CRS.
-        target_wkt = self._target_crs_wkt or self.common_scene_crs_wkt()
+        # 1) Resolve the target CRS: an explicit choice wins, else the shared CRS of the
+        #    live scenes. Differing live CRSs with no explicit target need a choice.
+        target_wkt = self._target_crs_wkt or self._common_crs_wkt(scenes)
         if target_wkt is None:
             raise TargetCrsRequired(
                 "Scenes have differing coordinate reference systems; a target CRS "
                 "must be chosen before the common grid can be built."
             )
         self._target_crs_wkt = target_wkt
-        self.validate_target_crs(target_wkt)
         target_srs = _srs_from_wkt(target_wkt)
 
         # 2) Per-scene: extent (footprint envelope in target CRS) and the resolution
