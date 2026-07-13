@@ -323,3 +323,28 @@ def test_save_tree_lists_an_excluded_dataset_and_annotates_the_cut():
     groups = {g["group"]: g for g in tree}
     (ds_node,) = groups["datasets"]["children"]  # still present though excluded
     assert ds_node["children"][0]["policy"] == "drop"  # its stretch drops when the dataset is cut
+
+
+def test_save_tree_annotates_a_cut_dataset_cascade_across_subtrees():
+    # Excluding a dataset annotates its own children AND, across subtrees, the
+    # ROI-average that hangs under an ROI but depends on the cut dataset -- the live
+    # consequence the dialog renders.
+    app = _FakeAppState()
+    ds = _ram_dataset(app)
+    app.set_stretches(ds.get_id(), (0,), [StretchLinear(0.2, 0.8)])
+    app.collect_spectrum(SpectrumAtPoint(ds, (2, 3), (1, 1)))
+    roi = RegionOfInterest("rim")
+    roi.set_id(50)
+    app.add_roi(roi)
+    app.collect_spectrum(ROIAverageSpectrum(ds, roi))
+
+    tree = save_tree(app, resolver_for_selection(app, excluded_dataset_ids=[ds.get_id()]))
+    groups = {g["group"]: g for g in tree}
+
+    (ds_node,) = groups["datasets"]["children"]
+    policies = {child["type"]: child["policy"] for child in ds_node["children"]}
+    assert policies["stretch"] == "drop"  # a stretch has nothing to apply to
+    assert policies["spectrum"] == "snapshot"  # a point spectrum freezes to values
+
+    (roi_node,) = groups["rois"]["children"]
+    assert roi_node["children"][0]["policy"] == "snapshot"  # ROI-average, cross-subtree
