@@ -1832,6 +1832,28 @@ class WiserTestModel:
         dlg = self.main_window._similarity_transform_dialog
         QTest.mouseClick(dlg._ui.btn_create_translation, Qt.LeftButton)
 
+    def wait_for_sim_transform_finished(
+        self, translate: bool = False, timeout_ms: int = 30000, step_ms: int = 50
+    ) -> str:
+        """Pump the Qt loop until the off-thread transform task finishes.
+
+        Rotate/scale and translate now run on a background scheduler thread via
+        ``run_with_progress``; the completion callbacks set the tab's status label to
+        ``"Finished ..."`` (or ``"Error ..."`` on failure). Poll that label, pumping the
+        event loop so the worker's queued completion signal is delivered, and return the
+        final label text so callers can assert the outcome.
+        """
+        dlg = self.main_window._similarity_transform_dialog
+        label = dlg._ui.lbl_translate_message if translate else dlg._ui.lbl_rotate_scale_message
+        waited = 0
+        while waited < timeout_ms:
+            text = label.text()
+            if text.startswith("Finished") or text.startswith("Error"):
+                return text
+            QTest.qWait(step_ms)
+            waited += step_ms
+        return label.text()
+
     def select_dataset_translate(
         self, dataset: RasterDataSet, rasterview_pos: tuple[int, int] = (0, 0)
     ) -> None:
