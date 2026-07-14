@@ -114,6 +114,19 @@ def test_dialog_shows_three_groups():
     assert set(_groups(dialog)) == {"datasets", "rois", "outputs"}
 
 
+def test_group_headers_are_translatable_literals():
+    # The headers come from the model's stable group key via self.tr(), not from
+    # save_tree's label string, which lupdate cannot extract.
+    _qapp()
+    dialog = SaveProjectDialog(_FakeAppState([_FakeDataset(1, [], "cube")]), None)
+    groups = _groups(dialog)
+    assert [groups[key].text(0) for key in ("datasets", "rois", "outputs")] == [
+        "Datasets",
+        "ROIs",
+        "Analysis outputs",
+    ]
+
+
 def test_resolver_saves_everything_by_default():
     _qapp()
     app_state = _FakeAppState([_FakeDataset(1, [], "cube")], rois=[_FakeROI(5, "crater")])

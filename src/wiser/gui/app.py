@@ -40,7 +40,7 @@ from wiser.raster.spectrum import (
 )
 from wiser.project.bundle import ProjectBundle
 from wiser.project.migrate import ProjectTooNewError
-from wiser.project.orchestrate import load_project, save_project
+from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
 from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
 from wiser.utils.task_system import SemanticTask
@@ -775,6 +775,12 @@ class DataVisualizerApp(QMainWindow):
             return
 
         self._current_project_path = path
+        # Re-saving must keep the opened project's own storage mode: its datasets may
+        # live in the bundle (for a zip, in the temp extract dir), and a referenced
+        # re-save would point the manifest at storage that dies with the session.
+        self._current_self_contained = project_embeds_datasets(
+            self._app_state, self._project_extract_dir or path
+        )
         self._app_state.update_cwd_from_path(path)
         self._warn_dropped_on_load(report)
 

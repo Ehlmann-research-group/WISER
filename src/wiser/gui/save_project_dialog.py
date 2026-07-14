@@ -116,7 +116,7 @@ class SaveProjectDialog(QDialog):
         self._group_handles.clear()
         for group in save_tree(self._app_state, self._current_resolver()):
             group_item = QTreeWidgetItem(self._tree)
-            group_item.setText(0, group["label"])
+            group_item.setText(0, self._group_label(group))
             group_item.setData(0, Qt.UserRole, ("group", group["group"]))
             group_item.setFlags(group_item.flags() | Qt.ItemIsUserCheckable)
             group_item.setCheckState(0, Qt.Checked)
@@ -215,6 +215,16 @@ class SaveProjectDialog(QDialog):
             group_item.setCheckState(0, state)
 
     # -- labels ------------------------------------------------------------
+
+    def _group_label(self, group: Dict[str, Any]) -> str:
+        # Keyed off the model's stable group key rather than its label, so the three
+        # headers are literal strings lupdate can extract for translation.
+        labels = {
+            "datasets": self.tr("Datasets"),
+            "rois": self.tr("ROIs"),
+            "outputs": self.tr("Analysis outputs"),
+        }
+        return labels.get(group["group"], group["label"])
 
     def _item_label(self, node: Dict[str, Any]) -> str:
         kind = node["kind"]
