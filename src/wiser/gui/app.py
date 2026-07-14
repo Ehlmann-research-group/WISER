@@ -7,6 +7,7 @@ import tempfile
 import traceback
 import webbrowser
 from functools import partial
+from typing import Set, Tuple
 
 from PySide6.QtGui import QKeySequence
 
@@ -41,6 +42,7 @@ from wiser.raster.spectrum import (
 from wiser.project.bundle import ProjectBundle
 from wiser.project.migrate import ProjectTooNewError
 from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
+from wiser.project.save_plan import resolver_for_excluded
 from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
 from wiser.utils.task_system import SemanticTask
@@ -151,7 +153,11 @@ class DataVisualizerApp(QMainWindow):
 
         # Path of the project file the session was last saved to / opened from,
         # so "Save Project" re-saves in place.  ``None`` until a Save As / Open.
+        # The selection and storage mode it was saved with are kept alongside it, so
+        # saving in place reproduces the project the user chose rather than the whole
+        # session -- and so the Save dialog reopens on that same selection.
         self._current_project_path: Optional[str] = None
+        self._current_excluded: Set[Tuple[str, object]] = set()
         self._current_self_contained: bool = False
         self._project_extract_dir: Optional[str] = None
 
@@ -690,6 +696,7 @@ class DataVisualizerApp(QMainWindow):
             save_project(
                 self._app_state,
                 self._current_project_path,
+                resolver_for_excluded(self._app_state, self._current_excluded),
                 self_contained=self._current_self_contained,
             )
         except Exception as e:
@@ -702,10 +709,16 @@ class DataVisualizerApp(QMainWindow):
 
     def on_save_project_as(self, checked=False):
         """Prompt for what to include and where, then save a new project file."""
-        dialog = SaveProjectDialog(self._app_state, parent=self)
+        dialog = SaveProjectDialog(
+            self._app_state,
+            parent=self,
+            excluded=self._current_excluded,
+            self_contained=self._current_self_contained,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         resolver = dialog.get_resolver()
+        excluded = dialog.get_excluded()
         self_contained = dialog.get_self_contained()
 
         (path, _) = QFileDialog.getSaveFileName(
@@ -730,6 +743,7 @@ class DataVisualizerApp(QMainWindow):
             )
             return
         self._current_project_path = path
+        self._current_excluded = excluded
         self._current_self_contained = self_contained
         self._app_state.update_cwd_from_path(path)
 
@@ -775,6 +789,9 @@ class DataVisualizerApp(QMainWindow):
             return
 
         self._current_project_path = path
+        # The session now *is* the project, so a re-save writes all of it; the exclusions
+        # that produced the file were applied when it was written.
+        self._current_excluded = set()
         # Re-saving must keep the opened project's own storage mode: its datasets may
         # live in the bundle (for a zip, in the temp extract dir), and a referenced
         # re-save would point the manifest at storage that dies with the session.

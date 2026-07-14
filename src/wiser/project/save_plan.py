@@ -91,6 +91,24 @@ def save_plan(app_state: "ApplicationState", resolver: DependencyResolver) -> Li
     return cascade_report(named)
 
 
+def resolver_for_excluded(
+    app_state: "ApplicationState", excluded: Iterable[Tuple[str, object]]
+) -> DependencyResolver:
+    """Build a resolver from the ``(kind, id)`` handles the Save dialog excludes by.
+
+    The dialog holds the user's choice as one flat set of handles; this splits it
+    back into the dataset / ROI / standalone-item arguments the resolver takes, so a
+    caller can rebuild the same resolver from a stored selection without the dialog.
+    """
+    handles = set(excluded)
+    return resolver_for_selection(
+        app_state,
+        excluded_dataset_ids=[i for (kind, i) in handles if kind == "dataset"],
+        excluded_roi_ids=[i for (kind, i) in handles if kind == "roi"],
+        excluded_items={(kind, i) for (kind, i) in handles if kind not in ("dataset", "roi")},
+    )
+
+
 def _dependent_spectra(app_state: "ApplicationState") -> List[Any]:
     spectra = list(app_state.get_collected_spectra())
     active = app_state.get_active_spectrum()
@@ -256,8 +274,17 @@ def _roi_children(resolver: DependencyResolver, roi_id: int, spectra: List[Any])
         roi = spectrum.get_roi()
         if roi is not None and roi.get_id() == roi_id:
             policy = resolver.classify(spectrum_dependencies(spectrum), snapshotable=True).policy.value
-            children.append({"label": _spectrum_label(spectrum), "type": "spectrum", "policy": policy})
+            children.append({"label": _roi_average_label(spectrum), "type": "spectrum", "policy": policy})
     return children
+
+
+def _roi_average_label(spectrum: "ROIAverageSpectrum") -> str:
+    # One ROI can be averaged over several datasets, and those spectra are otherwise
+    # indistinguishable in the tree -- name the dataset each was computed on.
+    dataset = spectrum.get_dataset()
+    if dataset is None:
+        return _spectrum_label(spectrum)
+    return f"{_spectrum_label(spectrum)} ({dataset.get_name() or dataset.get_id()})"
 
 
 def _run_records(app_state: "ApplicationState") -> Iterable[Tuple[str, Any]]:

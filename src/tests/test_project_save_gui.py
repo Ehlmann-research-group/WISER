@@ -27,7 +27,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 from test_utils.test_model import WiserTestModel
 from wiser.gui.save_project_dialog import SaveProjectDialog
 from wiser.project.persisters.datasets import STORAGE_REFERENCE, STORAGE_SIDECAR
-from wiser.project.save_plan import resolver_for_selection
+from wiser.project.save_plan import resolver_for_excluded
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import NumPyArraySpectrum
 
@@ -63,11 +63,12 @@ class TestProjectSaveGui(unittest.TestCase):
             )
         return src_dir, self.test_model.load_dataset(os.path.join(src_dir, "scene"))
 
-    def _save_as(self, path, self_contained):
+    def _save_as(self, path, self_contained=False, excluded=()):
         """Drive File > Save Project As, standing in for the dialog and the file picker."""
         dialog = mock.MagicMock()
         dialog.exec.return_value = QDialog.Accepted
-        dialog.get_resolver.return_value = resolver_for_selection(self.app_state, excluded_dataset_ids=[])
+        dialog.get_resolver.return_value = resolver_for_excluded(self.app_state, excluded)
+        dialog.get_excluded.return_value = set(excluded)
         dialog.get_self_contained.return_value = self_contained
         with (
             mock.patch("wiser.gui.app.SaveProjectDialog", return_value=dialog),
@@ -109,6 +110,40 @@ class TestProjectSaveGui(unittest.TestCase):
         outputs = dialog._tree.topLevelItem(2)  # Datasets, ROIs, Analysis outputs
         labels = [outputs.child(i).text(0) for i in range(outputs.childCount())]
         self.assertTrue(any("collected" in label for label in labels), labels)
+
+    # -- the selection survives into an in-place save -----------------------
+
+    def test_saving_in_place_keeps_the_selection_the_project_was_saved_with(self):
+        # Save As with a dataset deselected, then File > Save: the project must stay the
+        # one the user chose.  Saving in place used to pass no resolver at all, so it
+        # silently put the deselected dataset back -- the whole point of the feature was
+        # saving a session out to several focused projects.
+        self._file_backed_dataset("sources")
+        extra = self.test_model.load_dataset(np.zeros((3, 4, 5), dtype=np.float32))
+
+        project = os.path.join(self.tmp_path, "focused.wiserproj")
+        self._save_as(project, excluded=[("dataset", extra.get_id())])
+        self.assertEqual(len(self._manifest(project)["datasets"]), 1)
+
+        self.main_window.on_save_project()  # File > Save, in place
+
+        self.assertEqual(len(self._manifest(project)["datasets"]), 1)
+
+    def test_opening_a_project_clears_the_remembered_selection(self):
+        # The opened session *is* the project, so nothing is deselected any more; the
+        # exclusions that shaped the file were applied when it was written.
+        self._file_backed_dataset("sources")
+        extra = self.test_model.load_dataset(np.zeros((3, 4, 5), dtype=np.float32))
+
+        project = os.path.join(self.tmp_path, "focused.wiserproj")
+        self._save_as(project, self_contained=True, excluded=[("dataset", extra.get_id())])
+        self.assertTrue(self.main_window._current_excluded)
+
+        self._open(project)
+
+        self.assertEqual(self.main_window._current_excluded, set())
+        self.main_window.on_save_project()
+        self.assertEqual(len(self._manifest(project)["datasets"]), 1)  # the one it holds
 
     # -- save mode across an open ------------------------------------------
 

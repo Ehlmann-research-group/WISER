@@ -190,6 +190,34 @@ def test_self_contained_checkbox_reflects_choice():
     assert dialog.get_self_contained() is True
 
 
+def test_dialog_reopens_on_the_selection_it_was_seeded_with():
+    # Save As hands its selection back to the app, and the next save starts from it --
+    # an unchecked dataset stays unchecked rather than silently coming back.
+    _qapp()
+    app_state = _FakeAppState([_FakeDataset(1, [], "a"), _FakeDataset(2, [], "b")])
+    dialog = SaveProjectDialog(app_state, None, excluded=[("dataset", 2)])
+
+    assert dialog._item_widgets[("dataset", 1)].checkState(0) == Qt.Checked
+    assert dialog._item_widgets[("dataset", 2)].checkState(0) == Qt.Unchecked
+    assert dialog.get_excluded() == {("dataset", 2)}
+    assert not dialog.get_resolver().is_saved(Dependency("dataset", 2))
+    assert _groups(dialog)["datasets"].checkState(0) == Qt.PartiallyChecked
+
+
+def test_an_empty_group_is_disabled_and_has_no_checkbox():
+    # With no ROIs and no analysis outputs, those groups decide nothing, so they are
+    # greyed out rather than offering a live checkbox that changes nothing.
+    _qapp()
+    dialog = SaveProjectDialog(_FakeAppState([_FakeDataset(1, [], "cube")]), None)
+    groups = _groups(dialog)
+
+    for key in ("rois", "outputs"):
+        flags = groups[key].flags()
+        assert not flags & Qt.ItemIsEnabled, key
+        assert not flags & Qt.ItemIsUserCheckable, key
+    assert groups["datasets"].flags() & Qt.ItemIsEnabled  # the populated group still works
+
+
 def test_unchecking_an_roi_excludes_it():
     _qapp()
     app_state = _FakeAppState([_FakeDataset(1, [], "a")], rois=[_FakeROI(5, "crater")])

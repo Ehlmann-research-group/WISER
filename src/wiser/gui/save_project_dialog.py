@@ -16,7 +16,7 @@ annotations and group tri-states are updated in place as the user toggles, so th
 item whose signal is being handled is never deleted mid-update.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from wiser.project.save_plan import resolver_for_selection, save_tree
+from wiser.project.save_plan import resolver_for_excluded, save_tree
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -42,10 +42,18 @@ Handle = Tuple[str, object]  # (kind, id) -- the resolver's exclusion key for an
 
 
 class SaveProjectDialog(QDialog):
-    def __init__(self, app_state: "ApplicationState", parent=None):
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        parent=None,
+        excluded: Optional[Iterable[Handle]] = None,
+        self_contained: bool = False,
+    ):
         super().__init__(parent)
         self._app_state = app_state
-        self._excluded: Set[Handle] = set()
+        # Seeded with the selection the project was last saved with, so a re-save starts
+        # from what the user chose rather than silently reverting to everything.
+        self._excluded: Set[Handle] = set(excluded or ())
         self._updating = False
         self._item_widgets: Dict[Handle, QTreeWidgetItem] = {}
         self._group_handles: Dict[str, List[Handle]] = {}
@@ -66,6 +74,7 @@ class SaveProjectDialog(QDialog):
         self._self_contained = QCheckBox(
             self.tr("Save self-contained (copy data into the project so it can be shared or moved)")
         )
+        self._self_contained.setChecked(self_contained)
         layout.addWidget(self._self_contained)
 
         self._tree = QTreeWidget(self)
@@ -95,14 +104,15 @@ class SaveProjectDialog(QDialog):
     # -- resolver / mode ---------------------------------------------------
 
     def _current_resolver(self) -> "DependencyResolver":
-        excluded_datasets = [i for (k, i) in self._excluded if k == "dataset"]
-        excluded_rois = [i for (k, i) in self._excluded if k == "roi"]
-        excluded_items = {(k, i) for (k, i) in self._excluded if k not in ("dataset", "roi")}
-        return resolver_for_selection(self._app_state, excluded_datasets, excluded_rois, excluded_items)
+        return resolver_for_excluded(self._app_state, self._excluded)
 
     def get_resolver(self) -> "DependencyResolver":
         """The resolver for the user's current selection (call after ``exec()``)."""
         return self._current_resolver()
+
+    def get_excluded(self) -> Set[Handle]:
+        """The items the user left out, to seed the next save of the same project."""
+        return set(self._excluded)
 
     def get_self_contained(self) -> bool:
         """Whether the user asked for a portable, self-contained save."""
@@ -118,9 +128,15 @@ class SaveProjectDialog(QDialog):
             group_item = QTreeWidgetItem(self._tree)
             group_item.setText(0, self._group_label(group))
             group_item.setData(0, Qt.UserRole, ("group", group["group"]))
+            group_item.setExpanded(True)
+            if not group["children"]:
+                # Nothing to choose: an empty group is shown greyed out and without a
+                # checkbox, rather than as a live control that decides nothing.
+                group_item.setFlags(group_item.flags() & ~Qt.ItemIsUserCheckable & ~Qt.ItemIsEnabled)
+                self._group_handles[group["group"]] = []
+                continue
             group_item.setFlags(group_item.flags() | Qt.ItemIsUserCheckable)
             group_item.setCheckState(0, Qt.Checked)
-            group_item.setExpanded(True)
             handles: List[Handle] = []
             for node in group["children"]:
                 handle: Handle = (node["kind"], node["id"])
@@ -129,7 +145,7 @@ class SaveProjectDialog(QDialog):
                 item.setText(0, self._item_label(node))
                 item.setData(0, Qt.UserRole, ("item", node["kind"], node["id"]))
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-                item.setCheckState(0, Qt.Checked)
+                item.setCheckState(0, Qt.Unchecked if handle in self._excluded else Qt.Checked)
                 item.setExpanded(True)
                 self._item_widgets[handle] = item
                 for child in node.get("children", []):
@@ -137,6 +153,7 @@ class SaveProjectDialog(QDialog):
                     leaf.setText(0, self._child_label(child))
                     leaf.setFlags(leaf.flags() & ~Qt.ItemIsUserCheckable)
             self._group_handles[group["group"]] = handles
+        self._update_group_states()
 
     # -- toggles -----------------------------------------------------------
 
@@ -205,8 +222,10 @@ class SaveProjectDialog(QDialog):
                 for j in range(group_item.childCount())
                 if (group_item.child(j).data(0, Qt.UserRole) or (None,))[0] == "item"
             ]
+            if not items:
+                continue  # an empty group has no checkbox to update
             checked = sum(1 for it in items if it.checkState(0) == Qt.Checked)
-            if not items or checked == len(items):
+            if checked == len(items):
                 state = Qt.Checked
             elif checked == 0:
                 state = Qt.Unchecked
