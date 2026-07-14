@@ -18,6 +18,7 @@ from wiser.project.save_plan import (
 )
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
+from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import ROIAverageSpectrum, SpectrumAtPoint
 from wiser.raster.stretch import StretchLinear
 
@@ -310,6 +311,19 @@ def test_save_tree_groups_datasets_rois_and_analysis_outputs():
     # Each standalone output carries the (kind, id) handle the resolver excludes it by.
     handles = {(n["kind"], n["id"]) for n in groups["outputs"]["children"]}
     assert handles == {("run", 7), ("library", 8), ("crs", "MyCRS"), ("bandmath", 0)}
+
+
+def test_save_tree_labels_a_library_that_has_no_file_path():
+    # A library built in memory -- collected spectra, or one restored from a project
+    # file -- carries no path, and naming it used to index an empty path list.
+    app = _FakeAppState()
+    _ram_dataset(app)
+    app.add_spectral_library(ListSpectralLibrary([], name="collected"))
+    app.add_spectral_library(ListSpectralLibrary([]))
+
+    tree = save_tree(app, resolver_for_selection(app, excluded_dataset_ids=[]))
+    outputs = {g["group"]: g for g in tree}["outputs"]["children"]
+    assert [node["label"] for node in outputs if node["kind"] == "library"] == ["collected", "unnamed"]
 
 
 def test_save_tree_lists_an_excluded_dataset_and_annotates_the_cut():
