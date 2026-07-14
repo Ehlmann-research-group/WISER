@@ -67,7 +67,7 @@ from the Windows Certificate Store at signing time, the only machine-specific
 secret you need is the thumbprint — there is nothing else to copy off of the
 original build machine.
 
-## Building and Signing: the `make dist-win` command
+## Building and Signing
 
 Currently, we let the `Build and Smoke Test WISER` action build the Windows
 installer, and we sign it locally by running
