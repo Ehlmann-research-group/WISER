@@ -1155,6 +1155,12 @@ class RasterDataSet(Serializable):
             if band is None:
                 band = self.get_band_data(band_index)
 
+            # The data ignore value is a sentinel, not real data; it must never
+            # enter the band statistics.  A caller may hand us (or get_band_data
+            # may return, via the filter-agnostic computation cache) an array in
+            # which the sentinel is still present, so mask it out here.
+            band = self._mask_data_ignore_value(band)
+
             has_inf = np.isinf(band).any()
             filtered_band = band
             if has_inf:
@@ -1270,11 +1276,31 @@ class RasterDataSet(Serializable):
     def has_geographic_info(self) -> bool:
         return self._spatial_ref is not None
 
+    def _mask_data_ignore_value(
+        self, arr: Union[np.ndarray, np.ma.masked_array]
+    ) -> Union[np.ndarray, np.ma.masked_array]:
+        """
+        Return ``arr`` with the dataset's data ignore value masked out.
+
+        Used to keep the sentinel out of band statistics.  If the dataset has no
+        data ignore value the array is returned unchanged; if it is already a
+        masked array the sentinel is added to the existing mask.
+        """
+        if self._data_ignore_value is None:
+            return arr
+        return np.ma.masked_values(arr, self._data_ignore_value)
+
     def cache_band_stats(self, index, arr: np.ndarray):
         """
         Stores the band stats in this dataset's cache for band stats
         """
         if index not in self._cached_band_stats:
+            # Exclude the data ignore sentinel from the statistics; if left in it
+            # collapses band_min to the sentinel and washes the display out to a
+            # uniform color (see get_band_stats).  Callers reach here from
+            # get_band_data even when it was asked to skip filtering, so we
+            # cannot assume ``arr`` is already masked.
+            arr = self._mask_data_ignore_value(arr)
             band_min = np.nanmin(arr)
             band_max = np.nanmax(arr)
             band_stats = BandStats(index, band_min, band_max)
