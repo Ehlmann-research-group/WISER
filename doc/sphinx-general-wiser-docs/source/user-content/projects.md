@@ -95,6 +95,19 @@ it with a colleague.
 Datasets that only exist inside WISER — a band math result, a PCA output — have no
 file on disk to point at, so they are always stored inside the project either way.
 
+### While the project is being written
+
+Writing a project is quick when the data is only referenced, but a self-contained save
+copies and compresses every image into the project file, which can take a while for a
+large scene. WISER shows a progress dialog while it works and leaves the main window
+disabled until it finishes, so the save cannot be disturbed halfway through. Progress
+is also mirrored in the Activity Monitor.
+
+You can **cancel** from that dialog. Cancelling means nothing happened: WISER builds
+the new project alongside the destination and only puts it in place once it is
+complete, so a cancelled save — like one interrupted by a crash or a full disk —
+leaves any project already saved at that location exactly as it was.
+
 ---
 
 ## Saving again

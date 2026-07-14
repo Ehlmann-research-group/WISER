@@ -21,6 +21,8 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+from wiser.utils.progress import ProgressReporter
+
 from .bundle import ProjectBundle, unzip_bundle, zip_bundle
 from .persisters.bandmath import load_bandmath, save_bandmath
 from .persisters.crs import load_user_crs, save_user_crs
@@ -43,6 +45,7 @@ def save_project(
     dest: PathLike,
     resolver: Optional[DependencyResolver] = None,
     self_contained: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> Path:
     """Save the current session to ``dest``.
 
@@ -52,18 +55,29 @@ def save_project(
     When ``self_contained`` is set, file-backed datasets are copied into the bundle
     (rather than referenced by path) so the project is portable/shareable.
     Returns the path written.
+
+    ``progress`` (a :class:`~wiser.utils.progress.ProgressReporter`) reports the save
+    and is checked for cancellation at each dataset and each file added to the
+    archive; cancelling raises
+    :class:`~wiser.utils.progress.ProgressCancelled` and writes nothing, so any
+    project already at ``dest`` survives intact.
     """
     dest = Path(dest)
     if resolver is None:
         resolver = resolver_for_all_datasets(app_state)
+    if progress is None:
+        progress = ProgressReporter()
 
     if dest.suffix == ProjectBundle.EXTENSION:
+        # Copying pixels into the bundle dominates a self-contained save, and
+        # compressing them dominates the rest; a referenced save is quick in both.
+        collect, package = progress.split((0.7, "Collecting project data"), (0.3, "Writing project file"))
         with tempfile.TemporaryDirectory(prefix="wiserproj-save-") as work:
             bundle = ProjectBundle.create(work)
-            _write_bundle(app_state, bundle, resolver, self_contained)
-            zip_bundle(bundle, dest)
+            _write_bundle(app_state, bundle, resolver, self_contained, collect)
+            zip_bundle(bundle, dest, package)
     else:
-        _write_bundle(app_state, ProjectBundle.create(dest), resolver, self_contained)
+        _write_bundle(app_state, ProjectBundle.create(dest), resolver, self_contained, progress)
     return dest
 
 
@@ -128,10 +142,18 @@ def _write_bundle(
     bundle: ProjectBundle,
     resolver: DependencyResolver,
     self_contained: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> None:
     # Clear any prior contents so re-saving over an existing bundle directory does
     # not leave stale sidecars the new manifest no longer references.
     bundle.clear_contents()
+    if progress is None:
+        progress = ProgressReporter()
+    # The datasets carry the pixels; every other section is a few dictionaries, so
+    # the bar would otherwise sit still through the only part that takes any time.
+    datasets_progress, session_progress = progress.split(
+        (0.9, "Saving datasets"), (0.1, "Saving session state")
+    )
     manifest: Dict[str, Any] = {}
     # Datasets first: they are the roots the rest of the manifest references by
     # id, and they own the sidecar I/O through the bundle.  A dataset the resolver
@@ -142,7 +164,15 @@ def _write_bundle(
         for ds in app_state.get_datasets()
         if not resolver.is_saved(Dependency("dataset", ds.get_id()))
     )
-    save_datasets(app_state, manifest, bundle, excluded_ids, embed_file_backed=self_contained)
+    save_datasets(
+        app_state,
+        manifest,
+        bundle,
+        excluded_ids,
+        embed_file_backed=self_contained,
+        progress=datasets_progress,
+    )
+    session_progress.raise_if_cancelled()
     save_user_crs(app_state, manifest, resolver)
     save_bandmath(app_state, manifest, resolver)
     save_rois(app_state, manifest, resolver)
@@ -151,6 +181,7 @@ def _write_bundle(
     save_libraries(app_state, manifest, resolver)
     save_runs(app_state, manifest, resolver)
     bundle.write_manifest(manifest)
+    session_progress.report_fraction(1.0)
 
 
 def _restore(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, List[Any]]:

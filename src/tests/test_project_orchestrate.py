@@ -12,6 +12,7 @@ import os
 import shutil
 
 import numpy as np
+import pytest
 
 import tests.context  # noqa: F401
 
@@ -21,6 +22,7 @@ from osgeo import osr
 from wiser.gui.permanent_plugins.pca_plugin import PCARunRecord
 from wiser.gui.reference_creator_dialog import CrsCreatorState
 from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
+from wiser.utils.progress import ProgressCancelled, ProgressReporter
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
@@ -335,6 +337,45 @@ def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
     restored_roi = dst.get_roi(id=roi.get_id())
     assert restored_roi is not None
     assert restored_roi.get_id() == roi.get_id()
+
+
+def test_a_cancelled_save_leaves_the_existing_project_untouched(tmp_path):
+    # Cancelling means nothing happened.  The archive is built beside the destination
+    # and moved into place only when complete, so the project already saved there is
+    # still openable -- writing into it directly would truncate it at the first byte.
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj)
+    original = proj.read_bytes()
+
+    # A second dataset, so the cancelled save would have written a different project.
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        save_project(app, proj, progress=cancel)
+
+    assert proj.read_bytes() == original  # the previous save survived
+    assert not list(tmp_path.glob("*.part"))  # and the abandoned archive is gone
+
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []  # still opens
+    assert len(dst.get_datasets()) == 1  # holding what it held before the cancel
+
+
+def test_save_reports_progress_to_completion(tmp_path):
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+
+    seen = []
+    reporter = ProgressReporter(sink=lambda fraction, message: seen.append(fraction))
+    save_project(app, tmp_path / "session.wiserproj", progress=reporter)
+
+    assert seen, "the save reported no progress at all"
+    assert seen == sorted(seen)  # never runs backwards
+    assert seen[-1] == 1.0  # and it finishes
 
 
 def test_self_contained_save_embeds_file_backed_dataset(tmp_path):

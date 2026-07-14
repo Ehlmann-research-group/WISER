@@ -29,6 +29,8 @@ application's raster loader directly.
 import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from wiser.utils.progress import ProgressReporter
+
 from ..bundle import ProjectBundle
 
 if TYPE_CHECKING:
@@ -105,6 +107,7 @@ def save_datasets(
     bundle: ProjectBundle,
     excluded_ids: "frozenset[int]" = frozenset(),
     embed_file_backed: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> None:
     """Write every dataset in ``app_state`` into ``manifest['datasets']``.
 
@@ -116,13 +119,21 @@ def save_datasets(
     When ``embed_file_backed`` is set (a self-contained save) file-backed datasets
     are copied into the bundle as ENVI sidecars rather than referenced by path, so
     the project is portable.
+
+    Writing a dataset's pixels is the one slow step of a save, so ``progress`` reports
+    per dataset and cancellation is checked before each one.
     """
     loader = app_state.get_loader()
-    manifest["datasets"] = [
-        dataset_to_pyrep(ds, bundle, loader, embed=embed_file_backed)
-        for ds in app_state.get_datasets()
-        if ds.get_id() not in excluded_ids
-    ]
+    if progress is None:
+        progress = ProgressReporter()
+    datasets = [ds for ds in app_state.get_datasets() if ds.get_id() not in excluded_ids]
+    entries = []
+    for index, dataset in enumerate(datasets):
+        progress.raise_if_cancelled()
+        progress.report(index, len(datasets), dataset.get_name() or "")
+        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed_file_backed))
+    progress.report_fraction(1.0)
+    manifest["datasets"] = entries
 
 
 def load_datasets(

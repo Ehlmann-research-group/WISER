@@ -7,12 +7,15 @@ two.  Bulk data never goes in the manifest: large arrays are written to
 """
 
 import json
+import os
 import shutil
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
+
+from wiser.utils.progress import ProgressReporter
 
 from .migrate import CURRENT_FORMAT_VERSION, ProjectFormatError, migrate_up
 from .pyrep import array_ref, array_ref_key, is_array_ref
@@ -143,14 +146,36 @@ class ProjectBundle:
         return dest / filename
 
 
-def zip_bundle(bundle: ProjectBundle, zip_path: PathLike) -> Path:
-    """Package a bundle directory into a single ``.wiserproj`` zip file."""
+def zip_bundle(
+    bundle: ProjectBundle, zip_path: PathLike, progress: Optional[ProgressReporter] = None
+) -> Path:
+    """Package a bundle directory into a single ``.wiserproj`` zip file.
+
+    The archive is built beside ``zip_path`` and moved into place only once it is
+    complete, so a save that fails, runs out of disk, or is cancelled leaves the
+    project file that was already there untouched.  Opening the destination for
+    writing directly would truncate it at the first byte -- destroying the user's
+    previous save to write the one they abandoned.
+
+    ``progress`` reports per-file and is checked for cancellation between files.
+    """
     zip_path = Path(zip_path)
     root = bundle.root
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path in sorted(root.rglob("*")):
-            if path.is_file():
+    files = [path for path in sorted(root.rglob("*")) if path.is_file()]
+    partial = zip_path.with_name(zip_path.name + ".part")
+    try:
+        with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as zf:
+            for index, path in enumerate(files):
+                if progress is not None:
+                    progress.raise_if_cancelled()
+                    progress.report(index, len(files))
                 zf.write(path, path.relative_to(root))
+        os.replace(partial, zip_path)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    if progress is not None:
+        progress.report_fraction(1.0)
     return zip_path
 
 

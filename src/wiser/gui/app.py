@@ -690,22 +690,13 @@ class DataVisualizerApp(QMainWindow):
     def on_save_project(self, checked=False):
         """Save the session to its current project file, or prompt if there is none."""
         if self._current_project_path is None:
-            self.on_save_project_as()
-            return
-        try:
-            save_project(
-                self._app_state,
-                self._current_project_path,
-                resolver_for_excluded(self._app_state, self._current_excluded),
-                self_contained=self._current_self_contained,
-            )
-        except Exception as e:
-            logger.exception("Failed to save project")
-            QMessageBox.critical(
-                self,
-                self.tr("Save Failed"),
-                self.tr("Could not save the project:\n\n{0}").format(e),
-            )
+            return self.on_save_project_as()
+        return self._save_project(
+            self._current_project_path,
+            resolver_for_excluded(self._app_state, self._current_excluded),
+            self._current_excluded,
+            self._current_self_contained,
+        )
 
     def on_save_project_as(self, checked=False):
         """Prompt for what to include and where, then save a new project file."""
@@ -716,7 +707,7 @@ class DataVisualizerApp(QMainWindow):
             self_contained=self._current_self_contained,
         )
         if dialog.exec() != QDialog.Accepted:
-            return
+            return None
         resolver = dialog.get_resolver()
         excluded = dialog.get_excluded()
         self_contained = dialog.get_self_contained()
@@ -728,24 +719,50 @@ class DataVisualizerApp(QMainWindow):
             self.tr("WISER project files (*{0})").format(ProjectBundle.EXTENSION),
         )
         if not path:
-            return
+            return None
         if not path.lower().endswith(ProjectBundle.EXTENSION):
             path += ProjectBundle.EXTENSION
 
-        try:
-            save_project(self._app_state, path, resolver, self_contained=self_contained)
-        except Exception as e:
-            logger.exception("Failed to save project")
+        return self._save_project(path, resolver, excluded, self_contained)
+
+    def _save_project(self, path, resolver, excluded, self_contained):
+        """Write the project on the scheduler, behind a progress dialog.
+
+        Copying and compressing a dataset's pixels is slow enough to freeze the window
+        for a noticeable time -- a self-contained save of a large cube for much longer --
+        so the work runs off the GUI thread with the main window disabled until it
+        finishes.  Cancelling abandons the save: the destination is only replaced once
+        the archive is complete, so the project that was there is still there.
+        """
+
+        def on_saved(_result):
+            self._current_project_path = path
+            self._current_excluded = set(excluded)
+            self._current_self_contained = self_contained
+            self._app_state.update_cwd_from_path(path)
+            self.statusBar().showMessage(self.tr("Saved project to {0}").format(path), 5000)
+
+        def on_failed(message):
+            logger.error("Failed to save project: %s", message)
             QMessageBox.critical(
                 self,
                 self.tr("Save Failed"),
-                self.tr("Could not save the project:\n\n{0}").format(e),
+                self.tr("Could not save the project:\n\n{0}").format(message),
             )
-            return
-        self._current_project_path = path
-        self._current_excluded = excluded
-        self._current_self_contained = self_contained
-        self._app_state.update_cwd_from_path(path)
+
+        return run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Saving Project"),
+            save_project,
+            self._app_state,
+            path,
+            resolver,
+            self_contained,
+            on_success=on_saved,
+            on_error=on_failed,
+            description=self.tr("Writing project file…"),
+        )
 
     def on_open_project(self, checked=False):
         """Open a project file, replacing the current session after confirmation."""
