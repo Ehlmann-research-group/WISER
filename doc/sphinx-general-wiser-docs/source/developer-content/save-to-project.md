@@ -118,7 +118,7 @@ types, and bad enum values degrade gracefully.
 
 | Persister | Persists | Notes |
 |-----------|----------|-------|
-| `datasets` | Loaded datasets | File-backed by reference; RAM-backed to ENVI sidecars under `datasets/`. Original ids preserved on load so references stay valid. |
+| `datasets` | Loaded datasets | File-backed by reference, RAM-backed to ENVI sidecars under `datasets/`; a NetCDF subdataset also records which subdataset was selected, and a JSON snapshot of the runtime-editable metadata (data-ignore, bad bands, wavelengths + units, band names, display bands, georeferenced CRS) rides in the manifest and is reapplied on load. Original ids preserved so references stay valid. |
 | `rois` | Regions of interest | Standalone; multi-selection geometry round-trips through the pyrep convention. |
 | `spectra` | Collected + active spectra | Three kinds: self-contained NumPy, raster-backed (dataset + point + area), ROI-average (dataset + roi). Dataset-backed spectra go faithful when the dataset is saved, freeze to NumPy when cut. |
 | `stretches` | Per-`(dataset, band)` contrast stretches | Dataset-cascade leaf: dropped when its dataset is unsaved. Polymorphic across the stretch types. |
@@ -126,6 +126,33 @@ types, and bad enum values degrade gracefully.
 | `runs` | PCA / MNF / unmixing / K-Means histories | Every record self-contained; datasets referenced softly by id; run ids re-minted on load. |
 | `crs` | User-created coordinate systems | WKT + creator-dialog state; rebuilt via GDAL/`osr`, bad WKT drops the entry, a bad enum degrades one field. |
 | `bandmath` | Saved band-math expressions | A plain list of expression strings on `ApplicationState`. |
+
+### Dataset metadata and subdatasets
+
+A file-backed dataset is re-opened from its path on load, which re-derives its
+metadata from the source file — so metadata the user edited at runtime (a renamed
+band, an adjusted data-ignore value, a hand-marked bad-band list) would be lost on
+reopen. Each dataset entry therefore also carries a JSON snapshot of the
+runtime-editable metadata: the data-ignore value, the bad-band list, per-band
+wavelengths and their unit, band descriptions, the default display bands, and any
+georeferencer-assigned CRS (WKT) with its geo-transform. On load the snapshot is
+reapplied through the safe per-field setters in a fixed order — data-ignore first,
+since it keys the band-statistics cache, and band descriptions after wavelengths,
+since rebuilding band info overwrites them. Reapply is best-effort and
+field-guarded: a value that no longer fits the reopened dataset (a band-count
+mismatch, an unparseable unit) is skipped so the dataset still restores.
+
+A NetCDF **subdataset** needs one extra field. Its `get_filepaths()` returns a GDAL
+descriptor (`NETCDF:"/path/file.nc":var`) rather than a plain path, so the entry
+records the base `.nc` file together with the `subdataset_name` descriptor and
+reopens via `load_from_file(base, subdataset_name=…, interactive=False)` — restoring
+the *same* subdataset the user had open instead of re-running the auto-pick heuristic
+or dropping the dataset because the descriptor is not a file on disk. Subdataset
+selection is NetCDF-only.
+
+Both the metadata snapshot and `subdataset_name` are **additive, optional** manifest
+fields, so they require no `format_version` bump: an older manifest simply lacks them
+and loads exactly as before.
 
 ---
 
