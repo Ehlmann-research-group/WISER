@@ -151,7 +151,7 @@ CRS, a built-in preset (WGS 84, Web Mercator, NAD83 / UTM 15N), a CRS you made
 with the CRS Creator, or an authority code you type in (for example `EPSG` +
 `4326`).
 
-Changing the target CRS re-evaluates every scene: any scene that can't be
+Changing the target CRS re-evaluates every scene: any scene that can not be
 transformed into the new CRS becomes [pending](#pending-scenes-greyed-out), and
 any pending scene that *can* reach it goes live. If the new CRS leaves no usable
 scenes at all, WISER warns you that the preview is empty but still applies your
