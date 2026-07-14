@@ -29,7 +29,6 @@ from wiser.utils.progress import ProgressReporter
 
 pytestmark = [
     pytest.mark.unit,
-    pytest.mark.smoke,
 ]
 
 # A well-formed north-up geotransform: origin (100, 200), 1-unit pixels, y flips down.

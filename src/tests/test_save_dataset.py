@@ -16,6 +16,12 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import spectral_unit_to_string
 from wiser.utils.progress import ProgressCancelled, ProgressReporter
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+]
+
 ID_SET_1 = 6174
 ID_SET_2 = 42
 

@@ -30,7 +30,7 @@ else
 fi
 # --- FIX END ---
 
-echo "Running smoke test: $BIN --test_mode"
+echo "Running smoke test: $BIN --smoke"
 
 # 4. Conditionally run with or without LD_PRELOAD
 if [[ -n "$GOMP_PATH" ]]; then
