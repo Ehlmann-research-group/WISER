@@ -1097,6 +1097,11 @@ class BandMathDialog(QDialog):
         self._ui.btn_load_saved_exprs.clicked.connect(self._on_load_saved_exprs)
         self._ui.btn_save_saved_exprs.clicked.connect(self._on_save_saved_exprs)
 
+        # Seed the combo-box from the application-state store (the persistent
+        # backing for the project file); re-seeded on every show so a project load
+        # is reflected, and the two mutation handlers keep the store in sync.
+        self._seed_saved_exprs_from_app_state()
+
         # Do this here so that we can use the text-translation facilities.
         self._variable_types_text = {
             bandmath.VariableType.IMAGE_CUBE: self.tr("Image"),
@@ -1898,7 +1903,7 @@ class BandMathDialog(QDialog):
             # TODO(donnie):  This comparison doesn't catch situations where
             #     whitespace is the only difference.
             saved_expr = self._ui.cbox_saved_exprs.itemText(i).casefold()
-            if expr == saved_expr:
+            if expr.casefold() == saved_expr:
                 QMessageBox.critical(
                     self,
                     self.tr("Expression already saved"),
@@ -1913,6 +1918,25 @@ class BandMathDialog(QDialog):
         self._ui.cbox_saved_exprs.addItem(expr)
         self._ui.cbox_saved_exprs.setCurrentIndex(self._ui.cbox_saved_exprs.count() - 1)
         self._saved_exprs_modified = True
+        self._sync_saved_exprs_to_app_state()
+
+    def _seed_saved_exprs_from_app_state(self):
+        """Populate the saved-expressions combo from the persistent store.
+
+        Called on construction and again on each show: the dialog is cached and
+        reused, so without this a project load would leave it showing stale
+        expressions -- and the next mutation would sync that stale list back over
+        the freshly-loaded store.
+        """
+        self._ui.cbox_saved_exprs.clear()
+        for expr in self._app_state.get_bandmath_expressions():
+            self._ui.cbox_saved_exprs.addItem(expr)
+        self._saved_exprs_modified = False
+
+    def _sync_saved_exprs_to_app_state(self):
+        """Mirror the saved-expressions combo-box into application state."""
+        exprs = [self._ui.cbox_saved_exprs.itemText(i) for i in range(self._ui.cbox_saved_exprs.count())]
+        self._app_state.set_bandmath_expressions(exprs)
 
     def _on_load_saved_exprs(self, checked=False):
         """
@@ -1967,6 +1991,7 @@ class BandMathDialog(QDialog):
             self._ui.cbox_saved_exprs.addItem(line)
 
         self._saved_exprs_modified = False
+        self._sync_saved_exprs_to_app_state()
 
     def _on_save_saved_exprs(self, checked=False):
         (path, _) = QFileDialog.getSaveFileName(
@@ -2044,6 +2069,7 @@ class BandMathDialog(QDialog):
     def showEvent(self, event):
         super().showEvent(event)
         # This code is run right before the QDialog is shown
+        self._seed_saved_exprs_from_app_state()
         self._analyze_expr()
 
     def accept(self):

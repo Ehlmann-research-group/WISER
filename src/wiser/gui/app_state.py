@@ -161,6 +161,11 @@ class ApplicationState(QObject):
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
+        # The band-math saved-expression list.  This backs the BandMathDialog's
+        # saved-expressions combo-box so the list survives the dialog closing and
+        # can be persisted with the project.
+        self._bandmath_saved_exprs: List[str] = []
+
         self._process_pool_manager = MultiprocessingManager()
 
         self._running_processes: Dict[int, ProcessManager] = {}
@@ -866,6 +871,12 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1, -1)
+
+    def get_bandmath_expressions(self) -> List[str]:
+        return list(self._bandmath_saved_exprs)
+
+    def set_bandmath_expressions(self, expressions: List[str]) -> None:
+        self._bandmath_saved_exprs = list(expressions)
 
     def get_user_created_crs(self):
         return self._user_created_crs
