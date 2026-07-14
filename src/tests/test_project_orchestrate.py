@@ -19,7 +19,7 @@ from osgeo import osr
 
 from wiser.gui.permanent_plugins.pca_plugin import PCARunRecord
 from wiser.gui.reference_creator_dialog import CrsCreatorState
-from wiser.project.orchestrate import load_project, save_project
+from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
@@ -356,6 +356,37 @@ def test_self_contained_save_embeds_file_backed_dataset(tmp_path):
     assert restored.get_id() == ds.get_id()
     assert restored.get_data_ignore_value() == -9999.0  # metadata snapshot survived
     np.testing.assert_array_equal(_data(restored), _sample_array())
+
+
+def test_an_opened_self_contained_project_is_detected_as_embedding(tmp_path):
+    # Re-saving an opened project must keep its storage mode.  A self-contained project
+    # restores its datasets from sidecars in the extract dir, so a referenced re-save
+    # would point the manifest at a temp directory that dies with the session.
+    src = _FakeAppState()
+    _file_backed_dataset(src, tmp_path / "sources", "scene")
+
+    proj = tmp_path / "portable.wiserproj"
+    save_project(src, proj, self_contained=True)
+
+    dst = _FakeAppState()
+    unpacked = tmp_path / "unpacked"
+    load_project(proj, dst, extract_dir=unpacked)
+    assert project_embeds_datasets(dst, unpacked)
+
+
+def test_an_opened_referenced_project_is_not_detected_as_embedding(tmp_path):
+    # The contrast: a referenced project's datasets still live at their original paths
+    # outside the bundle, so re-saving it by reference stays correct.
+    src = _FakeAppState()
+    _file_backed_dataset(src, tmp_path / "sources", "scene")
+
+    proj = tmp_path / "referenced.wiserproj"
+    save_project(src, proj)
+
+    dst = _FakeAppState()
+    unpacked = tmp_path / "unpacked-ref"
+    load_project(proj, dst, extract_dir=unpacked)
+    assert not project_embeds_datasets(dst, unpacked)
 
 
 def test_referenced_save_drops_a_deleted_source(tmp_path):

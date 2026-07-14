@@ -98,6 +98,31 @@ def load_project(
     return _restore(bundle, app_state)
 
 
+def project_embeds_datasets(app_state: "ApplicationState", bundle_root: PathLike) -> bool:
+    """Whether the session's datasets are backed by files inside ``bundle_root``.
+
+    A project saved self-contained restores its datasets from the ENVI sidecars in
+    its own bundle -- for a zip, from the temporary directory it was extracted into.
+    Re-saving such a session by reference would write absolute paths into storage
+    that does not outlive it, so a caller re-saving an opened project uses this to
+    keep it self-contained.
+    """
+    root = Path(bundle_root).resolve()
+    for dataset in app_state.get_datasets():
+        for filepath in dataset.get_filepaths() or []:
+            if not filepath:
+                continue
+            try:
+                # A subdataset descriptor (NETCDF:"/path":var) is not a path and
+                # never names a sidecar, so a failure to place it under the bundle
+                # is the correct answer, not an error.
+                Path(filepath).resolve().relative_to(root)
+            except ValueError:
+                continue
+            return True
+    return False
+
+
 def _write_bundle(
     app_state: "ApplicationState",
     bundle: ProjectBundle,
