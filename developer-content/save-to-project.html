@@ -923,7 +923,10 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-pyrep-convention">The pyrep convention</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-dependency-resolver">The dependency resolver</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#persisters">Persisters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#persisters">Persisters</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-metadata-and-subdatasets">Dataset metadata and subdatasets</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#save">Save</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load">Load</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#versioning-and-migration">Versioning and migration</a></li>
@@ -1081,7 +1084,7 @@ types, and bad enum values degrade gracefully.</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">datasets</span></code></p></td>
 <td><p>Loaded datasets</p></td>
-<td><p>File-backed by reference; RAM-backed to ENVI sidecars under <code class="docutils literal notranslate"><span class="pre">datasets/</span></code>. Original ids preserved on load so references stay valid.</p></td>
+<td><p>File-backed by reference, RAM-backed to ENVI sidecars under <code class="docutils literal notranslate"><span class="pre">datasets/</span></code>; a NetCDF subdataset also records which subdataset was selected, and a JSON snapshot of the runtime-editable metadata (data-ignore, bad bands, wavelengths + units, band names, display bands, georeferenced CRS) rides in the manifest and is reapplied on load. Original ids preserved so references stay valid.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rois</span></code></p></td>
 <td><p>Regions of interest</p></td>
@@ -1114,6 +1117,31 @@ types, and bad enum values degrade gracefully.</p>
 </tbody>
 </table>
 </div>
+<section id="dataset-metadata-and-subdatasets">
+<h3>Dataset metadata and subdatasets<a class="headerlink" href="#dataset-metadata-and-subdatasets" title="Link to this heading">#</a></h3>
+<p>A file-backed dataset is re-opened from its path on load, which re-derives its
+metadata from the source file — so metadata the user edited at runtime (a renamed
+band, an adjusted data-ignore value, a hand-marked bad-band list) would be lost on
+reopen. Each dataset entry therefore also carries a JSON snapshot of the
+runtime-editable metadata: the data-ignore value, the bad-band list, per-band
+wavelengths and their unit, band descriptions, the default display bands, and any
+georeferencer-assigned CRS (WKT) with its geo-transform. On load the snapshot is
+reapplied through the safe per-field setters in a fixed order — data-ignore first,
+since it keys the band-statistics cache, and band descriptions after wavelengths,
+since rebuilding band info overwrites them. Reapply is best-effort and
+field-guarded: a value that no longer fits the reopened dataset (a band-count
+mismatch, an unparseable unit) is skipped so the dataset still restores.</p>
+<p>A NetCDF <strong>subdataset</strong> needs one extra field. Its <code class="docutils literal notranslate"><span class="pre">get_filepaths()</span></code> returns a GDAL
+descriptor (<code class="docutils literal notranslate"><span class="pre">NETCDF:&quot;/path/file.nc&quot;:var</span></code>) rather than a plain path, so the entry
+records the base <code class="docutils literal notranslate"><span class="pre">.nc</span></code> file together with the <code class="docutils literal notranslate"><span class="pre">subdataset_name</span></code> descriptor and
+reopens via <code class="docutils literal notranslate"><span class="pre">load_from_file(base,</span> <span class="pre">subdataset_name=…,</span> <span class="pre">interactive=False)</span></code> — restoring
+the <em>same</em> subdataset the user had open instead of re-running the auto-pick heuristic
+or dropping the dataset because the descriptor is not a file on disk. Subdataset
+selection is NetCDF-only.</p>
+<p>Both the metadata snapshot and <code class="docutils literal notranslate"><span class="pre">subdataset_name</span></code> are <strong>additive, optional</strong> manifest
+fields, so they require no <code class="docutils literal notranslate"><span class="pre">format_version</span></code> bump: an older manifest simply lacks them
+and loads exactly as before.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="save">
@@ -1254,7 +1282,10 @@ point in dependency order.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-pyrep-convention">The pyrep convention</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-dependency-resolver">The dependency resolver</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#persisters">Persisters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#persisters">Persisters</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-metadata-and-subdatasets">Dataset metadata and subdatasets</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#save">Save</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load">Load</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#versioning-and-migration">Versioning and migration</a></li>
