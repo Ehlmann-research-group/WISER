@@ -35,10 +35,10 @@ echo "Running smoke test: $BIN --smoke"
 # 4. Conditionally run with or without LD_PRELOAD
 if [[ -n "$GOMP_PATH" ]]; then
     # ARM Fix: Preload the library into the app process only
-    xvfb-run -a env LD_PRELOAD="$GOMP_PATH" "$BIN" --test_mode
+    xvfb-run -a env LD_PRELOAD="$GOMP_PATH" "$BIN" --smoke
 else
     # Standard Run (AMD64 or if lib not bundled)
-    xvfb-run -a "$BIN" --test_mode
+    xvfb-run -a "$BIN" --smoke
 fi
 
 echo "Smoke test passed."
