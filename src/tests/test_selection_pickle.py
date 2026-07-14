@@ -23,6 +23,7 @@ from wiser.raster.selection import (
 
 pytestmark = [
     pytest.mark.unit,
+    pytest.mark.smoke,
 ]
 
 

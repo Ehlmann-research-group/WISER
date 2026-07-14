@@ -20,7 +20,6 @@ import tests.context  # noqa: F401  (adds src/ to sys.path)
 from test_utils.test_model import WiserTestModel
 
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.integration,
 ]
 
