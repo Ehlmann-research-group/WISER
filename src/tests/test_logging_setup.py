@@ -31,7 +31,7 @@ import wiser
 from wiser.logging_setup import SafeRotatingFileHandler
 from wiser.utils.multiprocessing_context import CTX
 
-pytestmark = pytest.mark.functional
+pytestmark = [pytest.mark.functional, pytest.mark.smoke, pytest.mark.regression]
 
 WINDOWS_ONLY = pytest.mark.skipif(
     sys.platform != "win32",

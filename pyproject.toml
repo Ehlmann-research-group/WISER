@@ -15,6 +15,7 @@ markers = [
   "scheduler: the work unit scheduler",
   "storage: the storage client and service system",
   "task_manager: the task manager / planner system",
+  "regression: regression test",
 ]
 testpaths = [
   "src/tests",

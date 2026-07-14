@@ -15,7 +15,6 @@ from wiser.gui.mosaic_view import MosaicViewTransform
 import pytest
 
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.unit,
 ]
 

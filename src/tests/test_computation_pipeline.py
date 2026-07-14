@@ -34,6 +34,12 @@ from wiser.utils.task_system import (
 from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.utils.work_scheduler import SchedulerConfig, WorkScheduler
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+]
+
 
 class _NoopSchedulerConfig:
     pass
