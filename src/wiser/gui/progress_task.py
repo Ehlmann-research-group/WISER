@@ -18,6 +18,7 @@ This is the thread-scoped path (see ``FOLLOWUP_io_work_units.md``); it does not 
 the work-unit RAM accounting.
 """
 
+import logging
 from concurrent.futures import Future
 from threading import Event
 from typing import Any, Callable, Dict, Optional
@@ -26,10 +27,12 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QWidget
 
 from wiser.utils.primitives import PriorityClass
-from wiser.utils.progress import ProgressReporter
+from wiser.utils.progress import ProgressCancelled, ProgressReporter
 from wiser.utils.task_system import ProgressUpdate
 
 from .progress_dialog import PROGRESS_RESOLUTION, ProgressDialog
+
+logger = logging.getLogger(__name__)
 
 
 class _ProgressTaskRunner(QObject):
@@ -55,10 +58,13 @@ class _ProgressTaskRunner(QObject):
         on_error: Optional[Callable[[str], None]],
         cancel_event: Event,
         block_window: Optional[QWidget] = None,
+        title: str = "",
     ) -> None:
         super().__init__(parent)
         self._app_services = app_services
         self._dialog = dialog
+        # Kept for the failure log: the dialog is a widget the worker thread must not touch.
+        self._title = title
         self._activity_id: Optional[int] = None
         self._on_success = on_success
         self._on_error = on_error
@@ -90,7 +96,14 @@ class _ProgressTaskRunner(QObject):
         """Future done-callback (worker/pool thread): funnel result to the GUI thread."""
         try:
             result = future.result()
+        except ProgressCancelled as exc:
+            # The user asked to stop; not a failure worth a traceback.
+            self.failed.emit(str(exc))
         except Exception as exc:  # noqa: BLE001 - surfaced to the user via `failed`
+            # Only the message crosses to the GUI thread, so log the traceback here,
+            # where the exception still has one -- otherwise a failed task leaves
+            # nothing in the log to diagnose it with.
+            logger.exception("Task failed: %s", self._title)
             self.failed.emit(str(exc))
         else:
             self.succeeded.emit(result)
@@ -203,7 +216,7 @@ def run_with_progress(
     # on the GUI thread when the user cancels.
     cancel_event = Event()
     runner = _ProgressTaskRunner(
-        dialog_parent, app_services, dialog, on_success, on_error, cancel_event, target
+        dialog_parent, app_services, dialog, on_success, on_error, cancel_event, target, title
     )
     # Register the row with the runner as its cancel handler so the Activity Monitor's
     # Cancel button cancels this task too; then hand the runner its row id.

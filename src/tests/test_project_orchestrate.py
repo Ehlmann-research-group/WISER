@@ -370,6 +370,30 @@ def test_a_cancelled_save_leaves_the_existing_project_untouched(tmp_path):
     assert len(dst.get_datasets()) == 1  # holding what it held before the cancel
 
 
+def test_a_cancelled_directory_save_leaves_the_existing_bundle_untouched(tmp_path):
+    # The same guarantee as the zip form, which the bundle-directory form did not have:
+    # _write_bundle clears the bundle before writing it, so saving straight into the
+    # destination destroyed the project already there the instant the save began.
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    bundle_dir = tmp_path / "session"
+    save_project(app, bundle_dir)
+    manifest_before = (bundle_dir / "manifest.json").read_text()
+
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        save_project(app, bundle_dir, progress=cancel)
+
+    assert (bundle_dir / "manifest.json").read_text() == manifest_before
+    assert not (tmp_path / "session.part").exists()  # the abandoned bundle is gone
+    assert not (tmp_path / "session.bak").exists()  # and so is the backup
+
+    dst = _FakeAppState()
+    load_project(bundle_dir, dst)
+    assert len(dst.get_datasets()) == 1  # still the project it was
+
+
 def test_a_cancelled_open_leaves_the_current_session_alone(tmp_path):
     # Unpacking is the slow half of an open and is what gets cancelled; the session is
     # only cleared by the restore.  So abandoning an open costs the user nothing -- they

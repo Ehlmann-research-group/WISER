@@ -16,6 +16,8 @@ resolver in place of the default here; the golden-file version gate (#628) build
 on the migrate step already performed by :meth:`ProjectBundle.read_manifest`.
 """
 
+import os
+import shutil
 import tempfile
 import zipfile
 from pathlib import Path
@@ -59,8 +61,9 @@ def save_project(
     ``progress`` (a :class:`~wiser.utils.progress.ProgressReporter`) reports the save
     and is checked for cancellation at each dataset and each file added to the
     archive; cancelling raises
-    :class:`~wiser.utils.progress.ProgressCancelled` and writes nothing, so any
-    project already at ``dest`` survives intact.
+    :class:`~wiser.utils.progress.ProgressCancelled`.  Either form of ``dest`` is
+    written aside and moved into place only once it is complete, so a cancelled or
+    failed save leaves whatever was already at ``dest`` intact.
     """
     dest = Path(dest)
     if resolver is None:
@@ -77,8 +80,46 @@ def save_project(
             _write_bundle(app_state, bundle, resolver, self_contained, collect)
             zip_bundle(bundle, dest, package)
     else:
-        _write_bundle(app_state, ProjectBundle.create(dest), resolver, self_contained, progress)
+        _write_bundle_directory(app_state, dest, resolver, self_contained, progress)
     return dest
+
+
+def _write_bundle_directory(
+    app_state: "ApplicationState",
+    dest: Path,
+    resolver: DependencyResolver,
+    self_contained: bool,
+    progress: ProgressReporter,
+) -> None:
+    """Write a bundle *directory*, swapping it into place only once it is complete.
+
+    :func:`_write_bundle` clears the bundle before writing it, so writing straight into
+    ``dest`` would destroy the project already there the instant the save began -- the
+    same hazard :func:`~wiser.project.bundle.zip_bundle` avoids by building a ``.part``
+    file.  The new bundle is staged beside ``dest`` and the old one kept until the new
+    one is in place, so a cancelled or failed save costs the user nothing.
+    """
+    staging = dest.with_name(dest.name + ".part")
+    previous = dest.with_name(dest.name + ".bak")
+    shutil.rmtree(staging, ignore_errors=True)
+    try:
+        _write_bundle(app_state, ProjectBundle.create(staging), resolver, self_contained, progress)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+    shutil.rmtree(previous, ignore_errors=True)
+    replacing = dest.exists()
+    if replacing:
+        os.replace(dest, previous)
+    try:
+        os.replace(staging, dest)
+    except BaseException:
+        if replacing:
+            os.replace(previous, dest)  # put the old bundle back
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    shutil.rmtree(previous, ignore_errors=True)
 
 
 def open_bundle(
