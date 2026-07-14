@@ -1,7 +1,7 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -160,6 +160,11 @@ class ApplicationState(QObject):
         # A dictionary holding the CRSs that the user has created.
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
+
+        # The band-math saved-expression list.  This backs the BandMathDialog's
+        # saved-expressions combo-box so the list survives the dialog closing and
+        # can be persisted with the project.
+        self._bandmath_saved_exprs: List[str] = []
 
         self._process_pool_manager = MultiprocessingManager()
 
@@ -592,6 +597,13 @@ class ApplicationState(QObject):
         # ``None``.
         return [self._stretches.get((ds_id, b), None) for b in bands]
 
+    def get_all_stretches(self) -> Dict[Tuple[int, int], Any]:
+        # Every committed stretch keyed by ``(dataset_id, band_index)``.  Used by
+        # the project-file persister to enumerate stretches for saving.  Values
+        # are any stretch object -- a StretchBase subclass, a StretchComposite,
+        # or a numba variant -- not just StretchBase.
+        return dict(self._stretches)
+
     def add_spectral_library(self, library):
         """
         Add a spectral library to the application state, assigning a new ID to
@@ -859,6 +871,12 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1, -1)
+
+    def get_bandmath_expressions(self) -> List[str]:
+        return list(self._bandmath_saved_exprs)
+
+    def set_bandmath_expressions(self, expressions: List[str]) -> None:
+        self._bandmath_saved_exprs = list(expressions)
 
     def get_user_created_crs(self):
         return self._user_created_crs
