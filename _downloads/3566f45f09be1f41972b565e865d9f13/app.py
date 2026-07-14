@@ -423,9 +423,8 @@ class DataVisualizerApp(QMainWindow):
         act = submenu.addAction(self.tr("Linear Unmixing"))
         act.triggered.connect(self.show_linear_unmixing_dialog)
 
-        if FLAGS.kmeans:
-            act = submenu.addAction(self.tr("K-means"))
-            act.triggered.connect(self.show_kmeans_dialog)
+        act = submenu.addAction(self.tr("K-means"))
+        act.triggered.connect(self.show_kmeans_dialog)
 
         act = self._tools_menu.addAction(self.tr("Geo Reference"))
         act.triggered.connect(self.show_geo_reference_dialog)

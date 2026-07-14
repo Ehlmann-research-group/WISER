@@ -411,7 +411,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-certificate-usb-token">Code-signing certificate (USB token)</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing-the-make-dist-win-command">Building and Signing: the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist-win</span></code> command</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing">Building and Signing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-signtool-path">Configuring the Signtool Path</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-your-certificate-thumbprint">Finding Your Certificate Thumbprint</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-install-script-works">How the Install Script Works</a></li>
@@ -489,10 +489,18 @@ secret you need is the thumbprint — there is nothing else to copy off of the
 original build machine.</p>
 </section>
 </section>
-<section id="building-and-signing-the-make-dist-win-command">
-<h2>Building and Signing: the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist-win</span></code> command<a class="headerlink" href="#building-and-signing-the-make-dist-win-command" title="Link to this heading">#</a></h2>
-<p>On Windows, building and signing happen together in a single Make target. From
-the top of the WISER repository, in the <code class="docutils literal notranslate"><span class="pre">wiser-prod</span></code> conda environment, run:</p>
+<section id="building-and-signing">
+<h2>Building and Signing<a class="headerlink" href="#building-and-signing" title="Link to this heading">#</a></h2>
+<p>Currently, we let the <code class="docutils literal notranslate"><span class="pre">Build</span> <span class="pre">and</span> <span class="pre">Smoke</span> <span class="pre">Test</span> <span class="pre">WISER</span></code> action build the Windows
+installer, and we sign it locally by running
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-windows</span> <span class="pre">LINK=&lt;link-to-windows-artifact&gt;</span></code>. We get the link to the
+Windows artifact by right-clicking on <code class="docutils literal notranslate"><span class="pre">wiser-Windows-X64</span></code> and selecting
+<em>Copy Link Address</em>. Once the installer is signed, we upload it. See
+<a class="reference internal" href="ci-cd-and-releases.html"><span class="std std-doc">CI/CD and Releases</span></a> to learn more.</p>
+<p>You can also build and sign in a single Make target. Because building is so
+machine-dependent, however, we prefer to build on the runners using the steps
+above. If you still want to build and sign locally, activate the <code class="docutils literal notranslate"><span class="pre">wiser-prod</span></code>
+conda environment, change to the root directory of WISER, and run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">dist</span><span class="o">-</span><span class="n">win</span>
 </pre></div>
 </div>
@@ -672,7 +680,7 @@ to point the whole script at your <code class="docutils literal notranslate"><sp
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-certificate-usb-token">Code-signing certificate (USB token)</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing-the-make-dist-win-command">Building and Signing: the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">dist-win</span></code> command</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing">Building and Signing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-signtool-path">Configuring the Signtool Path</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-your-certificate-thumbprint">Finding Your Certificate Thumbprint</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-install-script-works">How the Install Script Works</a></li>
