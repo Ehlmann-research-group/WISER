@@ -22,6 +22,7 @@ import pytest
 import tests.context  # noqa: F401
 
 from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QDialog, QMessageBox
 
 from test_utils.test_model import WiserTestModel
@@ -63,6 +64,23 @@ class TestProjectSaveGui(unittest.TestCase):
             )
         return src_dir, self.test_model.load_dataset(os.path.join(src_dir, "scene"))
 
+    def _wait_for(self, predicate, timeout_ms: int = 60000, step_ms: int = 20) -> bool:
+        """Pump the Qt event loop until ``predicate()`` is true or the timeout elapses."""
+        waited = 0
+        while waited < timeout_ms:
+            if predicate():
+                return True
+            QTest.qWait(step_ms)
+            waited += step_ms
+        return predicate()
+
+    def _await_save(self, runner):
+        """The save runs on the scheduler behind a progress dialog; wait it out."""
+        self.assertIsNotNone(runner, "no save was started")
+        completed = self._wait_for(lambda: getattr(runner, "_done", False))
+        self.test_model.app.processEvents()  # let on_success run on the GUI thread
+        self.assertTrue(completed, "the save did not finish within the timeout")
+
     def _save_as(self, path, self_contained=False, excluded=()):
         """Drive File > Save Project As, standing in for the dialog and the file picker."""
         dialog = mock.MagicMock()
@@ -74,16 +92,29 @@ class TestProjectSaveGui(unittest.TestCase):
             mock.patch("wiser.gui.app.SaveProjectDialog", return_value=dialog),
             mock.patch("wiser.gui.app.QFileDialog.getSaveFileName", return_value=(path, "")),
         ):
-            self.main_window.on_save_project_as()
+            runner = self.main_window.on_save_project_as()
+        self._await_save(runner)
+
+    def _save(self):
+        """Drive File > Save (in place) and wait for it."""
+        self._await_save(self.main_window.on_save_project())
 
     def _open(self, path):
-        """Drive File > Open Project, confirming the discard prompt."""
+        """Drive File > Open Project, confirming the discard prompt, and wait for it.
+
+        The unpack runs on the scheduler; the restore then happens on the GUI thread in
+        the success callback, so the event loop must be pumped for both.
+        """
         with (
             mock.patch("wiser.gui.app.QMessageBox.question", return_value=QMessageBox.Yes),
             mock.patch("wiser.gui.app.QFileDialog.getOpenFileName", return_value=(path, "")),
             mock.patch("wiser.gui.app.QMessageBox.warning") as warned,
         ):
-            self.main_window.on_open_project()
+            runner = self.main_window.on_open_project()
+            self.assertIsNotNone(runner, "no open was started")
+            completed = self._wait_for(lambda: getattr(runner, "_done", False))
+            self.test_model.app.processEvents()  # let the restore run on the GUI thread
+            self.assertTrue(completed, "the open did not finish within the timeout")
         self.assertFalse(warned.called, "the project reported items it could not restore")
 
     def _manifest(self, project_path):
@@ -125,7 +156,7 @@ class TestProjectSaveGui(unittest.TestCase):
         self._save_as(project, excluded=[("dataset", extra.get_id())])
         self.assertEqual(len(self._manifest(project)["datasets"]), 1)
 
-        self.main_window.on_save_project()  # File > Save, in place
+        self._save()  # File > Save, in place
 
         self.assertEqual(len(self._manifest(project)["datasets"]), 1)
 
@@ -142,8 +173,39 @@ class TestProjectSaveGui(unittest.TestCase):
         self._open(project)
 
         self.assertEqual(self.main_window._current_excluded, set())
-        self.main_window.on_save_project()
+        self._save()
         self.assertEqual(len(self._manifest(project)["datasets"]), 1)  # the one it holds
+
+    def test_a_failed_open_leaves_the_open_session_and_its_data_alone(self):
+        # An open that fails must not take the session down with it.  The session's
+        # datasets may be sidecars living in the extract directory of the project it was
+        # opened from, so that directory has to outlive a failed attempt at another one.
+        src_dir, _ = self._file_backed_dataset("sources")
+        project = os.path.join(self.tmp_path, "portable.wiserproj")
+        self._save_as(project, self_contained=True)
+        shutil.rmtree(src_dir)  # only the bundle has the pixels now
+        self._open(project)
+        (restored,) = self.app_state.get_datasets()
+
+        junk = os.path.join(self.tmp_path, "not-a-project.wiserproj")
+        with open(junk, "w") as handle:
+            handle.write("this is not a project")
+
+        with (
+            mock.patch("wiser.gui.app.QMessageBox.question", return_value=QMessageBox.Yes),
+            mock.patch("wiser.gui.app.QFileDialog.getOpenFileName", return_value=(junk, "")),
+            mock.patch("wiser.gui.app.QMessageBox.critical") as complained,
+        ):
+            runner = self.main_window.on_open_project()
+            self._wait_for(lambda: getattr(runner, "_done", False))
+            self.test_model.app.processEvents()
+
+        self.assertTrue(complained.called, "the failed open was not reported")
+        (still_there,) = self.app_state.get_datasets()
+        self.assertEqual(still_there.get_id(), restored.get_id())
+        # And its pixels are still readable: the extract dir it reads from survived.
+        self.assertEqual(still_there.num_bands(), restored.num_bands())
+        np.asarray(still_there.get_image_data(filter_data_ignore_value=False))
 
     # -- save mode across an open ------------------------------------------
 
@@ -162,7 +224,7 @@ class TestProjectSaveGui(unittest.TestCase):
         (restored,) = self.app_state.get_datasets()
         self.assertEqual(restored.get_name(), dataset.get_name())
 
-        self.main_window.on_save_project()  # File > Save, in place
+        self._save()  # File > Save, in place
         entry = self._manifest(project)["datasets"][0]
         self.assertEqual(entry["storage"], STORAGE_SIDECAR)
 
@@ -184,6 +246,6 @@ class TestProjectSaveGui(unittest.TestCase):
         self._open(referenced)
 
         self.assertFalse(self.main_window._current_self_contained)
-        self.main_window.on_save_project()
+        self._save()
         entry = self._manifest(referenced)["datasets"][0]
         self.assertEqual(entry["storage"], STORAGE_REFERENCE)

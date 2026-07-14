@@ -16,12 +16,16 @@ resolver in place of the default here; the golden-file version gate (#628) build
 on the migrate step already performed by :meth:`ProjectBundle.read_manifest`.
 """
 
+import os
+import shutil
 import tempfile
 import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from .bundle import ProjectBundle, unzip_bundle, zip_bundle
+from wiser.utils.progress import ProgressReporter
+
+from .bundle import ProjectBundle, remove_path, unzip_bundle, zip_bundle
 from .persisters.bandmath import load_bandmath, save_bandmath
 from .persisters.crs import load_user_crs, save_user_crs
 from .persisters.datasets import load_datasets, save_datasets
@@ -43,6 +47,7 @@ def save_project(
     dest: PathLike,
     resolver: Optional[DependencyResolver] = None,
     self_contained: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> Path:
     """Save the current session to ``dest``.
 
@@ -52,37 +57,96 @@ def save_project(
     When ``self_contained`` is set, file-backed datasets are copied into the bundle
     (rather than referenced by path) so the project is portable/shareable.
     Returns the path written.
+
+    ``progress`` (a :class:`~wiser.utils.progress.ProgressReporter`) reports the save
+    and is checked for cancellation at each dataset and each file added to the
+    archive; cancelling raises
+    :class:`~wiser.utils.progress.ProgressCancelled`.  Either form of ``dest`` is
+    written aside and moved into place only once it is complete, so a cancelled or
+    failed save leaves whatever was already at ``dest`` intact.
     """
     dest = Path(dest)
     if resolver is None:
         resolver = resolver_for_all_datasets(app_state)
+    if progress is None:
+        progress = ProgressReporter()
 
     if dest.suffix == ProjectBundle.EXTENSION:
+        # Copying pixels into the bundle dominates a self-contained save, and
+        # compressing them dominates the rest; a referenced save is quick in both.
+        collect, package = progress.split((0.7, "Collecting project data"), (0.3, "Writing project file"))
         with tempfile.TemporaryDirectory(prefix="wiserproj-save-") as work:
             bundle = ProjectBundle.create(work)
-            _write_bundle(app_state, bundle, resolver, self_contained)
-            zip_bundle(bundle, dest)
+            _write_bundle(app_state, bundle, resolver, self_contained, collect)
+            zip_bundle(bundle, dest, package)
     else:
-        _write_bundle(app_state, ProjectBundle.create(dest), resolver, self_contained)
+        _write_bundle_directory(app_state, dest, resolver, self_contained, progress)
     return dest
 
 
-def load_project(
-    src: PathLike,
+def _write_bundle_directory(
     app_state: "ApplicationState",
+    dest: Path,
+    resolver: DependencyResolver,
+    self_contained: bool,
+    progress: ProgressReporter,
+) -> None:
+    """Write a bundle *directory*, swapping it into place only once it is complete.
+
+    :func:`_write_bundle` clears the bundle before writing it, so writing straight into
+    ``dest`` would destroy the project already there the instant the save began -- the
+    same hazard :func:`~wiser.project.bundle.zip_bundle` avoids by building a ``.part``
+    file.  The new bundle is staged beside ``dest`` and the old one kept until the new
+    one is in place, so a cancelled or failed save costs the user nothing.
+    """
+    staging = dest.with_name(dest.name + ".part")
+    previous = dest.with_name(dest.name + ".bak")
+    # Either may be left over from a crash, and as a file rather than a directory, so
+    # clear whatever is actually there rather than assuming its kind.
+    remove_path(staging)
+    try:
+        _write_bundle(app_state, ProjectBundle.create(staging), resolver, self_contained, progress)
+    except BaseException:
+        remove_path(staging)
+        raise
+
+    remove_path(previous)
+    replacing = dest.exists()
+    if replacing:
+        os.replace(dest, previous)
+    try:
+        os.replace(staging, dest)
+    except BaseException:
+        if replacing:
+            os.replace(previous, dest)  # put the old bundle back
+        remove_path(staging)
+        raise
+    remove_path(previous)
+
+
+def open_bundle(
+    src: PathLike,
     extract_dir: Optional[PathLike] = None,
-) -> Dict[str, List[Any]]:
-    """Open a project bundle at ``src`` and restore it into a cleared session.
+    progress: Optional[ProgressReporter] = None,
+) -> ProjectBundle:
+    """Unpack ``src`` and return the bundle, without touching the session.
 
     ``src`` may be a bundle directory or a ``.wiserproj`` zip.  A zip is extracted
-    into ``extract_dir``, which is **required** for a zip and must outlive the
-    loaded session, since sidecar datasets are read from it lazily -- the caller
-    owns it and its cleanup.  Raises :class:`ValueError` if a zip is opened without
-    an ``extract_dir``, and
-    :class:`~wiser.project.migrate.ProjectTooNewError` for a too-new file.
+    into ``extract_dir``, which is **required** for a zip and must outlive the loaded
+    session, since sidecar datasets are read from it lazily -- the caller owns it and
+    its cleanup.  Raises :class:`ValueError` if a zip is opened without an
+    ``extract_dir``.
 
-    Returns a load report: a dict mapping each section to the entries that could
-    not be restored (a moved file, an unknown kind, a malformed record).
+    This is the half of a load that is slow and safe to run off the GUI thread:
+    unpacking a self-contained project copies out every image it holds.  It is
+    separate from :func:`restore_bundle` because restoring *mutates the session*, so
+    a caller can extract with progress and cancellation in the background and then
+    restore on the GUI thread -- and a cancelled open leaves the current session
+    untouched, since nothing has been cleared yet.
+
+    ``extract_dir`` must be used for this load alone: if the extraction is cancelled or
+    fails, what was unpacked into it is removed rather than left behind, which for a
+    large self-contained project would otherwise strand gigabytes in a temp directory.
     """
     src = Path(src)
     if src.is_file() and zipfile.is_zipfile(src):
@@ -92,10 +156,38 @@ def load_project(
                 "and keeps alive for the session, since sidecar datasets are read from "
                 "it lazily."
             )
-        bundle = unzip_bundle(src, extract_dir)
-    else:
-        bundle = ProjectBundle.open(src)
+        try:
+            return unzip_bundle(src, extract_dir, progress)
+        except BaseException:
+            remove_path(extract_dir)
+            raise
+    return ProjectBundle.open(src)
+
+
+def restore_bundle(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, List[Any]]:
+    """Clear the session and restore ``bundle`` into it, returning the load report.
+
+    Mutates ``app_state`` and fires its reload signals, so it must run on the GUI
+    thread.  Raises :class:`~wiser.project.migrate.ProjectTooNewError` for a project
+    written by a newer WISER.
+    """
     return _restore(bundle, app_state)
+
+
+def load_project(
+    src: PathLike,
+    app_state: "ApplicationState",
+    extract_dir: Optional[PathLike] = None,
+    progress: Optional[ProgressReporter] = None,
+) -> Dict[str, List[Any]]:
+    """Open a project bundle at ``src`` and restore it into a cleared session.
+
+    The one-shot form of :func:`open_bundle` + :func:`restore_bundle`, for callers
+    with no GUI thread to keep free.  Returns a load report: a dict mapping each
+    section to the entries that could not be restored (a moved file, an unknown kind,
+    a malformed record).
+    """
+    return restore_bundle(open_bundle(src, extract_dir, progress), app_state)
 
 
 def project_embeds_datasets(app_state: "ApplicationState", bundle_root: PathLike) -> bool:
@@ -128,10 +220,18 @@ def _write_bundle(
     bundle: ProjectBundle,
     resolver: DependencyResolver,
     self_contained: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> None:
     # Clear any prior contents so re-saving over an existing bundle directory does
     # not leave stale sidecars the new manifest no longer references.
     bundle.clear_contents()
+    if progress is None:
+        progress = ProgressReporter()
+    # The datasets carry the pixels; every other section is a few dictionaries, so
+    # the bar would otherwise sit still through the only part that takes any time.
+    datasets_progress, session_progress = progress.split(
+        (0.9, "Saving datasets"), (0.1, "Saving session state")
+    )
     manifest: Dict[str, Any] = {}
     # Datasets first: they are the roots the rest of the manifest references by
     # id, and they own the sidecar I/O through the bundle.  A dataset the resolver
@@ -142,7 +242,15 @@ def _write_bundle(
         for ds in app_state.get_datasets()
         if not resolver.is_saved(Dependency("dataset", ds.get_id()))
     )
-    save_datasets(app_state, manifest, bundle, excluded_ids, embed_file_backed=self_contained)
+    save_datasets(
+        app_state,
+        manifest,
+        bundle,
+        excluded_ids,
+        embed_file_backed=self_contained,
+        progress=datasets_progress,
+    )
+    session_progress.raise_if_cancelled()
     save_user_crs(app_state, manifest, resolver)
     save_bandmath(app_state, manifest, resolver)
     save_rois(app_state, manifest, resolver)
@@ -151,6 +259,7 @@ def _write_bundle(
     save_libraries(app_state, manifest, resolver)
     save_runs(app_state, manifest, resolver)
     bundle.write_manifest(manifest)
+    session_progress.report_fraction(1.0)
 
 
 def _restore(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, List[Any]]:

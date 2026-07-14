@@ -12,6 +12,7 @@ import os
 import shutil
 
 import numpy as np
+import pytest
 
 import tests.context  # noqa: F401
 
@@ -20,7 +21,14 @@ from osgeo import osr
 
 from wiser.gui.permanent_plugins.pca_plugin import PCARunRecord
 from wiser.gui.reference_creator_dialog import CrsCreatorState
-from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
+from wiser.project.orchestrate import (
+    load_project,
+    open_bundle,
+    project_embeds_datasets,
+    restore_bundle,
+    save_project,
+)
+from wiser.utils.progress import ProgressCancelled, ProgressReporter
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
@@ -335,6 +343,140 @@ def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
     restored_roi = dst.get_roi(id=roi.get_id())
     assert restored_roi is not None
     assert restored_roi.get_id() == roi.get_id()
+
+
+def test_a_cancelled_save_leaves_the_existing_project_untouched(tmp_path):
+    # Cancelling means nothing happened.  The archive is built beside the destination
+    # and moved into place only when complete, so the project already saved there is
+    # still openable -- writing into it directly would truncate it at the first byte.
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj)
+    original = proj.read_bytes()
+
+    # A second dataset, so the cancelled save would have written a different project.
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        save_project(app, proj, progress=cancel)
+
+    assert proj.read_bytes() == original  # the previous save survived
+    assert not list(tmp_path.glob("*.part"))  # and the abandoned archive is gone
+
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []  # still opens
+    assert len(dst.get_datasets()) == 1  # holding what it held before the cancel
+
+
+def test_a_cancelled_directory_save_leaves_the_existing_bundle_untouched(tmp_path):
+    # The same guarantee as the zip form, which the bundle-directory form did not have:
+    # _write_bundle clears the bundle before writing it, so saving straight into the
+    # destination destroyed the project already there the instant the save began.
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    bundle_dir = tmp_path / "session"
+    save_project(app, bundle_dir)
+    manifest_before = (bundle_dir / "manifest.json").read_text()
+
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        save_project(app, bundle_dir, progress=cancel)
+
+    assert (bundle_dir / "manifest.json").read_text() == manifest_before
+    assert not (tmp_path / "session.part").exists()  # the abandoned bundle is gone
+    assert not (tmp_path / "session.bak").exists()  # and so is the backup
+
+    dst = _FakeAppState()
+    load_project(bundle_dir, dst)
+    assert len(dst.get_datasets()) == 1  # still the project it was
+
+
+def test_a_save_clears_a_stale_staging_path_of_either_kind(tmp_path):
+    # A crash can leave a ".part" behind, and not necessarily as the kind we expect: the
+    # zip form leaves a file, the directory form a directory.  Cleanup that assumed one
+    # or the other would either fail outright or mask the failure it was cleaning up.
+    zipped = tmp_path / "zipped.wiserproj"
+    (tmp_path / "zipped.wiserproj.part").mkdir()  # a directory where a file is expected
+    bundle_dir = tmp_path / "dir"
+    (tmp_path / "dir.part").write_text("junk")  # a file where a directory is expected
+
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    save_project(app, zipped)
+    save_project(app, bundle_dir)
+
+    assert not (tmp_path / "zipped.wiserproj.part").exists()
+    assert not (tmp_path / "dir.part").exists()
+    for dest in (zipped, bundle_dir):
+        dst = _FakeAppState()
+        load_project(dest, dst, extract_dir=tmp_path / f"unpacked-{dest.name}")
+        assert len(dst.get_datasets()) == 1
+
+
+def test_a_cancelled_open_removes_what_it_extracted(tmp_path):
+    # Abandoning the unpack of a large self-contained project would otherwise strand
+    # gigabytes in the temp directory it was being unpacked into.
+    app, _ = _populated_session()
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj, self_contained=True)
+
+    extract_dir = tmp_path / "unpacked"
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        open_bundle(proj, extract_dir, progress=cancel)
+
+    assert not extract_dir.exists()
+
+
+def test_a_cancelled_open_leaves_the_current_session_alone(tmp_path):
+    # Unpacking is the slow half of an open and is what gets cancelled; the session is
+    # only cleared by the restore.  So abandoning an open costs the user nothing -- they
+    # keep the session they had, rather than half of the one they asked for.
+    app, _ = _populated_session()
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj)
+
+    working = _FakeAppState()
+    kept = working.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    working.add_dataset(kept)
+
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        open_bundle(proj, tmp_path / "unpacked", progress=cancel)
+
+    assert [ds.get_id() for ds in working.get_datasets()] == [kept.get_id()]
+
+
+def test_open_reports_progress_to_completion(tmp_path):
+    app, _ = _populated_session()
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj)
+
+    seen = []
+    reporter = ProgressReporter(sink=lambda fraction, message: seen.append(fraction))
+    bundle = open_bundle(proj, tmp_path / "unpacked", progress=reporter)
+
+    assert seen == sorted(seen)
+    assert seen[-1] == 1.0
+    dst = _FakeAppState()
+    assert restore_bundle(bundle, dst)["datasets"] == []  # and the bundle it gives back works
+
+
+def test_save_reports_progress_to_completion(tmp_path):
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+
+    seen = []
+    reporter = ProgressReporter(sink=lambda fraction, message: seen.append(fraction))
+    save_project(app, tmp_path / "session.wiserproj", progress=reporter)
+
+    assert seen, "the save reported no progress at all"
+    assert seen == sorted(seen)  # never runs backwards
+    assert seen[-1] == 1.0  # and it finishes
 
 
 def test_self_contained_save_embeds_file_backed_dataset(tmp_path):
