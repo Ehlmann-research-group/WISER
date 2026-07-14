@@ -22,6 +22,7 @@ Callers pass plain data (``gdal.GCP`` lists, ``osr.SpatialReference`` objects) a
 dialogs, or log. Errors are raised; progress and exceptions are the only channels out.
 """
 
+import uuid
 from enum import Enum
 from typing import List, Optional, Tuple
 
@@ -143,7 +144,11 @@ def compute_residuals(
     # to the warped dataset's spatial coordinates. Our GCPs are just in the target
     # dataset's pixel coordinates and reference srs's spatial coordinates.
     warp_options = gdal.WarpOptions(**warp_kwargs)
-    warp_save_path = f"/vsimem/temp_band_{0}"
+    # ``/vsimem`` is a process-global, cross-thread filesystem: this residual calc runs on
+    # a background thread and can overlap the final warp (also background). A fixed path
+    # would make the two gdal.Warp/gdal.Unlink calls collide (GDAL raises a generic
+    # "unknown error occurred"). A per-call token keeps them isolated. See WISER georef.
+    warp_save_path = f"/vsimem/georef_residual_{uuid.uuid4().hex}"
     place_holder_arr = np.zeros((1, 1), np.uint8)
     temp_gdal_ds = gdal_array.OpenNumPyArray(place_holder_arr, True)
     temp_gdal_ds.SetGCPs(gcps, ref_projection)
@@ -226,6 +231,13 @@ def warp_dataset_to_path(
 
     gdal.UseExceptions()
 
+    # ``/vsimem`` is a process-global, cross-thread filesystem. This warp runs on a
+    # background thread and may overlap the interactive residual calc (also background),
+    # so every scratch path is namespaced with a per-call token to avoid two threads
+    # racing on the same in-memory file (which surfaces as GDAL's generic
+    # "unknown error occurred").
+    run_token = uuid.uuid4().hex
+
     target_dataset_impl = target_dataset.get_impl()
     ref_projection = ref_srs.ExportToWkt()
 
@@ -240,7 +252,7 @@ def warp_dataset_to_path(
     # equal to the warp, but correct number of bands. Then we override each band in the
     # created array and flush cache.
     warp_options = gdal.WarpOptions(**warp_kwargs)
-    warp_save_path = f"/vsimem/temp_band_{0}"
+    warp_save_path = f"/vsimem/{run_token}_temp_band_0"
     band_arr = target_dataset.get_band_data(0)
     temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
     # Make sure dataset has no spatial information that could mess with warping
@@ -261,7 +273,7 @@ def warp_dataset_to_path(
     if isinstance(target_dataset_impl, GDALRasterDataImpl):
         # Saving the full gdal dataset
         target_gdal_dataset = target_dataset_impl.gdal_dataset
-        temp_vrt_path = "/vsimem/ref.vrt"
+        temp_vrt_path = f"/vsimem/{run_token}_ref.vrt"
         if target_dataset.get_data_ignore_value() is not None:
             translate_opts = gdal.TranslateOptions(
                 format="VRT",
@@ -276,6 +288,9 @@ def warp_dataset_to_path(
         temp_gdal_ds.SetGCPs(gcps, ref_projection)
         warp_options = gdal.WarpOptions(**warp_kwargs)
         output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
+        # Release the source VRT and free its (now per-call, otherwise leaking) vsimem file.
+        temp_gdal_ds = None
+        gdal.Unlink(temp_vrt_path)
         progress.report(target_dataset.num_bands(), target_dataset.num_bands(), "Warping...")
     elif not isinstance(target_dataset_impl, GDALRasterDataImpl) and ratio > 1.0:
         # Saving the full object array
@@ -299,7 +314,7 @@ def warp_dataset_to_path(
                 if band < target_dataset.num_bands()
             ]
             warp_options = gdal.WarpOptions(**warp_kwargs)
-            warp_save_path = f"/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}"
+            warp_save_path = f"/vsimem/{run_token}_temp_band_{min(band_list_index)}_to_{max(band_list_index)}"
 
             band_arr = target_dataset.get_multiple_band_data(band_list_index)
             temp_gdal_ds = gdal_array.OpenNumPyArray(band_arr, True)
