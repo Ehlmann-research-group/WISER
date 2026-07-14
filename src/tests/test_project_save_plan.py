@@ -313,6 +313,27 @@ def test_save_tree_groups_datasets_rois_and_analysis_outputs():
     assert handles == {("run", 7), ("library", 8), ("crs", "MyCRS"), ("bandmath", 0)}
 
 
+def test_roi_average_children_name_the_dataset_they_were_computed_on():
+    # One ROI averaged over two datasets yields two children that are otherwise
+    # identical, so each names its dataset -- the tree decides what gets dropped.
+    app = _FakeAppState()
+    first = _ram_dataset(app, name="scene-a")
+    second = _ram_dataset(app, name="scene-b")
+    roi = RegionOfInterest("rim")
+    roi.set_id(50)
+    app.add_roi(roi)
+    app.collect_spectrum(ROIAverageSpectrum(first, roi))
+    app.collect_spectrum(ROIAverageSpectrum(second, roi))
+
+    tree = save_tree(app, resolver_for_selection(app, excluded_dataset_ids=[]))
+    (roi_node,) = {g["group"]: g for g in tree}["rois"]["children"]
+    labels = [child["label"] for child in roi_node["children"]]
+
+    assert len(labels) == 2
+    assert len(set(labels)) == 2  # distinguishable, which is the whole point
+    assert all(str(ds.get_name()) in label for ds, label in zip((first, second), labels))
+
+
 def test_save_tree_labels_a_library_that_has_no_file_path():
     # A library built in memory -- collected spectra, or one restored from a project
     # file -- carries no path, and naming it used to index an empty path list.

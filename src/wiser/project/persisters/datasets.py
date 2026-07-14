@@ -78,11 +78,15 @@ def dataset_to_pyrep(
         # SAME subdataset instead of re-running the auto-pick heuristic (or dropping
         # the dataset because os.path.isfile rejects the descriptor).
         entry["storage"] = STORAGE_REFERENCE
-        entry["path"] = _subdataset_base_path(subdataset_name)
-        entry["subdataset_name"] = subdataset_name
+        entry["path"] = os.path.abspath(_subdataset_base_path(subdataset_name))
+        entry["subdataset_name"] = _absolute_subdataset(subdataset_name)
     elif not embed and filepaths:
         entry["storage"] = STORAGE_REFERENCE
-        entry["path"] = filepaths[0]
+        # A reference is resolved on load with no knowledge of where it was saved
+        # from, so it must be absolute: a dataset opened by a relative path (WISER
+        # is given file arguments on the command line) would otherwise be looked up
+        # against the working directory of whoever opens the project next.
+        entry["path"] = os.path.abspath(filepaths[0])
     else:
         # In-memory always, and every dataset under a self-contained save: re-save
         # the pixels to an ENVI sidecar in the bundle.  A subdataset flattens to a
@@ -237,6 +241,18 @@ def _subdataset_base_path(descriptor: str) -> str:
     if '"' in descriptor:
         return descriptor.split('"')[1]
     return descriptor
+
+
+def _absolute_subdataset(descriptor: str) -> str:
+    """Rewrite a subdataset descriptor so its base file path is absolute.
+
+    The descriptor is reopened verbatim on load, so it carries the same relative-path
+    hazard as a plain reference and is normalized the same way.
+    """
+    base = _subdataset_base_path(descriptor)
+    if base == descriptor:  # not the quoted form; nothing to rewrite
+        return descriptor
+    return descriptor.replace(f'"{base}"', f'"{os.path.abspath(base)}"', 1)
 
 
 def _metadata_to_pyrep(dataset: "RasterDataSet") -> Dict[str, Any]:
