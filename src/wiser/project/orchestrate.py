@@ -81,22 +81,25 @@ def save_project(
     return dest
 
 
-def load_project(
+def open_bundle(
     src: PathLike,
-    app_state: "ApplicationState",
     extract_dir: Optional[PathLike] = None,
-) -> Dict[str, List[Any]]:
-    """Open a project bundle at ``src`` and restore it into a cleared session.
+    progress: Optional[ProgressReporter] = None,
+) -> ProjectBundle:
+    """Unpack ``src`` and return the bundle, without touching the session.
 
     ``src`` may be a bundle directory or a ``.wiserproj`` zip.  A zip is extracted
-    into ``extract_dir``, which is **required** for a zip and must outlive the
-    loaded session, since sidecar datasets are read from it lazily -- the caller
-    owns it and its cleanup.  Raises :class:`ValueError` if a zip is opened without
-    an ``extract_dir``, and
-    :class:`~wiser.project.migrate.ProjectTooNewError` for a too-new file.
+    into ``extract_dir``, which is **required** for a zip and must outlive the loaded
+    session, since sidecar datasets are read from it lazily -- the caller owns it and
+    its cleanup.  Raises :class:`ValueError` if a zip is opened without an
+    ``extract_dir``.
 
-    Returns a load report: a dict mapping each section to the entries that could
-    not be restored (a moved file, an unknown kind, a malformed record).
+    This is the half of a load that is slow and safe to run off the GUI thread:
+    unpacking a self-contained project copies out every image it holds.  It is
+    separate from :func:`restore_bundle` because restoring *mutates the session*, so
+    a caller can extract with progress and cancellation in the background and then
+    restore on the GUI thread -- and a cancelled open leaves the current session
+    untouched, since nothing has been cleared yet.
     """
     src = Path(src)
     if src.is_file() and zipfile.is_zipfile(src):
@@ -106,10 +109,34 @@ def load_project(
                 "and keeps alive for the session, since sidecar datasets are read from "
                 "it lazily."
             )
-        bundle = unzip_bundle(src, extract_dir)
-    else:
-        bundle = ProjectBundle.open(src)
+        return unzip_bundle(src, extract_dir, progress)
+    return ProjectBundle.open(src)
+
+
+def restore_bundle(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, List[Any]]:
+    """Clear the session and restore ``bundle`` into it, returning the load report.
+
+    Mutates ``app_state`` and fires its reload signals, so it must run on the GUI
+    thread.  Raises :class:`~wiser.project.migrate.ProjectTooNewError` for a project
+    written by a newer WISER.
+    """
     return _restore(bundle, app_state)
+
+
+def load_project(
+    src: PathLike,
+    app_state: "ApplicationState",
+    extract_dir: Optional[PathLike] = None,
+    progress: Optional[ProgressReporter] = None,
+) -> Dict[str, List[Any]]:
+    """Open a project bundle at ``src`` and restore it into a cleared session.
+
+    The one-shot form of :func:`open_bundle` + :func:`restore_bundle`, for callers
+    with no GUI thread to keep free.  Returns a load report: a dict mapping each
+    section to the entries that could not be restored (a moved file, an unknown kind,
+    a malformed record).
+    """
+    return restore_bundle(open_bundle(src, extract_dir, progress), app_state)
 
 
 def project_embeds_datasets(app_state: "ApplicationState", bundle_root: PathLike) -> bool:

@@ -21,7 +21,13 @@ from osgeo import osr
 
 from wiser.gui.permanent_plugins.pca_plugin import PCARunRecord
 from wiser.gui.reference_creator_dialog import CrsCreatorState
-from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
+from wiser.project.orchestrate import (
+    load_project,
+    open_bundle,
+    project_embeds_datasets,
+    restore_bundle,
+    save_project,
+)
 from wiser.utils.progress import ProgressCancelled, ProgressReporter
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
@@ -362,6 +368,40 @@ def test_a_cancelled_save_leaves_the_existing_project_untouched(tmp_path):
     report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
     assert report["datasets"] == []  # still opens
     assert len(dst.get_datasets()) == 1  # holding what it held before the cancel
+
+
+def test_a_cancelled_open_leaves_the_current_session_alone(tmp_path):
+    # Unpacking is the slow half of an open and is what gets cancelled; the session is
+    # only cleared by the restore.  So abandoning an open costs the user nothing -- they
+    # keep the session they had, rather than half of the one they asked for.
+    app, _ = _populated_session()
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj)
+
+    working = _FakeAppState()
+    kept = working.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    working.add_dataset(kept)
+
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        open_bundle(proj, tmp_path / "unpacked", progress=cancel)
+
+    assert [ds.get_id() for ds in working.get_datasets()] == [kept.get_id()]
+
+
+def test_open_reports_progress_to_completion(tmp_path):
+    app, _ = _populated_session()
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj)
+
+    seen = []
+    reporter = ProgressReporter(sink=lambda fraction, message: seen.append(fraction))
+    bundle = open_bundle(proj, tmp_path / "unpacked", progress=reporter)
+
+    assert seen == sorted(seen)
+    assert seen[-1] == 1.0
+    dst = _FakeAppState()
+    assert restore_bundle(bundle, dst)["datasets"] == []  # and the bundle it gives back works
 
 
 def test_save_reports_progress_to_completion(tmp_path):

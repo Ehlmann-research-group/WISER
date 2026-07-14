@@ -100,13 +100,21 @@ class TestProjectSaveGui(unittest.TestCase):
         self._await_save(self.main_window.on_save_project())
 
     def _open(self, path):
-        """Drive File > Open Project, confirming the discard prompt."""
+        """Drive File > Open Project, confirming the discard prompt, and wait for it.
+
+        The unpack runs on the scheduler; the restore then happens on the GUI thread in
+        the success callback, so the event loop must be pumped for both.
+        """
         with (
             mock.patch("wiser.gui.app.QMessageBox.question", return_value=QMessageBox.Yes),
             mock.patch("wiser.gui.app.QFileDialog.getOpenFileName", return_value=(path, "")),
             mock.patch("wiser.gui.app.QMessageBox.warning") as warned,
         ):
-            self.main_window.on_open_project()
+            runner = self.main_window.on_open_project()
+            self.assertIsNotNone(runner, "no open was started")
+            completed = self._wait_for(lambda: getattr(runner, "_done", False))
+            self.test_model.app.processEvents()  # let the restore run on the GUI thread
+            self.assertTrue(completed, "the open did not finish within the timeout")
         self.assertFalse(warned.called, "the project reported items it could not restore")
 
     def _manifest(self, project_path):

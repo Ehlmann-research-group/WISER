@@ -131,6 +131,12 @@ a different selection.
 Choose **File ▸ Open Project...**. Opening a project replaces your current session,
 so WISER asks you to confirm first — save your work beforehand if you need it.
 
+A self-contained project has to be unpacked before it can be opened, which takes a
+moment for a large one, so WISER shows the same progress dialog it shows when
+saving. You can cancel it: your current session is only replaced once the project has
+been unpacked successfully, so cancelling an open leaves the session you already had
+exactly as it was, rather than half-replaced.
+
 If anything in the project cannot be restored, WISER still opens it and tells you
 what was left out. The usual cause is a **referenced** data file that has since been
 moved, renamed, or deleted; a self-contained project is immune to this, since it

@@ -179,16 +179,30 @@ def zip_bundle(
     return zip_path
 
 
-def unzip_bundle(zip_path: PathLike, dest_dir: PathLike) -> ProjectBundle:
+def unzip_bundle(
+    zip_path: PathLike, dest_dir: PathLike, progress: Optional[ProgressReporter] = None
+) -> ProjectBundle:
     """Extract a ``.wiserproj`` zip into ``dest_dir`` and open it as a bundle.
 
     Guards against zip-slip: a member whose path escapes ``dest_dir`` (via
     ``../`` or an absolute path) is refused before anything is extracted, since
-    a project file may come from an untrusted source."""
+    a project file may come from an untrusted source.
+
+    ``progress`` reports per member and is checked for cancellation between them, so
+    unpacking a large self-contained project can be abandoned.  Members are extracted
+    one at a time rather than with ``extractall`` so there is somewhere to check.
+    """
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as zf:
-        for name in zf.namelist():
+        names = zf.namelist()
+        for name in names:
             _resolve_within(dest_dir, name)
-        zf.extractall(dest_dir)
+        for index, name in enumerate(names):
+            if progress is not None:
+                progress.raise_if_cancelled()
+                progress.report(index, len(names))
+            zf.extract(name, dest_dir)
+    if progress is not None:
+        progress.report_fraction(1.0)
     return ProjectBundle.open(dest_dir)

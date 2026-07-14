@@ -41,7 +41,12 @@ from wiser.raster.spectrum import (
 )
 from wiser.project.bundle import ProjectBundle
 from wiser.project.migrate import ProjectTooNewError
-from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
+from wiser.project.orchestrate import (
+    open_bundle,
+    project_embeds_datasets,
+    restore_bundle,
+    save_project,
+)
 from wiser.project.save_plan import resolver_for_excluded
 from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
@@ -772,7 +777,7 @@ class DataVisualizerApp(QMainWindow):
             self.tr("Opening a project discards the current session.  Continue?"),
         )
         if reply != QMessageBox.Yes:
-            return
+            return None
 
         (path, _) = QFileDialog.getOpenFileName(
             self,
@@ -781,16 +786,34 @@ class DataVisualizerApp(QMainWindow):
             self.tr("WISER project files (*{0})").format(ProjectBundle.EXTENSION),
         )
         if not path:
-            return
+            return None
 
-        # A zipped project extracts to a directory that must outlive the load,
-        # since sidecar datasets are read from it lazily.  The app owns it: clear
-        # the previous session's directory and hand load_project a fresh one.
+        # A zipped project extracts to a directory that must outlive the load, since
+        # sidecar datasets are read from it lazily.  The app owns it: clear the previous
+        # session's directory and hand the open a fresh one.
         self._clear_project_extract_dir()
         self._project_extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
 
+        # Unpacking a self-contained project copies out every image it holds, so it runs
+        # on the scheduler behind a progress dialog.  Only the *restore* touches the
+        # session, and that happens below on the GUI thread -- so a cancelled or failed
+        # open leaves the current session exactly as it was, nothing half-replaced.
+        return run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Opening Project"),
+            open_bundle,
+            path,
+            self._project_extract_dir,
+            on_success=lambda bundle: self._restore_project(bundle, path),
+            on_error=self._on_open_failed,
+            description=self.tr("Unpacking project file…"),
+        )
+
+    def _restore_project(self, bundle, path):
+        """Restore an unpacked bundle into the session (GUI thread: this fires reloads)."""
         try:
-            report = load_project(path, self._app_state, extract_dir=self._project_extract_dir)
+            report = restore_bundle(bundle, self._app_state)
         except ProjectTooNewError as e:
             self._clear_project_extract_dir()
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
@@ -817,6 +840,15 @@ class DataVisualizerApp(QMainWindow):
         )
         self._app_state.update_cwd_from_path(path)
         self._warn_dropped_on_load(report)
+
+    def _on_open_failed(self, message):
+        self._clear_project_extract_dir()
+        logger.error("Failed to open project: %s", message)
+        QMessageBox.critical(
+            self,
+            self.tr("Open Failed"),
+            self.tr("Could not open the project:\n\n{0}").format(message),
+        )
 
     def _clear_project_extract_dir(self):
         """Remove the temp directory a zipped project was extracted into, if any."""
