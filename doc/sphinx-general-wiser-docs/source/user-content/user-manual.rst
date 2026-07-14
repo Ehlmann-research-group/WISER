@@ -30,6 +30,8 @@ What's in This Manual
   transforming, classifying, detecting, unmixing, and visualizing imagery
 - :doc:`Spatial Tools <spatial-tools>` — georeferencing and coordinate system
   management
+- :doc:`Mosaic <mosaic>` — combining overlapping georeferenced scenes into a
+  single image and exporting the result
 
 .. toctree::
    :hidden:
@@ -38,4 +40,5 @@ What's in This Manual
    working-with-data
    data-analysis-tools/data-analysis-tools
    spatial-tools
+   mosaic
 
