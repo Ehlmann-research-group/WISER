@@ -24,7 +24,6 @@ from wiser.raster.mosaic_controller import (
 import pytest
 
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.unit,
 ]
 

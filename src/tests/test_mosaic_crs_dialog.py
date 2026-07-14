@@ -19,7 +19,6 @@ from wiser.gui.mosaic_crs_dialog import ReprojectPromptDialog
 import pytest
 
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.integration,
 ]
 

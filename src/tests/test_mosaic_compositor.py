@@ -20,7 +20,6 @@ from wiser.raster.mosaic_compositor import render_scene_argb
 from wiser.raster.mosaic_controller import MosaicScene
 
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.unit,
 ]
 

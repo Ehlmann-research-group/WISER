@@ -15,7 +15,6 @@ from wiser.gui.mosaic_dialog import SeamlessMosaicDialog
 import pytest
 
 pytestmark = [
-    pytest.mark.smoke,
     pytest.mark.integration,
 ]
 
