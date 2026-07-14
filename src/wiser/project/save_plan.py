@@ -1,18 +1,25 @@
 """Save planning for the dependency-aware Save dialog (issue #626).
 
-The Save dialog lets the user decide which in-memory ("RAM-backed") datasets to
-include in a project; everything else cascades from that choice.  This module is
-the dialog's headless model: it splits the datasets into the RAM-backed roots the
-user actually decides on and the file-backed ones that are auto-included, builds a
-:class:`~wiser.project.resolver.DependencyResolver` from a chosen exclusion set,
-and previews the consequence for every dependent item -- reconstructed
-faithfully, frozen to a snapshot, or dropped -- so the dialog can warn before it
-writes and passes the same resolver on to :func:`~wiser.project.orchestrate.save_project`.
+The Save dialog lets the user decide what a project contains; everything that
+depends on a cut item cascades from that choice.  This module is the dialog's
+headless model: it builds a
+:class:`~wiser.project.resolver.DependencyResolver` from a chosen exclusion set and
+previews the consequence for every dependent item -- reconstructed faithfully,
+frozen to a snapshot, or dropped -- so the dialog can warn before it writes, then
+passes the same resolver on to :func:`~wiser.project.orchestrate.save_project`.
 
-Only dataset-dependent items cascade: a dataset-backed spectrum freezes to a
-snapshot when its dataset is cut, and a per-band stretch is dropped when its
-dataset is cut.  Run records always save (they are self-contained), and library
-members are self-contained numpy, so neither appears in the cascade.
+Two shapes of that model serve two callers.  :func:`save_tree` is the selection
+tree: every dataset, ROI, and standalone output (run record / spectral library /
+user CRS / band-math expression) is listed and individually excludable, since a
+user saving several focused projects out of one session must be able to drop any
+of them.  :func:`save_inventory` is the narrower preview of what a save will
+actually contain, so it omits an item that nothing keeps.
+
+Only dataset- and ROI-dependent items *cascade*: a dataset-backed spectrum freezes
+to a snapshot when its dataset is cut, and a per-band stretch is dropped with it.
+A standalone output has no such parent -- a run record is self-contained, and
+library members are self-contained numpy -- so it never appears in another item's
+cascade, and it saves unless the user excludes it directly.
 """
 
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
