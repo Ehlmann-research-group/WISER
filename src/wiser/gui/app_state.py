@@ -1,7 +1,7 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -591,6 +591,13 @@ class ApplicationState(QObject):
         # If a band has no stretch specified, its corresponding value will be
         # ``None``.
         return [self._stretches.get((ds_id, b), None) for b in bands]
+
+    def get_all_stretches(self) -> Dict[Tuple[int, int], Any]:
+        # Every committed stretch keyed by ``(dataset_id, band_index)``.  Used by
+        # the project-file persister to enumerate stretches for saving.  Values
+        # are any stretch object -- a StretchBase subclass, a StretchComposite,
+        # or a numba variant -- not just StretchBase.
+        return dict(self._stretches)
 
     def add_spectral_library(self, library):
         """
