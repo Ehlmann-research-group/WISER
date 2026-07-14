@@ -57,6 +57,10 @@ myst_enable_extensions = [
     "attrs_inline",  # inline attribute syntax
 ]
 
+# Generate anchors for headings h1-h3 so intra-page links like [text](#some-heading)
+# resolve. Without this every such link is an unresolved xref.
+myst_heading_anchors = 3
+
 # autodoc2: index the wiser package via AST (no imports at build time)
 autodoc2_packages = [
     {
