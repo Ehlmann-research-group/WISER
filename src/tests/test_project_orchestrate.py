@@ -8,6 +8,7 @@ destination's prior state first.
 """
 
 import datetime
+import os
 import shutil
 
 import numpy as np
@@ -387,6 +388,58 @@ def test_an_opened_referenced_project_is_not_detected_as_embedding(tmp_path):
     unpacked = tmp_path / "unpacked-ref"
     load_project(proj, dst, extract_dir=unpacked)
     assert not project_embeds_datasets(dst, unpacked)
+
+
+def test_a_referenced_project_reopens_after_the_project_file_moves(tmp_path):
+    # A reference records where the *data* lives, not a location relative to the project
+    # file, so the .wiserproj can be saved or moved anywhere the data is not.
+    src = _FakeAppState()
+    src_dir = tmp_path / "sources"
+    ds = _file_backed_dataset(src, src_dir, "scene")
+
+    proj = tmp_path / "here" / "referenced.wiserproj"
+    proj.parent.mkdir()
+    save_project(src, proj)
+
+    moved = tmp_path / "elsewhere" / "referenced.wiserproj"
+    moved.parent.mkdir()
+    shutil.move(str(proj), str(moved))
+
+    dst = _FakeAppState()
+    report = load_project(moved, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []  # the data never moved, so nothing is dropped
+    (restored,) = dst.get_datasets()
+    assert restored.get_id() == ds.get_id()
+    np.testing.assert_array_equal(_data(restored), _sample_array())
+
+
+def test_a_dataset_opened_by_a_relative_path_is_referenced_absolutely(tmp_path, monkeypatch):
+    # WISER takes file arguments on the command line, so a dataset can be opened by a
+    # relative path.  Storing that verbatim would resolve it against the working
+    # directory of whoever opens the project next -- "/" for a GUI launched from the
+    # desktop -- and silently drop a dataset whose file never moved.
+    src_dir = tmp_path / "sources"
+    src_dir.mkdir()
+    src = _FakeAppState()
+    loader = src.get_loader()
+    mem = loader.dataset_from_numpy_array(_sample_array(), None)
+    loader.save_dataset_as(mem, str(src_dir / "scene.img"), format="ENVI", config=None)
+
+    monkeypatch.chdir(src_dir)
+    relative = loader.load_from_file("scene.img", data_cache=None, interactive=False)[0]
+    relative.set_name("scene")
+    src.add_dataset(relative)
+    assert not os.path.isabs(relative.get_filepaths()[0])  # the hazard this guards
+
+    proj = tmp_path / "referenced.wiserproj"
+    save_project(src, proj)
+
+    monkeypatch.chdir(tmp_path)  # open from somewhere else entirely
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []
+    (restored,) = dst.get_datasets()
+    np.testing.assert_array_equal(_data(restored), _sample_array())
 
 
 def test_referenced_save_drops_a_deleted_source(tmp_path):
