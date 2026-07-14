@@ -409,6 +409,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saving-a-project">Saving a project</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#products-follow-the-dataset-or-roi-they-came-from">Products follow the dataset or ROI they came from</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#referenced-or-self-contained">Referenced or self-contained</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#while-the-project-is-being-written">While the project is being written</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saving-again">Saving again</a></li>
@@ -531,6 +532,18 @@ it with a colleague.</p>
 <p>Datasets that only exist inside WISER — a band math result, a PCA output — have no
 file on disk to point at, so they are always stored inside the project either way.</p>
 </section>
+<section id="while-the-project-is-being-written">
+<h3>While the project is being written<a class="headerlink" href="#while-the-project-is-being-written" title="Link to this heading">#</a></h3>
+<p>Writing a project is quick when the data is only referenced, but a self-contained save
+copies and compresses every image into the project file, which can take a while for a
+large scene. WISER shows a progress dialog while it works and leaves the main window
+disabled until it finishes, so the save cannot be disturbed halfway through. Progress
+is also mirrored in the Activity Monitor.</p>
+<p>You can <strong>cancel</strong> from that dialog. Cancelling means nothing happened: WISER builds
+the new project alongside the destination and only puts it in place once it is
+complete, so a cancelled save — like one interrupted by a crash or a full disk —
+leaves any project already saved at that location exactly as it was.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="saving-again">
@@ -552,6 +565,11 @@ a different selection.</p>
 <h2>Opening a project<a class="headerlink" href="#opening-a-project" title="Link to this heading">#</a></h2>
 <p>Choose <strong>File ▸ Open Project…</strong>. Opening a project replaces your current session,
 so WISER asks you to confirm first — save your work beforehand if you need it.</p>
+<p>A self-contained project has to be unpacked before it can be opened, which takes a
+moment for a large one, so WISER shows the same progress dialog it shows when
+saving. You can cancel it: your current session is only replaced once the project has
+been unpacked successfully, so cancelling an open leaves the session you already had
+exactly as it was, rather than half-replaced.</p>
 <p>If anything in the project cannot be restored, WISER still opens it and tells you
 what was left out. The usual cause is a <strong>referenced</strong> data file that has since been
 moved, renamed, or deleted; a self-contained project is immune to this, since it
@@ -620,6 +638,7 @@ than opening it and misreading it.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saving-a-project">Saving a project</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#products-follow-the-dataset-or-roi-they-came-from">Products follow the dataset or ROI they came from</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#referenced-or-self-contained">Referenced or self-contained</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#while-the-project-is-being-written">While the project is being written</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saving-again">Saving again</a></li>

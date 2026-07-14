@@ -41,7 +41,12 @@ from wiser.raster.spectrum import (
 )
 from wiser.project.bundle import ProjectBundle
 from wiser.project.migrate import ProjectTooNewError
-from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
+from wiser.project.orchestrate import (
+    open_bundle,
+    project_embeds_datasets,
+    restore_bundle,
+    save_project,
+)
 from wiser.project.save_plan import resolver_for_excluded
 from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
@@ -690,22 +695,13 @@ class DataVisualizerApp(QMainWindow):
     def on_save_project(self, checked=False):
         """Save the session to its current project file, or prompt if there is none."""
         if self._current_project_path is None:
-            self.on_save_project_as()
-            return
-        try:
-            save_project(
-                self._app_state,
-                self._current_project_path,
-                resolver_for_excluded(self._app_state, self._current_excluded),
-                self_contained=self._current_self_contained,
-            )
-        except Exception as e:
-            logger.exception("Failed to save project")
-            QMessageBox.critical(
-                self,
-                self.tr("Save Failed"),
-                self.tr("Could not save the project:\n\n{0}").format(e),
-            )
+            return self.on_save_project_as()
+        return self._save_project(
+            self._current_project_path,
+            resolver_for_excluded(self._app_state, self._current_excluded),
+            self._current_excluded,
+            self._current_self_contained,
+        )
 
     def on_save_project_as(self, checked=False):
         """Prompt for what to include and where, then save a new project file."""
@@ -716,7 +712,7 @@ class DataVisualizerApp(QMainWindow):
             self_contained=self._current_self_contained,
         )
         if dialog.exec() != QDialog.Accepted:
-            return
+            return None
         resolver = dialog.get_resolver()
         excluded = dialog.get_excluded()
         self_contained = dialog.get_self_contained()
@@ -728,24 +724,50 @@ class DataVisualizerApp(QMainWindow):
             self.tr("WISER project files (*{0})").format(ProjectBundle.EXTENSION),
         )
         if not path:
-            return
+            return None
         if not path.lower().endswith(ProjectBundle.EXTENSION):
             path += ProjectBundle.EXTENSION
 
-        try:
-            save_project(self._app_state, path, resolver, self_contained=self_contained)
-        except Exception as e:
-            logger.exception("Failed to save project")
+        return self._save_project(path, resolver, excluded, self_contained)
+
+    def _save_project(self, path, resolver, excluded, self_contained):
+        """Write the project on the scheduler, behind a progress dialog.
+
+        Copying and compressing a dataset's pixels is slow enough to freeze the window
+        for a noticeable time -- a self-contained save of a large cube for much longer --
+        so the work runs off the GUI thread with the main window disabled until it
+        finishes.  Cancelling abandons the save: the destination is only replaced once
+        the archive is complete, so the project that was there is still there.
+        """
+
+        def on_saved(_result):
+            self._current_project_path = path
+            self._current_excluded = set(excluded)
+            self._current_self_contained = self_contained
+            self._app_state.update_cwd_from_path(path)
+            self.statusBar().showMessage(self.tr("Saved project to {0}").format(path), 5000)
+
+        def on_failed(message):
+            logger.error("Failed to save project: %s", message)
             QMessageBox.critical(
                 self,
                 self.tr("Save Failed"),
-                self.tr("Could not save the project:\n\n{0}").format(e),
+                self.tr("Could not save the project:\n\n{0}").format(message),
             )
-            return
-        self._current_project_path = path
-        self._current_excluded = excluded
-        self._current_self_contained = self_contained
-        self._app_state.update_cwd_from_path(path)
+
+        return run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Saving Project"),
+            save_project,
+            self._app_state,
+            path,
+            resolver,
+            self_contained,
+            on_success=on_saved,
+            on_error=on_failed,
+            description=self.tr("Writing project file…"),
+        )
 
     def on_open_project(self, checked=False):
         """Open a project file, replacing the current session after confirmation."""
@@ -755,7 +777,7 @@ class DataVisualizerApp(QMainWindow):
             self.tr("Opening a project discards the current session.  Continue?"),
         )
         if reply != QMessageBox.Yes:
-            return
+            return None
 
         (path, _) = QFileDialog.getOpenFileName(
             self,
@@ -764,22 +786,41 @@ class DataVisualizerApp(QMainWindow):
             self.tr("WISER project files (*{0})").format(ProjectBundle.EXTENSION),
         )
         if not path:
-            return
+            return None
 
-        # A zipped project extracts to a directory that must outlive the load,
-        # since sidecar datasets are read from it lazily.  The app owns it: clear
-        # the previous session's directory and hand load_project a fresh one.
-        self._clear_project_extract_dir()
-        self._project_extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
+        # A zipped project extracts to a directory that must outlive the load, since
+        # sidecar datasets are read from it lazily.  The *current* session may still be
+        # reading from the one it was opened from, so it is kept until this open has
+        # actually replaced the session -- an open that fails or is cancelled must not
+        # pull the data out from under the session the user still has.
+        extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
 
+        # Unpacking a self-contained project copies out every image it holds, so it runs
+        # on the scheduler behind a progress dialog.  Only the *restore* touches the
+        # session, and that happens below on the GUI thread -- so a cancelled or failed
+        # open leaves the current session exactly as it was, nothing half-replaced.
+        return run_with_progress(
+            self._app_services,
+            self,
+            self.tr("Opening Project"),
+            open_bundle,
+            path,
+            extract_dir,
+            on_success=lambda bundle: self._restore_project(bundle, path, extract_dir),
+            on_error=lambda message: self._on_open_failed(message, extract_dir),
+            description=self.tr("Unpacking project file…"),
+        )
+
+    def _restore_project(self, bundle, path, extract_dir):
+        """Restore an unpacked bundle into the session (GUI thread: this fires reloads)."""
         try:
-            report = load_project(path, self._app_state, extract_dir=self._project_extract_dir)
+            report = restore_bundle(bundle, self._app_state)
         except ProjectTooNewError as e:
-            self._clear_project_extract_dir()
+            shutil.rmtree(extract_dir, ignore_errors=True)
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
         except Exception as e:
-            self._clear_project_extract_dir()
+            shutil.rmtree(extract_dir, ignore_errors=True)
             logger.exception("Failed to open project")
             QMessageBox.critical(
                 self,
@@ -788,6 +829,10 @@ class DataVisualizerApp(QMainWindow):
             )
             return
 
+        # The session is the new project now, so nothing reads from the old extract
+        # directory any more and it can go.
+        self._clear_project_extract_dir()
+        self._project_extract_dir = extract_dir
         self._current_project_path = path
         # The session now *is* the project, so a re-save writes all of it; the exclusions
         # that produced the file were applied when it was written.
@@ -800,6 +845,16 @@ class DataVisualizerApp(QMainWindow):
         )
         self._app_state.update_cwd_from_path(path)
         self._warn_dropped_on_load(report)
+
+    def _on_open_failed(self, message, extract_dir):
+        # Only this open's directory goes; the session still has the one it is using.
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        logger.error("Failed to open project: %s", message)
+        QMessageBox.critical(
+            self,
+            self.tr("Open Failed"),
+            self.tr("Could not open the project:\n\n{0}").format(message),
+        )
 
     def _clear_project_extract_dir(self):
         """Remove the temp directory a zipped project was extracted into, if any."""

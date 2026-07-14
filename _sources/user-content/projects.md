@@ -95,6 +95,19 @@ it with a colleague.
 Datasets that only exist inside WISER — a band math result, a PCA output — have no
 file on disk to point at, so they are always stored inside the project either way.
 
+### While the project is being written
+
+Writing a project is quick when the data is only referenced, but a self-contained save
+copies and compresses every image into the project file, which can take a while for a
+large scene. WISER shows a progress dialog while it works and leaves the main window
+disabled until it finishes, so the save cannot be disturbed halfway through. Progress
+is also mirrored in the Activity Monitor.
+
+You can **cancel** from that dialog. Cancelling means nothing happened: WISER builds
+the new project alongside the destination and only puts it in place once it is
+complete, so a cancelled save — like one interrupted by a crash or a full disk —
+leaves any project already saved at that location exactly as it was.
+
 ---
 
 ## Saving again
@@ -117,6 +130,12 @@ a different selection.
 
 Choose **File ▸ Open Project...**. Opening a project replaces your current session,
 so WISER asks you to confirm first — save your work beforehand if you need it.
+
+A self-contained project has to be unpacked before it can be opened, which takes a
+moment for a large one, so WISER shows the same progress dialog it shows when
+saving. You can cancel it: your current session is only replaced once the project has
+been unpacked successfully, so cancelling an open leaves the session you already had
+exactly as it was, rather than half-replaced.
 
 If anything in the project cannot be restored, WISER still opens it and tells you
 what was left out. The usual cause is a **referenced** data file that has since been
