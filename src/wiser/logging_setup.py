@@ -22,7 +22,6 @@ import logging
 import logging.config
 import multiprocessing
 import multiprocessing.spawn
-import os
 import sys
 import time
 from logging.handlers import RotatingFileHandler
@@ -209,17 +208,3 @@ def _configure_worker_logging() -> None:
     if not any(isinstance(h, logging.NullHandler) for h in root_logger.handlers):
         root_logger.addHandler(logging.NullHandler())
     root_logger.setLevel(logging.WARNING)
-
-
-def open_log_file_handles(logfile_path: str) -> list[logging.Handler]:
-    """Return the handlers in this process that hold ``logfile_path`` open.
-
-    Used by the tests to assert the invariant this module exists to maintain:
-    exactly one process opens the log file.
-    """
-    target = os.path.abspath(logfile_path)
-    return [
-        handler
-        for handler in logging.getLogger().handlers
-        if isinstance(handler, logging.FileHandler) and os.path.abspath(handler.baseFilename) == target
-    ]
