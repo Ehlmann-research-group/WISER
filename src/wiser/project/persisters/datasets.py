@@ -87,10 +87,25 @@ def dataset_to_pyrep(
     return entry
 
 
-def save_datasets(app_state: "ApplicationState", manifest: Dict[str, Any], bundle: ProjectBundle) -> None:
-    """Write every dataset in ``app_state`` into ``manifest['datasets']``."""
+def save_datasets(
+    app_state: "ApplicationState",
+    manifest: Dict[str, Any],
+    bundle: ProjectBundle,
+    excluded_ids: "frozenset[int]" = frozenset(),
+) -> None:
+    """Write every dataset in ``app_state`` into ``manifest['datasets']``.
+
+    Datasets whose id is in ``excluded_ids`` (unchecked in the Save dialog) are
+    omitted, so the written bundle matches the resolver handed to the other
+    persisters -- otherwise an excluded RAM dataset would still be saved while its
+    dependent spectra and stretches snapshot or drop.
+    """
     loader = app_state.get_loader()
-    manifest["datasets"] = [dataset_to_pyrep(ds, bundle, loader) for ds in app_state.get_datasets()]
+    manifest["datasets"] = [
+        dataset_to_pyrep(ds, bundle, loader)
+        for ds in app_state.get_datasets()
+        if ds.get_id() not in excluded_ids
+    ]
 
 
 def load_datasets(

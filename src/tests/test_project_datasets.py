@@ -92,6 +92,19 @@ def test_in_memory_dataset_saved_as_sidecar(tmp_path):
     np.testing.assert_array_equal(_data(restored), _data(ds))
 
 
+def test_excluded_dataset_is_omitted(tmp_path):
+    src = _FakeAppState()
+    keep = _memory_dataset(src, "keep")
+    drop = _memory_dataset(src, "drop")
+
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    manifest = {}
+    save_datasets(src, manifest, bundle, excluded_ids=frozenset({drop.get_id()}))
+
+    ids = {entry["id"] for entry in manifest["datasets"]}
+    assert ids == {keep.get_id()}
+
+
 def test_file_backed_dataset_saved_by_reference(tmp_path):
     src = _FakeAppState()
     loader = src.get_loader()

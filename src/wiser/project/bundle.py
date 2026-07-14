@@ -7,6 +7,7 @@ two.  Bulk data never goes in the manifest: large arrays are written to
 """
 
 import json
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -53,6 +54,21 @@ class ProjectBundle:
         root = Path(root)
         root.mkdir(parents=True, exist_ok=True)
         return cls(root)
+
+    def clear_contents(self) -> None:
+        """Remove any existing manifest and sidecar directories under the root.
+
+        Called before (re)writing so saving over an existing bundle directory does
+        not leave stale ``datasets/`` or ``arrays/`` sidecars the new manifest no
+        longer references.
+        """
+        manifest = self._root / self.MANIFEST_NAME
+        if manifest.exists():
+            manifest.unlink()
+        for sub in (self.DATASETS_DIR, self.ARRAYS_DIR):
+            path = self._root / sub
+            if path.is_dir():
+                shutil.rmtree(path)
 
     @classmethod
     def open(cls, root: PathLike) -> "ProjectBundle":

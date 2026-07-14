@@ -672,10 +672,15 @@ class ApplicationState(QObject):
         """
         self._config.set(option, value)
 
-    def add_roi(self, roi: RegionOfInterest, make_name_unique=False) -> None:
+    def add_roi(self, roi: RegionOfInterest, make_name_unique=False, roi_id: Optional[int] = None) -> None:
         """
         Add a Region of Interest to WISER's state.  A ``ValueError`` is raised
         if the ROI does not have a unique name.
+
+        When ``roi_id`` is given (project restore), that id is used verbatim
+        instead of allocating a new one, and the internal id counter is advanced
+        past it so later allocations do not collide.  Preserving the id keeps
+        ROI-average spectra, which reference their ROI by id, resolvable on load.
         """
 
         if roi is None:
@@ -713,7 +718,12 @@ class ApplicationState(QObject):
             color = get_random_matplotlib_color(colors_in_use)
             roi.set_color(color)
 
-        roi_id = self.take_next_id()
+        if roi_id is None:
+            roi_id = self.take_next_id()
+        elif roi_id in self._regions_of_interest:
+            raise ValueError(f"ROI id {roi_id} is already in use")
+        else:
+            self._next_id = max(self._next_id, roi_id + 1)
         roi.set_id(roi_id)
         self._regions_of_interest[roi_id] = roi
         self.roi_added.emit(roi)
@@ -877,6 +887,47 @@ class ApplicationState(QObject):
 
     def set_bandmath_expressions(self, expressions: List[str]) -> None:
         self._bandmath_saved_exprs = list(expressions)
+
+    def clear_session(self) -> None:
+        """Reset to an empty session, discarding all current state.
+
+        Used before restoring a project file (the load orchestrator clears first
+        so that datasets can be restored with their original ids).  Removal goes
+        through the normal ``remove_*`` methods so the corresponding
+        removed-signals fire and the UI clears; the remaining ``[SOURCE]`` stores
+        with no removal path (CRSs, band-math expressions, run records) are
+        emptied directly.
+        """
+        managers = (
+            self._pca_history,
+            self._mnf_history,
+            self._linear_unmix_history,
+            self._kmeans_history,
+        )
+        # The run-history managers react to dataset_removed; block their signals
+        # during the bulk removal so each emits records_changed once (from
+        # clear_records below) rather than once per removed dataset.
+        for manager in managers:
+            manager.blockSignals(True)
+        try:
+            for ds_id in list(self._datasets.keys()):
+                self.remove_dataset(ds_id)
+        finally:
+            for manager in managers:
+                manager.blockSignals(False)
+        for roi_id in list(self._regions_of_interest.keys()):
+            self.remove_roi(roi_id)
+        for lib_id in list(self._spectral_libraries.keys()):
+            self.remove_spectral_library(lib_id)
+        self.remove_all_collected_spectra()
+        self.set_active_spectrum(None)
+        self._stretches.clear()
+        self._all_spectra.clear()
+        self._user_created_crs.clear()
+        self._bandmath_saved_exprs = []
+        for manager in managers:
+            manager.clear_records()
+        self._next_id = 1
 
     def get_user_created_crs(self):
         return self._user_created_crs

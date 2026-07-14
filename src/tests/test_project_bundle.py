@@ -103,6 +103,19 @@ def test_bundle_array_sidecar(tmp_path):
     np.testing.assert_array_equal(bundle.fetch_array(ref), arr)
 
 
+def test_bundle_clear_contents_removes_stale_sidecars(tmp_path):
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    bundle.add_array("centroids", np.arange(4, dtype=np.float32))
+    bundle.write_manifest({"rois": []})
+    assert (bundle.root / ProjectBundle.ARRAYS_DIR).is_dir()
+    assert (bundle.root / ProjectBundle.MANIFEST_NAME).is_file()
+
+    bundle.clear_contents()
+    assert not (bundle.root / ProjectBundle.ARRAYS_DIR).exists()
+    assert not (bundle.root / ProjectBundle.MANIFEST_NAME).exists()
+    assert bundle.root.is_dir()  # the bundle directory itself remains
+
+
 def test_bundle_zip_round_trip(tmp_path):
     bundle = ProjectBundle.create(tmp_path / "proj")
     manifest = {"rois": [roi_to_pyrep(_sample_roi())]}
@@ -132,7 +145,7 @@ class _FakeAppState:
     def get_rois(self):
         return list(self._rois)
 
-    def add_roi(self, roi, make_name_unique=False):
+    def add_roi(self, roi, make_name_unique=False, roi_id=None):
         self._rois.append(roi)
 
 
