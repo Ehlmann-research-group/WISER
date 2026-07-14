@@ -180,3 +180,19 @@ def test_unknown_storage_kind_dropped():
     dropped = load_libraries(manifest, dst)
     assert len(dropped) == 1
     assert dst.get_spectral_libraries() == []
+
+
+def test_excluded_library_is_omitted():
+    # A library the resolver excludes (unchecked in the Save dialog) is not written.
+    from wiser.project.resolver import DependencyResolver
+
+    src = _FakeAppState()
+    drop = ListSpectralLibrary([_numpy_spectrum([0.1, 0.2, 0.3], "a")], name="drop-me")
+    keep = ListSpectralLibrary([_numpy_spectrum([0.4, 0.5, 0.6], "b")], name="keep")
+    src.add_spectral_library(drop)
+    src.add_spectral_library(keep)
+
+    resolver = DependencyResolver([], excluded_items={("library", drop.get_id())})
+    manifest = {}
+    save_libraries(src, manifest, resolver)
+    assert [entry["name"] for entry in manifest["libraries"]] == ["keep"]

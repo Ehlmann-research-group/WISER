@@ -20,8 +20,9 @@ write a migration **only** for a *breaking* change -- a renamed, removed,
 restructured, or semantically-changed field.
 
 **On a version bump (checklist):**
-1. Write a pure ``migrate_v{N}_to_v{N+1}(manifest) -> manifest`` and
-   :func:`register_migration` it; unit-test it with a minimal before/after dict.
+1. Write a pure ``migrate_v{N}_to_v{N+1}(manifest) -> manifest`` at module scope
+   here and :func:`register_migration` it (there is a worked example beside
+   ``_MIGRATIONS``); unit-test it with a minimal before/after dict.
 2. Bump :data:`CURRENT_FORMAT_VERSION` to ``N+1``.
 3. Capture a **golden fixture** -- a real ``.wiserproj`` written by the *previous*
    release -- and add a regression test that loads it on current code and asserts
@@ -48,6 +49,22 @@ class ProjectTooNewError(ProjectFormatError):
 # version.  Empty while v1 is current; migrations are appended via
 # :func:`register_migration` as the schema evolves (e.g. ``1 -> migrate_v1_to_v2``).
 _MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {}
+
+
+# Each migration is written here, at module scope, and registers itself below its
+# definition -- importing this module is what completes the chain, so it is in place
+# before any manifest is read.  The first one will look like this:
+#
+#     def migrate_v1_to_v2(manifest: Dict[str, Any]) -> Dict[str, Any]:
+#         """v2 renamed the 'rois' manifest section to 'regions'."""
+#         manifest["regions"] = manifest.pop("rois", [])
+#         return manifest
+#
+#     register_migration(1, migrate_v1_to_v2)
+#
+# A migration transforms only the sections it owns and leaves 'format_version'
+# alone -- migrate_up() stamps that after each step -- and it must tolerate a
+# missing section, since the field it renames may never have been written.
 
 
 def register_migration(from_version: int, migrate: Callable[[Dict[str, Any]], Dict[str, Any]]) -> None:

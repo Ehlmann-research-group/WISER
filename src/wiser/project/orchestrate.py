@@ -42,12 +42,15 @@ def save_project(
     app_state: "ApplicationState",
     dest: PathLike,
     resolver: Optional[DependencyResolver] = None,
+    self_contained: bool = False,
 ) -> Path:
     """Save the current session to ``dest``.
 
     A ``dest`` ending in ``.wiserproj`` is written as a single zip file; any
     other path is a bundle *directory*.  Without an explicit ``resolver`` every
     dataset is treated as saved (the #626 dialog supplies a user-driven one).
+    When ``self_contained`` is set, file-backed datasets are copied into the bundle
+    (rather than referenced by path) so the project is portable/shareable.
     Returns the path written.
     """
     dest = Path(dest)
@@ -57,10 +60,10 @@ def save_project(
     if dest.suffix == ProjectBundle.EXTENSION:
         with tempfile.TemporaryDirectory(prefix="wiserproj-save-") as work:
             bundle = ProjectBundle.create(work)
-            _write_bundle(app_state, bundle, resolver)
+            _write_bundle(app_state, bundle, resolver, self_contained)
             zip_bundle(bundle, dest)
     else:
-        _write_bundle(app_state, ProjectBundle.create(dest), resolver)
+        _write_bundle(app_state, ProjectBundle.create(dest), resolver, self_contained)
     return dest
 
 
@@ -95,7 +98,37 @@ def load_project(
     return _restore(bundle, app_state)
 
 
-def _write_bundle(app_state: "ApplicationState", bundle: ProjectBundle, resolver: DependencyResolver) -> None:
+def project_embeds_datasets(app_state: "ApplicationState", bundle_root: PathLike) -> bool:
+    """Whether the session's datasets are backed by files inside ``bundle_root``.
+
+    A project saved self-contained restores its datasets from the ENVI sidecars in
+    its own bundle -- for a zip, from the temporary directory it was extracted into.
+    Re-saving such a session by reference would write absolute paths into storage
+    that does not outlive it, so a caller re-saving an opened project uses this to
+    keep it self-contained.
+    """
+    root = Path(bundle_root).resolve()
+    for dataset in app_state.get_datasets():
+        for filepath in dataset.get_filepaths() or []:
+            if not filepath:
+                continue
+            try:
+                # A subdataset descriptor (NETCDF:"/path":var) is not a path and
+                # never names a sidecar, so a failure to place it under the bundle
+                # is the correct answer, not an error.
+                Path(filepath).resolve().relative_to(root)
+            except ValueError:
+                continue
+            return True
+    return False
+
+
+def _write_bundle(
+    app_state: "ApplicationState",
+    bundle: ProjectBundle,
+    resolver: DependencyResolver,
+    self_contained: bool = False,
+) -> None:
     # Clear any prior contents so re-saving over an existing bundle directory does
     # not leave stale sidecars the new manifest no longer references.
     bundle.clear_contents()
@@ -109,10 +142,10 @@ def _write_bundle(app_state: "ApplicationState", bundle: ProjectBundle, resolver
         for ds in app_state.get_datasets()
         if not resolver.is_saved(Dependency("dataset", ds.get_id()))
     )
-    save_datasets(app_state, manifest, bundle, excluded_ids)
-    save_user_crs(app_state, manifest)
-    save_bandmath(app_state, manifest)
-    save_rois(app_state, manifest)
+    save_datasets(app_state, manifest, bundle, excluded_ids, embed_file_backed=self_contained)
+    save_user_crs(app_state, manifest, resolver)
+    save_bandmath(app_state, manifest, resolver)
+    save_rois(app_state, manifest, resolver)
     save_stretches(app_state, manifest, resolver)
     save_spectra(app_state, manifest, resolver)
     save_libraries(app_state, manifest, resolver)

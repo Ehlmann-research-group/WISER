@@ -30,7 +30,8 @@ class SpectralLibrary(abc.ABC):
         # TODO(donnie):  Temporary hack for spectral libraries that are unnamed.
         #     Definitely want to support spectral libraries being constructed in
         #     memory and then saving them to disk.
-        paths = self.get_filepaths()
+        # An in-memory library reports a path of None, so filter before indexing.
+        paths = [path for path in (self.get_filepaths() or []) if path]
         if len(paths) == 0:
             return "unnamed"
 
@@ -88,6 +89,7 @@ class ListSpectralLibrary(SpectralLibrary):
     """
 
     def __init__(self, spectra: List[Spectrum], **kwargs):
+        super().__init__()
         self._spectra = spectra
 
         self._name = kwargs.pop("name", None)
@@ -101,6 +103,16 @@ class ListSpectralLibrary(SpectralLibrary):
         super().set_id(id)
         for index, s in enumerate(self._spectra):
             s.set_id((self._id, index))
+
+    def get_name(self):
+        """
+        Returns the name of the spectral library.  A library built in memory --
+        collected spectra, or one restored from a project file -- has no path for
+        the base implementation to derive a name from, so its curated name is used.
+        """
+        if self._path:
+            return super().get_name()
+        return self._name or "unnamed"
 
     def get_description(self):
         """

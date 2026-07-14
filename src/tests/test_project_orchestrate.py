@@ -8,6 +8,7 @@ destination's prior state first.
 """
 
 import datetime
+import shutil
 
 import numpy as np
 
@@ -18,7 +19,7 @@ from osgeo import osr
 
 from wiser.gui.permanent_plugins.pca_plugin import PCARunRecord
 from wiser.gui.reference_creator_dialog import CrsCreatorState
-from wiser.project.orchestrate import load_project, save_project
+from wiser.project.orchestrate import load_project, project_embeds_datasets, save_project
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
@@ -186,6 +187,25 @@ def _data(dataset):
     return np.asarray(dataset.get_image_data(filter_data_ignore_value=False))
 
 
+def _file_backed_dataset(app, src_dir, name):
+    """Materialize an ENVI file on disk under ``src_dir`` and open it file-backed.
+
+    Unlike the in-memory ``dataset_from_numpy_array`` cubes the other tests use, a
+    file-backed dataset is normally *referenced* by path -- so deleting ``src_dir``
+    after a save is what distinguishes an embedded (self-contained) save from a
+    referenced one.
+    """
+    src_dir.mkdir(parents=True, exist_ok=True)
+    loader = app.get_loader()
+    mem = loader.dataset_from_numpy_array(_sample_array(), None)
+    ext_path = src_dir / f"{name}.img"
+    loader.save_dataset_as(mem, str(ext_path), format="ENVI", config=None)
+    ds = loader.load_from_file(str(ext_path), data_cache=None, interactive=False)[0]
+    ds.set_name(name)
+    app.add_dataset(ds)
+    return ds
+
+
 def _populated_session():
     app = _FakeAppState()
 
@@ -314,6 +334,144 @@ def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
     restored_roi = dst.get_roi(id=roi.get_id())
     assert restored_roi is not None
     assert restored_roi.get_id() == roi.get_id()
+
+
+def test_self_contained_save_embeds_file_backed_dataset(tmp_path):
+    # A self-contained save copies file-backed pixels into the bundle, so the project
+    # reopens intact even after the original source files are gone -- the shareable case.
+    src = _FakeAppState()
+    src_dir = tmp_path / "sources"
+    ds = _file_backed_dataset(src, src_dir, "scene")
+    ds.set_data_ignore_value(-9999.0)
+
+    proj = tmp_path / "portable.wiserproj"
+    save_project(src, proj, self_contained=True)
+
+    shutil.rmtree(src_dir)  # the original data is gone
+
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []  # embedded, so not dropped
+    (restored,) = dst.get_datasets()
+    assert restored.get_id() == ds.get_id()
+    assert restored.get_data_ignore_value() == -9999.0  # metadata snapshot survived
+    np.testing.assert_array_equal(_data(restored), _sample_array())
+
+
+def test_an_opened_self_contained_project_is_detected_as_embedding(tmp_path):
+    # Re-saving an opened project must keep its storage mode.  A self-contained project
+    # restores its datasets from sidecars in the extract dir, so a referenced re-save
+    # would point the manifest at a temp directory that dies with the session.
+    src = _FakeAppState()
+    _file_backed_dataset(src, tmp_path / "sources", "scene")
+
+    proj = tmp_path / "portable.wiserproj"
+    save_project(src, proj, self_contained=True)
+
+    dst = _FakeAppState()
+    unpacked = tmp_path / "unpacked"
+    load_project(proj, dst, extract_dir=unpacked)
+    assert project_embeds_datasets(dst, unpacked)
+
+
+def test_an_opened_referenced_project_is_not_detected_as_embedding(tmp_path):
+    # The contrast: a referenced project's datasets still live at their original paths
+    # outside the bundle, so re-saving it by reference stays correct.
+    src = _FakeAppState()
+    _file_backed_dataset(src, tmp_path / "sources", "scene")
+
+    proj = tmp_path / "referenced.wiserproj"
+    save_project(src, proj)
+
+    dst = _FakeAppState()
+    unpacked = tmp_path / "unpacked-ref"
+    load_project(proj, dst, extract_dir=unpacked)
+    assert not project_embeds_datasets(dst, unpacked)
+
+
+def test_referenced_save_drops_a_deleted_source(tmp_path):
+    # The default (referenced) save records file-backed data by path and does not copy
+    # it, so a source gone at open time is dropped and reported -- the contrast that
+    # motivates the self-contained option above.
+    src = _FakeAppState()
+    src_dir = tmp_path / "sources"
+    ds = _file_backed_dataset(src, src_dir, "scene")
+
+    proj = tmp_path / "referenced.wiserproj"
+    save_project(src, proj)  # default: self_contained=False
+
+    shutil.rmtree(src_dir)
+
+    dst = _FakeAppState()
+    report = load_project(proj, dst, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == [ds.get_id()]  # referenced source gone -> dropped
+    assert dst.get_datasets() == []
+
+
+def test_excluding_an_roi_omits_it_and_snapshots_its_average(tmp_path):
+    # Excluding an ROI omits it AND cascades: its ROI-average spectrum, which depends
+    # on the now-cut ROI, freezes to a self-contained snapshot instead of dropping.
+    # The canonical standalone-item exclusion path (ROI via the resolver's saved set).
+    from wiser.project.save_plan import resolver_for_selection
+    from wiser.raster.spectrum import NumPyArraySpectrum, ROIAverageSpectrum
+
+    src = _FakeAppState()
+    ds = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    ds.set_name("cube")
+    src.add_dataset(ds)
+    roi = RegionOfInterest(name="rim", color="red")
+    roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(2, 2)))
+    src.add_roi(roi)
+    src.collect_spectrum(ROIAverageSpectrum(ds, roi))
+
+    resolver = resolver_for_selection(src, excluded_dataset_ids=[], excluded_roi_ids=[roi.get_id()])
+    save_project(src, tmp_path / "sess", resolver=resolver)
+
+    dst = _FakeAppState()
+    report = load_project(tmp_path / "sess", dst)
+    assert report["rois"] == []
+    assert dst.get_rois() == []  # the excluded ROI is omitted
+
+    # Its ROI-average froze to a self-contained snapshot rather than dropping.
+    (spec,) = dst.get_collected_spectra()
+    assert isinstance(spec, NumPyArraySpectrum)
+    assert not isinstance(spec, ROIAverageSpectrum)
+
+
+def test_excluding_standalone_items_omits_them(tmp_path):
+    # A run, user CRS, and band-math expression the user deselects are omitted from
+    # the reopened project -- the standalone-kind exclusion path through
+    # save_runs / save_user_crs / save_bandmath, wired via the resolver.
+    from wiser.project.save_plan import resolver_for_selection
+
+    src = _FakeAppState()
+    ds = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    src.add_dataset(ds)
+    src.get_pca_history().add_record(
+        PCARunRecord(
+            run_id=7,
+            timestamp=datetime.datetime.fromisoformat("2026-07-13T00:00:00"),
+            input_dataset_id=ds.get_id(),
+            input_dataset_name_snapshot="cube",
+            num_components_chosen=2,
+            max_components_available=4,
+            eigenvalues=np.array([3.0, 2.0]),
+        )
+    )
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(4326)
+    src.get_user_created_crs()["DropMe"] = (srs, CrsCreatorState(lon_meridian=10.0))
+    src.set_bandmath_expressions(["b1 + b2", "b3 * 2"])
+
+    excluded = {("run", 7), ("crs", "DropMe"), ("bandmath", 0)}
+    resolver = resolver_for_selection(src, excluded_dataset_ids=[], excluded_items=excluded)
+    save_project(src, tmp_path / "sess", resolver=resolver)
+
+    dst = _FakeAppState()
+    load_project(tmp_path / "sess", dst)
+    assert dst.get_pca_history().get_records() == []  # excluded run
+    assert "DropMe" not in dst.get_user_created_crs()  # excluded CRS
+    assert dst.get_bandmath_expressions() == ["b3 * 2"]  # expr index 0 excluded, 1 kept
 
 
 def test_restore_contains_a_failing_persister(tmp_path, monkeypatch):

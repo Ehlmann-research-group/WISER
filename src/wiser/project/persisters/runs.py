@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import numpy as np
 
-from ..resolver import DependencyResolver, resolver_for_all_datasets
+from ..resolver import Dependency, DependencyResolver, resolver_for_all_datasets
 from .spectra import spectrum_from_pyrep, spectrum_to_pyrep
 
 if TYPE_CHECKING:
@@ -49,18 +49,25 @@ def save_runs(
 ) -> None:
     """Write the four run histories into ``manifest['runs']``.
 
-    Every record is saved; the resolver is used only to snapshot embedded
+    A record the resolver excludes (by ``run_id``, unchecked in the Save dialog) is
+    omitted; otherwise every record is saved.  The resolver also snapshots embedded
     endmember spectra (self-contained, so any resolver yields a snapshot).
     """
     if resolver is None:
         resolver = resolver_for_all_datasets(app_state)
+
+    def keep(record):
+        return resolver.is_saved(Dependency("run", record.run_id))
+
     manifest["runs"] = {
-        TOOL_PCA: [_eigen_to_pyrep(r) for r in app_state.get_pca_history().get_records()],
-        TOOL_MNF: [_eigen_to_pyrep(r) for r in app_state.get_mnf_history().get_records()],
+        TOOL_PCA: [_eigen_to_pyrep(r) for r in app_state.get_pca_history().get_records() if keep(r)],
+        TOOL_MNF: [_eigen_to_pyrep(r) for r in app_state.get_mnf_history().get_records() if keep(r)],
         TOOL_UNMIXING: [
-            _unmixing_to_pyrep(r, resolver) for r in app_state.get_linear_unmix_history().get_records()
+            _unmixing_to_pyrep(r, resolver)
+            for r in app_state.get_linear_unmix_history().get_records()
+            if keep(r)
         ],
-        TOOL_KMEANS: [_kmeans_to_pyrep(r) for r in app_state.get_kmeans_history().get_records()],
+        TOOL_KMEANS: [_kmeans_to_pyrep(r) for r in app_state.get_kmeans_history().get_records() if keep(r)],
     }
 
 

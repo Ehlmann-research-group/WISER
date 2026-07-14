@@ -45,12 +45,17 @@ STORAGE_SIDECAR = "sidecar"  # in-memory: snapshotted to datasets/ as ENVI
 
 
 def dataset_to_pyrep(
-    dataset: "RasterDataSet", bundle: ProjectBundle, loader: "RasterDataLoader"
+    dataset: "RasterDataSet", bundle: ProjectBundle, loader: "RasterDataLoader", embed: bool = False
 ) -> Dict[str, Any]:
-    """Serialize one dataset, writing an ENVI sidecar if it is in-memory.
+    """Serialize one dataset, writing an ENVI sidecar for in-memory datasets (and,
+    when ``embed`` is set, for file-backed ones too).
 
-    A file-backed dataset records only its path; an in-memory dataset is written
-    to ``datasets/ds_<id>.img`` (plus its ``.hdr``) inside ``bundle``.
+    By default a file-backed dataset records only its path (referenced, not copied)
+    and an in-memory dataset is written to ``datasets/ds_<id>.img`` (plus its
+    ``.hdr``) inside ``bundle``.  When ``embed`` is set -- a self-contained save --
+    a file-backed or NetCDF-subdataset dataset is re-saved to a sidecar too so the
+    bundle is portable; its metadata snapshot (band names, wavelengths, CRS) carries
+    what the ENVI header omits.
     """
     ds_id = dataset.get_id()
     # The manifest carries the user-editable SOURCE identity (name, description)
@@ -67,7 +72,7 @@ def dataset_to_pyrep(
 
     subdataset_name = dataset.get_subdataset_name()
     filepaths = dataset.get_filepaths()
-    if subdataset_name:
+    if not embed and subdataset_name:
         # A NetCDF subdataset's get_filepaths() returns the GDAL descriptor, not a
         # plain path; store the base file and the descriptor so load re-opens the
         # SAME subdataset instead of re-running the auto-pick heuristic (or dropping
@@ -75,10 +80,13 @@ def dataset_to_pyrep(
         entry["storage"] = STORAGE_REFERENCE
         entry["path"] = _subdataset_base_path(subdataset_name)
         entry["subdataset_name"] = subdataset_name
-    elif filepaths:
+    elif not embed and filepaths:
         entry["storage"] = STORAGE_REFERENCE
         entry["path"] = filepaths[0]
     else:
+        # In-memory always, and every dataset under a self-contained save: re-save
+        # the pixels to an ENVI sidecar in the bundle.  A subdataset flattens to a
+        # plain cube (ENVI has no subdataset concept); its selected data is kept.
         sidecar = bundle.raster_sidecar_path(f"ds_{ds_id}.img")
         loader.save_dataset_as(dataset, str(sidecar), format="ENVI", config=None)
         entry["storage"] = STORAGE_SIDECAR
@@ -92,6 +100,7 @@ def save_datasets(
     manifest: Dict[str, Any],
     bundle: ProjectBundle,
     excluded_ids: "frozenset[int]" = frozenset(),
+    embed_file_backed: bool = False,
 ) -> None:
     """Write every dataset in ``app_state`` into ``manifest['datasets']``.
 
@@ -99,10 +108,14 @@ def save_datasets(
     omitted, so the written bundle matches the resolver handed to the other
     persisters -- otherwise an excluded RAM dataset would still be saved while its
     dependent spectra and stretches snapshot or drop.
+
+    When ``embed_file_backed`` is set (a self-contained save) file-backed datasets
+    are copied into the bundle as ENVI sidecars rather than referenced by path, so
+    the project is portable.
     """
     loader = app_state.get_loader()
     manifest["datasets"] = [
-        dataset_to_pyrep(ds, bundle, loader)
+        dataset_to_pyrep(ds, bundle, loader, embed=embed_file_backed)
         for ds in app_state.get_datasets()
         if ds.get_id() not in excluded_ids
     ]

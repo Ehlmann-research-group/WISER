@@ -5,21 +5,36 @@ and load directly via the pyrep convention.  Each ROI is captured as its
 identity plus a list of faithfully-serialized selections.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from wiser.raster.roi import ROI_PYREP_TYPE, roi_from_pyrep, roi_to_pyrep
 
 from ..pyrep import register_pyrep
+from ..resolver import Dependency
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
 
+    from ..resolver import DependencyResolver
+
 register_pyrep(ROI_PYREP_TYPE, roi_from_pyrep)
 
 
-def save_rois(app_state: "ApplicationState", manifest: Dict[str, Any]) -> None:
-    """Write every ROI in ``app_state`` into ``manifest['rois']``."""
-    manifest["rois"] = [roi_to_pyrep(roi) for roi in app_state.get_rois()]
+def save_rois(
+    app_state: "ApplicationState",
+    manifest: Dict[str, Any],
+    resolver: Optional["DependencyResolver"] = None,
+) -> None:
+    """Write every ROI in ``app_state`` into ``manifest['rois']``.
+
+    An ROI the ``resolver`` excludes (unchecked in the Save dialog) is omitted; its
+    ROI-average spectra then cascade to snapshots via the same resolver in the
+    spectra persister.  Without a resolver every ROI is saved.
+    """
+    rois = app_state.get_rois()
+    if resolver is not None:
+        rois = [roi for roi in rois if resolver.is_saved(Dependency("roi", roi.get_id()))]
+    manifest["rois"] = [roi_to_pyrep(roi) for roi in rois]
 
 
 def load_rois(manifest: Dict[str, Any], app_state: "ApplicationState") -> List[Dict[str, Any]]:

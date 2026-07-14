@@ -83,3 +83,20 @@ def test_cascade_report_shape():
         {"item": "spec-a", "policy": "faithful", "reason": "all deps saved"},
         {"item": "spec-b", "policy": "snapshot", "reason": "cut dataset"},
     ]
+
+
+def test_standalone_kinds_are_saved_by_default():
+    # Runs, libraries, CRSs, and band-math expressions are saved unless the user
+    # explicitly excludes them -- they are nobody else's dependency.
+    resolver = DependencyResolver(saved_dataset_ids=set())
+    for kind in ("run", "library", "crs", "bandmath"):
+        assert resolver.is_saved(Dependency(kind, 1))
+
+
+def test_excluded_standalone_items_are_not_saved():
+    resolver = DependencyResolver(saved_dataset_ids=set(), excluded_items={("run", 5), ("crs", "MyCRS")})
+    assert not resolver.is_saved(Dependency("run", 5))
+    assert not resolver.is_saved(Dependency("crs", "MyCRS"))
+    # A same-kind different id, and an un-excluded kind, are still saved.
+    assert resolver.is_saved(Dependency("run", 6))
+    assert resolver.is_saved(Dependency("library", 5))
