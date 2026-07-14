@@ -67,10 +67,19 @@ from the Windows Certificate Store at signing time, the only machine-specific
 secret you need is the thumbprint — there is nothing else to copy off of the
 original build machine.
 
-## Building and Signing: the `make dist-win` command
+## Building and Signing
 
-On Windows, building and signing happen together in a single Make target. From
-the top of the WISER repository, in the `wiser-prod` conda environment, run:
+Currently, we let the `Build and Smoke Test WISER` action build the Windows
+installer, and we sign it locally by running
+`make sign-windows LINK=<link-to-windows-artifact>`. We get the link to the
+Windows artifact by right-clicking on `wiser-Windows-X64` and selecting
+_Copy Link Address_. Once the installer is signed, we upload it. See
+[CI/CD and Releases](ci-cd-and-releases.md) to learn more.
+
+You can also build and sign in a single Make target. Because building is so
+machine-dependent, however, we prefer to build on the runners using the steps
+above. If you still want to build and sign locally, activate the `wiser-prod`
+conda environment, change to the root directory of WISER, and run:
 
 ```
 make dist-win
