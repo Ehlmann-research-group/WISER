@@ -97,6 +97,12 @@ class RunHistoryManagerBase(QObject, Generic[R]):
         if len(self._records) != before:
             self.records_changed.emit()
 
+    def clear_records(self) -> None:
+        """Drop every record (e.g. when clearing the session before a load)."""
+        if self._records:
+            self._records = []
+            self.records_changed.emit()
+
     # ----- read -----
 
     def get_records(self) -> List[R]:
@@ -328,9 +334,7 @@ class EigenScreeRunHistoryDialog(QDialog, Generic[ER]):
         if record is None:
             return
 
-        title = (
-            f"{self.task_label} Run {record.run_id} — Scree Plot " f"({record.input_dataset_name_snapshot})"
-        )
+        title = f"{self.task_label} Run {record.run_id} — Scree Plot ({record.input_dataset_name_snapshot})"
         description = (
             f"{self.task_label} run {record.run_id} on "
             f"'{record.input_dataset_name_snapshot}' — "

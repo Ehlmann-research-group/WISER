@@ -198,9 +198,12 @@ class TestSeamlessMosaicAddScene(unittest.TestCase):
 
         self.test_model.close_seamless_mosaic_dialog()
 
-    def test_add_invalid_scene_rejected(self):
-        # A numpy-array dataset is ungeoreferenced (identity transform, no SRS), so
-        # validation must reject it before any background work runs.
+    def test_add_non_georeferenced_scene_is_pending(self):
+        # A numpy-array dataset is ungeoreferenced (identity transform, no SRS). It is
+        # no longer rejected: it is added immediately as a disabled "pending" placeholder
+        # (no background work), to be promoted later via the in-place georeferencer.
+        from wiser.raster.mosaic_controller import ScenePendingReason
+
         ungeoreffed = self.test_model.load_dataset(np.zeros((3, 10, 10), dtype=np.float32))
 
         dlg = self.test_model.open_seamless_mosaic_dialog()
@@ -208,14 +211,20 @@ class TestSeamlessMosaicAddScene(unittest.TestCase):
         controller = pane.get_controller()
 
         self._select_dataset(pane, ungeoreffed.get_id())
-        # The rejection surfaces a modal QMessageBox.warning; patch it so the test
-        # does not block, and assert it fired.
+        # No warning should fire (adding is allowed); patch it so a stray one would be
+        # caught rather than blocking the test.
         with mock.patch("wiser.gui.mosaic_pane.QMessageBox.warning") as warn:
             pane._add_scene_button.click()
             QTest.qWait(100)
 
-        warn.assert_called_once()
-        self.assertEqual(controller.scene_count(), 0)
+        warn.assert_not_called()
+        self.assertEqual(controller.scene_count(), 1)
+
+        scene = controller.get_scenes()[0]
+        self.assertTrue(controller.is_scene_pending(scene))
+        self.assertEqual(controller.scene_pending_reason(scene), ScenePendingReason.NO_CRS)
+        self.assertTrue(controller.has_pending_scenes())
+        self.assertFalse(controller.has_live_scenes())
 
         self.test_model.close_seamless_mosaic_dialog()
 
