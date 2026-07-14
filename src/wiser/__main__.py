@@ -3,7 +3,6 @@ import argparse
 import faulthandler
 import importlib
 import logging
-import logging.config
 import os
 import sys
 import traceback
@@ -74,58 +73,16 @@ except Exception:
 
 
 # Hard-code the logging configuration to remove the need for a log-config file.
-# The if statement below ensures that only the main process and no subprocesses
-# can get a file handle to the logger because this can cause a file rotation.
-# The issue is noted in #502
-if multiprocessing.parent_process() is None:  # This is the main process
-    logfile_path = os.path.join(get_wiser_config_dir(), "wiser.log")
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "formatters": {
-                "simpleFormatter": {
-                    "format": "%(asctime)s %(levelname)-5s %(name)s : %(message)s",
-                },
-            },
-            "handlers": {
-                "consoleHandler": {
-                    "class": "logging.StreamHandler",
-                    "level": "WARNING",
-                    "formatter": "simpleFormatter",
-                    "stream": sys.stderr,
-                },
-                "fileHandler": {
-                    "class": "logging.handlers.RotatingFileHandler",
-                    "level": "DEBUG",
-                    "formatter": "simpleFormatter",
-                    "filename": logfile_path,
-                    "maxBytes": 10_000_000,
-                    "backupCount": 5,
-                },
-            },
-            "loggers": {
-                "root": {
-                    "level": "DEBUG",
-                    "handlers": ["consoleHandler", "fileHandler"],
-                },
-                "matplotlib": {
-                    "level": "WARNING",
-                    "handlers": ["consoleHandler", "fileHandler"],
-                    "qualname": "matplotlib",
-                },
-            },
-        }
-    )
-else:
-    # Remove the "lastResort" handler, so only the null handler is left.
-    root_logger = logging.getLogger()
-    # Remove all handlers except NullHandler
-    for handler in root_logger.handlers[:]:
-        if not isinstance(handler, logging.NullHandler):
-            root_logger.removeHandler(handler)
-    # Ensure at least a NullHandler is present
-    if not any(isinstance(h, logging.NullHandler) for h in root_logger.handlers):
-        root_logger.addHandler(logging.NullHandler())
+#
+# This module's top-level code runs in the scheduler's pool workers too: in the
+# frozen build each worker is a fresh WISER.exe whose bootloader executes this
+# file from the top, and only reaches the freeze_support() call at the bottom
+# afterwards. So configure_logging() has to decide for itself whether it is the
+# app or a worker -- and only the app may open wiser.log, or rotation fails on
+# Windows with WinError 32 (#502).
+from wiser.logging_setup import configure_logging
+
+configure_logging(os.path.join(get_wiser_config_dir(), "wiser.log"))
 
 logger = logging.getLogger(__name__)
 
