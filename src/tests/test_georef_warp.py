@@ -9,6 +9,8 @@ and cooperative cancellation via a ProgressReporter.
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 from osgeo import gdal, osr
 
@@ -130,3 +132,58 @@ def test_warp_dataset_to_path_honors_cancellation(tmp_path):
     save_path = str(tmp_path / "cancelled.tif")
     with pytest.raises(ProgressCancelled):
         warp_dataset_to_path(dataset, gcps, warp_kwargs, ref_srs, save_path, progress=cancelled)
+
+
+def test_concurrent_warps_do_not_collide_on_vsimem(tmp_path):
+    """
+    Regression for the georeferencer's "unknown error occurred" warp failure.
+
+    In the dialog both the debounced ``compute_residuals`` recompute and the final
+    ``warp_dataset_to_path`` run on background threads. GDAL's ``/vsimem`` is a
+    process-global, cross-thread filesystem, so if those functions warp/unlink a *fixed*
+    scratch path they race: one thread deletes the in-memory file another is mid-warp on,
+    and GDAL surfaces a generic ``RuntimeError: unknown error occurred``. Each scratch path
+    must therefore be namespaced per call.
+
+    This test forces the overlap deterministically (tight loop, many threads) instead of
+    relying on the GUI e2e test's timing luck -- which is why that test can pass on a fast,
+    idle machine even with the bug present, yet fail on a loaded CI runner.
+    """
+    out_srs = _srs()
+    ref_srs = _srs()
+    residual_gcps = _affine_gcps()
+    warp_kwargs, transformer_options = build_warp_kwargs(
+        gdal.GRA_NearestNeighbour, TRANSFORM_TYPES.POLY_1, out_srs
+    )
+
+    dataset = make_numpy_scene(width=8, height=6, num_bands=3, epsg=EPSG)
+    output_gcps = [
+        gdal.GCP(X0 + col * RES, Y0 - row * RES, 0, col, row)
+        for col, row in [(0.0, 0.0), (8.0, 0.0), (0.0, 6.0), (8.0, 6.0)]
+    ]
+
+    errors: list[BaseException] = []
+
+    def _residual_worker():
+        try:
+            for _ in range(40):
+                compute_residuals(residual_gcps, ref_srs, out_srs, warp_kwargs, transformer_options)
+        except BaseException as exc:  # noqa: BLE001 - recorded and asserted below
+            errors.append(exc)
+
+    def _output_worker(index: int):
+        try:
+            for i in range(4):
+                save_path = str(tmp_path / f"warp_{index}_{i}.tif")
+                warp_dataset_to_path(dataset, output_gcps, warp_kwargs, ref_srs, save_path)
+        except BaseException as exc:  # noqa: BLE001 - recorded and asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=_residual_worker) for _ in range(4)]
+    threads += [threading.Thread(target=_output_worker, args=(i,)) for i in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"concurrent warps raced on /vsimem: {errors[:3]}"
