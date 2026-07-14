@@ -23,18 +23,25 @@ sidecar directories for the binary data that does not belong inline in JSON.
 |------|----------|
 | `manifest.json` | The whole session as type-tagged JSON — one section per state kind. |
 | `arrays/` | NumPy `.npy` sidecars for arrays too large for the manifest (e.g. in-memory dataset pixels, endmember snapshots). |
-| `datasets/` | ENVI-format raster sidecars for in-memory (RAM-backed) datasets that have no source file on disk. |
+| `datasets/` | ENVI-format raster sidecars for RAM-backed datasets — and, under a self-contained save, for file-backed datasets copied in for portability. |
 
 A bundle is written either as a **directory** or, when the destination ends in
-`.wiserproj`, as a single **zip** of that directory. File-backed datasets are
-stored *by reference* (their path), so a project that loads only on-disk rasters is
-tiny; only RAM-backed datasets and their derived arrays add bulk.
+`.wiserproj`, as a single **zip** of that directory. It is saved in one of two modes:
+
+- **Referenced** (default) — file-backed datasets are stored *by their path*, so a
+  project that loads only on-disk rasters is tiny; only RAM-backed datasets and their
+  derived arrays add bulk. The project reopens as long as those source files stay put.
+- **Self-contained** — file-backed datasets are also copied into the bundle (re-saved
+  as ENVI sidecars under `datasets/`), so the `.wiserproj` is portable and can be moved
+  or shared without its original sources. Chosen per-save with a checkbox in the Save
+  dialog (`save_project(..., self_contained=True)`); the load path is unchanged, since a
+  copied dataset restores from its sidecar exactly like a RAM-backed one.
 
 ```{mermaid}
 flowchart TB
     subgraph UI["GUI layer"]
         Menu["File menu<br/>Open / Save / Save As"]
-        Dialog["SaveProjectDialog<br/>choose RAM datasets, preview cascade"]
+        Dialog["SaveProjectDialog<br/>selection tree: what to save + portability"]
     end
     subgraph Orch["Orchestration — orchestrate.py"]
         Save["save_project()"]
@@ -99,10 +106,18 @@ dataset roots into one of three outcomes:
 
 A `Dependency(kind, id)` with an unresolved (`None`) id is treated as a cut edge for
 every kind, so a dangling reference snapshots or drops rather than being called
-faithful and then failing on load. ROIs are standalone and always saved.
-`resolver_for_all_datasets(app_state)` builds the default "save everything"
-resolver; the Save dialog builds one from the user's exclusions. `cascade_report`
-turns a resolver into the human-readable list of consequences the dialog previews.
+faithful and then failing on load.
+
+Beyond the dataset roots, the resolver also tracks which **ROIs** and which
+**standalone items** — a run, spectral library, user CRS, or band-math expression,
+kinds nothing else depends on — the user excluded. Excluding an ROI both omits it and
+cascades to its ROI-average spectra (they snapshot); excluding a standalone item simply
+omits it, with nothing to cascade. `resolver_for_all_datasets(app_state)` builds the
+default "save everything" resolver; `resolver_for_selection(app_state, excluded_datasets,
+excluded_rois, excluded_items)` builds one from the user's selection. Each `save_*`
+persister asks the resolver whether its own items are saved and skips the excluded ones.
+`cascade_report` turns a resolver into the human-readable list of consequences the dialog
+previews.
 
 ---
 
@@ -118,7 +133,7 @@ types, and bad enum values degrade gracefully.
 
 | Persister | Persists | Notes |
 |-----------|----------|-------|
-| `datasets` | Loaded datasets | File-backed by reference, RAM-backed to ENVI sidecars under `datasets/`; a NetCDF subdataset also records which subdataset was selected, and a JSON snapshot of the runtime-editable metadata (data-ignore, bad bands, wavelengths + units, band names, display bands, georeferenced CRS) rides in the manifest and is reapplied on load. Original ids preserved so references stay valid. |
+| `datasets` | Loaded datasets | File-backed by reference (or copied into the bundle under a self-contained save), RAM-backed to ENVI sidecars under `datasets/`; a NetCDF subdataset also records which subdataset was selected, and a JSON snapshot of the runtime-editable metadata (data-ignore, bad bands, wavelengths + units, band names, display bands, georeferenced CRS) rides in the manifest and is reapplied on load. Original ids preserved so references stay valid. |
 | `rois` | Regions of interest | Standalone; multi-selection geometry round-trips through the pyrep convention. |
 | `spectra` | Collected + active spectra | Three kinds: self-contained NumPy, raster-backed (dataset + point + area), ROI-average (dataset + roi). Dataset-backed spectra go faithful when the dataset is saved, freeze to NumPy when cut. |
 | `stretches` | Per-`(dataset, band)` contrast stretches | Dataset-cascade leaf: dropped when its dataset is unsaved. Polymorphic across the stretch types. |
@@ -158,11 +173,12 @@ and loads exactly as before.
 
 ## Save
 
-`save_project(app_state, dest, resolver=None)` writes the manifest and sidecars in
-**dependency order** — datasets first, since they are the roots the rest of the
-manifest references by id and they own the sidecar I/O. Without an explicit
-resolver, every dataset is treated as saved; the Save dialog supplies a user-driven
-one built from the datasets the user unchecked.
+`save_project(app_state, dest, resolver=None, self_contained=False)` writes the
+manifest and sidecars in **dependency order** — datasets first, since they are the
+roots the rest of the manifest references by id and they own the sidecar I/O. Without
+an explicit resolver, every item is treated as saved; the Save dialog supplies a
+user-driven one built from what the user unchecked. `self_contained=True` copies
+file-backed datasets into the bundle so the project is portable.
 
 ```{mermaid}
 sequenceDiagram
@@ -170,16 +186,29 @@ sequenceDiagram
     participant D as SaveProjectDialog
     participant S as save_project
     participant B as ProjectBundle
-    U->>D: choose RAM datasets to include
-    D->>D: save_plan() — preview SNAPSHOT/DROP cascade
+    U->>D: uncheck items to leave out; optional self-contained
+    D->>D: save_tree() — tree + live cascade annotations
     U->>D: confirm
-    D->>S: save_project(dest, resolver)
+    D->>S: save_project(dest, resolver, self_contained)
     S->>B: create bundle (dir, or temp dir → zip)
     S->>B: save_datasets → sidecars + manifest
     S->>B: save_crs, bandmath, rois, stretches, spectra, libraries, runs
     S->>B: write_manifest
     B-->>U: .wiserproj written
 ```
+
+### Choosing what to save
+
+The Save dialog is a single checkable tree with three groups — **Datasets**, **ROIs**,
+and **Analysis outputs** (runs, libraries, user CRSs, band-math expressions). Every item
+is checked by default; unchecking one leaves it out of the project, and unchecking a
+group toggles all of its items. The tree is the selection UI *and* the preview: a product
+under a dataset or ROI (a stretch, a point spectrum, an ROI-average) is a non-checkable
+child that follows its parent, annotated live with the consequence it takes when the
+parent is cut — `(snapshot)` for a spectrum that freezes to self-contained values,
+`(dropped)` for a stretch that has nothing to apply to. The headless model is
+`save_plan.save_tree`, unit-tested on its own; the dialog turns the user's unchecked items
+into the resolver handed to `save_project`, plus the self-contained flag.
 
 ---
 
@@ -242,8 +271,11 @@ sees the current schema. The rule contributors follow:
 
 1. Write a `save_<kind>` / `load_<kind>` pair in `persisters/`, following the
    drop-not-fatal contract (return the list of unrestorable entries).
-2. If the item depends on a dataset, classify it through the resolver so it
-   snapshots or drops when its dataset is cut.
+2. If the item depends on a dataset or ROI, classify it through the resolver so it
+   snapshots or drops when that root is cut. If it is a standalone item the user should
+   be able to deselect on its own, give it a `(kind, id)` handle, skip it in `save_*`
+   when `resolver.is_saved(...)` is false, and list it under `save_tree`'s
+   *Analysis outputs* group so it gets a checkbox.
 3. Wire it into `orchestrate._write_bundle` and `orchestrate._restore` at the right
    point in dependency order.
 4. Prefer an additive, optional manifest section so no version bump is needed; bump

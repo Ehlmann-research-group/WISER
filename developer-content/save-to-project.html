@@ -687,6 +687,7 @@ window.runMermaid = runMermaid;</script>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -928,7 +929,10 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-metadata-and-subdatasets">Dataset metadata and subdatasets</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#save">Save</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#save">Save</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-what-to-save">Choosing what to save</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load">Load</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#versioning-and-migration">Versioning and migration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extending-adding-a-new-persisted-item">Extending: adding a new persisted item</a></li>
@@ -974,20 +978,28 @@ sidecar directories for the binary data that does not belong inline in JSON.</p>
 <td><p>NumPy <code class="docutils literal notranslate"><span class="pre">.npy</span></code> sidecars for arrays too large for the manifest (e.g. in-memory dataset pixels, endmember snapshots).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">datasets/</span></code></p></td>
-<td><p>ENVI-format raster sidecars for in-memory (RAM-backed) datasets that have no source file on disk.</p></td>
+<td><p>ENVI-format raster sidecars for RAM-backed datasets — and, under a self-contained save, for file-backed datasets copied in for portability.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 <p>A bundle is written either as a <strong>directory</strong> or, when the destination ends in
-<code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code>, as a single <strong>zip</strong> of that directory. File-backed datasets are
-stored <em>by reference</em> (their path), so a project that loads only on-disk rasters is
-tiny; only RAM-backed datasets and their derived arrays add bulk.</p>
+<code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code>, as a single <strong>zip</strong> of that directory. It is saved in one of two modes:</p>
+<ul class="simple">
+<li><p><strong>Referenced</strong> (default) — file-backed datasets are stored <em>by their path</em>, so a
+project that loads only on-disk rasters is tiny; only RAM-backed datasets and their
+derived arrays add bulk. The project reopens as long as those source files stay put.</p></li>
+<li><p><strong>Self-contained</strong> — file-backed datasets are also copied into the bundle (re-saved
+as ENVI sidecars under <code class="docutils literal notranslate"><span class="pre">datasets/</span></code>), so the <code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code> is portable and can be moved
+or shared without its original sources. Chosen per-save with a checkbox in the Save
+dialog (<code class="docutils literal notranslate"><span class="pre">save_project(...,</span> <span class="pre">self_contained=True)</span></code>); the load path is unchanged, since a
+copied dataset restores from its sidecar exactly like a RAM-backed one.</p></li>
+</ul>
 <pre  class="mermaid">
         flowchart TB
     subgraph UI[&quot;GUI layer&quot;]
         Menu[&quot;File menu&lt;br/&gt;Open / Save / Save As&quot;]
-        Dialog[&quot;SaveProjectDialog&lt;br/&gt;choose RAM datasets, preview cascade&quot;]
+        Dialog[&quot;SaveProjectDialog&lt;br/&gt;selection tree: what to save + portability&quot;]
     end
     subgraph Orch[&quot;Orchestration — orchestrate.py&quot;]
         Save[&quot;save_project()&quot;]
@@ -1060,10 +1072,16 @@ dataset roots into one of three outcomes:</p>
 </div>
 <p>A <code class="docutils literal notranslate"><span class="pre">Dependency(kind,</span> <span class="pre">id)</span></code> with an unresolved (<code class="docutils literal notranslate"><span class="pre">None</span></code>) id is treated as a cut edge for
 every kind, so a dangling reference snapshots or drops rather than being called
-faithful and then failing on load. ROIs are standalone and always saved.
-<code class="docutils literal notranslate"><span class="pre">resolver_for_all_datasets(app_state)</span></code> builds the default “save everything”
-resolver; the Save dialog builds one from the user’s exclusions. <code class="docutils literal notranslate"><span class="pre">cascade_report</span></code>
-turns a resolver into the human-readable list of consequences the dialog previews.</p>
+faithful and then failing on load.</p>
+<p>Beyond the dataset roots, the resolver also tracks which <strong>ROIs</strong> and which
+<strong>standalone items</strong> — a run, spectral library, user CRS, or band-math expression,
+kinds nothing else depends on — the user excluded. Excluding an ROI both omits it and
+cascades to its ROI-average spectra (they snapshot); excluding a standalone item simply
+omits it, with nothing to cascade. <code class="docutils literal notranslate"><span class="pre">resolver_for_all_datasets(app_state)</span></code> builds the
+default “save everything” resolver; <code class="docutils literal notranslate"><span class="pre">resolver_for_selection(app_state,</span> <span class="pre">excluded_datasets,</span> <span class="pre">excluded_rois,</span> <span class="pre">excluded_items)</span></code> builds one from the user’s selection. Each <code class="docutils literal notranslate"><span class="pre">save_*</span></code>
+persister asks the resolver whether its own items are saved and skips the excluded ones.
+<code class="docutils literal notranslate"><span class="pre">cascade_report</span></code> turns a resolver into the human-readable list of consequences the dialog
+previews.</p>
 </section>
 <hr class="docutils" />
 <section id="persisters">
@@ -1085,7 +1103,7 @@ types, and bad enum values degrade gracefully.</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">datasets</span></code></p></td>
 <td><p>Loaded datasets</p></td>
-<td><p>File-backed by reference, RAM-backed to ENVI sidecars under <code class="docutils literal notranslate"><span class="pre">datasets/</span></code>; a NetCDF subdataset also records which subdataset was selected, and a JSON snapshot of the runtime-editable metadata (data-ignore, bad bands, wavelengths + units, band names, display bands, georeferenced CRS) rides in the manifest and is reapplied on load. Original ids preserved so references stay valid.</p></td>
+<td><p>File-backed by reference (or copied into the bundle under a self-contained save), RAM-backed to ENVI sidecars under <code class="docutils literal notranslate"><span class="pre">datasets/</span></code>; a NetCDF subdataset also records which subdataset was selected, and a JSON snapshot of the runtime-editable metadata (data-ignore, bad bands, wavelengths + units, band names, display bands, georeferenced CRS) rides in the manifest and is reapplied on load. Original ids preserved so references stay valid.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rois</span></code></p></td>
 <td><p>Regions of interest</p></td>
@@ -1147,27 +1165,41 @@ and loads exactly as before.</p>
 <hr class="docutils" />
 <section id="save">
 <h2>Save<a class="headerlink" href="#save" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">save_project(app_state,</span> <span class="pre">dest,</span> <span class="pre">resolver=None)</span></code> writes the manifest and sidecars in
-<strong>dependency order</strong> — datasets first, since they are the roots the rest of the
-manifest references by id and they own the sidecar I/O. Without an explicit
-resolver, every dataset is treated as saved; the Save dialog supplies a user-driven
-one built from the datasets the user unchecked.</p>
+<p><code class="docutils literal notranslate"><span class="pre">save_project(app_state,</span> <span class="pre">dest,</span> <span class="pre">resolver=None,</span> <span class="pre">self_contained=False)</span></code> writes the
+manifest and sidecars in <strong>dependency order</strong> — datasets first, since they are the
+roots the rest of the manifest references by id and they own the sidecar I/O. Without
+an explicit resolver, every item is treated as saved; the Save dialog supplies a
+user-driven one built from what the user unchecked. <code class="docutils literal notranslate"><span class="pre">self_contained=True</span></code> copies
+file-backed datasets into the bundle so the project is portable.</p>
 <pre  class="mermaid">
         sequenceDiagram
     participant U as User
     participant D as SaveProjectDialog
     participant S as save_project
     participant B as ProjectBundle
-    U-&gt;&gt;D: choose RAM datasets to include
-    D-&gt;&gt;D: save_plan() — preview SNAPSHOT/DROP cascade
+    U-&gt;&gt;D: uncheck items to leave out; optional self-contained
+    D-&gt;&gt;D: save_tree() — tree + live cascade annotations
     U-&gt;&gt;D: confirm
-    D-&gt;&gt;S: save_project(dest, resolver)
+    D-&gt;&gt;S: save_project(dest, resolver, self_contained)
     S-&gt;&gt;B: create bundle (dir, or temp dir → zip)
     S-&gt;&gt;B: save_datasets → sidecars + manifest
     S-&gt;&gt;B: save_crs, bandmath, rois, stretches, spectra, libraries, runs
     S-&gt;&gt;B: write_manifest
     B--&gt;&gt;U: .wiserproj written
-    </pre></section>
+    </pre><section id="choosing-what-to-save">
+<h3>Choosing what to save<a class="headerlink" href="#choosing-what-to-save" title="Link to this heading">#</a></h3>
+<p>The Save dialog is a single checkable tree with three groups — <strong>Datasets</strong>, <strong>ROIs</strong>,
+and <strong>Analysis outputs</strong> (runs, libraries, user CRSs, band-math expressions). Every item
+is checked by default; unchecking one leaves it out of the project, and unchecking a
+group toggles all of its items. The tree is the selection UI <em>and</em> the preview: a product
+under a dataset or ROI (a stretch, a point spectrum, an ROI-average) is a non-checkable
+child that follows its parent, annotated live with the consequence it takes when the
+parent is cut — <code class="docutils literal notranslate"><span class="pre">(snapshot)</span></code> for a spectrum that freezes to self-contained values,
+<code class="docutils literal notranslate"><span class="pre">(dropped)</span></code> for a stretch that has nothing to apply to. The headless model is
+<code class="docutils literal notranslate"><span class="pre">save_plan.save_tree</span></code>, unit-tested on its own; the dialog turns the user’s unchecked items
+into the resolver handed to <code class="docutils literal notranslate"><span class="pre">save_project</span></code>, plus the self-contained flag.</p>
+</section>
+</section>
 <hr class="docutils" />
 <section id="load">
 <h2>Load<a class="headerlink" href="#load" title="Link to this heading">#</a></h2>
@@ -1223,8 +1255,11 @@ field) bumps <code class="docutils literal notranslate"><span class="pre">CURREN
 <ol class="arabic simple">
 <li><p>Write a <code class="docutils literal notranslate"><span class="pre">save_&lt;kind&gt;</span></code> / <code class="docutils literal notranslate"><span class="pre">load_&lt;kind&gt;</span></code> pair in <code class="docutils literal notranslate"><span class="pre">persisters/</span></code>, following the
 drop-not-fatal contract (return the list of unrestorable entries).</p></li>
-<li><p>If the item depends on a dataset, classify it through the resolver so it
-snapshots or drops when its dataset is cut.</p></li>
+<li><p>If the item depends on a dataset or ROI, classify it through the resolver so it
+snapshots or drops when that root is cut. If it is a standalone item the user should
+be able to deselect on its own, give it a <code class="docutils literal notranslate"><span class="pre">(kind,</span> <span class="pre">id)</span></code> handle, skip it in <code class="docutils literal notranslate"><span class="pre">save_*</span></code>
+when <code class="docutils literal notranslate"><span class="pre">resolver.is_saved(...)</span></code> is false, and list it under <code class="docutils literal notranslate"><span class="pre">save_tree</span></code>’s
+<em>Analysis outputs</em> group so it gets a checkbox.</p></li>
 <li><p>Wire it into <code class="docutils literal notranslate"><span class="pre">orchestrate._write_bundle</span></code> and <code class="docutils literal notranslate"><span class="pre">orchestrate._restore</span></code> at the right
 point in dependency order.</p></li>
 <li><p>Prefer an additive, optional manifest section so no version bump is needed; bump
@@ -1287,7 +1322,10 @@ point in dependency order.</p></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-metadata-and-subdatasets">Dataset metadata and subdatasets</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#save">Save</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#save">Save</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-what-to-save">Choosing what to save</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load">Load</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#versioning-and-migration">Versioning and migration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extending-adding-a-new-persisted-item">Extending: adding a new persisted item</a></li>
