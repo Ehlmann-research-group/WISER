@@ -1,0 +1,834 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Mosaic &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-content/mosaic';</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending WISER" href="../extending-wiser/index.html" />
+    <link rel="prev" title="Spatial Tools" href="spatial-tools.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Mosaic</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/user-content/mosaic.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/user-content/mosaic.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Mosaic</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#before-you-start">Before you start</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-mosaic-window">The mosaic window</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#moving-around-the-preview">Moving around the preview</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-the-overlay-colors-mean">What the overlay colors mean</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-scenes">Adding scenes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-scene-stack">The scene stack</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pending-scenes-greyed-out">Pending scenes (greyed out)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fixing-a-misplaced-scene">Fixing a misplaced scene</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#target-crs">Target CRS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-settings">Output settings</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-spatial-resolution">Output Spatial Resolution</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resampling">Resampling</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata">Band metadata</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#exporting">Exporting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="mosaic">
+<h1>Mosaic<a class="headerlink" href="#mosaic" title="Link to this heading">#</a></h1>
+<p>The <strong>Mosaic</strong> tool combines several overlapping georeferenced images into a
+single image on one shared output grid. You add the scenes you want, stack them
+in the order you want them to appear, preview the result, and export a
+full-resolution ENVI file.</p>
+<p>Typical uses:</p>
+<ul class="simple">
+<li><p>Stitching adjacent flight lines or tiles into one continuous image.</p></li>
+<li><p>Layering a higher-resolution scene on top of a broader background scene.</p></li>
+<li><p>Bringing scenes with different coordinate reference systems onto one common
+projection.</p></li>
+</ul>
+<p>Open it from the menu bar: <strong>Tools → Mosaic</strong>. The window is non-modal, so you
+can keep working in the main WISER window (opening more files, changing display
+bands) while it is open.</p>
+<section id="before-you-start">
+<h2>Before you start<a class="headerlink" href="#before-you-start" title="Link to this heading">#</a></h2>
+<p>Scenes are picked from the datasets <strong>already loaded in WISER</strong>, not from a file
+picker. Load every image you want to mosaic first (<strong>File → Open</strong>), then open
+the Mosaic tool.</p>
+<p>Each scene should be georeferenced — it needs a coordinate reference system and
+real map coordinates. You can still add a scene that isn’t, but it will sit in
+the list disabled until you georeference it; see
+<a class="reference internal" href="#pending-scenes-greyed-out">Pending scenes</a>.</p>
+</section>
+<section id="the-mosaic-window">
+<h2>The mosaic window<a class="headerlink" href="#the-mosaic-window" title="Link to this heading">#</a></h2>
+<p>The window has two parts:</p>
+<ul class="simple">
+<li><p><strong>The preview canvas</strong> (left) — an interactive map showing the composited
+scenes, their outlines, and where they overlap.</p></li>
+<li><p><strong>The controls</strong> (right) — Add scene, the scene stack, output resolution,
+target CRS, resampling, band metadata, and Export.</p></li>
+</ul>
+<section id="moving-around-the-preview">
+<h3>Moving around the preview<a class="headerlink" href="#moving-around-the-preview" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Action</p></th>
+<th class="head"><p>How</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pan</p></td>
+<td><p>Middle-click and drag</p></td>
+</tr>
+<tr class="row-odd"><td><p>Zoom</p></td>
+<td><p>Mouse wheel (zooms toward the cursor)</p></td>
+</tr>
+<tr class="row-even"><td><p>Frame one scene</p></td>
+<td><p>Right-click the scene in the <strong>Scenes</strong> list → <strong>Zoom to Scene</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The preview frames the whole mosaic once, the first time there is something to
+show. After that it never moves the camera on you — adding a scene will not
+yank your view away from where you were looking.</p>
+</section>
+<section id="what-the-overlay-colors-mean">
+<h3>What the overlay colors mean<a class="headerlink" href="#what-the-overlay-colors-mean" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Green outlines</strong> — each visible scene’s footprint (the outline of its valid
+pixels, not just its rectangle).</p></li>
+<li><p><strong>Dashed box</strong> — the bounding box of the whole mosaic; this is the extent that
+will be exported.</p></li>
+<li><p><strong>Magenta / purple shading</strong> — where a scene is <em>covered</em> by another scene
+above it in the stack. This is where the stacking order is actually deciding
+which pixels you see.</p></li>
+</ul>
+<p>The overlay is purely a visual aid. It marks overlaps; it does not change which
+pixels win.</p>
+</section>
+</section>
+<section id="adding-scenes">
+<h2>Adding scenes<a class="headerlink" href="#adding-scenes" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Pick a dataset from the drop-down in the <strong>Add scene</strong> box.</p></li>
+<li><p>Click <strong>Add Scene…</strong>.</p></li>
+</ol>
+<p>A progress dialog appears while WISER prepares the scene. This blocks only the
+mosaic window — the rest of WISER stays usable — and you can cancel it.</p>
+<p>Your original file is never modified. WISER works on its own temporary copies
+for the whole session.</p>
+<p>Two things will stop a scene from being added at all:</p>
+<ul class="simple">
+<li><p><strong>It’s already in the mosaic.</strong> A dataset can only be added once.</p></li>
+<li><p><strong>Its band count doesn’t match.</strong> Every scene in a mosaic must have the same
+number of bands as the first scene you added.</p></li>
+</ul>
+<p>Anything else — a missing data-ignore value, a different pixel size, a different
+CRS, a different data type — is fine. Those are handled for you.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The preview shows each scene using the bands <strong>currently displayed for it in the
+main WISER window</strong>, with a contrast stretch applied per scene to account for outliers. If you want a
+different band combination in the preview, change the displayed bands in the
+main view <em>before</em> adding the scene. This only affects how the preview looks —
+the exported file always contains all the bands, with their original values.</p>
+</div>
+</section>
+<section id="the-scene-stack">
+<h2>The scene stack<a class="headerlink" href="#the-scene-stack" title="Link to this heading">#</a></h2>
+<p>The <strong>Scenes</strong> list is the stacking order, shown <strong>top-most first</strong>. The scene
+at the top of the list is the one drawn on top, and it wins wherever scenes
+overlap.</p>
+<ul class="simple">
+<li><p><strong>Reorder</strong> — drag a row up or down. The preview restacks immediately.</p></li>
+<li><p><strong>Hide / show</strong> — untick or tick a scene’s checkbox. Hidden scenes are left
+out of the preview and the export, but stay in the list.</p></li>
+<li><p><strong>Remove</strong> — select a row and click <strong>Remove Selected</strong>.</p></li>
+</ul>
+<p>Reordering and hiding are instant: they re-draw from what is already loaded and
+never re-read the imagery.</p>
+<section id="pending-scenes-greyed-out">
+<h3>Pending scenes (greyed out)<a class="headerlink" href="#pending-scenes-greyed-out" title="Link to this heading">#</a></h3>
+<p>A scene that WISER cannot place on the mosaic’s grid is kept in the list as a
+<strong>pending</strong> scene: greyed out, marked with a warning icon, and excluded from the
+preview, the grid, and the export. Hover over it to see why. There are two
+reasons:</p>
+<ul class="simple">
+<li><p><strong>It has no CRS</strong> — the image isn’t georeferenced.</p></li>
+<li><p><strong>Its CRS isn’t compatible</strong> with the mosaic’s target CRS — WISER can’t
+transform it into the projection the mosaic is using.</p></li>
+</ul>
+<p>This is deliberate: you can assemble your whole working set up front, including
+scenes you still intend to register, instead of hitting a dead end at Add
+Scene. Fix a pending scene by right-clicking it → <strong>Georeference…</strong> (below).
+Once it has a compatible CRS it goes live on its own and the mosaic rebuilds to
+include it.</p>
+</section>
+</section>
+<section id="fixing-a-misplaced-scene">
+<h2>Fixing a misplaced scene<a class="headerlink" href="#fixing-a-misplaced-scene" title="Link to this heading">#</a></h2>
+<p>If a scene is georeferenced but lands in the wrong place relative to the others,
+you don’t have to leave the mosaic. Right-click it in the <strong>Scenes</strong> list and
+choose <strong>Georeference…</strong>.</p>
+<p>This opens the Georeferencer with that scene already locked in as the target.
+Place your control points or pick a reference, click <strong>Run Warp</strong>, and the
+corrected scene is swapped straight back into the mosaic at its original
+position in the stack, so you can see whether the fix worked.</p>
+<ul class="simple">
+<li><p><strong>Save to Mosaic</strong> keeps the corrected scene.</p></li>
+<li><p><strong>Cancel</strong> puts the original scene back, unchanged.</p></li>
+</ul>
+<p>You can re-run the warp as many times as you like; each attempt replaces the
+last rather than piling up. The correction lives for the mosaic session and is
+baked into the exported file — it does not overwrite your original dataset on
+disk.</p>
+</section>
+<section id="target-crs">
+<h2>Target CRS<a class="headerlink" href="#target-crs" title="Link to this heading">#</a></h2>
+<p>Every scene is reprojected onto one shared <strong>target CRS</strong>. The <strong>first scene you
+add sets it automatically</strong>, and every scene you add afterward is reprojected
+onto that CRS.</p>
+<p>To use a different projection, click <strong>Choose Target CRS…</strong>. The dialog shows
+each scene and its current CRS, and lets you pick the target from any scene’s
+CRS, a built-in preset (WGS 84, Web Mercator, NAD83 / UTM 15N), a CRS you made
+with the CRS Creator, or an authority code you type in (for example <code class="docutils literal notranslate"><span class="pre">EPSG</span></code> +
+<code class="docutils literal notranslate"><span class="pre">4326</span></code>).</p>
+<p>Changing the target CRS re-evaluates every scene: any scene that can’t be
+transformed into the new CRS becomes <a class="reference internal" href="#pending-scenes-greyed-out">pending</a>, and
+any pending scene that <em>can</em> reach it goes live. If the new CRS leaves no usable
+scenes at all, WISER warns you that the preview is empty but still applies your
+choice. If the change pushes the mosaic off-screen, the preview reframes itself
+onto the scenes.</p>
+</section>
+<section id="output-settings">
+<h2>Output settings<a class="headerlink" href="#output-settings" title="Link to this heading">#</a></h2>
+<p>These control the file you export. Set them before you click Export.</p>
+<section id="output-spatial-resolution">
+<h3>Output Spatial Resolution<a class="headerlink" href="#output-spatial-resolution" title="Link to this heading">#</a></h3>
+<p>The pixel size of the exported mosaic, in the target CRS’s units.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Mode</p></th>
+<th class="head"><p>Pixel size used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Top scene</strong> (default)</p></td>
+<td><p>The pixel size of the scene at the top of the stack</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Highest (finest)</strong></p></td>
+<td><p>The smallest pixel size among the visible scenes</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Lowest (coarsest)</strong></p></td>
+<td><p>The largest pixel size among the visible scenes</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Average</strong></p></td>
+<td><p>The mean pixel size across the visible scenes</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Custom…</strong></p></td>
+<td><p>An X and Y pixel size you type in</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="resampling">
+<h3>Resampling<a class="headerlink" href="#resampling" title="Link to this heading">#</a></h3>
+<p>How pixel values are computed when a scene is reprojected onto the output grid.</p>
+<ul class="simple">
+<li><p><strong>Nearest Neighbor</strong> (default) — copies the closest source pixel. Values are
+preserved exactly. Use this for anything you plan to analyze quantitatively,
+such as classification or spectral analysis.</p></li>
+<li><p><strong>Bilinear</strong> and <strong>Cubic Convolution</strong> — interpolate between pixels, giving a
+smoother-looking image but <strong>inventing values that were never measured</strong>.
+WISER warns you when you pick one.</p></li>
+</ul>
+</section>
+<section id="band-metadata">
+<h3>Band metadata<a class="headerlink" href="#band-metadata" title="Link to this heading">#</a></h3>
+<p>Choose which scene’s band metadata — wavelengths, band names, bad-band list —
+gets written onto the exported file. It defaults to the top scene. This is
+labeling only: it never changes how many bands the output has, or the pixel
+values.</p>
+</section>
+</section>
+<section id="exporting">
+<h2>Exporting<a class="headerlink" href="#exporting" title="Link to this heading">#</a></h2>
+<p>Click <strong>Export / Finish…</strong>, choose an output path, and WISER composites every
+visible scene at full resolution and writes an <strong>ENVI</strong> file (<code class="docutils literal notranslate"><span class="pre">.img</span></code> plus a
+<code class="docutils literal notranslate"><span class="pre">.hdr</span></code>).</p>
+<p>What you get:</p>
+<ul class="simple">
+<li><p>Every visible scene, reprojected onto the target CRS at your chosen output
+resolution.</p></li>
+<li><p>Overlaps resolved strictly by the stacking order — the top scene wins. Values
+are never blended or averaged.</p></li>
+<li><p>Original pixel values (with Nearest Neighbor), with invalid and outside-the-
+footprint areas written as the mosaic’s no-data value, so a hole in an upper
+scene lets the scene beneath show through.</p></li>
+<li><p>The chosen scene’s band metadata written into the <code class="docutils literal notranslate"><span class="pre">.hdr</span></code>, so the file re-opens
+in WISER with the right spectral labels.</p></li>
+</ul>
+<p>Export runs in the background with a progress bar and can be cancelled. Large
+mosaics are streamed to disk piece by piece, so a mosaic bigger than your RAM is
+not a problem.</p>
+<p>A few things worth knowing before you click it:</p>
+<ul class="simple">
+<li><p><strong>Pending scenes are skipped.</strong> If any exist, WISER asks you to confirm before
+continuing; they simply won’t be in the output.</p></li>
+<li><p><strong>Hidden scenes are skipped.</strong> Unticked scenes are not exported.</p></li>
+<li><p><strong>Metadata edits made after adding a scene are not picked up.</strong> A mosaic scene
+is a snapshot taken when you added it. If you edit a dataset’s metadata (say,
+its wavelengths or data-ignore value) in the main WISER window afterward, the
+export uses the values from when the scene was added, and WISER warns you which
+scenes have drifted. To pick up the edit, remove the scene and add it again.</p></li>
+<li><p><strong>The result is not loaded back into WISER.</strong> Open the exported file with
+<strong>File → Open</strong> if you want to look at it.</p></li>
+</ul>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h2>
+<p><strong>A scene is greyed out with a warning icon.</strong> It’s
+<a class="reference internal" href="#pending-scenes-greyed-out">pending</a> — hover it to see whether it has no CRS or
+an incompatible one, then right-click → <strong>Georeference…</strong>.</p>
+<p><strong>The preview is blank.</strong> Either every scene is pending or hidden, or the camera
+is parked away from the scenes. Right-click a live scene → <strong>Zoom to Scene</strong> to
+jump back to it.</p>
+<p><strong>A scene won’t add at all.</strong> Check the band count — it has to match the first
+scene in the mosaic — and check it isn’t already in the list.</p>
+<p><strong>A scene is in the wrong place.</strong> Right-click it → <strong>Georeference…</strong> and warp
+it in place; see <a class="reference internal" href="#fixing-a-misplaced-scene">Fixing a misplaced scene</a>.</p>
+<p><strong>Changing the output resolution does nothing to the preview.</strong> That’s expected
+— it only sizes the exported file.</p>
+<p><strong>The exported values look interpolated.</strong> Set <strong>Resampling</strong> back to
+<strong>Nearest Neighbor</strong> and export again.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="spatial-tools.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Spatial Tools</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../extending-wiser/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Extending WISER</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#before-you-start">Before you start</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-mosaic-window">The mosaic window</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#moving-around-the-preview">Moving around the preview</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-the-overlay-colors-mean">What the overlay colors mean</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-scenes">Adding scenes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-scene-stack">The scene stack</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pending-scenes-greyed-out">Pending scenes (greyed out)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fixing-a-misplaced-scene">Fixing a misplaced scene</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#target-crs">Target CRS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-settings">Output settings</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-spatial-resolution">Output Spatial Resolution</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resampling">Resampling</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata">Band metadata</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#exporting">Exporting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

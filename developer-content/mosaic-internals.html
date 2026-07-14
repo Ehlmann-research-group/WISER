@@ -686,6 +686,7 @@ window.runMermaid = runMermaid;</script>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -1011,22 +1012,22 @@ intended for developers reading, debugging, or extending the tool.</p>
 <p class="admonition-title">Note</p>
 <p>This is an in-progress feature (EPIC #629). As of this writing, scene ingestion,
 materialization (a <strong>display-only</strong> preview artifact baked eagerly at ingest with the
-full-band cube materialized <strong>lazily at export</strong> — see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
-Metadata</span></a>), common-grid/CRS resolution, the
+full-band cube materialized <strong>lazily at export</strong> — see <a class="reference internal" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen
+Metadata</a>), common-grid/CRS resolution, the
 <strong>vector overlay</strong> (footprints, bounding box, overlap highlight), the <strong>static-scene
 pixel compositor</strong> (the composited
 preview, with an off-thread debounced tiled cache (#674) and a stable, zoom-independent
-per-scene contrast stretch cached at ingest — see <a class="reference internal" href="#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy"><span class="xref myst">Stretch
-bounds</span></a>), the <strong>control panel</strong> (drag-to-reorder z-order, resolution mode, resampling
+per-scene contrast stretch cached at ingest — see <a class="reference internal" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py">Stretch
+bounds</a>), the <strong>control panel</strong> (drag-to-reorder z-order, resolution mode, resampling
 method, and the band-metadata chooser), the <strong>full-resolution export path</strong>
-(streaming ENVI compositor on the common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
-Path</span></a>), and <strong>in-place scene
-re-georeferencing</strong> (right-click → warp → swap; see <a class="reference internal" href="#re-georeferencing-a-scene-in-place"><span class="xref myst">Re-georeferencing a Scene In
-Place</span></a>), <strong>pending (disabled) scenes</strong>
+(streaming ENVI compositor on the common grid — see <a class="reference internal" href="#the-export-path">The Export
+Path</a>), and <strong>in-place scene
+re-georeferencing</strong> (right-click → warp → swap; see <a class="reference internal" href="#re-georeferencing-a-scene-in-place">Re-georeferencing a Scene In
+Place</a>), <strong>pending (disabled) scenes</strong>
 (non-georeferenced or CRS-incompatible scenes carried in the list until georeferenced;
-see <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">Pending Scenes</span></a>), and <strong>zoom-to-scene</strong>
-(right-click a live scene → frame the camera on its footprint; see <a class="reference internal" href="#zoom-to-scene"><span class="xref myst">Zoom to
-Scene</span></a>) are implemented and wired into the GUI.</p>
+see <a class="reference internal" href="#pending-scenes-disabled-scenes">Pending Scenes</a>), and <strong>zoom-to-scene</strong>
+(right-click a live scene → frame the camera on its footprint; see <a class="reference internal" href="#zoom-to-scene">Zoom to
+Scene</a>) are implemented and wired into the GUI.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
 in the repo root. There is no user-facing guide yet since the feature is not
@@ -1038,8 +1039,8 @@ preview/export complete.</p>
 <li><p><strong>The UI / control layer</strong> — <code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> is a non-modal, cached top-level
 window (like the other tool dialogs) that hosts a <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>. The pane owns an
 “Add Scene” picker, a scene stack (drag-to-reorder z-order + visibility), and the
-resolution / target-CRS / resampling / band-metadata controls (see <a class="reference internal" href="#the-control-panel"><span class="xref myst">The Control
-Panel</span></a>), and drives the ingestion pipeline on a background thread.</p></li>
+resolution / target-CRS / resampling / band-metadata controls (see <a class="reference internal" href="#the-control-panel">The Control
+Panel</a>), and drives the ingestion pipeline on a background thread.</p></li>
 <li><p><strong>The non-GUI model</strong> — <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> is the single source of truth for the
 scene list, z-order, resolution mode, target CRS, and the computed <code class="docutils literal notranslate"><span class="pre">CommonGrid</span></code>. It
 is deliberately Qt-free (may use <code class="docutils literal notranslate"><span class="pre">osgeo.gdal/ogr/osr</span></code>) so it is unit-testable without
@@ -1048,9 +1049,9 @@ a running application.</p></li>
 (not a subclass — a mosaic is N scenes on one shared world grid, not one dataset
 zoomed). It draws two layers on a QGIS-style unbounded canvas via a world→screen
 camera (<code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code>): the <strong>pixel layer</strong> (the composited scenes, from a
-tiled ARGB cache — see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel Layer</span></a>)
+tiled ARGB cache — see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor">The Pixel Layer</a>)
 and, on top, the <strong>vector overlay</strong> (footprints, bounding box, overlap highlight — see
-<a class="reference internal" href="#the-geometry-overlay-vector-layer"><span class="xref myst">The Geometry Overlay</span></a>).</p></li>
+<a class="reference internal" href="#the-geometry-overlay-vector-layer">The Geometry Overlay</a>).</p></li>
 </ul>
 <p>Every scene, regardless of its original backing (GDAL file, NumPy array, PDR, etc.),
 is turned into a warpable, disk-backed tiled GeoTIFF by a <code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> — the
@@ -1059,8 +1060,8 @@ SRS/geotransform/nodata/band metadata from the dataset object, not from its <cod
 As of #677 there are <strong>two</strong> materialization moments: at ingest the pane bakes a
 small <strong>display-only</strong> GeoTIFF (just the 1 or 3 display bands) that the preview reads,
 and at export the full-band cube is materialized <strong>lazily</strong>, stamped from a metadata
-snapshot <strong>frozen at ingest</strong>. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
-Metadata</span></a>.</p>
+snapshot <strong>frozen at ingest</strong>. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen
+Metadata</a>.</p>
 <p><strong>Core files:</strong></p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -1187,8 +1188,8 @@ boxes). <code class="docutils literal notranslate"><span class="pre">MosaicPane<
     MosaicPane --&gt; MosaicController : owns, shares with view
     MosaicView --&gt; MosaicController : reads
     </pre><p><code class="docutils literal notranslate"><span class="pre">SceneMaterializer</span></code> is injected into <code class="docutils literal notranslate"><span class="pre">MosaicPane</span></code>’s constructor by
-<code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> (see <a class="reference internal" href="#entry-point-and-dialog-lifecycle"><span class="xref myst">Entry Point and Dialog
-Lifecycle</span></a> above) rather than owned separately by
+<code class="docutils literal notranslate"><span class="pre">SeamlessMosaicDialog</span></code> (see <a class="reference internal" href="#entry-point-and-dialog-lifecycle">Entry Point and Dialog
+Lifecycle</a> above) rather than owned separately by
 the pane, so it appears only once above.</p>
 <pre  class="mermaid">
         classDiagram
@@ -1302,8 +1303,8 @@ with <code class="docutils literal notranslate"><span class="pre">TemporaryDirec
     </pre><p>Note the display-band resolution and the metadata snapshot are computed on the <strong>GUI
 thread</strong> before the worker starts (both must read live main-view / dataset state at
 add-time); only the display-only materialization, overviews, and footprint run on the
-background thread. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
-Metadata</span></a>.</p>
+background thread. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen
+Metadata</a>.</p>
 <section id="validation-validate-scene-mosaic-ingestion-py">
 <h3>Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#validation-validate-scene-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Runs synchronously on the <strong>main thread</strong> before any background work starts, so
@@ -1315,8 +1316,8 @@ regardless of georeferencing:</p>
 <li><p><strong>Band-count mismatch</strong> — differs from the first existing scene’s band count.</p></li>
 </ul>
 <p>Being ungeoreferenced or CRS-incompatible is <strong>no longer a rejection</strong>: such scenes are
-added as disabled <strong>pending</strong> scenes (see <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">Pending
-Scenes</span></a>). The pane branches on
+added as disabled <strong>pending</strong> scenes (see <a class="reference internal" href="#pending-scenes-disabled-scenes">Pending
+Scenes</a>). The pane branches on
 <code class="docutils literal notranslate"><span class="pre">is_dataset_georeferenced(dataset)</span></code> (a non-identity geotransform <strong>and</strong> a non-empty
 SRS): a georeferenced dataset runs the full ingest pipeline below (it may still land
 pending if its CRS can’t reach the target), while a non-georeferenced one is appended
@@ -1340,8 +1341,8 @@ disk-backed, tiled GeoTIFF (<code class="docutils literal notranslate"><span cla
 directory (<code class="docutils literal notranslate"><span class="pre">wiser.utils.primitives.temp_dir()</span></code>), <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">/vsimem</span></code> (RAM-backed), so
 GDAL reads only the requested windows. It contains only the frozen <strong>display bands</strong>
 (1 for grayscale, 3 for RGB — bands 1/2/3 <em>are</em> R/G/B), so every warp and overview
-level touches 1–3 bands instead of all N — the whole point of #677 (see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only
-Preview and Frozen Metadata</span></a>). Metadata
+level touches 1–3 bands instead of all N — the whole point of #677 (see <a class="reference internal" href="#display-only-preview-and-frozen-metadata">Display-Only
+Preview and Frozen Metadata</a>). Metadata
 (geotransform, SRS, nodata, per-band wavelength) is stamped from the <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>
 object band-remapped onto the kept bands, with nodata preserved so the preview alpha
 mask still works. A per-scene dedup cache keyed by <code class="docutils literal notranslate"><span class="pre">(dataset</span> <span class="pre">id,</span> <span class="pre">display</span> <span class="pre">bands)</span></code> keeps
@@ -1373,7 +1374,7 @@ coarsest level trades a little ingest time for a larger, more representative sam
 bright/dark feature). A band with no valid (non-nodata) pixels in the sample is simply
 omitted from the result.</p>
 <p>This is what fixes the bug the pixel layer’s per-scene renderer used to have: see
-<a class="reference internal" href="#the-per-scene-renderer-render_scene_argb-qt-free"><span class="xref myst">The per-scene renderer</span></a> below for
+<a class="reference internal" href="#the-per-scene-renderer-render-scene-argb-qt-free">The per-scene renderer</a> below for
 how the compositor consumes these bounds instead of recomputing a stretch from
 whatever happens to be in the current viewport.</p>
 </section>
@@ -1425,7 +1426,7 @@ preserved for the alpha mask, and overviews + footprint are built on it. This is
 holds <strong>only</strong> these small artifacts.</p></li>
 <li><p><strong>At export</strong> the full-band cube is materialized <strong>lazily and uncached</strong>
 (<code class="docutils literal notranslate"><span class="pre">materialize_full_band_from_snapshot</span></code>), the only moment all bands are actually needed
-— see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export Path</span></a>.</p></li>
+— see <a class="reference internal" href="#the-export-path">The Export Path</a>.</p></li>
 </ul>
 <p>Band selection therefore moves from <strong>read time to materialize time</strong>: the compositor no
 longer picks 3-of-N, it reads the small file’s bands in order.</p>
@@ -1564,7 +1565,7 @@ calls <code class="docutils literal notranslate"><span class="pre">_prompt_for_t
 <li><p><strong>Changing the target CRS no longer rejects incompatible scenes.</strong> <code class="docutils literal notranslate"><span class="pre">build_common_grid</span></code>
 builds from <strong>live</strong> scenes only, and <code class="docutils literal notranslate"><span class="pre">_prompt_for_target_crs</span></code> sets the chosen target
 unconditionally (it no longer calls <code class="docutils literal notranslate"><span class="pre">validate_target_crs</span></code> as a blocker). A scene the new
-target can’t reach simply becomes <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">pending</span></a> instead of
+target can’t reach simply becomes <a class="reference internal" href="#pending-scenes-disabled-scenes">pending</a> instead of
 failing the change; if the choice leaves <em>no</em> live scenes, <code class="docutils literal notranslate"><span class="pre">_on_choose_target_crs</span></code> warns
 that the preview is empty but still commits the CRS.</p></li>
 </ul>
@@ -1591,7 +1592,7 @@ assumption ever changes (e.g. a future “clear target CRS” control). The
 <code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> branches are likewise defensive now: since the pending-scene work,
 <code class="docutils literal notranslate"><span class="pre">build_common_grid</span></code> builds from <code class="docutils literal notranslate"><span class="pre">_live_scenes()</span></code> — scenes that are <em>by construction</em>
 mappable to the target — and no longer calls <code class="docutils literal notranslate"><span class="pre">validate_target_crs</span></code>, so an incompatible
-scene becomes <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">pending</span></a> instead of raising here. The
+scene becomes <a class="reference internal" href="#pending-scenes-disabled-scenes">pending</a> instead of raising here. The
 <code class="docutils literal notranslate"><span class="pre">except</span></code> clauses are retained as a safety net.</p>
 </section>
 <section id="removal-and-visibility-changes">
@@ -1615,8 +1616,8 @@ scene’s CRS; seeds the dialog’s target-CRS combo and its default selection.<
 <li><p><code class="docutils literal notranslate"><span class="pre">validate_target_crs(target_wkt)</span></code> — raises <code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> naming any scene
 (by name) that cannot be transformed to the target, via
 <code class="docutils literal notranslate"><span class="pre">wiser.raster.utils.can_transform_between_srs</span></code>. Now <strong>advisory</strong> — the GUI classifies
-incompatible scenes as pending rather than calling this as a hard gate (see <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">Pending
-Scenes</span></a>).</p></li>
+incompatible scenes as pending rather than calling this as a hard gate (see <a class="reference internal" href="#pending-scenes-disabled-scenes">Pending
+Scenes</a>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">is_scene_pending(scene)</span></code> / <code class="docutils literal notranslate"><span class="pre">scene_pending_reason(scene)</span></code> — classify a scene as
 live (<code class="docutils literal notranslate"><span class="pre">None</span></code>) or pending (<code class="docutils literal notranslate"><span class="pre">ScenePendingReason.NO_CRS</span></code> / <code class="docutils literal notranslate"><span class="pre">INCOMPATIBLE_CRS</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">live_scenes()</span></code> / <code class="docutils literal notranslate"><span class="pre">has_live_scenes()</span></code> / <code class="docutils literal notranslate"><span class="pre">has_pending_scenes()</span></code> — the live/pending
@@ -1673,7 +1674,7 @@ grid-consuming operation:</p>
 a pending scene never perturbs the output grid.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">visible_scene_footprints_in_common_crs()</span></code> (the overlay) and the pixel compositor iterate
 live scenes, so a pending scene draws nothing.</p></li>
-<li><p>Export composites <code class="docutils literal notranslate"><span class="pre">live_scenes()</span></code> (see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export Path</span></a>).</p></li>
+<li><p>Export composites <code class="docutils literal notranslate"><span class="pre">live_scenes()</span></code> (see <a class="reference internal" href="#the-export-path">The Export Path</a>).</p></li>
 </ul>
 <p>Because the grid is built from live scenes, an <strong>all-pending mosaic yields an empty grid</strong>
 (not an error): <code class="docutils literal notranslate"><span class="pre">has_live_scenes()</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, the view shows blank canvas, and the CRS
@@ -1712,7 +1713,7 @@ is what excludes it from the grid, not its checkbox.</p>
 <section id="promotion-georeference-in-place">
 <h3>Promotion: georeference in place<a class="headerlink" href="#promotion-georeference-in-place" title="Link to this heading">#</a></h3>
 <p>A pending scene is fixed through the <strong>same</strong> right-click → “Georeference…” flow documented
-in <a class="reference internal" href="#re-georeferencing-a-scene-in-place"><span class="xref myst">Re-georeferencing a Scene In Place</span></a>. The warp bakes
+in <a class="reference internal" href="#re-georeferencing-a-scene-in-place">Re-georeferencing a Scene In Place</a>. The warp bakes
 a real CRS + geotransform into the scene and reingests it, so it gains <code class="docutils literal notranslate"><span class="pre">gdal_path</span></code> /
 <code class="docutils literal notranslate"><span class="pre">footprint_wkt</span></code> in a CRS that (if compatible) makes <code class="docutils literal notranslate"><span class="pre">scene_pending_reason</span></code> return <code class="docutils literal notranslate"><span class="pre">None</span></code> on
 the next <code class="docutils literal notranslate"><span class="pre">_ensure_common_grid</span></code> — the scene goes live and the grid rebuilds to include it.
@@ -1726,11 +1727,11 @@ it commits the new target and lets the classifier re-partition: scenes that can�
 new CRS become <code class="docutils literal notranslate"><span class="pre">INCOMPATIBLE_CRS</span></code>-pending, and previously-pending scenes that <em>can</em> reach it
 go live. If the change leaves no live scenes at all, the pane warns that the preview is
 empty but still keeps the chosen CRS. Removal / visibility changes rebuild quietly as before
-(see <a class="reference internal" href="#removal-and-visibility-changes"><span class="xref myst">Removal and visibility changes</span></a>).</p>
+(see <a class="reference internal" href="#removal-and-visibility-changes">Removal and visibility changes</a>).</p>
 <p>A CRS change also moves the world grid without moving the camera, so <code class="docutils literal notranslate"><span class="pre">_on_choose_target_crs</span></code>
 then calls <code class="docutils literal notranslate"><span class="pre">MosaicView.ensure_scenes_in_view()</span></code> to reframe the preview when the mosaic
-landed off-screen — see <a class="reference internal" href="#reframing-after-a-target-crs-change"><span class="xref myst">Reframing after a target-CRS
-change</span></a>.</p>
+landed off-screen — see <a class="reference internal" href="#reframing-after-a-target-crs-change">Reframing after a target-CRS
+change</a>.</p>
 </section>
 <section id="export-guard">
 <h3>Export guard<a class="headerlink" href="#export-guard" title="Link to this heading">#</a></h3>
@@ -1756,7 +1757,7 @@ tile’s world rectangle rather than the whole viewport.</p>
 scene onto the requested <code class="docutils literal notranslate"><span class="pre">world_extent</span></code> at output size <code class="docutils literal notranslate"><span class="pre">w×h</span></code> via
 <code class="docutils literal notranslate"><span class="pre">gdal.Warp(...,</span> <span class="pre">dstSRS=target_wkt,</span> <span class="pre">outputBounds=world_extent,</span> <span class="pre">dstAlpha=True)</span></code> and returns
 an <code class="docutils literal notranslate"><span class="pre">(h,</span> <span class="pre">w,</span> <span class="pre">4)</span></code> uint8 RGBA array. Callers pass one tile’s world rectangle at <code class="docutils literal notranslate"><span class="pre">256×256</span></code>
-(see <a class="reference internal" href="#the-tiled-cache-and-composite"><span class="xref myst">The tiled cache</span></a>), but the renderer neither knows
+(see <a class="reference internal" href="#the-tiled-cache-and-composite">The tiled cache</a>), but the renderer neither knows
 nor cares that it is a tile. A single <code class="docutils literal notranslate"><span class="pre">gdal.Warp</span></code> does four jobs at once:</p>
 <ul class="simple">
 <li><p><strong>reprojection</strong> onto the target CRS,</p></li>
@@ -1780,7 +1781,7 @@ population into the percentile on every paint, and a scene’s on-screen contras
 visibly drifted as the user zoomed, even though nothing about the data changed.
 <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code> now looks up <code class="docutils literal notranslate"><span class="pre">scene.stretch_bounds[band_idx]</span></code> — precomputed once
 at ingest by
-<a class="reference internal" href="#stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code></span></a>
+<a class="reference internal" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py"><code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code></a>
 from a whole-scene overview sample — and stretches every render against those fixed
 bounds, so contrast is identical whether the viewport shows the full scene or a
 single zoomed-in pixel. <code class="docutils literal notranslate"><span class="pre">_stretch_band</span></code> still falls back to the old viewport
@@ -1791,8 +1792,8 @@ though a shared min/max across all visible scenes would look more consistent whe
 scenes have very different value ranges. That was a deliberate trade-off: combined
 bounds would have to change (and force a re-render) whenever visibility changes, which
 breaks the <code class="docutils literal notranslate"><span class="pre">recomposite_only()</span></code> <strong>zero-GDAL-reads</strong> guarantee for visibility/z-order
-changes described in <a class="reference internal" href="#the-tiled-cache-and-composite"><span class="xref myst">The tiled cache and
-<code class="docutils literal notranslate"><span class="pre">composite()</span></code></span></a> below — a guarantee
+changes described in <a class="reference internal" href="#the-tiled-cache-and-composite">The tiled cache and
+<code class="docutils literal notranslate"><span class="pre">composite()</span></code></a> below — a guarantee
 <code class="docutils literal notranslate"><span class="pre">test_mosaic_view_gui.py</span></code> asserts by spying on <code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>. Independent
 per-scene bounds fully fix the zoom-instability bug (the actual report) without
 touching that contract.</p>
@@ -2045,15 +2046,15 @@ the controller stores scenes <strong>bottom-to-top</strong> (visual row <code cl
 quietly (a reorder can change the top scene, hence the <code class="docutils literal notranslate"><span class="pre">TOP</span></code>-mode pixel size, but never
 the CRS constraint),   defers a <code class="docutils literal notranslate"><span class="pre">_refresh_scene_list()</span></code> to rewrite the now-stale
 <code class="docutils literal notranslate"><span class="pre">Qt.UserRole</span></code> indices safely after the drop, and does the pure-restack invalidation.
-<code class="docutils literal notranslate"><span class="pre">_refresh_scene_list()</span></code> also decorates any <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">pending</span></a>
+<code class="docutils literal notranslate"><span class="pre">_refresh_scene_list()</span></code> also decorates any <a class="reference internal" href="#pending-scenes-disabled-scenes">pending</a>
 scene with a warning icon, greyed text, and a why-disabled tooltip (visibility checkbox
 left enabled).</p></li>
 <li><p><strong>Resolution mode.</strong> A combo over <code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> (Top / Highest / Lowest / Average /
 Custom); Custom reveals two positive-only pixel-size spin boxes (target-CRS units),
 seeded from the current grid on first use so <code class="docutils literal notranslate"><span class="pre">build_common_grid</span></code> never sees <code class="docutils literal notranslate"><span class="pre">CUSTOM</span></code>
 without a size. A change rebuilds the grid quietly. Note the resolution only sizes the
-<strong>export</strong> grid — the preview always warps at <em>viewport</em> resolution (see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor"><span class="xref myst">The Pixel
-Layer</span></a>), so changing it has no on-screen
+<strong>export</strong> grid — the preview always warps at <em>viewport</em> resolution (see <a class="reference internal" href="#the-pixel-layer-static-scene-compositor">The Pixel
+Layer</a>), so changing it has no on-screen
 effect.</p></li>
 <li><p><strong>Resampling method.</strong> A curated combo — Nearest Neighbor (default), Bilinear, Cubic
 Convolution — whose <code class="docutils literal notranslate"><span class="pre">userData</span></code> is the <code class="docutils literal notranslate"><span class="pre">gdal.GRA_*</span></code> constant. Any non-Nearest-Neighbor
@@ -2069,8 +2070,8 @@ stores the choice as a <code class="docutils literal notranslate"><span class="p
 <code class="docutils literal notranslate"><span class="pre">get_band_metadata_source()</span></code> falls back to the top visible scene when nothing is chosen
 or the chosen scene is removed/hidden. Neither this nor the resampling method invalidates
 the grid (both are output-content, not grid geometry).</p></li>
-<li><p><strong>Export / Finish</strong> runs the full-resolution export path (see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
-Path</span></a>); the v1 preview toggle is intentionally deferred.</p></li>
+<li><p><strong>Export / Finish</strong> runs the full-resolution export path (see <a class="reference internal" href="#the-export-path">The Export
+Path</a>); the v1 preview toggle is intentionally deferred.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">ResolutionMode</span></code> change, band-metadata selection, resampling warning, and
 reorder-without-reads are covered by <code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_control_panel_gui.py</span></code>, with
@@ -2101,8 +2102,8 @@ bottom-to-top index) and pops a <code class="docutils literal notranslate"><span
 requirement Add Scene guards on).</p></li>
 <li><p><strong>“Zoom to Scene”</strong> → <code class="docutils literal notranslate"><span class="pre">_on_zoom_to_scene(index)</span></code>. Offered only for <strong>live</strong> scenes
 (<code class="docutils literal notranslate"><span class="pre">not</span> <span class="pre">controller.is_scene_pending(scene)</span></code>) — a pending scene has no placeable footprint
-on the common canvas, so there is nothing to frame. See <a class="reference internal" href="#zoom-to-scene"><span class="xref myst">Zoom to
-Scene</span></a> below.</p></li>
+on the common canvas, so there is nothing to frame. See <a class="reference internal" href="#zoom-to-scene">Zoom to
+Scene</a> below.</p></li>
 </ul>
 <p>The menu gates are <strong>per-action</strong>, not on the whole menu: the georeference guard no
 longer suppresses the entire menu, so a live scene on a materializer-less pane still gets
@@ -2199,9 +2200,9 @@ materialized tiled copy; the original (unwarped) dataset is removed from the mos
 entirely. So there is no “unwarped full dataset” left behind to reconcile.</p>
 </div></blockquote>
 <p>Both the preview compositor
-(<a class="reference internal" href="#the-per-scene-renderer-render_scene_argb-qt-free"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code></span></a>)
+(<a class="reference internal" href="#the-per-scene-renderer-render-scene-argb-qt-free"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code></span></a>)
 and the export compositor
-(<a class="reference internal" href="#the-compositor-export_mosaic-qt-free"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">_warp_scene_to_grid_vrt</span></code></span></a>) read pixels <strong>and</strong>
+(<a class="reference internal" href="#the-compositor-export-mosaic-qt-free"><code class="docutils literal notranslate"><span class="pre">_warp_scene_to_grid_vrt</span></code></a>) read pixels <strong>and</strong>
 the geotransform from <code class="docutils literal notranslate"><span class="pre">scene.gdal_path</span></code>. They differ only in output resolution (screen
 vs. full), so they are always consistent. The re-georeferenced scene therefore reaches
 export the same way any scene does — <strong>twice-warped in sequence</strong>: warp #1 (the
@@ -2261,7 +2262,7 @@ reframes to the union extent (<code class="docutils literal notranslate"><span c
 when none is visible</strong>. If any scene still intersects the viewport the user’s pan/zoom is
 left untouched — the reframe rescues the off-screen case without yanking the camera on a
 CRS change that happened to keep the mosaic in view. It reuses the same <code class="docutils literal notranslate"><span class="pre">zoom_to_extent</span></code>
-(hence the same margin) as <a class="reference internal" href="#zoom-to-scene"><span class="xref myst">Zoom to Scene</span></a>.</p>
+(hence the same margin) as <a class="reference internal" href="#zoom-to-scene">Zoom to Scene</a>.</p>
 </section>
 </section>
 <hr class="docutils" />
@@ -2345,10 +2346,10 @@ why the on-disk header must be fully self-describing.</p>
 <p><code class="docutils literal notranslate"><span class="pre">MosaicPane._on_export_clicked</span></code> (GUI thread) requires ≥1 <strong>live</strong> scene
 (<code class="docutils literal notranslate"><span class="pre">live_scenes()</span></code> — pending scenes can’t be placed and are excluded), and if any pending
 scenes exist it <strong>warns and asks for confirmation</strong> before continuing (they are then
-silently skipped — see <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">Pending Scenes</span></a>). Any visible scene whose live dataset
+silently skipped — see <a class="reference internal" href="#pending-scenes-disabled-scenes">Pending Scenes</a>). Any visible scene whose live dataset
 spectral metadata differs from its frozen snapshot — a warn-and-proceed prompt, since
-the export will use the frozen values; see <a class="reference internal" href="#display-only-preview-and-frozen-metadata"><span class="xref myst">Display-Only Preview and Frozen
-Metadata</span></a>. It resolves the
+the export will use the frozen values; see <a class="reference internal" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen
+Metadata</a>. It resolves the
 grid via <code class="docutils literal notranslate"><span class="pre">_ensure_common_grid()</span></code> (surfacing <code class="docutils literal notranslate"><span class="pre">TargetCrsRequired</span></code>/<code class="docutils literal notranslate"><span class="pre">UnmappableCrsError</span></code> as a
 warning), asks for an output path with <code class="docutils literal notranslate"><span class="pre">QFileDialog.getSaveFileName</span></code>, resolves the output
 nodata (<code class="docutils literal notranslate"><span class="pre">_resolve_output_nodata</span></code>: the band-metadata scene’s <strong>frozen</strong> Data Ignore Value,
