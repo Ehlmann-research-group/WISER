@@ -979,6 +979,10 @@ window.runMermaid = runMermaid;</script>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-reingest-and-how-the-fix-reaches-the-export">Why reingest, and how the fix reaches the export</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#zoom-to-scene">Zoom to Scene</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reframing-after-a-target-crs-change">Reframing after a target-CRS change</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-export-path">The Export Path</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-compositor-export-mosaic-qt-free">The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#band-metadata-stamping-and-the-envi-header-patch">Band-metadata stamping and the ENVI-header patch</a></li>
@@ -1018,10 +1022,11 @@ method, and the band-metadata chooser), the <strong>full-resolution export path<
 (streaming ENVI compositor on the common grid — see <a class="reference internal" href="#the-export-path"><span class="xref myst">The Export
 Path</span></a>), and <strong>in-place scene
 re-georeferencing</strong> (right-click → warp → swap; see <a class="reference internal" href="#re-georeferencing-a-scene-in-place"><span class="xref myst">Re-georeferencing a Scene In
-Place</span></a>), and <strong>pending (disabled) scenes</strong>
+Place</span></a>), <strong>pending (disabled) scenes</strong>
 (non-georeferenced or CRS-incompatible scenes carried in the list until georeferenced;
-see <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">Pending Scenes</span></a>) are implemented and wired into
-the GUI.</p>
+see <a class="reference internal" href="#pending-scenes-disabled-scenes"><span class="xref myst">Pending Scenes</span></a>), and <strong>zoom-to-scene</strong>
+(right-click a live scene → frame the camera on its footprint; see <a class="reference internal" href="#zoom-to-scene"><span class="xref myst">Zoom to
+Scene</span></a>) are implemented and wired into the GUI.</p>
 </div>
 <p>For the design rationale and full child-issue breakdown, see <code class="docutils literal notranslate"><span class="pre">EPIC_seamless_mosaic.md</span></code>
 in the repo root. There is no user-facing guide yet since the feature is not
@@ -1722,6 +1727,10 @@ new CRS become <code class="docutils literal notranslate"><span class="pre">INCO
 go live. If the change leaves no live scenes at all, the pane warns that the preview is
 empty but still keeps the chosen CRS. Removal / visibility changes rebuild quietly as before
 (see <a class="reference internal" href="#removal-and-visibility-changes"><span class="xref myst">Removal and visibility changes</span></a>).</p>
+<p>A CRS change also moves the world grid without moving the camera, so <code class="docutils literal notranslate"><span class="pre">_on_choose_target_crs</span></code>
+then calls <code class="docutils literal notranslate"><span class="pre">MosaicView.ensure_scenes_in_view()</span></code> to reframe the preview when the mosaic
+landed off-screen — see <a class="reference internal" href="#reframing-after-a-target-crs-change"><span class="xref myst">Reframing after a target-CRS
+change</span></a>.</p>
 </section>
 <section id="export-guard">
 <h3>Export guard<a class="headerlink" href="#export-guard" title="Link to this heading">#</a></h3>
@@ -2085,9 +2094,19 @@ GCP, or CRS logic is added here.</p>
 <p><code class="docutils literal notranslate"><span class="pre">_build_scene_list_group</span></code> gives <code class="docutils literal notranslate"><span class="pre">self._scene_list</span></code> a <code class="docutils literal notranslate"><span class="pre">Qt.CustomContextMenu</span></code> policy;
 <code class="docutils literal notranslate"><span class="pre">_on_scene_context_menu(pos)</span></code> resolves the clicked row to a <strong>controller</strong> index via
 <code class="docutils literal notranslate"><span class="pre">item.data(Qt.UserRole)</span></code> (the list is shown top-first but each item carries its real
-bottom-to-top index) and pops a one-action <code class="docutils literal notranslate"><span class="pre">QMenu</span></code> → <code class="docutils literal notranslate"><span class="pre">_on_georeference_scene(index)</span></code>. The
-menu is suppressed when the scheduler or the session materializer is absent, since the
-swap reingests (the same requirement Add Scene guards on).</p>
+bottom-to-top index) and pops a <code class="docutils literal notranslate"><span class="pre">QMenu</span></code> whose actions are built <strong>per-scene</strong>:</p>
+<ul class="simple">
+<li><p><strong>“Georeference…”</strong> → <code class="docutils literal notranslate"><span class="pre">_on_georeference_scene(index)</span></code>. Offered only when the scheduler
+<strong>and</strong> the session materializer are present, since the swap reingests (the same
+requirement Add Scene guards on).</p></li>
+<li><p><strong>“Zoom to Scene”</strong> → <code class="docutils literal notranslate"><span class="pre">_on_zoom_to_scene(index)</span></code>. Offered only for <strong>live</strong> scenes
+(<code class="docutils literal notranslate"><span class="pre">not</span> <span class="pre">controller.is_scene_pending(scene)</span></code>) — a pending scene has no placeable footprint
+on the common canvas, so there is nothing to frame. See <a class="reference internal" href="#zoom-to-scene"><span class="xref myst">Zoom to
+Scene</span></a> below.</p></li>
+</ul>
+<p>The menu gates are <strong>per-action</strong>, not on the whole menu: the georeference guard no
+longer suppresses the entire menu, so a live scene on a materializer-less pane still gets
+“Zoom to Scene”. If no action qualifies the menu is simply not shown (<code class="docutils literal notranslate"><span class="pre">menu.isEmpty()</span></code>).</p>
 </section>
 <section id="opening-the-dialog-locked-target-locked-save-path">
 <h3>Opening the dialog (locked target + locked save path)<a class="headerlink" href="#opening-the-dialog-locked-target-locked-save-path" title="Link to this heading">#</a></h3>
@@ -2193,6 +2212,56 @@ exactly why the design reingests rather than patching caches in place — one co
 rebuild, and the export path picks it up for free. (The correction lives only for the
 session; the mosaic export re-warps from the temp at full resolution, so the on-disk
 product is correct without persisting the single corrected scene separately.)</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="zoom-to-scene">
+<h2>Zoom to Scene<a class="headerlink" href="#zoom-to-scene" title="Link to this heading">#</a></h2>
+<p><strong>Files:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/mosaic_controller.py</span></code> (the extent helper),
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_view.py</span></code> (the camera move), and <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/mosaic_pane.py</span></code>
+(the menu action).</p>
+<p>Right-clicking a <strong>live</strong> scene offers <strong>“Zoom to Scene”</strong>, which frames the map camera
+on just that scene’s footprint — the per-scene analogue of the one-time whole-mosaic
+auto-fit. It is a thin glue layer over three pieces that already existed; no new
+geometry, reprojection, or camera math is added.</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">MosaicController.scene_extent_in_common_crs(scene)</span></code></strong> (Qt-free) returns
+<code class="docutils literal notranslate"><span class="pre">(min_x,</span> <span class="pre">min_y,</span> <span class="pre">max_x,</span> <span class="pre">max_y)</span></code> of the scene’s footprint in the <strong>resolved target CRS</strong>,
+reusing <code class="docutils literal notranslate"><span class="pre">_footprint_envelope</span></code> / <code class="docutils literal notranslate"><span class="pre">reprojected_footprint_geometry</span></code> (the same reprojection
+the grid builder and overlay use). It returns <code class="docutils literal notranslate"><span class="pre">None</span></code> — so the action is a safe no-op —
+when the scene is pending, has no footprint, or no target CRS is resolved yet. This
+mirrors <code class="docutils literal notranslate"><span class="pre">build_common_grid</span></code>’s union extent, but for a single scene.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">MosaicView.zoom_to_extent(extent,</span> <span class="pre">margin=0.05)</span></code></strong> pads the extent by a small margin
+(so the footprint isn’t flush against the viewport edges), calls the camera’s existing
+<code class="docutils literal notranslate"><span class="pre">MosaicViewTransform.fit_to_extent</span></code>, and repaints. It is a no-op until the widget has a
+real size. It sets <code class="docutils literal notranslate"><span class="pre">_has_fitted</span> <span class="pre">=</span> <span class="pre">True</span></code> so the initial-fit branch in <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code> can
+never later snap the camera back to the whole-grid extent — a deliberate zoom is never
+yanked away. A plain <code class="docutils literal notranslate"><span class="pre">self.update()</span></code> is enough: the moved camera makes <code class="docutils literal notranslate"><span class="pre">paintEvent</span></code>
+schedule the debounced, off-thread tile read for the newly-visible cells (the same path
+a pan/zoom gesture takes), so no <code class="docutils literal notranslate"><span class="pre">invalidate_pixels</span></code> full-cache clear is needed.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">MosaicPane._on_zoom_to_scene(index)</span></code></strong> resolves the scene, asks the controller for
+its extent, and (if not <code class="docutils literal notranslate"><span class="pre">None</span></code>) calls <code class="docutils literal notranslate"><span class="pre">zoom_to_extent</span></code>. The menu only shows the action
+for live scenes, but the handler re-checks for <code class="docutils literal notranslate"><span class="pre">None</span></code> in case the scene went pending
+between the menu opening and the click.</p></li>
+</ul>
+<p>The margin is symmetric, so the camera <strong>center</strong> lands exactly on the footprint’s
+midpoint — which is what the GUI test asserts.</p>
+<section id="reframing-after-a-target-crs-change">
+<h3>Reframing after a target-CRS change<a class="headerlink" href="#reframing-after-a-target-crs-change" title="Link to this heading">#</a></h3>
+<p>The camera holds raw world coordinates (<code class="docutils literal notranslate"><span class="pre">center_x</span></code> / <code class="docutils literal notranslate"><span class="pre">center_y</span></code>) that are <strong>not</strong>
+transformed when the target CRS changes, so after a manual <strong>“Choose Target CRS…”</strong>
+switch the parked camera often points at a region the mosaic no longer occupies (e.g.
+switching UTM → geographic moves every footprint from eastings ~4×10⁵ to lon/lat ~−117/34)
+— the preview goes blank even though the scenes are fine.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MosaicView.ensure_scenes_in_view()</span></code>, called from <code class="docutils literal notranslate"><span class="pre">_on_choose_target_crs</span></code> right after the
+grid rebuild + view invalidation, fixes this <strong>conservatively</strong>: it reprojects the live
+footprints into the new CRS (<code class="docutils literal notranslate"><span class="pre">visible_scene_footprints_in_common_crs()</span></code>), tests each
+against the current viewport (<code class="docutils literal notranslate"><span class="pre">_visible_world_extent</span></code> + <code class="docutils literal notranslate"><span class="pre">_envelope_intersects</span></code>), and
+reframes to the union extent (<code class="docutils literal notranslate"><span class="pre">get_common_grid().extent</span></code>, via <code class="docutils literal notranslate"><span class="pre">zoom_to_extent</span></code>) <strong>only
+when none is visible</strong>. If any scene still intersects the viewport the user’s pan/zoom is
+left untouched — the reframe rescues the off-screen case without yanking the camera on a
+CRS change that happened to keep the mosaic in view. It reuses the same <code class="docutils literal notranslate"><span class="pre">zoom_to_extent</span></code>
+(hence the same margin) as <a class="reference internal" href="#zoom-to-scene"><span class="xref myst">Zoom to Scene</span></a>.</p>
 </section>
 </section>
 <hr class="docutils" />
@@ -2319,7 +2388,10 @@ Pending scenes: a non-georeferenced scene is <code class="docutils literal notra
 grid, an all-pending mosaic yields an empty grid, and an ingested-but-incompatible
 scene (built incrementally so the first scene auto-locks the target) is
 <code class="docutils literal notranslate"><span class="pre">INCOMPATIBLE_CRS</span></code>-pending — asserting <code class="docutils literal notranslate"><span class="pre">is_scene_pending</span></code>, <code class="docutils literal notranslate"><span class="pre">scene_pending_reason</span></code>,
-<code class="docutils literal notranslate"><span class="pre">has_live_scenes</span></code>, <code class="docutils literal notranslate"><span class="pre">has_pending_scenes</span></code>, and <code class="docutils literal notranslate"><span class="pre">_live_scenes</span></code>.</p></li>
+<code class="docutils literal notranslate"><span class="pre">has_live_scenes</span></code>, <code class="docutils literal notranslate"><span class="pre">has_pending_scenes</span></code>, and <code class="docutils literal notranslate"><span class="pre">_live_scenes</span></code>. Zoom to Scene:
+<code class="docutils literal notranslate"><span class="pre">scene_extent_in_common_crs</span></code> returns a live scene’s footprint envelope (matching
+<code class="docutils literal notranslate"><span class="pre">_footprint_envelope</span></code>, ordered <code class="docutils literal notranslate"><span class="pre">min_x/min_y/max_x/max_y</span></code>) and <code class="docutils literal notranslate"><span class="pre">None</span></code> for a pending
+scene.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_view_transform.py</span></code> — <code class="docutils literal notranslate"><span class="pre">MosaicViewTransform</span></code> camera math:
 world↔screen round-trip, y-flip orientation, zoom-anchor invariance, aspect-ratio
 preservation (pure <code class="docutils literal notranslate"><span class="pre">QTransform</span></code> math, no widget shown).</p></li>
@@ -2382,7 +2454,10 @@ the auto-lock behavior described above with <code class="docutils literal notran
 <code class="docutils literal notranslate"><span class="pre">wiser.gui.mosaic_pane.ReprojectPromptDialog</span></code> so nothing blocks the test. Also
 <code class="docutils literal notranslate"><span class="pre">test_manual_choose_target_crs_incompatible_marks_pending</span></code>: choosing an incompatible
 target CRS <strong>commits</strong> the choice, leaves no live scenes, marks the scenes pending, and
-warns (rather than rejecting the change).</p></li>
+warns (rather than rejecting the change). Reframing: switching UTM → geographic pushes
+the mosaic off the parked camera, and <code class="docutils literal notranslate"><span class="pre">_on_choose_target_crs</span></code> reframes to the new union
+extent (<code class="docutils literal notranslate"><span class="pre">test_choose_target_crs_reframes_when_mosaic_off_screen</span></code>); when a scene is still
+in view the camera is left untouched (<code class="docutils literal notranslate"><span class="pre">test_ensure_scenes_in_view_is_noop_when_a_scene_is_visible</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">src/tests/test_mosaic_dialog_gui.py</span></code> — dialog shell, Add Scene ingestion flow,
 progress modal; asserts the ingested <code class="docutils literal notranslate"><span class="pre">MosaicScene.stretch_bounds</span></code> is populated
 (#675).</p></li>
@@ -2394,7 +2469,11 @@ dialog, not the mosaic window); a repeated warp <strong>replaces</strong> rather
 warp output is <strong>not</strong> registered as a global dataset; Cancel restores the original at
 its slot while “Save to Mosaic” keeps the warped one. <code class="docutils literal notranslate"><span class="pre">test_add_non_georeferenced_scene_is_pending</span></code>
 loads a truly ungeoreferenced TIFF, adds it, and asserts it lands as a <code class="docutils literal notranslate"><span class="pre">NO_CRS</span></code>-pending
-placeholder with the warning icon/tooltip and excluded from the grid.</p></li>
+placeholder with the warning icon/tooltip and excluded from the grid — and that its
+context menu offers “Georeference…” but <strong>not</strong> “Zoom to Scene”. Zoom to Scene: a live
+scene’s menu offers <strong>both</strong> actions and each routes to the right handler/index;
+<code class="docutils literal notranslate"><span class="pre">_on_zoom_to_scene</span></code> moves the camera so its center lands on the scene footprint’s
+midpoint.</p></li>
 </ul>
 <p>GUI tests use <code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.functional</span></code>/<code class="docutils literal notranslate"><span class="pre">&#64;pytest.mark.smoke</span></code> with the
 <code class="docutils literal notranslate"><span class="pre">WiserTestModel</span></code> harness (<code class="docutils literal notranslate"><span class="pre">src/test_utils/test_model.py</span></code>), not pytest-qt/qtbot. Run
@@ -2506,6 +2585,10 @@ with <code class="docutils literal notranslate"><span class="pre">QT_QPA_PLATFOR
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-threaded-phases-warp-then-reingest-and-swap">Two threaded phases: warp, then reingest-and-swap</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#save-vs-revert">Save vs. revert</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-reingest-and-how-the-fix-reaches-the-export">Why reingest, and how the fix reaches the export</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#zoom-to-scene">Zoom to Scene</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reframing-after-a-target-crs-change">Reframing after a target-CRS change</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-export-path">The Export Path</a><ul class="visible nav section-nav flex-column">
