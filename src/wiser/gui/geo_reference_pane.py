@@ -137,8 +137,12 @@ class GeoReferencerPane(RasterPane, PointSelector):
             singular_update=True,
         )
 
-    def _on_dataset_added(self, ds_id):
-        return
+    def _on_dataset_added(self, ds_id, view_dataset=True):
+        # We must keep each rasterview's internal
+        # dataset-chooser in sync with application state otherwise
+        # adataset loaded after the dialog was opened is absent
+        # from the chooser
+        self._update_rasterview_toolbars()
 
     def _onRasterMousePress(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_press(mouse_event)
