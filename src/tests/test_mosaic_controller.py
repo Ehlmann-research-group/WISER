@@ -390,6 +390,28 @@ def test_reprojected_footprint_same_crs_is_identity(tmp_path):
     assert geom.GetEnvelope() == pytest.approx(orig.GetEnvelope())
 
 
+def test_scene_extent_in_common_crs_live_and_pending(tmp_path):
+    # A live (ingested) scene plus a bare, non-georeferenced placeholder.
+    live = _make_scene(tmp_path, "live", epsg=32611, origin=(400000.0, 3800000.0), pixel=1.0)
+    ghost = _no_crs_scene("ghost")
+    c = MosaicController()
+    c.add_scene(live)
+    c.add_scene(ghost)
+    c.build_common_grid()  # auto-locks the target CRS to the live scene's CRS
+
+    # The live scene's extent equals its footprint envelope in the target CRS, ordered
+    # (min_x, min_y, max_x, max_y) -- the exact tuple fit_to_extent consumes.
+    src = live.dataset.get_spatial_ref()
+    target = _srs_from_wkt(c.get_target_crs())
+    expected = _footprint_envelope(live, src, target)
+    got = c.scene_extent_in_common_crs(live)
+    assert got == pytest.approx(expected)
+    assert got[0] < got[2] and got[1] < got[3]
+
+    # A pending (NO_CRS) scene has no placeable footprint -> no extent.
+    assert c.scene_extent_in_common_crs(ghost) is None
+
+
 def test_compute_union_overlaps_partial():
     # Bottom-to-top: A, B, C. B partly under C; A partly under B∪C. C is on top.
     a = _square(0, 0, 10, 10)
