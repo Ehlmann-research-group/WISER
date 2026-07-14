@@ -703,7 +703,7 @@ class MosaicView(QWidget):
         visible_scenes = [s for s in self._controller.get_scenes() if s.visible]
         scene_order = {id(s): i for i, s in enumerate(visible_scenes)}
 
-        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, False)
         self._draw_fallback_tiles(painter, w2s, scene_order, bucket, world_extent)
 
         for col, row in _tiles_covering_extent(bucket, world_extent):

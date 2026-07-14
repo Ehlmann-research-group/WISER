@@ -362,6 +362,83 @@ class TestGeoReferencerGUI(unittest.TestCase):
         self.assertNotAlmostEqual(button_fit_scale, 8.0, places=5)
         self.assertAlmostEqual(button_fit_scale, auto_fit_scale, places=5)
 
+    def test_switch_target_to_dataset_loaded_after_open(self):
+        """Regression: a dataset loaded *after* the georeferencer is opened must be
+        selectable as the target without tripping an assertion.
+
+        Reproduces the reported crash:
+          ``AssertionError: Tried to display an unrecognized dataset:  2``
+
+        The georeferencer panes suppress the base-class "auto-view the newly added
+        dataset" behavior (they must not hijack the user's chosen target/reference),
+        but they still have to keep each rasterview's internal dataset-chooser in
+        sync with application state.  When that sync was dropped, selecting a
+        later-loaded dataset as the target failed the ``findData`` assertion in
+        ``TiledRasterView.set_raster_data`` because the chooser never learned the id.
+        """
+        ds1_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
+        ds1 = self.test_model.load_dataset(ds1_path)
+
+        self.test_model.open_geo_referencer()
+        dialog = self.test_model.main_window._geo_ref_dialog
+
+        self.test_model.set_geo_ref_target_dataset(ds1.get_id())
+        self.assertEqual(
+            dialog._target_rasterpane.get_rasterview().get_raster_data().get_id(),
+            ds1.get_id(),
+        )
+
+        # Load a second dataset *while the georeferencer is already open* -- this is
+        # the trigger for the bug (the caltech image with a data-ignore value and
+        # bad bands, matching the report).
+        ds2_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_15_20_20_data_ignore_bb",
+        )
+        ds2 = self.test_model.load_dataset(ds2_path)
+
+        # Reopening the dialog re-populates its target/reference choosers from
+        # application state, so the newly loaded dataset becomes selectable.
+        self.test_model.apply_geo_ref_config(None)
+
+        # Invariant: the target pane's rasterview dataset-chooser must include the
+        # newly-loaded dataset's id, otherwise selecting it crashes.
+        target_rv = dialog._target_rasterpane.get_rasterview()
+        chooser_ids = [
+            target_rv._cbox_dataset_chooser.itemData(i)
+            for i in range(target_rv._cbox_dataset_chooser.count())
+        ]
+        self.assertIn(
+            ds2.get_id(),
+            chooser_ids,
+            "The georeferencer target pane's dataset-chooser did not track a "
+            "dataset loaded after the dialog was opened.",
+        )
+
+        # End-to-end: selecting the later-loaded dataset as the target must display
+        # it (previously raised AssertionError inside set_raster_data).
+        self.test_model.set_geo_ref_target_dataset(ds2.get_id())
+        self.assertEqual(
+            dialog._target_rasterpane.get_rasterview().get_raster_data().get_id(),
+            ds2.get_id(),
+        )
+
+        # And switching back to the original dataset must still work.
+        self.test_model.set_geo_ref_target_dataset(ds1.get_id())
+        self.assertEqual(
+            dialog._target_rasterpane.get_rasterview().get_raster_data().get_id(),
+            ds1.get_id(),
+        )
+
     @staticmethod
     def _default_ok_text(dialog):
         # The remembered original label of the OK button.
