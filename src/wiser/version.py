@@ -1,5 +1,5 @@
-VERSION = "2.2b1"
-RELEASE_DATE = "2026-06-12"
+VERSION = "3.0b0"
+RELEASE_DATE = "2026-07-14"
 
 
 if __name__ == "__main__":
