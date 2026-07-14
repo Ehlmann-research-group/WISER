@@ -1,7 +1,9 @@
 import logging
 import platform
 import pprint
+import shutil
 import sys
+import tempfile
 import traceback
 import webbrowser
 from functools import partial
@@ -36,6 +38,9 @@ from wiser.raster.spectrum import (
     SpectrumAtPoint,
     SpectrumAverageMode,
 )
+from wiser.project.bundle import ProjectBundle
+from wiser.project.migrate import ProjectTooNewError
+from wiser.project.orchestrate import load_project, save_project
 from wiser.utils.primitives import PriorityClass
 from wiser.utils.task_stage_utils import get_save_external_dataset_pipeline
 from wiser.utils.task_system import SemanticTask
@@ -60,6 +65,7 @@ from .rasterpane import RecenterMode
 from .reference_creator_dialog import ReferenceCreatorDialog
 from .mosaic_dialog import SeamlessMosaicDialog
 from .save_dataset import SaveDatasetDialog
+from .save_project_dialog import SaveProjectDialog
 from .similarity_transform_dialog import SimilarityTransformDialog
 from .spectrum_plot import SpectrumPlot
 from .util import *
@@ -142,6 +148,11 @@ class DataVisualizerApp(QMainWindow):
         self._app_state: ApplicationState = ApplicationState(self, config=config)
         self._data_cache = DataCache()
         self._app_state.set_data_cache(self._data_cache)
+
+        # Path of the project file the session was last saved to / opened from,
+        # so "Save Project" re-saves in place.  ``None`` until a Save As / Open.
+        self._current_project_path: Optional[str] = None
+        self._project_extract_dir: Optional[str] = None
 
         self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
         self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
@@ -313,6 +324,22 @@ class DataVisualizerApp(QMainWindow):
         # File menu
 
         self._file_menu = self.menuBar().addMenu(self.tr("&File"))
+
+        act = self._file_menu.addAction(self.tr("Open Project..."))
+        act.setStatusTip(self.tr("Open a WISER project file, replacing the current session"))
+        act.triggered.connect(self.on_open_project)
+
+        act = self._file_menu.addAction(self.tr("Save Project"))
+        act.setShortcuts(QKeySequence.Save)
+        act.setStatusTip(self.tr("Save the current session to its project file"))
+        act.triggered.connect(self.on_save_project)
+
+        act = self._file_menu.addAction(self.tr("Save Project As..."))
+        act.setShortcuts(QKeySequence.SaveAs)
+        act.setStatusTip(self.tr("Save the current session to a new project file"))
+        act.triggered.connect(self.on_save_project_as)
+
+        self._file_menu.addSeparator()
 
         act = self._file_menu.addAction(self.tr("&Open..."))
         act.setShortcuts(QKeySequence.Open)
@@ -623,6 +650,7 @@ class DataVisualizerApp(QMainWindow):
 
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
+        self._clear_project_extract_dir()
         self._app_state.cancel_all_running_processes()
         self._app_services.close()
         super().closeEvent(event)
@@ -651,6 +679,117 @@ class DataVisualizerApp(QMainWindow):
             # BugSnag reporting configuration.  Do that here.
             auto_notify = self._app_state.config().get("general.online_bug_reporting")
             bug_reporting.set_enabled(auto_notify)
+
+    def on_save_project(self, checked=False):
+        """Save the session to its current project file, or prompt if there is none."""
+        if self._current_project_path is None:
+            self.on_save_project_as()
+            return
+        try:
+            save_project(self._app_state, self._current_project_path)
+        except Exception as e:
+            logger.exception("Failed to save project")
+            QMessageBox.critical(
+                self,
+                self.tr("Save Failed"),
+                self.tr("Could not save the project:\n\n{0}").format(e),
+            )
+
+    def on_save_project_as(self, checked=False):
+        """Prompt for what to include and where, then save a new project file."""
+        dialog = SaveProjectDialog(self._app_state, parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        resolver = dialog.get_resolver()
+
+        (path, _) = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save Project As"),
+            self._app_state.get_current_dir(),
+            self.tr("WISER project files (*{0})").format(ProjectBundle.EXTENSION),
+        )
+        if not path:
+            return
+        if not path.lower().endswith(ProjectBundle.EXTENSION):
+            path += ProjectBundle.EXTENSION
+
+        try:
+            save_project(self._app_state, path, resolver)
+        except Exception as e:
+            logger.exception("Failed to save project")
+            QMessageBox.critical(
+                self,
+                self.tr("Save Failed"),
+                self.tr("Could not save the project:\n\n{0}").format(e),
+            )
+            return
+        self._current_project_path = path
+        self._app_state.update_cwd_from_path(path)
+
+    def on_open_project(self, checked=False):
+        """Open a project file, replacing the current session after confirmation."""
+        reply = QMessageBox.question(
+            self,
+            self.tr("Open Project"),
+            self.tr("Opening a project discards the current session.  Continue?"),
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        (path, _) = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Open Project"),
+            self._app_state.get_current_dir(),
+            self.tr("WISER project files (*{0})").format(ProjectBundle.EXTENSION),
+        )
+        if not path:
+            return
+
+        # A zipped project extracts to a directory that must outlive the load,
+        # since sidecar datasets are read from it lazily.  The app owns it: clear
+        # the previous session's directory and hand load_project a fresh one.
+        self._clear_project_extract_dir()
+        self._project_extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
+
+        try:
+            report = load_project(path, self._app_state, extract_dir=self._project_extract_dir)
+        except ProjectTooNewError as e:
+            self._clear_project_extract_dir()
+            QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
+            return
+        except Exception as e:
+            self._clear_project_extract_dir()
+            logger.exception("Failed to open project")
+            QMessageBox.critical(
+                self,
+                self.tr("Open Failed"),
+                self.tr("Could not open the project:\n\n{0}").format(e),
+            )
+            return
+
+        self._current_project_path = path
+        self._app_state.update_cwd_from_path(path)
+        self._warn_dropped_on_load(report)
+
+    def _clear_project_extract_dir(self):
+        """Remove the temp directory a zipped project was extracted into, if any."""
+        if self._project_extract_dir:
+            shutil.rmtree(self._project_extract_dir, ignore_errors=True)
+            self._project_extract_dir = None
+
+    def _warn_dropped_on_load(self, report):
+        """Warn about any items that could not be restored during a load."""
+        dropped = {section: items for section, items in report.items() if items}
+        if not dropped:
+            return
+        lines = [
+            self.tr("{0}: {1} item(s)").format(section, len(items)) for section, items in dropped.items()
+        ]
+        QMessageBox.warning(
+            self,
+            self.tr("Project Opened With Warnings"),
+            self.tr("Some items could not be restored:\n\n{0}").format("\n".join(lines)),
+        )
 
     def show_open_file_dialog(self, evt):
         """
