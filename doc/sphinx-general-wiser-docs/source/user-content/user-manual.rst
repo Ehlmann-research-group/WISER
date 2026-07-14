@@ -32,6 +32,8 @@ What's in This Manual
   management
 - :doc:`Mosaic <mosaic>` — combining overlapping georeferenced scenes into a
   single image and exporting the result
+- :doc:`Saving and Opening Projects <projects>` — saving a whole session to a
+  ``.wiserproj`` file, choosing what it holds, and sharing it
 
 .. toctree::
    :hidden:
@@ -41,4 +43,5 @@ What's in This Manual
    data-analysis-tools/data-analysis-tools
    spatial-tools
    mosaic
+   projects
 

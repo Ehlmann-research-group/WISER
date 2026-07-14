@@ -295,6 +295,10 @@ In the dialog box, click "Show Advanced" to access the following:
 :alt: Save dataset dialog with advanced options expanded
 :::
 
+This saves a single dataset to an image file. To save your whole session — every
+dataset, ROI, spectrum, stretch, and analysis result — see
+{doc}`Saving and Opening Projects <projects>`.
+
 ---
 
 ## Spectral Plots
