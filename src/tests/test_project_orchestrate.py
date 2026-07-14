@@ -394,6 +394,43 @@ def test_a_cancelled_directory_save_leaves_the_existing_bundle_untouched(tmp_pat
     assert len(dst.get_datasets()) == 1  # still the project it was
 
 
+def test_a_save_clears_a_stale_staging_path_of_either_kind(tmp_path):
+    # A crash can leave a ".part" behind, and not necessarily as the kind we expect: the
+    # zip form leaves a file, the directory form a directory.  Cleanup that assumed one
+    # or the other would either fail outright or mask the failure it was cleaning up.
+    zipped = tmp_path / "zipped.wiserproj"
+    (tmp_path / "zipped.wiserproj.part").mkdir()  # a directory where a file is expected
+    bundle_dir = tmp_path / "dir"
+    (tmp_path / "dir.part").write_text("junk")  # a file where a directory is expected
+
+    app = _FakeAppState()
+    app.add_dataset(app.get_loader().dataset_from_numpy_array(_sample_array(), None))
+    save_project(app, zipped)
+    save_project(app, bundle_dir)
+
+    assert not (tmp_path / "zipped.wiserproj.part").exists()
+    assert not (tmp_path / "dir.part").exists()
+    for dest in (zipped, bundle_dir):
+        dst = _FakeAppState()
+        load_project(dest, dst, extract_dir=tmp_path / f"unpacked-{dest.name}")
+        assert len(dst.get_datasets()) == 1
+
+
+def test_a_cancelled_open_removes_what_it_extracted(tmp_path):
+    # Abandoning the unpack of a large self-contained project would otherwise strand
+    # gigabytes in the temp directory it was being unpacked into.
+    app, _ = _populated_session()
+    proj = tmp_path / "session.wiserproj"
+    save_project(app, proj, self_contained=True)
+
+    extract_dir = tmp_path / "unpacked"
+    cancel = ProgressReporter(is_cancelled=lambda: True)
+    with pytest.raises(ProgressCancelled):
+        open_bundle(proj, extract_dir, progress=cancel)
+
+    assert not extract_dir.exists()
+
+
 def test_a_cancelled_open_leaves_the_current_session_alone(tmp_path):
     # Unpacking is the slow half of an open and is what gets cancelled; the session is
     # only cleared by the restore.  So abandoning an open costs the user nothing -- they

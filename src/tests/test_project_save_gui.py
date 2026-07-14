@@ -176,6 +176,37 @@ class TestProjectSaveGui(unittest.TestCase):
         self._save()
         self.assertEqual(len(self._manifest(project)["datasets"]), 1)  # the one it holds
 
+    def test_a_failed_open_leaves_the_open_session_and_its_data_alone(self):
+        # An open that fails must not take the session down with it.  The session's
+        # datasets may be sidecars living in the extract directory of the project it was
+        # opened from, so that directory has to outlive a failed attempt at another one.
+        src_dir, _ = self._file_backed_dataset("sources")
+        project = os.path.join(self.tmp_path, "portable.wiserproj")
+        self._save_as(project, self_contained=True)
+        shutil.rmtree(src_dir)  # only the bundle has the pixels now
+        self._open(project)
+        (restored,) = self.app_state.get_datasets()
+
+        junk = os.path.join(self.tmp_path, "not-a-project.wiserproj")
+        with open(junk, "w") as handle:
+            handle.write("this is not a project")
+
+        with (
+            mock.patch("wiser.gui.app.QMessageBox.question", return_value=QMessageBox.Yes),
+            mock.patch("wiser.gui.app.QFileDialog.getOpenFileName", return_value=(junk, "")),
+            mock.patch("wiser.gui.app.QMessageBox.critical") as complained,
+        ):
+            runner = self.main_window.on_open_project()
+            self._wait_for(lambda: getattr(runner, "_done", False))
+            self.test_model.app.processEvents()
+
+        self.assertTrue(complained.called, "the failed open was not reported")
+        (still_there,) = self.app_state.get_datasets()
+        self.assertEqual(still_there.get_id(), restored.get_id())
+        # And its pixels are still readable: the extract dir it reads from survived.
+        self.assertEqual(still_there.num_bands(), restored.num_bands())
+        np.asarray(still_there.get_image_data(filter_data_ignore_value=False))
+
     # -- save mode across an open ------------------------------------------
 
     def test_opening_a_self_contained_project_keeps_saving_it_self_contained(self):

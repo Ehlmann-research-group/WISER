@@ -789,10 +789,11 @@ class DataVisualizerApp(QMainWindow):
             return None
 
         # A zipped project extracts to a directory that must outlive the load, since
-        # sidecar datasets are read from it lazily.  The app owns it: clear the previous
-        # session's directory and hand the open a fresh one.
-        self._clear_project_extract_dir()
-        self._project_extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
+        # sidecar datasets are read from it lazily.  The *current* session may still be
+        # reading from the one it was opened from, so it is kept until this open has
+        # actually replaced the session -- an open that fails or is cancelled must not
+        # pull the data out from under the session the user still has.
+        extract_dir = tempfile.mkdtemp(prefix="wiser-project-")
 
         # Unpacking a self-contained project copies out every image it holds, so it runs
         # on the scheduler behind a progress dialog.  Only the *restore* touches the
@@ -804,22 +805,22 @@ class DataVisualizerApp(QMainWindow):
             self.tr("Opening Project"),
             open_bundle,
             path,
-            self._project_extract_dir,
-            on_success=lambda bundle: self._restore_project(bundle, path),
-            on_error=self._on_open_failed,
+            extract_dir,
+            on_success=lambda bundle: self._restore_project(bundle, path, extract_dir),
+            on_error=lambda message: self._on_open_failed(message, extract_dir),
             description=self.tr("Unpacking project file…"),
         )
 
-    def _restore_project(self, bundle, path):
+    def _restore_project(self, bundle, path, extract_dir):
         """Restore an unpacked bundle into the session (GUI thread: this fires reloads)."""
         try:
             report = restore_bundle(bundle, self._app_state)
         except ProjectTooNewError as e:
-            self._clear_project_extract_dir()
+            shutil.rmtree(extract_dir, ignore_errors=True)
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
         except Exception as e:
-            self._clear_project_extract_dir()
+            shutil.rmtree(extract_dir, ignore_errors=True)
             logger.exception("Failed to open project")
             QMessageBox.critical(
                 self,
@@ -828,6 +829,10 @@ class DataVisualizerApp(QMainWindow):
             )
             return
 
+        # The session is the new project now, so nothing reads from the old extract
+        # directory any more and it can go.
+        self._clear_project_extract_dir()
+        self._project_extract_dir = extract_dir
         self._current_project_path = path
         # The session now *is* the project, so a re-save writes all of it; the exclusions
         # that produced the file were applied when it was written.
@@ -841,8 +846,9 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.update_cwd_from_path(path)
         self._warn_dropped_on_load(report)
 
-    def _on_open_failed(self, message):
-        self._clear_project_extract_dir()
+    def _on_open_failed(self, message, extract_dir):
+        # Only this open's directory goes; the session still has the one it is using.
+        shutil.rmtree(extract_dir, ignore_errors=True)
         logger.error("Failed to open project: %s", message)
         QMessageBox.critical(
             self,

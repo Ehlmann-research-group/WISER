@@ -23,6 +23,23 @@ from .pyrep import array_ref, array_ref_key, is_array_ref
 PathLike = Union[str, Path]
 
 
+def remove_path(path: PathLike) -> None:
+    """Remove ``path`` whether it is a file or a directory tree, and never raise.
+
+    A stray ``.part`` or ``.bak`` left behind by a crash may be either kind, and this
+    runs in the cleanup arm of an ``except`` block -- where raising would mask the very
+    failure being cleaned up after.
+    """
+    path = Path(path)
+    try:
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def _resolve_within(root: PathLike, rel: str) -> Path:
     """Resolve ``rel`` under ``root``, refusing paths that escape the bundle.
 
@@ -163,6 +180,7 @@ def zip_bundle(
     root = bundle.root
     files = [path for path in sorted(root.rglob("*")) if path.is_file()]
     partial = zip_path.with_name(zip_path.name + ".part")
+    remove_path(partial)  # a crash may have left one, of either kind
     try:
         with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as zf:
             for index, path in enumerate(files):
@@ -172,7 +190,7 @@ def zip_bundle(
                 zf.write(path, path.relative_to(root))
         os.replace(partial, zip_path)
     except BaseException:
-        partial.unlink(missing_ok=True)
+        remove_path(partial)
         raise
     if progress is not None:
         progress.report_fraction(1.0)

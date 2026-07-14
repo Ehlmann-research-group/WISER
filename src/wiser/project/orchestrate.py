@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from wiser.utils.progress import ProgressReporter
 
-from .bundle import ProjectBundle, unzip_bundle, zip_bundle
+from .bundle import ProjectBundle, remove_path, unzip_bundle, zip_bundle
 from .persisters.bandmath import load_bandmath, save_bandmath
 from .persisters.crs import load_user_crs, save_user_crs
 from .persisters.datasets import load_datasets, save_datasets
@@ -101,14 +101,16 @@ def _write_bundle_directory(
     """
     staging = dest.with_name(dest.name + ".part")
     previous = dest.with_name(dest.name + ".bak")
-    shutil.rmtree(staging, ignore_errors=True)
+    # Either may be left over from a crash, and as a file rather than a directory, so
+    # clear whatever is actually there rather than assuming its kind.
+    remove_path(staging)
     try:
         _write_bundle(app_state, ProjectBundle.create(staging), resolver, self_contained, progress)
     except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
+        remove_path(staging)
         raise
 
-    shutil.rmtree(previous, ignore_errors=True)
+    remove_path(previous)
     replacing = dest.exists()
     if replacing:
         os.replace(dest, previous)
@@ -117,9 +119,9 @@ def _write_bundle_directory(
     except BaseException:
         if replacing:
             os.replace(previous, dest)  # put the old bundle back
-        shutil.rmtree(staging, ignore_errors=True)
+        remove_path(staging)
         raise
-    shutil.rmtree(previous, ignore_errors=True)
+    remove_path(previous)
 
 
 def open_bundle(
@@ -141,6 +143,10 @@ def open_bundle(
     a caller can extract with progress and cancellation in the background and then
     restore on the GUI thread -- and a cancelled open leaves the current session
     untouched, since nothing has been cleared yet.
+
+    ``extract_dir`` must be used for this load alone: if the extraction is cancelled or
+    fails, what was unpacked into it is removed rather than left behind, which for a
+    large self-contained project would otherwise strand gigabytes in a temp directory.
     """
     src = Path(src)
     if src.is_file() and zipfile.is_zipfile(src):
@@ -150,7 +156,11 @@ def open_bundle(
                 "and keeps alive for the session, since sidecar datasets are read from "
                 "it lazily."
             )
-        return unzip_bundle(src, extract_dir, progress)
+        try:
+            return unzip_bundle(src, extract_dir, progress)
+        except BaseException:
+            remove_path(extract_dir)
+            raise
     return ProjectBundle.open(src)
 
 
