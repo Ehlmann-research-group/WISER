@@ -227,9 +227,8 @@ class MainViewWidget(RasterPane):
             lambda checked=False, rv=rasterview, **kwargs: self._open_linear_unmixing_dialog(rv)
         )
 
-        if FLAGS.kmeans:
-            act = submenu.addAction(self.tr("K-means"))
-            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_kmeans_dialog(rv))
+        act = submenu.addAction(self.tr("K-means"))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._open_kmeans_dialog(rv))
 
         submenu = menu.addMenu(self.tr("Filters"))
 
