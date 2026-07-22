@@ -466,14 +466,36 @@
 <p>WISER exposes 4 ways to create your own UI items that get wiser state for your plugins. These ways let you
 prompt the user to choose datasets, spectra, ROIs, and bands. You access them
 through <a class="reference internal" href="wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState" title="wiser.gui.app_state.ApplicationState"><code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState</span></code></a>. The methods are:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dataset</span><span class="p">:</span> <span class="n">RasterDataSet</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_dataset_ui</span><span class="p">()</span>
-<span class="n">spectrum</span><span class="p">:</span> <span class="n">Spectrm</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_spectrum_ui</span><span class="p">()</span>
-<span class="n">roi</span><span class="p">:</span> <span class="n">RegionOfInterest</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_roi_ui</span><span class="p">()</span>
-<span class="n">band</span><span class="p">:</span> <span class="n">RasterDataBand</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_band_ui</span><span class="p">()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dataset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RasterDataSet</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_dataset_ui</span><span class="p">()</span>
+<span class="n">spectrum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Spectrum</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_spectrum_ui</span><span class="p">()</span>
+<span class="n">roi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RegionOfInterest</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_roi_ui</span><span class="p">()</span>
+<span class="n">band</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RasterDataBand</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">choose_band_ui</span><span class="p">()</span>
 </pre></div>
 </div>
+<p>Each of these returns <code class="docutils literal notranslate"><span class="pre">None</span></code> if the user cancels the dialog instead of
+making a selection, so always check for <code class="docutils literal notranslate"><span class="pre">None</span></code> before using the result.</p>
 <p>The <a class="reference internal" href="supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputDialog.DynamicInputDialog" title="wiser.gui.ui_library.DynamicInputDialog"><code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputDialog</span></code></a> provides a simple way to
-collect user input that isn’t tied to WISER’s internal state. By passing in a
+collect user input that isn’t tied to WISER’s internal state. Look at the
+<a class="reference internal" href="supporting_types.html#wiser.gui.ui_library.wiser.gui.ui_library.DynamicInputType.DynamicInputType" title="wiser.gui.ui_library.DynamicInputType"><code class="xref py py-class docutils literal notranslate"><span class="pre">wiser.gui.ui_library.DynamicInputType</span></code></a> class to see the supported
+input kinds. Each kind determines both the widget shown to the user and the
+Python type stored under its key in the dictionary returned by
+<cite>ApplicationState.create_form</cite>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">COMBO_BOX</span></code> (<code class="docutils literal notranslate"><span class="pre">0</span></code>) - returns the selected option as a <code class="docutils literal notranslate"><span class="pre">str</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FLOAT_NO_UNITS</span></code> (<code class="docutils literal notranslate"><span class="pre">1</span></code>) - returns the entered number as a <code class="docutils literal notranslate"><span class="pre">float</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">None</span></code> if left empty.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FLOAT_UNITS</span></code> (<code class="docutils literal notranslate"><span class="pre">2</span></code>) - returns the entered number as an
+<code class="docutils literal notranslate"><span class="pre">astropy.units.Quantity</span></code> if a unit was chosen, a plain <code class="docutils literal notranslate"><span class="pre">float</span></code> if
+“None” was chosen as the unit, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if left empty.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">INT_NO_UNITS</span></code> (<code class="docutils literal notranslate"><span class="pre">3</span></code>) - returns the entered number as a <code class="docutils literal notranslate"><span class="pre">float</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">None</span></code> if left empty. Cast it yourself with <code class="docutils literal notranslate"><span class="pre">int(...)</span></code> if you
+need an integer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">INT_UNITS</span></code> (<code class="docutils literal notranslate"><span class="pre">4</span></code>) - returns the same as <code class="docutils literal notranslate"><span class="pre">FLOAT_UNITS</span></code>. Cast the
+numeric part yourself if you need an integer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">STRING</span></code> (<code class="docutils literal notranslate"><span class="pre">5</span></code>) - returns the entered text as a <code class="docutils literal notranslate"><span class="pre">str</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CHECK_BOX</span></code> (<code class="docutils literal notranslate"><span class="pre">6</span></code>) - returns the checked state as a <code class="docutils literal notranslate"><span class="pre">bool</span></code>.</p></li>
+</ul>
+<p>By passing in a
 list of input specifications, you can dynamically generate a dialog that displays
 text fields and combo boxes. This is useful for plugins or tools that need to
 ask users for parameters, options, or configuration values before running. You should
@@ -489,6 +511,30 @@ Here is an example of its use:</p>
     <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Analysis Params&quot;</span><span class="p">,</span>
     <span class="n">description</span><span class="o">=</span><span class="s2">&quot;In the above text enter the parameters needed to perform the algorithm.&quot;</span><span class="p">,</span>
 <span class="p">)</span>
+</pre></div>
+</div>
+<p><cite>create_form</cite> returns <code class="docutils literal notranslate"><span class="pre">None</span></code> if the user cancels the dialog, and an empty
+dict is possible if none of the fields resolve. Always guard against a
+missing key with <code class="xref py py-meth docutils literal notranslate"><span class="pre">dict.get()</span></code> and check for <code class="docutils literal notranslate"><span class="pre">None</span></code> before using a
+value, converting it to the type your plugin expects:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">return_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">return</span>  <span class="c1"># user cancelled the dialog</span>
+
+<span class="n">wvl</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;wvl&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">wvl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">QMessageBox</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;No Value Entered&quot;</span><span class="p">,</span> <span class="s2">&quot;You did not enter a wavelength.&quot;</span><span class="p">)</span>
+    <span class="k">return</span>
+
+<span class="n">divisor</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;divisor&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">divisor</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">divisor</span><span class="p">)</span>
+<span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="n">QMessageBox</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Wrong Value Entered&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Could not convert divisor to integer!</span><span class="se">\n</span><span class="s2">Error:</span><span class="se">\n\n</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">.&quot;</span>
+    <span class="p">)</span>
+    <span class="k">return</span>
+
+<span class="n">dim_reduction</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dim_reduction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># &quot;PCA&quot; or &quot;SVD&quot;</span>
 </pre></div>
 </div>
 <p>This will construct a GUI element that looks like this:</p>
