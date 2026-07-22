@@ -7,6 +7,26 @@ added by running: `git commit -s -m "message"`.
 
 ## Table of Contents
 
+- [Environment Details](#environment-details)
+- [How to submit changes](#how-to-submit-changes)
+- [How to report a bug](#how-to-report-a-bug)
+- [How to request an "enhancement"](#how-to-request-an-enhancement)
+- [Style Guide / Coding Conventions](#style-guide--coding-conventions)
+- [Your First Code Contribution](#your-first-code-contribution)
+- [Code of Conduct](#code-of-conduct)
+- [Who is currently involved?](#who-is-currently-involved)
+- [Where can I ask for help?](#where-can-i-ask-for-help)
+- [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
+  - [Why we chose DCO over CLA](#why-we-chose-dco-over-cla)
+- [Project Roles](#project-roles)
+  - [Project Lead (BDFL)](#project-lead-bdfl)
+  - [Maintainer](#maintainer)
+    - [Becoming a maintainer](#becoming-a-maintainer)
+  - [Committer](#committer)
+    - [Becoming a committer](#becoming-a-committer)
+  - [Contributor](#contributor)
+    - [How to contribute](#how-to-contribute)
+- [List of Authors](#list-of-authors)
 
 ## Environment Details
 
@@ -54,13 +74,13 @@ only require a few lines of code and a test or two
 
 Read _CODE_OF_CONDUCT.md_ for more information.
 
-## Who is involved?
+## Who is currently involved?
 
 | Role | Name | Institution | 
 |------|------|-------------|
 | Project Lead [(BDFL)](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life) | [Bethany Ehlmann](https://www.linkedin.com/in/bethany-ehlmann-1112b81/) | CU Boulder
-| Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
-| Maintainer | Matthew Maclay | LASP |
+| Maintainer | [Matthew Maclay](https://www.linkedin.com/in/matthew-maclay/) | LASP |
+| Contributor | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
 
 ## Where can I ask for help?
 
@@ -202,10 +222,12 @@ in one place.
 
 | Role | Name | Institution | 
 |------|------|-------------|
-| Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
-| Past Maintainer | Donnie Pinkston | Caltech |
-| Past Maintainer | Dr. Rebecca Greenberger | Caltech (Now The Aerospace Corporation) |
-| Contributor | Dr. Andrew Annex | SETI Institute |
-| Contributor | Daphne Nea | UCLA '27 |
+| Project Lead [(BDFL)](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life) | [Bethany Ehlmann](https://www.linkedin.com/in/bethany-ehlmann-1112b81/) | CU Boulder
+| Maintainer | [Matthew Maclay](https://www.linkedin.com/in/matthew-maclay/) | LASP |
+| Past Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
+| Past Maintainer | [Donnie Pinkston](https://www.cms.caltech.edu/people/pinkston) | Caltech |
+| Past Maintainer | [Dr. Rebecca Greenberger](https://www.linkedin.com/in/rebecca-greenberger-18842482/) | Caltech (Now The Aerospace Corporation) |
+| Contributor | [Dr. Andrew Annex](https://www.linkedin.com/in/andrewannex/) | SETI Institute |
+| Contributor | [Daphne Nea](https://www.linkedin.com/in/daphne-nea/) | UCLA '27 |
 | Contributor | Amy Wang | Cornell '23 |
 | Contributor | Sahil Azad | Caltech '25 |
