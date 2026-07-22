@@ -257,8 +257,8 @@ release time, so what ships is exactly what you tested.
     `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any changes to plugin
     interfaces or dependencies in the latest version.
 
-11. **Announce** — if you have permission, email wiser-announce@caltech.edu with a summary of
-    the release. If not, reach out to someone who does with the email you want sent.
+11. **Announce** — if you have permission, email wiser-announcements@lists.lasp.colorado.edu with a summary of
+    the release. If not, reach out to someone who deals with the email you want sent.
 
 > **Note**: This process can only be done by a maintainer with
 > access to all of these resources. This intentionally limits who can
