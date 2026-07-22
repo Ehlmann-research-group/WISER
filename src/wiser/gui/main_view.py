@@ -7,8 +7,6 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
-import numpy as np
-
 import wiser.gui.generated.resources
 
 from .export_image import ExportImageDialog
@@ -28,8 +26,6 @@ from .stretch_builder import StretchBuilderDialog
 from .toolbarmenu import ToolbarMenu
 from .util import add_toolbar_action, get_painter
 
-# from .spectral_angle_mapper import SAMTool
-# from .spectral_feature_fitting import SFFTool
 from .spectral_angle_mapper_tool import SAMTool
 from .spectral_feature_fitting_tool import SFFTool
 
@@ -40,8 +36,6 @@ from wiser.raster import roi_export
 from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
 from wiser.bandmath.types import VariableType
-
-from wiser.config import FLAGS
 
 
 logger = logging.getLogger(__name__)
