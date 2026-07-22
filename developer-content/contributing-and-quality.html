@@ -27,24 +27,25 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
     <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
   
   <!-- So that users can add custom icons -->
-  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
     <script src="../_static/documentation_options.js?v=caa2ce05"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/contributing-and-quality';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,20 +54,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
   </head>
-  
-  
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
-
+  <body data-default-mode="">
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -92,7 +99,51 @@
 </div>
 
   
-    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
     </header>
   
 
@@ -372,11 +423,18 @@
 
 
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
 
 
 <button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
@@ -404,46 +462,51 @@
                 <h2> Contents </h2>
             </div>
             <nav aria-label="Page">
-                <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#branching-strategy">Branching Strategy</a></li>
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#branching-strategy">Branching Strategy</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-feature-flag-systems">Two Feature Flag Systems</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#release-branches">Release Branches</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-and-quality-guide">Code Review and Quality Guide</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-guidelines">Code Review Guidelines</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-guidelines">Code Review Guidelines</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-we-look-for">What We Look For</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pr-expectations">PR Expectations</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commit-message-standards">Commit Message Standards</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commit-message-standards">Commit Message Standards</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#format">Format</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#guidelines">Guidelines</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#merge-commits">Merge Commits</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commenting-style">Commenting Style</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commenting-style">Commenting Style</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-principles">General Principles</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#formatting-conventions">Formatting Conventions</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-and-code-style">Naming and Code Style</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-and-code-style">Naming and Code Style</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#python-naming-conventions">Python Naming Conventions</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-widget-naming">GUI Widget Naming</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#private-and-public-attributes-methods">Private and public attributes/methods</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#enforced-code-style">Enforced Code Style</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-design">Code Design</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-design">Code Design</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-design-rules">General Design Rules</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose-scope">Purpose &amp; Scope</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing-philosophy-principles">Testing Philosophy / Principles</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-organization">Test Organization</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-organization">Test Organization</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-structure-pytest">Naming &amp; Structure (pytest)</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-markers">Test Markers</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-ci-cd-integration">Running Tests &amp; CI/CD Integration</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-ci-cd-integration">Running Tests &amp; CI/CD Integration</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-integration-ci">Continuous Integration (CI)</a></li>
@@ -451,7 +514,7 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-guidelines">Test Guidelines</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-maintenance-flakiness">Test Maintenance &amp; Flakiness</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-maintenance-flakiness">Test Maintenance &amp; Flakiness</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-flaky-tests">Handling Flaky Tests</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isolation-requirements">Isolation Requirements</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-tests">Updating Tests</a></li>
@@ -462,7 +525,7 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tests-are-expected-in-the-same-pr">Tests Are Expected in the Same PR</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-type-testing-checklist">File Type Testing Checklist</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-type-testing-checklist">File Type Testing Checklist</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-checklist-apply-to-every-new-file-type">General Checklist (apply to every new file type)</a></li>
 </ul>
 </li>
@@ -498,17 +561,62 @@ the article linked above says, you will ‘need to get used to the idea of reach
 frequent integration points with a partially built feature’. You will also have
 to find a way to make sure your feature is gated from production until it is ready.
 We use feature flags to do this.</p>
+<section id="two-feature-flag-systems">
+<h3>Two Feature Flag Systems<a class="headerlink" href="#two-feature-flag-systems" title="Link to this heading">#</a></h3>
+<p>WISER actually has two separate feature-flagging mechanisms. They are not
+interchangeable — which one you use depends on who needs to control the flag
+and how.</p>
+<p><strong>1. Environment-tier gates — <code class="xref py py-mod docutils literal notranslate"><span class="pre">wiser.config.feature_flags</span></code></strong></p>
+<p>Add your feature to <code class="docutils literal notranslate"><span class="pre">FEATURE_GATES</span></code> with a minimum environment
+(<code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;local&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;dev&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;qa&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;prod&quot;</span></code>), then check it with
+<code class="docutils literal notranslate"><span class="pre">FLAGS.your_feature</span></code>. The active environment is read once at process start
+from the <code class="docutils literal notranslate"><span class="pre">WISER_ENV</span></code> environment variable.</p>
+<p>Use this for gating a work-in-progress feature during trunk-based
+development. It lets you merge unfinished work into <code class="docutils literal notranslate"><span class="pre">main</span></code> continuously while
+keeping it invisible in production — you raise the gate’s minimum level
+(<code class="docutils literal notranslate"><span class="pre">local</span></code> → <code class="docutils literal notranslate"><span class="pre">dev</span></code> → <code class="docutils literal notranslate"><span class="pre">qa</span></code> → <code class="docutils literal notranslate"><span class="pre">prod</span></code>) as the feature matures, and remove the entry
+entirely once it reaches <code class="docutils literal notranslate"><span class="pre">prod</span></code>. This is a <em>deployment-tier</em> switch: every
+user running WISER in a given environment sees the same value, and flipping
+it requires setting an OS-level environment variable and relaunching the
+whole process. That makes it the right tool for “what tier is this build,”
+not for “does this one person want this on” — it’s set by CI/build tooling or
+a developer running from source, not by an end user clicking something in
+the app.</p>
+<p><strong>2. Per-user config flags — <code class="docutils literal notranslate"><span class="pre">ApplicationConfig</span></code> in <code class="docutils literal notranslate"><span class="pre">wiser.gui.app_config</span></code></strong></p>
+<p>Any config key prefixed <code class="docutils literal notranslate"><span class="pre">feature_flags.</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">feature_flags.bug_button</span></code>)
+is treated as a boolean flag, read with
+<code class="docutils literal notranslate"><span class="pre">self._app_state.get_config(&quot;feature_flags.your_flag&quot;,</span> <span class="pre">default=False)</span></code>. These
+values live in the user’s own JSON config file (in their per-install app-data
+directory), loaded/saved via <code class="docutils literal notranslate"><span class="pre">ApplicationConfig.load()</span></code>/<code class="docutils literal notranslate"><span class="pre">.save()</span></code>.</p>
+<p>Use this for a toggle that an individual user or tester should be able to
+turn on for <em>their own</em> installation — e.g. a debug tool like the
+<code class="docutils literal notranslate"><span class="pre">bug_button</span></code> flag that exercises online error reporting. Because it’s backed
+by the same config file mechanism a Settings/Preferences dialog would use, it
+can be flipped from inside the running app (no shell, no environment
+variables, no relaunch with special flags) and only affects that user’s
+install, not everyone on that environment tier.</p>
+<p><strong>Rule of thumb:</strong> gating an in-progress feature’s rollout across
+dev → qa → prod → use the environment-tier system. Letting a specific
+user/tester opt into an experimental option on their own machine → use the
+config-file system.</p>
+</section>
+<section id="testing">
+<h3>Testing<a class="headerlink" href="#testing" title="Link to this heading">#</a></h3>
 <p>We should have good confidence that the code we merge into main is not buggy.
 To have this confidence we need to ensure our testing suite has good coverage
 and handles edge cases well. WISER’s test coverage is still growing — the core
 codebase predates the current testing standards, and GUI testing for PySide2
 applications presents known challenges. New contributions are expected to
 include tests; see the <a class="reference internal" href="testing-and-qa.html"><span class="doc">Testing &amp; QA</span></a> guide.</p>
+</section>
+<section id="release-branches">
+<h3>Release Branches<a class="headerlink" href="#release-branches" title="Link to this heading">#</a></h3>
 <p>Next we have release branches. Release branches will be made from main. When
 release branches are made, there should no longer be any new features added
 to them. All future commits on the release branch should be for fixing bugs.
 After each commit is made on the release branch, you will have to merge the
 release branch into <code class="docutils literal notranslate"><span class="pre">main</span></code> so main has that fix.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="code-review-and-quality-guide">
@@ -1191,46 +1299,51 @@ to individual values.</p></li>
     <i class="fa-solid fa-list"></i> Contents
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#branching-strategy">Branching Strategy</a></li>
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#branching-strategy">Branching Strategy</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#two-feature-flag-systems">Two Feature Flag Systems</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#release-branches">Release Branches</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-and-quality-guide">Code Review and Quality Guide</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-guidelines">Code Review Guidelines</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-guidelines">Code Review Guidelines</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-we-look-for">What We Look For</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pr-expectations">PR Expectations</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commit-message-standards">Commit Message Standards</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commit-message-standards">Commit Message Standards</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#format">Format</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#guidelines">Guidelines</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#merge-commits">Merge Commits</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commenting-style">Commenting Style</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commenting-style">Commenting Style</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-principles">General Principles</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#formatting-conventions">Formatting Conventions</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-and-code-style">Naming and Code Style</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-and-code-style">Naming and Code Style</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#python-naming-conventions">Python Naming Conventions</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-widget-naming">GUI Widget Naming</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#private-and-public-attributes-methods">Private and public attributes/methods</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#enforced-code-style">Enforced Code Style</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-design">Code Design</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-design">Code Design</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-design-rules">General Design Rules</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose-scope">Purpose &amp; Scope</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing-philosophy-principles">Testing Philosophy / Principles</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-organization">Test Organization</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-organization">Test Organization</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-structure-pytest">Naming &amp; Structure (pytest)</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-markers">Test Markers</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-ci-cd-integration">Running Tests &amp; CI/CD Integration</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-ci-cd-integration">Running Tests &amp; CI/CD Integration</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-integration-ci">Continuous Integration (CI)</a></li>
@@ -1238,7 +1351,7 @@ to individual values.</p></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-guidelines">Test Guidelines</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-maintenance-flakiness">Test Maintenance &amp; Flakiness</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-maintenance-flakiness">Test Maintenance &amp; Flakiness</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-flaky-tests">Handling Flaky Tests</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isolation-requirements">Isolation Requirements</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-tests">Updating Tests</a></li>
@@ -1249,7 +1362,7 @@ to individual values.</p></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tests-are-expected-in-the-same-pr">Tests Are Expected in the Same PR</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-type-testing-checklist">File Type Testing Checklist</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-type-testing-checklist">File Type Testing Checklist</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-checklist-apply-to-every-new-file-type">General Checklist (apply to every new file type)</a></li>
 </ul>
 </li>
@@ -1303,8 +1416,8 @@ By Ehlmann Research Group
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
 
   <footer class="bd-footer">
   </footer>
