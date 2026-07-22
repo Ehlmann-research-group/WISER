@@ -7,13 +7,36 @@ through :class:`wiser.gui.app_state.ApplicationState`. The methods are:
 
 .. code-block:: python
 
-    dataset: RasterDataSet = app_state.choose_dataset_ui()
-    spectrum: Spectrm = app_state.choose_spectrum_ui()
-    roi: RegionOfInterest = app_state.choose_roi_ui()
-    band: RasterDataBand = app_state.choose_band_ui()
+    dataset: Optional[RasterDataSet] = app_state.choose_dataset_ui()
+    spectrum: Optional[Spectrum] = app_state.choose_spectrum_ui()
+    roi: Optional[RegionOfInterest] = app_state.choose_roi_ui()
+    band: Optional[RasterDataBand] = app_state.choose_band_ui()
+
+Each of these returns ``None`` if the user cancels the dialog instead of
+making a selection, so always check for ``None`` before using the result.
 
 The :class:`wiser.gui.ui_library.DynamicInputDialog` provides a simple way to
-collect user input that isn't tied to WISER's internal state. By passing in a
+collect user input that isn't tied to WISER's internal state. Look at the
+:class:`wiser.gui.ui_library.DynamicInputType` class to see the supported
+input kinds. Each kind determines both the widget shown to the user and the
+Python type stored under its key in the dictionary returned by
+`ApplicationState.create_form`:
+
+- ``COMBO_BOX`` (``0``) - returns the selected option as a ``str``.
+- ``FLOAT_NO_UNITS`` (``1``) - returns the entered number as a ``float``,
+  or ``None`` if left empty.
+- ``FLOAT_UNITS`` (``2``) - returns the entered number as an
+  ``astropy.units.Quantity`` if a unit was chosen, a plain ``float`` if
+  "None" was chosen as the unit, or ``None`` if left empty.
+- ``INT_NO_UNITS`` (``3``) - returns the entered number as a ``float``,
+  or ``None`` if left empty. Cast it yourself with ``int(...)`` if you
+  need an integer.
+- ``INT_UNITS`` (``4``) - returns the same as ``FLOAT_UNITS``. Cast the
+  numeric part yourself if you need an integer.
+- ``STRING`` (``5``) - returns the entered text as a ``str``.
+- ``CHECK_BOX`` (``6``) - returns the checked state as a ``bool``.
+
+By passing in a
 list of input specifications, you can dynamically generate a dialog that displays
 text fields and combo boxes. This is useful for plugins or tools that need to
 ask users for parameters, options, or configuration values before running. You should
@@ -32,6 +55,32 @@ Here is an example of its use:
         title="Analysis Params",
         description="In the above text enter the parameters needed to perform the algorithm.",
     )
+
+`create_form` returns ``None`` if the user cancels the dialog, and an empty
+dict is possible if none of the fields resolve. Always guard against a
+missing key with :meth:`dict.get` and check for ``None`` before using a
+value, converting it to the type your plugin expects:
+
+.. code-block:: python
+
+    if return_dict is None:
+        return  # user cancelled the dialog
+
+    wvl = return_dict.get("wvl", None)
+    if wvl is None:
+        QMessageBox.warning(None, "No Value Entered", "You did not enter a wavelength.")
+        return
+
+    divisor = return_dict.get("divisor", None)
+    try:
+        divisor = int(divisor)
+    except (TypeError, ValueError) as e:
+        QMessageBox.critical(
+            None, "Wrong Value Entered", f"Could not convert divisor to integer!\nError:\n\n{e}."
+        )
+        return
+
+    dim_reduction = return_dict.get("dim_reduction", None)  # "PCA" or "SVD"
 
 This will construct a GUI element that looks like this:
 
