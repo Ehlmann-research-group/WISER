@@ -16,9 +16,7 @@ _ENV_ORDER: Dict[str, int] = {
 # Edit this mapping to add your features with one of: "off", "local", "dev", "qa", "prod".
 # When a feature gets to prod, it should be removed from this mapping.
 # Set the environment variable WISER_ENV to the desired environment to enable the features.
-FEATURE_GATES = {
-    "kmeans": "dev",
-}
+FEATURE_GATES = {}
 
 
 def _normalize_env(env_value: Optional[str]) -> str:
