@@ -7,12 +7,32 @@ added by running: `git commit -s -m "message"`.
 
 ## Table of Contents
 
+- [Environment Details](#environment-details)
+- [How to submit changes](#how-to-submit-changes)
+- [How to report a bug](#how-to-report-a-bug)
+- [How to request an "enhancement"](#how-to-request-an-enhancement)
+- [Style Guide / Coding Conventions](#style-guide--coding-conventions)
+- [Your First Code Contribution](#your-first-code-contribution)
+- [Code of Conduct](#code-of-conduct)
+- [Who is currently involved?](#who-is-currently-involved)
+- [Where can I ask for help?](#where-can-i-ask-for-help)
+- [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
+  - [Why we chose DCO over CLA](#why-we-chose-dco-over-cla)
+- [Project Roles](#project-roles)
+  - [Project Lead (BDFL)](#project-lead-bdfl)
+  - [Maintainer](#maintainer)
+    - [Becoming a maintainer](#becoming-a-maintainer)
+  - [Committer](#committer)
+    - [Becoming a committer](#becoming-a-committer)
+  - [Contributor](#contributor)
+    - [How to contribute](#how-to-contribute)
+- [List of Authors](#list-of-authors)
 
 ## Environment Details
 
 If you are thinking about contributing to WISER with code,
 then you will need to set up your environment. We have detailed
-documentation on how to do this under _doc\sphinx-general-wiser-docs\source\developer-content\environment-setup.md_
+documentation on how to do this in the [Developer Environment Setup](doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md) guide.
 
 ## How to submit changes
 
@@ -27,40 +47,40 @@ If that all sounded very complicated, that's okay. [This link](https://medium.co
 goes through the process.
 
 For information on how your pull request will be reviewed, go 
-to _doc\sphinx-general-wiser-docs\source\developer-content\code-review-and-quality.md_.
+to the [Contributing & Code Quality](doc/sphinx-general-wiser-docs/source/developer-content/contributing-and-quality.md) guide.
 
 ## How to report a bug
 
-Read more on how to report a bug here: _doc\sphinx-general-wiser-docs\source\general-content\bug-submitting-guide.md_. 
+Read more on how to report a bug here: [Reporting a Bug](doc/sphinx-general-wiser-docs/source/contributing.md#reporting-a-bug).
 
 ## How to request an "enhancement"
 
-Read more on how to submit a feature/enhancement request here: _doc\sphinx-general-wiser-docs\source\general-content\feature-submitting-guide.md_.
+Read more on how to submit a feature/enhancement request here: [Requesting a Feature](doc/sphinx-general-wiser-docs/source/contributing.md#requesting-a-feature).
 
 ## Style Guide / Coding Conventions
 
-Many of our style and coding conventions can be found here: _doc\sphinx-general-wiser-docs\source\developer-content\code-review-and-quality.md_.
+Many of our style and coding conventions can be found here: [Contributing & Code Quality](doc/sphinx-general-wiser-docs/source/developer-content/contributing-and-quality.md).
 
 ## Your First Code Contribution
 
 If you are unsure where to begin contributing to WISER, you can look through our beginner or help-wanted issues.
 
-- [Beginner Issues](https://github.com/Ehlmann-research-group/WISER/issues?q=state%3Aopen%20label%3Abeginner) - issues which
+- [Beginner Issues](https://github.com/Ehlmann-research-group/WISER/issues?q=state%3Aopen%20label%3A%22good%20first%20issue%22) - issues which
 only require a few lines of code and a test or two
 
 - [Help wanted issues](https://github.com/Ehlmann-research-group/WISER/issues?q=state%3Aopen%20label%3A%22help%20wanted%22) - More involved than a `beginner` issue, but still somewhat isolated.
 
 ## Code of Conduct
 
-Read _CODE_OF_CONDUCT.md_ for more information.
+Read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for more information.
 
-## Who is involved?
+## Who is currently involved?
 
 | Role | Name | Institution | 
 |------|------|-------------|
 | Project Lead [(BDFL)](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life) | [Bethany Ehlmann](https://www.linkedin.com/in/bethany-ehlmann-1112b81/) | CU Boulder
-| Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
-| Maintainer | Matthew Maclay | LASP |
+| Maintainer | [Matthew Maclay](https://www.linkedin.com/in/matthew-maclay/) | LASP |
+| Contributor | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
 
 ## Where can I ask for help?
 
@@ -120,9 +140,7 @@ WISER is Bethany Ehlmann.
 A maintainer doesn't have to write code. A maintainer for
 WISER is defined in very broad terms: someone who has
 responsibility over the direction of the project and is
-committed to improving it. WISER's current maintainers are
-listed below:
-1. Joshua Garcia-Kimble
+committed to improving it.
 
 #### Becoming a maintainer
 Becoming a maintainer of WISER isn't a set-in-stone process.
@@ -188,7 +206,7 @@ a maintainer comments on if this new feature aligns with
 the mission of WISER before you code. That way you don't
 put in a lot of work to not see the new feature make it into
 the project. Learn more about creating issues for feature
-requests here at _doc/sphinx-general-wiser-docs/feature-submitting-guide.md_.
+requests here at [Requesting a Feature](doc/sphinx-general-wiser-docs/source/contributing.md#requesting-a-feature).
 
 You can also get in contact with the maintainers or Project Lead
 if you want to do other forms of contributions like triaging
@@ -202,10 +220,12 @@ in one place.
 
 | Role | Name | Institution | 
 |------|------|-------------|
-| Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
-| Past Maintainer | Donnie Pinkston | Caltech |
-| Past Maintainer | Dr. Rebecca Greenberger | Caltech (Now The Aerospace Corporation) |
-| Contributor | Dr. Andrew Annex | SETI Institute |
-| Contributor | Daphne Nea | UCLA '27 |
+| Project Lead [(BDFL)](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life) | [Bethany Ehlmann](https://www.linkedin.com/in/bethany-ehlmann-1112b81/) | CU Boulder
+| Maintainer | [Matthew Maclay](https://www.linkedin.com/in/matthew-maclay/) | LASP |
+| Past Maintainer | [Joshua Garcia-Kimble](https://www.linkedin.com/in/joshua-garcia-kimble-45211a16b/) | Caltech |
+| Past Maintainer | [Donnie Pinkston](https://www.cms.caltech.edu/people/pinkston) | Caltech |
+| Past Maintainer | [Dr. Rebecca Greenberger](https://www.linkedin.com/in/rebecca-greenberger-18842482/) | Caltech (Now The Aerospace Corporation) |
+| Contributor | [Dr. Andrew Annex](https://www.linkedin.com/in/andrewannex/) | SETI Institute |
+| Contributor | [Daphne Nea](https://www.linkedin.com/in/daphne-nea/) | UCLA '27 |
 | Contributor | Amy Wang | Cornell '23 |
 | Contributor | Sahil Azad | Caltech '25 |
