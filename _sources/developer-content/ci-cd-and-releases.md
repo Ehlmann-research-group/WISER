@@ -202,28 +202,37 @@ release time, so what ships is exactly what you tested.
    Linux asset name is read from `version.py` at build time, so it must be correct
    *before* you build.
 
-2. **Build and test** — run **Build and Smoke Test WISER** (`prod-deploy.yml`) via
+2. **Verify app metadata is current**:
+
+   - **Check the year.** Ctrl+F for whatever the current year is throughout the app and
+     go through each hit to make sure the year is correct — some may not need to be
+     changed. (We should turn this into a single variable in the future.)
+   - **Check the feature flags.** Search for `FLAGS.` and check `feature_flags.py`,
+     confirming the `FEATURE_GATES` dictionary is correct. Then check
+     `app_config.py` and confirm everything referencing `feature_flags.` is correct.
+
+3. **Build and test** — run **Build and Smoke Test WISER** (`prod-deploy.yml`) via
    `workflow_dispatch` on the commit you intend to release. Every platform builds; each
    Linux distro runs the full `--test_mode` suite in-container (a leg only produces a
    tarball if its tests pass), and Windows/macOS run a `--smoke` launch check. Note the
    **run ID** — you will promote this exact run.
 
-3. **Verify locally** — download the Linux tarballs from the run and test if needed. Build,
+4. **Verify locally** — download the Linux tarballs from the run and test if needed. Build,
    `--test_mode`, code-sign, and clean-install-test the Windows/macOS installers locally
    (CI does not produce the signed installers). See the signing certificate requirements
    below.
 
-4. **Create the release** on the *same commit* you built. Publish it as a **pre-release**
+5. **Create the release** on the *same commit* you built. Publish it as a **pre-release**
    (see the Pre-release flag section) so it stays out of `…/releases/latest` while you
    attach and verify assets. A published pre-release also lets the publish workflow confirm
    the tag matches the built commit.
 
-5. **Attach the Linux assets** — run **Publish release assets**
+6. **Attach the Linux assets** — run **Publish release assets**
    (`publish-release-assets.yml`) with the build **run ID** and the release **tag**. It
    checks the run succeeded and that the tag points at the built commit, then attaches the
    six Linux tarballs.
 
-6. **Upload the signed Windows/macOS installers** with `RELEASE_TAG=<tag>` so each is
+7. **Upload the signed Windows/macOS installers** with `RELEASE_TAG=<tag>` so each is
    uploaded to the release with its canonical name in one step:
 
    `make sign-mac LINK=<artifact-url> MAC_DIST_GITHUB_NAME=<artifact-name> RELEASE_TAG=<tag>`
@@ -238,23 +247,18 @@ release time, so what ships is exactly what you tested.
 
    b. WISER has no code-signing mechanism for Linux; the Linux assets are attached unsigned.
 
-7. **Finalize the release notes** on the GitHub release. Point users at the attached
+8. **Finalize the release notes** on the GitHub release. Point users at the attached
    release assets — never a `…/actions/runs/<id>` URL.
 
-8. **Go live** — once every asset is present with its canonical name, uncheck **"Set as a
+9. **Go live** — once every asset is present with its canonical name, uncheck **"Set as a
    pre-release"** (and keep "Set as the latest release" on) so `latest` resolves to it.
-
-9. **Update the website** — if you are making an official release, add the download links on
-   the [WISER website](https://ehlmann.caltech.edu/wiser/index.html). Release notes live on
-   the GitHub release itself (step 7) — there is no separate release-notes page to maintain.
-   (Once the downloads page reads the release API, these per-release link edits go away.)
 
 10. **Update the plugin API documentation** in
     `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any changes to plugin
     interfaces or dependencies in the latest version.
 
-11. **Announce** — if you have permission, email wiser-announce@caltech.edu with a summary of
-    the release. If not, reach out to someone who does with the email you want sent.
+11. **Announce** — if you have permission, email wiser-announcements@lists.lasp.colorado.edu with a summary of
+    the release. If not, reach out to someone who deals with the email you want sent.
 
 > **Note**: This process can only be done by a maintainer with
 > access to all of these resources. This intentionally limits who can

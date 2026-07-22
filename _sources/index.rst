@@ -49,7 +49,7 @@ exploring WISER:
   `header file <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`_)
 - `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ --- archive of airborne imaging-spectrometer scenes
 - `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ --- planetary hyperspectral datasets (CRISM, OMEGA, and more)
-- `Ehlmann Lab datasets <https://ehlmann.caltech.edu/publications/datasets.html>`_ --- laboratory and field imaging-spectroscopy data
+- `Ehlmann Lab datasets <https://lasp.colorado.edu/ehlmann-lab/datasets/>`_ --- laboratory and field imaging-spectroscopy data
 
 ----
 
@@ -57,8 +57,8 @@ Subscribe to Email Updates
 --------------------------
 
 To receive notifications about new WISER releases, send an email to
-``wiser-announce-request@caltech.edu`` with the subject line **Subscribe**.
-Follow the instructions in the reply to confirm your subscription.
+``sympa@lists.lasp.colorado.edu`` with the subject line **subscribe wiser-announcements**
+and a blank message.
 
 
 Installation
@@ -68,7 +68,7 @@ Download WISER
 ~~~~~~~~~~~~~~
 
 Pre-built installers for macOS, Windows, and Linux are available at:
-`ehlmann.caltech.edu/wiser <https://ehlmann.caltech.edu/wiser/index.html>`_
+`lasp.colorado.edu/ehlmann-lab/wiser/ <https://lasp.colorado.edu/ehlmann-lab/wiser/>`_
 
 Download the installer for your platform and follow the on-screen instructions.
 Users can also download and install WISER from

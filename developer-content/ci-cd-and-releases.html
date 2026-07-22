@@ -695,6 +695,16 @@ release time, so what ships is exactly what you tested.</p>
 <li><p><strong>Bump the version</strong> in <code class="docutils literal notranslate"><span class="pre">src/wiser/version.py</span></code> (and <code class="docutils literal notranslate"><span class="pre">RELEASE_DATE</span></code>) and commit it. The
 Linux asset name is read from <code class="docutils literal notranslate"><span class="pre">version.py</span></code> at build time, so it must be correct
 <em>before</em> you build.</p></li>
+<li><p><strong>Verify app metadata is current</strong>:</p>
+<ul class="simple">
+<li><p><strong>Check the year.</strong> Ctrl+F for whatever the current year is throughout the app and
+go through each hit to make sure the year is correct — some may not need to be
+changed. (We should turn this into a single variable in the future.)</p></li>
+<li><p><strong>Check the feature flags.</strong> Search for <code class="docutils literal notranslate"><span class="pre">FLAGS.</span></code> and check <code class="docutils literal notranslate"><span class="pre">feature_flags.py</span></code>,
+confirming the <code class="docutils literal notranslate"><span class="pre">FEATURE_GATES</span></code> dictionary is correct. Then check
+<code class="docutils literal notranslate"><span class="pre">app_config.py</span></code> and confirm everything referencing <code class="docutils literal notranslate"><span class="pre">feature_flags.</span></code> is correct.</p></li>
+</ul>
+</li>
 <li><p><strong>Build and test</strong> — run <strong>Build and Smoke Test WISER</strong> (<code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>) via
 <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code> on the commit you intend to release. Every platform builds; each
 Linux distro runs the full <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> suite in-container (a leg only produces a
@@ -727,15 +737,11 @@ WISER release unless you have been explicitly allowed to for a specific release.
 release assets — never a <code class="docutils literal notranslate"><span class="pre">…/actions/runs/&lt;id&gt;</span></code> URL.</p></li>
 <li><p><strong>Go live</strong> — once every asset is present with its canonical name, uncheck <strong>“Set as a
 pre-release”</strong> (and keep “Set as the latest release” on) so <code class="docutils literal notranslate"><span class="pre">latest</span></code> resolves to it.</p></li>
-<li><p><strong>Update the website</strong> — if you are making an official release, add the download links on
-the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/index.html">WISER website</a>. Release notes live on
-the GitHub release itself (step 7) — there is no separate release-notes page to maintain.
-(Once the downloads page reads the release API, these per-release link edits go away.)</p></li>
 <li><p><strong>Update the plugin API documentation</strong> in
 <code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/source/extending-wiser/</span></code> to reflect any changes to plugin
 interfaces or dependencies in the latest version.</p></li>
-<li><p><strong>Announce</strong> — if you have permission, email wiser-announce&#64;caltech.edu with a summary of
-the release. If not, reach out to someone who does with the email you want sent.</p></li>
+<li><p><strong>Announce</strong> — if you have permission, email wiser-announcements&#64;lists.lasp.colorado.edu with a summary of
+the release. If not, reach out to someone who deals with the email you want sent.</p></li>
 </ol>
 <blockquote>
 <div><p><strong>Note</strong>: This process can only be done by a maintainer with
