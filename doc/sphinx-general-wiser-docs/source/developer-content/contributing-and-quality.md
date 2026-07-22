@@ -20,12 +20,63 @@ frequent integration points with a partially built feature'. You will also have
 to find a way to make sure your feature is gated from production until it is ready.
 We use feature flags to do this.
 
+### Two Feature Flag Systems
+
+WISER actually has two separate feature-flagging mechanisms. They are not
+interchangeable — which one you use depends on who needs to control the flag
+and how.
+
+**1. Environment-tier gates — {py:mod}`wiser.config.feature_flags`**
+
+Add your feature to `FEATURE_GATES` with a minimum environment
+(`"off"`, `"local"`, `"dev"`, `"qa"`, `"prod"`), then check it with
+`FLAGS.your_feature`. The active environment is read once at process start
+from the `WISER_ENV` environment variable.
+
+Use this for gating a work-in-progress feature during trunk-based
+development. It lets you merge unfinished work into `main` continuously while
+keeping it invisible in production — you raise the gate's minimum level
+(`local` → `dev` → `qa` → `prod`) as the feature matures, and remove the entry
+entirely once it reaches `prod`. This is a *deployment-tier* switch: every
+user running WISER in a given environment sees the same value, and flipping
+it requires setting an OS-level environment variable and relaunching the
+whole process. That makes it the right tool for "what tier is this build,"
+not for "does this one person want this on" — it's set by CI/build tooling or
+a developer running from source, not by an end user clicking something in
+the app.
+
+**2. Per-user config flags — `ApplicationConfig` in `wiser.gui.app_config`**
+
+Any config key prefixed `feature_flags.` (e.g. `feature_flags.bug_button`)
+is treated as a boolean flag, read with
+`self._app_state.get_config("feature_flags.your_flag", default=False)`. These
+values live in the user's own JSON config file (in their per-install app-data
+directory), loaded/saved via `ApplicationConfig.load()`/`.save()`.
+
+Use this for a toggle that an individual user or tester should be able to
+turn on for *their own* installation — e.g. a debug tool like the
+`bug_button` flag that exercises online error reporting. Because it's backed
+by the same config file mechanism a Settings/Preferences dialog would use, it
+can be flipped from inside the running app (no shell, no environment
+variables, no relaunch with special flags) and only affects that user's
+install, not everyone on that environment tier.
+
+**Rule of thumb:** gating an in-progress feature's rollout across
+dev → qa → prod → use the environment-tier system. Letting a specific
+user/tester opt into an experimental option on their own machine → use the
+config-file system.
+
+### Testing
+
 We should have good confidence that the code we merge into main is not buggy.
 To have this confidence we need to ensure our testing suite has good coverage
 and handles edge cases well. WISER's test coverage is still growing — the core
 codebase predates the current testing standards, and GUI testing for PySide2
 applications presents known challenges. New contributions are expected to
 include tests; see the {doc}`Testing & QA <testing-and-qa>` guide.
+
+
+### Release Branches
 
 Next we have release branches. Release branches will be made from main. When
 release branches are made, there should no longer be any new features added

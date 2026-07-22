@@ -4,10 +4,7 @@ from __future__ import annotations
 from concurrent.futures import Future
 from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING, Union
 import os
-import warnings
 import numpy as np
-from numba import njit, prange, types
-from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -40,8 +37,6 @@ from .util import (
     populate_combo_box_with_units,
     StateChange,
 )
-
-from wiser.config import FLAGS
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
