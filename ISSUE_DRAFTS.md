@@ -41,6 +41,15 @@ Every draft uses the same template. The field that matters most is **What I'm un
 
 ## Backend rewrites (see HANDOFF Tier 2)
 
+### Batch processing
+
+- **Problem:** Batch processing was meant as a programmatic way to drive WISER but drifted into band-math-only.
+- **Why it matters:** A real batch system is the low-effort path to programmatic WISER before a full package/API exists.
+- **What I'd do:** Wrap analysis tools in a data structure a batch back end + GUI can drive and separately create a new  plugin  type that users can create to make batch plugins. Extend so one step's output feeds the next — needs rudimentary typing (cube / band / spectrum) to decide which next steps are valid; allow a band-math expression as a step.
+- **What I'm unsure about:** How much typing is needed — likely lighter than band-math typing, but the output→input chaining forces *some*.
+- **Where to look:** existing batch processing in band math; analysis tool entry points.
+- **Labels:** backend, feature, plugins, batch
+
 ### Rewrite band math chunking & remove AsyncTransformer
 
 - **Problem:** Band-math chunking splits **by band**, so a single oversized band (e.g. ~2 GB Gale HiRISE bands) OOMs. Separately, `AsyncTransformer` is a bespoke async reimplementation of Lark's `Transformer` that's fast but a maintainability liability.
@@ -95,7 +104,7 @@ Every draft uses the same template. The field that matters most is **What I'm un
 - **Problem:** `RasterView` holds the displayed image at ~O(H×W) RAM. `MosaicView` already renders via an O(1)-RAM level-of-detail pyramid.
 - **Why it matters:** Highest-ceiling item in WISER — image memory from **O(H×W) → O(1)** would make it a genuinely respectable hyperspectral tool. It's also a dependency node: it may retire the read cache and largely fix the stretch-builder freeze.
 - **What I'd do:** Make `RasterView` render through MosaicView's LoD pyramid. Design doc first.
-- **What I'm unsure about:** What assumptions MosaicView's renderer bakes in (data source, tiling, CRS) that RasterView doesn't currently satisfy.
+- **What I'm unsure about:** What assumptions MosaicView's renderer bakes in (data source, tiling, CRS) that RasterView doesn't currently satisfy. Should be easy to figure this out. I just haven't had time to compare the code.
 - **Where to look:** the MosaicView rendering path; [dataset.py](src/wiser/raster/dataset.py) read paths.
 - **Labels:** backend, rendering, big-bet, priority:high
 
@@ -140,7 +149,7 @@ Every draft uses the same template. The field that matters most is **What I'm un
 
 ### Native dark / light mode
 
-- **Problem:** WISER can be in OS dark mode while its icons stay dark and become invisible.
+- **Problem:** WISER can be in OS dark mode while its icons stay dark and become very hard to see.
 - **Why it matters:** Basic usability for dark-mode users.
 - **What I'd do:** Detect the OS theme and swap icons to light/dark to match; support both natively.
 - **What I'm unsure about:** Cross-platform theme detection reliability in PySide.
@@ -149,7 +158,7 @@ Every draft uses the same template. The field that matters most is **What I'm un
 
 ### QoL grab-bag: save-to-project, help buttons, easier save/edit
 
-- **Problem:** Several small QoL gaps: Save to Project File, help buttons on tools, easier ways to save artifacts, easier ways to edit datasets.
+- **Problem:** Several small QoL gaps: help buttons on tools, easier ways to save artifacts, easier ways to edit datasets.
 - **Why it matters:** Each is small but collectively shapes how polished WISER feels.
 - **What I'd do:** File individually as they're picked up; listed together here so they aren't lost.
 - **What I'm unsure about:** Priority order among them — driven by user feedback.
@@ -160,20 +169,11 @@ Every draft uses the same template. The field that matters most is **What I'm un
 
 ## Plugins
 
-### Batch processing plugin
-
-- **Problem:** Batch processing was meant as a programmatic way to drive WISER but drifted into band-math-only.
-- **Why it matters:** A real batch system is the low-effort path to programmatic WISER before a full package/API exists.
-- **What I'd do:** Build a batch plugin: wrap analysis tools in a data structure a batch back end + GUI can drive. Extend so one step's output feeds the next — needs rudimentary typing (cube / band / spectrum) to decide which next steps are valid; allow a band-math expression as a step.
-- **What I'm unsure about:** How much typing is needed — likely lighter than band-math typing, but the output→input chaining forces *some*.
-- **Where to look:** existing batch processing in band math; analysis tool entry points.
-- **Labels:** feature, plugins, batch
-
 ### Packaged plugin files
 
 - **Problem:** No easy way to share plugins; hard when a plugin has dependencies outside WISER's.
 - **Why it matters:** Shareable plugins massively raise the odds people actually use plugins.
-- **What I'd do:** A `.wiserproj`-style bundle for plugins. **Preferred: option 1** — package all dependencies into the bundle (simpler, larger files). Option 2 — a manifest WISER reloads at runtime — needs WISER to ship something like micromamba.
+- **What I'd do:** A `.wiserproj`-style bundle for plugins. **Preferred: option 1** — package all dependencies into the bundle (simpler, larger files). Option 2 — a manifest WISER reloads at runtime — needs WISER to ship something like micromamba or UV (plugins confined to PyPI packages).
 - **What I'm unsure about:** Bundle size limits in practice; how to resolve dep conflicts with WISER's own environment.
 - **Where to look:** plugin loading; project-file packaging for the `.wiserproj` precedent.
 - **Labels:** feature, plugins
@@ -183,7 +183,7 @@ Every draft uses the same template. The field that matters most is **What I'm un
 - **Problem:** No easy way for a plugin author to run their plugin off the main thread.
 - **Why it matters:** Plugins on the GUI thread freeze WISER; ease-of-use drives adoption of the right behavior.
 - **What I'd do:** Give authors a simple opt-in — ideally a single boolean flag to run in another thread/process. Consider making off-thread the default.
-- **What I'm unsure about:** Whether process (not thread) can be the easy default given data-transfer overhead.
+- **What I'm unsure about:** Whether process (not thread) can be the easy default given data-transfer overhead. It may be hard for users to understand the abstraction we decide on creating.
 - **Where to look:** plugin API; [work_scheduler.py](src/wiser/utils/work_scheduler.py).
 - **Labels:** plugins, backend, ux
 
@@ -204,6 +204,15 @@ Every draft uses the same template. The field that matters most is **What I'm un
 - **What I'm unsure about:** Current access/permissions state.
 - **Where to look:** the plugin repo.
 - **Labels:** ops, handoff
+
+### WISER user workspace (intern plugin dumping ground)
+
+- **Problem:** [wiser-user-workspace](https://github.com/Ehlmann-research-group/wiser-user-workspace/tree/main) is a separate repo (not `WISER-Plugin-Repository` above) where interns have historically built their plugins. It has no enforced structure and had become a place to just dump plugins.
+- **Why it matters:** For most purposes you will not touch this. But if there's another intern, someone has to decide whether they keep using `wiser-user-workspace` or not — left undocumented, that decision defaults to "whatever the last person did," which is how it got messy in the first place.
+- **What I'd do:** With the last intern, Daphne Nea, I started cleaning it up — each plugin gets its own folder with a README. Keep that convention going if the repo stays in use. Beyond that, it's a judgment call for whoever mentors the next intern: keep using `wiser-user-workspace`, or point new plugin work elsewhere (e.g. once [packaged plugin files](#packaged-plugin-files) exist).
+- **What I'm unsure about:** Whether this repo should keep existing long-term, or whether intern plugin work should eventually just live in `.wiserproj`-style bundles once that system exists. Not a decision I made — it's genuinely open.
+- **Where to look:** [wiser-user-workspace](https://github.com/Ehlmann-research-group/wiser-user-workspace/tree/main).
+- **Labels:** plugins, docs, low-priority
 
 ---
 
