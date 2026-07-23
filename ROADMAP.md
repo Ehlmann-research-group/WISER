@@ -62,7 +62,6 @@ Rank this by *ceiling*, not by regression risk — nothing here regresses if for
 
 - **Get things off the GUI thread** — the top priority; see the priorities section and HANDOFF #1. Draft: [Standardize the off-GUI-thread pattern](ISSUE_DRAFTS.md#standardize-the-off-gui-thread-pattern).
 - Save to Project File; help buttons; easier ways to save artifacts; easier ways to edit datasets. Draft: [QoL grab-bag](ISSUE_DRAFTS.md#qol-grab-bag-save-to-project-help-buttons-easier-saveedit).
-- **Batch processing** — Matt's framing: batch processing was meant to be a *programmatic* way to drive WISER. It drifted into band-math-only. Revisit as a real plugin: wrap current analysis tools in a data structure that a batch back end + GUI can drive. Extension: let one batch step's output feed the next (needs rudimentary typing — is the output a cube, a band, or a spectrum?), and allow a band-math expression as a step. Draft: [Batch processing plugin](ISSUE_DRAFTS.md#batch-processing-plugin).
 - **Native dark/light mode** — WISER can end up in OS "dark mode" while its icons stay dark and invisible. Detect OS theme and swap icons to light/dark accordingly. Draft: [Native dark/light mode](ISSUE_DRAFTS.md#native-dark--light-mode).
 - **Stretch builder responsiveness** — stretch changes can freeze WISER for *minutes* on huge images (Gale HiRISE). It updates the context pane, zoom pane, and main view — the meat of user interaction — so a blocking modal with progress is defensible, but the operation must be **cancellable** so users can reach background analysis tools. Draft: [Stretch builder cancellable + progress](ISSUE_DRAFTS.md#stretch-builder-cancellable--progress). Ultimately subsumed by LoD rendering.
 
@@ -71,6 +70,7 @@ Rank this by *ceiling*, not by regression risk — nothing here regresses if for
 - Get things off the GUI thread (shared with QoL above). Known offenders: [async dataset loading](ISSUE_DRAFTS.md#async-dataset-loading), [ROI average-spectra](ISSUE_DRAFTS.md#roi-average-spectra-off-the-gui-thread).
 - Speed up calculations.
 - Rewrites from HANDOFF Tier 2: [band math chunking](ISSUE_DRAFTS.md#rewrite-band-math-chunking--remove-asynctransformer), [task system](ISSUE_DRAFTS.md#simplify-the-task-system), [dataset cache re-look](ISSUE_DRAFTS.md#re-look-the-dataset-read-cache).
+- **Batch processing** — Matt's framing: batch processing was meant to be a *programmatic* way to drive WISER. It drifted into band-math-only. Revisit: wrap current analysis tools in a data structure that a batch back end + GUI can drive, exposed as a plugin (the plugin is just the entry point, not the idea). Extension: let one batch step's output feed the next (needs rudimentary typing — is the output a cube, a band, or a spectrum?), and allow a band-math expression as a step. Draft: [Batch processing](ISSUE_DRAFTS.md#batch-processing).
 - Unify all async code under one system (`work_scheduler`) with documented ways to use both subprocessing and threading:
   - Subprocessing, two modes: (a) the **task system** for long, expensive work; (b) **one-off** subprocess wrapping for easy/short work.
   - Threading — currently for I/O-heavy work; could also carry long CPU-bound work at the cost of taking resources from the main thread (sometimes a worthwhile trade).
@@ -83,6 +83,7 @@ Rank this by *ceiling*, not by regression risk — nothing here regresses if for
 - **Plugins off the main thread** — give users an easy opt-in (ideally a single boolean flag, maybe the default) to run a plugin in another thread/process. Draft: [Plugins off the main thread](ISSUE_DRAFTS.md#plugins-off-the-main-thread).
 - **Chunked-operation compatibility** — band-math plugins, the API, and the docs all assume the full dataset is in memory. The band-math chunking rewrite must account for this or it breaks plugins silently. See HANDOFF #4. Draft: [Plugin chunked-op compatibility](ISSUE_DRAFTS.md#plugin-chunked-operation-compatibility).
 - **Plugin repository handoff** — the WISER plugin repo needs an owner. Draft: [Plugin repository handoff](ISSUE_DRAFTS.md#plugin-repository-handoff).
+- **WISER user workspace** — [wiser-user-workspace](https://github.com/Ehlmann-research-group/wiser-user-workspace/tree/main) is a separate repo where interns have historically built their plugins; historically messy, with a folder-per-plugin-plus-README convention started with the last intern (Daphne Nea). For most purposes you won't touch this — it's a judgment call for whoever mentors the next intern whether to keep using it. Draft: [WISER user workspace](ISSUE_DRAFTS.md#wiser-user-workspace-intern-plugin-dumping-ground).
 
 ### Documentation & tutorials
 
