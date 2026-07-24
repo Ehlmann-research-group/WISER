@@ -13,7 +13,7 @@ the OS, is covered by mocking ``styleHints().colorScheme()``.)
 import unittest
 from unittest import mock
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import tests.context  # noqa: F401  (sets up sys.path for the wiser package)
 
@@ -72,6 +72,43 @@ def _pixel_counts(pixmap) -> Dict[Tuple[int, int, int], int]:
             key = (color.red(), color.green(), color.blue())
             counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _grab_checked_tool_button(accent: Optional[QColor] = None) -> Tuple[int, int, int]:
+    """Render a checked ``QToolButton`` and return its most common pixel color.
+
+    ``accent`` overrides ``QPalette.Accent`` on the button's *own* palette, which
+    leaves the application palette alone.
+    """
+    button = QToolButton()
+    button.setCheckable(True)
+    button.setChecked(True)
+    button.setFixedSize(40, 40)
+    if accent is not None:
+        palette = QPalette(button.palette())
+        palette.setColor(QPalette.Accent, accent)
+        button.setPalette(palette)
+    try:
+        button.show()
+        _app.processEvents()
+        counts = _pixel_counts(button.grab())
+    finally:
+        button.hide()
+        button.deleteLater()
+    return max(counts.items(), key=lambda kv: kv[1])[0]
+
+
+def _style_paints_checked_tool_button_with_accent() -> bool:
+    """Whether the active style fills a checked ``QToolButton`` with ``QPalette.Accent``.
+
+    Probed by actually rendering one with a distinctive accent, rather than
+    matching on a style name, so this stays true to what the style does.  The
+    Windows 11 style passes; Fusion -- what a headless Linux CI runner falls back
+    to, with no desktop theme -- paints a gray derived from ``Button`` instead and
+    would never show the override at all.
+    """
+    probe = QColor("#ff00ff")
+    return _grab_checked_tool_button(accent=probe) == (probe.red(), probe.green(), probe.blue())
 
 
 def _relative_luminance(color: QColor) -> float:
@@ -346,24 +383,24 @@ class TestDarkHighlightOverride(unittest.TestCase):
         self.assertGreater(ratio, 4.5)
 
     def test_checked_tool_button_paints_the_darker_blue(self):
-        # end-to-end: the style actually paints a checked tool button with the
-        # overridden color (this is the toolbar highlight the user sees).
-        self._apply(theme.DARK)
-        button = QToolButton()
-        button.setCheckable(True)
-        button.setChecked(True)
-        button.setFixedSize(40, 40)
-        try:
-            button.show()
-            _app.processEvents()
-            counts = _pixel_counts(button.grab())
-        finally:
-            button.hide()
-            button.deleteLater()
+        # End-to-end: the style really does paint a checked tool button with the
+        # overridden color -- this is the toolbar highlight from the bug report.
+        #
+        # Only styles that consult Accent for this can show the override, so the
+        # assertion is gated on that rather than on a platform.  See
+        # _style_paints_checked_tool_button_with_accent.
+        if not _style_paints_checked_tool_button_with_accent():
+            self.skipTest(
+                f"the {_app.style().objectName()!r} style does not paint checked "
+                f"tool buttons with QPalette.Accent"
+            )
 
-        dominant = max(counts.items(), key=lambda kv: kv[1])[0]
+        self._apply(theme.DARK)
         expected = theme.DARK_HIGHLIGHT_COLOR
-        self.assertEqual(dominant, (expected.red(), expected.green(), expected.blue()))
+        self.assertEqual(
+            _grab_checked_tool_button(),
+            (expected.red(), expected.green(), expected.blue()),
+        )
 
 
 # ---------------------------------------------------------------------------
