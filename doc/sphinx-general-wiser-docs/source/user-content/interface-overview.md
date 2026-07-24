@@ -60,6 +60,41 @@ dialog:
 These settings are saved on disk so that they don't need to be specified every
 time. Some additional details are given in the following sections.
 
+### Appearance and Color Scheme
+
+WISER can be shown in a light or a dark color scheme. The **Color scheme**
+setting, in the **Appearance** group at the top of the configuration dialog,
+controls this:
+
+:::{figure} ../_static/images/color_scheme_config.png
+:width: 45%
+:align: center
+:alt: The Color scheme drop-down in the Appearance group of the WISER configuration dialog
+:::
+
+There are three choices:
+
+*   **System** (the default) — WISER follows your operating system's light/dark
+    setting, and automatically updates if you change your OS theme.
+*   **Light** — always use the light color scheme, regardless of the OS setting.
+*   **Dark** — always use the dark color scheme, regardless of the OS setting.
+
+WISER adjusts both the window colors and the toolbar icons so that everything
+stays legible in either scheme. The change is applied when you click **OK**, and
+is remembered between sessions.
+
+:::{figure} ../_static/images/color_scheme_light.png
+:width: 80%
+:align: center
+:alt: WISER shown in the light color scheme
+:::
+
+:::{figure} ../_static/images/color_scheme_dark.png
+:width: 80%
+:align: center
+:alt: WISER shown in the dark color scheme, with light-tinted toolbar icons
+:::
+
 ### WISER Crash and Error Reporting
 
 WISER is capable of sending crash reports to an online service called
