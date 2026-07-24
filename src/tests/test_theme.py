@@ -10,6 +10,7 @@ the OS, is covered by mocking ``styleHints().colorScheme()``.)
 
 import unittest
 from unittest import mock
+from pathlib import Path
 from typing import Dict, Tuple
 
 import tests.context  # noqa: F401  (sets up sys.path for the wiser package)
@@ -57,6 +58,17 @@ def _dominant_opaque_color(icon: QIcon, size: int = 32) -> Tuple[int, int, int]:
     counts = _opaque_colors(icon, size)
     assert counts, "icon has no opaque pixels to sample"
     return max(counts.items(), key=lambda kv: kv[1])[0]
+
+
+# Purpose-built SVG fixtures, one per color-declaration style, so the icon
+# recoloring tests stay stable and self-documenting regardless of which real
+# WISER icons exist.  See src/test_utils/test_icons/README.md.
+_ICONS_DIR = Path(__file__).resolve().parent / ".." / "test_utils" / "test_icons"
+
+
+def _fixture(name: str) -> str:
+    """Return the absolute path to a test-icon fixture (accepted by get_icon)."""
+    return str((_ICONS_DIR / name).resolve())
 
 
 class _StubAppState:
@@ -126,6 +138,14 @@ class TestColorSchemePreference(unittest.TestCase):
 
 
 class TestThemedIcons(unittest.TestCase):
+    """Recoloring-engine behavior, exercised with purpose-built SVG fixtures.
+
+    The fixtures (not real WISER icons) each isolate one color-declaration
+    style, so these tests describe the engine's contract and don't drift if the
+    production icons change.  ``TestRealResourceIcons`` covers the real
+    ``:/icons/...`` pipeline separately.
+    """
+
     def setUp(self):
         theme.set_color_scheme(theme.SYSTEM)
         theme._icon_cache.clear()
@@ -133,30 +153,80 @@ class TestThemedIcons(unittest.TestCase):
     def test_light_mode_icon_untinted(self):
         # in light mode the icon keeps its authored (near-black) color.
         theme.set_color_scheme(theme.LIGHT)
-        r, g, b = _dominant_opaque_color(theme.get_icon(":/icons/zoom-in.svg"))
+        r, g, b = _dominant_opaque_color(theme.get_icon(_fixture("styled_stroke_black.svg")))
         self.assertLess(max(r, g, b), 40)
 
     def test_dark_mode_icon_tinted(self):
-        # in dark mode a "#000"-declared icon is tinted to a light color.
+        # in dark mode a "stroke:#000"-in-<style> icon is tinted to a light color.
         theme.set_color_scheme(theme.DARK)
-        r, g, b = _dominant_opaque_color(theme.get_icon(":/icons/zoom-in.svg"))
+        r, g, b = _dominant_opaque_color(theme.get_icon(_fixture("styled_stroke_black.svg")))
         self.assertGreater(min(r, g, b), 200)
 
     def test_dark_mode_recolors_default_black_icon(self):
-        # stack.svg declares NO color and relies on SVG's default black fill.
-        # A string-replace of "#000" would miss it; compositing recolors it.
+        # default_fill_black.svg declares NO color and relies on SVG's default
+        # black fill.  A string-replace of "#000" would miss it; compositing
+        # recolors it.
         theme.set_color_scheme(theme.DARK)
-        r, g, b = _dominant_opaque_color(theme.get_icon(":/icons/stack.svg"))
+        r, g, b = _dominant_opaque_color(theme.get_icon(_fixture("default_fill_black.svg")))
         self.assertGreater(min(r, g, b), 200)
 
     def test_monochrome_false_preserves_colors(self):
         # multi-color icons opted out of tinting keep their real colors,
         # even in dark mode.
         theme.set_color_scheme(theme.DARK)
-        colors = _opaque_colors(theme.get_icon(":/icons/choose-truecolor.svg", monochrome=False))
+        colors = _opaque_colors(theme.get_icon(_fixture("multicolor.svg"), monochrome=False))
         self.assertGreater(len(colors), 3)
         # At least one clearly-saturated (non-gray) color survives.
         self.assertTrue(any(max(c) - min(c) > 40 for c in colors))
+
+    def test_monochrome_false_not_cached(self):
+        # an explicit opt-out also bypasses the themed cache.
+        path = _fixture("styled_stroke_black.svg")
+        theme.get_icon(path, monochrome=False)
+        self.assertNotIn(path, theme._icon_cache)
+
+    def test_get_icon_cached_by_path(self):
+        path = _fixture("styled_stroke_black.svg")
+        first = theme.get_icon(path)
+        second = theme.get_icon(path)
+        self.assertIs(first, second)
+
+    def test_icon_adapts_live_without_rebuild(self):
+        # THE core "live" claim -- a single icon instance re-tints itself
+        # when the scheme changes; a baked-pixmap implementation would fail.
+        theme.set_color_scheme(theme.LIGHT)
+        icon = theme.get_icon(_fixture("styled_stroke_black.svg"))
+        r, g, b = _dominant_opaque_color(icon)
+        self.assertLess(max(r, g, b), 40)  # black in light mode
+
+        theme.set_color_scheme(theme.DARK)
+        r, g, b = _dominant_opaque_color(icon)  # SAME instance
+        self.assertGreater(min(r, g, b), 200)  # now light
+
+
+# ---------------------------------------------------------------------------
+# real Qt resource pipeline (deliberately coupled to production icons)
+# ---------------------------------------------------------------------------
+
+
+class TestRealResourceIcons(unittest.TestCase):
+    """Canary that the compiled ``:/icons/...`` resources load and recolor.
+
+    Unlike ``TestThemedIcons``, these are intentionally coupled to real icons so
+    that a broken resource bundle (missing .qrc entry, wrong prefix, un-rebuilt
+    ``generated/resources.py``) is caught.
+    """
+
+    def setUp(self):
+        theme.set_color_scheme(theme.SYSTEM)
+        theme._icon_cache.clear()
+
+    def test_real_resource_icon_loads_and_tints(self):
+        theme.set_color_scheme(theme.DARK)
+        icon = theme.get_icon(":/icons/zoom-in.svg")
+        self.assertFalse(icon.isNull())
+        r, g, b = _dominant_opaque_color(icon)
+        self.assertGreater(min(r, g, b), 200)
 
     def test_non_svg_returned_raw(self):
         # non-SVG icons are not routed through the themed engine/cache.
@@ -164,28 +234,6 @@ class TestThemedIcons(unittest.TestCase):
         icon = theme.get_icon(":/icons/wiser.ico")
         self.assertFalse(icon.isNull())
         self.assertNotIn(":/icons/wiser.ico", theme._icon_cache)
-
-    def test_monochrome_false_not_cached(self):
-        # an explicit opt-out also bypasses the themed cache.
-        theme.get_icon(":/icons/zoom-in.svg", monochrome=False)
-        self.assertNotIn(":/icons/zoom-in.svg", theme._icon_cache)
-
-    def test_get_icon_cached_by_path(self):
-        first = theme.get_icon(":/icons/zoom-in.svg")
-        second = theme.get_icon(":/icons/zoom-in.svg")
-        self.assertIs(first, second)
-
-    def test_icon_adapts_live_without_rebuild(self):
-        # THE core "live" claim -- a single icon instance re-tints itself
-        # when the scheme changes; a baked-pixmap implementation would fail.
-        theme.set_color_scheme(theme.LIGHT)
-        icon = theme.get_icon(":/icons/zoom-in.svg")
-        r, g, b = _dominant_opaque_color(icon)
-        self.assertLess(max(r, g, b), 40)  # black in light mode
-
-        theme.set_color_scheme(theme.DARK)
-        r, g, b = _dominant_opaque_color(icon)  # SAME instance
-        self.assertGreater(min(r, g, b), 200)  # now light
 
 
 # ---------------------------------------------------------------------------
