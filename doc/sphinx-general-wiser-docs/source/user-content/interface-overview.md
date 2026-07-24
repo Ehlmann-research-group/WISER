@@ -79,9 +79,10 @@ There are three choices:
 *   **Light** — always use the light color scheme, regardless of the OS setting.
 *   **Dark** — always use the dark color scheme, regardless of the OS setting.
 
-WISER adjusts both the window colors and the toolbar icons so that everything
-stays legible in either scheme. The change is applied when you click **OK**, and
-is remembered between sessions.
+WISER adjusts the window colors, the toolbar icons and the selection highlight
+so that everything stays legible in either scheme. The startup window shown while
+WISER loads follows the same setting. The change is applied when you click
+**OK**, and is remembered between sessions.
 
 :::{figure} ../_static/images/color_scheme_light.png
 :width: 80%

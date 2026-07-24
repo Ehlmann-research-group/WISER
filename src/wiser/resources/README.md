@@ -79,3 +79,25 @@ When adding a new icon or using an existing one, follow these rules:
 
 *   **Register new SVGs in `resources.qrc`** and rebuild the compiled resources
     (`make generated`) so they are available under the `:/icons/...` prefix.
+
+## Theming: colors outside the palette
+
+Most of the UI gets its colors from the Qt palette, which `theme.apply_color_scheme()`
+switches wholesale via `QStyleHints.setColorScheme()`. Two places need more than that:
+
+*   **The dark-mode selection color.** Qt's dark palette uses a very light blue
+    for selection (on the Windows 11 style, `Highlight` `#0078d4` and `Accent`
+    `#4cc2ff`), and the style paints checked tool buttons with it. Combined with
+    our near-white dark-mode icon tint that leaves white-on-light-blue buttons
+    that are hard to read, so `apply_color_scheme()` overrides both roles with
+    `theme.DARK_HIGHLIGHT_COLOR`. The override is applied as a *sparse* palette
+    (only those two roles are set), so every other role still follows the
+    OS/scheme; light mode installs an empty palette, which clears it.
+
+*   **Hard-coded stylesheet colors.** Prefer palette roles. Where a widget really
+    does need explicit colors — the startup splash is the one case: it is a
+    frameless "card" with its own border, shadow and progress bar that don't map
+    onto palette roles — define them as a light/dark pair and pick between them
+    with `theme.is_dark_mode()`, as `startup_splash._LIGHT` / `_DARK` do. A
+    stylesheet with only light colors will look wrong in dark mode, since
+    `setColorScheme()` cannot reach into it.
