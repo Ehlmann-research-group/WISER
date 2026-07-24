@@ -1,6 +1,8 @@
 """
-Tests for :mod:`wiser.gui.theme` -- WISER's color-scheme handling and the
-theme-aware icon loader introduced for dark-mode support (issue #727).
+Tests for WISER's color-scheme feature: :mod:`wiser.gui.theme` (preference
+handling, the theme-aware icon loader and the dark-mode selection-color
+override, issue #727), the settings dialog that drives it, and the theme-aware
+startup splash.
 
 The icon tests recolor by rendering to a pixmap and sampling pixels, which is
 deterministic for an explicit LIGHT/DARK preference because the tint depends on
@@ -18,11 +20,11 @@ import tests.context  # noqa: F401  (sets up sys.path for the wiser package)
 import pytest
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QColor, QIcon, QPalette
+from PySide6.QtWidgets import QApplication, QToolButton
 
 import wiser.gui.generated.resources  # noqa: F401  (registers :/icons/* resources)
-from wiser.gui import theme
+from wiser.gui import startup_splash, theme
 from wiser.gui.app_config import ApplicationConfig
 from wiser.gui.app_config_dialog import AppConfigDialog
 
@@ -58,6 +60,34 @@ def _dominant_opaque_color(icon: QIcon, size: int = 32) -> Tuple[int, int, int]:
     counts = _opaque_colors(icon, size)
     assert counts, "icon has no opaque pixels to sample"
     return max(counts.items(), key=lambda kv: kv[1])[0]
+
+
+def _pixel_counts(pixmap) -> Dict[Tuple[int, int, int], int]:
+    """Return a dict of {(r, g, b): count} over every pixel of a grabbed widget."""
+    image = pixmap.toImage()
+    counts: Dict[Tuple[int, int, int], int] = {}
+    for y in range(image.height()):
+        for x in range(image.width()):
+            color = image.pixelColor(x, y)
+            key = (color.red(), color.green(), color.blue())
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _relative_luminance(color: QColor) -> float:
+    """WCAG relative luminance of a color (0.0 black .. 1.0 white)."""
+    channels = []
+    for value in (color.redF(), color.greenF(), color.blueF()):
+        channels.append(value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4)
+    r, g, b = channels
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_ratio(a: QColor, b: QColor) -> float:
+    """WCAG contrast ratio between two colors (1.0 identical .. 21.0 black/white)."""
+    la, lb = _relative_luminance(a), _relative_luminance(b)
+    lighter, darker = max(la, lb), min(la, lb)
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 # Purpose-built SVG fixtures, one per color-declaration style, so the icon
@@ -260,6 +290,132 @@ class TestApplyColorScheme(unittest.TestCase):
         theme.set_color_scheme(theme.SYSTEM)
         theme.apply_color_scheme(fake_app)
         hints.setColorScheme.assert_called_with(Qt.ColorScheme.Unknown)
+
+
+# ---------------------------------------------------------------------------
+# dark-mode selection color
+# ---------------------------------------------------------------------------
+
+
+class TestDarkHighlightOverride(unittest.TestCase):
+    """The dark-mode Highlight/Accent override (issue: bright blue selection).
+
+    Qt's dark palette uses a very light blue for selection (Windows 11 style:
+    Accent ``#4cc2ff``), which our near-white dark-mode icons and Qt's white
+    HighlightedText sit on top of almost illegibly.  ``apply_color_scheme``
+    replaces it with a darker blue -- and must *stop* doing so in light mode.
+
+    These act on the real QApplication palette, so tearDown restores it.
+    """
+
+    def setUp(self):
+        theme.set_color_scheme(theme.SYSTEM)
+
+    def tearDown(self):
+        theme.set_color_scheme(theme.SYSTEM)
+        theme.apply_color_scheme(_app)
+        _app.processEvents()
+
+    def _apply(self, scheme):
+        theme.set_color_scheme(scheme)
+        theme.apply_color_scheme(_app)
+        _app.processEvents()
+        return _app.palette()
+
+    def test_dark_mode_overrides_highlight_and_accent(self):
+        palette = self._apply(theme.DARK)
+        self.assertEqual(palette.color(QPalette.Highlight), theme.DARK_HIGHLIGHT_COLOR)
+        self.assertEqual(palette.color(QPalette.Accent), theme.DARK_HIGHLIGHT_COLOR)
+
+    def test_light_mode_clears_the_override(self):
+        # Switching away from dark must not leave the dark blue behind.  This is
+        # what pins the override to a *sparse* palette: building it from a copy
+        # of the live palette instead carries the dark blue into light mode,
+        # because the copy resolves Highlight/Accent from the previous apply.
+        self._apply(theme.DARK)
+        palette = self._apply(theme.LIGHT)
+        self.assertNotEqual(palette.color(QPalette.Highlight), theme.DARK_HIGHLIGHT_COLOR)
+        self.assertNotEqual(palette.color(QPalette.Accent), theme.DARK_HIGHLIGHT_COLOR)
+
+    def test_override_readable_against_dark_mode_icons(self):
+        # THE point of the override: the near-white icon tint must contrast the
+        # selection fill.  4.5:1 is the WCAG AA threshold; Qt's own #4cc2ff is
+        # about 1.6:1 and would fail this.
+        self._apply(theme.DARK)
+        ratio = _contrast_ratio(theme.DARK_HIGHLIGHT_COLOR, theme._DARK_ICON_COLOR)
+        self.assertGreater(ratio, 4.5)
+
+    def test_checked_tool_button_paints_the_darker_blue(self):
+        # end-to-end: the style actually paints a checked tool button with the
+        # overridden color (this is the toolbar highlight the user sees).
+        self._apply(theme.DARK)
+        button = QToolButton()
+        button.setCheckable(True)
+        button.setChecked(True)
+        button.setFixedSize(40, 40)
+        try:
+            button.show()
+            _app.processEvents()
+            counts = _pixel_counts(button.grab())
+        finally:
+            button.hide()
+            button.deleteLater()
+
+        dominant = max(counts.items(), key=lambda kv: kv[1])[0]
+        expected = theme.DARK_HIGHLIGHT_COLOR
+        self.assertEqual(dominant, (expected.red(), expected.green(), expected.blue()))
+
+
+# ---------------------------------------------------------------------------
+# theme-aware startup splash
+# ---------------------------------------------------------------------------
+
+
+class TestStartupSplashColors(unittest.TestCase):
+    """The splash is styled with explicit colors, so it has to follow the scheme itself."""
+
+    def setUp(self):
+        theme.set_color_scheme(theme.SYSTEM)
+
+    def tearDown(self):
+        theme.set_color_scheme(theme.SYSTEM)
+
+    def _splash(self, scheme):
+        theme.set_color_scheme(scheme)
+        splash = startup_splash.StartupSplash(QIcon().pixmap(QSize(64, 64)), QIcon())
+        self.addCleanup(splash.deleteLater)
+        return splash
+
+    def test_color_set_follows_scheme(self):
+        theme.set_color_scheme(theme.DARK)
+        self.assertIs(startup_splash._colors_for_active_scheme(), startup_splash._DARK)
+        theme.set_color_scheme(theme.LIGHT)
+        self.assertIs(startup_splash._colors_for_active_scheme(), startup_splash._LIGHT)
+
+    def test_dark_splash_is_dark(self):
+        # the card background and log pane must be darker than their text, i.e.
+        # the splash is not a white rectangle on a dark desktop.
+        splash = self._splash(theme.DARK)
+        colors = splash._colors
+        self.assertLess(QColor(colors.window_bg).lightness(), 128)
+        self.assertLess(QColor(colors.log_bg).lightness(), QColor(colors.log_fg).lightness())
+        self.assertIn(colors.window_bg, splash.styleSheet())
+
+    def test_light_splash_is_light(self):
+        splash = self._splash(theme.LIGHT)
+        colors = splash._colors
+        self.assertGreater(QColor(colors.window_bg).lightness(), 128)
+        self.assertGreater(QColor(colors.log_bg).lightness(), QColor(colors.log_fg).lightness())
+        self.assertIn(colors.window_bg, splash.styleSheet())
+
+    def test_failure_state_keeps_the_scheme(self):
+        # set_startup_failed restyles the log pane; it must not fall back to the
+        # light-mode error colors while in dark mode.
+        splash = self._splash(theme.DARK)
+        splash.set_startup_failed("boom")
+        style = splash._log_view.styleSheet()
+        self.assertIn(startup_splash._DARK.log_error_bg, style)
+        self.assertNotIn(startup_splash._LIGHT.log_error_bg, style)
 
 
 # ---------------------------------------------------------------------------
