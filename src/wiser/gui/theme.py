@@ -22,7 +22,15 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 from PySide6.QtCore import Qt, QRectF, QSize
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QIconEngine, QPainter, QPixmap
+from PySide6.QtGui import (
+    QColor,
+    QGuiApplication,
+    QIcon,
+    QIconEngine,
+    QPainter,
+    QPalette,
+    QPixmap,
+)
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication, QStyleOption
 
@@ -39,6 +47,18 @@ _VALID_SCHEMES = (SYSTEM, LIGHT, DARK)
 # In light mode the icons are left as-authored (near-black), so no tint is
 # applied and the appearance is identical to before this module existed.
 _DARK_ICON_COLOR = QColor("#e6e6e6")
+
+# Selection/highlight color used in dark mode, replacing the very bright blue
+# Qt derives from the OS in dark mode (Windows 11 style: Highlight #0078d4,
+# Accent #4cc2ff).  Our dark-mode icons are tinted near-white (_DARK_ICON_COLOR)
+# and Qt's HighlightedText is white, so a light accent leaves white-on-light-blue
+# toolbar buttons that are hard to read.  This blue keeps ~5:1 contrast against
+# the white glyph while still reading clearly against the dark window/base.
+#
+# The Windows 11 style paints checked tool buttons with Accent and list/text
+# selections with Highlight, so both roles are overridden to keep the UI
+# consistent.
+DARK_HIGHLIGHT_COLOR = QColor("#1f5f9e")
 
 # The active color-scheme preference.  Seeded from config at startup via
 # :func:`set_color_scheme`; defaults to following the OS.
@@ -82,6 +102,9 @@ def apply_color_scheme(app=None) -> None:
     whole application palette natively.  ``SYSTEM`` restores following the OS
     theme.  Older Qt versions (without ``setColorScheme``) are a no-op here, so
     the app keeps following the OS and only the icons adapt.
+
+    In dark mode this additionally tones down the selection color -- see
+    :func:`_apply_highlight_override`.
     """
     if app is None:
         app = QGuiApplication.instance()
@@ -89,16 +112,34 @@ def apply_color_scheme(app=None) -> None:
         return
 
     hints = app.styleHints()
-    if hints is None or not hasattr(hints, "setColorScheme"):
-        return
+    if hints is not None and hasattr(hints, "setColorScheme"):
+        if _preference == LIGHT:
+            hints.setColorScheme(Qt.ColorScheme.Light)
+        elif _preference == DARK:
+            hints.setColorScheme(Qt.ColorScheme.Dark)
+        else:
+            # SYSTEM: clear any override so Qt follows the OS theme again.
+            hints.setColorScheme(Qt.ColorScheme.Unknown)
 
-    if _preference == LIGHT:
-        hints.setColorScheme(Qt.ColorScheme.Light)
-    elif _preference == DARK:
-        hints.setColorScheme(Qt.ColorScheme.Dark)
-    else:
-        # SYSTEM: clear any override so Qt follows the OS theme again.
-        hints.setColorScheme(Qt.ColorScheme.Unknown)
+    # Must run after setColorScheme(): that call recomputes the theme palette,
+    # which our override is merged on top of.
+    _apply_highlight_override(app)
+
+
+def _apply_highlight_override(app) -> None:
+    """
+    Install (dark mode) or clear (light mode) WISER's selection-color override.
+
+    The override is a *sparse* palette: only Highlight and Accent are set, so
+    Qt merges it over the theme palette and every other role keeps following the
+    OS/scheme -- including across later scheme changes.  Clearing it is a plain
+    default ``QPalette``, which drops the override entirely.
+    """
+    palette = QPalette()
+    if is_dark_mode():
+        palette.setColor(QPalette.Highlight, DARK_HIGHLIGHT_COLOR)
+        palette.setColor(QPalette.Accent, DARK_HIGHLIGHT_COLOR)
+    app.setPalette(palette)
 
 
 def is_dark_mode() -> bool:
