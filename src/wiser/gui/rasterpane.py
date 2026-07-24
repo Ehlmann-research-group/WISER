@@ -7,6 +7,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
+from . import theme
 from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
@@ -477,7 +478,7 @@ class RasterPane(QWidget):
         # First, populate the menu of tools, then create the chooser button.
 
         chooser = QToolButton()
-        chooser.setIcon(QIcon(":/icons/select.svg"))
+        chooser.setIcon(theme.get_icon(":/icons/select.svg"))
         chooser.setToolTip(self.tr("Add selection to current ROI"))
 
         # Without the parent= argument, the chooser doesn't show the menu.

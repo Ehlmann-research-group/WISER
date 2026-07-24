@@ -6,6 +6,7 @@ from PySide6.QtWidgets import *
 
 from osgeo import gdal, osr
 
+from . import theme
 from .generated.image_coords_widget_ui import Ui_ImageCoordsWidget
 
 from .geo_coords_config import *
@@ -47,7 +48,7 @@ class ImageCoordsWidget(QDialog):
         self._ui = Ui_ImageCoordsWidget()
         self._ui.setupUi(self)
 
-        self._ui.tbtn_geo_goto.setIcon(QIcon(":/icons/geo-coords.svg"))
+        self._ui.tbtn_geo_goto.setIcon(theme.get_icon(":/icons/geo-coords.svg"))
 
         # Initially, hide everything but the "geo-config" button.  Make the
         # button disabled.

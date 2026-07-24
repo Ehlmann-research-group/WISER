@@ -76,6 +76,35 @@ def get_color_scheme() -> str:
     return _preference
 
 
+def apply_color_scheme(app=None) -> None:
+    """
+    Apply the active color-scheme preference to the running application, so that
+    window backgrounds, text and other palette colors match the chosen scheme --
+    not just the icons.
+
+    On Qt 6.8+ this uses ``QStyleHints.setColorScheme()``, which restyles the
+    whole application palette natively.  ``SYSTEM`` restores following the OS
+    theme.  Older Qt versions (without ``setColorScheme``) are a no-op here, so
+    the app keeps following the OS and only the icons adapt.
+    """
+    if app is None:
+        app = QGuiApplication.instance()
+    if app is None:
+        return
+
+    hints = app.styleHints()
+    if hints is None or not hasattr(hints, "setColorScheme"):
+        return
+
+    if _preference == LIGHT:
+        hints.setColorScheme(Qt.ColorScheme.Light)
+    elif _preference == DARK:
+        hints.setColorScheme(Qt.ColorScheme.Dark)
+    else:
+        # SYSTEM: clear any override so Qt follows the OS theme again.
+        hints.setColorScheme(Qt.ColorScheme.Unknown)
+
+
 def is_dark_mode() -> bool:
     """
     Return whether the *effective* color scheme is dark.

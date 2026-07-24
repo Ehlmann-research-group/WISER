@@ -21,6 +21,8 @@ import enum
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 
+from . import theme
+
 
 class StateChange(enum.Enum):
     """
@@ -718,7 +720,7 @@ def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=N
     A helper function to set up a toolbar action using the common configuration
     used for these actions.
     """
-    act = QAction(QIcon(icon_path), text, parent)
+    act = QAction(theme.get_icon(icon_path), text, parent)
 
     if shortcut is not None:
         act.setShortcuts(shortcut)

@@ -273,6 +273,15 @@ def main():
         os.environ["WISER_LOW_CONCURRENCY_SCHEDULER"] = "0"
         # TODO(donnie):  Pass Qt arguments
         app = QApplication([])
+
+        # Apply the user's color-scheme preference (System/Light/Dark) before
+        # anything is shown, so the splash, palette and icons all start out in
+        # the chosen scheme.
+        from wiser.gui import theme
+
+        theme.set_color_scheme(config.get("general.color_scheme"))
+        theme.apply_color_scheme(app)
+
         icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
         icon = QIcon(icon_path)
         app.setWindowIcon(icon)

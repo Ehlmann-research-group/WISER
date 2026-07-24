@@ -8,6 +8,7 @@ from PySide6.QtWidgets import *
 from typing import Dict
 
 
+from . import theme
 from .app_config import LegendPlacement
 from .dataset_chooser import DatasetChooser
 from .export_plot_image import ExportPlotImageDialog
@@ -1722,7 +1723,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
         # Menu for importing spectra or loading SLIs
 
         tbtn_load_spectra = QToolButton()
-        tbtn_load_spectra.setIcon(QIcon(":/icons/load-spectra.svg"))
+        tbtn_load_spectra.setIcon(theme.get_icon(":/icons/load-spectra.svg"))
         tbtn_load_spectra.setToolTip(self.tr("Load or import spectra"))
 
         # Without the parent= argument, the chooser doesn't show the menu.
