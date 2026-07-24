@@ -193,6 +193,19 @@ class AppConfigDialog(QDialog):
 
     def _init_general_tab(self):
         # ==============================
+        # Appearance group-box
+
+        self._ui.cbox_color_scheme.addItem(self.tr("System"), "SYSTEM")
+        self._ui.cbox_color_scheme.addItem(self.tr("Light"), "LIGHT")
+        self._ui.cbox_color_scheme.addItem(self.tr("Dark"), "DARK")
+
+        scheme = self._app_state.get_config("general.color_scheme")
+        index = self._ui.cbox_color_scheme.findData(scheme)
+        if index == -1:
+            index = 0
+        self._ui.cbox_color_scheme.setCurrentIndex(index)
+
+        # ==============================
         # Error-Reporting group-box
 
         self._ui.ckbox_online_bug_reporting.setChecked(
@@ -761,6 +774,11 @@ class AppConfigDialog(QDialog):
 
         # =======================================================================
         # Apply values
+
+        # ==============================
+        # Appearance group-box
+
+        self._app_state.set_config("general.color_scheme", self._ui.cbox_color_scheme.currentData())
 
         # ==============================
         # Error-Reporting group-box
