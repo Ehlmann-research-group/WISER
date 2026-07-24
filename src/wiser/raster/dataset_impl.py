@@ -7,7 +7,7 @@ import pdr
 # import cv2
 from pdr.loaders.datawrap import ReadArray
 
-from enum import Enum
+from enum import Enum, IntEnum
 import math
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from contextlib import contextmanager
@@ -51,6 +51,24 @@ class SaveState(Enum):
     IN_DISK_SAVED = 2
     IN_MEMORY_SAVED = 3
     UNKNOWN = 4
+
+
+class Confidence(IntEnum):
+    """
+    How sure a format is that it can open a given file.
+
+    Returned by :meth:`RasterDataImpl.identify`.  Ordered so that a larger value
+    is a stronger claim.
+    """
+
+    NO = 0
+    """Positively excluded -- do not attempt to open."""
+
+    MAYBE = 1
+    """Plausible, but no positive signal.  Used only if nothing is certain."""
+
+    YES = 2
+    """Positive content match.  Stops the format search immediately."""
 
 
 class DriverNames(Enum):
@@ -104,6 +122,25 @@ emit_data_names = set(
 
 
 class RasterDataImpl(abc.ABC):
+    @classmethod
+    def identify(cls, path: str) -> Confidence:
+        """
+        Cheaply decide whether this implementation can open ``path``.
+
+        Called for every candidate format before any file is opened, so it must
+        be fast and must not:
+
+        * open a lasting handle or allocate significant memory,
+        * show a dialog or otherwise block on the user,
+        * raise for an unreadable or nonexistent file -- return
+          :attr:`Confidence.NO` instead.
+
+        The default is :attr:`Confidence.MAYBE`, which means "no opinion":  the
+        format stays in the running but never wins over a format that is
+        certain.  Override it to give a real answer.
+        """
+        return Confidence.MAYBE
+
     def get_format(self) -> str:
         """Returns a string describing the raster data format."""
         pass
@@ -190,6 +227,98 @@ class RasterDataImpl(abc.ABC):
 
 
 class GDALRasterDataImpl(RasterDataImpl):
+    GDAL_DRIVERS: List[str] = []
+    """GDAL driver short-names this implementation opens with.  Subclasses
+    declare the same list they pass to ``gdal.OpenEx(allowed_drivers=...)`` so
+    that identification and opening can never disagree.  Empty means "any
+    driver", which is only appropriate for the catch-all."""
+
+    DATA_EXTENSIONS: Optional[Tuple[str, ...]] = None
+    """Extensions of the file that actually holds the raster, in the order
+    :meth:`get_load_filename` should try them.  ``""`` means "no extension".
+
+    ``None`` (the default) means the format is a single self-describing file and
+    imposes no extension restriction.  When set, it does double duty:  it drives
+    sidecar resolution *and* it excludes -- :meth:`identify` returns
+    :attr:`Confidence.NO` for a path whose own extension is neither a declared
+    data extension nor a recognized sidecar.  That stops header-based formats
+    from claiming unrelated files that merely share a basename."""
+
+    SIDECAR_EXTENSIONS: Tuple[str, ...] = ()
+    """Extensions of companion/header files a user may legitimately select
+    (``.hdr`` for ENVI, ``.tfw`` for GeoTIFF).  :meth:`get_load_filename`
+    rewrites these to the matching data file."""
+
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        """
+        Resolve a user-supplied path to the file that should actually be opened.
+
+        The base implementation handles the common sidecar case:  if ``path`` is
+        one of :attr:`SIDECAR_EXTENSIONS`, look for a file with the same stem and
+        one of :attr:`DATA_EXTENSIONS`, in declared order, and return the first
+        that exists.  Formats without sidecars inherit a pass-through.
+        """
+        if not cls.SIDECAR_EXTENSIONS or cls.DATA_EXTENSIONS is None:
+            return path
+
+        stem, ext = os.path.splitext(path)
+        if ext.lower() not in cls.SIDECAR_EXTENSIONS:
+            return path
+
+        for data_ext in cls.DATA_EXTENSIONS:
+            candidate = stem + data_ext
+            if os.path.isfile(candidate):
+                return candidate
+
+        tried = ", ".join(repr(stem + e) for e in cls.DATA_EXTENSIONS)
+        raise ValueError(f"Can't find the raster file corresponding to {path}.  Tried:  {tried}")
+
+    @classmethod
+    def get_gdal_drivers(cls) -> List[str]:
+        """
+        The GDAL drivers to identify and open with.
+
+        Defaults to :attr:`GDAL_DRIVERS`.  Override when the usable set can only
+        be determined at run time -- JPEG2000 support varies by GDAL build.
+        """
+        return cls.GDAL_DRIVERS
+
+    @classmethod
+    def identify(cls, path: str) -> Confidence:
+        """
+        Ask GDAL whether one of this format's drivers recognizes ``path``.
+
+        Delegates to ``gdal.IdentifyDriverEx``, which runs the driver's own
+        ``Identify()`` without opening the dataset, so WISER never has to
+        duplicate GDAL's magic-byte checks.
+        """
+        drivers = cls.get_gdal_drivers()
+
+        # The catch-all declares no drivers; it has no opinion and defers to
+        # everything else, only running once all named formats have declined.
+        if not drivers:
+            return Confidence.MAYBE
+
+        try:
+            load_path = cls.get_load_filename(path)
+        except (ValueError, OSError):
+            # A sidecar with no matching data file is not this format.
+            return Confidence.NO
+
+        if cls.DATA_EXTENSIONS is not None:
+            ext = os.path.splitext(load_path)[1].lower()
+            if ext not in cls.DATA_EXTENSIONS:
+                return Confidence.NO
+
+        try:
+            driver = gdal.IdentifyDriverEx(load_path, allowed_drivers=list(drivers))
+        except Exception as e:
+            logger.debug("identify(%s) failed for %s:  %s", path, cls.__name__, e)
+            return Confidence.NO
+
+        return Confidence.YES if driver is not None else Confidence.NO
+
     @classmethod
     def try_load_file(cls, path: str, **kwargs) -> ["GDALRasterDataImpl"]:
         # Turn on exceptions when calling into GDAL
@@ -1017,20 +1146,13 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
 
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
-    @classmethod
-    def get_load_filename(cls, path: str) -> str:
-        """
-        GeoTIFF files are sometimes accompanied by a .tfw file.  If we were
-        passed the .tfw file, try to find a corresponding .tif file.
-        """
-        if path.endswith(".tfw"):
-            s = path[:-4] + ".tif"
-            if os.path.isfile(s):
-                path = s
-            else:
-                raise ValueError("Can't find raster file corresponding " + f"to .tfw file {path}")
+    GDAL_DRIVERS = ["GTiff"]
 
-        return path
+    # A .tfw world file may be selected instead of the image; resolve it to the
+    # image itself.  Both spellings of the TIFF extension are accepted -- the
+    # file-open dialog offers *.tiff as well as *.tif.
+    DATA_EXTENSIONS = (".tif", ".tiff")
+    SIDECAR_EXTENSIONS = (".tfw",)
 
     @classmethod
     def try_load_file(cls, path: str, **kwargs) -> ["GTiff_GDALRasterDataImpl"]:
@@ -1051,6 +1173,12 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
 class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
+    GDAL_DRIVERS = ["AAIGrid"]
+
+    # ASCII Grid is a single self-describing text file.  Restricting to .asc
+    # keeps this format from claiming arbitrary text files.
+    DATA_EXTENSIONS = (".asc",)
+
     @classmethod
     def get_load_filename(cls, path: str) -> str:
         """
@@ -1079,6 +1207,9 @@ class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
+    GDAL_DRIVERS = ["FITS"]
+    DATA_EXTENSIONS = (".fits", ".fit", ".fts")
+
     @classmethod
     def try_load_file(cls, path: str, **kwargs) -> ["FITS_GDALRasterDataImpl"]:
         # Turn on exceptions when calling into GDAL
@@ -1204,6 +1335,12 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
 class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
+    GDAL_DRIVERS = ["PDS"]
+
+    # No DATA_EXTENSIONS restriction:  a PDS3 label may be detached (.lbl beside
+    # the data) or attached (a single .img), and products in the wild use many
+    # extensions.  The driver's label check is the reliable signal here.
+
     @classmethod
     def try_load_file(cls, path: str, **kwargs) -> ["PDS3_GDALRasterDataImpl"]:
         # Turn on exceptions when calling into GDAL
@@ -1225,6 +1362,11 @@ class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
 class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
+    GDAL_DRIVERS = ["PDS4"]
+
+    # The label is XML; the driver checks the root element, which is a far
+    # stronger signal than the .xml extension.
+
     @classmethod
     def try_load_file(cls, path: str, **kwargs) -> ["PDS4_GDALRasterDataImpl"]:
         # Turn on exceptions when calling into GDAL
@@ -1246,6 +1388,11 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
+    GDAL_DRIVERS = ["netCDF"]
+
+    # No DATA_EXTENSIONS restriction:  the driver identifies on the CDF/HDF5
+    # magic, which is stronger than any extension convention.
+
     _GEOTRANSFORM_KEYS = {"NC_GLOBAL#geotransform", "geotransform"}
     _SRS_KEYS = {"NC_GLOBAL#spatial_ref", "spatial_ref"}
 
@@ -1684,6 +1831,24 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
+    def get_gdal_drivers(cls) -> List[str]:
+        """
+        JPEG2000 support depends on the GDAL build, so the driver list is
+        resolved at run time rather than declared statically.  If the build has
+        no JPEG2000 driver this returns empty, and :meth:`identify` correctly
+        reports that this format cannot be used.
+        """
+        return cls.get_jpeg2000_drivers()
+
+    @classmethod
+    def identify(cls, path: str) -> Confidence:
+        # Unlike the catch-all, an empty driver list here means "this build
+        # cannot read JPEG2000", which is a definite no rather than no opinion.
+        if not cls.get_gdal_drivers():
+            return Confidence.NO
+        return super().identify(path)
+
+    @classmethod
     def get_jpeg2000_drivers(cls):
         driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
         jpeg2000_drivers = []
@@ -1729,20 +1894,17 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
-    @classmethod
-    def get_load_filename(cls, path: str) -> str:
-        if path.endswith(".hdr"):
-            s = path[:-4]
-            if os.path.isfile(s):
-                path = s
-            else:
-                s = s + ".img"
-                if os.path.isfile(s):
-                    path = s
-                else:
-                    raise ValueError("Can't find raster file corresponding " + f"to ENVI header file {path}")
+    GDAL_DRIVERS = ["ENVI"]
 
-        return path
+    # An ENVI dataset is a header plus a separately-named data file.  The data
+    # file commonly has no extension at all, or .img, or .dat; they are tried in
+    # that order when the user selects the .hdr.
+    #
+    # This list also excludes:  because GDAL's ENVI driver claims any file with
+    # a same-stem .hdr beside it, without this restriction ENVI would identify
+    # an unrelated scene.tif sitting next to scene.hdr.
+    DATA_EXTENSIONS = ("", ".img", ".dat")
+    SIDECAR_EXTENSIONS = (".hdr",)
 
     @classmethod
     def try_load_file(cls, path: str, **kwargs) -> ["GTiff_ENVIRasterDataImpl"]:
