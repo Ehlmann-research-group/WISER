@@ -133,6 +133,44 @@ class TestTrailingDelimiterImport(unittest.TestCase):
         np.testing.assert_allclose(spectra[0].get_spectrum(), [26.5672, 26.9417, 26.8571, 26.682])
         np.testing.assert_allclose(spectra[2].get_spectrum(), [27.2727, 27.3134, 27.2464, 27.0283])
 
+    def test_variable_length_spectra_with_trailing_padding(self):
+        """Variable-length spectra AND ragtag trailing padding at once.
+
+        The file holds three spectra of different lengths (A: 5 values, B: 3,
+        C: 2) sharing one wavelength column.  A shorter spectrum signals its end
+        with an empty value *within* the real columns, so those in-width blanks
+        must be preserved.  On top of that, every row carries a different number
+        of trailing tabs that correspond to no spectrum at all -- pure padding
+        that must be stripped.  Both behaviors have to hold simultaneously: strip
+        the blanks beyond the four real columns, keep the blanks inside them.
+        """
+        # Four real columns: WVS + A + B + C.  Empty A/B/C cells mark a spectrum
+        # as finished; the tabs appended after column C are padding only.
+        lines = [
+            "WVS\tA\tB\tC\t\t\n",  # header + 2 padding tabs
+            "0.3\t1\t2\t3\t\t\t\n",  # all present + 3 padding tabs
+            "0.4\t4\t5\t6\n",  # all present, no padding
+            "0.5\t7\t8\t\t\t\t\t\n",  # C ends here + 4 padding tabs
+            "0.6\t9\t\t\t\n",  # B ends here (C already ended) + 1 padding tab
+            "0.7\t11\t\t\t\t\t\t\n",  # only A remains + 5 padding tabs
+        ]
+
+        spectra = import_spectra_text(
+            lines,
+            delim="\t",
+            has_header=True,
+            wavelength_cols=WavelengthCols.FIRST_COL,
+        )
+
+        # The padding never becomes a spectrum: exactly the three real ones.
+        self.assertEqual([s.get_name() for s in spectra], ["A", "B", "C"])
+        # Each spectrum keeps only the values it actually had; the in-width
+        # blanks correctly truncated the shorter ones.
+        self.assertEqual([s.num_bands() for s in spectra], [5, 3, 2])
+        np.testing.assert_allclose(spectra[0].get_spectrum(), [1, 4, 7, 9, 11])
+        np.testing.assert_allclose(spectra[1].get_spectrum(), [2, 5, 8])
+        np.testing.assert_allclose(spectra[2].get_spectrum(), [3, 6])
+
 
 class TestExportImportRoundTrip(unittest.TestCase):
     """Bug 3: spectra exported by WISER should be re-importable."""
