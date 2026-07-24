@@ -102,6 +102,37 @@ class TestTrailingDelimiterImport(unittest.TestCase):
         self.assertTrue(all(s.get_name() for s in spectra), "no spectrum should be unnamed")
         self.assertTrue(all(s.num_bands() == 2 for s in spectra))
 
+    def test_ragged_trailing_delimiters_are_tolerated(self):
+        """Bug 1/2 variant: Excel does not always emit the *same* number of
+        trailing tabs on every line -- the header and each data row can carry a
+        different-length run (here 4, 1, 3, 4, 2).  After stripping trailing
+        empties every row should normalize to the four real columns, yielding
+        the three real spectra with no phantom or truncated ones."""
+        lines = [
+            "Wavelength_um\tARKSAW_18_G\tARKSAW_15_TS\tARKSAW_17_M\t\t\t\t\n",  # 4 trailing
+            "0.3466\t26.5672\t19.726\t27.2727\t\n",  # 1 trailing
+            "0.3482\t26.9417\t19.3805\t27.3134\t\t\t\n",  # 3 trailing
+            "0.3498\t26.8571\t19.6957\t27.2464\t\t\t\t\n",  # 4 trailing
+            "0.3514\t26.682\t19.7034\t27.0283\t\t\n",  # 2 trailing
+        ]
+
+        spectra = import_spectra_text(
+            lines,
+            delim="\t",
+            has_header=True,
+            wavelength_cols=WavelengthCols.FIRST_COL,
+        )
+
+        self.assertEqual(
+            [s.get_name() for s in spectra],
+            ["ARKSAW_18_G", "ARKSAW_15_TS", "ARKSAW_17_M"],
+        )
+        self.assertTrue(all(s.get_name() for s in spectra), "no spectrum should be unnamed")
+        # All four data rows survive for every real spectrum.
+        self.assertTrue(all(s.num_bands() == 4 for s in spectra))
+        np.testing.assert_allclose(spectra[0].get_spectrum(), [26.5672, 26.9417, 26.8571, 26.682])
+        np.testing.assert_allclose(spectra[2].get_spectrum(), [27.2727, 27.3134, 27.2464, 27.0283])
+
 
 class TestExportImportRoundTrip(unittest.TestCase):
     """Bug 3: spectra exported by WISER should be re-importable."""
