@@ -450,8 +450,8 @@ def import_spectra_text(
     if wavelength_cols == WavelengthCols.ODD_COLS:
         num_spectra = num_cols // 2
         if has_header:
-            spectrum_names = [header_parts[i] for i in range(1, num_spectra, 2)]
-            wavelength_names = [header_parts[i] for i in range(0, num_spectra, 2)]
+            spectrum_names = [header_parts[i] for i in range(1, num_cols, 2)]
+            wavelength_names = [header_parts[i] for i in range(0, num_cols, 2)]
         else:
             spectrum_names = make_spectrum_names(num_spectra)
             wavelength_names = [None] * num_spectra
