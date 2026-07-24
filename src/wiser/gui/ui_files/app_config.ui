@@ -24,6 +24,28 @@
        <string>General</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_5">
+       <item row="2" column="0">
+        <widget class="QGroupBox" name="gbox_appearance">
+         <property name="title">
+          <string>Appearance</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_appearance">
+          <item row="0" column="0">
+           <widget class="QLabel" name="lbl_color_scheme">
+            <property name="text">
+             <string>Color scheme:</string>
+            </property>
+            <property name="buddy">
+             <cstring>cbox_color_scheme</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="cbox_color_scheme"/>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QGroupBox" name="gbox_error_reporting">
          <property name="title">
@@ -530,6 +552,7 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>cbox_color_scheme</tabstop>
   <tabstop>ckbox_online_bug_reporting</tabstop>
   <tabstop>ledit_red_wavelength</tabstop>
   <tabstop>ledit_green_wavelength</tabstop>
