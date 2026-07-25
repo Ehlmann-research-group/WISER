@@ -290,18 +290,33 @@ def test_dataset_entry_without_metadata_restores(tmp_path):
     assert restored.get_name() == "in-mem"
 
 
+def _abs(*parts: str) -> str:
+    """
+    An absolute path spelled the way this platform spells it.
+
+    Paths in the manifest go through ``os.path.abspath``, so a POSIX literal
+    like ``/data/scene.nc`` becomes ``C:\\data\\scene.nc`` on Windows.  Building
+    the expectation the same way keeps these assertions platform-independent.
+    """
+    return os.path.abspath(os.path.join(os.sep, *parts))
+
+
 def test_subdataset_base_path_parses_descriptor():
     from wiser.project.persisters.datasets import _subdataset_base_path
 
-    assert _subdataset_base_path('NETCDF:"/data/scene.nc":reflectance') == "/data/scene.nc"
-    assert _subdataset_base_path("/plain/path.tif") == "/plain/path.tif"
+    scene = _abs("data", "scene.nc")
+    plain = _abs("plain", "path.tif")
+
+    assert _subdataset_base_path(f'NETCDF:"{scene}":reflectance') == scene
+    assert _subdataset_base_path(plain) == plain
 
 
 def test_subdataset_recorded_as_base_path_and_descriptor():
     # A subdataset is stored as base path + subdataset_name so the same subdataset
     # re-opens.  (The full NetCDF reopen needs a live NetCDF file + GDAL driver;
     # here we lock the manifest shape.)
-    descriptor = 'NETCDF:"/data/scene.nc":reflectance'
+    base_path = _abs("data", "scene.nc")
+    descriptor = f'NETCDF:"{base_path}":reflectance'
 
     class _StubDataset:
         def get_id(self):
@@ -342,7 +357,7 @@ def test_subdataset_recorded_as_base_path_and_descriptor():
 
     entry = dataset_to_pyrep(_StubDataset(), None, None)
     assert entry["storage"] == STORAGE_REFERENCE
-    assert entry["path"] == "/data/scene.nc"
+    assert entry["path"] == base_path
     assert entry["subdataset_name"] == descriptor
     assert entry["metadata"] == {}
 
