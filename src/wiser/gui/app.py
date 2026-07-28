@@ -882,33 +882,47 @@ class DataVisualizerApp(QMainWindow):
         perform the actual operation of opening the file.
         """
 
-        # These are all file formats that will appear in the file-open dialog
+        # Filters offered in the file-open dialog, each paired with the raster
+        # format it selects.  Choosing a specific filter is taken as a statement
+        # of what the file *is*, and forces that format rather than detecting
+        # one -- which matters for files two formats can both read.  None means
+        # "work it out from the file".
         supported_formats = [
-            self.tr(
-                "All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr, "
-                "*.JP2 *.PDS *.lbl *.xml)"
+            (
+                self.tr(
+                    "All supported files (*.img *.hdr *.dat *.tiff *.tif *.tfw *.nc *.sli, "
+                    "*.JP2 *.PDS *.lbl *.xml *.asc *.fits)"
+                ),
+                None,
             ),
-            self.tr("ENVI raster files (*.img *.hdr)"),
-            self.tr("TIFF raster files (*.tiff *.tif *.tfw)"),
-            self.tr("NetCDF raster files (*.nc)"),
-            self.tr("JP2 files (*.JP2)"),
-            self.tr("PDS raster files (*.PDS *.img *.lbl *.xml)"),
-            self.tr("ENVI spectral libraries (*.sli *.hdr)"),
-            self.tr("Try luck with GDAL (*)"),
+            (self.tr("ENVI raster files (*.img *.hdr *.dat)"), "ENVI"),
+            (self.tr("TIFF raster files (*.tiff *.tif *.tfw)"), "GTiff"),
+            (self.tr("NetCDF raster files (*.nc)"), "NetCDF"),
+            (self.tr("JP2 files (*.JP2)"), "JP2"),
+            (self.tr("PDS3 raster files (*.PDS *.img *.lbl)"), "PDS3"),
+            (self.tr("PDS4 raster files (*.xml)"), "PDS4"),
+            (self.tr("FITS raster files (*.fits *.fit *.fts)"), "FITS"),
+            (self.tr("ASCII Grid files (*.asc)"), "ASCII"),
+            # Spectral libraries are not raster formats; open_file() recognizes
+            # them before the raster loader is consulted.
+            (self.tr("ENVI spectral libraries (*.sli *.hdr)"), None),
+            (self.tr("Try luck with GDAL (*)"), None),
         ]
+        format_for_filter = dict(supported_formats)
 
         # Let the user select one or more files to open.
-        selected = QFileDialog.getOpenFileNames(
+        selected_files, selected_filter = QFileDialog.getOpenFileNames(
             self,
             self.tr("Open Spectral Data File"),
             self._app_state.get_current_dir(),
-            ";;".join(supported_formats),
+            ";;".join(text for text, _ in supported_formats),
         )
+        chosen_format = format_for_filter.get(selected_filter)
 
-        for filename in selected[0]:
+        for filename in selected_files:
             try:
                 # Open the file on the application state.
-                self._app_state.open_file(filename)
+                self._app_state.open_file(filename, format=chosen_format)
             except Exception as e:
                 mbox = QMessageBox(
                     QMessageBox.Critical,
