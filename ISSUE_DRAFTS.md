@@ -19,14 +19,24 @@ Every draft uses the same template. The field that matters most is **What I'm un
 - **Where to look:** [work_scheduler.py](src/wiser/utils/work_scheduler.py), [task_system.py](src/wiser/utils/task_system.py).
 - **Labels:** backend, architecture, docs, priority:high
 
-### Async dataset loading
+### Async dataset loading and rendering
 
-- **Problem:** Dataset loading runs synchronously on the GUI thread and freezes the app for large files.
-- **Why it matters:** Loading is one of the first things a user does; freezing there is a bad first impression and it's a known offender.
-- **What I'd do:** Move loading off-thread using the standardized pattern above, with **activity-monitor status updates** so the user sees progress.
-- **What I'm unsure about:** Whether the reopen-per-read model (HANDOFF #2) complicates an async load, and how it interacts with the read cache (HANDOFF #6).
-- **Where to look:** dataset construction paths in [dataset.py](src/wiser/raster/dataset.py); the activity monitor.
-- **Labels:** backend, ux, priority:high
+- **Problem:** Opening a dataset freezes the app for large files. **But the delay is most likely caused by the first render.** [`load_from_file`](src/wiser/raster/loader.py#L87) only probes drivers and wraps an impl in a `RasterDataSet`; it reads metadata, not pixels. The pixels get read and processed later, in [`RasterView.update_display_image()`](src/wiser/gui/rasterview.py#L892), which per display band calls [`get_band_data_normalized()`](src/wiser/raster/dataset.py#L1046) (read → mask the data-ignore value → normalize), applies the stretch via `make_channel_image()`, composites with `make_rgb_image()` / `make_grayscale_image()`, then builds a `QImage` and `QPixmap`. All of that runs synchronously on the GUI thread off the `dataset_added` signal — and **once per pane**, since the context pane, main view, and zoom pane each hold a `RasterView` that renders the new dataset.
+- **Why it matters — and why it's bigger than it looks:** the render path is **shared**. `update_display_image()` is the single funnel reached from all three of:
+  - [`set_raster_data()`](src/wiser/gui/rasterview.py#L703) — opening or switching a dataset
+  - [`set_stretches()`](src/wiser/gui/rasterview.py#L643) — a change in the **stretch builder**
+  - [`set_display_bands()`](src/wiser/gui/rasterview.py#L762) / [`rgb_band_changed()`](src/wiser/gui/rasterview.py#L1459) — a change in the **band chooser**
+
+  So this isn't an isolated fix. Whatever is done here also lands on the stretch-builder freeze and on band-chooser responsiveness. That's one fix, three symptoms but also it's a risk: one regression, three symptoms. It also means the right framing is *async rendering*, not *async loading*.
+- **What I'd do:** **Profile first** to confirm the open-vs-render split on a large file — don't take the paragraph above on faith. Then move the **numpy portion** of `update_display_image()` off-thread via the standardized pattern, with activity-monitor status updates, and scope it as one change covering open, stretch builder, and band chooser rather than three separate ones.
+- **Constraints to design around:**
+  - **Qt objects must stay on the GUI thread.** The `QImage` / `QPixmap.fromImage` tail of `update_display_image()` cannot move off the main thread. Cut the seam between the numpy work and the Qt handoff: return the finished array to the GUI thread and build the pixmap there.
+  - **Per-view mutable state.** `_display_data`, `_joint_render_cache`, and the shared render cache are all mutated mid-render. Concurrent or stale renders must be cancelled or discarded on arrival, or fast clicking in the band chooser will paint the wrong image.
+  - **Thread vs. subprocess is a genuine question here.** HANDOFF #7 says CPU-bound work wants a subprocess, but this pipeline's output is a full H×W×3 array — serializing it back may cost more than the parallelism buys. A thread may win despite the GIL, since most of the cost sits in numpy/numba code that can release it.
+- **What I'm unsure about:** How much of the freeze is really open vs. render — **measure it; that's task one, not an assumption.** Whether the reopen-per-read model (HANDOFF #2) complicates it, and how it interacts with the read cache (HANDOFF #6). Whether thread or subprocess wins given the array-transfer cost. And whether this is worth doing at all before **LoD-pyramid rendering** (ROADMAP) — LoD renders only the visible level of detail and could shrink the render cost enough that off-threading it stops being necessary. However, it is likely that off-threading it will remain necessary as even while
+a dataset loads it will take time to make the different layers for the LoD.
+- **Where to look:** [rasterview.py:892](src/wiser/gui/rasterview.py#L892) (the shared funnel), the three entry points linked above, [loader.py:87](src/wiser/raster/loader.py#L87) (note what it *doesn't* read), [rasterpane.py:1319](src/wiser/gui/rasterpane.py#L1319) (`_on_dataset_added` → `_view_dataset` → `show_dataset`), [app.py:1210](src/wiser/gui/app.py#L1210) (`update_all_rasterpane_displays` — the per-pane fan-out).
+- **Labels:** backend, ux, rendering, priority:high
 
 ### ROI average-spectra off the GUI thread
 
@@ -102,7 +112,7 @@ Every draft uses the same template. The field that matters most is **What I'm un
 ### LoD-pyramid rendering for RasterView
 
 - **Problem:** `RasterView` holds the displayed image at ~O(H×W) RAM. `MosaicView` already renders via an O(1)-RAM level-of-detail pyramid.
-- **Why it matters:** Highest-ceiling item in WISER — image memory from **O(H×W) → O(1)** would make it a genuinely respectable hyperspectral tool. It's also a dependency node: it may retire the read cache and largely fix the stretch-builder freeze.
+- **Why it matters:** Highest-ceiling item in WISER — image memory from **O(H×W) → O(1)** would make it a genuinely respectable hyperspectral tool. It's also a dependency node: it may retire the read cache and largely fix the whole shared render path — stretch-builder freeze, slow dataset open, and band-chooser lag alike (see [async dataset loading and rendering](#async-dataset-loading-and-rendering)). Worth settling *this* before investing in off-threading that path.
 - **What I'd do:** Make `RasterView` render through MosaicView's LoD pyramid. Design doc first.
 - **What I'm unsure about:** What assumptions MosaicView's renderer bakes in (data source, tiling, CRS) that RasterView doesn't currently satisfy. Should be easy to figure this out. I just haven't had time to compare the code.
 - **Where to look:** the MosaicView rendering path; [dataset.py](src/wiser/raster/dataset.py) read paths.
@@ -112,9 +122,10 @@ Every draft uses the same template. The field that matters most is **What I'm un
 
 - **Problem:** Stretch changes can freeze WISER for minutes on huge images; it updates context pane, zoom pane, and main view.
 - **Why it matters:** This is the core of user interaction; a multi-minute freeze with no escape is unacceptable on large data.
+- **Shared with dataset open:** the freeze is in [`RasterView.update_display_image()`](src/wiser/gui/rasterview.py#L892), which a stretch change reaches via [`set_stretches()`](src/wiser/gui/rasterview.py#L643) — the **same funnel** a dataset open reaches via `set_raster_data()`. See [async dataset loading and rendering](#async-dataset-loading-and-rendering); these two should be scoped together, not fixed separately.
 - **What I'd do:** Add a loading indicator / progress (ideally per-stage) and make the stretch operation **cancellable** so users can reach background analysis tools. Ultimately subsumed by LoD rendering.
 - **What I'm unsure about:** How to emit granular per-stage progress from the stretch pipeline cleanly (related to granular task progress).
-- **Where to look:** stretch builder UI + the stretch computation path.
+- **Where to look:** stretch builder UI; [rasterview.py:643](src/wiser/gui/rasterview.py#L643) → [rasterview.py:892](src/wiser/gui/rasterview.py#L892) (the shared render path).
 - **Labels:** ux, rendering
 
 ---
