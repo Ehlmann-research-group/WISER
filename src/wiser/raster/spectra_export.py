@@ -343,13 +343,85 @@ def import_spectra_text(
             line = line[:-1]
         return line
 
+    def split_line(line: str) -> List[str]:
+        """Split a single input line into its delimited fields.
+
+        The trailing newline character is removed first (if present) so it does
+        not become part of the final field, then the line is split on the
+        configured ``delim``.
+
+        Args:
+            line: A single raw line of input text, which may or may not end
+                with a ``"\\n"`` newline character.
+
+        Returns:
+            The line's fields, in order, as a list of strings.  The list always
+            has at least one element (a line with no delimiter yields a single
+            field).
+        """
+        return remove_trailing_newline(line).split(delim)
+
+    def real_width(parts: List[str]) -> int:
+        """Count the columns in a row, ignoring trailing blank fields.
+
+        Tools such as Excel pad rows with empty trailing delimiters when saving
+        tab-delimited text (e.g. ``"a\\tb\\t\\t\\t"``).  Those trailing blank
+        fields are padding artifacts, not real columns, so they are excluded
+        from the count.  Blank fields that are followed by a non-blank field
+        are *not* trailing and are therefore still counted.
+
+        Args:
+            parts: The fields of a single row, as returned by ``split_line``.
+
+        Returns:
+            The number of leading fields up to and including the last
+            non-blank (non-whitespace-only) field.  Returns ``0`` if every
+            field is blank.
+        """
+        n = len(parts)
+        while n > 0 and parts[n - 1].strip() == "":
+            n -= 1
+        return n
+
     def make_spectrum_names(n):
         return [f"Spectrum {i}" for i in range(1, n + 1)]
 
     if wavelength_cols not in WavelengthCols:
         raise ValueError("wavelength_cols must be a value from WavelengthCols")
 
-    num_cols = len(lines[0].split(delim))
+    if len(lines) == 0:
+        raise ValueError("Input has no lines to parse.")
+
+    # The first line (the header when present, otherwise the first data row)
+    # defines the real column count.  Trailing blank fields are padding
+    # artifacts and are ignored; blank fields *within* this width are kept
+    # because they mark where a shorter spectrum has ended.
+    num_cols = real_width(split_line(lines[0]))
+
+    def strip_padding(parts: List[str]) -> List[str]:
+        """Remove trailing blank padding fields that lie beyond ``num_cols``.
+
+        Only blank (whitespace-only) fields *past* the real column count are
+        dropped.  Blank fields that fall within the first ``num_cols`` columns
+        are preserved, because inside the real data region an empty value is
+        meaningful -- it marks where a shorter spectrum has ended.
+
+        This does not pad rows that are shorter than ``num_cols``; such rows are
+        left as-is so the caller's column-count check can reject them.
+
+        Args:
+            parts: The fields of a single row, as returned by ``split_line``.
+                Not modified in place.
+
+        Returns:
+            A new list containing ``parts`` with any trailing blank fields
+            beyond ``num_cols`` removed.
+        """
+        parts = list(parts)
+        while len(parts) > num_cols and parts[-1].strip() == "":
+            parts.pop()
+        return parts
+
     if wavelength_cols == WavelengthCols.ODD_COLS:
         if num_cols < 2:
             raise ValueError(
@@ -366,15 +438,11 @@ def import_spectra_text(
         raise ValueError("Input has only one column, so wavelengths " + "cannot be in the first column.")
 
     line_no = 1
-    header_line = None
     header_parts = None
     if has_header:
-        header_line = lines[0]
+        header_parts = strip_padding(split_line(lines[0]))
         lines = lines[1:]
         line_no = 2
-
-        header_line = remove_trailing_newline(header_line)
-        header_parts = header_line.split(delim)
 
     spectrum_names = []
     wavelength_names = []
@@ -382,8 +450,8 @@ def import_spectra_text(
     if wavelength_cols == WavelengthCols.ODD_COLS:
         num_spectra = num_cols // 2
         if has_header:
-            spectrum_names = [header_parts[i] for i in range(1, num_spectra, 2)]
-            wavelength_names = [header_parts[i] for i in range(0, num_spectra, 2)]
+            spectrum_names = [header_parts[i] for i in range(1, num_cols, 2)]
+            wavelength_names = [header_parts[i] for i in range(0, num_cols, 2)]
         else:
             spectrum_names = make_spectrum_names(num_spectra)
             wavelength_names = [None] * num_spectra
@@ -421,22 +489,19 @@ def import_spectra_text(
         #       f'allbands_name="{spectrum_data.allbands_name}"')
 
     for line in lines:
-        # Remove any newline off the end of the line.
-        line = remove_trailing_newline(line)
-
-        # Split apart the line with the delimiter.  If we know the # of columns
-        # by now, complain if this line has a different # of columns.
-        line_parts = line.split(delim)
+        # Split the line, dropping any trailing blank fields that are just
+        # delimiter padding (e.g. from Excel's tab-delimited export).
+        line_parts = strip_padding(split_line(line))
         # print(f'Line {line_no} parts:  {line_parts}')
 
-        if num_cols is not None:
-            if len(line_parts) != num_cols:
-                raise ValueError(
-                    f"Line {line_no} has {len(line_parts)} columns, "
-                    + f"but first line has {num_cols} columns."
-                )
-        else:
-            num_cols = len(line_parts)
+        # Every row must match the real column count.  A row with fewer columns,
+        # or with actual (non-blank) data beyond the expected columns, is a
+        # genuine mismatch and is rejected.
+        if len(line_parts) != num_cols:
+            raise ValueError(
+                f"Line {line_no} has {len(line_parts)} columns, "
+                + f"but the first line has {num_cols} columns."
+            )
 
         # Update each spectrum we are importing.
         for i in range(num_spectra):
