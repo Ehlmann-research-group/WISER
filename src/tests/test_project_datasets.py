@@ -301,6 +301,69 @@ def _abs(*parts: str) -> str:
     return os.path.abspath(os.path.join(os.sep, *parts))
 
 
+def test_referenced_dataset_records_the_format_that_opened_it(tmp_path):
+    """The manifest pins the format so a reopen can't re-detect a different one."""
+    src = _FakeAppState()
+    loader = src.get_loader()
+
+    mem = loader.dataset_from_numpy_array(_sample_array(), None)
+    ext_path = tmp_path / "external.img"
+    loader.save_dataset_as(mem, str(ext_path), format="ENVI", config=None)
+    src.add_dataset(loader.load_from_file(str(ext_path), data_cache=None, interactive=False)[0])
+
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    manifest = {}
+    save_datasets(src, manifest, bundle)
+
+    (entry,) = manifest["datasets"]
+    assert entry["format"] == "ENVI"
+
+    dst = _FakeAppState()
+    assert load_datasets(manifest, dst, bundle) == []
+    (restored,) = dst.get_datasets()
+    assert restored.get_format() == "ENVI"
+
+
+def test_manifest_without_a_format_still_loads(tmp_path):
+    """Projects saved before the format field was added must keep working."""
+    src = _FakeAppState()
+    loader = src.get_loader()
+
+    mem = loader.dataset_from_numpy_array(_sample_array(), None)
+    ext_path = tmp_path / "external.img"
+    loader.save_dataset_as(mem, str(ext_path), format="ENVI", config=None)
+    src.add_dataset(loader.load_from_file(str(ext_path), data_cache=None, interactive=False)[0])
+
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    manifest = {}
+    save_datasets(src, manifest, bundle)
+    manifest["datasets"][0].pop("format")  # as an older WISER would have written it
+
+    dst = _FakeAppState()
+    assert load_datasets(manifest, dst, bundle) == []
+    assert len(dst.get_datasets()) == 1
+
+
+def test_manifest_naming_a_removed_format_falls_back_to_detection(tmp_path):
+    """An unknown format name is ignored, not fatal -- detection is likelier to work."""
+    src = _FakeAppState()
+    loader = src.get_loader()
+
+    mem = loader.dataset_from_numpy_array(_sample_array(), None)
+    ext_path = tmp_path / "external.img"
+    loader.save_dataset_as(mem, str(ext_path), format="ENVI", config=None)
+    src.add_dataset(loader.load_from_file(str(ext_path), data_cache=None, interactive=False)[0])
+
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    manifest = {}
+    save_datasets(src, manifest, bundle)
+    manifest["datasets"][0]["format"] = "AFormatWeNoLongerHave"
+
+    dst = _FakeAppState()
+    assert load_datasets(manifest, dst, bundle) == []
+    assert len(dst.get_datasets()) == 1
+
+
 def test_subdataset_base_path_parses_descriptor():
     from wiser.project.persisters.datasets import _subdataset_base_path
 
