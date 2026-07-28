@@ -39,6 +39,7 @@ What's in This Manual
    :hidden:
 
    interface-overview
+   opening-data-files
    working-with-data
    data-analysis-tools/data-analysis-tools
    spatial-tools
