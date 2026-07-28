@@ -23,4 +23,5 @@ crs-creator-internals.md
 plugin-system.md
 mosaic-internals.md
 save-to-project.md
+raster-format-dispatch.md
 ```
