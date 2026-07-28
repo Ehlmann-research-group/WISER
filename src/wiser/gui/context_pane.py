@@ -11,6 +11,7 @@ from wiser.raster.dataset import RasterDataSet
 from .rasterview import ScaleToFitMode, RasterView
 from .rasterpane import RasterPane
 from .dataset_chooser import DatasetChooser
+from . import theme
 from .util import add_toolbar_action
 from .app_state import ApplicationState
 from wiser.raster.dataset import find_display_bands
@@ -107,7 +108,7 @@ class ContextPane(RasterPane):
         """
 
         self._act_fit_to_window = self._toolbar.addAction(
-            QIcon(":/icons/zoom-to-fit.svg"), self.tr("Fit image to window")
+            theme.get_icon(":/icons/zoom-to-fit.svg"), self.tr("Fit image to window")
         )
         self._act_fit_to_window.setCheckable(True)
         self._act_fit_to_window.setChecked(True)

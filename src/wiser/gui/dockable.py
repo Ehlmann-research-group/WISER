@@ -2,6 +2,8 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 
+from . import theme
+
 
 class DockablePane(QDockWidget):
     def __init__(self, widget, name, title, app_state, icon=None, tooltip=None, parent=None):
@@ -15,7 +17,7 @@ class DockablePane(QDockWidget):
         self.setWidget(widget)
 
         if isinstance(icon, str):
-            self._icon = QIcon(icon)
+            self._icon = theme.get_icon(icon)
         elif isinstance(icon, QIcon):
             self._icon = icon
         elif icon is not None:

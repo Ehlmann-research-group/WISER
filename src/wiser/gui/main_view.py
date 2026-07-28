@@ -23,6 +23,7 @@ from .scatter_plot_2D import ScatterPlot2DDialog
 from .smooth_filter import SmoothingFilterDialog, SmoothingFilterKind
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
+from . import theme
 from .toolbarmenu import ToolbarMenu
 from .util import add_toolbar_action, get_painter
 
@@ -117,7 +118,7 @@ class MainViewWidget(RasterPane):
             (self.tr("2 rows x 2 columns"), (2, 2)),
             (self.tr("Other layout..."), (-1, -1)),
         ]
-        self._view_chooser = ToolbarMenu(icon=QIcon(":/icons/split-view.svg"), items=chooser_items)
+        self._view_chooser = ToolbarMenu(icon=theme.get_icon(":/icons/split-view.svg"), items=chooser_items)
         self._view_chooser.setToolTip(self.tr("Split/unsplit the main view"))
         self._toolbar.addWidget(self._view_chooser)
         self._view_chooser.triggered.connect(self._on_split_views)

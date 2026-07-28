@@ -135,6 +135,7 @@ class ApplicationConfig:
         # General properties - these are all scalars
         "general.version": (str, version.VERSION),
         "general.online_bug_reporting": (bool, False),
+        "general.color_scheme": (str, "SYSTEM"),  # SYSTEM | LIGHT | DARK
         "general.red_wavelength_nm": (int, 700),
         "general.green_wavelength_nm": (int, 530),
         "general.blue_wavelength_nm": (int, 470),

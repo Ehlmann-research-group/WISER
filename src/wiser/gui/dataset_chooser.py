@@ -6,6 +6,7 @@ from PySide6.QtWidgets import *
 
 import wiser.gui.generated.resources
 
+from . import theme
 from wiser.raster.dataset import RasterDataSet
 
 from typing import TYPE_CHECKING
@@ -37,7 +38,7 @@ class DatasetChooser(QToolButton):
 
         self._dataset_menu = QMenu()
 
-        self.setIcon(QIcon(":/icons/stack.svg"))
+        self.setIcon(theme.get_icon(":/icons/stack.svg"))
         self.setToolTip(self.tr("Select dataset to view"))
         self.setPopupMode(QToolButton.InstantPopup)
         self.setMenu(self._dataset_menu)

@@ -13,6 +13,7 @@ import numpy as np
 
 import lark
 
+from . import theme
 from .generated.band_math_ui import Ui_BandMathDialog
 
 from .app_state import ApplicationState
@@ -665,7 +666,7 @@ def icon_text_label(text: str, icon_path: str, icon_size: int = 16) -> QWidget:
 
     # Icon (resource path like ':/icons/wiser.ico' or ':/icons/choose-bands.svg')
     icon_lbl = QLabel()
-    icon = QIcon(icon_path)
+    icon = theme.get_icon(icon_path)
     if not icon.isNull():
         pm = icon.pixmap(QSize(icon_size, icon_size), QIcon.Normal, QIcon.Off)
         icon_lbl.setPixmap(pm)

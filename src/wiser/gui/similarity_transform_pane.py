@@ -16,6 +16,7 @@ from .rasterview import (
     make_rgb_image,
     make_grayscale_image,
 )
+from . import theme
 from .rasterpane import RasterPane, TiledRasterView, RecenterMode
 from .app_state import ApplicationState
 from wiser.raster.selection import SinglePixelSelection
@@ -243,7 +244,7 @@ class SimilarityTransformPane(RasterPane):
         """
         super()._init_zoom_tools()
         self._act_fit_to_window = self._toolbar.addAction(
-            QIcon(":/icons/zoom-to-fit.svg"), self.tr("Fit image to window")
+            theme.get_icon(":/icons/zoom-to-fit.svg"), self.tr("Fit image to window")
         )
         self._act_fit_to_window.setCheckable(True)
         self._act_fit_to_window.setChecked(False)

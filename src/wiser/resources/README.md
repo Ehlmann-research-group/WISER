@@ -49,3 +49,55 @@ Icons made by [bqlqn](https://www.flaticon.com/authors/bqlqn)
 from [Flaticon](https://www.flaticon.com/).
 
 *   add-roi.svg (was location.svg)
+
+## Theming: adding or using icons
+
+WISER supports light and dark color schemes (see the "Color scheme" setting in
+the WISER configuration dialog). To make this work, the toolbar/UI icons are
+**monochrome SVGs that are recolored at runtime**: in dark mode they are tinted
+to a light color so they stay visible. This recoloring is done on the fly by
+`wiser.gui.theme` (rendering the SVG and compositing a tint over its alpha), so
+the original SVG files are left untouched — there is no separate light/dark copy
+of each icon.
+
+When adding a new icon or using an existing one, follow these rules:
+
+*   **Load icons through `wiser.gui.theme.get_icon()`, not `QIcon()` directly.**
+    For example, `theme.get_icon(":/icons/zoom-in.svg")` instead of
+    `QIcon(":/icons/zoom-in.svg")`. Only icons loaded through `get_icon()` adapt
+    to the active color scheme. (Most toolbar icons go through
+    `util.add_toolbar_action()`, which already calls `get_icon()` for you.)
+
+*   **New toolbar icons should be monochrome SVGs**, authored in black. They may
+    declare their color as an explicit `fill`/`stroke`, in a `<style>` block, or
+    not at all (SVG's default fill is black) — the recoloring handles all three.
+
+*   **Multi-color icons must opt out of tinting** by passing
+    `monochrome=False` (e.g. `theme.get_icon(":/icons/choose-truecolor.svg",
+    monochrome=False)`); otherwise they would be flattened to a single color.
+    Non-SVG icons (such as `wiser.ico`) are always returned unmodified.
+
+*   **Register new SVGs in `resources.qrc`** and rebuild the compiled resources
+    (`make generated`) so they are available under the `:/icons/...` prefix.
+
+## Theming: colors outside the palette
+
+Most of the UI gets its colors from the Qt palette, which `theme.apply_color_scheme()`
+switches wholesale via `QStyleHints.setColorScheme()`. Two places need more than that:
+
+*   **The dark-mode selection color.** Qt's dark palette uses a very light blue
+    for selection (on the Windows 11 style, `Highlight` `#0078d4` and `Accent`
+    `#4cc2ff`), and the style paints checked tool buttons with it. Combined with
+    our near-white dark-mode icon tint that leaves white-on-light-blue buttons
+    that are hard to read, so `apply_color_scheme()` overrides both roles with
+    `theme.DARK_HIGHLIGHT_COLOR`. The override is applied as a *sparse* palette
+    (only those two roles are set), so every other role still follows the
+    OS/scheme; light mode installs an empty palette, which clears it.
+
+*   **Hard-coded stylesheet colors.** Prefer palette roles. Where a widget really
+    does need explicit colors — the startup splash is the one case: it is a
+    frameless "card" with its own border, shadow and progress bar that don't map
+    onto palette roles — define them as a light/dark pair and pick between them
+    with `theme.is_dark_mode()`, as `startup_splash._LIGHT` / `_DARK` do. A
+    stylesheet with only light colors will look wrong in dark mode, since
+    `setColorScheme()` cannot reach into it.

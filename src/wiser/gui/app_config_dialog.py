@@ -17,6 +17,7 @@ from astropy import units as u
 
 from .generated.app_config_ui import Ui_AppConfigDialog
 
+from . import theme
 from .app_state import ApplicationState
 
 # We have a lot of variables named "plugins" so make the package name distinct.
@@ -193,6 +194,19 @@ class AppConfigDialog(QDialog):
 
     def _init_general_tab(self):
         # ==============================
+        # Appearance group-box
+
+        self._ui.cbox_color_scheme.addItem(self.tr("System"), "SYSTEM")
+        self._ui.cbox_color_scheme.addItem(self.tr("Light"), "LIGHT")
+        self._ui.cbox_color_scheme.addItem(self.tr("Dark"), "DARK")
+
+        scheme = self._app_state.get_config("general.color_scheme")
+        index = self._ui.cbox_color_scheme.findData(scheme)
+        if index == -1:
+            index = 0
+        self._ui.cbox_color_scheme.setCurrentIndex(index)
+
+        # ==============================
         # Error-Reporting group-box
 
         self._ui.ckbox_online_bug_reporting.setChecked(
@@ -312,6 +326,12 @@ class AppConfigDialog(QDialog):
         color = QColorDialog.getColor(parent=self, initial=initial_color)
         if color.isValid():
             self._ui.ledit_pixel_cursor_color.setText(color.name())
+
+    def _apply_color_scheme(self, scheme):
+        """Apply a color scheme to the running app (palette + icons)."""
+        theme.set_color_scheme(scheme)
+        theme.apply_color_scheme()
+        theme.refresh_icons()
 
     # ========================================================================
     # EASY ADD PLUGIN BY FILE UI
@@ -761,6 +781,13 @@ class AppConfigDialog(QDialog):
 
         # =======================================================================
         # Apply values
+
+        # ==============================
+        # Appearance group-box
+
+        color_scheme = self._ui.cbox_color_scheme.currentData()
+        self._app_state.set_config("general.color_scheme", color_scheme)
+        self._apply_color_scheme(color_scheme)
 
         # ==============================
         # Error-Reporting group-box
