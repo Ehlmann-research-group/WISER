@@ -62,6 +62,7 @@ __all__ = [
     "FormatSpec",
     "RASTER_FORMATS",
     "candidates_for",
+    "format_for_impl",
     "format_names",
     "get_format",
     "load_FITS_dataset",
@@ -215,6 +216,23 @@ def get_format(name: str) -> Optional[FormatSpec]:
     for spec in RASTER_FORMATS:
         if spec.name.lower() == lowered:
             return spec
+    return None
+
+
+def format_for_impl(impl: RasterDataImpl) -> Optional[str]:
+    """
+    The registered format name that produced ``impl``, or ``None``.
+
+    Matched on the exact implementation type rather than by ``isinstance``, so
+    that a subclass is never mistaken for its base.  ``None`` means the impl
+    came from somewhere other than the registry (an in-memory NumPy dataset, or
+    a format opened through the GDAL catch-all under a different class), in
+    which case callers should fall back to normal detection.
+    """
+    impl_type = type(impl)
+    for spec in RASTER_FORMATS:
+        if spec.impl is impl_type:
+            return spec.name
     return None
 
 

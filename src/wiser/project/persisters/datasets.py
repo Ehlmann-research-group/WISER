@@ -26,12 +26,15 @@ from the manifest dict alone, so they bypass the generic
 application's raster loader directly.
 """
 
+import logging
 import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from wiser.utils.progress import ProgressReporter
 
 from ..bundle import ProjectBundle
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -82,6 +85,7 @@ def dataset_to_pyrep(
         entry["storage"] = STORAGE_REFERENCE
         entry["path"] = os.path.abspath(_subdataset_base_path(subdataset_name))
         entry["subdataset_name"] = _absolute_subdataset(subdataset_name)
+        _record_format(entry, dataset)
     elif not embed and filepaths:
         entry["storage"] = STORAGE_REFERENCE
         # A reference is resolved on load with no knowledge of where it was saved
@@ -89,6 +93,7 @@ def dataset_to_pyrep(
         # is given file arguments on the command line) would otherwise be looked up
         # against the working directory of whoever opens the project next.
         entry["path"] = os.path.abspath(filepaths[0])
+        _record_format(entry, dataset)
     else:
         # In-memory always, and every dataset under a self-contained save: re-save
         # the pixels to an ENVI sidecar in the bundle.  A subdataset flattens to a
@@ -99,6 +104,58 @@ def dataset_to_pyrep(
         entry["path"] = f"{ProjectBundle.DATASETS_DIR}/{sidecar.name}"
 
     return entry
+
+
+def _record_format(entry: Dict[str, Any], dataset: "RasterDataSet") -> None:
+    """
+    Note which registered format opened ``dataset``, when it is known.
+
+    A referenced dataset is re-opened from its path on load, and without this the
+    format would be re-detected from scratch.  Detection is deterministic but not
+    frozen:  a new format added to the registry, or a stray header file appearing
+    beside the data, could resolve the same path differently later.  Recording
+    the format pins the reopen to the implementation that was actually in use
+    when the project was saved.
+
+    Datasets whose implementation isn't in the registry record nothing, and fall
+    back to detection on load.  The same applies to anything that doesn't expose
+    an implementation at all:  this is an optimization over detection, never a
+    requirement, so it must not be able to fail a save.
+    """
+    from wiser.raster.format_registry import format_for_impl
+
+    get_impl = getattr(dataset, "get_impl", None)
+    if get_impl is None:
+        return
+
+    format_name = format_for_impl(get_impl())
+    if format_name is not None:
+        entry["format"] = format_name
+
+
+def _entry_format(entry: Dict[str, Any]) -> Optional[str]:
+    """
+    The format to force when reopening ``entry``, if it named one we still have.
+
+    An unrecognized name -- an older or hand-edited manifest, or a format since
+    removed -- is deliberately ignored rather than fatal:  falling back to
+    detection is far more likely to load the file than refusing to try.
+    """
+    from wiser.raster.format_registry import get_format
+
+    format_name = entry.get("format")
+    if not format_name:
+        return None
+
+    if get_format(format_name) is None:
+        logger.warning(
+            "Project references unknown raster format %r for %s; detecting instead.",
+            format_name,
+            entry.get("path"),
+        )
+        return None
+
+    return format_name
 
 
 def save_datasets(
@@ -194,7 +251,11 @@ def _load_dataset(
     subdataset_name = entry.get("subdataset_name") or ""
     try:
         datasets = loader.load_from_file(
-            path, data_cache=cache, interactive=False, subdataset_name=subdataset_name
+            path,
+            data_cache=cache,
+            interactive=False,
+            subdataset_name=subdataset_name,
+            format=_entry_format(entry),
         )
     except Exception:
         # A referenced file that exists but is unreadable/unsupported (e.g. an
