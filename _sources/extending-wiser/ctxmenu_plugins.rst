@@ -8,7 +8,7 @@ interest, etc.).  To do this, the plugin must subclass the
 :class:`wiser.plugins.ContextMenuPlugin` type, filling in the various operations
 that WISER will call.
 
-Implementing a context-menu plugin requires some familiarity with Qt 5, since
+Implementing a context-menu plugin requires some familiarity with Qt 6, since
 the plugin must, at a minimum, add ``QMenu`` actions for specific operations
 that are exposed.  If a plugin intends to expose its own GUI for configuration
 or other user interactions, please see :ref:`GUI Plugins in WISER` for more

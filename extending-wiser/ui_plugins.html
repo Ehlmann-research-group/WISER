@@ -465,7 +465,7 @@
                 <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-qt-designer">Using Qt Designer</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-quiloader">Using <code class="docutils literal notranslate"><span class="pre">QUiLoader</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-pyside2-uic">Using <code class="docutils literal notranslate"><span class="pre">pyside2-uic</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-pyside6-uic">Using <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -481,18 +481,18 @@
                   
   <section id="gui-plugins-in-wiser">
 <span id="id1"></span><h1>GUI Plugins in WISER<a class="headerlink" href="#gui-plugins-in-wiser" title="Link to this heading">#</a></h1>
-<p>WISER is written using the <a class="reference external" href="https://doc.qt.io/qtforpython-5/">Qt 5 API and the PySide2 Python bindings</a> provided by <a class="reference external" href="https://www.qt.io/">The Qt Company</a>.  Plugins that wish to provide graphical user interfaces
-for configuration or workflow must also use Qt 5 to build this functionality.
+<p>WISER is written using the <a class="reference external" href="https://doc.qt.io/qtforpython-6/">Qt 6 API and the PySide6 Python bindings</a> provided by <a class="reference external" href="https://www.qt.io/">The Qt Company</a>.  Plugins that wish to provide graphical user interfaces
+for configuration or workflow must also use Qt 6 to build this functionality.
 This is likely to be common in tool plugins and context-menu plugins; band-math
 plugins, on the other hand, should not show UI components.</p>
 <section id="using-qt-designer">
 <h2>Using Qt Designer<a class="headerlink" href="#using-qt-designer" title="Link to this heading">#</a></h2>
 <p>A plugin can construct a Qt user interface programmatically, but it is much
-easier to use <a class="reference external" href="https://doc.qt.io/qt-5/qtdesigner-manual.html">Qt Designer</a> to
+easier to use <a class="reference external" href="https://doc.qt.io/qt-6/qtdesigner-manual.html">Qt Designer</a> to
 lay out a user interface and save it into a <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file used by the plugin.
 Once a <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file has been created, there are two possible approaches for
-instantiating the UI.  One is to use the <code class="docutils literal notranslate"><span class="pre">PySide2.QUiTools.QUiLoader</span></code> class to
-load the <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file dynamically, and the other is to use <code class="docutils literal notranslate"><span class="pre">pyside2-uic</span></code> to
+instantiating the UI.  One is to use the <code class="docutils literal notranslate"><span class="pre">PySide6.QUiTools.QUiLoader</span></code> class to
+load the <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file dynamically, and the other is to use <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code> to
 generate Python code from the <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file.  Each approach has its benefits and
 drawbacks, which are described below.  The second approach is recommended for
 more sophisticated user interfaces, as it encourages an object-oriented approach
@@ -575,18 +575,18 @@ the UI widgets within the dialog.  The code continues:</p>
 </pre></div>
 </div>
 </section>
-<section id="using-pyside2-uic">
-<h3>Using <code class="docutils literal notranslate"><span class="pre">pyside2-uic</span></code><a class="headerlink" href="#using-pyside2-uic" title="Link to this heading">#</a></h3>
+<section id="using-pyside6-uic">
+<h3>Using <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code><a class="headerlink" href="#using-pyside6-uic" title="Link to this heading">#</a></h3>
 <p>The second way to build a graphical user interface using Qt Designer is to use
-the <code class="docutils literal notranslate"><span class="pre">pyside2-uic</span></code> tool (part of Qt 5/PySide2) to generate Python code from the
+the <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code> tool (part of Qt 6/PySide6) to generate Python code from the
 <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file made via Qt Designer.  The benefit is that it’s very easy to access
 the various UI widgets from your Python program, so if you have complex
 workflows or UI interactions, input validation, event handling, etc., then this
 will likely be your preferred approach.  The downside is that you must set up a
-Python development environment that includes Qt 5/PySide2, so that you can use
-the tools that come along with the PySide2 library.</p>
-<p>Use the <code class="docutils literal notranslate"><span class="pre">pyside2-uic</span></code> program to generate Python code from the <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">pyside2-uic gaussian_blur_config.ui &gt; ui_gaussian_blur_config.py</span>
+Python development environment that includes Qt 6/PySide6, so that you can use
+the tools that come along with the PySide6 library.</p>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code> program to generate Python code from the <code class="docutils literal notranslate"><span class="pre">.ui</span></code> file:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">pyside6-uic gaussian_blur_config.ui &gt; ui_gaussian_blur_config.py</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -703,7 +703,7 @@ very simple:</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-qt-designer">Using Qt Designer</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-quiloader">Using <code class="docutils literal notranslate"><span class="pre">QUiLoader</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-pyside2-uic">Using <code class="docutils literal notranslate"><span class="pre">pyside2-uic</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-pyside6-uic">Using <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code></a></li>
 </ul>
 </li>
 </ul>

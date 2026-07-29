@@ -35,7 +35,7 @@ A complete worked example of each plugin type is available in
 ``src/example_plugins/`` in the WISER repository.
 
 **Prerequisites:** plugin development requires comfort with Python 3,
-Qt5/PySide2 (for any graphical UI), and NumPy/AstroPy (for spectral data
+Qt6/PySide6 (for any graphical UI), and NumPy/AstroPy (for spectral data
 operations).
 
 Setting Up Plugin Paths

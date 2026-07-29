@@ -955,7 +955,7 @@ or UI concern.</p>
     SpectrumPlotGeneric --&gt; SpectrumDisplayInfo : one per spectrum
     SpectrumPlotGeneric --&gt; SpectrumPointDisplayInfo : zero or one (selection)
     SpectrumPlot --&gt; SpectrumPlotDatasetChooser : contains (toolbar)
-    </pre><p><strong>Plotting library.</strong> The widget uses <strong>matplotlib</strong> with the <code class="docutils literal notranslate"><span class="pre">Qt5Agg</span></code> backend.
+    </pre><p><strong>Plotting library.</strong> The widget uses <strong>matplotlib</strong> with the <code class="docutils literal notranslate"><span class="pre">QtAgg</span></code> backend.
 Each visible spectrum is a matplotlib <code class="docutils literal notranslate"><span class="pre">Line2D</span></code> managed by a <code class="docutils literal notranslate"><span class="pre">SpectrumDisplayInfo</span></code>
 (<code class="docutils literal notranslate"><span class="pre">:151</span></code>); the X-axis shows wavelengths when the spectra carry them, and falls
 back to band index otherwise. Display configuration (title, legend placement,

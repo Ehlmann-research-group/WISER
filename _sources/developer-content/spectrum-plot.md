@@ -121,7 +121,7 @@ classDiagram
     SpectrumPlot --> SpectrumPlotDatasetChooser : contains (toolbar)
 ```
 
-**Plotting library.** The widget uses **matplotlib** with the `Qt5Agg` backend.
+**Plotting library.** The widget uses **matplotlib** with the `QtAgg` backend.
 Each visible spectrum is a matplotlib `Line2D` managed by a `SpectrumDisplayInfo`
 (`:151`); the X-axis shows wavelengths when the spectra carry them, and falls
 back to band index otherwise. Display configuration (title, legend placement,

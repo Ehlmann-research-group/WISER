@@ -605,7 +605,7 @@ config-file system.</p>
 <p>We should have good confidence that the code we merge into main is not buggy.
 To have this confidence we need to ensure our testing suite has good coverage
 and handles edge cases well. WISER’s test coverage is still growing — the core
-codebase predates the current testing standards, and GUI testing for PySide2
+codebase predates the current testing standards, and GUI testing for PySide2/6
 applications presents known challenges. New contributions are expected to
 include tests; see the <a class="reference internal" href="testing-and-qa.html"><span class="doc">Testing &amp; QA</span></a> guide.</p>
 </section>
@@ -830,7 +830,7 @@ do this for all other commit messages):</p>
 </section>
 <section id="gui-widget-naming">
 <h3>GUI Widget Naming<a class="headerlink" href="#gui-widget-naming" title="Link to this heading">#</a></h3>
-<p>Since WISER uses <strong>PySide2</strong>, a wrapper around <strong>Qt</strong> (a C++ library), some functions may follow Qt’s C++ naming
+<p>Since WISER uses <strong>PySide6</strong> (as of v3.0b0), a wrapper around <strong>Qt</strong> (a C++ library), some functions may follow Qt’s C++ naming
 conventions - this is acceptable when overriding or subclassing Qt components.</p>
 <p>To maintain clarity in GUI code, widgets should use consistent prefixes:</p>
 <div class="pst-scrollable-table-container"><table class="table">
