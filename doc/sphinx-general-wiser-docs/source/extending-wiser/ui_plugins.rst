@@ -6,7 +6,7 @@ GUI Plugins in WISER
 WISER is written using the `Qt 6 API and the PySide6 Python bindings
 <https://doc.qt.io/qtforpython-6/>`_ provided by `The Qt Company
 <https://www.qt.io/>`_.  Plugins that wish to provide graphical user interfaces
-for configuration or workflow must also use Qt 5 to build this functionality.
+for configuration or workflow must also use Qt 6 to build this functionality.
 This is likely to be common in tool plugins and context-menu plugins; band-math
 plugins, on the other hand, should not show UI components.
 
@@ -115,12 +115,12 @@ Using ``pyside6-uic``
 ^^^^^^^^^^^^^^^^^^^^^
 
 The second way to build a graphical user interface using Qt Designer is to use
-the ``pyside6-uic`` tool (part of Qt 5/PySide6) to generate Python code from the
+the ``pyside6-uic`` tool (part of Qt 6/PySide6) to generate Python code from the
 ``.ui`` file made via Qt Designer.  The benefit is that it's very easy to access
 the various UI widgets from your Python program, so if you have complex
 workflows or UI interactions, input validation, event handling, etc., then this
 will likely be your preferred approach.  The downside is that you must set up a
-Python development environment that includes Qt 5/PySide6, so that you can use
+Python development environment that includes Qt 6/PySide6, so that you can use
 the tools that come along with the PySide6 library.
 
 Use the ``pyside6-uic`` program to generate Python code from the ``.ui`` file:
