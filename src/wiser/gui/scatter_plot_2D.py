@@ -5,7 +5,7 @@ image or of 2 different images of the same dimension.
 
 This script uses datasets and images to refer to the same thing: hyperspectral images
 
-This script requires that `numpy`, `matplotlib`, `mpl_scatter_density `, and `pyside2`
+This script requires that `numpy`, `matplotlib`, `mpl_scatter_density `, and `PySide6`
 be installed within the Python environment you are running this script in.
 
 This script requires the following .ui files to be in the same folder as this python script:
@@ -510,13 +510,13 @@ class ScatterPlot2DDialog(QDialog):
 
         Parameters
         ----------
-        x_min: PySide2.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
+        x_min: PySide6.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
             Editable QDoubleSpinBox that holds the minimum x-axis limit
-        x_max: PySide2.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
+        x_max: PySide6.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
             Editable QDoubleSpinBox that holds the maximum x-axis limit
-        y_min: PySide2.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
+        y_min: PySide6.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
             Editable QDoubleSpinBox that holds the minimum y-axis limit
-        y_max: PySide2.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
+        y_max: PySide6.QtWidgets.QAbstractSpinBox.QDoubleSpinBox
             Editable QDoubleSpinBox that holds the maximum y-axis limit
         default_x_min: int
             Smallest value of all x values
@@ -614,9 +614,9 @@ class ScatterPlot2DDialog(QDialog):
 
         Parameters
         ----------
-        cmap_box: PySide2.QtWidgets.QComboBox
+        cmap_box: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available colormap names
-        colormap_img: PySide2.QtWidgets.QLabel
+        colormap_img: PySide6.QtWidgets.QLabel
             Label that contains an image of the chosen colormap within the QComboBox
         """
         self._colormap_images(cmap_box, cmap_img)
@@ -626,7 +626,7 @@ class ScatterPlot2DDialog(QDialog):
 
         Parameters
         ----------
-        cmap_box: PySide2.QtWidgets.QComboBox
+        cmap_box: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available colormap names
         """
         self._colormap_choice = (cmap_box.currentText(), cmap_box.currentData())
@@ -637,9 +637,9 @@ class ScatterPlot2DDialog(QDialog):
 
         Parameters
         ----------
-        colormapbox: PySide2.QtWidgets.QComboBox
+        colormapbox: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available colormap names
-        colormap_img: PySide2.QtWidgets.QLabel
+        colormap_img: PySide6.QtWidgets.QLabel
             Label that contains an image of the chosen colormap within the QComboBox
         """
 
@@ -660,11 +660,11 @@ class ScatterPlot2DDialog(QDialog):
         ----------
         datasets: list
             List of all available datasets in WISER
-        image: PySide2.QtWidgets.QComboBox
+        image: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available datasets
-        combo: PySide2.QtWidgets.QComboBox
+        combo: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available bands
-        spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
+        spin: PySide6.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
 
@@ -682,9 +682,9 @@ class ScatterPlot2DDialog(QDialog):
 
         Parameters
         ----------
-        combo: PySide2.QtWidgets.QComboBox
+        combo: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available bands
-        spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
+        spin: PySide6.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
         idx = combo.currentIndex()
@@ -695,9 +695,9 @@ class ScatterPlot2DDialog(QDialog):
 
         Parameters
         ----------
-        combo: PySide2.QtWidgets.QComboBox
+        combo: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available bands
-        spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
+        spin: PySide6.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
         idx = spin.value()

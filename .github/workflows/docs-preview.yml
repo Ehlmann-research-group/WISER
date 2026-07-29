@@ -39,7 +39,7 @@ jobs:
           cache: pip
 
       # Install doc build dependencies.
-      # autodoc2 uses AST-based analysis — no PySide2 or GDAL needed at build time.
+      # autodoc2 uses AST-based analysis — no PySide2/6 or GDAL needed at build time.
       - name: Install doc dependencies
         run: pip install -r doc/sphinx-general-wiser-docs/requirements.txt
 

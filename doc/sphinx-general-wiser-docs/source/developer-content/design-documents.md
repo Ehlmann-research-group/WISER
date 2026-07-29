@@ -50,7 +50,7 @@ the application. It is reasonable to expect users to know this API. It will
 be well-documented, and over time we will refine it to be powerful and easy to
 use.
 
-**Are we expecting users to know Qt5 and PySide2?**  These libraries are quite
+**Are we expecting users to know Qt5/6 and PySide2/6?**  These libraries are quite
 involved, and we probably don't want to require users to know about them. On
 the other hand, if users _are_ familiar with these libraries, we would like the
 user to be able to use them to create more sophisticated UIs.
@@ -75,7 +75,7 @@ Perhaps an option can be provided to turn this on or off, so that
 lightweight/reliable plugins can be kept within the WISER process. It should be
 noted that supporting running plugins in separate processes will require us to
 rethink how the user can create plugins that interact with the GUI. As of
-04/14/2026, users just have to create their PySide2 widget and show it, but a
+04/14/2026, users just have to create their PySide2/6 widget and show it, but a
 separate process can't easily do this.
 
 WISER needs to provide a long-running-task abstraction for plugins to leverage,
