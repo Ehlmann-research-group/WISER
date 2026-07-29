@@ -30,16 +30,14 @@ from wiser.raster import utils as raster_utils
 
 import matplotlib
 
-matplotlib.use("Qt5Agg")
-# TODO(donnie):  Seems to generate errors:
-# matplotlib.rcParams['backend.qt5'] = 'PySide2'
+matplotlib.use("QtAgg")
 
 import matplotlib.pyplot as plt
 
 import numpy as np
 from astropy import units as u
 
-from matplotlib.backends.backend_qt5agg import FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvas
 
 from typing import List, Optional, Tuple, TYPE_CHECKING
 

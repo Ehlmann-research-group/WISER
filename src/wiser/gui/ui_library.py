@@ -20,8 +20,8 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
 )
 from matplotlib.axes import Axes
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand

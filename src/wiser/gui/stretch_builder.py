@@ -18,13 +18,11 @@ import numpy.ma as ma
 
 import matplotlib
 
-matplotlib.use("Qt5Agg")
-# TODO(donnie):  Seems to generate errors:
-# matplotlib.rcParams['backend.qt5'] = 'PySide2'
+matplotlib.use("QtAgg")
 
 import matplotlib.pyplot as plt
 
-from matplotlib.backends.backend_qt5agg import FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvas
 
 
 def remove_nans_python(data):

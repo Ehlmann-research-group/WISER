@@ -22,7 +22,7 @@ import matplotlib
 from wiser.raster.serializable import SerializedForm
 
 
-matplotlib.use("Qt5Agg")
+matplotlib.use("QtAgg")
 
 import mpl_scatter_density  # adds projection='scatter_density'
 import numpy as np
@@ -38,8 +38,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.figure import Figure
 from matplotlib.widgets import PolygonSelector
 from matplotlib.path import Path
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from .generated.scatter_plot_axes_ui import Ui_ScatterPlotAxes
 from .generated.scatter_plot_colormap_ui import Ui_ScatterPlotColormap
 from .generated.interactive_scatter_plot_ui import Ui_ScatterPlotDialog
