@@ -164,7 +164,7 @@ def make_rgb_image_python(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> 
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xFF000000
 
-    # Qt5/PySide2 complains if the array is not contiguous.
+    # Qt6/PySide6 complains if the array is not contiguous.
     if not rgb_data.flags["C_CONTIGUOUS"]:
         rgb_data = np.ascontiguousarray(rgb_data)
 
@@ -298,7 +298,7 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xFF000000
 
-    # Qt5/PySide2 complains if the array is not contiguous.
+    # Qt6/PySide6 complains if the array is not contiguous.
     if not rgb_data.flags["C_CONTIGUOUS"]:
         rgb_data = np.ascontiguousarray(rgb_data)
 
@@ -1436,8 +1436,6 @@ class RasterView(QWidget):
     #     else:
     #         self.rgb_selector.setVisible(False)
 
-    # TODO(donnie):  Should be Slot(ImageColors, int), but causes PySide2 to
-    #     crash at startup.
     @Slot(int, int)
     def rgb_band_changed(self, color, band_index):
         # print(f'Color:  {color}\tNew band:  {band_index}')

@@ -8,7 +8,7 @@ import sys
 
 # Make wiser package importable for sphinx.ext.viewcode source links.
 # autodoc2 uses AST-based analysis and does NOT import wiser at build time,
-# so heavy runtime deps (PySide2, GDAL) are not required in the docs environment.
+# so heavy runtime deps (PySide2/6, GDAL) are not required in the docs environment.
 sys.path.insert(0, os.path.abspath("../../../src"))
 
 # -- Project information -----------------------------------------------------

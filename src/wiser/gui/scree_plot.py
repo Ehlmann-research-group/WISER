@@ -154,7 +154,7 @@ if __name__ == "__main__":
     # Smoke test: synthetic decaying spectrum to eyeball that the plot renders.
     import matplotlib
 
-    matplotlib.use("Qt5Agg")
+    matplotlib.use("QtAgg")
     import matplotlib.pyplot as plt
 
     synthetic = np.array([100.0, 30.0, 9.0, 3.0, 1.0, 0.3, 0.1, 0.03])

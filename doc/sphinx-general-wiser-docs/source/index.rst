@@ -3,7 +3,7 @@ WISER Documentation
 
 **WISER** (Workbench for Imaging Spectroscopy Exploration and Research) is an
 open-source, cross-platform GUI for visualizing and analyzing hyperspectral
-imagery. Built in Python on Qt/PySide2, it runs on **macOS, Windows, and
+imagery. Built in Python on Qt/PySide, it runs on **macOS, Windows, and
 Linux** with no commercial license required.
 
 Developed and maintained by the `Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_

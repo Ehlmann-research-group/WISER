@@ -7,4 +7,3 @@ sphinx-autodoc2
 enum-tools[sphinx]
 sphinx-book-theme
 sphinxcontrib-mermaid
-# PySide2 no longer needed — autodoc2 uses AST analysis, not imports

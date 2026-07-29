@@ -71,7 +71,7 @@ config-file system.
 We should have good confidence that the code we merge into main is not buggy.
 To have this confidence we need to ensure our testing suite has good coverage
 and handles edge cases well. WISER's test coverage is still growing — the core
-codebase predates the current testing standards, and GUI testing for PySide2
+codebase predates the current testing standards, and GUI testing for PySide2/6
 applications presents known challenges. New contributions are expected to
 include tests; see the {doc}`Testing & QA <testing-and-qa>` guide.
 
@@ -228,7 +228,7 @@ Code should be **self-describing**: good names make code easier to read and main
 
 ### GUI Widget Naming
 
-Since WISER uses **PySide2**, a wrapper around **Qt** (a C++ library), some functions may follow Qt’s C++ naming
+Since WISER uses **PySide6** (as of v3.0b0), a wrapper around **Qt** (a C++ library), some functions may follow Qt’s C++ naming
 conventions - this is acceptable when overriding or subclassing Qt components.
 
 To maintain clarity in GUI code, widgets should use consistent prefixes:

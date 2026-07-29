@@ -2,7 +2,7 @@
 
 WISER is an open-source, extensible tool for visualizing and analyzing spectral
 imaging data. It is written in Python and provides a cross-platform GUI built
-on Qt 5 with PySide2. GDAL is used for loading and saving spectral data, and
+on Qt 6 with PySide6 (as of v3.0b0, previously Qt 5 and PySide2 were used). GDAL is used for loading and saving spectral data, and
 NumPy for internal data representation.
 
 WISER is supported on macOS (ARM and Intel), Windows 10/11, and Linux.
