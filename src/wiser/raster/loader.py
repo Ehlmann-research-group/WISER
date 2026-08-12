@@ -1,7 +1,7 @@
 import logging
 import os
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
@@ -11,22 +11,12 @@ from wiser.utils.progress import ProgressReporter
 
 from .dataset import RasterDataSet
 from .dataset_impl import (
+    Confidence,
     RasterDataImpl,
     ENVI_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl,
     NumPyRasterDataImpl,
-    NetCDF_GDALRasterDataImpl,
-    ASC_GDALRasterDataImpl,
-    JP2_GDALRasterDataImpl,
-    PDS3_GDALRasterDataImpl,
-    PDS4_GDALRasterDataImpl,
-    GDALRasterDataImpl,
-    JP2_GDAL_PDR_RasterDataImpl,
 )
-
-from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
-
-from PySide6.QtWidgets import QDialog
+from .format_registry import FormatSpec, candidates_for, format_names, get_format
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import DataCache
@@ -38,113 +28,194 @@ class RasterDataLoader:
     """
     A loader for loading 2D raster data-sets from the local filesystem, using
     GDAL (Geospatial Data Abstraction Library) for reading the data.
+
+    Which format is used for a given file is decided by the registry in
+    :mod:`wiser.raster.format_registry`; see that module for the dispatch rules.
     """
 
     def __init__(self):
-        # File formats that we recognize.
-        self._formats = {
-            "ENVI": ENVI_GDALRasterDataImpl,
-            "GTiff": GTiff_GDALRasterDataImpl,
-            "NetCDF": NetCDF_GDALRasterDataImpl,
-            "ASCII": ASC_GDALRasterDataImpl,
-            "JP2": JP2_GDALRasterDataImpl,
-            "PDS3": PDS3_GDALRasterDataImpl,
-            "PDS4": PDS4_GDALRasterDataImpl,
-        }
-
-        # What to do when loading in each file format
-        self._format_loaders = {
-            ENVI_GDALRasterDataImpl: self.load_normal_dataset,
-            GTiff_GDALRasterDataImpl: self.load_normal_dataset,
-            NetCDF_GDALRasterDataImpl: self.load_normal_dataset,
-            ASC_GDALRasterDataImpl: self.load_normal_dataset,
-            JP2_GDALRasterDataImpl: self.load_normal_dataset,
-            PDS3_GDALRasterDataImpl: self.load_normal_dataset,
-            PDS4_GDALRasterDataImpl: self.load_normal_dataset,
-            GDALRasterDataImpl: self.load_normal_dataset,
-        }
-
         # This is a counter so we can generate names for unnamed datasets.
         self._unnamed_datasets: int = 0
 
-    def load_normal_dataset(self, impl: RasterDataImpl, data_cache: "DataCache") -> List[RasterDataSet]:
+    # ------------------------------------------------------------------
+    # Format selection
+    # ------------------------------------------------------------------
+
+    def _candidate_formats(self, path: str, format: Optional[str]) -> List[FormatSpec]:
         """
-        The normal way to load in a dataset
+        The formats to consider for ``path``, best first.
+
+        An explicit ``format`` collapses this to exactly one spec:  the caller
+        has stated the format, so guessing past it would only hide their error.
         """
+        if format:
+            spec = get_format(format)
+            if spec is None:
+                raise ValueError(
+                    f'Unknown raster format "{format}".  Known formats:  ' + ", ".join(format_names())
+                )
+            return [spec]
 
-        # This returns a list because load_FITS_dataset could possibly return a list
-        return [RasterDataSet(impl, data_cache)]
+        return candidates_for(path)
 
-    def load_FITS_dataset(self, impl: RasterDataImpl, data_cache: "DataCache") -> List[RasterDataSet]:
-        # We should show the Fits dialog which should return to us
-        self._fits_dialog = FitsDatasetLoadingDialog(impl, data_cache)
-        result = self._fits_dialog.exec()
+    def _rank_candidates(self, path: str, candidates: List[FormatSpec]) -> List[FormatSpec]:
+        """
+        Narrow ``candidates`` to those worth opening, in the order to try them.
 
-        if result == QDialog.Accepted:
-            return self._fits_dialog.return_datasets
-        return []
+        Each candidate is asked to :meth:`~.RasterDataImpl.identify` the file --
+        a cheap check that opens nothing.  The first that answers
+        :attr:`Confidence.YES` wins outright and the walk stops there, so a
+        confident format is never overtaken by one that merely could have
+        worked.  Anything answering :attr:`Confidence.NO` is dropped.
+
+        Formats that are merely plausible follow the winner, in priority order,
+        as fallbacks in case the winner turns out to be unreadable.
+        """
+        winner: Optional[FormatSpec] = None
+        maybes: List[FormatSpec] = []
+
+        for spec in candidates:
+            try:
+                confidence = spec.impl.identify(path)
+            except Exception as e:
+                # identify() is documented not to raise, but a broken one must
+                # not take down the whole load.
+                logger.debug("identify() raised for format %s on %s:  %s", spec.name, path, e)
+                continue
+
+            if confidence == Confidence.YES:
+                winner = spec
+                break
+            if confidence == Confidence.MAYBE:
+                maybes.append(spec)
+
+        if winner is None:
+            return maybes
+        return [winner] + maybes
+
+    # ------------------------------------------------------------------
+    # Loading
+    # ------------------------------------------------------------------
 
     def load_from_file(
-        self, path, data_cache=None, interactive=True, subdataset_name=""
+        self,
+        path,
+        data_cache=None,
+        interactive=True,
+        subdataset_name="",
+        format: Optional[str] = None,
     ) -> List[RasterDataSet]:
         """
-        Load a raster data-set from the specified path.  Returns a
-        list of :class:`RasterDataSet` object.
+        Load a raster data-set from the specified path.  Returns a list of
+        :class:`RasterDataSet` objects -- a list, because one file may contain
+        several sub-datasets.
+
+        :param path: the file to load.
+        :param data_cache: cache the resulting datasets should read through.
+        :param interactive: when False, never prompt; make a sensible default
+            choice instead.  Required for project restore and headless use.
+        :param subdataset_name: open this specific sub-dataset rather than
+            asking which one is wanted.
+        :param format: force a specific registered format by name (for example
+            ``"ENVI"``).  When given, no other format is tried and a failure is
+            raised rather than silently falling back to guessing.
+
+        Raises :class:`FileNotFoundError` if the path does not exist, or
+        :class:`ValueError` if no registered format can read it.
         """
         if not os.path.exists(path):
             raise FileNotFoundError(f"File path {path} does not exist!")
-        # Iterate through all supported formats, and try to use each one to
-        # load the raster data.
-        impl_list = None
-        for driver_name, impl_type in self._formats.items():
+
+        candidates = self._candidate_formats(path, format)
+        attempts = self._rank_candidates(path, candidates)
+
+        if not attempts:
+            raise ValueError(f"Couldn't load file {path}:  unsupported format")
+
+        spec, impl_list = self._open_first_that_works(path, attempts, interactive, subdataset_name)
+
+        # An empty (rather than None) result means the format opened the file but
+        # deliberately produced nothing -- the user cancelled a sub-dataset
+        # prompt.  That is a decision, not a failure, so don't try other formats.
+        if not impl_list:
+            return []
+
+        logger.debug("Loaded %s as format %s", path, spec.name)
+        return self._build_datasets(path, spec, impl_list, data_cache)
+
+    def _open_first_that_works(
+        self,
+        path: str,
+        attempts: List[FormatSpec],
+        interactive: bool,
+        subdataset_name: str,
+    ) -> Tuple[FormatSpec, List[RasterDataImpl]]:
+        """
+        Open ``path`` with the first spec in ``attempts`` that succeeds.
+
+        In the normal case the first attempt is a format that positively
+        identified the file, so exactly one file handle is ever opened.  The
+        remaining entries only matter when a file identifies as a format but
+        then turns out to be unreadable.
+        """
+        errors: List[str] = []
+
+        for spec in attempts:
             try:
                 if subdataset_name:
-                    impl_list = impl_type.try_load_file(
+                    impl_list = spec.impl.try_load_file(
                         path, subdataset_name=subdataset_name, interactive=interactive
                     )
                 else:
-                    impl_list = impl_type.try_load_file(path, interactive=interactive)
+                    impl_list = spec.impl.try_load_file(path, interactive=interactive)
             except Exception as e:
-                logger.debug(
-                    "Couldn't load file %s with driver %s and implementation %s. Error: %s",
-                    path,
-                    driver_name,
-                    impl_type,
-                    e,
-                )
+                logger.debug("Couldn't load %s as format %s:  %s", path, spec.name, e)
+                errors.append(f"{spec.name}: {e}")
+                continue
 
-        # Try luck with gdal
-        try:
-            if impl_list is None:
-                impl_list = GDALRasterDataImpl.try_load_file(path, interactive=interactive)
-        except Exception as e:
-            logger.debug(
-                f"Couldn't load file {path} with driver " + f"{driver_name} and implementation {impl_type}.",
-                e,
-            )
+            if impl_list is not None:
+                return spec, impl_list
 
-        if impl_list is None:
-            raise Exception(f"Couldn't load file {path}:  unsupported format")
+            errors.append(f"{spec.name}: returned no implementation")
 
-        # Used if a dataset contains multiple subdatasets and we want to load all of them
-        outer_datasets = []
+        detail = "; ".join(errors) if errors else "no format claimed the file"
+        raise ValueError(f"Couldn't load file {path}:  unsupported format ({detail})")
+
+    def _build_datasets(
+        self,
+        path: str,
+        spec: FormatSpec,
+        impl_list: List[RasterDataImpl],
+        data_cache: "DataCache",
+    ) -> List[RasterDataSet]:
+        """Turn opened implementations into named datasets."""
+        datasets: List[RasterDataSet] = []
+
         for impl in impl_list:
-            func = self._format_loaders[type(impl)]
-            datasets = func(impl, data_cache)
-            for ds in datasets:
-                files = ds.get_filepaths()
-                if files:
-                    name = os.path.basename(files[0])
-                else:
-                    name = os.path.basename(path)
-                subdataset_name = ds.get_subdataset_name()
-                if subdataset_name is not None:
-                    name += ":" + subdataset_name.split(":")[-1]
+            for ds in spec.loader(impl, data_cache):
+                ds.set_name(self._dataset_name(path, ds))
+                datasets.append(ds)
 
-                ds.set_name(name)
-                outer_datasets.append(ds)
+        return datasets
 
-        return outer_datasets
+    @staticmethod
+    def _dataset_name(path: str, ds: RasterDataSet) -> str:
+        """
+        Name a dataset after its own file, falling back to the requested path,
+        and qualify it with the sub-dataset name when there is one.
+        """
+        files = ds.get_filepaths()
+        name = os.path.basename(files[0]) if files else os.path.basename(path)
+
+        subdataset_name = ds.get_subdataset_name()
+        if subdataset_name is not None:
+            name += ":" + subdataset_name.split(":")[-1]
+
+        return name
+
+    # ------------------------------------------------------------------
+    # Saving and in-memory construction
+    # ------------------------------------------------------------------
 
     def get_save_filenames(self, path: str, format: str = "ENVI") -> List[str]:
         if format == "ENVI":

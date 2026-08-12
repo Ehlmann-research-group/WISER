@@ -337,13 +337,18 @@ class ApplicationState(QObject):
     def clear_status_text(self):
         self._app.show_status_text("")
 
-    def open_file(self, file_path):
+    def open_file(self, file_path, format=None):
         """
         A general file-open operation in WISER.  This method can be used
         for loading any kind of data file whose type and contents can be
         identified automatically.  This operation should not be used for
         importing ASCII spectral data, regions of interest, etc. since
         WISER cannot identify the file's contents automatically.
+
+        :param format: force a specific raster format by name (for example
+            ``"ENVI"``), skipping detection.  Used when the user has stated the
+            format -- by picking a specific filter in the file-open dialog --
+            since that is better information than anything guessing can produce.
         """
 
         # Remember the directory of the selected file, for next file-open
@@ -371,7 +376,9 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
-        raster_data_list = self._raster_data_loader.load_from_file(path=file_path, data_cache=self._cache)
+        raster_data_list = self._raster_data_loader.load_from_file(
+            path=file_path, data_cache=self._cache, format=format
+        )
 
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)

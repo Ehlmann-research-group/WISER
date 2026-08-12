@@ -682,6 +682,16 @@ class RasterDataSet(Serializable):
         self._description = description
         self.set_dirty()
 
+    def get_impl(self) -> RasterDataImpl:
+        """
+        Returns the implementation object backing this dataset.
+
+        Mostly of interest to code that needs to know *how* the dataset is
+        stored rather than what it contains -- for example, mapping it back to a
+        registered format name when saving a project.
+        """
+        return self._impl
+
     def get_format(self):
         """
         Returns a string describing the type of raster data file that backs this
@@ -1607,9 +1617,6 @@ class RasterDataSet(Serializable):
 
     def set_save_state(self, save_state: SaveState):
         self._impl.set_save_state(save_state)
-
-    def get_impl(self):
-        return self._impl
 
     def get_subdataset_name(self) -> str:
         if hasattr(self._impl, "_subdataset_name"):
