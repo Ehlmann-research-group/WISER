@@ -906,7 +906,10 @@ class DataVisualizerApp(QMainWindow):
             # Spectral libraries are not raster formats; open_file() recognizes
             # them before the raster loader is consulted.
             (self.tr("ENVI spectral libraries (*.sli *.hdr)"), None),
-            (self.tr("Try luck with GDAL (*)"), None),
+            # Forces the registry's GDAL catch-all rather than re-running
+            # detection, so a file WISER's native formats mis-identify can
+            # still be handed straight to GDAL.
+            (self.tr("Try luck with GDAL (*)"), "GDAL"),
         ]
         format_for_filter = dict(supported_formats)
 

@@ -30,9 +30,8 @@ A file is matched in three steps:
 import logging
 import os
 
-from dataclasses import dataclass, field
-from enum import IntEnum
-from typing import TYPE_CHECKING, Callable, List, Optional, Sequence, Tuple, Type
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Type
 
 from .dataset import RasterDataSet
 from .dataset_impl import (

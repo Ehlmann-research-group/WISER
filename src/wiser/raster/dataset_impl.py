@@ -95,7 +95,7 @@ emit_data_names = set(
         "group_1_mineral_id",
         "group_2_band_depth",
         "group_2_mineral_id",
-        "" "radiance",
+        "radiance",
         "obs",
         "Calcite",
         "Chlorite",
@@ -1166,6 +1166,9 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
             allowed_drivers=["GTiff"],
         )
 
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open GeoTIFF file: {load_path}")
+
         return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
@@ -1242,7 +1245,7 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
             _naxis = header["NAXIS"]
             _axis_lengths = []
             for i in range(_naxis):
-                _axis_lengths.append(header[f"NAXIS{i+1}"])
+                _axis_lengths.append(header[f"NAXIS{i + 1}"])
 
             print(f"_naxis: {_naxis}")
             print(f"_axis_lengths: {_axis_lengths}")
@@ -1606,8 +1609,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         else:
             return [GDALRasterDataImpl(gdal_dataset)]
 
-        if instances_list is []:
-            raise ValueError(f"Could not open {path} as netCDF")
+        # An empty list means the user cancelled the subdataset chooser;
+        # load_from_file treats that as a decision, not a failure.
         return instances_list
 
     def __init__(
@@ -1907,7 +1910,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
     SIDECAR_EXTENSIONS = (".hdr",)
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ["GTiff_ENVIRasterDataImpl"]:
+    def try_load_file(cls, path: str, **kwargs) -> ["ENVI_GDALRasterDataImpl"]:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1917,6 +1920,9 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=["ENVI"],
         )
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open ENVI file: {load_path}")
 
         return [cls(gdal_dataset)]
 
@@ -2354,7 +2360,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if "default_bands" in md:
             s = md["default_bands"].strip()
             if s[0] != "{" or s[-1] != "}":
-                raise ValueError("ENVI file has unrecognized format for " f"default bands:  {s}")
+                raise ValueError(f"ENVI file has unrecognized format for default bands:  {s}")
 
             # Convert all numbers in the band-list to integers, and return it.
             b = [int(v) for v in s[1:-1].split(",")]

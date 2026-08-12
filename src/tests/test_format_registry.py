@@ -239,6 +239,22 @@ def test_unreadable_file_raises_rather_than_returning_nothing(tmp_path):
         RasterDataLoader().load_from_file(str(junk), interactive=False)
 
 
+def test_gtiff_raises_when_gdal_returns_no_dataset(tmp_path, monkeypatch):
+    """OpenEx can return None without raising; try_load_file must not wrap None."""
+    tif = _write_raster(tmp_path / "pic.tif", "GTiff")
+    monkeypatch.setattr(gdal, "OpenEx", lambda *a, **k: None)
+
+    with pytest.raises(ValueError, match="Unable to open"):
+        GTiff_GDALRasterDataImpl.try_load_file(tif)
+
+
+def test_envi_raises_when_gdal_returns_no_dataset(envi_dat, monkeypatch):
+    monkeypatch.setattr(gdal, "OpenEx", lambda *a, **k: None)
+
+    with pytest.raises(ValueError, match="Unable to open"):
+        ENVI_GDALRasterDataImpl.try_load_file(str(envi_dat / "scene.hdr"))
+
+
 # ---------------------------------------------------------------------------
 # Explicit override
 # ---------------------------------------------------------------------------
