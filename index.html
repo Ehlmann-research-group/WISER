@@ -208,6 +208,7 @@
         <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/opening-data-files.html">Opening Data Files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
@@ -262,6 +263,7 @@
 <li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/save-to-project.html">Save to Project File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to WISER</a></li>
@@ -513,11 +515,14 @@ at Caltech &amp; CU Boulder. For any questions, contact wiser_AT_lists.lasp.colo
 can fall back to any format supported by GDAL for additional coverage.</p>
 <p><strong>Natively supported formats</strong></p>
 <ul class="simple">
-<li><p><strong>ENVI raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>)</p></li>
+<li><p><strong>ENVI raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>, <code class="docutils literal notranslate"><span class="pre">*.dat</span></code>, or no extension)</p></li>
 <li><p><strong>TIFF / GeoTIFF</strong> (<code class="docutils literal notranslate"><span class="pre">*.tiff</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tif</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tfw</span></code>)</p></li>
 <li><p><strong>NetCDF</strong> (<code class="docutils literal notranslate"><span class="pre">*.nc</span></code>)</p></li>
 <li><p><strong>JPEG 2000</strong> (<code class="docutils literal notranslate"><span class="pre">*.JP2</span></code>)</p></li>
-<li><p><strong>PDS raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.PDS</span></code>, <code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.lbl</span></code>, <code class="docutils literal notranslate"><span class="pre">*.xml</span></code>)</p></li>
+<li><p><strong>PDS3 raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.PDS</span></code>, <code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.lbl</span></code>)</p></li>
+<li><p><strong>PDS4 raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.xml</span></code>)</p></li>
+<li><p><strong>FITS</strong> (<code class="docutils literal notranslate"><span class="pre">*.fits</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fit</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fts</span></code>)</p></li>
+<li><p><strong>ASCII Grid</strong> (<code class="docutils literal notranslate"><span class="pre">*.asc</span></code>)</p></li>
 <li><p><strong>ENVI spectral libraries</strong> (<code class="docutils literal notranslate"><span class="pre">*.sli</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>)</p></li>
 <li><p><strong>GDAL-readable formats</strong> — any format that GDAL can open (e.g. HDF4/5,
 GRIdded Binary, COG, and more)</p></li>

@@ -558,6 +558,7 @@ window.runMermaid = runMermaid;</script>
         <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/opening-data-files.html">Opening Data Files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
@@ -612,6 +613,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/save-to-project.html">Save to Project File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to WISER</a></li>
@@ -776,7 +778,13 @@ window.runMermaid = runMermaid;</script>
 </li>
       <li><a href="extending-wiser/supporting_types.html#wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest.__str__">__str__() (wiser.raster.roi.wiser.raster.roi.RegionOfInterest.RegionOfInterest method)</a>
 </li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader._build_datasets">_build_datasets() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader._candidate_formats">_candidate_formats() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
       <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet._compute_has_wavelengths">_compute_has_wavelengths() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader._dataset_name">_dataset_name() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader static method)</a>
 </li>
       <li><a href="extending-wiser/supporting_types.html#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet._mask_data_ignore_value">_mask_data_ignore_value() (wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet method)</a>
 </li>
@@ -793,6 +801,10 @@ window.runMermaid = runMermaid;</script>
       <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_matplotlib_display_widget_closed">_on_matplotlib_display_widget_closed() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
 </li>
       <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._on_table_display_widget_closed">_on_table_display_widget_closed() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader._open_first_that_works">_open_first_that_works() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
+</li>
+      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader._rank_candidates">_rank_candidates() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
 </li>
       <li><a href="extending-wiser/wiser_state.html#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState._retire_process_manager">_retire_process_manager() (wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState method)</a>
 </li>
@@ -1280,13 +1292,7 @@ window.runMermaid = runMermaid;</script>
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_FITS_dataset">load_FITS_dataset() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
-</li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_from_file">load_from_file() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
-</li>
-      <li><a href="extending-wiser/wiser_state.html#wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader.load_normal_dataset">load_normal_dataset() (wiser.raster.loader.wiser.raster.loader.RasterDataLoader.RasterDataLoader method)</a>
 </li>
   </ul></td>
 </tr></table>

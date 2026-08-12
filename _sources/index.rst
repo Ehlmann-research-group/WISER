@@ -30,11 +30,14 @@ can fall back to any format supported by GDAL for additional coverage.
 
 **Natively supported formats**
 
-- **ENVI raster** (``*.img``, ``*.hdr``)
+- **ENVI raster** (``*.img``, ``*.hdr``, ``*.dat``, or no extension)
 - **TIFF / GeoTIFF** (``*.tiff``, ``*.tif``, ``*.tfw``)
 - **NetCDF** (``*.nc``)
 - **JPEG 2000** (``*.JP2``)
-- **PDS raster** (``*.PDS``, ``*.img``, ``*.lbl``, ``*.xml``)
+- **PDS3 raster** (``*.PDS``, ``*.img``, ``*.lbl``)
+- **PDS4 raster** (``*.xml``)
+- **FITS** (``*.fits``, ``*.fit``, ``*.fts``)
+- **ASCII Grid** (``*.asc``)
 - **ENVI spectral libraries** (``*.sli``, ``*.hdr``)
 - **GDAL-readable formats** --- any format that GDAL can open (e.g. HDF4/5,
   GRIdded Binary, COG, and more)

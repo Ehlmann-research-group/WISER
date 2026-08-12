@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Stretch Builder &#8212; WISER Documentation</title>
+    <title>Raster Format Dispatch &#8212; WISER Documentation</title>
   
   
   
@@ -400,13 +400,13 @@ mermaid.initialize(
 
 window.addEventListener("load", load);
 window.runMermaid = runMermaid;</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/stretch-builder';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/raster-format-dispatch';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Data Caching" href="data-caching.html" />
-    <link rel="prev" title="Band Chooser" href="band-chooser.html" />
+    <link rel="next" title="Contributing to WISER" href="../contributing.html" />
+    <link rel="prev" title="Save to Project File" href="save-to-project.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -609,7 +609,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="app-state.html">Application State</a></li>
@@ -618,7 +618,7 @@ window.runMermaid = runMermaid;</script>
 <li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="raster-format-dispatch.html">Raster Format Dispatch</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -698,7 +698,7 @@ window.runMermaid = runMermaid;</script>
       
       
       
-      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/stretch-builder.md" target="_blank"
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/raster-format-dispatch.md" target="_blank"
    class="btn btn-sm btn-source-edit-button dropdown-item"
    title="Suggest edit"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -728,7 +728,7 @@ window.runMermaid = runMermaid;</script>
       
       
       
-      <li><a href="../_sources/developer-content/stretch-builder.md" target="_blank"
+      <li><a href="../_sources/developer-content/raster-format-dispatch.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -811,7 +811,7 @@ window.runMermaid = runMermaid;</script>
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Stretch Builder</h1>
+    <h1>Raster Format Dispatch</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -821,19 +821,34 @@ window.runMermaid = runMermaid;</script>
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-stretch-model">The Stretch Model</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-stretch-types">The stretch types</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conditioner-stretch-composition">Conditioner + stretch composition</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-not-just-try-every-format">Why not just try every format?</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-stretch-builder-dialog">The Stretch Builder Dialog</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#applying-stretches-during-rendering">Applying Stretches During Rendering</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#per-band-path">Per-band path</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#joint-path-decorrelation">Joint path (decorrelation)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-registry">The registry</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extensions-order-they-do-not-gate">Extensions order, they do not gate</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#numba-dispatch">Numba Dispatch</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#identify"><code class="docutils literal notranslate"><span class="pre">identify()</span></code></a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#it-delegates-to-gdal">It delegates to GDAL</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#priority-still-matters"><code class="docutils literal notranslate"><span class="pre">priority</span></code> still matters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sidecar-files-data-extensions-and-sidecar-extensions">Sidecar files: <code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">SIDECAR_EXTENSIONS</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-new-format">Adding a new format</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#write-the-implementation">1. Write the implementation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#register-it">2. Register it</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non-gdal-formats">Non-GDAL formats</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#if-opening-needs-to-ask-the-user-something">If opening needs to ask the user something</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#checklist">Checklist</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overrides">Overrides</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-file-open-dialog">The file-open dialog</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#project-files">Project files</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#future-work">Future work</a></li>
 </ul>
             </nav>
         </div>
@@ -845,276 +860,412 @@ window.runMermaid = runMermaid;</script>
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="stretch-builder">
-<h1>Stretch Builder<a class="headerlink" href="#stretch-builder" title="Link to this heading">#</a></h1>
-<p>A <em>contrast stretch</em> maps raw band values onto display brightness. The Stretch
-Builder is the dialog where the user designs those mappings per channel, and the
-<code class="docutils literal notranslate"><span class="pre">StretchBase</span></code> hierarchy is the data model that captures them and applies them
-during rendering. This page covers both halves and the joint multi-band path
-used by the decorrelation stretch.</p>
-<p>This builds on the <a class="reference internal" href="rendering-pipeline.html"><span class="std std-doc">Rendering Pipeline</span></a> overview; read
-that first for how stretches fit into the larger data → image flow.</p>
+  <section id="raster-format-dispatch">
+<h1>Raster Format Dispatch<a class="headerlink" href="#raster-format-dispatch" title="Link to this heading">#</a></h1>
+<p>When WISER is handed a file path, something has to decide <em>which</em> of the raster
+formats it knows about should open it. That decision is <strong>format dispatch</strong>, and
+it lives in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/format_registry.py</span></code> and
+<code class="docutils literal notranslate"><span class="pre">RasterDataLoader.load_from_file</span></code>.</p>
+<p>This page documents how a path becomes a <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>, and — the part most
+developers come here for — <a class="reference internal" href="#adding-a-new-format">how to add support for a new file
+type</a>.</p>
 <hr class="docutils" />
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>Stretches always operate on <strong>normalized</strong> data — float values in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>
-produced by <code class="docutils literal notranslate"><span class="pre">RasterDataSet.get_band_data_normalized()</span></code>. Keeping every stretch in
-the same normalized domain is what makes them composable and dataset-agnostic.</p>
-<ul class="simple">
-<li><p><strong>GUI:</strong> <code class="docutils literal notranslate"><span class="pre">StretchBuilderDialog</span></code>, <code class="docutils literal notranslate"><span class="pre">ChannelStretchWidget</span></code>, <code class="docutils literal notranslate"><span class="pre">StretchConfigWidget</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/stretch_builder.py</span></code>)</p></li>
-<li><p><strong>Model:</strong> <code class="docutils literal notranslate"><span class="pre">StretchBase</span></code> and subclasses
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/stretch.py</span></code>)</p></li>
-<li><p><strong>Applied by:</strong> <code class="docutils literal notranslate"><span class="pre">RasterView.update_display_image()</span></code> /
-<code class="docutils literal notranslate"><span class="pre">make_channel_image()</span></code> / <code class="docutils literal notranslate"><span class="pre">_render_joint_channels()</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code>)</p></li>
-</ul>
-<p>A stretch can be built from two parts: an optional <strong>conditioner</strong> (a nonlinear
-pre-shaping step such as square-root or log) followed by a <strong>main stretch</strong>
-(linear, histogram-equalize, or decorrelation). The two are bound together with
-<code class="docutils literal notranslate"><span class="pre">StretchComposite</span></code>.</p>
-</section>
-<hr class="docutils" />
-<section id="the-stretch-model">
-<h2>The Stretch Model<a class="headerlink" href="#the-stretch-model" title="Link to this heading">#</a></h2>
-<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/stretch.py</span></code></p>
-<p>Every stretch derives from <code class="docutils literal notranslate"><span class="pre">StretchBase</span></code> and shares one contract:</p>
+<p>Dispatch is deliberately split into three stages, so that the cheap decisions
+happen before the expensive ones and nothing irreversible happens while WISER is
+still guessing.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>Member</p></th>
-<th class="head"><p>Purpose</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">apply(a)</span></code></p></td>
-<td><p>Mutate the 2-D normalized array <code class="docutils literal notranslate"><span class="pre">a</span></code> in place. The per-band path.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">requires_all_bands()</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code> only for joint transforms (decorrelation). Tells the renderer to use the multi-band path.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">apply_multi(bands)</span></code></p></td>
-<td><p>Joint entry point: mutate an <code class="docutils literal notranslate"><span class="pre">(H,</span> <span class="pre">W,</span> <span class="pre">N)</span></code> float32 stack in place. Called only when <code class="docutils literal notranslate"><span class="pre">requires_all_bands()</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_stretches()</span></code></p></td>
-<td><p>Decompose into <code class="docutils literal notranslate"><span class="pre">[first,</span> <span class="pre">second]</span></code> — used by the renderer and joint detection. A simple stretch returns <code class="docutils literal notranslate"><span class="pre">[self,</span> <span class="pre">None]</span></code>.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_hash_tuple()</span></code> / <code class="docutils literal notranslate"><span class="pre">__hash__</span></code> / <code class="docutils literal notranslate"><span class="pre">__eq__</span></code></p></td>
-<td><p>Value identity, used as part of <a class="reference internal" href="data-caching.html"><span class="std std-doc">render-cache</span></a> keys.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<pre  class="mermaid">
-        classDiagram
-    direction TB
-
-    class StretchBase {
-        stretch.py
-        +apply(a)
-        +requires_all_bands() bool
-        +apply_multi(bands)
-        +get_stretches()
-        +get_hash_tuple()
-    }
-    class StretchLinear {
-        +_lower, _upper
-        +_slope, _offset
-        +set_bounds(lower, upper)
-    }
-    class StretchHistEqualize {
-        +_cdf, _histo_edges
-    }
-    class StretchSquareRoot {
-        conditioner: sqrt(a)
-    }
-    class StretchLog2 {
-        conditioner: log2(a+1)
-    }
-    class StretchDecorrelation {
-        requires_all_bands = True
-        +apply_multi(bands)
-    }
-    class StretchComposite {
-        +_first, _second
-        +apply(a) = first then second
-    }
-
-    StretchBase &lt;|-- StretchLinear
-    StretchBase &lt;|-- StretchHistEqualize
-    StretchBase &lt;|-- StretchSquareRoot
-    StretchBase &lt;|-- StretchLog2
-    StretchBase &lt;|-- StretchDecorrelation
-    StretchComposite o-- StretchBase : first (conditioner)
-    StretchComposite o-- StretchBase : second (main stretch)
-    </pre><blockquote>
-<div><p><strong>Note:</strong> <code class="docutils literal notranslate"><span class="pre">StretchComposite</span></code> is <em>not</em> a subclass of <code class="docutils literal notranslate"><span class="pre">StretchBase</span></code>; it is a
-wrapper that holds two stretches and exposes the same <code class="docutils literal notranslate"><span class="pre">apply()</span></code> /
-<code class="docutils literal notranslate"><span class="pre">get_stretches()</span></code> / <code class="docutils literal notranslate"><span class="pre">get_hash_tuple()</span></code> methods (duck typing). Its
-<code class="docutils literal notranslate"><span class="pre">get_stretches()</span></code> returns <code class="docutils literal notranslate"><span class="pre">[first,</span> <span class="pre">second]</span></code>, which is exactly what the renderer
-and joint-stretch detection inspect.</p>
-</div></blockquote>
-<section id="the-stretch-types">
-<h3>The stretch types<a class="headerlink" href="#the-stretch-types" title="Link to this heading">#</a></h3>
-<div class="pst-scrollable-table-container"><table class="table">
-<thead>
-<tr class="row-odd"><th class="head"><p>Class</p></th>
-<th class="head"><p>Kind</p></th>
+<tr class="row-odd"><th class="head"><p>Stage</p></th>
 <th class="head"><p>What it does</p></th>
+<th class="head"><p>Cost</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StretchLinear(lower,</span> <span class="pre">upper)</span></code></p></td>
-<td><p>main</p></td>
-<td><p>Linear remap of <code class="docutils literal notranslate"><span class="pre">[lower,</span> <span class="pre">upper]</span></code> → <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>, then clip. Stores precomputed <code class="docutils literal notranslate"><span class="pre">_slope</span></code>/<code class="docutils literal notranslate"><span class="pre">_offset</span></code>. Bounds are in normalized <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> units.</p></td>
+<tr class="row-even"><td><p><strong>Order</strong></p></td>
+<td><p>Rank the registered formats for this path, most likely first.</p></td>
+<td><p>String comparison only.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StretchHistEqualize(bins,</span> <span class="pre">edges)</span></code></p></td>
-<td><p>main</p></td>
-<td><p>Histogram equalization via the CDF of the supplied histogram (<code class="docutils literal notranslate"><span class="pre">np.interp</span></code>).</p></td>
+<tr class="row-odd"><td><p><strong>Identify</strong></p></td>
+<td><p>Ask each candidate, in order, whether it recognizes the file.</p></td>
+<td><p>A few bytes read per candidate. No handles opened.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StretchSquareRoot()</span></code></p></td>
-<td><p>conditioner</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">sqrt(a)</span></code> — brightens shadows.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">StretchLog2()</span></code></p></td>
-<td><p>conditioner</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">log2(a</span> <span class="pre">+</span> <span class="pre">1)</span></code> — strong compression of bright values.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StretchDecorrelation()</span></code></p></td>
-<td><p>joint main</p></td>
-<td><p>Cross-band decorrelation; <code class="docutils literal notranslate"><span class="pre">requires_all_bands()</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>. A stateless marker — the math lives in <code class="docutils literal notranslate"><span class="pre">apply_multi</span></code> / <code class="docutils literal notranslate"><span class="pre">decor_numba</span></code>.</p></td>
+<tr class="row-even"><td><p><strong>Open</strong></p></td>
+<td><p>Open the file with the format that won.</p></td>
+<td><p>One file handle, once.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Most stretches have a sibling <code class="docutils literal notranslate"><span class="pre">...UsingNumba</span></code> jitclass (e.g.
-<code class="docutils literal notranslate"><span class="pre">StretchLinearUsingNumba</span></code>) selected at runtime for large arrays — see the Numba
-Dispatch section below.</p>
-</section>
-<section id="conditioner-stretch-composition">
-<h3>Conditioner + stretch composition<a class="headerlink" href="#conditioner-stretch-composition" title="Link to this heading">#</a></h3>
-<p>The renderer never assumes a single stretch. For each channel it calls
-<code class="docutils literal notranslate"><span class="pre">stretch.get_stretches()</span></code> and receives <code class="docutils literal notranslate"><span class="pre">[first,</span> <span class="pre">second]</span></code>:</p>
+<pre  class="mermaid">
+        flowchart TB
+    Path[&quot;load_from_file(path)&quot;]
+    Override{&quot;format= given?&quot;}
+    One[&quot;Use that format only.&lt;br/&gt;Fail loudly if it doesn't work.&quot;]
+    Order[&quot;candidates_for(path)&lt;br/&gt;extension-claimants first, then&lt;br/&gt;everything else, then the catch-all&quot;]
+    Ident[&quot;identify() down the list&quot;]
+    Yes{&quot;Confidence.YES?&quot;}
+    Win[&quot;Winner&quot;]
+    Maybe[&quot;Highest-priority MAYBE&quot;]
+    Open[&quot;try_load_file() on the winner&quot;]
+    Build[&quot;FormatSpec.loader -&gt;  RasterDataSet(s)&quot;]
+
+    Path --&gt; Override
+    Override -- yes --&gt; One --&gt; Open
+    Override -- no --&gt; Order --&gt; Ident --&gt; Yes
+    Yes -- &quot;stop immediately&quot; --&gt; Win --&gt; Open
+    Yes -- &quot;none were certain&quot; --&gt; Maybe --&gt; Open
+    Open --&gt; Build
+    </pre><section id="why-not-just-try-every-format">
+<h3>Why not just try every format?<a class="headerlink" href="#why-not-just-try-every-format" title="Link to this heading">#</a></h3>
+<p>That is what WISER used to do, and it caused three problems worth remembering,
+because each one is a rule the current design exists to enforce:</p>
 <ul class="simple">
-<li><p>A bare stretch returns <code class="docutils literal notranslate"><span class="pre">[self,</span> <span class="pre">None]</span></code>.</p></li>
-<li><p>A conditioned stretch is a <code class="docutils literal notranslate"><span class="pre">StretchComposite(conditioner,</span> <span class="pre">main)</span></code> and returns
-<code class="docutils literal notranslate"><span class="pre">[conditioner,</span> <span class="pre">main]</span></code>.</p></li>
+<li><p><strong>The winner was whichever format was tried last.</strong> The old loop had no
+<code class="docutils literal notranslate"><span class="pre">break</span></code>, so every format was attempted and the last success overwrote the
+earlier ones. Which implementation opened a file therefore depended on the
+declaration order of a dict.</p></li>
+<li><p><strong>Every successful attempt opened a file handle</strong>, and all but one were
+discarded.</p></li>
+<li><p><strong>Identification could block on the user.</strong> The NetCDF sub-dataset dialog ran
+inside the attempt, so it could be shown for a file that a later format then
+claimed, throwing away what the user chose.</p></li>
 </ul>
-<p><code class="docutils literal notranslate"><span class="pre">make_channel_image()</span></code> then applies <code class="docutils literal notranslate"><span class="pre">first</span></code> then <code class="docutils literal notranslate"><span class="pre">second</span></code>, clips to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>,
-and scales to <code class="docutils literal notranslate"><span class="pre">uint8</span></code>. This is why a square-root or log conditioner can be
-combined freely with any main stretch.</p>
+<p>Hence: exactly one format wins, <code class="docutils literal notranslate"><span class="pre">identify()</span></code> never opens or prompts, and only
+the winner is opened.</p>
 </section>
 </section>
 <hr class="docutils" />
-<section id="the-stretch-builder-dialog">
-<h2>The Stretch Builder Dialog<a class="headerlink" href="#the-stretch-builder-dialog" title="Link to this heading">#</a></h2>
-<p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/stretch_builder.py</span></code></p>
-<p><strong>Purpose:</strong> Interactive UI for designing the stretch on each display channel
-and emitting the result.</p>
+<section id="the-registry">
+<h2>The registry<a class="headerlink" href="#the-registry" title="Link to this heading">#</a></h2>
+<p>Every format WISER can open is one <code class="docutils literal notranslate"><span class="pre">FormatSpec</span></code> entry in <code class="docutils literal notranslate"><span class="pre">RASTER_FORMATS</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">FormatSpec</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ENVI&quot;</span><span class="p">,</span>                                    <span class="c1"># the override token</span>
+    <span class="n">impl</span><span class="o">=</span><span class="n">ENVI_GDALRasterDataImpl</span><span class="p">,</span>                   <span class="c1"># class that opens it</span>
+    <span class="n">extensions</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdr&quot;</span><span class="p">,</span> <span class="s2">&quot;.img&quot;</span><span class="p">,</span> <span class="s2">&quot;.dat&quot;</span><span class="p">}),</span>
+    <span class="n">priority</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span>
+    <span class="n">loader</span><span class="o">=</span><span class="n">load_normal_dataset</span><span class="p">,</span>
+    <span class="n">interactive_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>Class</p></th>
-<th class="head"><p>Role</p></th>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Meaning</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StretchBuilderDialog</span></code></p></td>
-<td><p>Top-level dialog; coordinates one <code class="docutils literal notranslate"><span class="pre">ChannelStretchWidget</span></code> per channel, slider linking, and emits <code class="docutils literal notranslate"><span class="pre">stretch_changed</span></code>.</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>Stable identifier. Used by the <code class="docutils literal notranslate"><span class="pre">format=</span></code> override and <strong>written into project files</strong>, so renaming one is a breaking change.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ChannelStretchWidget</span></code></p></td>
-<td><p>Per-channel histogram display with draggable low/high bounds.</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">impl</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">RasterDataImpl</span></code> subclass that opens this format.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">StretchConfigWidget</span></code></p></td>
-<td><p>Stretch-type and conditioner radio selection, plus quick 2.5% / 5% linear presets.</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">extensions</span></code></p></td>
+<td><p>Extensions this format claims. An <strong>ordering hint only</strong> (see below).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">priority</span></code></p></td>
+<td><p>Higher is tried earlier. Breaks ties between equally confident formats.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">loader</span></code></p></td>
+<td><p>How to turn the opened impl into datasets. Usually <code class="docutils literal notranslate"><span class="pre">load_normal_dataset</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">interactive_step</span></code></p></td>
+<td><p>True if opening can block on a dialog. Informational today; marks what must stay on the main thread when loading moves to a worker.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">is_fallback</span></code></p></td>
+<td><p>True only for the GDAL catch-all, which always sorts last.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">StretchType</span></code> and <code class="docutils literal notranslate"><span class="pre">ConditionerType</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/stretch.py</span></code>)
-enumerate the UI choices: <code class="docutils literal notranslate"><span class="pre">NO_STRETCH</span></code>, <code class="docutils literal notranslate"><span class="pre">LINEAR_STRETCH</span></code>, <code class="docutils literal notranslate"><span class="pre">EQUALIZE_STRETCH</span></code>,
-<code class="docutils literal notranslate"><span class="pre">DECORRELATION_STRETCH</span></code>; and <code class="docutils literal notranslate"><span class="pre">NO_CONDITIONER</span></code>, <code class="docutils literal notranslate"><span class="pre">SQRT_CONDITIONER</span></code>,
-<code class="docutils literal notranslate"><span class="pre">LOG_CONDITIONER</span></code>.</p>
-<p><strong>Lifecycle:</strong> the dialog is shown via <code class="docutils literal notranslate"><span class="pre">show(dataset,</span> <span class="pre">display_bands,</span> <span class="pre">stretches)</span></code>.
-It loads each band’s normalized data, computes (or looks up) a histogram from the
-<a class="reference internal" href="data-caching.html"><span class="std std-doc">histogram cache</span></a>, and seeds the controls from any existing
-stretches. As the user drags bounds or changes type/conditioner, it constructs
-fresh stretch objects and emits:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stretch_changed</span> <span class="o">=</span> <span class="n">Signal</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>   <span class="c1"># (dataset_id, display_bands, stretches)</span>
-</pre></div>
+<section id="extensions-order-they-do-not-gate">
+<h3>Extensions order, they do not gate<a class="headerlink" href="#extensions-order-they-do-not-gate" title="Link to this heading">#</a></h3>
+<p>This is the single most important thing to understand about the registry.</p>
+<p>A format is <strong>never excluded</strong> for failing to claim the path’s extension. The
+extension only decides <em>where in the queue</em> a format sits. <code class="docutils literal notranslate"><span class="pre">candidates_for()</span></code>
+returns <em>every</em> registered format for <em>every</em> path — extension-claimants first
+by priority, then everything else by priority, then the catch-all.</p>
+<p>The reason is that extensions in this domain are genuinely ambiguous:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Extension</p></th>
+<th class="head"><p>Could be</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.img</span></code></p></td>
+<td><p>ENVI raster <strong>or</strong> PDS3</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.hdr</span></code></p></td>
+<td><p>ENVI raster header <strong>or</strong> ENVI spectral library</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.xml</span></code></p></td>
+<td><p>PDS4 label <strong>or</strong> any other XML</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.lbl</span></code></p></td>
+<td><p>PDS3 label</p></td>
+</tr>
+<tr class="row-even"><td><p><em>(none)</em></p></td>
+<td><p>ENVI data file</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-<p>Emissions are gated by an <code class="docutils literal notranslate"><span class="pre">_enable_stretch_changed_events</span></code> flag so that
-programmatic setup (loading existing state, linking sliders) does not fire
-spurious updates.</p>
-<p>For how <code class="docutils literal notranslate"><span class="pre">stretch_changed</span></code> reaches every <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>, see the “How Changes Reach
-the Screen” section of the <a class="reference internal" href="rendering-pipeline.html"><span class="std std-doc">Rendering Pipeline</span></a>.
-In short: <code class="docutils literal notranslate"><span class="pre">App</span></code> stores the stretches in <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> (keyed per
-<code class="docutils literal notranslate"><span class="pre">(ds_id,</span> <span class="pre">band_index)</span></code>) and re-emits a state-level <code class="docutils literal notranslate"><span class="pre">stretch_changed</span></code>, which
-<code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> turns into <code class="docutils literal notranslate"><span class="pre">RasterView.set_stretches()</span></code> calls.</p>
+<p>A strict extension-to-format map would be wrong on real data immediately, and
+would make a file with an unusual extension unloadable even when WISER could
+read it perfectly well. Ordering gives the speed and determinism of extension
+dispatch without the brittleness.</p>
+</section>
 </section>
 <hr class="docutils" />
-<section id="applying-stretches-during-rendering">
-<h2>Applying Stretches During Rendering<a class="headerlink" href="#applying-stretches-during-rendering" title="Link to this heading">#</a></h2>
-<section id="per-band-path">
-<h3>Per-band path<a class="headerlink" href="#per-band-path" title="Link to this heading">#</a></h3>
-<p>For each dirty channel, <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>’s <code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code> calls:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stretches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stretches</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">get_stretches</span><span class="p">()</span>   <span class="c1"># [conditioner, main]</span>
-<span class="n">new_data</span> <span class="o">=</span> <span class="n">make_channel_image</span><span class="p">(</span><span class="n">band_data</span><span class="p">,</span> <span class="n">stretches</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stretches</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<section id="identify">
+<h2><code class="docutils literal notranslate"><span class="pre">identify()</span></code><a class="headerlink" href="#identify" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">RasterDataImpl.identify(path)</span></code> returns a <code class="docutils literal notranslate"><span class="pre">Confidence</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Effect on the search</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">YES</span></code></p></td>
+<td><p>Positive content match.</p></td>
+<td><p>Wins immediately; the search stops.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MAYBE</span></code></p></td>
+<td><p>Plausible, no positive signal.</p></td>
+<td><p>Kept as a fallback if nothing is certain.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NO</span></code></p></td>
+<td><p>Positively excluded.</p></td>
+<td><p>Dropped.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The base implementation returns <code class="docutils literal notranslate"><span class="pre">MAYBE</span></code> — “no opinion” — so an implementation
+that doesn’t override it stays in the running but never outranks a format that
+is actually sure.</p>
+<p><code class="docutils literal notranslate"><span class="pre">identify()</span></code> must be cheap and side-effect-free. Specifically it must <strong>not</strong>:</p>
+<ul class="simple">
+<li><p>open a lasting handle or allocate significant memory,</p></li>
+<li><p>show a dialog or otherwise block on the user,</p></li>
+<li><p>raise for an unreadable or missing file — return <code class="docutils literal notranslate"><span class="pre">NO</span></code> instead.</p></li>
+</ul>
+<section id="it-delegates-to-gdal">
+<h3>It delegates to GDAL<a class="headerlink" href="#it-delegates-to-gdal" title="Link to this heading">#</a></h3>
+<p>For GDAL-backed formats, <code class="docutils literal notranslate"><span class="pre">identify()</span></code> does <strong>not</strong> hand-roll magic-byte checks.
+It calls <code class="docutils literal notranslate"><span class="pre">gdal.IdentifyDriverEx</span></code>, which runs the driver’s own <code class="docutils literal notranslate"><span class="pre">Identify()</span></code>
+without opening the dataset:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@classmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">identify</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Confidence</span><span class="p">:</span>
+    <span class="n">drv</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">IdentifyDriverEx</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">get_load_filename</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">allowed_drivers</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">get_gdal_drivers</span><span class="p">())</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Confidence</span><span class="o">.</span><span class="n">YES</span> <span class="k">if</span> <span class="n">drv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Confidence</span><span class="o">.</span><span class="n">NO</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">make_channel_image()</span></code> applies the two stretches in order, clips to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>,
-and returns <code class="docutils literal notranslate"><span class="pre">uint8</span></code>.</p>
+<p>GDAL already maintains the magic-byte and label checks for every driver it
+ships; duplicating them in WISER would only create something to drift.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Python binding keyword is <code class="docutils literal notranslate"><span class="pre">allowed_drivers</span></code>, not <code class="docutils literal notranslate"><span class="pre">allowedDrivers</span></code>, and
+passing <code class="docutils literal notranslate"><span class="pre">None</span></code> raises rather than meaning “any driver”. Omit the argument if you
+want every driver considered.</p>
+</div>
 </section>
-<section id="joint-path-decorrelation">
-<h3>Joint path (decorrelation)<a class="headerlink" href="#joint-path-decorrelation" title="Link to this heading">#</a></h3>
-<p>Some stretches are inherently cross-band. <code class="docutils literal notranslate"><span class="pre">RasterView._detect_joint_stretch()</span></code>
-walks the three channels and, for each, splits its stretch into
-<code class="docutils literal notranslate"><span class="pre">(conditioner,</span> <span class="pre">main)</span></code> and checks <code class="docutils literal notranslate"><span class="pre">main.requires_all_bands()</span></code>. If <strong>all three</strong>
-channels agree on the same joint stretch (by value equality), the renderer takes
-the joint path; if they disagree, it logs a warning and falls back to per-band.</p>
-<p><code class="docutils literal notranslate"><span class="pre">_render_joint_channels()</span></code> then runs in three phases
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code>):</p>
+<section id="priority-still-matters">
+<h3><code class="docutils literal notranslate"><span class="pre">priority</span></code> still matters<a class="headerlink" href="#priority-still-matters" title="Link to this heading">#</a></h3>
+<p>It is reasonable to ask why priority matters if the first <code class="docutils literal notranslate"><span class="pre">YES</span></code> wins. Because
+<code class="docutils literal notranslate"><span class="pre">identify()</span></code> is not a perfect oracle: an <code class="docutils literal notranslate"><span class="pre">.img</span></code> with a PDS label sitting beside
+an ENVI header will get a confident yes from <strong>both</strong> formats. <code class="docutils literal notranslate"><span class="pre">identify()</span></code>
+decides where the walk <em>stops</em>; <code class="docutils literal notranslate"><span class="pre">priority</span></code> decides the order it <em>walks</em>, and
+therefore which of two equally confident formats is asked first.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="sidecar-files-data-extensions-and-sidecar-extensions">
+<h2>Sidecar files: <code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">SIDECAR_EXTENSIONS</span></code><a class="headerlink" href="#sidecar-files-data-extensions-and-sidecar-extensions" title="Link to this heading">#</a></h2>
+<p>Some formats are a header file plus a separately-named data file, and the user
+may legitimately select either one. The file-open dialog offers <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code> and
+<code class="docutils literal notranslate"><span class="pre">*.tfw</span></code> filters, so this is a normal thing to happen, not an edge case.</p>
+<p>Two class attributes describe that relationship:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ENVI_GDALRasterDataImpl</span><span class="p">(</span><span class="n">GDALRasterDataImpl</span><span class="p">):</span>
+    <span class="n">DATA_EXTENSIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;.img&quot;</span><span class="p">,</span> <span class="s2">&quot;.dat&quot;</span><span class="p">)</span>   <span class="c1"># the raster itself, in resolution order</span>
+    <span class="n">SIDECAR_EXTENSIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;.hdr&quot;</span><span class="p">,)</span>           <span class="c1"># what the user might click instead</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> does <strong>two</strong> jobs:</p>
 <ol class="arabic simple">
-<li><p><strong>Gather + condition</strong> — collect all bands into one <code class="docutils literal notranslate"><span class="pre">(H,</span> <span class="pre">W,</span> <span class="pre">3)</span></code> float32
-buffer, applying each channel’s conditioner in place. Masked (data-ignore)
-pixels are zeroed so conditioners stay in their valid domain.</p></li>
-<li><p><strong>Joint compute (cached)</strong> — if <code class="docutils literal notranslate"><span class="pre">_joint_render_cache</span></code> matches the current
-<code class="docutils literal notranslate"><span class="pre">(dataset_id,</span> <span class="pre">bands,</span> <span class="pre">conditioner_signature)</span></code> key, reuse it; otherwise call
-<code class="docutils literal notranslate"><span class="pre">joint_stretch.apply_multi(bands)</span></code> and cache the result.</p></li>
-<li><p><strong>Scale + restore</strong> — clip each channel to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>, scale to <code class="docutils literal notranslate"><span class="pre">uint8</span></code>, and
-restore masks.</p></li>
+<li><p><strong>Resolution.</strong> <code class="docutils literal notranslate"><span class="pre">get_load_filename(&quot;scene.hdr&quot;)</span></code> tries <code class="docutils literal notranslate"><span class="pre">scene</span></code>, then
+<code class="docutils literal notranslate"><span class="pre">scene.img</span></code>, then <code class="docutils literal notranslate"><span class="pre">scene.dat</span></code>, and returns the first that exists. This runs
+before <code class="docutils literal notranslate"><span class="pre">identify()</span></code> — GDAL will not identify the header file itself, so
+skipping it would make WISER reject a dataset the user validly selected.</p></li>
+<li><p><strong>Exclusion.</strong> <code class="docutils literal notranslate"><span class="pre">identify()</span></code> returns <code class="docutils literal notranslate"><span class="pre">NO</span></code> for a path whose own extension is
+not in the list. This matters because GDAL’s ENVI driver claims <em>any</em> file
+with a same-stem <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> beside it — without the restriction, an unrelated
+<code class="docutils literal notranslate"><span class="pre">scene.tif</span></code> sitting next to <code class="docutils literal notranslate"><span class="pre">scene.hdr</span></code> would be identified as ENVI.</p></li>
 </ol>
-<p><code class="docutils literal notranslate"><span class="pre">StretchDecorrelation.apply_multi()</span></code> delegates the heavy math to <code class="docutils literal notranslate"><span class="pre">decor_numba</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/decorrelation_stretch.py</span></code>),
-then per-band-normalizes the result back into <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>.</p>
-<pre  class="mermaid">
-        flowchart TD
-    DETECT{&quot;_detect_joint_stretch()&lt;br/&gt;all 3 channels agree?&quot;}
-    PB[&quot;Per-band:&lt;br/&gt;make_channel_image() x3&quot;]
-    G[&quot;Phase 1: gather (H,W,3)&lt;br/&gt;+ per-band conditioners&quot;]
-    JC{&quot;_joint_render_cache&lt;br/&gt;matches key?&quot;}
-    REUSE[&quot;reuse cached joint result&quot;]
-    COMPUTE[&quot;apply_multi() (decor_numba)&lt;br/&gt;+ cache result&quot;]
-    S[&quot;Phase 3: clip, scale uint8,&lt;br/&gt;restore masks&quot;]
+<p>Set <code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span> <span class="pre">=</span> <span class="pre">None</span></code> (the default) for a self-describing single-file
+format, which imposes no extension restriction. That is the right choice when
+the driver’s own content check is strong and extensions vary in the wild — PDS3
+and NetCDF both do this.</p>
+<hr class="docutils" />
+</section>
+<section id="adding-a-new-format">
+<span id="id1"></span><h2>Adding a new format<a class="headerlink" href="#adding-a-new-format" title="Link to this heading">#</a></h2>
+<p>Adding support for a new file type is normally two steps.</p>
+<section id="write-the-implementation">
+<h3>1. Write the implementation<a class="headerlink" href="#write-the-implementation" title="Link to this heading">#</a></h3>
+<p>Subclass <code class="docutils literal notranslate"><span class="pre">GDALRasterDataImpl</span></code> in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset_impl.py</span></code> and declare
+which GDAL drivers it uses:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyFormat_GDALRasterDataImpl</span><span class="p">(</span><span class="n">GDALRasterDataImpl</span><span class="p">):</span>
+    <span class="n">GDAL_DRIVERS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MYDRIVER&quot;</span><span class="p">]</span>
 
-    DETECT --&gt;|no / disagree| PB
-    DETECT --&gt;|yes| G
-    G --&gt; JC
-    JC --&gt;|hit| REUSE
-    JC --&gt;|miss| COMPUTE
-    REUSE --&gt; S
-    COMPUTE --&gt; S
-    </pre></section>
+    <span class="c1"># Only if the format has a header/data split, or you need to stop it</span>
+    <span class="c1"># claiming unrelated files that share a basename:</span>
+    <span class="c1"># DATA_EXTENSIONS = (&quot;.dat&quot;,)</span>
+    <span class="c1"># SIDECAR_EXTENSIONS = (&quot;.hdr&quot;,)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">try_load_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="s2">&quot;MyFormat_GDALRasterDataImpl&quot;</span><span class="p">]:</span>
+        <span class="n">gdal</span><span class="o">.</span><span class="n">UseExceptions</span><span class="p">()</span>
+        <span class="n">gdal_dataset</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">OpenEx</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">get_load_filename</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+            <span class="n">nOpenFlags</span><span class="o">=</span><span class="n">gdalconst</span><span class="o">.</span><span class="n">OF_READONLY</span> <span class="o">|</span> <span class="n">gdalconst</span><span class="o">.</span><span class="n">OF_VERBOSE_ERROR</span><span class="p">,</span>
+            <span class="n">allowed_drivers</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">GDAL_DRIVERS</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">gdal_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to open file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">cls</span><span class="p">(</span><span class="n">gdal_dataset</span><span class="p">)]</span>
+</pre></div>
+</div>
+<p>Declaring <code class="docutils literal notranslate"><span class="pre">GDAL_DRIVERS</span></code> is all that is needed to get a working <code class="docutils literal notranslate"><span class="pre">identify()</span></code> —
+the inherited implementation uses it. Pass the same list to <code class="docutils literal notranslate"><span class="pre">OpenEx</span></code> so that
+identification and opening can never disagree about which driver is in play.</p>
+<p>If the usable driver set can only be determined at run time (JPEG2000 support
+varies by GDAL build), override <code class="docutils literal notranslate"><span class="pre">get_gdal_drivers()</span></code> instead of setting
+<code class="docutils literal notranslate"><span class="pre">GDAL_DRIVERS</span></code>.</p>
+</section>
+<section id="register-it">
+<h3>2. Register it<a class="headerlink" href="#register-it" title="Link to this heading">#</a></h3>
+<p>Add one <code class="docutils literal notranslate"><span class="pre">FormatSpec</span></code> to <code class="docutils literal notranslate"><span class="pre">RASTER_FORMATS</span></code> in <code class="docutils literal notranslate"><span class="pre">format_registry.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">FormatSpec</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MyFormat&quot;</span><span class="p">,</span>
+    <span class="n">impl</span><span class="o">=</span><span class="n">MyFormat_GDALRasterDataImpl</span><span class="p">,</span>
+    <span class="n">extensions</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;.myf&quot;</span><span class="p">}),</span>
+    <span class="n">priority</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span>
+<span class="p">),</span>
+</pre></div>
+</div>
+<p>Priorities are spaced by 5 so a format can be slotted between two existing ones
+without renumbering. Choose one relative to formats it might be confused with:
+if your format and an existing one can both open the same file, the higher
+priority is asked first.</p>
+<p>That is the whole registration. There is no second table to update — the spec
+carries the impl, the ordering, and the dataset-construction strategy together.</p>
+</section>
+<section id="non-gdal-formats">
+<h3>Non-GDAL formats<a class="headerlink" href="#non-gdal-formats" title="Link to this heading">#</a></h3>
+<p>If the format is not read through GDAL — the <code class="docutils literal notranslate"><span class="pre">pdr</span></code> planetary-data library, for
+instance — subclass <code class="docutils literal notranslate"><span class="pre">RasterDataImpl</span></code> directly and write <code class="docutils literal notranslate"><span class="pre">identify()</span></code> by hand.
+Keep to the contract: cheap, no handles, no dialogs, <code class="docutils literal notranslate"><span class="pre">NO</span></code> rather than an
+exception on unreadable input.</p>
+</section>
+<section id="if-opening-needs-to-ask-the-user-something">
+<h3>If opening needs to ask the user something<a class="headerlink" href="#if-opening-needs-to-ask-the-user-something" title="Link to this heading">#</a></h3>
+<p>Set <code class="docutils literal notranslate"><span class="pre">interactive_step=True</span></code> on the spec and give it a <code class="docutils literal notranslate"><span class="pre">loader</span></code> that runs the
+dialog, as <code class="docutils literal notranslate"><span class="pre">load_FITS_dataset</span></code> does. Respect the <code class="docutils literal notranslate"><span class="pre">interactive</span></code> keyword in
+<code class="docutils literal notranslate"><span class="pre">try_load_file</span></code>: when it is <code class="docutils literal notranslate"><span class="pre">False</span></code> — project restore, tests, headless use —
+choose a sensible default instead of prompting.</p>
+</section>
+<section id="checklist">
+<h3>Checklist<a class="headerlink" href="#checklist" title="Link to this heading">#</a></h3>
+<ul class="contains-task-list simple">
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox"><code class="docutils literal notranslate"><span class="pre">GDAL_DRIVERS</span></code> declared (or <code class="docutils literal notranslate"><span class="pre">identify()</span></code> written by hand)</p></li>
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox">Same driver list used by <code class="docutils literal notranslate"><span class="pre">try_load_file</span></code></p></li>
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox"><code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> set if the format has sidecars or a greedy driver</p></li>
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox"><code class="docutils literal notranslate"><span class="pre">FormatSpec</span></code> added to <code class="docutils literal notranslate"><span class="pre">RASTER_FORMATS</span></code> with a considered <code class="docutils literal notranslate"><span class="pre">priority</span></code></p></li>
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox"><code class="docutils literal notranslate"><span class="pre">interactive=False</span></code> produces a non-prompting default</p></li>
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox">File-open dialog filter added in <code class="docutils literal notranslate"><span class="pre">show_open_file_dialog</span></code> if users should be
+able to force this format (see below)</p></li>
+<li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox">Tests in <code class="docutils literal notranslate"><span class="pre">src/tests/test_format_registry.py</span></code></p></li>
+</ul>
+</section>
 </section>
 <hr class="docutils" />
-<section id="numba-dispatch">
-<h2>Numba Dispatch<a class="headerlink" href="#numba-dispatch" title="Link to this heading">#</a></h2>
-<p>The pixel-level helpers (<code class="docutils literal notranslate"><span class="pre">make_channel_image</span></code>, <code class="docutils literal notranslate"><span class="pre">make_rgb_image</span></code>) and the stretch
-classes each have a pure-Python implementation and a numba-compiled variant. The
-numba version is used only when an array exceeds <code class="docutils literal notranslate"><span class="pre">ARRAY_NUMBA_THRESHOLD</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/utils.py</span></code>); below that, JIT warm-up costs
-outweigh the benefit and the Python path is used. The numba wrappers also
-convert <code class="docutils literal notranslate"><span class="pre">float64</span></code> inputs to <code class="docutils literal notranslate"><span class="pre">float32</span></code> for speed and memory. <code class="docutils literal notranslate"><span class="pre">StretchDecorrelation</span></code>
-has no jitclass variant (a jitclass cannot hold the Python references it needs);
-its numba acceleration lives inside <code class="docutils literal notranslate"><span class="pre">decor_numba</span></code> instead.</p>
+<section id="overrides">
+<h2>Overrides<a class="headerlink" href="#overrides" title="Link to this heading">#</a></h2>
+<p>Detection is only used when nobody has told WISER what the file is. Three
+callers can state the format outright, and all three funnel into the same
+<code class="docutils literal notranslate"><span class="pre">format=</span></code> parameter on <code class="docutils literal notranslate"><span class="pre">load_from_file</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Where</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Programmatic callers</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">load_from_file(path,</span> <span class="pre">format=&quot;ENVI&quot;)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>The user’s file-dialog filter</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">show_open_file_dialog</span></code> in <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app.py</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>A saved project</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">format</span></code> field in the dataset manifest entry</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>An override tries <strong>only</strong> that format and raises if it fails, rather than
+quietly falling back to guessing — a wrong override is a mistake worth
+surfacing, not one worth hiding.</p>
+<section id="the-file-open-dialog">
+<h3>The file-open dialog<a class="headerlink" href="#the-file-open-dialog" title="Link to this heading">#</a></h3>
+<p>Filters are declared as <code class="docutils literal notranslate"><span class="pre">(text,</span> <span class="pre">format_name)</span></code> pairs. <code class="docutils literal notranslate"><span class="pre">QFileDialog</span></code> returns which
+filter the user selected, and that selection is treated as a statement of what
+the file is:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">supported_formats</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s2">&quot;All supported files (...)&quot;</span><span class="p">),</span> <span class="kc">None</span><span class="p">),</span>   <span class="c1"># None = detect</span>
+    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s2">&quot;ENVI raster files (*.img *.hdr *.dat)&quot;</span><span class="p">),</span> <span class="s2">&quot;ENVI&quot;</span><span class="p">),</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>A filter that cannot name a single format — “All supported files”, “Try luck
+with GDAL” — maps to <code class="docutils literal notranslate"><span class="pre">None</span></code>, meaning ordinary detection. When adding a format,
+add a filter for it only if a user could plausibly need to force it.</p>
+</section>
+<section id="project-files">
+<h3>Project files<a class="headerlink" href="#project-files" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">dataset_to_pyrep</span></code> records the format that opened each referenced dataset, and
+the load path passes it back as the override. Without this, a project would
+re-detect on every open, and a registry change or a new file appearing beside
+the data could silently resolve the same path to a different implementation than
+the one in use when the project was saved.</p>
+<p>Both directions degrade gracefully: a manifest with no <code class="docutils literal notranslate"><span class="pre">format</span></code> field (written
+by an older WISER) falls back to detection, and a <code class="docutils literal notranslate"><span class="pre">format</span></code> naming something no
+longer registered logs a warning and does the same.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="future-work">
+<h2>Future work<a class="headerlink" href="#future-work" title="Link to this heading">#</a></h2>
+<p><strong>Splitting the interactive step out of <code class="docutils literal notranslate"><span class="pre">try_load_file</span></code>.</strong> The NetCDF
+sub-dataset dialog still runs inside <code class="docutils literal notranslate"><span class="pre">try_load_file</span></code>. Because only the winning
+format is ever opened, it can no longer be shown speculatively or have its
+result discarded — but it does mean the GUI step and the I/O are still in one
+call, with no seam between them.</p>
+<p>Separating them into <code class="docutils literal notranslate"><span class="pre">open()</span></code> (worker-thread safe) and <code class="docutils literal notranslate"><span class="pre">configure()</span></code> (main
+thread only) is what would allow dataset loading to move off the UI thread:
+identify and open on a worker, then marshal only <code class="docutils literal notranslate"><span class="pre">configure</span></code> back to the main
+thread for the formats whose spec sets <code class="docutils literal notranslate"><span class="pre">interactive_step</span></code>. The registry already
+records which formats those are.</p>
 </section>
 </section>
 
@@ -1130,20 +1281,20 @@ its numba acceleration lives inside <code class="docutils literal notranslate"><
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="band-chooser.html"
+       href="save-to-project.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Band Chooser</p>
+        <p class="prev-next-title">Save to Project File</p>
       </div>
     </a>
     <a class="right-next"
-       href="data-caching.html"
+       href="../contributing.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Data Caching</p>
+        <p class="prev-next-title">Contributing to WISER</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1165,19 +1316,34 @@ its numba acceleration lives inside <code class="docutils literal notranslate"><
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-stretch-model">The Stretch Model</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-stretch-types">The stretch types</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conditioner-stretch-composition">Conditioner + stretch composition</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-not-just-try-every-format">Why not just try every format?</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-stretch-builder-dialog">The Stretch Builder Dialog</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#applying-stretches-during-rendering">Applying Stretches During Rendering</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#per-band-path">Per-band path</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#joint-path-decorrelation">Joint path (decorrelation)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-registry">The registry</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extensions-order-they-do-not-gate">Extensions order, they do not gate</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#numba-dispatch">Numba Dispatch</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#identify"><code class="docutils literal notranslate"><span class="pre">identify()</span></code></a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#it-delegates-to-gdal">It delegates to GDAL</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#priority-still-matters"><code class="docutils literal notranslate"><span class="pre">priority</span></code> still matters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sidecar-files-data-extensions-and-sidecar-extensions">Sidecar files: <code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">SIDECAR_EXTENSIONS</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-a-new-format">Adding a new format</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#write-the-implementation">1. Write the implementation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#register-it">2. Register it</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non-gdal-formats">Non-GDAL formats</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#if-opening-needs-to-ask-the-user-something">If opening needs to ask the user something</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#checklist">Checklist</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overrides">Overrides</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-file-open-dialog">The file-open dialog</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#project-files">Project files</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#future-work">Future work</a></li>
 </ul>
   </nav></div>
 

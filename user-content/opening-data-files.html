@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Interface Overview &#8212; WISER Documentation</title>
+    <title>Opening Data Files &#8212; WISER Documentation</title>
   
   
   
@@ -44,13 +44,13 @@
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-content/interface-overview';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-content/opening-data-files';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Opening Data Files" href="opening-data-files.html" />
-    <link rel="prev" title="User Manual" href="user-manual.html" />
+    <link rel="next" title="Working with Data" href="working-with-data.html" />
+    <link rel="prev" title="Interface Overview" href="interface-overview.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -206,8 +206,8 @@
         </ul>
         <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Interface Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="opening-data-files.html">Opening Data Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Opening Data Files</a></li>
 <li class="toctree-l2"><a class="reference internal" href="working-with-data.html">Working with Data</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
@@ -342,7 +342,7 @@
       
       
       
-      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/user-content/interface-overview.md" target="_blank"
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/user-content/opening-data-files.md" target="_blank"
    class="btn btn-sm btn-source-edit-button dropdown-item"
    title="Suggest edit"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -372,7 +372,7 @@
       
       
       
-      <li><a href="../_sources/user-content/interface-overview.md" target="_blank"
+      <li><a href="../_sources/user-content/opening-data-files.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -455,7 +455,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Interface Overview</h1>
+    <h1>Opening Data Files</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -465,18 +465,20 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-overview">WISER Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-configuration">WISER Configuration</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#appearance-and-color-scheme">Appearance and Color Scheme</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-crash-and-error-reporting">WISER Crash and Error Reporting</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wavelengths-for-red-green-blue-colors">Wavelengths for Red/Green/Blue Colors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-file-type-you-choose-matters">The file type you choose matters</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-this-matters">Why this matters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#forcing-a-type-will-report-failure-rather-than-guess-again">Forcing a type will report failure rather than guess again</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-an-image">Viewing an Image</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-tools">Dataset Tools</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-chooser">Dataset Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-chooser">Band Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#grid-view-and-image-linking">Grid View and Image Linking</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#which-file-to-pick-for-multi-file-datasets">Which file to pick for multi-file datasets</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#envi">ENVI</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#geotiff">GeoTIFF</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pds">PDS</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#formats-wiser-opens">Formats WISER opens</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#files-containing-several-datasets">Files containing several datasets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
 </ul>
             </nav>
         </div>
@@ -488,189 +490,168 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="interface-overview">
-<h1>Interface Overview<a class="headerlink" href="#interface-overview" title="Link to this heading">#</a></h1>
-<section id="wiser-overview">
-<h2>WISER Overview<a class="headerlink" href="#wiser-overview" title="Link to this heading">#</a></h2>
-<p>The goal of WISER is to provide an intuitive and configurable user interface
-that supports many different workflows and styles of interaction. When WISER
-is started, the UI looks like this:</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/wiser_start.png"><img alt="WISER at startup with no data loaded" src="../_images/wiser_start.png" style="width: 80%;" />
-</a>
-</figure>
-<p>The WISER interface provides multiple panes for displaying raster data at
-varying levels of magnification. The Context Pane starts out on the left side
-of the UI, and shows the raster data “scaled out,” so that either one or both
-dimensions are fully visible within the pane. The primary viewing area is
-called the Main Window, providing more detailed interactions with raster data,
-possibly scaled up to as much as 1600%. In the above screenshot, no raster
-data is loaded yet, so these areas display “(no data)”.</p>
-<p>Across the top of the Main Window is the Main Toolbar, which provides various
-tools to work with raster data:</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/main_toolbar.png"><img alt="The WISER main toolbar" src="../_images/main_toolbar.png" style="width: 70%;" />
-</a>
-</figure>
-<p>The buttons marked “Display Toggles” will show and hide specific tools for
-interacting with spectral data. These buttons are as follows:</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/display_toggles.png"><img alt="Display toggle buttons in the main toolbar" src="../_images/display_toggles.png" style="width: 40%;" />
-</a>
-</figure>
-<p>These tools are described in subsequent sections.</p>
-<p><strong>NOTE:</strong> WISER can also be extended with custom functionality through its
-plugin API — see the <a class="reference internal" href="../extending-wiser/index.html"><span class="doc std std-doc">Extending WISER</span></a> section of
-this documentation.</p>
-</section>
-<section id="wiser-configuration">
-<h2>WISER Configuration<a class="headerlink" href="#wiser-configuration" title="Link to this heading">#</a></h2>
-<p>WISER provides a configuration panel for specifying common configuration across
-the various tools. You can access these properties through the WISER menubar.
-For example, on macOS you can access “WISER” -&gt; “Preferences” to show this
-dialog:</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/wiser_config.png"><img alt="WISER preferences dialog" src="../_images/wiser_config.png" style="width: 45%;" />
-</a>
-</figure>
-<p>These settings are saved on disk so that they don’t need to be specified every
-time. Some additional details are given in the following sections.</p>
-<section id="appearance-and-color-scheme">
-<h3>Appearance and Color Scheme<a class="headerlink" href="#appearance-and-color-scheme" title="Link to this heading">#</a></h3>
-<p>WISER can be shown in a light or a dark color scheme. The <strong>Color scheme</strong>
-setting, in the <strong>Appearance</strong> group at the top of the configuration dialog,
-controls this:</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/color_scheme_config.png"><img alt="The Color scheme drop-down in the Appearance group of the WISER configuration dialog" src="../_images/color_scheme_config.png" style="width: 45%;" />
-</a>
-</figure>
-<p>There are three choices:</p>
+  <section id="opening-data-files">
+<h1>Opening Data Files<a class="headerlink" href="#opening-data-files" title="Link to this heading">#</a></h1>
+<p>WISER reads several raster formats natively and can fall back to any format GDAL
+supports. Most of the time you can pick a file and WISER works out the rest.</p>
+<p>This page covers the cases where it is worth being deliberate — because <strong>the
+file type you choose in the Open dialog matters</strong>, and so does <em>which</em> file you
+pick when a dataset is spread across more than one.</p>
+<hr class="docutils" />
+<section id="the-file-type-you-choose-matters">
+<h2>The file type you choose matters<a class="headerlink" href="#the-file-type-you-choose-matters" title="Link to this heading">#</a></h2>
+<p>The <strong>file type</strong> dropdown at the bottom of the Open dialog is not only a way of
+hiding files you are not interested in. It also tells WISER <strong>what the file is</strong>.</p>
 <ul class="simple">
-<li><p><strong>System</strong> (the default) — WISER follows your operating system’s light/dark
-setting, and automatically updates if you change your OS theme.</p></li>
-<li><p><strong>Light</strong> — always use the light color scheme, regardless of the OS setting.</p></li>
-<li><p><strong>Dark</strong> — always use the dark color scheme, regardless of the OS setting.</p></li>
+<li><p>Leaving it on <strong>All supported files</strong> asks WISER to work the format out for
+itself. This is the right choice almost always.</p></li>
+<li><p>Choosing a <strong>specific type</strong> — “ENVI raster files”, “NetCDF raster files”,
+“PDS3 raster files”, and so on — tells WISER to open the file <em>as that format</em>
+and nothing else.</p></li>
 </ul>
-<p>WISER adjusts the window colors, the toolbar icons and the selection highlight
-so that everything stays legible in either scheme. The startup window shown while
-WISER loads follows the same setting. The change is applied when you click
-<strong>OK</strong>, and is remembered between sessions.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/color_scheme_light.png"><img alt="WISER shown in the light color scheme" src="../_images/color_scheme_light.png" style="width: 80%;" />
-</a>
-</figure>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/color_scheme_dark.png"><img alt="WISER shown in the dark color scheme, with light-tinted toolbar icons" src="../_images/color_scheme_dark.png" style="width: 80%;" />
-</a>
-</figure>
+<section id="why-this-matters">
+<h3>Why this matters<a class="headerlink" href="#why-this-matters" title="Link to this heading">#</a></h3>
+<p>Some files can be read by more than one format. A <code class="docutils literal notranslate"><span class="pre">.img</span></code> file might be an ENVI
+raster or a PDS3 product; an <code class="docutils literal notranslate"><span class="pre">.xml</span></code> file might be a PDS4 label or something else
+entirely. WISER inspects the contents rather than trusting the extension, and it
+is right the overwhelming majority of the time.</p>
+<p>But when a file is genuinely ambiguous — or when it is unusual enough that
+automatic detection picks a format that reads it, just not the way you want —
+picking the type explicitly settles it.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If a file opens but the data looks wrong — wrong number of bands, missing
+wavelengths, unexpected scaling — try opening it again with the file type set
+explicitly. Automatic detection may have chosen a format that <em>can</em> read the
+file but does not understand all of its metadata.</p>
+</div>
 </section>
-<section id="wiser-crash-and-error-reporting">
-<h3>WISER Crash and Error Reporting<a class="headerlink" href="#wiser-crash-and-error-reporting" title="Link to this heading">#</a></h3>
-<p>WISER is capable of sending crash reports to an online service called
-<a class="reference external" href="https://www.bugsnag.com">BugSnag</a>. This option is <strong>off</strong> by default, but
-it is very helpful if you turn this feature on so that application errors and
-crashes can be identified and addressed automatically. No personally
-identifying information is sent to BugSnag, but some users may still not want
-to leave such a feature on.</p>
-</section>
-<section id="wavelengths-for-red-green-blue-colors">
-<h3>Wavelengths for Red/Green/Blue Colors<a class="headerlink" href="#wavelengths-for-red-green-blue-colors" title="Link to this heading">#</a></h3>
-<p>For spectral data sets that include visible-light frequencies, WISER is able to
-automatically choose “true-color” bands that are close to the frequencies of
-red, green and blue light. However, different data sets and instruments may
-require tweaking of what is considered “red”, “green” or “blue”. Thus, WISER
-allows the user to configure these values.</p>
+<section id="forcing-a-type-will-report-failure-rather-than-guess-again">
+<h3>Forcing a type will report failure rather than guess again<a class="headerlink" href="#forcing-a-type-will-report-failure-rather-than-guess-again" title="Link to this heading">#</a></h3>
+<p>Choosing a specific file type is treated as a statement of fact. If WISER cannot
+read the file as that format, it reports an error rather than quietly trying
+something else.</p>
+<p>That is deliberate: if you have said a file is NetCDF and it is not, having it
+silently open as something else would hide the problem rather than tell you
+about it. Switch back to <strong>All supported files</strong> to let WISER decide.</p>
 </section>
 </section>
 <hr class="docutils" />
-<section id="viewing-an-image">
-<h2>Viewing an Image<a class="headerlink" href="#viewing-an-image" title="Link to this heading">#</a></h2>
-<p>Here is a screenshot of WISER after loading AVIRIS data of the Caltech campus
-and the surrounding Pasadena area.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/wiser_caltech_annotated.png"><img alt="WISER displaying AVIRIS Caltech data with all panes visible and annotated" src="../_images/wiser_caltech_annotated.png" style="width: 80%;" />
-</a>
-</figure>
-<p>In this image, all of the different tools have been shown using the display
-toggle buttons in the main toolbar:  the context pane, the main window and the
-zoom pane, as well as the spectral plot window and the dataset information
-window.
-All of these components are dockable, and can be moved or resized within the
-WISER user interface. They can also be undocked from the UI, so that they
-appear as separate windows. Arrange WISER’s user interface however you like it
-best!
-As the snapshot indicates, the area visible in the zoom pane is indicated in the
-main window. Correspondingly, the area visible in the main window is indicated
-in the context window.  <em>(Tip:  The color of this viewport highlight can be
-changed in the WISER configuration dialog.)</em>  Mouse-clicks or scrolling within
-the various display windows will update the other windows.
-Mouse clicks within the main or zoom windows will update the spectrum plot window
-with the pixel’s spectrum.</p>
+<section id="which-file-to-pick-for-multi-file-datasets">
+<h2>Which file to pick for multi-file datasets<a class="headerlink" href="#which-file-to-pick-for-multi-file-datasets" title="Link to this heading">#</a></h2>
+<p>Several formats store one dataset across more than one file. You may select
+either the header or the data file — WISER finds the other.</p>
+<section id="envi">
+<h3>ENVI<a class="headerlink" href="#envi" title="Link to this heading">#</a></h3>
+<p>An ENVI dataset is a <strong>header</strong> (<code class="docutils literal notranslate"><span class="pre">.hdr</span></code>) plus a <strong>data file</strong>, which may have no
+extension at all, or <code class="docutils literal notranslate"><span class="pre">.img</span></code>, or <code class="docutils literal notranslate"><span class="pre">.dat</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span><span class="o">.</span><span class="n">hdr</span>     <span class="o">&lt;-</span> <span class="n">the</span> <span class="n">header</span>
+<span class="n">scene</span><span class="o">.</span><span class="n">dat</span>     <span class="o">&lt;-</span> <span class="n">the</span> <span class="n">data</span> <span class="p">(</span><span class="ow">or</span> <span class="s2">&quot;scene&quot;</span><span class="p">,</span> <span class="ow">or</span> <span class="s2">&quot;scene.img&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Select either one. Both files must sit in the same directory and share a name;
+WISER cannot open the header on its own.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you have an ENVI header whose data file is missing or has been renamed to
+something unexpected, WISER reports which filenames it looked for. Renaming the
+data file to match the header — same name, one of the extensions above — is
+usually enough to fix it.</p>
+</div>
+</section>
+<section id="geotiff">
+<h3>GeoTIFF<a class="headerlink" href="#geotiff" title="Link to this heading">#</a></h3>
+<p>A GeoTIFF is normally a single <code class="docutils literal notranslate"><span class="pre">.tif</span></code> or <code class="docutils literal notranslate"><span class="pre">.tiff</span></code> file. Some are accompanied by a
+<code class="docutils literal notranslate"><span class="pre">.tfw</span></code> world file carrying the georeferencing. Select either the image or the
+world file.</p>
+</section>
+<section id="pds">
+<h3>PDS<a class="headerlink" href="#pds" title="Link to this heading">#</a></h3>
+<p>PDS3 products may have a <strong>detached label</strong> (<code class="docutils literal notranslate"><span class="pre">.lbl</span></code>) beside the data, or an
+<strong>attached label</strong> inside a single <code class="docutils literal notranslate"><span class="pre">.img</span></code>. Select the label when there is one.
+PDS4 products use an <code class="docutils literal notranslate"><span class="pre">.xml</span></code> label — select that.</p>
+</section>
 </section>
 <hr class="docutils" />
-<section id="dataset-tools">
-<h2>Dataset Tools<a class="headerlink" href="#dataset-tools" title="Link to this heading">#</a></h2>
-<p>The dataset toolbar buttons provide useful operations to switch between
-datasets, change what bands are being displayed, and to adjust the contrast
-stretch of the bands being displayed. Note that all raster display windows
-have one or more of these buttons, allowing for control of how raster data
-is displayed.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/main_display_buttons.png"><img alt="Dataset toolbar buttons" src="../_images/main_display_buttons.png" style="width: 30%;" />
-</a>
-</figure>
-</section>
-<section id="dataset-chooser">
-<h2>Dataset Chooser<a class="headerlink" href="#dataset-chooser" title="Link to this heading">#</a></h2>
-<p>The <em>dataset chooser</em> simply allows the user to change what data set is being
-displayed in a given pane. When clicked, the dataset chooser will show a
-pop-up menu listing all data sets currently loaded, and selecting a different
-data set will switch the display to that data set.</p>
-</section>
-<section id="band-chooser">
-<h2>Band Chooser<a class="headerlink" href="#band-chooser" title="Link to this heading">#</a></h2>
-<p>The <em>band chooser</em> shows a dialog that gives the user significant control over
-what bands are being displayed, and whether the image is to be shown in RGB
-mode (three bands) or grayscale mode (one band only).</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/band_chooser.png"><img alt="The band chooser dialog" src="../_images/band_chooser.png" style="width: 40%;" />
-</a>
-</figure>
-<p>When the grayscale or single band option is selected in the Band Chooser, WISER
-can display with a color bar or gradient.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/colormap.png"><img alt="Colormap selection for single-band display" src="../_images/colormap.png" style="width: 40%;" />
-</a>
-</figure>
-<p>Besides letting the user select any combination of bands, the band chooser also
-exposes the ability to select the dataset’s default bands, if any were
-indicated in the original data file. Finally, if the dataset specifies
-wavelengths or frequencies for each band, and if these wavelengths are near the
-red/green/blue frequencies specified in WISER’s global configuration, the band
-chooser can automatically choose the bands closest to these frequencies.</p>
-<p>Note that if a data set does not have default display bands, or if the data
-set doesn’t have visible-light frequencies, the corresponding button in the
-dialog will be disabled.</p>
+<section id="formats-wiser-opens">
+<h2>Formats WISER opens<a class="headerlink" href="#formats-wiser-opens" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Typical files</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ENVI raster</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>, <code class="docutils literal notranslate"><span class="pre">*.dat</span></code>, or no extension</p></td>
+</tr>
+<tr class="row-odd"><td><p>TIFF / GeoTIFF</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.tif</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tiff</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tfw</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>NetCDF</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.nc</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>JPEG 2000</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.JP2</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>PDS3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.PDS</span></code>, <code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.lbl</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>PDS4</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.xml</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>FITS</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.fits</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fit</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fts</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>ASCII Grid</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.asc</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>ENVI spectral library</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.sli</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Anything else GDAL reads</p></td>
+<td><p>HDF4/5, GRIB, COG, and more</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>If your file is not in this list, try <strong>Try luck with GDAL</strong> in the file-type
+dropdown. GDAL supports a great many formats beyond those WISER handles
+specially, and this option asks it to open the file with whatever driver fits.
+Data loaded this way may carry less metadata — wavelengths and band names in
+particular — than a natively supported format.</p>
 </section>
 <hr class="docutils" />
-<section id="grid-view-and-image-linking">
-<h2>Grid View and Image Linking<a class="headerlink" href="#grid-view-and-image-linking" title="Link to this heading">#</a></h2>
-<p>WISER allows simultaneous viewing of multiple images in the main window through
-the grid view, and images of the same size can be linked. Any grid dimensions
-can be input. Click the grid icon to split or unsplit the main view.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/grid_options.png"><img alt="Grid view dimension options" src="../_images/grid_options.png" style="width: 40%;" />
-</a>
-</figure>
-<p>Note that, once images are displayed in a grid, the band selector and contrast
-stretch options are available above each image and not in the main WISER
-toolbar.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/grid_view.png"><img alt="WISER grid view showing multiple images side by side" src="../_images/grid_view.png" style="width: 80%;" />
-</a>
-</figure>
-<p>Images in the grid can only be linked if all images open in WISER have the same
-spatial dimensions.</p>
+<section id="files-containing-several-datasets">
+<h2>Files containing several datasets<a class="headerlink" href="#files-containing-several-datasets" title="Link to this heading">#</a></h2>
+<p>Some files hold more than one dataset. A NetCDF file, for example, may contain
+several variables, each a separate raster.</p>
+<p>When you open such a file, WISER asks which one you want before loading. Pick
+the sub-dataset you are interested in and it is loaded as its own dataset in the
+session.</p>
+<p>If you save your session as a project, the specific sub-dataset you chose is
+recorded, so reopening the project restores exactly what you had rather than
+asking again.</p>
+</section>
+<hr class="docutils" />
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h2>
+<dl class="simple myst">
+<dt><strong>“Couldn’t load file … unsupported format”</strong></dt><dd><p>No format WISER knows could read the file. Check the file is complete and not
+truncated. For ENVI data, check its <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> is present and beside it. As a last
+resort try <strong>Try luck with GDAL</strong>.</p>
+</dd>
+<dt><strong>“Can’t find the raster file corresponding to …”</strong></dt><dd><p>You selected an ENVI header or a <code class="docutils literal notranslate"><span class="pre">.tfw</span></code> world file, but the matching data file
+is not beside it. The message lists the filenames WISER looked for.</p>
+</dd>
+<dt><strong>The file opens, but as the wrong kind of data</strong></dt><dd><p>Open it again with the file type set explicitly instead of <strong>All supported
+files</strong>.</p>
+</dd>
+<dt><strong>A file that used to open no longer does</strong></dt><dd><p>Check whether files have been added or renamed alongside it. A stray header
+file with the same base name as an unrelated raster can change how a directory
+is interpreted.</p>
+</dd>
+</dl>
 </section>
 </section>
 
@@ -686,20 +667,20 @@ spatial dimensions.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="user-manual.html"
+       href="interface-overview.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">User Manual</p>
+        <p class="prev-next-title">Interface Overview</p>
       </div>
     </a>
     <a class="right-next"
-       href="opening-data-files.html"
+       href="working-with-data.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Opening Data Files</p>
+        <p class="prev-next-title">Working with Data</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -721,18 +702,20 @@ spatial dimensions.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-overview">WISER Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-configuration">WISER Configuration</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#appearance-and-color-scheme">Appearance and Color Scheme</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-crash-and-error-reporting">WISER Crash and Error Reporting</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wavelengths-for-red-green-blue-colors">Wavelengths for Red/Green/Blue Colors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-file-type-you-choose-matters">The file type you choose matters</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-this-matters">Why this matters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#forcing-a-type-will-report-failure-rather-than-guess-again">Forcing a type will report failure rather than guess again</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-an-image">Viewing an Image</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-tools">Dataset Tools</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-chooser">Dataset Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-chooser">Band Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#grid-view-and-image-linking">Grid View and Image Linking</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#which-file-to-pick-for-multi-file-datasets">Which file to pick for multi-file datasets</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#envi">ENVI</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#geotiff">GeoTIFF</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pds">PDS</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#formats-wiser-opens">Formats WISER opens</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#files-containing-several-datasets">Files containing several datasets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
 </ul>
   </nav></div>
 
