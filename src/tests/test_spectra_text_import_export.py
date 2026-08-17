@@ -202,14 +202,16 @@ class TestTrailingDelimiterImport(unittest.TestCase):
     def test_stray_value_in_padding_region_is_an_error(self):
         """A value sitting in the padding region (beyond the real columns) is
         not padding -- the row genuinely has more columns than the header, and
-        the import must reject it rather than silently dropping the value."""
+        the import must reject it rather than silently dropping the value.
+        The error names the stray value and its column, since post-stripping
+        column counts would not match what the user sees in their file."""
         lines = [
             "Wavelength_um,ARKSAW_18_G,ARKSAW_15_TS,ARKSAW_17_M,,,\n",
             "0.3466,26.5672,19.726,27.2727,,,\n",
             "0.3482,26.9417,19.3805,27.3134,,3.14,\n",
         ]
 
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, r"'3\.14'.*column 6"):
             import_spectra_text(
                 lines,
                 delim=",",
