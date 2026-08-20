@@ -654,7 +654,7 @@ from the corresponding <code class="docutils literal notranslate"><span class="p
 generated into the <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/generated/</span></code> directory.</p>
 <p>WISER uses <code class="docutils literal notranslate"><span class="pre">make</span></code> to automate various build steps. To generate these files, go
 to the top directory of the WISER project and run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Just typing &#39;make&#39; will also run the &#39;generated&#39; target.</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Just typing 'make' will also run the 'generated' target.</span>
 <span class="n">make</span> <span class="n">generated</span>
 </pre></div>
 </div>
@@ -732,7 +732,7 @@ version are installed, they share that app-data directory.</p>
 needs to be installed so that the <code class="docutils literal notranslate"><span class="pre">SignTool</span></code> utility is available. Code signing
 occurs in <em>/install-win/win-install.nsi</em>. Both the WISER installer and
 uninstaller are code-signed. The sign command used in that script is:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;C:\Program Files (x86)\Windows Kits</span><span class="se">\10\b</span><span class="s2">in</span><span class="se">\10</span><span class="s2">.0.26100.0</span><span class="se">\x64</span><span class="s2">\signtool&quot;</span> <span class="n">sign</span> <span class="o">/</span><span class="n">sha1</span> <span class="s2">&quot;$</span><span class="si">{SHA1_THUMBPRINT}</span><span class="s2">&quot;</span> <span class="o">/</span><span class="n">fd</span> <span class="n">SHA256</span> <span class="o">/</span><span class="n">t</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">timestamp</span><span class="o">.</span><span class="n">sectigo</span><span class="o">.</span><span class="n">com</span> <span class="s2">&quot;%1&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">"C:\Program Files (x86)\Windows Kits</span><span class="se">\10\b</span><span class="s2">in</span><span class="se">\10</span><span class="s2">.0.26100.0</span><span class="se">\x64</span><span class="s2">\signtool"</span> <span class="n">sign</span> <span class="o">/</span><span class="n">sha1</span> <span class="s2">"$</span><span class="si">{SHA1_THUMBPRINT}</span><span class="s2">"</span> <span class="o">/</span><span class="n">fd</span> <span class="n">SHA256</span> <span class="o">/</span><span class="n">t</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">timestamp</span><span class="o">.</span><span class="n">sectigo</span><span class="o">.</span><span class="n">com</span> <span class="s2">"%1"</span>
 </pre></div>
 </div>
 <p>where <code class="docutils literal notranslate"><span class="pre">%1</span></code> is replaced by the installer filename (e.g. <code class="docutils literal notranslate"><span class="pre">Install-WISER-1.4b1.exe</span></code>).</p>
@@ -776,7 +776,7 @@ work on Windows yet.</strong></p>
 </div>
 </li>
 <li><p>Build the project:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;c:\Program Files (x86)\GnuWin32</span><span class="se">\b</span><span class="s2">in\make.exe&quot;</span> <span class="n">dist</span><span class="o">-</span><span class="n">win</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">"c:\Program Files (x86)\GnuWin32</span><span class="se">\b</span><span class="s2">in\make.exe"</span> <span class="n">dist</span><span class="o">-</span><span class="n">win</span>
 </pre></div>
 </div>
 <p>This should result in the creation of an NSIS installer in the local

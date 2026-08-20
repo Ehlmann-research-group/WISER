@@ -567,7 +567,7 @@ conda environment, change to the root directory of WISER, and run:</p>
 <p>This first runs the <code class="docutils literal notranslate"><span class="pre">build-win</span></code> target (which freezes WISER with PyInstaller
 into <code class="docutils literal notranslate"><span class="pre">dist/WISER</span></code>) and then invokes NSIS. The build-and-sign line in the
 <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> is:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$(NSIS) /NOCD /DWISER_VERSION=&quot;$(APP_VERSION)&quot; /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 </pre></div>
 </div>
 <p>Here is what each part does:</p>
@@ -606,7 +606,7 @@ already built and you only want to (re)build and sign the installer.</p>
 <span id="configuring-signtool"></span><h2>Configuring the Signtool Path<a class="headerlink" href="#configuring-the-signtool-path" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">win-install.nsi</span></code> script needs to know where <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code> lives on your
 machine. This is set near the top of the script with a single define:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>!define SIGN_TOOL &quot;C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>!define SIGN_TOOL "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool"
 </pre></div>
 </div>
 <p>Because the SDK version number in that path differs between machines, you will
@@ -621,8 +621,8 @@ likely need to change it. To find your own <code class="docutils literal notrans
 define.</p></li>
 </ol>
 <p>Alternatively, from a PowerShell prompt you can search for it directly:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Get-ChildItem &quot;C:\Program Files (x86)\Windows Kits\10\bin&quot; -Recurse -Filter signtool.exe |
-  Where-Object { $_.FullName -like &quot;*x64*&quot; }
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+  Where-Object { $_.FullName -like "*x64*" }
 </pre></div>
 </div>
 <p>Use the path to the <code class="docutils literal notranslate"><span class="pre">x64</span></code> build for 64-bit Windows.</p>
@@ -660,7 +660,7 @@ binary out to <code class="docutils literal notranslate"><span class="pre">%TEMP
 installer, which drops a standalone <code class="docutils literal notranslate"><span class="pre">Uninstall</span> <span class="pre">WISER-&lt;ver&gt;.exe</span></code>.</p></li>
 <li><p><strong>Sign the uninstaller.</strong> Back in the outer pass, the script calls
 <code class="docutils literal notranslate"><span class="pre">${SIGN_TOOL}</span></code> to code-sign the just-created uninstaller:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;$</span><span class="si">{SIGN_TOOL}</span><span class="s2">&quot;</span> <span class="n">sign</span> <span class="o">/</span><span class="n">sha1</span> <span class="s2">&quot;$</span><span class="si">{SHA1_THUMBPRINT}</span><span class="s2">&quot;</span> <span class="o">/</span><span class="n">fd</span> <span class="n">SHA256</span> <span class="o">/</span><span class="n">t</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">timestamp</span><span class="o">.</span><span class="n">sectigo</span><span class="o">.</span><span class="n">com</span> <span class="s2">&quot;%TEMP%\Uninstall WISER-&lt;ver&gt;.exe&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">"$</span><span class="si">{SIGN_TOOL}</span><span class="s2">"</span> <span class="n">sign</span> <span class="o">/</span><span class="n">sha1</span> <span class="s2">"$</span><span class="si">{SHA1_THUMBPRINT}</span><span class="s2">"</span> <span class="o">/</span><span class="n">fd</span> <span class="n">SHA256</span> <span class="o">/</span><span class="n">t</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">timestamp</span><span class="o">.</span><span class="n">sectigo</span><span class="o">.</span><span class="n">com</span> <span class="s2">"%TEMP%\Uninstall WISER-&lt;ver&gt;.exe"</span>
 </pre></div>
 </div>
 </li>

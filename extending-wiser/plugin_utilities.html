@@ -504,14 +504,14 @@ ask users for parameters, options, or configuration values before running. You s
 not use this class directly and instead use the function <cite>ApplicationState.create_form</cite>.
 Here is an example of its use:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">form_inputs</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span><span class="s2">&quot;Enter Wavelength&quot;</span><span class="p">,</span> <span class="s2">&quot;wvl&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-        <span class="p">(</span><span class="s2">&quot;Enter Divisor&quot;</span><span class="p">,</span> <span class="s2">&quot;divisor&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-        <span class="p">(</span><span class="s2">&quot;Enter Dimensionality Reduction&quot;</span><span class="p">,</span> <span class="s2">&quot;dim_reduction&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;PCA&quot;</span><span class="p">,</span> <span class="s2">&quot;SVD&quot;</span><span class="p">]),</span>
+        <span class="p">(</span><span class="s2">"Enter Wavelength"</span><span class="p">,</span> <span class="s2">"wvl"</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">"Enter Divisor"</span><span class="p">,</span> <span class="s2">"divisor"</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">"Enter Dimensionality Reduction"</span><span class="p">,</span> <span class="s2">"dim_reduction"</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="s2">"PCA"</span><span class="p">,</span> <span class="s2">"SVD"</span><span class="p">]),</span>
     <span class="p">]</span>
 <span class="n">return_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">create_form</span><span class="p">(</span>
     <span class="n">form_inputs</span><span class="p">,</span>
-    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Analysis Params&quot;</span><span class="p">,</span>
-    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;In the above text enter the parameters needed to perform the algorithm.&quot;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s2">"Analysis Params"</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">"In the above text enter the parameters needed to perform the algorithm."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -522,21 +522,21 @@ value, converting it to the type your plugin expects:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">return_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">return</span>  <span class="c1"># user cancelled the dialog</span>
 
-<span class="n">wvl</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;wvl&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">wvl</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"wvl"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 <span class="k">if</span> <span class="n">wvl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">QMessageBox</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;No Value Entered&quot;</span><span class="p">,</span> <span class="s2">&quot;You did not enter a wavelength.&quot;</span><span class="p">)</span>
+    <span class="n">QMessageBox</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">"No Value Entered"</span><span class="p">,</span> <span class="s2">"You did not enter a wavelength."</span><span class="p">)</span>
     <span class="k">return</span>
 
-<span class="n">divisor</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;divisor&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">divisor</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"divisor"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 <span class="k">try</span><span class="p">:</span>
     <span class="n">divisor</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">divisor</span><span class="p">)</span>
 <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
     <span class="n">QMessageBox</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span>
-        <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Wrong Value Entered&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Could not convert divisor to integer!</span><span class="se">\n</span><span class="s2">Error:</span><span class="se">\n\n</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="kc">None</span><span class="p">,</span> <span class="s2">"Wrong Value Entered"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Could not convert divisor to integer!</span><span class="se">\n</span><span class="s2">Error:</span><span class="se">\n\n</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">."</span>
     <span class="p">)</span>
     <span class="k">return</span>
 
-<span class="n">dim_reduction</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dim_reduction&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># &quot;PCA&quot; or &quot;SVD&quot;</span>
+<span class="n">dim_reduction</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dim_reduction"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># "PCA" or "SVD"</span>
 </pre></div>
 </div>
 <p>This will construct a GUI element that looks like this:</p>
@@ -545,13 +545,13 @@ value, converting it to the type your plugin expects:</p>
 to display the output of your code in the form of a table. You should
 not use this class directly and instead use the function <cite>ApplicationState.show_table_widget</cite>.
 An example of how to use it is below:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">header</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Location&quot;</span><span class="p">,</span> <span class="s2">&quot;Pizza&quot;</span><span class="p">,</span> <span class="s2">&quot;Salad&quot;</span><span class="p">]</span>
-<span class="n">rows</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;LA&quot;</span><span class="p">,</span> <span class="s2">&quot;10000&quot;</span><span class="p">,</span> <span class="s2">&quot;12000&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;SF&quot;</span><span class="p">,</span> <span class="s2">&quot;3000&quot;</span><span class="p">,</span> <span class="s2">&quot;3600&quot;</span><span class="p">]]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">header</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Location"</span><span class="p">,</span> <span class="s2">"Pizza"</span><span class="p">,</span> <span class="s2">"Salad"</span><span class="p">]</span>
+<span class="n">rows</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">"LA"</span><span class="p">,</span> <span class="s2">"10000"</span><span class="p">,</span> <span class="s2">"12000"</span><span class="p">],</span> <span class="p">[</span><span class="s2">"SF"</span><span class="p">,</span> <span class="s2">"3000"</span><span class="p">,</span> <span class="s2">"3600"</span><span class="p">]]</span>
 <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">show_table_widget</span><span class="p">(</span>
     <span class="n">header</span><span class="o">=</span><span class="n">header</span><span class="p">,</span>
     <span class="n">rows</span><span class="o">=</span><span class="n">rows</span><span class="p">,</span>
-    <span class="n">window_title</span><span class="o">=</span><span class="s2">&quot;Pizza and Salad by City&quot;</span><span class="p">,</span>
-    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Shows the amount of</span><span class="se">\n</span><span class="s2">pizza and salad per city.&quot;</span><span class="p">,</span>
+    <span class="n">window_title</span><span class="o">=</span><span class="s2">"Pizza and Salad by City"</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">"Shows the amount of</span><span class="se">\n</span><span class="s2">pizza and salad per city."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -567,22 +567,22 @@ it through app_state is below:</p>
 <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 
 <span class="c1"># Draw heatmap</span>
-<span class="n">img</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s2">&quot;lower&quot;</span><span class="p">)</span>
+<span class="n">img</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"viridis"</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s2">"lower"</span><span class="p">)</span>
 
 <span class="c1"># Add colorbar</span>
 <span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
-<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s2">&quot;Intensity&quot;</span><span class="p">)</span>
+<span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s2">"Intensity"</span><span class="p">)</span>
 
 <span class="c1"># Add labels</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Random Heatmap&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;X axis&quot;</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Y axis&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Random Heatmap"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"X axis"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Y axis"</span><span class="p">)</span>
 
 <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">show_matplotlib_display_widget</span><span class="p">(</span>
     <span class="n">figure</span><span class="o">=</span><span class="n">fig</span><span class="p">,</span>
     <span class="n">axes</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>
-    <span class="n">window_title</span><span class="o">=</span><span class="s2">&quot;Simple Matplotlib Plot&quot;</span><span class="p">,</span>
-    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Example to show the matplotlib functionality working&quot;</span><span class="p">,</span>
+    <span class="n">window_title</span><span class="o">=</span><span class="s2">"Simple Matplotlib Plot"</span><span class="p">,</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">"Example to show the matplotlib functionality working"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -606,8 +606,8 @@ plot a list of spectra in a spectrum plot. Here is an example of its use:</p>
 <span class="p">]</span>
 
 <span class="n">double</span> <span class="o">=</span> <span class="n">test_spectrum_y</span> <span class="o">+</span> <span class="n">test_spectrum_y</span>
-<span class="n">spec1</span> <span class="o">=</span> <span class="n">NumPyArraySpectrum</span><span class="p">(</span><span class="n">test_spectrum_y</span><span class="p">,</span> <span class="s2">&quot;Test_spectrum1&quot;</span><span class="p">,</span> <span class="n">wavelengths</span><span class="o">=</span><span class="n">test_spectrum_x</span><span class="p">)</span>
-<span class="n">spec2</span> <span class="o">=</span> <span class="n">NumPyArraySpectrum</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="s2">&quot;Test_spectrum2&quot;</span><span class="p">,</span> <span class="n">wavelengths</span><span class="o">=</span><span class="n">test_spectrum_x</span><span class="p">)</span>
+<span class="n">spec1</span> <span class="o">=</span> <span class="n">NumPyArraySpectrum</span><span class="p">(</span><span class="n">test_spectrum_y</span><span class="p">,</span> <span class="s2">"Test_spectrum1"</span><span class="p">,</span> <span class="n">wavelengths</span><span class="o">=</span><span class="n">test_spectrum_x</span><span class="p">)</span>
+<span class="n">spec2</span> <span class="o">=</span> <span class="n">NumPyArraySpectrum</span><span class="p">(</span><span class="n">double</span><span class="p">,</span> <span class="s2">"Test_spectrum2"</span><span class="p">,</span> <span class="n">wavelengths</span><span class="o">=</span><span class="n">test_spectrum_x</span><span class="p">)</span>
 
 <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">show_spectra_in_plot</span><span class="p">([</span><span class="n">spec1</span><span class="p">,</span> <span class="n">spec2</span><span class="p">])</span>
 </pre></div>
@@ -621,18 +621,18 @@ select a dataset and then a region of interest in a tools menu plugin:</p>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">add_tool_menu_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_menu</span><span class="p">:</span> <span class="n">QMenu</span><span class="p">,</span> <span class="n">wiser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to</span>
 <span class="sd">        add sub-menus to the Tools menu.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">act</span> <span class="o">=</span> <span class="n">tool_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">&quot;ROI Angle Mapper&quot;</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="n">act</span> <span class="o">=</span> <span class="n">tool_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">"ROI Angle Mapper"</span><span class="p">)</span>
         <span class="n">act</span><span class="o">.</span><span class="n">triggered</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">roi_angle_mapper</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span> <span class="o">=</span> <span class="n">wiser</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">roi_angle_mapper</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">choose_dataset_ui</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Description: choose dataset to perform analysis on&quot;</span><span class="p">)</span>
-        <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">choose_roi_ui</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Description: choose ROI to get Average Spectrum&quot;</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">choose_dataset_ui</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"Description: choose dataset to perform analysis on"</span><span class="p">)</span>
+        <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">choose_roi_ui</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"Description: choose ROI to get Average Spectrum"</span><span class="p">)</span>
 
         <span class="n">mean_roi_spec_arr</span> <span class="o">=</span> <span class="n">calc_roi_spectrum</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span> <span class="n">roi</span><span class="o">=</span><span class="n">roi</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">SpectrumAverageMode</span><span class="o">.</span><span class="n">MEAN</span><span class="p">)</span>
         <span class="n">image_arr</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_image_data</span><span class="p">()</span>

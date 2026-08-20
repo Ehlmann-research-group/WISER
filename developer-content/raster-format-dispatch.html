@@ -941,9 +941,9 @@ the winner is opened.</p>
 <h2>The registry<a class="headerlink" href="#the-registry" title="Link to this heading">#</a></h2>
 <p>Every format WISER can open is one <code class="docutils literal notranslate"><span class="pre">FormatSpec</span></code> entry in <code class="docutils literal notranslate"><span class="pre">RASTER_FORMATS</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">FormatSpec</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ENVI&quot;</span><span class="p">,</span>                                    <span class="c1"># the override token</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"ENVI"</span><span class="p">,</span>                                    <span class="c1"># the override token</span>
     <span class="n">impl</span><span class="o">=</span><span class="n">ENVI_GDALRasterDataImpl</span><span class="p">,</span>                   <span class="c1"># class that opens it</span>
-    <span class="n">extensions</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdr&quot;</span><span class="p">,</span> <span class="s2">&quot;.img&quot;</span><span class="p">,</span> <span class="s2">&quot;.dat&quot;</span><span class="p">}),</span>
+    <span class="n">extensions</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">({</span><span class="s2">""</span><span class="p">,</span> <span class="s2">".hdr"</span><span class="p">,</span> <span class="s2">".img"</span><span class="p">,</span> <span class="s2">".dat"</span><span class="p">}),</span>
     <span class="n">priority</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span>
     <span class="n">loader</span><span class="o">=</span><span class="n">load_normal_dataset</span><span class="p">,</span>
     <span class="n">interactive_step</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -1095,8 +1095,8 @@ may legitimately select either one. The file-open dialog offers <code class="doc
 <code class="docutils literal notranslate"><span class="pre">*.tfw</span></code> filters, so this is a normal thing to happen, not an edge case.</p>
 <p>Two class attributes describe that relationship:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ENVI_GDALRasterDataImpl</span><span class="p">(</span><span class="n">GDALRasterDataImpl</span><span class="p">):</span>
-    <span class="n">DATA_EXTENSIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;.img&quot;</span><span class="p">,</span> <span class="s2">&quot;.dat&quot;</span><span class="p">)</span>   <span class="c1"># the raster itself, in resolution order</span>
-    <span class="n">SIDECAR_EXTENSIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;.hdr&quot;</span><span class="p">,)</span>           <span class="c1"># what the user might click instead</span>
+    <span class="n">DATA_EXTENSIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="s2">".img"</span><span class="p">,</span> <span class="s2">".dat"</span><span class="p">)</span>   <span class="c1"># the raster itself, in resolution order</span>
+    <span class="n">SIDECAR_EXTENSIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">".hdr"</span><span class="p">,)</span>           <span class="c1"># what the user might click instead</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> does <strong>two</strong> jobs:</p>
@@ -1124,15 +1124,15 @@ and NetCDF both do this.</p>
 <p>Subclass <code class="docutils literal notranslate"><span class="pre">GDALRasterDataImpl</span></code> in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset_impl.py</span></code> and declare
 which GDAL drivers it uses:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyFormat_GDALRasterDataImpl</span><span class="p">(</span><span class="n">GDALRasterDataImpl</span><span class="p">):</span>
-    <span class="n">GDAL_DRIVERS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MYDRIVER&quot;</span><span class="p">]</span>
+    <span class="n">GDAL_DRIVERS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"MYDRIVER"</span><span class="p">]</span>
 
     <span class="c1"># Only if the format has a header/data split, or you need to stop it</span>
     <span class="c1"># claiming unrelated files that share a basename:</span>
-    <span class="c1"># DATA_EXTENSIONS = (&quot;.dat&quot;,)</span>
-    <span class="c1"># SIDECAR_EXTENSIONS = (&quot;.hdr&quot;,)</span>
+    <span class="c1"># DATA_EXTENSIONS = (".dat",)</span>
+    <span class="c1"># SIDECAR_EXTENSIONS = (".hdr",)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">try_load_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="s2">&quot;MyFormat_GDALRasterDataImpl&quot;</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">try_load_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="s2">"MyFormat_GDALRasterDataImpl"</span><span class="p">]:</span>
         <span class="n">gdal</span><span class="o">.</span><span class="n">UseExceptions</span><span class="p">()</span>
         <span class="n">gdal_dataset</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">OpenEx</span><span class="p">(</span>
             <span class="bp">cls</span><span class="o">.</span><span class="n">get_load_filename</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
@@ -1140,7 +1140,7 @@ which GDAL drivers it uses:</p>
             <span class="n">allowed_drivers</span><span class="o">=</span><span class="bp">cls</span><span class="o">.</span><span class="n">GDAL_DRIVERS</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">gdal_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to open file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unable to open file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span><span class="bp">cls</span><span class="p">(</span><span class="n">gdal_dataset</span><span class="p">)]</span>
 </pre></div>
 </div>
@@ -1155,9 +1155,9 @@ varies by GDAL build), override <code class="docutils literal notranslate"><span
 <h3>2. Register it<a class="headerlink" href="#register-it" title="Link to this heading">#</a></h3>
 <p>Add one <code class="docutils literal notranslate"><span class="pre">FormatSpec</span></code> to <code class="docutils literal notranslate"><span class="pre">RASTER_FORMATS</span></code> in <code class="docutils literal notranslate"><span class="pre">format_registry.py</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">FormatSpec</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;MyFormat&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"MyFormat"</span><span class="p">,</span>
     <span class="n">impl</span><span class="o">=</span><span class="n">MyFormat_GDALRasterDataImpl</span><span class="p">,</span>
-    <span class="n">extensions</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;.myf&quot;</span><span class="p">}),</span>
+    <span class="n">extensions</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">({</span><span class="s2">".myf"</span><span class="p">}),</span>
     <span class="n">priority</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span>
 <span class="p">),</span>
 </pre></div>
@@ -1231,8 +1231,8 @@ surfacing, not one worth hiding.</p>
 filter the user selected, and that selection is treated as a statement of what
 the file is:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">supported_formats</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s2">&quot;All supported files (...)&quot;</span><span class="p">),</span> <span class="kc">None</span><span class="p">),</span>   <span class="c1"># None = detect</span>
-    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s2">&quot;ENVI raster files (*.img *.hdr *.dat)&quot;</span><span class="p">),</span> <span class="s2">&quot;ENVI&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s2">"All supported files (...)"</span><span class="p">),</span> <span class="kc">None</span><span class="p">),</span>   <span class="c1"># None = detect</span>
+    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s2">"ENVI raster files (*.img *.hdr *.dat)"</span><span class="p">),</span> <span class="s2">"ENVI"</span><span class="p">),</span>
     <span class="o">...</span>
 <span class="p">]</span>
 </pre></div>

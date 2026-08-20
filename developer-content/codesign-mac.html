@@ -603,9 +603,9 @@ frozen Python applications, certain entitlements must be specified,
 or else the application will not successfully run after installation.</p>
 <p>The version from the <code class="docutils literal notranslate"><span class="pre">install-mac</span></code> directory is as follows:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt;!-- From https://github.com/pyinstaller/pyinstaller/issues/4629 --&gt;
-&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
-&lt;!DOCTYPE plist PUBLIC &quot;-//Apple//DTD PLIST 1.0//EN&quot; &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;
-&lt;plist version=&quot;1.0&quot;&gt;
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;
+&lt;plist version="1.0"&gt;
 &lt;dict&gt;
 	&lt;!-- These are required for binaries built by PyInstaller --&gt;
 
@@ -631,7 +631,7 @@ file above.</p>
 <p>It is of value to build a distributable <code class="docutils literal notranslate"><span class="pre">.dmg</span></code> file from the application,
 so that it’s simple to share with others.  The WISER build process uses
 these steps:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>hdiutil create dist/tmp.dmg -ov -volname &quot;$(APP_NAME)&quot; -fs HFS+ -srcfolder dist/$(APP_NAME).app
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ -srcfolder dist/$(APP_NAME).app
 hdiutil convert dist/tmp.dmg -format UDZO -o dist/$(APP_NAME)-$(APP_VERSION).dmg
 rm dist/tmp.dmg
 </pre></div>

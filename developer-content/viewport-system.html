@@ -1089,14 +1089,14 @@ window.runMermaid = runMermaid;</script>
 <li><p>Receiving forwarded events from child <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> instances and re-emitting them as signals.
 Each <code class="docutils literal notranslate"><span class="pre">TiledRasterView</span></code> is constructed with the following <code class="docutils literal notranslate"><span class="pre">forward</span></code> dict pointing back to <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> handlers:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">forward</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;mousePressEvent&quot;</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMousePress</span><span class="p">,</span>
-    <span class="s2">&quot;mouseReleaseEvent&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMouseRelease</span><span class="p">,</span>
-    <span class="s2">&quot;mouseMoveEvent&quot;</span><span class="p">:</span>    <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMouseMove</span><span class="p">,</span>
-    <span class="s2">&quot;keyPressEvent&quot;</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterKeyPress</span><span class="p">,</span>
-    <span class="s2">&quot;keyReleaseEvent&quot;</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterKeyRelease</span><span class="p">,</span>
-    <span class="s2">&quot;contextMenuEvent&quot;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterContextMenu</span><span class="p">,</span>
-    <span class="s2">&quot;paintEvent&quot;</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">_afterRasterPaint</span><span class="p">,</span>    <span class="c1"># overlay drawing hook</span>
-    <span class="s2">&quot;scrollContentsBy&quot;</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_afterRasterScroll</span><span class="p">,</span>   <span class="c1"># emits viewport_change</span>
+    <span class="s2">"mousePressEvent"</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMousePress</span><span class="p">,</span>
+    <span class="s2">"mouseReleaseEvent"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMouseRelease</span><span class="p">,</span>
+    <span class="s2">"mouseMoveEvent"</span><span class="p">:</span>    <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterMouseMove</span><span class="p">,</span>
+    <span class="s2">"keyPressEvent"</span><span class="p">:</span>     <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterKeyPress</span><span class="p">,</span>
+    <span class="s2">"keyReleaseEvent"</span><span class="p">:</span>   <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterKeyRelease</span><span class="p">,</span>
+    <span class="s2">"contextMenuEvent"</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_onRasterContextMenu</span><span class="p">,</span>
+    <span class="s2">"paintEvent"</span><span class="p">:</span>        <span class="bp">self</span><span class="o">.</span><span class="n">_afterRasterPaint</span><span class="p">,</span>    <span class="c1"># overlay drawing hook</span>
+    <span class="s2">"scrollContentsBy"</span><span class="p">:</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_afterRasterScroll</span><span class="p">,</span>   <span class="c1"># emits viewport_change</span>
 <span class="p">}</span>
 </pre></div>
 </div>

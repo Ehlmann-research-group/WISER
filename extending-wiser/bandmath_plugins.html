@@ -802,16 +802,16 @@ between a spectrum and a dataset.</p>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_bandmath_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">BandMathFunction</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;spectral_angle&quot;</span><span class="p">:</span> <span class="n">SpectralAngle</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"spectral_angle"</span><span class="p">:</span> <span class="n">SpectralAngle</span><span class="p">()}</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SpectralAngle</span><span class="p">(</span><span class="n">BandMathFunction</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_report_type_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lhs_type</span><span class="p">,</span> <span class="n">rhs_type</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Operands </span><span class="si">{</span><span class="n">lhs_type</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">rhs_type</span><span class="si">}</span><span class="s2"> not compatible for spectral angle operation.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Operands </span><span class="si">{</span><span class="n">lhs_type</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">rhs_type</span><span class="si">}</span><span class="s2"> not compatible for spectral angle operation."</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">infos</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BandMathExprInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BandMathExprInfo</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">infos</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;spectral_angle function requires exactly two arguments.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"spectral_angle function requires exactly two arguments."</span><span class="p">)</span>
 
         <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">infos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">infos</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">reorder_args</span><span class="p">(</span><span class="n">lhs</span><span class="o">.</span><span class="n">result_type</span><span class="p">,</span> <span class="n">rhs</span><span class="o">.</span><span class="n">result_type</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
@@ -829,7 +829,7 @@ between a spectrum and a dataset.</p>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BandMathValue</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BandMathValue</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">BandMathEvalError</span><span class="p">(</span><span class="s2">&quot;spectral_angle function requires exactly two arguments.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">BandMathEvalError</span><span class="p">(</span><span class="s2">"spectral_angle function requires exactly two arguments."</span><span class="p">)</span>
 
         <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span> <span class="o">=</span> <span class="n">reorder_args</span><span class="p">(</span><span class="n">lhs</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">rhs</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
@@ -842,7 +842,7 @@ between a spectrum and a dataset.</p>
             <span class="n">img_arr</span> <span class="o">=</span> <span class="n">rhs</span><span class="o">.</span><span class="n">as_numpy_array</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">BandMathEvalError</span><span class="p">(</span>
-                <span class="s2">&quot;spectral_angle function requires two arguments, an IMAGE_CUBE and a SPECTRUM.&quot;</span>
+                <span class="s2">"spectral_angle function requires two arguments, an IMAGE_CUBE and a SPECTRUM."</span>
             <span class="p">)</span>
 
         <span class="c1"># Compute the spectral angle</span>

@@ -503,16 +503,16 @@ application state and write a new derived dataset back into it.</p>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <span class="n">quick_indices</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;NDVI&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">860</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="mi">660</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">],</span>
-    <span class="s2">&quot;NDWI&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">550</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="mi">860</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">],</span>
-    <span class="s2">&quot;NDBI&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1600</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="mi">860</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">],</span>
+    <span class="s2">"NDVI"</span><span class="p">:</span> <span class="p">[</span><span class="mi">860</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="mi">660</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">],</span>
+    <span class="s2">"NDWI"</span><span class="p">:</span> <span class="p">[</span><span class="mi">550</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="mi">860</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">],</span>
+    <span class="s2">"NDBI"</span><span class="p">:</span> <span class="p">[</span><span class="mi">1600</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span> <span class="mi">860</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">],</span>
 <span class="p">}</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ApplyNDIndex</span><span class="p">(</span><span class="n">ContextMenuPlugin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Use a user selected normalized difference index quickly on a dataset</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
@@ -523,51 +523,51 @@ application state and write a new derived dataset back into it.</p>
         <span class="n">context_menu</span><span class="p">:</span> <span class="n">QMenu</span><span class="p">,</span>
         <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to</span>
 <span class="sd">        add sub-menus to the Tools menu.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">context_type</span> <span class="o">==</span> <span class="n">ContextMenuType</span><span class="o">.</span><span class="n">RASTER_VIEW</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""</span>
 <span class="sd">            Context-menu display in a raster-view, which probably is showing a</span>
 <span class="sd">            dataset.  The current dataset is passed to the plugin.</span>
 
 <span class="sd">            Example code to get all necessary pieces of data for this context_type:</span>
 <span class="sd">            ```python</span>
 <span class="sd">            # A RasterDataSet object</span>
-<span class="sd">            dataset = context[&quot;dataset&quot;]</span>
+<span class="sd">            dataset = context["dataset"]</span>
 <span class="sd">            # A 3 or 1 tuple of integers</span>
-<span class="sd">            display_bands = context[&quot;display_bands&quot;]</span>
-<span class="sd">            # Every context_type has the app_state in the &quot;wiser&quot; key</span>
-<span class="sd">            app_state = context[&quot;wiser&quot;]</span>
+<span class="sd">            display_bands = context["display_bands"]</span>
+<span class="sd">            # Every context_type has the app_state in the "wiser" key</span>
+<span class="sd">            app_state = context["wiser"]</span>
 <span class="sd">            ```</span>
-<span class="sd">            &quot;&quot;&quot;</span>
-            <span class="n">act</span> <span class="o">=</span> <span class="n">context_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">&quot;Use NDI&quot;</span><span class="p">)</span>
+<span class="sd">            """</span>
+            <span class="n">act</span> <span class="o">=</span> <span class="n">context_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">"Use NDI"</span><span class="p">)</span>
             <span class="n">act</span><span class="o">.</span><span class="n">triggered</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="k">lambda</span> <span class="n">checked</span><span class="o">=</span><span class="kc">False</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_and_use_ndi</span><span class="p">(</span><span class="n">context</span><span class="p">))</span>
 
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized context_type value </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unrecognized context_type value </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">select_and_use_ndi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-        <span class="n">app_state</span><span class="p">:</span> <span class="n">ApplicationState</span> <span class="o">=</span> <span class="n">context</span><span class="p">[</span><span class="s2">&quot;wiser&quot;</span><span class="p">]</span>
+        <span class="n">app_state</span><span class="p">:</span> <span class="n">ApplicationState</span> <span class="o">=</span> <span class="n">context</span><span class="p">[</span><span class="s2">"wiser"</span><span class="p">]</span>
         <span class="n">form_inputs</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="s2">&quot;Select the NDI method to use&quot;</span><span class="p">,</span> <span class="s2">&quot;ndi_method&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">quick_indices</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+            <span class="p">(</span><span class="s2">"Select the NDI method to use"</span><span class="p">,</span> <span class="s2">"ndi_method"</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">quick_indices</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
         <span class="p">]</span>
         <span class="n">return_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span><span class="o">.</span><span class="n">create_form</span><span class="p">(</span>
             <span class="n">form_inputs</span><span class="p">,</span>
-            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Analysis Params&quot;</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The equation for the NDI is (a-b)/(a+b)&quot;</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">"Analysis Params"</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">"The equation for the NDI is (a-b)/(a+b)"</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">ndi_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;ndi_method&quot;</span><span class="p">]</span>
+        <span class="n">ndi_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">"ndi_method"</span><span class="p">]</span>
         <span class="n">wvl_a</span><span class="p">,</span> <span class="n">wvl_b</span> <span class="o">=</span> <span class="n">quick_indices</span><span class="p">[</span><span class="n">ndi_method</span><span class="p">]</span>
 
-        <span class="n">dataset</span><span class="p">:</span> <span class="n">RasterDataSet</span> <span class="o">=</span> <span class="n">context</span><span class="p">[</span><span class="s2">&quot;dataset&quot;</span><span class="p">]</span>
+        <span class="n">dataset</span><span class="p">:</span> <span class="n">RasterDataSet</span> <span class="o">=</span> <span class="n">context</span><span class="p">[</span><span class="s2">"dataset"</span><span class="p">]</span>
         <span class="n">wavelengths</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_spectral_metadata</span><span class="p">()</span><span class="o">.</span><span class="n">get_wavelengths</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">wavelengths</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">QMessageBox</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="kc">None</span><span class="p">,</span>
-                <span class="s2">&quot;Couldn&#39;t Apply NDI&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;The selected dataset has no wavelengths, cannot apply NDI.&quot;</span><span class="p">,</span>
+                <span class="s2">"Couldn't Apply NDI"</span><span class="p">,</span>
+                <span class="s2">"The selected dataset has no wavelengths, cannot apply NDI."</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">return</span>
         <span class="n">wvl_a_index_closest</span> <span class="o">=</span> <span class="n">find_closest_wavelength</span><span class="p">(</span>
@@ -581,8 +581,8 @@ application state and write a new derived dataset back into it.</p>
             <span class="n">max_distance</span><span class="o">=</span><span class="mi">5</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">nm</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="k">assert</span> <span class="n">wvl_a_index_closest</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Couldn&#39;t find a matching wavelength for </span><span class="si">{</span><span class="n">wvl_a</span><span class="si">}</span><span class="s2"> within 5 nm&quot;</span>
-        <span class="k">assert</span> <span class="n">wvl_b_index_closest</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Couldn&#39;t find a matching wavelength for </span><span class="si">{</span><span class="n">wvl_b</span><span class="si">}</span><span class="s2"> within 5 nm&quot;</span>
+        <span class="k">assert</span> <span class="n">wvl_a_index_closest</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Couldn't find a matching wavelength for </span><span class="si">{</span><span class="n">wvl_a</span><span class="si">}</span><span class="s2"> within 5 nm"</span>
+        <span class="k">assert</span> <span class="n">wvl_b_index_closest</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Couldn't find a matching wavelength for </span><span class="si">{</span><span class="n">wvl_b</span><span class="si">}</span><span class="s2"> within 5 nm"</span>
 
         <span class="n">band_a</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_band_data</span><span class="p">(</span><span class="n">wvl_a_index_closest</span><span class="p">)</span>
         <span class="n">band_b</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_band_data</span><span class="p">(</span><span class="n">wvl_b_index_closest</span><span class="p">)</span>
@@ -596,26 +596,26 @@ application state and write a new derived dataset back into it.</p>
         <span class="n">ndi</span> <span class="o">=</span> <span class="n">ndi</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
         <span class="c1"># Create the dataset object, you must set its name</span>
         <span class="n">ndi_dataset</span> <span class="o">=</span> <span class="n">data_loader</span><span class="o">.</span><span class="n">dataset_from_numpy_array</span><span class="p">(</span><span class="n">ndi</span><span class="p">,</span> <span class="n">app_state</span><span class="o">.</span><span class="n">get_cache</span><span class="p">())</span>
-        <span class="n">ndi_dataset</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ndi_method</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">dataset</span><span class="o">.</span><span class="n">get_name</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">ndi_dataset</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ndi_method</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">dataset</span><span class="o">.</span><span class="n">get_name</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="c1"># Now add it back to our app</span>
         <span class="n">app_state</span><span class="o">.</span><span class="n">add_dataset</span><span class="p">(</span><span class="n">ndi_dataset</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">NormalizedDifferenceIndexMaker</span><span class="p">(</span><span class="n">ToolsMenuPlugin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A plugin to make a new normalized difference index</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">add_tool_menu_items</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_menu</span><span class="p">:</span> <span class="n">QMenu</span><span class="p">,</span> <span class="n">wiser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to</span>
 <span class="sd">        add sub-menus to the Tools menu.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;NormalizedDifferenceIndexMaker is adding tool-menu items&quot;</span><span class="p">)</span>
-        <span class="n">act</span> <span class="o">=</span> <span class="n">tool_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">&quot;Created new NDI&quot;</span><span class="p">)</span>
+<span class="sd">        """</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"NormalizedDifferenceIndexMaker is adding tool-menu items"</span><span class="p">)</span>
+        <span class="n">act</span> <span class="o">=</span> <span class="n">tool_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">"Created new NDI"</span><span class="p">)</span>
         <span class="n">act</span><span class="o">.</span><span class="n">triggered</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">create_nd_index</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span> <span class="o">=</span> <span class="n">wiser</span>
 
@@ -624,18 +624,18 @@ application state and write a new derived dataset back into it.</p>
         <span class="c1"># for the index, so lets make a form to get that</span>
 
         <span class="n">form_inputs</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="s2">&quot;Enter Wavelength for A&quot;</span><span class="p">,</span> <span class="s2">&quot;wvl_a&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;Enter Wavelength for B&quot;</span><span class="p">,</span> <span class="s2">&quot;wvl_b&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;Enter Normalized Difference Index Name&quot;</span><span class="p">,</span> <span class="s2">&quot;ndi_name&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"Enter Wavelength for A"</span><span class="p">,</span> <span class="s2">"wvl_a"</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"Enter Wavelength for B"</span><span class="p">,</span> <span class="s2">"wvl_b"</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">"Enter Normalized Difference Index Name"</span><span class="p">,</span> <span class="s2">"ndi_name"</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
         <span class="p">]</span>
         <span class="n">return_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">create_form</span><span class="p">(</span>
             <span class="n">form_inputs</span><span class="p">,</span>
-            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Analysis Params&quot;</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The equation for the ND is (a-b)/(a+b)&quot;</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">"Analysis Params"</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">"The equation for the ND is (a-b)/(a+b)"</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">wvl_a</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;wvl_a&quot;</span><span class="p">]</span>
-        <span class="n">wvl_b</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;wvl_b&quot;</span><span class="p">]</span>
-        <span class="n">ndi_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;ndi_name&quot;</span><span class="p">]</span>
+        <span class="n">wvl_a</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">"wvl_a"</span><span class="p">]</span>
+        <span class="n">wvl_b</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">"wvl_b"</span><span class="p">]</span>
+        <span class="n">ndi_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">return_dict</span><span class="p">[</span><span class="s2">"ndi_name"</span><span class="p">]</span>
 
         <span class="n">quick_indices</span><span class="p">[</span><span class="n">ndi_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">wvl_a</span><span class="p">,</span> <span class="n">wvl_b</span><span class="p">]</span>
 
@@ -645,11 +645,11 @@ application state and write a new derived dataset back into it.</p>
     <span class="n">input_wavelength</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">,</span>
     <span class="n">max_distance</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Given a list of wavelengths and an input wavelength, this function returns</span>
 <span class="sd">    the index of the wavelength closest to the input wavelength.  If no</span>
 <span class="sd">    wavelength is within max_distance of the input then None is returned.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="c1"># Do the whole calculation in nm to keep things simple.</span>
     <span class="k">if</span> <span class="n">max_distance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -670,11 +670,11 @@ application state and write a new derived dataset back into it.</p>
 <span class="k">def</span><span class="w"> </span><span class="nf">find_closest_value</span><span class="p">(</span>
     <span class="n">values</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Number</span><span class="p">],</span> <span class="n">input_value</span><span class="p">:</span> <span class="n">Number</span><span class="p">,</span> <span class="n">max_distance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Number</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Given a list of numbers (ints and/or floats) and an input number, this</span>
 <span class="sd">    function returns the index of the number closest to the input number.</span>
 <span class="sd">    If no number is within max_distance of the input then None is returned.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">best_index</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">best_distance</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -692,10 +692,10 @@ application state and write a new derived dataset back into it.</p>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">convert_spectral</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">,</span> <span class="n">to_unit</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Convert a spectral value with units (e.g. a frequency or wavelength),</span>
 <span class="sd">    to the specified units.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">to_unit</span><span class="p">,</span> <span class="n">equivalencies</span><span class="o">=</span><span class="n">u</span><span class="o">.</span><span class="n">spectral</span><span class="p">())</span>
 </pre></div>
 </div>

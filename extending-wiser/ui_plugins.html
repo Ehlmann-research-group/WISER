@@ -525,8 +525,8 @@ complexities like input validation or event handling.</p>
     <span class="nd">@log_exceptions</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">on_gaussian_blur</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># If the .ui file is in the same location as the .py file, compute</span>
-        <span class="c1"># the path to the .ui file using the module&#39;s __file__ attribute.</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">&#39;gaussian_blur_config.ui&#39;</span><span class="p">)</span>
+        <span class="c1"># the path to the .ui file using the module's __file__ attribute.</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">'gaussian_blur_config.ui'</span><span class="p">)</span>
 
         <span class="c1"># Load the .ui file to instantiate the QDialog object.</span>
         <span class="n">dialog</span> <span class="o">=</span> <span class="n">plugins</span><span class="o">.</span><span class="n">load_ui_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
@@ -549,15 +549,15 @@ the UI widgets within the dialog.  The code continues:</p>
         <span class="c1"># The spinbox that specifies the kernel size.  This value should be</span>
         <span class="c1"># odd, which is what the helper function _on_kernel_size_changed</span>
         <span class="c1"># enforces.</span>
-        <span class="n">sbox</span> <span class="o">=</span> <span class="n">dialog</span><span class="o">.</span><span class="n">findChild</span><span class="p">(</span><span class="n">QSpinBox</span><span class="p">,</span> <span class="s1">&#39;spinbox_kernel_size&#39;</span><span class="p">)</span>
+        <span class="n">sbox</span> <span class="o">=</span> <span class="n">dialog</span><span class="o">.</span><span class="n">findChild</span><span class="p">(</span><span class="n">QSpinBox</span><span class="p">,</span> <span class="s1">'spinbox_kernel_size'</span><span class="p">)</span>
         <span class="n">sbox</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
         <span class="n">sbox</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span> <span class="p">:</span> <span class="n">_on_kernel_size_changed</span><span class="p">(</span><span class="n">sbox</span><span class="o">=</span><span class="n">sbox</span><span class="p">))</span>
 
         <span class="c1"># The line-edit to hold the sigma value.  This should be a floating-point</span>
         <span class="c1"># value, so set up a validator on the field.</span>
-        <span class="n">ledit</span> <span class="o">=</span> <span class="n">dialog</span><span class="o">.</span><span class="n">findChild</span><span class="p">(</span><span class="n">QLineEdit</span><span class="p">,</span> <span class="s1">&#39;ledit_sigma&#39;</span><span class="p">)</span>
+        <span class="n">ledit</span> <span class="o">=</span> <span class="n">dialog</span><span class="o">.</span><span class="n">findChild</span><span class="p">(</span><span class="n">QLineEdit</span><span class="p">,</span> <span class="s1">'ledit_sigma'</span><span class="p">)</span>
         <span class="n">ledit</span><span class="o">.</span><span class="n">setValidator</span><span class="p">(</span><span class="n">QDoubleValidator</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1000000.0</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
-        <span class="n">ledit</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s1">&#39;0&#39;</span><span class="p">)</span>
+        <span class="n">ledit</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s1">'0'</span><span class="p">)</span>
 
         <span class="c1"># Show the dialog!</span>
         <span class="k">if</span> <span class="n">dialog</span><span class="o">.</span><span class="n">exec</span><span class="p">()</span> <span class="o">==</span> <span class="n">QDialog</span><span class="o">.</span><span class="n">Accepted</span><span class="p">:</span>
@@ -616,7 +616,7 @@ needed.</p>
             <span class="bp">self</span><span class="o">.</span><span class="n">_on_kernel_size_changed</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_ui</span><span class="o">.</span><span class="n">ledit_sigma</span><span class="o">.</span><span class="n">setValidator</span><span class="p">(</span><span class="n">QDoubleValidator</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1000000.0</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ui</span><span class="o">.</span><span class="n">ledit_sigma</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s1">&#39;0&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ui</span><span class="o">.</span><span class="n">ledit_sigma</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s1">'0'</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_on_kernel_size_changed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="c1"># The value cannot be even.</span>

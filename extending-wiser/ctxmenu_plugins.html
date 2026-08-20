@@ -599,7 +599,7 @@ recommended pattern for adding menu actions is as follows:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Construct a lambda that is called when the QAction is clicked;</span>
 <span class="c1"># it traps the context dictionary and passes it to the relevant</span>
 <span class="c1"># handler.  The context is reclaimed when the QAction goes away.</span>
-<span class="n">act</span> <span class="o">=</span> <span class="n">context_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="n">context_menu</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s1">&#39;Some task...&#39;</span><span class="p">))</span>
+<span class="n">act</span> <span class="o">=</span> <span class="n">context_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="n">context_menu</span><span class="o">.</span><span class="n">tr</span><span class="p">(</span><span class="s1">'Some task...'</span><span class="p">))</span>
 <span class="n">act</span><span class="o">.</span><span class="n">triggered</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="k">lambda</span> <span class="n">checked</span><span class="o">=</span><span class="kc">False</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_some_task</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">))</span>
 </pre></div>
 </div>
@@ -657,9 +657,9 @@ so that plugins know what items to add to the menu.</p>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">HelloContextPlugin</span><span class="p">(</span><span class="n">ContextMenuPlugin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A simple &quot;Hello world!&quot; example of a context-menu plugin.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A simple "Hello world!" example of a context-menu plugin.</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
@@ -670,29 +670,29 @@ so that plugins know what items to add to the menu.</p>
         <span class="n">context_menu</span><span class="p">:</span> <span class="n">QMenu</span><span class="p">,</span>
         <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to</span>
 <span class="sd">        add sub-menus to the Tools menu.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">context_type</span> <span class="o">==</span> <span class="n">ContextMenuType</span><span class="o">.</span><span class="n">RASTER_VIEW</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""</span>
 <span class="sd">            Context-menu display in a raster-view, which probably is showing a</span>
 <span class="sd">            dataset.  The current dataset is passed to the plugin.</span>
 
 <span class="sd">            Example code to get all necessary pieces of data for this context_type:</span>
 <span class="sd">            ```python</span>
 <span class="sd">            # A RasterDataSet object</span>
-<span class="sd">            dataset = context[&quot;dataset&quot;]</span>
+<span class="sd">            dataset = context["dataset"]</span>
 <span class="sd">            # A 3 or 1 tuple of integers</span>
-<span class="sd">            display_bands = context[&quot;display_bands&quot;]</span>
-<span class="sd">            # Every context_type has the app_state in the &quot;wiser&quot; key</span>
-<span class="sd">            app_state = context[&quot;wiser&quot;]</span>
+<span class="sd">            display_bands = context["display_bands"]</span>
+<span class="sd">            # Every context_type has the app_state in the "wiser" key</span>
+<span class="sd">            app_state = context["wiser"]</span>
 <span class="sd">            ```</span>
-<span class="sd">            &quot;&quot;&quot;</span>
+<span class="sd">            """</span>
             <span class="k">pass</span>
 
         <span class="k">elif</span> <span class="n">context_type</span> <span class="o">==</span> <span class="n">ContextMenuType</span><span class="o">.</span><span class="n">SPECTRUM_PLOT</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""</span>
 <span class="sd">            Context-menu display in the spectrum-plot window.</span>
 <span class="sd">            </span>
 <span class="sd">            While this context_type makes the context dict have</span>
@@ -700,14 +700,14 @@ so that plugins know what items to add to the menu.</p>
 
 <span class="sd">            Example code to get all necessary pieces of data for this context_type:</span>
 <span class="sd">            ```python</span>
-<span class="sd">            # Every context_type has the app_state in the &quot;wiser&quot; key</span>
-<span class="sd">            app_state = context[&quot;wiser&quot;]</span>
+<span class="sd">            # Every context_type has the app_state in the "wiser" key</span>
+<span class="sd">            app_state = context["wiser"]</span>
 <span class="sd">            ```</span>
-<span class="sd">            &quot;&quot;&quot;</span>
+<span class="sd">            """</span>
             <span class="k">pass</span>
 
         <span class="k">elif</span> <span class="n">context_type</span> <span class="o">==</span> <span class="n">ContextMenuType</span><span class="o">.</span><span class="n">DATASET_PICK</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""</span>
 <span class="sd">            A specific dataset was picked.  This may not be in the context of</span>
 <span class="sd">            a raster-view window, e.g. if the user right-clicks on a dataset</span>
 <span class="sd">            in the info viewer.</span>
@@ -715,70 +715,70 @@ so that plugins know what items to add to the menu.</p>
 <span class="sd">            Example code to get all necessary pieces of data for this context_type:</span>
 <span class="sd">            ```python</span>
 <span class="sd">            # A RasterDataSet object</span>
-<span class="sd">            dataset = context[&quot;dataset&quot;]</span>
+<span class="sd">            dataset = context["dataset"]</span>
 <span class="sd">            # A 3 or 1 tuple of integers</span>
-<span class="sd">            display_bands = context[&quot;display_bands&quot;]</span>
+<span class="sd">            display_bands = context["display_bands"]</span>
 <span class="sd">            # An (int, int) tuple of the clicked pixel in the dataset above</span>
-<span class="sd">            ds_coord = context[&quot;ds_coord&quot;]</span>
-<span class="sd">            # Every context_type has the app_state in the &quot;wiser&quot; key</span>
-<span class="sd">            app_state = context[&quot;wiser&quot;]</span>
+<span class="sd">            ds_coord = context["ds_coord"]</span>
+<span class="sd">            # Every context_type has the app_state in the "wiser" key</span>
+<span class="sd">            app_state = context["wiser"]</span>
 <span class="sd">            ```</span>
-<span class="sd">            &quot;&quot;&quot;</span>
+<span class="sd">            """</span>
             <span class="k">pass</span>
 
         <span class="k">elif</span> <span class="n">context_type</span> <span class="o">==</span> <span class="n">ContextMenuType</span><span class="o">.</span><span class="n">SPECTRUM_PICK</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""</span>
 <span class="sd">            A specific spectrum was picked.  The spectrum is passed to the</span>
 <span class="sd">            plugin.</span>
 <span class="sd">            </span>
 <span class="sd">            Example code to get all necessary pieces of data for this context_type:</span>
 <span class="sd">            ```python</span>
 <span class="sd">            # A Spectrum object</span>
-<span class="sd">            spectrum = context[&quot;spectrum&quot;]</span>
-<span class="sd">            # Every context_type has the app_state in the &quot;wiser&quot; key</span>
-<span class="sd">            app_state = context[&quot;wiser&quot;]</span>
+<span class="sd">            spectrum = context["spectrum"]</span>
+<span class="sd">            # Every context_type has the app_state in the "wiser" key</span>
+<span class="sd">            app_state = context["wiser"]</span>
 <span class="sd">            ```</span>
-<span class="sd">            &quot;&quot;&quot;</span>
+<span class="sd">            """</span>
             <span class="k">pass</span>
 
         <span class="k">elif</span> <span class="n">context_type</span> <span class="o">==</span> <span class="n">ContextMenuType</span><span class="o">.</span><span class="n">ROI_PICK</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">"""</span>
 <span class="sd">            A specific ROI was picked.  The ROI is passed, along with the</span>
 <span class="sd">            current dataset (if available).</span>
 <span class="sd">            </span>
 <span class="sd">            Example code to get all necessary pieces of data for this context_type:</span>
 <span class="sd">            ```python</span>
 <span class="sd">            # A RasterDataSet object</span>
-<span class="sd">            dataset = context[&quot;dataset&quot;]</span>
+<span class="sd">            dataset = context["dataset"]</span>
 <span class="sd">            # A 3 or 1 tuple of integers</span>
-<span class="sd">            display_bands = context[&quot;display_bands&quot;]</span>
+<span class="sd">            display_bands = context["display_bands"]</span>
 <span class="sd">            # A RegionOfInterest object that was picked by the user</span>
-<span class="sd">            roi = context[&quot;roi&quot;]</span>
+<span class="sd">            roi = context["roi"]</span>
 <span class="sd">            # An (int, int) tuple of the clicked pixel in the dataset above</span>
-<span class="sd">            ds_coord = context[&quot;ds_coord&quot;]</span>
-<span class="sd">            # Every context_type has the app_state in the &quot;wiser&quot; key</span>
-<span class="sd">            app_state = context[&quot;wiser&quot;]</span>
+<span class="sd">            ds_coord = context["ds_coord"]</span>
+<span class="sd">            # Every context_type has the app_state in the "wiser" key</span>
+<span class="sd">            app_state = context["wiser"]</span>
 <span class="sd">            ```</span>
-<span class="sd">            &quot;&quot;&quot;</span>
+<span class="sd">            """</span>
             <span class="k">pass</span>
 
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized context_type value </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unrecognized context_type value </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
-        <span class="n">act</span> <span class="o">=</span> <span class="n">context_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Say hello </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+        <span class="n">act</span> <span class="o">=</span> <span class="n">context_menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Say hello </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
         <span class="n">act</span><span class="o">.</span><span class="n">triggered</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="k">lambda</span> <span class="n">checked</span><span class="o">=</span><span class="kc">False</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">say_hello</span><span class="p">(</span><span class="n">context_type</span><span class="p">,</span> <span class="n">context</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">say_hello</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context_type</span><span class="p">:</span> <span class="n">ContextMenuType</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
         <span class="n">context_str</span> <span class="o">=</span> <span class="n">pprint</span><span class="o">.</span><span class="n">pformat</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;HelloContextPlugin.say_hello() was called!&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; * context_type = </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39; * context =</span><span class="se">\n</span><span class="si">{</span><span class="n">textwrap</span><span class="o">.</span><span class="n">indent</span><span class="p">(</span><span class="n">context_str</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot; &quot;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"HelloContextPlugin.say_hello() was called!"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">" * context_type = </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">' * context =</span><span class="se">\n</span><span class="si">{</span><span class="n">textwrap</span><span class="o">.</span><span class="n">indent</span><span class="p">(</span><span class="n">context_str</span><span class="p">,</span><span class="w"> </span><span class="s2">" "</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
         <span class="n">QMessageBox</span><span class="o">.</span><span class="n">information</span><span class="p">(</span>
             <span class="kc">None</span><span class="p">,</span>
-            <span class="s2">&quot;Hello-Context Plugin&quot;</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;Hello from a </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2"> context menu!</span><span class="se">\n\n</span><span class="si">{</span><span class="n">context_str</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">"Hello-Context Plugin"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"Hello from a </span><span class="si">{</span><span class="n">context_type</span><span class="si">}</span><span class="s2"> context menu!</span><span class="se">\n\n</span><span class="si">{</span><span class="n">context_str</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
         <span class="p">)</span>
 </pre></div>
 </div>

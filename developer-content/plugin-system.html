@@ -997,13 +997,13 @@ is being built and therefore which keys to expect in the <code class="docutils l
 for everything below. It performs three steps in order.</p>
 <section id="step-1-register-plugin-paths">
 <h3>Step 1 — Register plugin paths<a class="headerlink" href="#step-1-register-plugin-paths" title="Link to this heading">#</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plugin_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;plugin_paths&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plugin_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">"plugin_paths"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plugin_paths</span><span class="p">:</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Plugin-path &quot;</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&quot; doesn</span><span class="se">\&#39;</span><span class="s1">t exist; ignoring&#39;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Plugin-path "</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">" doesn</span><span class="se">\'</span><span class="s1">t exist; ignoring'</span><span class="p">)</span>
         <span class="k">continue</span>
     <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>          <span class="c1"># appended → searched AFTER WISER&#39;s own paths</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>          <span class="c1"># appended → searched AFTER WISER's own paths</span>
 </pre></div>
 </div>
 <p>Each configured directory is <strong>appended</strong> to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>. The append (rather than
@@ -1015,8 +1015,8 @@ insert) is what makes WISER’s own dependencies take precedence — see
 <p>A small set of built-in plugins is instantiated directly (not via config), kept
 as plugins partly to serve as living examples of the API:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">permanent_plugins</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">(</span><span class="s2">&quot;ContinuumRemovalPlugin&quot;</span><span class="p">,</span> <span class="n">ContinuumRemovalPlugin</span><span class="p">()),</span>
-    <span class="p">(</span><span class="s2">&quot;SavGolayPlugin&quot;</span><span class="p">,</span> <span class="n">SavGolayPlugin</span><span class="p">()),</span>
+    <span class="p">(</span><span class="s2">"ContinuumRemovalPlugin"</span><span class="p">,</span> <span class="n">ContinuumRemovalPlugin</span><span class="p">()),</span>
+    <span class="p">(</span><span class="s2">"SavGolayPlugin"</span><span class="p">,</span> <span class="n">SavGolayPlugin</span><span class="p">()),</span>
 <span class="p">]</span>
 </pre></div>
 </div>
@@ -1027,8 +1027,8 @@ as plugins partly to serve as living examples of the API:</p>
 instantiated through <code class="docutils literal notranslate"><span class="pre">plugins.utils.instantiate()</span></code>:</p>
 <p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/plugins/utils.py</span></code></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">instantiate</span><span class="p">(</span><span class="n">fully_qualified_class_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Plugin</span><span class="p">:</span>
-    <span class="n">parts</span> <span class="o">=</span> <span class="n">fully_qualified_class_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-    <span class="n">module_name</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">fully_qualified_class_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)</span>
+    <span class="n">module_name</span> <span class="o">=</span> <span class="s2">"."</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">class_name</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
     <span class="n">module_obj</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
     <span class="n">class_obj</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module_obj</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
@@ -1123,12 +1123,12 @@ context-menu plugin <em>each time</em> it builds a context menu. The dispatcher 
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">plugin_name</span><span class="p">,</span> <span class="n">plugin</span> <span class="ow">in</span> <span class="n">app_state</span><span class="o">.</span><span class="n">get_plugins</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plugin</span><span class="p">,</span> <span class="n">plugins</span><span class="o">.</span><span class="n">ContextMenuPlugin</span><span class="p">):</span>
         <span class="n">context</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>           <span class="c1"># each plugin gets its own copy</span>
-        <span class="n">context</span><span class="p">[</span><span class="s2">&quot;wiser&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span>
-        <span class="n">context</span><span class="p">[</span><span class="s2">&quot;app_services&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_services</span>
+        <span class="n">context</span><span class="p">[</span><span class="s2">"wiser"</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_state</span>
+        <span class="n">context</span><span class="p">[</span><span class="s2">"app_services"</span><span class="p">]</span> <span class="o">=</span> <span class="n">app_services</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">plugin</span><span class="o">.</span><span class="n">add_context_menu_items</span><span class="p">(</span><span class="n">context_type</span><span class="p">,</span> <span class="n">menu</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
         <span class="k">except</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>          <span class="c1"># one bad plugin can&#39;t break the menu</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>          <span class="c1"># one bad plugin can't break the menu</span>
 </pre></div>
 </div>
 <p>A single user-facing menu may produce several calls with different

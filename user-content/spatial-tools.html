@@ -505,45 +505,45 @@ include:</p>
 <section id="wkt-strings">
 <h3>1. WKT Strings<a class="headerlink" href="#wkt-strings" title="Link to this heading">#</a></h3>
 <p>Example:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>GEOGCRS[&quot;WGS 84&quot;,
-    DATUM[&quot;World Geodetic System 1984&quot;,
-        ELLIPSOID[&quot;WGS 84&quot;,6378137,298.257223563,
-            LENGTHUNIT[&quot;metre&quot;,1]]],
-    PRIMEM[&quot;Greenwich&quot;,0,
-        ANGLEUNIT[&quot;degree&quot;,0.0174532925199433]],
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>GEOGCRS["WGS 84",
+    DATUM["World Geodetic System 1984",
+        ELLIPSOID["WGS 84",6378137,298.257223563,
+            LENGTHUNIT["metre",1]]],
+    PRIMEM["Greenwich",0,
+        ANGLEUNIT["degree",0.0174532925199433]],
     CS[ellipsoidal,2],
-        AXIS[&quot;latitude&quot;,north],
-        AXIS[&quot;longitude&quot;,east],
-    ID[&quot;EPSG&quot;,4326]]
+        AXIS["latitude",north],
+        AXIS["longitude",east],
+    ID["EPSG",4326]]
 </pre></div>
 </div>
 </section>
 <section id="projjson-schemas">
 <h3>2. PROJJSON Schemas<a class="headerlink" href="#projjson-schemas" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GeographicCRS&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WGS 84&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;datum&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GeodeticReferenceFrame&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;World Geodetic System 1984&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ellipsoid&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WGS 84&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;semi_major_axis&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6378137</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;inverse_flattening&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">298.257223563</span>
+<span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GeographicCRS"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"WGS 84"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"datum"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GeodeticReferenceFrame"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"World Geodetic System 1984"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"ellipsoid"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"WGS 84"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"semi_major_axis"</span><span class="p">:</span><span class="w"> </span><span class="mi">6378137</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"inverse_flattening"</span><span class="p">:</span><span class="w"> </span><span class="mf">298.257223563</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;coordinate_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;subtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ellipsoidal&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"coordinate_system"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"subtype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ellipsoidal"</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"axes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">      </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Latitude&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;north&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;unit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;degree&quot;</span>
+<span class="w">        </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Latitude"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"north"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"degree"</span>
 <span class="w">      </span><span class="p">},</span>
 <span class="w">      </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Longitude&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;east&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;unit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;degree&quot;</span>
+<span class="w">        </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Longitude"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"east"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"degree"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="w">  </span><span class="p">}</span>
@@ -569,7 +569,7 @@ system by the authority name and authority code.</p>
 string or PROJJSON schema, then you will likely be able to find your authority
 name and code combo. The example below guides you through this process.</p>
 <p>Say you have this WKT string (found in your <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> file):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">coordinate</span> <span class="n">system</span> <span class="n">string</span> <span class="o">=</span> <span class="p">{</span><span class="n">PROJCS</span><span class="p">[</span><span class="s2">&quot;UTM_Zone_11N&quot;</span><span class="p">,</span><span class="n">GEOGCS</span><span class="p">[</span><span class="s2">&quot;GCS_WGS_1984&quot;</span><span class="p">,</span><span class="n">DATUM</span><span class="p">[</span><span class="s2">&quot;D_WGS_1984&quot;</span><span class="p">,</span><span class="n">SPHEROID</span><span class="p">[</span><span class="s2">&quot;WGS_1984&quot;</span><span class="p">,</span><span class="mf">6378137.0</span><span class="p">,</span><span class="mf">298.257223563</span><span class="p">]],</span><span class="n">PRIMEM</span><span class="p">[</span><span class="s2">&quot;Greenwich&quot;</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="n">UNIT</span><span class="p">[</span><span class="s2">&quot;Degree&quot;</span><span class="p">,</span><span class="mf">0.0174532925199433</span><span class="p">]],</span><span class="n">PROJECTION</span><span class="p">[</span><span class="s2">&quot;Transverse_Mercator&quot;</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">&quot;False_Easting&quot;</span><span class="p">,</span><span class="mf">500000.0</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">&quot;False_Northing&quot;</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">&quot;Central_Meridian&quot;</span><span class="p">,</span><span class="o">-</span><span class="mf">117.0</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">&quot;Scale_Factor&quot;</span><span class="p">,</span><span class="mf">0.9996</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">&quot;Latitude_Of_Origin&quot;</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="n">UNIT</span><span class="p">[</span><span class="s2">&quot;Meter&quot;</span><span class="p">,</span><span class="mf">1.0</span><span class="p">]]}</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">coordinate</span> <span class="n">system</span> <span class="n">string</span> <span class="o">=</span> <span class="p">{</span><span class="n">PROJCS</span><span class="p">[</span><span class="s2">"UTM_Zone_11N"</span><span class="p">,</span><span class="n">GEOGCS</span><span class="p">[</span><span class="s2">"GCS_WGS_1984"</span><span class="p">,</span><span class="n">DATUM</span><span class="p">[</span><span class="s2">"D_WGS_1984"</span><span class="p">,</span><span class="n">SPHEROID</span><span class="p">[</span><span class="s2">"WGS_1984"</span><span class="p">,</span><span class="mf">6378137.0</span><span class="p">,</span><span class="mf">298.257223563</span><span class="p">]],</span><span class="n">PRIMEM</span><span class="p">[</span><span class="s2">"Greenwich"</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="n">UNIT</span><span class="p">[</span><span class="s2">"Degree"</span><span class="p">,</span><span class="mf">0.0174532925199433</span><span class="p">]],</span><span class="n">PROJECTION</span><span class="p">[</span><span class="s2">"Transverse_Mercator"</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">"False_Easting"</span><span class="p">,</span><span class="mf">500000.0</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">"False_Northing"</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">"Central_Meridian"</span><span class="p">,</span><span class="o">-</span><span class="mf">117.0</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">"Scale_Factor"</span><span class="p">,</span><span class="mf">0.9996</span><span class="p">],</span><span class="n">PARAMETER</span><span class="p">[</span><span class="s2">"Latitude_Of_Origin"</span><span class="p">,</span><span class="mf">0.0</span><span class="p">],</span><span class="n">UNIT</span><span class="p">[</span><span class="s2">"Meter"</span><span class="p">,</span><span class="mf">1.0</span><span class="p">]]}</span>
 </pre></div>
 </div>
 <p>You can see it references UTM Zone 11N and WGS 1984. Go to
