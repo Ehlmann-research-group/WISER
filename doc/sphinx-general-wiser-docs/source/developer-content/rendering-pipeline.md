@@ -162,6 +162,45 @@ Both setters null out `RasterView._joint_render_cache` and call
 
 ---
 
+## Known Issue: The Pipeline Runs on the GUI Thread
+
+```{warning}
+`update_display_image()` runs **synchronously on the GUI thread**, and it runs
+**once per pane** — the context pane, main view, and zoom pane each hold a
+`RasterView` that renders the same change. On large images this is the single
+biggest source of interface freezes in WISER.
+
+It also means "opening a dataset is slow" is mostly a *rendering* cost rather
+than a read cost. `loader.load_from_file()` probes drivers and reads metadata,
+not pixels; the band read, data-ignore masking, normalization, stretch, and
+compositing all happen here, driven off the `dataset_added` signal.
+
+Because all three paths in [How Changes Reach the Screen](#how-changes-reach-the-screen)
+funnel through this one method, moving it off-thread improves dataset open, the
+stretch builder, and the band chooser together — and a regression here breaks all
+three at once.
+
+Two constraints shape any fix:
+
+- The `QImage` / `QPixmap` tail cannot leave the GUI thread. The seam has to be
+  cut between the NumPy work and the Qt handoff: finish the array off-thread,
+  build the Qt object on the GUI thread.
+- `_display_data`, `_joint_render_cache`, and the shared render cache are mutated
+  mid-render. Concurrent or stale renders must be cancelled, or discarded on
+  arrival, or fast clicking in the band chooser will paint the wrong image.
+
+Note also that the render and computation caches do not currently serve hits (see
+[Data Caching](data-caching.md) and issue #772), so this path runs fully uncached
+today. Profile with that fixed, or the measurement will attribute cost to the
+rendering code that caching was designed to absorb.
+
+Tracked in #758 (moving the NumPy portion off-thread), #764 (making a stretch
+change cancellable), and #69 (LoD-pyramid rendering, which would reduce the cost
+enough to change what the right fix is).
+```
+
+---
+
 ## Where to Read Next
 
 - [Band Chooser](band-chooser.md) — `_display_bands` and `_colormap`.

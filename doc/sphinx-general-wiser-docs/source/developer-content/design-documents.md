@@ -125,3 +125,32 @@ Relevant background:
 
 - [GDAL and multiprocessing](https://gdal.org/tutorials/multiprocessing.html)
 - [Pickle error with GDAL Dataset](https://gis.stackexchange.com/questions/361703/pickle-error-with-gdal-dataset)
+
+---
+
+## Usage Telemetry (Investigated, Not Pursued)
+
+**Decision: WISER does not collect usage telemetry, and this is not an oversight.**
+
+The question was whether to instrument WISER to learn which features people actually use, so
+development effort could follow real usage rather than guesswork. It was investigated and
+deliberately dropped.
+
+The reason is not technical difficulty but compliance surface. Collecting usage data from a
+desktop application carries obligations under the EU GDPR, the California CCPA, and comparable
+regimes — lawful basis, disclosure, subject-access and deletion requests, retention limits, and
+processor agreements. Doing that properly is the bulk of the work, and it outweighs the value of
+the signal for a research tool of WISER's size. If it is ever revisited, start from "compliance
+is the hard part", not from "how do we collect events".
+
+**What to do instead:** download statistics carry far less legal surface for a similar signal.
+The `snapshot-download-counts` workflow already records a daily snapshot of every release
+asset's cumulative download count to the `stats` branch, giving per-platform and per-release
+trends over time. Prefer strengthening that over instrumenting the application.
+
+**Not to be confused with crash reporting.** WISER does support opt-in crash reporting
+(`src/wiser/gui/bug_reporting.py`), which is off by default, asked for explicitly on first run,
+and changeable under **Preferences → General → Online bug reporting**. A crash report describes
+a failure — the exception, the call sequence, the WISER version, the platform — and carries no
+imagery, spectra, ROIs, or file contents. That is a defect-diagnosis channel, deliberately
+narrow, and it is not a route to add usage analytics.

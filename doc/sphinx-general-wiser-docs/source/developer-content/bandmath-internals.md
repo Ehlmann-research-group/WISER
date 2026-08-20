@@ -201,6 +201,20 @@ lark.visitors.Transformer
 - `_transform_tree()` — awaits `_transform_children()`, then calls the handler for the current node.
 - `_call_userfunc()` — detects whether the handler method is `async def` or a regular `def` and awaits it accordingly.
 
+```{note}
+`AsyncTransformer` is slated for **removal** — see issue #765.
+
+The concurrency is real and it does make evaluation faster (expect to give up roughly 20%; the
+original measurement was not preserved). The cost is that it is a hand-written reimplementation
+of a third-party class which entangles `asyncio` into the core of the evaluator, and the
+[read-ahead pipeline](#read-ahead-pipeline) below — a future queue maintained per expression
+node — exists only to feed it. The two are one decision and come out together.
+
+The intended replacement is parallelism from process-pool chunking (#761), with band math
+running in a subprocess so it cannot freeze the GUI thread. Do not extend `AsyncTransformer` or
+add new callers to the read-ahead queues.
+```
+
 ### Band-window chunking
 
 For an `IMAGE_CUBE` result, the spectral dimension is split into **band windows**. `compute_bands_per_chunk()` calculates the maximum number of bands that fit in the available memory budget. `iter_band_windows(total_bands, num_bands)` yields `(current_bands, next_bands)` pairs — the second element is the window that will be needed next, enabling read-ahead.

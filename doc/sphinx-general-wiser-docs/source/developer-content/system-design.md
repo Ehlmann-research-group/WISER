@@ -2,6 +2,63 @@
 
 This page documents internal architecture and design patterns in WISER.
 
+## Concurrency Model: Why WISER Uses Subprocesses
+
+The task, storage, and scheduler machinery documented below exists for one reason, and it is
+worth stating before the mechanics: **in Python, keeping a GUI responsive while computing is not
+a matter of spawning a thread.**
+
+The question this answers comes up often, usually as "ENVI stays responsive and fast without any
+of this — why can't WISER just spawn a thread and compute?" ENVI is written in IDL, which has
+real parallel threads and is built for fast array computation: it can spawn a thread, share
+memory, compute, and be done. Python cannot. The GIL makes threads concurrent but not parallel,
+so genuinely CPU-bound work has to go to a **subprocess**, which means data is serialized out to
+the worker, computed on, and serialized back. That transfer cost is real; it has been reduced,
+but it cannot be eliminated. Python is also not built for array computation the way IDL is —
+even with NumPy, there is a cost to context switches between Python and the underlying C/C++.
+
+Two consequences follow, and both are load-bearing:
+
+- Anything that runs on the GUI thread and takes real time freezes the whole application. Moving
+  work off that thread is the standard, not an optimization.
+- The architecture optimizes for **low memory overhead and a responsive GUI**, and pays for that
+  in data-transfer time. This is a deliberate trade-off rather than a discovered constraint. It
+  is a reasonable one to revisit with fresh measurements — but revisit it knowing it is there,
+  not by accident.
+
+### Choosing a mechanism
+
+| The work | Use | Notes |
+|----------|-----|-------|
+| Long, expensive, needs progress and cancellation | Task system (`src/wiser/utils/task_system.py`) | Chunked execution under RAM and disk constraints; reports to the activity monitor. Documented in full below. |
+| One-off CPU-bound work | `WorkScheduler` process pool (`src/wiser/utils/work_scheduler.py`) | No semantic task, no plan. Appropriate when the work is short or has no meaningful sub-stages. |
+| I/O-bound work | `WorkScheduler` thread pool | Threads are fine here: the GIL is released while waiting on I/O. |
+| Anything touching `QImage`, `QPixmap`, or a widget | GUI thread only | Qt objects cannot be created or mutated off the GUI thread. Cut the seam between the computation and the Qt handoff: return a finished array, build the Qt object on the GUI thread. |
+
+A thread can also carry long CPU-bound work when most of the cost sits in NumPy or Numba code
+that releases the GIL, at the price of taking resources from the main thread. That is sometimes
+the right trade — notably where the result is large enough that serializing it back to the main
+process would cost more than the parallelism gains.
+
+The single documented standard for making this choice, including worked examples, is tracked in
+issue #753; until it lands, prefer the table above over copying whichever nearby example is
+closest to hand.
+
+### Reading concurrently
+
+Because concurrent readers must not share one GDAL handle, `RasterDataImpl.reopen_dataset()`
+opens a fresh handle for every read (`src/wiser/raster/dataset_impl.py`). This is why
+multithreaded reads are safe, and it is also a real per-read cost on formats that are slow to
+open.
+
+```{warning}
+GDAL 3.10 advertises multithreaded reads from a single handle, which would make the reopen
+unnecessary. Testing it returned **corrupted data**. Do not remove the reopen without first
+re-verifying multithreaded reads against a known-good reference output — see issue #752.
+```
+
+---
+
 ## WISER Task, Storage, and Scheduler System Overview
 
 This document describes the current architecture of WISER's task execution stack and how task planning, storage, and

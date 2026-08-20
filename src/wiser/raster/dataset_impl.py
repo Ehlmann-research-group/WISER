@@ -400,6 +400,13 @@ class GDALRasterDataImpl(RasterDataImpl):
         Opens and returns a new GDAL dataset equivalent to the current one,
         always creating a new dataset from the file path. This is needed to do
         asynchronous I/O.
+
+        A separate handle per read is deliberate: concurrent readers must not
+        share one GDAL handle. GDAL 3.10 advertises multithreaded reads from a
+        single handle, which would make this reopen unnecessary, but testing it
+        returned corrupted data. Do not remove the reopen without first
+        re-verifying multithreaded reads against a known-good reference output.
+        See issue #752.
         """
         file_paths = self.get_filepaths()
         if not file_paths:
