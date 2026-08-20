@@ -203,6 +203,23 @@ def nexus_url(base: str, *parts: str) -> str:
     return "/".join([base.rstrip("/")] + [quote(p) for p in parts])
 
 
+def check_segment(value: str, what: str):
+    """Rejects a value that would not stay one segment of a Nexus path.
+
+    A raw repository stores an object at its path, so a tag or asset name carrying a
+    separator would silently nest the object and break the documented
+    releases/<tag>/<asset> layout. Git ref rules already exclude "..", but a tag may
+    legitimately contain "/" (this repository has `rel/1.1b1`), so the shape is checked
+    where the value enters rather than assumed.
+    """
+    if not value or "/" in value or ".." in value or any(ch < " " or ch == "\x7f" for ch in value):
+        die(
+            f"{what} {value!r} is not a single path segment. Refusing to build an ambiguous "
+            "Nexus path from a value containing a separator, a dot segment, or a control "
+            "character."
+        )
+
+
 def github_headers(token: Optional[str], accept: str = "application/vnd.github+json") -> Dict[str, str]:
     headers = {"Accept": accept, "X-GitHub-Api-Version": "2022-11-28"}
     if token:
@@ -249,13 +266,20 @@ def digest_sha256(asset: dict) -> Optional[str]:
 
 
 def verify_upload(url: str, headers: Dict[str, str], size: int, sha1: str, name: str) -> List[str]:
-    """Confirms what Nexus stored matches what was sent. Returns a list of problems."""
+    """Confirms what Nexus stored matches what was sent. Returns a list of problems.
+
+    A missing size counts as a problem rather than a pass: an upload nothing can confirm is
+    not a backup, so the run reports it instead of claiming success it cannot support. The
+    ETag check stays opportunistic because Nexus does not guarantee the header.
+    """
     stored = head(url, headers)
     if stored is None:
         return [f"{name}: not present in Nexus after upload"]
     problems = []
     remote_size = stored.get("Content-Length")
-    if remote_size is not None and int(remote_size) != size:
+    if remote_size is None:
+        problems.append(f"{name}: Nexus reported no size, leaving the upload unverified")
+    elif int(remote_size) != size:
         problems.append(f"{name}: Nexus reports {remote_size} bytes, expected {size}")
     match = ETAG_SHA1_RE.search(stored.get("ETag", ""))
     if match and match.group(1) != sha1:
@@ -279,6 +303,11 @@ class Backup:
         self.warned_unreadable = False
 
     def path_for(self, tag: str, *parts: str) -> str:
+        # self.prefix is operator-supplied and may intentionally span directories, so only
+        # the values taken from the GitHub API are constrained to one segment.
+        check_segment(tag, "Release tag")
+        for part in parts:
+            check_segment(part, "Asset name")
         return nexus_url(self.base, self.prefix, tag, *parts)
 
     def record(self, status: str, name: str, detail: str = ""):
@@ -528,9 +557,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not releases:
             die(f"No published releases found in {args.repo}.")
     else:
-        releases = [
-            request_json(f"{GITHUB_API}/repos/{args.repo}/releases/tags/{args.tag}", github_headers(gh_token))
-        ]
+        url = f"{GITHUB_API}/repos/{args.repo}/releases/tags/{args.tag}"
+        try:
+            releases = [request_json(url, github_headers(gh_token))]
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            die(f"No release found for tag '{args.tag}' in {args.repo}.")
 
     backup = Backup(args, gh_token, nexus_auth)
     log(f"{args.repo} -> {backup.base}/{backup.prefix}/" + ("  [dry run]" if args.dry_run else ""))
