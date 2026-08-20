@@ -193,3 +193,25 @@ very simple:
 
                 # Compute the Gaussian blur based on the parameters
                 ...
+
+Making a plugin panel scrollable
+--------------------------------
+
+A plugin panel with many inputs -- a long list of parameters, for example --
+can easily grow taller than the screen, leaving some controls unreachable.
+Wrap the panel's content in a scroll area with the ``make_scrollable()`` helper
+so that scrollbars appear whenever the content does not fit:
+
+.. code-block:: python
+
+    from wiser import plugins
+
+    content = plugins.load_ui_file(path)      # or any hand-built QWidget
+    scrollable = plugins.make_scrollable(content)
+
+    # Use the scroll area wherever the content widget would have gone, e.g.
+    # as the central widget of the plugin's window or inside a layout.
+    layout.addWidget(scrollable)
+
+The returned ``QScrollArea`` resizes its content with the window, so the
+scrollbars only appear when the panel genuinely does not fit.

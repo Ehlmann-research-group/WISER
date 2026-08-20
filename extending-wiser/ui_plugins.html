@@ -470,6 +470,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-pyside6-uic">Using <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#making-a-plugin-panel-scrollable">Making a plugin panel scrollable</a></li>
 </ul>
             </nav>
         </div>
@@ -654,6 +655,25 @@ very simple:</p>
 </div>
 </section>
 </section>
+<section id="making-a-plugin-panel-scrollable">
+<h2>Making a plugin panel scrollable<a class="headerlink" href="#making-a-plugin-panel-scrollable" title="Link to this heading">#</a></h2>
+<p>A plugin panel with many inputs – a long list of parameters, for example –
+can easily grow taller than the screen, leaving some controls unreachable.
+Wrap the panel’s content in a scroll area with the <code class="docutils literal notranslate"><span class="pre">make_scrollable()</span></code> helper
+so that scrollbars appear whenever the content does not fit:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">wiser</span><span class="w"> </span><span class="kn">import</span> <span class="n">plugins</span>
+
+<span class="n">content</span> <span class="o">=</span> <span class="n">plugins</span><span class="o">.</span><span class="n">load_ui_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>      <span class="c1"># or any hand-built QWidget</span>
+<span class="n">scrollable</span> <span class="o">=</span> <span class="n">plugins</span><span class="o">.</span><span class="n">make_scrollable</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+<span class="c1"># Use the scroll area wherever the content widget would have gone, e.g.</span>
+<span class="c1"># as the central widget of the plugin's window or inside a layout.</span>
+<span class="n">layout</span><span class="o">.</span><span class="n">addWidget</span><span class="p">(</span><span class="n">scrollable</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The returned <code class="docutils literal notranslate"><span class="pre">QScrollArea</span></code> resizes its content with the window, so the
+scrollbars only appear when the panel genuinely does not fit.</p>
+</section>
 </section>
 
 
@@ -708,6 +728,7 @@ very simple:</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-pyside6-uic">Using <code class="docutils literal notranslate"><span class="pre">pyside6-uic</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#making-a-plugin-panel-scrollable">Making a plugin panel scrollable</a></li>
 </ul>
   </nav></div>
 
