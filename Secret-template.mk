@@ -22,3 +22,12 @@ AD_TEAM_ID=your-app-specific-team-id
 # Windows Secrets
 
 SHA1_THUMBPRINT=your.sha1.thumbprint.for.yubikey
+
+#-----------------------------------------------------------------------------
+# Nexus Secrets
+#
+# Credentials for the release-asset backup (`make backup-releases`). Use a Nexus
+# user token rather than your account password.
+
+NEXUS_USERNAME=your-nexus-user-token-name
+NEXUS_PASSWORD=your-nexus-user-token-passcode

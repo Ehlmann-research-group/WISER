@@ -130,4 +130,18 @@ sign-windows:  # Usage `make sign-windows LINK=https://github.com/Ehlmann-resear
 	@rem Call Python script with args
 	@python src\devtools\sign_windows.py --link "$(LINK)" --nsis $(NSIS) --app-version "$(APP_VERSION)" --sha1 "$(SHA1_THUMBPRINT)" $(if $(RELEASE_TAG),--release-tag "$(RELEASE_TAG)",)
 
-.PHONY: generated lint typecheck build-mac build-win clean sign-windows
+# Mirror release assets to the Nexus raw repository. Normally this runs in CI
+# (.github/workflows/backup-releases-to-nexus.yml); use this to backfill or to check the
+# archive by hand. Credentials come from Secret.mk or the environment.
+# Usage `make backup-releases TAG=v3.0b0`, or `make backup-releases ALL=1 DRY_RUN=1`.
+backup-releases:
+	@if [ -z "$(TAG)" ] && [ -z "$(ALL)" ]; then \
+		echo "ERROR: Provide TAG=<tag> or ALL=1"; \
+		exit 1; \
+	fi
+	@NEXUS_USERNAME="$(NEXUS_USERNAME)" NEXUS_PASSWORD="$(NEXUS_PASSWORD)" \
+		python src/devtools/backup_releases_to_nexus.py \
+		$(if $(TAG),--tag "$(TAG)",) $(if $(ALL),--all,) \
+		$(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,)
+
+.PHONY: generated lint typecheck build-mac build-win clean sign-windows backup-releases

@@ -185,6 +185,50 @@ bits you ship are the exact bits you tested.
   with the canonical name via the sign scripts' `--release-tag <tag>` option (see the
   Release Process below).
 
+### Backup to Nexus
+
+Release assets exist in exactly one place — the GitHub release — and that is a single point
+of failure for every binary WISER has ever shipped. **Back up release assets to Nexus**
+(`backup-releases-to-nexus.yml`) copies each release into the LASP Nexus raw repository at
+`https://lasp.colorado.edu/repository/wiser-raw/`, so the installers survive loss of the
+GitHub repository. GitHub stays the place users download from; Nexus is the archive behind it.
+
+Each release is stored under its tag, alongside the metadata needed to make the copy usable
+on its own:
+
+```
+releases/<tag>/<asset name>                    # exactly as attached to the release
+releases/<tag>/source/WISER-<tag>-source.tar.gz
+releases/<tag>/source/WISER-<tag>-source.zip
+releases/<tag>/manifest.json                   # commit sha, dates, sizes, per-asset SHA-256
+releases/<tag>/SHA256SUMS                      # verify with `sha256sum -c SHA256SUMS`
+releases/<tag>/release-notes.md
+```
+
+The workflow runs on three triggers:
+
+- **`released`** — when a release's pre-release flag is cleared. This is deliberately not
+  `published`: the process below publishes a release *before* attaching installers, so
+  `published` would fire while the release is still empty.
+- **Weekly** (Mondays 07:00 UTC) — re-checks the whole release history and uploads only what
+  is missing, so a failed or skipped run repairs itself instead of leaving a silent gap.
+- **`workflow_dispatch`** — for backfilling a tag or the full history, with `dry run` and
+  `force` options.
+
+Uploads are idempotent: an asset already in Nexus at the right size is skipped, so re-running
+is cheap. Every upload is verified against the SHA-256 GitHub records for the asset and the
+size and SHA-1 Nexus reports back; a mismatch fails the run rather than logging a warning.
+
+The same logic runs by hand for a backfill or a spot check — see `make backup-releases`:
+
+```
+make backup-releases TAG=v3.0b0
+make backup-releases ALL=1 DRY_RUN=1     # report what is missing, upload nothing
+```
+
+Credentials come from `NEXUS_USERNAME` / `NEXUS_PASSWORD` in `Secret.mk` or the environment.
+Configuring the Nexus side is covered in [The Nexus release archive](#the-nexus-release-archive).
+
 ### Pre-release flag
 
 The web `…/releases/latest` and the API `latest` endpoint both **exclude** releases
@@ -253,17 +297,138 @@ release time, so what ships is exactly what you tested.
 9. **Go live** — once every asset is present with its canonical name, uncheck **"Set as a
    pre-release"** (and keep "Set as the latest release" on) so `latest` resolves to it.
 
-10. **Update the plugin API documentation** in
+10. **Confirm the Nexus backup** — clearing the pre-release flag triggers **Back up release
+    assets to Nexus**. Check that the run succeeded and that every asset shows as `uploaded`
+    in its job summary. If it did not fire, dispatch it manually with the tag. See
+    [Backup to Nexus](#backup-to-nexus).
+
+11. **Update the plugin API documentation** in
     `doc/sphinx-general-wiser-docs/source/extending-wiser/` to reflect any changes to plugin
     interfaces or dependencies in the latest version.
 
-11. **Announce** — if you have permission, email wiser-announcements@lists.lasp.colorado.edu with a summary of
+12. **Announce** — if you have permission, email wiser-announcements@lists.lasp.colorado.edu with a summary of
     the release. If not, reach out to someone who deals with the email you want sent.
 
 > **Note**: This process can only be done by a maintainer with
 > access to all of these resources. This intentionally limits who can
 > do official WISER releases. If the community thinks that an official
 > WISER release should be done, please reach out to the maintainers.
+
+## The Nexus release archive
+
+The archive is a **raw hosted** repository named `wiser-raw` on the LASP Nexus, holding a
+copy of every release asset WISER has published. Raw is the right format because these are
+opaque binaries — `.dmg`, `.exe`, `.tar`, `.zip` — with no package semantics for Nexus to
+interpret; a format like maven or npm would force a coordinate scheme that means nothing here.
+
+This section is for whoever administers the Nexus side. The workflow that fills the archive
+is described in [Backup to Nexus](#backup-to-nexus).
+
+### Two hostnames, and why it matters
+
+The server answers to two names, and CI can only use one of them:
+
+| | reachable from | serves |
+|---|---|---|
+| `artifacts.pdmz.lasp.colorado.edu` | LASP network / VPN only | the web UI and the full REST API |
+| `lasp.colorado.edu/repository/…` | the public internet | repository paths only |
+
+Despite the `pdmz` in its name, the internal host is not in public DNS and resolves to a
+private (RFC1918) address, so a GitHub-hosted runner cannot reach it. Everything automated
+must go through `https://lasp.colorado.edu/repository/wiser-raw/`.
+
+The public proxy exposes `/repository/` but **not** `/service/rest/`, so the Nexus REST API —
+search, component listing, repository administration — is unavailable from CI. This is why
+the backup tooling uses only `PUT`, `GET`, and `HEAD` against the raw repository. Anything
+you write against this archive should assume the same constraint.
+
+### Creating the repository
+
+In the Nexus UI (**⚙ → Repository → Repositories → Create repository → raw (hosted)**):
+
+- **Name**: `wiser-raw`
+- **Blob store**: the default, or a dedicated store if you want the archive's usage
+  reported separately. Budget roughly **12 GiB** for the existing history and about
+  **4 GiB per future release**.
+- **Deployment policy**: `Allow redeploy`. The workflow refreshes `manifest.json` and
+  `SHA256SUMS` on every run, which `Disable redeploy` would reject. Immutability comes from
+  the CI account having no delete privilege (below) plus the workflow skipping assets that
+  are already present, rather than from the deployment policy.
+- **Cleanup policies**: **none.** Cleanup policies delete components by age or by last-download
+  date, which is precisely wrong for an archive whose purpose is to retain old releases that
+  nobody downloads. Attaching one silently defeats the backup.
+
+### The CI account
+
+Create a dedicated local user (**Security → Users → Create local user**), for example
+`wiser-ci`, and a role (**Security → Roles**) granting exactly these privileges:
+
+```
+nx-repository-view-raw-wiser-raw-add
+nx-repository-view-raw-wiser-raw-browse
+nx-repository-view-raw-wiser-raw-edit
+nx-repository-view-raw-wiser-raw-read
+```
+
+Note what is absent: **no `-delete`**. CI can add and update, never remove. A leaked CI
+credential then cannot destroy the archive, which is the failure mode that matters most for
+a backup.
+
+This Nexus is licensed as Pro, so prefer a **user token** over the account password. Enable
+**Security → Realms → User Token Realm**, sign in as the service account, and generate its
+token under the account menu. The token's name and passcode are used exactly like a username
+and password in HTTP Basic auth. If your Nexus expires user tokens, put a reminder on the
+calendar — an expired token surfaces as a `401` in the weekly backup run.
+
+### GitHub configuration
+
+In **Settings → Secrets and variables → Actions** on the WISER repository:
+
+| kind | name | value |
+|---|---|---|
+| secret | `NEXUS_USERNAME` | the user-token name code (or the account username) |
+| secret | `NEXUS_PASSWORD` | the user-token passcode (or the account password) |
+| variable *(optional)* | `NEXUS_RAW_URL` | overrides the repository URL if it ever moves |
+
+Secrets are not exposed to workflows triggered by pull requests from forks, and this
+workflow has no `pull_request` trigger, so a fork cannot reach these credentials.
+
+### Verifying the setup
+
+A read needs no credentials; a write does. From anywhere on the internet:
+
+```bash
+# read back a file the backup wrote
+curl -I https://lasp.colorado.edu/repository/wiser-raw/releases/v3.0b0/SHA256SUMS
+
+# confirm the CI account can write
+printf 'ok\n' | curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" --upload-file - \
+  https://lasp.colorado.edu/repository/wiser-raw/.probe/hello.txt
+```
+
+An unauthenticated `PUT` returns `401` with a `WWW-Authenticate: BASIC` challenge — that is
+the expected response, and confirms the proxy forwards writes rather than blocking them.
+
+Decide deliberately whether anonymous **read** stays enabled. The assets are already public
+on GitHub, so anonymous read costs nothing and keeps restores simple. Disabling it means
+every restore, and every dry run of the backup tool, needs credentials.
+
+### Restoring from the archive
+
+Each tag directory is self-describing, so a restore needs no tooling beyond `curl`:
+
+```bash
+tag=v3.0b0
+base=https://lasp.colorado.edu/repository/wiser-raw/releases/$tag
+
+curl -sO "$base/SHA256SUMS"
+curl -s "$base/manifest.json" | python3 -m json.tool   # commit sha, dates, sizes
+awk '{print $2}' SHA256SUMS | while read -r name; do curl -sO "$base/$name"; done
+sha256sum -c SHA256SUMS
+```
+
+`manifest.json` records the commit each release was built from, so an archived binary can
+always be traced back to its source revision.
 
 ## GitHub Actions Environment Setup
 

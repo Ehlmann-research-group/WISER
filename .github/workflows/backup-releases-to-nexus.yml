@@ -1,0 +1,119 @@
+# Mirrors each release's assets into the LASP Nexus raw repository, so the installers
+# survive loss of the GitHub repository. The GitHub release page stays the place users
+# download from; Nexus is the archive of record behind it.
+#
+# The trigger is `released`, not `published`, on purpose: the release process publishes a
+# release as a pre-release first and attaches the installers afterwards, so `published`
+# would fire while the release is still empty. `released` fires when the pre-release flag
+# is cleared, by which point every asset is attached.
+#
+# The weekly run reconciles the whole history — it re-checks every release and uploads only
+# what is missing, so a failed or skipped release-time run repairs itself rather than
+# leaving a silent gap.
+#
+# Only the /repository/ path of the Nexus host is published outside the LASP network
+# (the internal name is not in public DNS), which is why the script uses plain PUT/GET/HEAD
+# against the raw repository and not the Nexus REST API.
+name: Back up release assets to Nexus
+
+on:
+  release:
+    types: [released]
+  schedule:
+    - cron: "0 7 * * 1"      # Mondays 07:00 UTC — reconcile the full release history
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to back up (ignored when 'all' is checked)"
+        required: false
+      all:
+        description: "Back up every non-draft release"
+        type: boolean
+        default: false
+      force:
+        description: "Re-upload objects already present in Nexus"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Report what would transfer without uploading"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Uploads are idempotent, but overlapping runs would duplicate ~12 GiB of transfer.
+  group: backup-releases-to-nexus
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Back up release assets to Nexus
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+          NEXUS_URL: ${{ vars.NEXUS_RAW_URL }}
+          EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_ALL: ${{ inputs.all }}
+          INPUT_FORCE: ${{ inputs.force }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NEXUS_USERNAME}" ] || [ -z "${NEXUS_PASSWORD}" ]; then
+            echo "::error::NEXUS_USERNAME / NEXUS_PASSWORD secrets are not configured."
+            exit 1
+          fi
+
+          args=()
+          case "${EVENT}" in
+            release)
+              args+=(--tag "${RELEASE_TAG}")
+              ;;
+            schedule)
+              args+=(--all)
+              ;;
+            workflow_dispatch)
+              if [ "${INPUT_ALL}" = "true" ]; then
+                args+=(--all)
+              elif [ -n "${INPUT_TAG}" ]; then
+                args+=(--tag "${INPUT_TAG}")
+              else
+                echo "::error::Provide a tag, or check 'all'."
+                exit 1
+              fi
+              if [ "${INPUT_FORCE}" = "true" ]; then
+                args+=(--force)
+              fi
+              if [ "${INPUT_DRY_RUN}" = "true" ]; then
+                args+=(--dry-run)
+              fi
+              ;;
+            *)
+              echo "::error::Unsupported event '${EVENT}'."
+              exit 1
+              ;;
+          esac
+
+          # Validate the tag shape so a typo fails fast (it is passed via env, so it cannot
+          # inject shell in any case).
+          for i in "${!args[@]}"; do
+            if [ "${args[$i]}" = "--tag" ]; then
+              tag="${args[$((i + 1))]}"
+              if ! [[ "${tag}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+                echo "::error::tag '${tag}' has unexpected characters."
+                exit 1
+              fi
+            fi
+          done
+
+          python3 src/devtools/backup_releases_to_nexus.py "${args[@]}"
