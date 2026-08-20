@@ -7,7 +7,7 @@ from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
 
 from .decorators import log_exceptions
 
-from .utils import load_ui_file
+from .utils import load_ui_file, make_scrollable
 
 __all__ = [
     "ToolsMenuPlugin",
@@ -16,4 +16,5 @@ __all__ = [
     "ContextMenuType",
     "log_exceptions",
     "load_ui_file",
+    "make_scrollable",
 ]

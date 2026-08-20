@@ -1,7 +1,7 @@
+import logging
 import math
 import os
 import sys
-import traceback
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -14,6 +14,8 @@ from astropy import units as u
 from .generated.import_spectra_text_ui import Ui_ImportSpectraTextDialog
 
 from wiser.raster import spectra_export
+
+logger = logging.getLogger(__name__)
 
 
 def avg_occurrences_per_line(lines, ch):
@@ -193,7 +195,10 @@ class ImportSpectraTextDialog(QDialog):
             self._spectra = spectra
 
         except Exception as e:
-            traceback.print_exc()
+            # The failure is shown in the results pane; parse errors while the
+            # user is dialing in the configuration are expected, so keep the
+            # console quiet and record the traceback at debug level only.
+            logger.debug("Could not parse text into spectra", exc_info=True)
 
             msg = self.tr(
                 '<p style="color:red">ERROR:  Could not parse text into spectra.</p><p>Reason:  {0}</p>'

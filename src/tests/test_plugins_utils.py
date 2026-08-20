@@ -55,3 +55,21 @@ class TestPluginsUtils(unittest.TestCase):
         """The BandMathPlugin type should be reported as a plugin."""
         p = plugins.BandMathPlugin()
         self.assertTrue(utils.is_plugin(p))
+
+    # ======================================================
+    # plugins.utils.make_scrollable()
+
+    def test_make_scrollable_wraps_widget(self):
+        """make_scrollable() returns a resizable QScrollArea holding the
+        widget, so an oversized plugin panel scrolls instead of being cut
+        off."""
+        from PySide6.QtWidgets import QApplication, QLabel, QScrollArea
+
+        _ = QApplication.instance() or QApplication([])
+        content = QLabel("plugin panel")
+
+        area = plugins.make_scrollable(content)
+
+        self.assertIsInstance(area, QScrollArea)
+        self.assertIs(area.widget(), content)
+        self.assertTrue(area.widgetResizable())

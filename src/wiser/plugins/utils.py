@@ -7,7 +7,7 @@ from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
 
 from PySide6.QtCore import QFile
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QScrollArea, QWidget
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,26 @@ def instantiate(fully_qualified_class_name: str) -> Plugin:
     module_obj = importlib.import_module(module_name)
     class_obj = getattr(module_obj, class_name)
     return class_obj()
+
+
+def make_scrollable(widget: QWidget, parent: Optional[QWidget] = None) -> QScrollArea:
+    """
+    Wraps the given widget in a QScrollArea so that a plugin panel taller or
+    wider than the available window space scrolls instead of being cut off.
+    Scrollbars only appear when the content doesn't fit.
+
+    Typical use, from a plugin building its GUI:
+
+        content = load_ui_file(path)          # or any hand-built QWidget
+        scrollable = make_scrollable(content)
+        layout.addWidget(scrollable)          # or show it as the window itself
+
+    Returns the QScrollArea containing ``widget``.
+    """
+    area = QScrollArea(parent)
+    area.setWidget(widget)
+    area.setWidgetResizable(True)
+    return area
 
 
 def load_ui_file(ui_file_path: str, parent: Optional[QWidget] = None) -> QWidget:

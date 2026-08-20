@@ -243,7 +243,7 @@ class ImportedSpectrumData:
 
         # Try to match the "all-bands name" pattern that WISER outputs.  This is
         # likely not present in other sources of spectral data.
-        m = re.fullmatch("Wavelength \(([^)]*)\)", self.allbands_name)
+        m = re.fullmatch(r"Wavelength \(([^)]*)\)", self.allbands_name)
         if m:
             return m.group(1).strip()
 
@@ -496,10 +496,23 @@ def import_spectra_text(
 
         # Every row must match the real column count.  A row with fewer columns,
         # or with actual (non-blank) data beyond the expected columns, is a
-        # genuine mismatch and is rejected.
-        if len(line_parts) != num_cols:
+        # genuine mismatch and is rejected.  For the too-many case, name the
+        # stray value and its column:  the raw file may end every row in a run
+        # of delimiters, so a post-stripping column count alone would not match
+        # what the user sees in their file.
+        if len(line_parts) > num_cols:
+            stray = next(i for i in range(num_cols, len(line_parts)) if line_parts[i].strip() != "")
             raise ValueError(
-                f"Line {line_no} has {len(line_parts)} columns, "
+                f"Line {line_no} has a value ({line_parts[stray].strip()!r}) in "
+                + f"column {stray + 1}, but the first line establishes only "
+                + f"{num_cols} real columns.  Empty trailing columns (extra "
+                + "delimiters from a spreadsheet export) are ignored, but a "
+                + "column holding a value is never discarded."
+            )
+
+        if len(line_parts) < num_cols:
+            raise ValueError(
+                f"Line {line_no} has only {len(line_parts)} columns, "
                 + f"but the first line has {num_cols} columns."
             )
 
