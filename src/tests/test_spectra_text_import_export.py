@@ -171,6 +171,74 @@ class TestTrailingDelimiterImport(unittest.TestCase):
         np.testing.assert_allclose(spectra[1].get_spectrum(), [2, 5, 8])
         np.testing.assert_allclose(spectra[2].get_spectrum(), [3, 6])
 
+    def test_comma_delimited_trailing_padding_is_stripped(self):
+        """The comma-delimited flavor of the Excel export (the exact example
+        from issue #725): every row carries a long run of trailing commas that
+        must not become phantom spectra."""
+        trailing = "," * 19
+        lines = [
+            "Wavelength_um,ARKSAW_18_G,ARKSAW_15_TS,ARKSAW_17_M" + trailing + "\n",
+            "0.3466,26.5672,19.726,27.2727" + trailing + "\n",
+            "0.3482,26.9417,19.3805,27.3134" + trailing + "\n",
+            "0.3498,26.8571,19.6957,27.2464" + trailing + "\n",
+            "0.3514,26.682,19.7034,27.0283" + trailing + "\n",
+            "0.353,27.1622,19.7531,27.6606" + trailing + "\n",
+        ]
+
+        spectra = import_spectra_text(
+            lines,
+            delim=",",
+            has_header=True,
+            wavelength_cols=WavelengthCols.FIRST_COL,
+        )
+
+        self.assertEqual(
+            [s.get_name() for s in spectra],
+            ["ARKSAW_18_G", "ARKSAW_15_TS", "ARKSAW_17_M"],
+        )
+        self.assertTrue(all(s.num_bands() == 5 for s in spectra))
+        np.testing.assert_allclose(spectra[0].get_spectrum(), [26.5672, 26.9417, 26.8571, 26.682, 27.1622])
+
+    def test_stray_value_in_padding_region_is_an_error(self):
+        """A value sitting in the padding region (beyond the real columns) is
+        not padding -- the row genuinely has more columns than the header, and
+        the import must reject it rather than silently dropping the value.
+        The error names the stray value and its column, since post-stripping
+        column counts would not match what the user sees in their file."""
+        lines = [
+            "Wavelength_um,ARKSAW_18_G,ARKSAW_15_TS,ARKSAW_17_M,,,\n",
+            "0.3466,26.5672,19.726,27.2727,,,\n",
+            "0.3482,26.9417,19.3805,27.3134,,3.14,\n",
+        ]
+
+        with self.assertRaisesRegex(ValueError, r"'3\.14'.*column 6"):
+            import_spectra_text(
+                lines,
+                delim=",",
+                has_header=True,
+                wavelength_cols=WavelengthCols.FIRST_COL,
+            )
+
+    def test_header_only_column_is_kept_as_empty_spectrum(self):
+        """A column that has a header name but no values is a real (if empty)
+        spectrum, not padding: the name is within the real column count, so the
+        spectrum is kept with zero bands."""
+        lines = [
+            "Wavelength_um,ARKSAW_18_G,EMPTY_SAMPLE,,\n",
+            "0.3466,26.5672,,,\n",
+            "0.3482,26.9417,,,\n",
+        ]
+
+        spectra = import_spectra_text(
+            lines,
+            delim=",",
+            has_header=True,
+            wavelength_cols=WavelengthCols.FIRST_COL,
+        )
+
+        self.assertEqual([s.get_name() for s in spectra], ["ARKSAW_18_G", "EMPTY_SAMPLE"])
+        self.assertEqual([s.num_bands() for s in spectra], [2, 0])
+
 
 class TestExportImportRoundTrip(unittest.TestCase):
     """Bug 3: spectra exported by WISER should be re-importable."""

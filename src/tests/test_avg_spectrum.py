@@ -11,6 +11,7 @@ This module verifies:
 Tests include GUI-based and non-GUI validation for datasets represented as
 NumPy arrays and ENVI files on disk.
 """
+
 import unittest
 from pathlib import Path
 
@@ -226,6 +227,16 @@ class TestRoiAvgSpectrum(unittest.TestCase):
                 wiser_ui.close()
             app.quit()
             del app
+
+    def test_roi_avg_spectrum_defaults_to_roi_color(self):
+        """The extracted spectrum's plot color follows its ROI's color, so the
+        spectrum is visually tied to the region it came from (#731 / #99)."""
+        (dataset,) = RasterDataLoader().load_from_file(str(_JPL_HDR), interactive=False)
+        roi = RegionOfInterest(name="rocks", color="#12ab34")
+
+        spectrum = ROIAverageSpectrum(dataset, roi)
+
+        self.assertEqual(spectrum.get_color(), "#12ab34")
 
     def test_raster_to_combined_rectangles1(self):
         raster1 = np.array(

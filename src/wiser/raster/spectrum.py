@@ -720,6 +720,11 @@ class ROIAverageSpectrum(RasterDataSetSpectrum):
         self._roi: RegionOfInterest = roi
         self.set_avg_mode(avg_mode)
 
+        # Default the plot color to the ROI's color so the spectrum is
+        # visually tied to its region; callers may still override it.
+        if roi.get_color() is not None:
+            self.set_color(roi.get_color())
+
     def get_roi(self) -> RegionOfInterest:
         return self._roi
 
