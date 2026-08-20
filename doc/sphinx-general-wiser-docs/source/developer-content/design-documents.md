@@ -149,8 +149,16 @@ asset's cumulative download count to the `stats` branch, giving per-platform and
 trends over time. Prefer strengthening that over instrumenting the application.
 
 **Not to be confused with crash reporting.** WISER does support opt-in crash reporting
-(`src/wiser/gui/bug_reporting.py`), which is off by default, asked for explicitly on first run,
-and changeable under **Preferences → General → Online bug reporting**. A crash report describes
-a failure — the exception, the call sequence, the WISER version, the platform — and carries no
-imagery, spectra, ROIs, or file contents. That is a defect-diagnosis channel, deliberately
-narrow, and it is not a route to add usage analytics.
+(`src/wiser/gui/bug_reporting.py`). It is off by default — `general.online_bug_reporting`
+defaults to `False` — and is asked for explicitly on first run by the *Online Bug Reporting*
+dialog. It is changed afterwards in the **WISER Configuration** dialog, reached from
+*Preferences…* in the WISER application menu on macOS or *File → Settings…* on Windows, under
+**General → Error Reporting**, via the checkbox *Send WISER exceptions and crashes to BugSnag*.
+
+A crash report describes a failure — the exception, the call sequence, the WISER version, the
+platform — and carries no imagery, spectra, ROIs, or file contents. It is a defect-diagnosis
+channel, deliberately narrow, and it is not a route to add usage analytics.
+
+Naming the current provider above documents the interface as it ships; it is not a commitment to
+that provider. Whether WISER should keep sending crash reports to a third-party service at all
+is an open question, tracked in issue #775.
