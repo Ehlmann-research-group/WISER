@@ -11,6 +11,26 @@ by Apple.  This is a daunting hurdle to overcome, but it is surmountable.
 This document describes how to code-sign and notarize an application for
 MacOSX, using the WISER application as an example.
 
+## The full sequence
+
+Three separate operations are needed, in this order, and all three are required before a
+downloaded WISER opens without a Gatekeeper prompt:
+
+1.  **Code-sign** the `.app` with the Developer ID Application certificate (`codesign`).
+2.  **Notarize** it — upload to Apple's malware scan, which returns a ticket
+    (`xcrun notarytool`).
+3.  **Staple** the ticket to the artifact so Gatekeeper can validate it *offline*
+    (`xcrun stapler`).
+
+The `.app` must be stapled **before** the DMG is built, because an app sitting on a
+read-only disk image cannot be stapled afterwards. The DMG is then signed, notarized and
+stapled in turn. `src/devtools/sign_mac.py` performs the whole sequence:
+
+    sign .app -> notarize -> staple .app -> build DMG -> sign DMG -> notarize -> staple DMG -> verify
+
+The rest of this document explains each operation. To actually run it, use the GitHub
+Action (below) or `make sign-mac`; the sections after that cover what those do.
+
 ## Code-signing by Identified Developers
 
 In order to code-sign an application, one must have an Identified Developer
@@ -154,6 +174,58 @@ Here are descriptions of the relevant arguments `codesign`:
     In particular, see the bug-report linked from the `entitlements.plist`
     file above.
 
+
+## Signing in GitHub Actions
+
+Releases are signed by the **Sign macOS release assets** workflow
+(`.github/workflows/sign-macos.yml`) rather than from a laptop.  Dispatch it with the run
+ID of a completed "Build and Smoke Test WISER" run, and optionally a release tag:
+
+- `run_id` — the build run whose macOS artifact should be signed.
+- `arch` — `both` (default), `arm64`, or `x64`.
+- `release_tag` — when set, the signed DMG is attached to that release.  Leave it empty to
+  produce a workflow artifact only.
+
+The workflow refuses to sign a run that did not conclude successfully, and — when a tag is
+given — refuses when the tag does not point at the commit that was built.  It checks the
+repository out at the build commit, so `version.py` names the DMG for the artifact being
+signed rather than for whatever `main` has since moved on to.
+
+It runs the same `src/devtools/sign_mac.py` as `make sign-mac`, so the local and CI paths
+cannot drift.
+
+### Required configuration
+
+The signing job runs in a **`release` environment**.  Configure that environment with a
+required reviewer: the certificate is unreachable until a maintainer approves the
+deployment, which is what keeps a private key in GitHub acceptable.
+
+Environment secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `MACOS_CERT_P12_BASE64` | Developer ID Application certificate + key, as base64 of a `.p12` |
+| `MACOS_CERT_PASSWORD` | Password protecting that `.p12` |
+| `NOTARY_KEY_P8_BASE64` | App Store Connect API key, as base64 of the `.p8` (preferred) |
+| `NOTARY_KEY_ID` | Key ID for that API key |
+| `NOTARY_ISSUER_ID` | Issuer ID; omit for an individual (non-team) key |
+| `AD_USERNAME`, `AD_TEAM_ID`, `AD_PASSWORD` | Apple ID fallback, used when no API key is set |
+
+Export the `.p12` from Keychain Access (right-click the certificate, Export), then:
+
+```
+base64 -i Certificates.p12 | pbcopy
+```
+
+The signing identity is **not** configured anywhere: the job reads it back out of the
+keychain it imports, and fails if that keychain does not contain exactly one code-signing
+identity.  A re-issued certificate therefore needs no workflow change.
+
+An App Store Connect API key is preferred over the Apple ID credentials because it is
+scoped to the team rather than to one person's login and 2FA, and can be revoked on its
+own.  The workflow uses the API key when `NOTARY_KEY_P8_BASE64` is set and falls back to
+the Apple ID otherwise.
+
 ## Building a Disk Image (.dmg) File
 
 It is of value to build a distributable `.dmg` file from the application,
@@ -274,22 +346,42 @@ xcrun notarytool log <request-id>
  --apple-id=<secret> --team-id=<secret> --password=<secret>
 ```
 
-## Final Steps??
+## Stapling the Ticket
 
-Guess what?  If you you got to this point, you're done!
+Notarization records the result on Apple's servers; it does not change the file you
+uploaded.  Left there, Gatekeeper has to contact Apple over the network the first time a
+user launches the app.  That fails for a user who is offline or behind a captive portal,
+which is a realistic situation for the classroom and field machines WISER runs on.
 
-You might expect that the notarized version of the app needs to be downloaded
-from somewhere, but it actually doesn't work that way.  When you notarize
-a macOS application for distribution, Apple simply records key details about
-the code-signed app and its packaging, and it scans the app's binaries for
-known malware.
+`stapler` attaches the notarization ticket to the artifact itself, so Gatekeeper can
+validate it with no network at all:
 
-Later, when users try to run your application, the Gatekeeper subsystem on
-their computer will talk to the Apple servers, to check this information
-recorded during notarization.
+```
+xcrun stapler staple dist/WISER.app
+xcrun stapler validate dist/WISER.app
+```
 
-Thus, you are now ready to distribute your code-signed `.dmg` file to your
-users!
+Staple the `.app` **before** building the DMG.  Once the app is inside a read-only disk
+image it can no longer be modified, so an app stapled only at the DMG level ships without
+a ticket of its own and phones home on first launch.  Staple the DMG too, after its own
+notarization, so the disk image validates offline as well.
+
+## Verifying the Result
+
+```
+codesign --verify --strict --deep --verbose=2 dist/WISER.app
+xcrun stapler validate dist/WISER.app
+xcrun stapler validate dist/WISER-<version>-macos-<arch>.dmg
+spctl --assess --type exec --verbose=4 dist/WISER.app
+```
+
+The `spctl` assessment is the one that reflects what an end user actually sees; it should
+report `source=Notarized Developer ID`.  **It is only meaningful when Gatekeeper
+assessments are enabled** — on a machine where `spctl --status` says `assessments
+disabled`, `spctl` reports "accepted" for anything, including an unsigned binary.  Check
+`spctl --status` first, and re-enable with `sudo spctl --master-enable` when testing.
+`sign_mac.py` makes this an error rather than a false pass when run with
+`--require-gatekeeper` (as CI does).
 
 ### Testing
 
