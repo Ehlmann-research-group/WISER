@@ -226,6 +226,13 @@ scoped to the team rather than to one person's login and 2FA, and can be revoked
 own.  The workflow uses the API key when `NOTARY_KEY_P8_BASE64` is set and falls back to
 the Apple ID otherwise.
 
+It also keeps the credential out of process arguments.  `notarytool` accepts an
+app-specific password only as `--password`, or through a keychain profile that
+`store-credentials` populates the same way, so on the Apple ID path the password is
+visible in `ps` for the duration of the submission.  An API key is passed as a *file
+path*, and the Key ID and Issuer ID are identifiers rather than secrets, so nothing
+sensitive appears in the command line.
+
 ## Building a Disk Image (.dmg) File
 
 It is of value to build a distributable `.dmg` file from the application,

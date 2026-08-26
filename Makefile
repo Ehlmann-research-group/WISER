@@ -56,13 +56,15 @@ build-mac : generated
 
 # Sign, notarize, staple, and package the locally built app. The same script runs in CI
 # (.github/workflows/sign-macos.yml), so both paths produce identical artifacts.
-# AD_CODESIGN_KEY_NAME lives in Secret.sh, which is sourced into the environment here.
+# Both secret files are sourced into the environment rather than expanded into the recipe;
+# sign_mac.py reads the credentials from there, so none of them reach process arguments.
 dist-mac : build-mac
-	@set -a; . ./Secret.sh; set +a; \
+	@set -a; \
+	[ -f ./Secret.sh ] && . ./Secret.sh; \
+	[ -f ./Secret.mk ] && . ./Secret.mk; \
+	set +a; \
 	python src/devtools/sign_mac.py --app-path dist/$(APP_NAME).app \
-		--app-name "$(APP_NAME)" --app-version "$(APP_VERSION)" --arch "$(MAC_ARCH)" \
-		--apple-id "$(AD_USERNAME)" --team-id "$(AD_TEAM_ID)" \
-		--app-password "$(AD_PASSWORD)" --notarize
+		--app-name "$(APP_NAME)" --app-version "$(APP_VERSION)" --arch "$(MAC_ARCH)" --notarize
 
 build-win : generated
 	@set WISER_ENV=prod && pyinstaller WISER.spec
@@ -113,10 +115,12 @@ sign-mac:
 	@echo "Apple ID: $(AD_USERNAME)"
 	@echo "Team ID: $(AD_TEAM_ID)"
 	@echo "App Name: $(APP_NAME)"
-	@set -a; . ./Secret.sh; set +a; \
+	@set -a; \
+	[ -f ./Secret.sh ] && . ./Secret.sh; \
+	[ -f ./Secret.mk ] && . ./Secret.mk; \
+	set +a; \
 	python src/devtools/sign_mac.py --link "$(LINK)" --app-version "$(APP_VERSION)" \
-			--apple-id "$(AD_USERNAME)" --team-id "$(AD_TEAM_ID)" \
-			--app-password "$(AD_PASSWORD)" --app-name "$(APP_NAME)" \
+			--app-name "$(APP_NAME)" \
 			--artifact-name "$(MAC_DIST_GITHUB_NAME)" --notarize \
 			$(if $(RELEASE_TAG),--release-tag "$(RELEASE_TAG)",)
 
