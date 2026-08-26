@@ -91,6 +91,7 @@ def acquire_from_run(link: str, root: Path, dist_name: str, artifact_name: str, 
     """Download the build artifact for a run and unpack the app bundle from it."""
     ensure_tool("gh", "Install: https://cli.github.com/")
     ensure_tool("tar")
+    ensure_tool("shasum")
 
     dist_dir = root / dist_name
     if dist_dir.exists():
@@ -310,6 +311,10 @@ def main():
 
     ensure_tool("hdiutil")
     ensure_tool("xcrun")
+    ensure_tool("codesign")
+    if args.notarize:
+        ensure_tool("ditto")
+        ensure_tool("spctl")
 
     root = Path(args.root).resolve()
 
