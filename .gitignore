@@ -19,9 +19,25 @@ Install-WISER-*.exe
 Secret.mk
 Secret.sh
 
+# Code-signing keys and certs — private key material, DO NOT CHECK IN!
+*.p12
+*.pfx
+*.p8
+*.key
+*.certSigningRequest
+
 .vscode/
+.idea/
 
 .claude/
+
+# Sphinx build output and autodoc2-generated API pages
+doc/sphinx-general-wiser-docs/build/
+doc/sphinx-general-wiser-docs/source/apidocs/
+
+# Tutorial scenes that are downloaded rather than committed (see the tutorials'
+# "Get the data" steps) — the AVIRIS-NG Caltech subset alone is ~550 MB.
+src/test_utils/test_datasets/ang20171108t184227*
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*

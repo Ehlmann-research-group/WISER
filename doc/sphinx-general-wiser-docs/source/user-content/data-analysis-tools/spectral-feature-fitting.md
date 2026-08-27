@@ -36,6 +36,13 @@ reference spectrum:
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t7_sff_dialog.png
+:width: 75%
+:align: center
+:alt: The Spectral Feature Fitting dialog
+:::
+
+
 Inputs work the same way as [Spectral Angle Mapper](spectral-angle-mapper.md):
 
 1. **Target** — choose **Image Cube** (or **Spectrum**) and select the dataset
@@ -49,3 +56,7 @@ Inputs work the same way as [Spectral Angle Mapper](spectral-angle-mapper.md):
    threshold but individually overridable.
 4. Click **Run SFF**. Image-cube runs proceed in the background; spectrum runs
    open a ranked details table with a comparison plot.
+
+## See also
+
+- {doc}`Tutorial 7 — Finding a Known Material <../../tutorials/07-detection>`

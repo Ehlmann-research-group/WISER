@@ -1,48 +1,103 @@
 User Manual
 ===========
 
-This manual covers the WISER graphical interface: how to load and display
-data, explore spectra, work with Regions of Interest (ROIs), run analysis
-tools, and manage spatial reference systems.
+The reference for WISER's interface: every pane, dialog and option, and what
+each one is for.
 
-Start with **Interface Overview** to orient yourself, then work through
-**Working with Data** for the core data exploration workflow.
+If you are new to WISER, start with the :doc:`Tutorials <../tutorials/index>`
+instead — they walk through the same tools in the order you would actually use
+them, on data that ships with the source. Come back here for the detail on a
+particular control.
 
-Tutorial Exercises
-------------------
+Getting around
+--------------
 
-The following step-by-step tutorials are a great way to get
-up and running quickly:
+.. list-table::
+   :header-rows: 1
+   :widths: 32 68
 
-- `Beginner Tutorial <https://docs.google.com/document/d/1zpt8SN0JPNjl6a4J7YPVryXnP7G3RwBrQygbRDBNB_k/edit?tab=t.0#heading=h.pocxgs69lvz8>`_ —
-  A guided walkthrough of loading data and exploring WISER's core features.
-- `Advanced Tutorial <https://docs.google.com/document/d/1UITFb5CtNxJWagINsDQE0fsk5CLoFAM-XXjO-qbucAU/edit?tab=t.0#heading=h.mevnsaseyohz>`_ —
-  Covers plugins, spectral analysis workflows, and advanced tooling.
+   * - Page
+     - Covers
+   * - :doc:`Interface Overview <interface-overview>`
+     - The main window, the panes, the toolbars, the status bar, the Activity
+       Monitor, and WISER's preferences
+   * - :doc:`Opening Data Files <opening-data-files>`
+     - Supported formats, multi-file datasets, sub-datasets, and what to do
+       when a file will not open
+   * - :doc:`Display and Contrast Stretch <display-and-stretch>`
+     - Band selection, colormaps, grid view and linking, and every contrast
+       stretch and conditioner
+   * - :doc:`Spectra and Spectral Libraries <spectra-and-libraries>`
+     - The spectrum plot, collecting and averaging spectra, importing
+       libraries, continuum removal
+   * - :doc:`Regions of Interest <regions-of-interest>`
+     - Defining regions, extracting class signatures, masks, exporting
+       geometry and pixel spectra
+   * - :doc:`Band Math <band-math>`
+     - The expression language, variable binding, saved expressions, batch
+       processing
+   * - :doc:`Filters and Smoothing <filters>`
+     - Savitzky--Golay, mean, median and Gaussian filters
+   * - :doc:`Data Analysis Tools <data-analysis-tools/data-analysis-tools>`
+     - PCA, MNF, K-means, SAM, SFF, MTMF, linear unmixing, continuum removal,
+       interactive scatter plot
+   * - :doc:`Spatial Tools <spatial-tools>`
+     - Georeferencing, coordinate reference systems, the Reference System
+       Creator, similarity transforms
+   * - :doc:`Mosaic <mosaic>`
+     - Combining overlapping georeferenced scenes and exporting the result
+   * - :doc:`Saving and Exporting <saving-and-exporting>`
+     - Which "save" does what: datasets, images, spectra, ROIs
+   * - :doc:`Saving and Opening Projects <projects>`
+     - Saving a whole session to a ``.wiserproj``, choosing what it holds,
+       sharing it
 
-What's in This Manual
----------------------
+Common tasks
+------------
 
-- :doc:`Interface Overview <interface-overview>` — tour of the main window,
-  toolbars, spectral plot, and display controls
-- :doc:`Working with Data <working-with-data>` — loading files, navigating
-  bands, ROIs, analysis tools, and exporting results
-- :doc:`Data Analysis Tools <data-analysis-tools/data-analysis-tools>` —
-  transforming, classifying, detecting, unmixing, and visualizing imagery
-- :doc:`Spatial Tools <spatial-tools>` — georeferencing and coordinate system
-  management
-- :doc:`Mosaic <mosaic>` — combining overlapping georeferenced scenes into a
-  single image and exporting the result
-- :doc:`Saving and Opening Projects <projects>` — saving a whole session to a
-  ``.wiserproj`` file, choosing what it holds, and sharing it
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
+
+   * - I want to...
+     - Go to
+   * - Open a file that will not load
+     - :doc:`Opening Data Files <opening-data-files>`
+   * - Make a dark image readable
+     - :doc:`Display and Contrast Stretch <display-and-stretch>`
+   * - Fix a computed index that displays as one flat colour
+     - :doc:`Display and Contrast Stretch <display-and-stretch>`
+   * - Get numbers out of a region
+     - :doc:`Regions of Interest <regions-of-interest>`
+   * - Compute an index such as NDVI
+     - :doc:`Band Math <band-math>`
+   * - Find out what a mineral is
+     - :doc:`Spectral Angle Mapper <data-analysis-tools/spectral-angle-mapper>`
+   * - Reduce a 400-band cube to something manageable
+     - :doc:`PCA <data-analysis-tools/pca>` or :doc:`MNF <data-analysis-tools/mnf>`
+   * - Classify a scene without training data
+     - :doc:`K-Means <data-analysis-tools/kmeans>`
+   * - Smooth a noisy spectrum without wrecking its bands
+     - :doc:`Filters and Smoothing <filters>`
+   * - Stitch flight lines together
+     - :doc:`Mosaic <mosaic>`
+   * - Send a colleague my whole session
+     - :doc:`Saving and Opening Projects <projects>`
+   * - Add my own algorithm
+     - :doc:`Extending WISER <../extending-wiser/index>`
 
 .. toctree::
    :hidden:
 
    interface-overview
    opening-data-files
-   working-with-data
+   display-and-stretch
+   spectra-and-libraries
+   regions-of-interest
+   band-math
+   filters
    data-analysis-tools/data-analysis-tools
    spatial-tools
    mosaic
+   saving-and-exporting
    projects
-

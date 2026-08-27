@@ -1,176 +1,166 @@
 WISER Documentation
 ===================
 
-**WISER** (Workbench for Imaging Spectroscopy Exploration and Research) is an
-open-source, cross-platform GUI for visualizing and analyzing hyperspectral
-imagery. Built in Python on Qt/PySide, it runs on **macOS, Windows, and
-Linux** with no commercial license required.
+**WISER** — the Workbench for Imaging Spectroscopy Exploration and Research —
+is an open-source, cross-platform application for visualising and analysing
+hyperspectral imagery. It is written in Python on Qt/PySide, runs on
+**macOS, Windows and Linux**, and needs no commercial licence.
 
-Developed and maintained by the `Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_
-at Caltech & CU Boulder. For any questions, contact wiser_AT_lists.lasp.colorado.edu.
+Developed and maintained by the
+`Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_ at Caltech
+and CU Boulder. Questions: wiser_AT_lists.lasp.colorado.edu.
 
-**Key capabilities:**
+.. rubric:: Start here
 
-- Load, display, and navigate hyperspectral and multispectral raster data
-- Click any pixel to view and collect its spectrum in a live spectral plot
-- Regions of Interest (ROIs) for area-averaged spectra and pixel exports
-- Contrast stretch and color mapping for display control
-- Band math with custom expressions and plugin-defined functions
-- Analysis tools: PCA, Spectral Angle Mapper, Continuum Removal, Scatter Plot, Minimum Noise Fraction, K-means, and more
-- Georeferencing and coordinate system management
-- Extensible plugin system (Tools Menu, Context Menu, Band Math)
+.. list-table::
+   :widths: 30 70
+
+   * - :doc:`Install WISER <installation>`
+     - Download an installer, or run from source
+   * - :doc:`Tutorials <tutorials/index>`
+     - Seven short walkthroughs on data that ships with WISER, then six applied
+       labs on full public datasets
+   * - :doc:`User Manual <user-content/user-manual>`
+     - The reference for every pane, dialog and option
+   * - :doc:`Extend WISER <extending-wiser/index>`
+     - Add tools, context-menu actions and band-math functions as plugins
+   * - :doc:`Developer Guide <developer-content/index>`
+     - Build it, test it, and understand how it works inside
 
 ----
 
-Sample Datasets
+What WISER does
 ---------------
 
-WISER natively opens several hyperspectral and spectral-library formats, and
-can fall back to any format supported by GDAL for additional coverage.
+**Look at data**
 
-**Natively supported formats**
+- Load, display and navigate hyperspectral and multispectral rasters
+- Context, main and zoom panes that stay in step, plus a grid view for
+  comparing datasets side by side
+- Contrast stretches, conditioners, colormaps and a decorrelation stretch
 
-- **ENVI raster** (``*.img``, ``*.hdr``, ``*.dat``, or no extension)
-- **TIFF / GeoTIFF** (``*.tiff``, ``*.tif``, ``*.tfw``)
-- **NetCDF** (``*.nc``)
-- **JPEG 2000** (``*.JP2``)
-- **PDS3 raster** (``*.PDS``, ``*.img``, ``*.lbl``)
-- **PDS4 raster** (``*.xml``)
-- **FITS** (``*.fits``, ``*.fit``, ``*.fts``)
-- **ASCII Grid** (``*.asc``)
-- **ENVI spectral libraries** (``*.sli``, ``*.hdr``)
-- **GDAL-readable formats** --- any format that GDAL can open (e.g. HDF4/5,
-  GRIdded Binary, COG, and more)
+**Read spectra**
 
-**Example datasets to try**
+- Click any pixel for its spectrum; collect, colour, average and export them
+- Import ENVI spectral libraries and ASCII spectra
+- Continuum removal on a spectrum, a collection, or a whole cube
 
-The following publicly available datasets are good starting points for
-exploring WISER:
+**Compute**
 
-- `Sample AVIRIS-NG image of Caltech <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
-  (also download the matching
-  `header file <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`_)
-- `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ --- archive of airborne imaging-spectrometer scenes
-- `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ --- planetary hyperspectral datasets (CRISM, OMEGA, and more)
-- `Ehlmann Lab datasets <https://lasp.colorado.edu/ehlmann-lab/datasets/>`_ --- laboratory and field imaging-spectroscopy data
+- Band math with a full expression language, saved expressions and batch
+  processing over a folder
+- Regions of Interest for class signatures, masks and pixel exports
+- Savitzky–Golay, mean, median and Gaussian filters
 
-----
+**Analyse**
 
-Subscribe to Email Updates
---------------------------
+- **Transforms** — Principal Component Analysis, Minimum Noise Fraction
+- **Classification** — K-means clustering
+- **Detection** — Spectral Angle Mapper, Spectral Feature Fitting,
+  Mixture-Tuned Matched Filter
+- **Unmixing** — Linear Unmixing with per-pixel residuals
+- **Visualisation** — Interactive Scatter Plot linked back to the image
 
-To receive notifications about new WISER releases, send an email to
-``sympa@lists.lasp.colorado.edu`` with the subject line **subscribe wiser-announcements**
-and a blank message.
+**Handle geometry**
 
+- Georeferencing from ground control points, custom coordinate reference
+  systems, similarity transforms
+- Mosaicking overlapping scenes onto one output grid
 
-Installation
-------------
+**Keep and share your work**
 
-Download WISER
-~~~~~~~~~~~~~~
-
-Pre-built installers for macOS, Windows, and Linux are available at:
-`lasp.colorado.edu/ehlmann-lab/wiser/ <https://lasp.colorado.edu/ehlmann-lab/wiser/>`_
-
-Download the installer for your platform and follow the on-screen instructions.
-Users can also download and install WISER from
-`GitHub Releases <https://github.com/Ehlmann-research-group/WISER/releases>`_.
-
-.. note::
-
-   The download location will change in a future release as WISER transitions
-   to CU Boulder. Links on this page will be updated when that happens.
-
-Running from Source
-~~~~~~~~~~~~~~~~~~~
-
-If you want to run WISER from source or contribute to development, see the
-:doc:`Developer Environment Setup <developer-content/environment-setup>` guide.
-
-In brief:
-
-.. code-block:: bash
-
-   cd etc
-   make install-dev-env          # macOS/Linux
-   conda activate wiser-dev
-   cd ../src
-   python -m wiser
-
-Supported Platforms
-~~~~~~~~~~~~~~~~~~~
-
-WISER builds currently target:
-
-- **macOS 15** --- ARM (Apple Silicon) and Intel
-- **Windows 10/11**
-- **Linux** --- Ubuntu 20.04+, Debian 11+, Fedora 39+ (amd64 and aarch64)
-
-System Requirements
-^^^^^^^^^^^^^^^^^^^
-
-The minimum and recommended specifications for running WISER are:
-
-**Operating system**
-
-- **Windows:** Windows 10 or 11 (64-bit)
-- **macOS:** macOS 15 or newer (Intel and Apple Silicon)
-- **Linux:** Ubuntu 20.04+, Debian 11+, or Fedora 39+ (amd64 and aarch64)
-
-**Hardware**
-
-- **CPU architecture:** x86_64 (Intel/AMD) or arm64 (Apple Silicon / aarch64)
-- **Memory:** 8 GB minimum; 16--32 GB recommended for large datasets
-- **Storage:** ~1 GB for installation; SSD strongly recommended
-- **GPU:** Not required
-
-If you encounter issues building or running WISER, please
-`open a GitHub Issue <https://github.com/Ehlmann-research-group/WISER/issues>`_.
+- Projects that save the whole session to a single file, referenced or
+  self-contained
+- A plugin API for adding your own analyses without rebuilding
 
 ----
 
-Where to Go Next
-----------------
+Formats WISER reads
+-------------------
 
-.. rubric:: User Manual
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
 
-:doc:`Interface Overview <user-content/interface-overview>` ·
-:doc:`Working with Data <user-content/working-with-data>` ·
-:doc:`Spatial Tools <user-content/spatial-tools>`
+   * - Format
+     - Typical files
+   * - ENVI raster
+     - ``*.img``, ``*.hdr``, ``*.dat``, or no extension
+   * - TIFF / GeoTIFF
+     - ``*.tif``, ``*.tiff``, ``*.tfw``
+   * - NetCDF
+     - ``*.nc``
+   * - JPEG 2000
+     - ``*.JP2``
+   * - PDS3
+     - ``*.PDS``, ``*.img``, ``*.lbl``
+   * - PDS4
+     - ``*.xml``
+   * - FITS
+     - ``*.fits``, ``*.fit``, ``*.fts``
+   * - ASCII Grid
+     - ``*.asc``
+   * - ENVI spectral library
+     - ``*.sli``, ``*.hdr``
+   * - Anything else GDAL reads
+     - HDF4/5, GRIB, COG and many more
 
-.. rubric:: Extend WISER
-
-:doc:`Build plugins <extending-wiser/index>` to add custom workflows,
-context-menu operations, and band-math functions — no rebuild required.
-
-.. rubric:: Developer Guide
-
-:doc:`Environment Setup <developer-content/environment-setup>` ·
-:doc:`Contributing & Code Quality <developer-content/contributing-and-quality>` ·
-:doc:`Testing & QA <developer-content/testing-and-qa>`
+See :doc:`Opening Data Files <user-content/opening-data-files>` for
+multi-file datasets, sub-datasets and troubleshooting.
 
 ----
 
-.. rubric:: Get Help
+Data to try
+-----------
 
-- **Questions, bugs, feature requests:** `Open a GitHub Issue <https://github.com/Ehlmann-research-group/WISER/issues>`_
-- **Community plugins:** `WISER Plugin Repository <https://github.com/Ehlmann-research-group/WISER-Plugin-Repository>`_
+The :doc:`Getting Started tutorials <tutorials/index>` run on fixtures in the
+WISER source tree, so there is nothing to download. For full scenes, the
+:doc:`Applied Labs <tutorials/labs/index>` walk through these end to end:
+
+- `AVIRIS-NG Caltech subset <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
+  (plus its `header <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`_)
+  --- 425 bands over Pasadena, and the basis of
+  :doc:`Lab A <tutorials/labs/lab-aviris-ng-urban>`
+- `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ and
+  `AVIRIS free data <https://aviris.jpl.nasa.gov/data/free_data.html>`_ ---
+  airborne scenes, including Cuprite
+- `EMIT L2A Reflectance <https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2arfl-001>`_ ---
+  spaceborne imaging spectroscopy of arid land surfaces
+- `PACE/OCI <https://pace.oceansciences.org/access_pace_data.htm>`_ ---
+  hyperspectral ocean colour
+- `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ and the
+  `Mars Orbital Data Explorer <https://ode.rsl.wustl.edu/mars/>`_ ---
+  CRISM, OMEGA, M3 and more
+- `Ehlmann Lab datasets <https://lasp.colorado.edu/ehlmann-lab/datasets/>`_ ---
+  laboratory and field imaging spectroscopy
+- `USGS Spectral Library Version 7 <https://dx.doi.org/10.5066/F7RR1WDJ>`_ and
+  the `ECOSTRESS Spectral Library <https://speclib.jpl.nasa.gov/>`_ ---
+  reference spectra
+
+----
+
+.. rubric:: Get help
+
+- **Questions, bugs, feature requests:**
+  `open a GitHub Issue <https://github.com/Ehlmann-research-group/WISER/issues/new/choose>`_
+- **Community plugins:**
+  `WISER Plugin Repository <https://github.com/Ehlmann-research-group/WISER-Plugin-Repository>`_
+- **Release announcements:** email ``sympa@lists.lasp.colorado.edu`` with the
+  subject **subscribe wiser-announcements**
 
 .. rubric:: License
 
 Copyright 2019–2026, California Institute of Technology (Caltech) and
 Regents of the University of Colorado. All rights reserved.
-See the `LICENSE <https://github.com/Ehlmann-research-group/WISER/blob/main/LICENSE>`_ for the full text.
-
-----
+See the `LICENSE <https://github.com/Ehlmann-research-group/WISER/blob/main/LICENSE>`_
+for the full text.
 
 .. toctree::
    :hidden:
 
+   installation
+   tutorials/index
    user-content/user-manual
    extending-wiser/index
-   developer-content/environment-setup
-   developer-content/code-documentation
-
+   developer-content/index
    contributing

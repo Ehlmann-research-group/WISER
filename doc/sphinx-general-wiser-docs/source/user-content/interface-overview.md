@@ -1,12 +1,18 @@
 # Interface Overview
 
-## WISER Overview
+A tour of the main window and the settings that apply across every tool.
 
-The goal of WISER is to provide an intuitive and configurable user interface
-that supports many different workflows and styles of interaction. When WISER
-is started, the UI looks like this:
+```{tip}
+To *use* these controls rather than read about them, start with
+{doc}`Tutorial 1 — Your First Scene <../tutorials/01-first-look>`, which drives
+the panes, band chooser and contrast stretch on real data.
+```
 
-:::{figure} ../_static/images/wiser_start.png
+## The main window
+
+When WISER starts, no data is loaded and both display areas read **(no data)**:
+
+:::{figure} ../_static/tutorials/t1_empty.png
 :width: 80%
 :align: center
 :alt: WISER at startup with no data loaded
@@ -117,10 +123,10 @@ allows the user to configure these values.
 
 ## Viewing an Image
 
-Here is a screenshot of WISER after loading AVIRIS data of the Caltech campus
-and the surrounding Pasadena area.
+Here is WISER after loading AVIRIS data over the Caltech campus, with every
+pane shown:
 
-:::{figure} ../_static/images/wiser_caltech_annotated.png
+:::{figure} ../_static/tutorials/t1_all_panes.png
 :width: 80%
 :align: center
 :alt: WISER displaying AVIRIS Caltech data with all panes visible and annotated
@@ -144,82 +150,95 @@ with the pixel's spectrum.
 
 ---
 
-## Dataset Tools
+## Toolbars
 
-The dataset toolbar buttons provide useful operations to switch between
-datasets, change what bands are being displayed, and to adjust the contrast
-stretch of the bands being displayed. Note that all raster display windows
-have one or more of these buttons, allowing for control of how raster data
-is displayed.
+Every raster display area has its own toolbar. The main toolbar carries all of
+these; the context and zoom panes carry the subset that applies to them.
 
 :::{figure} ../_static/images/main_display_buttons.png
 :width: 30%
 :align: center
-:alt: Dataset toolbar buttons
+:alt: The dataset toolbar buttons
 :::
 
-## Dataset Chooser
-
-The _dataset chooser_ simply allows the user to change what data set is being
-displayed in a given pane. When clicked, the dataset chooser will show a
-pop-up menu listing all data sets currently loaded, and selecting a different
-data set will switch the display to that data set.
-
-## Band Chooser
-
-The _band chooser_ shows a dialog that gives the user significant control over
-what bands are being displayed, and whether the image is to be shown in RGB
-mode (three bands) or grayscale mode (one band only).
-
-:::{figure} ../_static/images/band_chooser.png
-:width: 40%
-:align: center
-:alt: The band chooser dialog
-:::
-
-When the grayscale or single band option is selected in the Band Chooser, WISER
-can display with a color bar or gradient.
-
-:::{figure} ../_static/images/colormap.png
-:width: 40%
-:align: center
-:alt: Colormap selection for single-band display
-:::
-
-Besides letting the user select any combination of bands, the band chooser also
-exposes the ability to select the dataset's default bands, if any were
-indicated in the original data file. Finally, if the dataset specifies
-wavelengths or frequencies for each band, and if these wavelengths are near the
-red/green/blue frequencies specified in WISER's global configuration, the band
-chooser can automatically choose the bands closest to these frequencies.
-
-Note that if a data set does not have default display bands, or if the data
-set doesn't have visible-light frequencies, the corresponding button in the
-dialog will be disabled.
+| Control | Does |
+|---|---|
+| **Dataset chooser** | Switches which loaded dataset the pane shows |
+| **Band chooser** | RGB or grayscale, which bands, and the colormap — see {doc}`Display and Contrast Stretch <display-and-stretch>` |
+| **Contrast stretch** | Opens the stretch builder for the displayed bands |
+| **Grid** | Splits the main window into panels; the dataset, band and stretch controls then move above each panel |
+| **Link** | Ties panning and zooming across panels. Requires every open dataset to have the same width and height |
+| **Zoom in / out / to fit / to 100%** | Navigation. The percentage box takes a value directly |
+| **Create ROI** and **selection tools** | See {doc}`Regions of Interest <regions-of-interest>` |
+| **ROI dropdown** | Chooses which ROI a new selection is added to |
 
 ---
 
-## Grid View and Image Linking
+## The status bar
 
-WISER allows simultaneous viewing of multiple images in the main window through
-the grid view, and images of the same size can be linked. Any grid dimensions
-can be input. Click the grid icon to split or unsplit the main view.
+The bar along the bottom reports, left to right:
 
-:::{figure} ../_static/images/grid_options.png
-:width: 40%
-:align: center
-:alt: Grid view dimension options
-:::
+- A **message area** — WISER's running commentary, and the instructions for
+  whichever selection tool is active. Read it when a shape is not behaving.
+- The **display values** for each colour channel at the pixel under the cursor
+- The **pixel coordinate**, as `(x, y)`
+- The **ground coordinate**, when the dataset is georeferenced
 
-Note that, once images are displayed in a grid, the band selector and contrast
-stretch options are available above each image and not in the main WISER
-toolbar.
+The two buttons at the far right open the **Dataset Info** pane and the
+**Activity Monitor**.
 
-:::{figure} ../_static/images/grid_view.png
-:width: 80%
-:align: center
-:alt: WISER grid view showing multiple images side by side
-:::
+---
 
-Images in the grid can only be linked if all images open in WISER have the same
-spatial dimensions.
+## The Activity Monitor
+
+Analyses, filters and band-math jobs run in the background so the interface
+stays usable. The **Activity Monitor** is where you watch them.
+
+It lists **Active Tasks** with a progress bar and a **cancel** button each, and
+keeps a collapsible **Finished Tasks** list below. Each row names the task and
+the parameters it was given — the dataset, the component count, the expression
+— which makes it a usable record of what produced which output.
+
+Failed tasks stay in the list with their error message, so a run that produced
+no dataset can be diagnosed rather than guessed at.
+
+Open it from the button at the right of the status bar.
+
+---
+
+## The Dataset Info pane
+
+The **Dataset Info** display toggle shows the header metadata of every loaded
+dataset: dimensions, band count, data type, wavelengths, bad-band list, data
+ignore value, coordinate reference system and description.
+
+Check it whenever a tool behaves unexpectedly. Most surprises — a missing
+wavelength axis, an unset data ignore value, bands you did not know were
+flagged — are visible here.
+
+---
+
+## Editing a dataset
+
+Right-click an image and choose **Edit dataset...** to change a dataset's
+metadata **in place**, without writing a new file: its name, description, data
+ignore value, wavelengths, bad-band list and default display bands.
+
+This is the fix for a file whose header is wrong or incomplete — a cube with no
+wavelengths, or one whose nodata value was never declared, so WISER treats
+`-9999` as a real measurement.
+
+To write the change to disk use **Save as...** — see
+{doc}`Saving and Exporting <saving-and-exporting>`.
+
+---
+
+## Where to go next
+
+- {doc}`Tutorial 1 — Your First Scene <../tutorials/01-first-look>` — these
+  controls used on real data
+- {doc}`Opening Data Files <opening-data-files>` — formats and troubleshooting
+- {doc}`Display and Contrast Stretch <display-and-stretch>` — bands, colormaps,
+  grid view, stretches
+- {doc}`Extending WISER <../extending-wiser/index>` — add your own tools to
+  these menus
