@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath("../../../src"))
 project = "WISER"
 copyright = "2019-2026, California Institute of Technology"
 author = "Ehlmann Research Group"
-release = "2.1b1"
+release = "3.0b0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

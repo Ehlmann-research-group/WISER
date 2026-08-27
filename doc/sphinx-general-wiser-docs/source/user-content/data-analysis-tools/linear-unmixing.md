@@ -23,6 +23,13 @@ The result is added as a new dataset named `Linear Unmix: <source>, N endmembers
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t7_unmix_dialog.png
+:width: 75%
+:align: center
+:alt: The Linear Unmixing dialog
+:::
+
+
 1. Choose an **Input Dataset**.
 2. Build the **Endmembers** list (at least two): **Add Collected Spectrum** to
    pick from spectra collected in-app, or **Import Spectrum** to load them from
@@ -32,3 +39,7 @@ The result is added as a new dataset named `Linear Unmix: <source>, N endmembers
 
 Click **View Past Runs** to revisit a previous run — it re-plots that run's
 endmembers and resurfaces its input and output datasets.
+
+## See also
+
+- {doc}`Tutorial 7 — Finding a Known Material <../../tutorials/07-detection>`

@@ -1087,8 +1087,8 @@ the other scenes. Rather than sending the user out to Tools → Georeferencer an
 through a file round-trip, `MosaicPane` lets them fix it **in place**: right-click a
 scene → **"Georeference…"**, warp it, and the corrected result is swapped into the
 mosaic live, with a clean revert on cancel. This reuses the configurable
-`GeoReferencerDialog` (see [Programmatic Configuration &
-Locking](georeferencer-internals.md#programmatic-configuration-locking)) — no new warp,
+`GeoReferencerDialog` (see {ref}`Programmatic Configuration & Locking
+<programmatic-configuration-locking>`) — no new warp,
 GCP, or CRS logic is added here.
 
 ### Entry point: the scene-list context menu

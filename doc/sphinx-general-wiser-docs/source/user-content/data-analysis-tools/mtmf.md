@@ -31,6 +31,13 @@ values indicate a stronger match.
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t7_mtmf_dialog.png
+:width: 75%
+:align: center
+:alt: The MTMF dialog
+:::
+
+
 1. **Input** — leave the type as **Image Cube** and choose the dataset to
    analyze. (Spectrum input is not currently supported.)
 2. **Noise method** — choose how background noise is estimated:
@@ -43,3 +50,7 @@ values indicate a stronger match.
      the ROI will be pulled from
 3. **Target** — choose the reference spectrum to detect.
 4. Click **OK**. The run proceeds in the background.
+
+## See also
+
+- {doc}`Tutorial 7 — Finding a Known Material <../../tutorials/07-detection>`
