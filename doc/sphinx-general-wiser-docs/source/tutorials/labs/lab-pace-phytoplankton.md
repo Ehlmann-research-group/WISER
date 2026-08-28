@@ -6,7 +6,9 @@
 - **Time:** 2 hours
 
 ```{note}
-Capture your own figures — no screenshots are shipped for this lab.
+Capture your own figures — no screenshots are shipped for this lab. Unlike
+Labs A–C, this dataset sits behind an **Earthdata Login**, which the figure
+harness cannot authenticate to.
 {doc}`Lab A <lab-aviris-ng-urban>` shows the same dialogs on airborne data.
 ```
 

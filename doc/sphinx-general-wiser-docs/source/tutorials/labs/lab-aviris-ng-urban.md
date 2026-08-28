@@ -160,6 +160,16 @@ below the plot, or they will all be drawn the same.
 | Roof | 462, 301 | Bright reflective roof |
 | Asphalt | 631, 129 | Paved surface |
 
+:::{figure} ../../_static/tutorials/lab_avng_spectra_window.png
+:width: 100%
+:align: center
+:alt: The AVIRIS-NG scene with four spectra collected and listed in the Spectra pane
+:::
+
+The status bar names the pixel you are on, and the **Spectra and Spectral
+Libraries** pane lists what you have collected — check both before reading the
+plot. Floating the Spectrum Plot dock gives the 425 bands room to breathe:
+
 :::{figure} ../../_static/tutorials/lab_avng_spectra_plot.png
 :width: 95%
 :align: center

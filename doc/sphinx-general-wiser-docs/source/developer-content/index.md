@@ -125,9 +125,18 @@ When you change a dialog, re-run its scene and commit the new PNG with the code
 change. Adding a figure means adding or extending a scene, not hand-capturing a
 screenshot.
 
-Scenes whose name begins `avng_` need the AVIRIS-NG scene used by
-{doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>`; they skip themselves with
-a message if it is not present, so the bundled scenes still run.
+Some scenes need a lab dataset that is too large to commit. Each one calls
+`require()` and skips itself with a message when the file is absent, so the
+scenes that run on bundled fixtures always work:
+
+| Scene prefix | Dataset | Where to get it |
+|---|---|---|
+| `avng_` | AVIRIS-NG Caltech subset, 551 MB | {doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>` |
+| `cuprite_` | AVIRIS-Classic Cuprite window, 2.05 GB | {doc}`Lab B <../tutorials/labs/lab-cuprite-minerals>` |
+| `crism_` | CRISM Jezero MTRDR cube, 640 MB | {doc}`Lab C <../tutorials/labs/lab-mars-crism>` |
+
+Each lab's "Get the data" section is the download recipe, and the files belong
+in `src/test_utils/test_datasets/`, where `.gitignore` already excludes them.
 
 ```{admonition} Two traps the harness works around
 :class: note
@@ -140,6 +149,13 @@ loop.
 
 `MainView` opens the Savitzky–Golay and smoothing dialogs with `exec_()`, which
 blocks a script; the filters scene builds the same dialogs directly instead.
+
+Offscreen, a scroll area never gets the resize event that would refresh its
+scrollbar ranges after the image is rescaled, so `frame_region()` sets the
+range from the pixmap itself before scrolling. It also runs from inside
+`shot(..., frame=BOX)`, after a throwaway `grab()`: the first grab of a scene
+is what makes the dock panes claim their space, and framing before that measures
+the wrong viewport.
 ```
 
 ---

@@ -35,9 +35,12 @@ Secret.sh
 doc/sphinx-general-wiser-docs/build/
 doc/sphinx-general-wiser-docs/source/apidocs/
 
-# Tutorial scenes that are downloaded rather than committed (see the tutorials'
-# "Get the data" steps) — the AVIRIS-NG Caltech subset alone is ~550 MB.
+# Lab scenes that are downloaded rather than committed (see each lab's "Get the
+# data" step). The AVIRIS-NG Caltech subset is ~550 MB, the Cuprite window
+# ~2 GB and the CRISM Jezero cube ~640 MB.
 src/test_utils/test_datasets/ang20171108t184227*
+src/test_utils/test_datasets/f230918t01p00r11*
+src/test_utils/test_datasets/HRL000040FF*
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*

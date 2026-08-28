@@ -79,7 +79,15 @@ The panes stay in step with each other:
 - The **yellow box** in the Context pane marks what the main window is showing.
 - Clicking in the main window re-centres the **Zoom** pane there.
 - The **status bar** reports the pixel's display values, its `(x, y)` position,
-  and — because this scene is georeferenced — its latitude and longitude.
+  and — because this scene is georeferenced — its geographic coordinates.
+
+```{admonition} One known rough edge
+:class: warning
+For a dataset in a **projected** CRS, the status bar currently prints those two
+coordinates the wrong way round: the longitude carries the `°N` label and the
+latitude carries `°E`. The numbers are right; the labels are swapped. Read the
+first value as longitude and the second as latitude until it is fixed.
+```
 
 Every pane is dockable: drag a title bar to move it, or drag it out of the
 window to float it on a second monitor.
@@ -173,7 +181,7 @@ For the full set of stretch types and conditioners — including the
 **decorrelation stretch** — see {doc}`Display and Contrast Stretch
 <../user-content/display-and-stretch>`.
 
-```{admonition} One known rough edge
+```{admonition} A second known rough edge
 :class: warning
 If you apply a stretch, then change the same view between **Grayscale** and
 **RGB**, reopening the stretch dialog currently raises an error. Reopen the
