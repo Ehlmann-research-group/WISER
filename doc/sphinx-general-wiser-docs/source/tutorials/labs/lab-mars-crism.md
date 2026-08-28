@@ -1,14 +1,9 @@
 # Lab C — Martian Mineralogy with CRISM
 
 - **Field:** planetary science, astrobiology
-- **Instrument:** MRO/CRISM — 545 bands, 362–3920 nm, ~18 m/pixel targeted
+- **Instrument:** MRO/CRISM — MTRDR cubes carry 489 bands over 436–3897 nm; 18 m/pixel (FRT) or 36 m (HRL)
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`; {doc}`Lab B <lab-cuprite-minerals>` helps
 - **Time:** 2–3 hours
-
-```{note}
-Capture your own figures as you work — the WISER team has not shot screenshots
-for this lab. {doc}`Lab A <lab-aviris-ng-urban>` shows every dialog involved.
-```
 
 ---
 
@@ -25,28 +20,47 @@ In this lab you make those detections yourself.
 | Mineral | Diagnostic absorptions | Why it matters |
 |---|---|---|
 | **Olivine** | broad compound band centred ~1000 nm | Primary igneous; unweathered |
-| **Mg-carbonate** | paired bands at **2300** and **2500 nm** | Aqueous alteration; biosignature host |
-| **Fe/Mg-smectite** | 2300 nm with a 1400/1900 nm hydration pair | Prolonged water–rock interaction |
+| **Mg-carbonate** | paired bands near **2310** and **2510 nm** | Aqueous alteration; biosignature host |
+| **Fe/Mg-smectite** | ~2300 nm with a 1400/1900 nm hydration pair | Prolonged water–rock interaction |
 | **Pyroxene** | broad bands near 1000 and 2000 nm | Primary igneous |
 
 Carbonate and Fe/Mg-smectite both absorb near 2300 nm. Separating them is the
-analytical crux, and it is done on the **2500 nm** band: carbonate has it,
+analytical crux, and it is done on the **2510 nm** band: carbonate has it,
 smectite does not.
 
 ---
 
 ## Get the data
 
-CRISM data are free and need no login.
+CRISM data are free and need no login. The figures in this lab come from
+**`HRL000040FF`**, which covers the western delta at 36 m/pixel and is the
+smallest of the Jezero cubes at 640 MB.
 
-1. Go to the [Mars Orbital Data Explorer](https://ode.rsl.wustl.edu/mars/).
-2. Search for **CRISM MTRDR** products over Jezero Crater (about 18.4°N,
-   77.7°E). `FRT0000B8C2` and `HRL000040FF` both cover the delta.
-3. Download the **`*_IF*_MTR3.IMG`** cube and its **`.HDR`** — the
-   map-projected, atmospherically corrected I/F hyperspectral cube. Keep both
-   files in the same directory.
-4. Optionally also take the **`*_SR*`** refined summary-parameter product and
-   the **`*_BR*`** browse products, for cross-checking.
+```bash
+B=https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1
+curl -O $B/mrocr_4001/mtrdr/2007/2007_029/hrl000040ff/HRL000040FF_07_IF183J_MTR3.HDR
+curl -O $B/mrocr_4001/mtrdr/2007/2007_029/hrl000040ff/HRL000040FF_07_IF183J_MTR3.IMG
+```
+
+Keep both files in the same directory. Other cubes over the same target:
+
+| Product | Resolution | Size | Coverage |
+|---|---|---|---|
+| **`HRL000040FF`** | 36 m | 640 MB | 18.28–18.73°N, 77.28–77.56°E |
+| `FRT000047A3` | 18 m | 1.3 GB | 18.44–18.69°N, 77.38–77.64°E |
+| `FRT00005C5E` | 18 m | 1.5 GB | 18.37–18.64°N, 77.28–77.56°E |
+
+The two **FRT** cubes are full-resolution and worth the extra download if you
+want to resolve individual delta foresets; the workflow below is identical.
+
+To find others yourself, search the
+[Mars Orbital Data Explorer](https://ode.rsl.wustl.edu/mars/) for **CRISM
+MTRDR** over Jezero (18.38°N, 77.58°E) and take the **`*_IF*_MTR3.IMG`** cube
+with its **`.HDR`**. Check the footprint before you download — many products
+whose names look similar are nowhere near the crater.
+
+Optionally also take the **`*_SR*`** refined summary-parameter product and the
+**`*_BR*`** browse products, for cross-checking.
 
 ```{admonition} Why MTRDR and not TRDR
 :class: tip
@@ -56,23 +70,48 @@ with noisy channels and detector overlap already handled. Raw **TRDR** products
 need the CRISM Analysis Toolkit before any of this works. Start with MTRDR.
 ```
 
-The `*_WV*` text file lists the wavelength for each channel.
+The `*_WV*` text file lists the wavelength for each channel; the `.HDR` already
+carries them, so WISER plots against wavelength without it.
 
 ---
 
 ## Part 1 — Open and orient (25 min)
 
-1. **File ▸ Open...** → the `_IF*_MTR3.IMG` file (or its `.HDR`). WISER reads
-   it as an ENVI raster.
-2. If WISER cannot work the format out, set the file type explicitly rather
-   than leaving it on **All supported files** — see
-   {doc}`Opening Data Files <../../user-content/opening-data-files>`.
-3. Build a **false-colour composite**. CRISM's standard "FAL" browse
-   combination is roughly R = 2529 nm, G = 1506 nm, B = 1080 nm. Apply a 2.5%
-   linear stretch.
+1. **File ▸ Open...** → the `_IF*_MTR3.IMG` file. WISER reads it as an ENVI
+   raster; the `.HDR` beside it supplies the wavelengths.
+
+```{admonition} Open the .IMG, not the .HDR
+:class: tip
+For most ENVI datasets either file works. These products name the header
+`.HDR` in capitals, and GDAL will tell you to select the data file instead.
+Open the `.IMG`.
+```
+
+2. The file names its own default bands, so WISER shows a composite as soon as
+   it opens. Apply a **2.5% linear** stretch.
+
+:::{figure} ../../_static/tutorials/lab_crism_default.png
+:width: 100%
+:align: center
+:alt: The Jezero MTRDR cube in the bands its header nominates
+:::
+
+3. Now set the standard **"FAL"** browse combination — R = 2529 nm (band 303),
+   G = 1506 nm (band 148), B = 1080 nm (band 83) — and stretch again.
+
+:::{figure} ../../_static/tutorials/lab_crism_fal.png
+:width: 100%
+:align: center
+:alt: Jezero Crater in the CRISM FAL false-colour composite, with the delta clearly visible
+:::
+
+The **delta** is the fan in the lower half of the scene, its channels picked
+out in grey-green against the pink-red crater floor. Colour differences here
+are already mineralogical — but as at Cuprite, colour alone names nothing.
+
 4. Click across the scene and watch the spectra. Note the vertical striping —
    CRISM's detector produces column-correlated noise, visible in single-pixel
-   spectra.
+   spectra and in the band-depth maps you will make in Part 3.
 
 ```{admonition} CRISM spectra need averaging
 :class: important
@@ -82,12 +121,66 @@ anything, and prefer ROI mean spectra
 ({doc}`Tutorial 3 <../03-regions-of-interest>`) over single clicks.
 ```
 
+```{admonition} Ignore everything past ~2600 nm
+:class: warning
+The header flags **no bad bands**, but the channels beyond about 2.6 µm are at
+the detector's long-wavelength edge and are not usable — values there swing by
+hundreds of I/F units and will wreck an autoscaled plot. Pin the spectrum
+plot's x-axis (gear icon ▸ axis range) to something like **900–2650 nm** before
+you read anything.
+```
+
 **Deliverable 1:** a false-colour image with the delta marked, and one raw
 single-pixel spectrum beside one 5 × 5 median from the same pixel.
 
 ---
 
-## Part 2 — The ratio trick (30 min)
+## Part 2 — Find the carbonate pair, then clean it up (30 min)
+
+First look at what you are hunting. These three spectra come from pixels on the
+crater margin, plotted over 900–2650 nm with the axes pinned:
+
+| Label | Pixel (x, y) |
+|---|---|
+| Carbonate A | 123, 298 |
+| Carbonate B | 182, 229 |
+| Carbonate C | 106, 371 |
+
+:::{figure} ../../_static/tutorials/lab_crism_spectra_window.png
+:width: 100%
+:align: center
+:alt: The Jezero scene with three carbonate spectra collected
+:::
+
+:::{figure} ../../_static/tutorials/lab_crism_spectra_plot.png
+:width: 100%
+:align: center
+:alt: Three CRISM spectra from the Jezero margin over 900-2650 nm
+:::
+
+At this scale the mineral bands are barely perceptible — which is the honest
+answer to "what does a CRISM carbonate detection look like". Tighten the axes
+onto 2150–2600 nm:
+
+:::{figure} ../../_static/tutorials/lab_crism_carbonate_pair.png
+:width: 100%
+:align: center
+:alt: The same three spectra zoomed to 2150-2600 nm, showing paired absorptions near 2310 and 2510 nm
+:::
+
+Now the **pair** is unmistakable: a minimum near **2310 nm**, a recovery through
+2360–2410, and a second minimum near **2510 nm**. Both bands are only about
+**2–3 % deep**. A smectite would give you the first and not the second.
+
+```{admonition} This is why the analysis is quantitative
+:class: important
+You cannot eyeball a 2 % band across a million pixels, and at this depth
+noise and real signal look alike in any single spectrum. That is what Part 3's
+band-depth maps are for — and why spatial coherence, not depth alone, is what
+makes a detection believable.
+```
+
+### Ratioing
 
 Column noise, residual atmosphere and a broad ferric slope sit on top of the
 mineral bands. Planetary spectroscopists remove them by **ratioing**: divide
@@ -125,47 +218,79 @@ Planetary work usually maps **band depth**: how deep an absorption is relative
 to a continuum drawn across it. For a band at $\lambda_c$ with shoulders at
 $\lambda_s$ and $\lambda_l$:
 
-$$D = 1 - \frac{R_{\lambda_c}}{a\,R_{\lambda_s} + b\,R_{\lambda_l}}$$
+$$D = 1 - \frac{R_{\lambda_c}}{(1-f)\,R_{\lambda_s} + f\,R_{\lambda_l}},
+\qquad f = \frac{\lambda_c - \lambda_s}{\lambda_l - \lambda_s}$$
 
-Setting $a = b = 0.5$ (shoulders equally spaced) makes this straightforward
-band math. Use the band chooser to find the band index nearest each wavelength.
+$f$ places the continuum at the band centre. Take the **2510 nm** band — the
+one that separates carbonate from smectite — with shoulders at 2400 and
+2600 nm. The nearest CRISM channels are 2397.2, 2509.7 and 2602.1 nm, so
+$f = 0.549$:
 
-**Carbonate, 2300 nm:**
+1. **Tools ▸ Band Math**, expression:
+
+   ```text
+   1 - c / (0.451 * a + 0.549 * b)
+   ```
+
+2. Bind `a` → **2400 nm** (band 283), `b` → **2600 nm** (band 314),
+   `c` → **2510 nm** (band 300). Name it `CarbonateBD2510`.
+
+:::{figure} ../../_static/tutorials/lab_crism_bandmath.png
+:width: 80%
+:align: center
+:alt: The band math dialog with the 2510 nm band-depth expression
+:::
+
+3. Display it with a sequential colormap and a **2.5% linear** stretch — a
+   full-range stretch shows you nothing when the feature is 2 % deep.
+
+:::{figure} ../../_static/tutorials/lab_crism_carbonate.png
+:width: 100%
+:align: center
+:alt: The 2510 nm band-depth map, showing a coherent sinuous carbonate unit
+:::
+
+**Read this figure carefully.** The bright material is not scattered pixels —
+it forms a **coherent, sinuous unit** that follows the crater margin and the
+delta front. That spatial coherence is the evidence. A 2 %-deep band in
+isolated pixels would be noise; a 2 %-deep band that maps onto a geological
+contact is a mineral. The vertical striping is CRISM column noise, and knowing
+which is which is most of the skill here.
+
+This is the Jezero **marginal carbonate** unit. Orbital carbonate detections
+like this one were part of the case for landing *Perseverance* here, and the
+rover has since sampled carbonate-bearing rock in the margin.
+
+Now build the other indices the same way:
+
+| Index | Centre | Shoulders | $f$ | What it shows |
+|---|---|---|---|---|
+| `BD2310` | 2310 nm (band 270) | 2230 / 2400 (bands 258 / 283) | 0.480 | carbonate **and** Fe/Mg-smectite |
+| `BD2510` | 2510 nm (band 300) | 2400 / 2600 (bands 283 / 314) | 0.549 | carbonate only |
+| `BD1050` | 1050 nm (band 78) | 860 / 1470 (bands 54 / 142) | 0.309 | olivine |
+
+**Now separate carbonate from smectite.** Both light up at 2310 nm; only
+carbonate lights up at 2510 nm:
 
 ```text
-1 - c2300 / (0.5 * s2250 + 0.5 * s2350)
-```
-
-**Carbonate, 2500 nm — the discriminator:**
-
-```text
-1 - c2500 / (0.5 * s2450 + 0.5 * s2530)
-```
-
-**Olivine, ~1000 nm:**
-
-```text
-1 - c1050 / (0.5 * s0860 + 0.5 * s1470)
-```
-
-Bind each variable as an **Image Band** at the wavelength its name gives.
-
-Display each band-depth map with a sequential colormap and a **tight stretch**
-— these features are a few percent deep, so a 100% linear stretch shows you
-nothing. (Lab A demonstrates what a badly stretched computed product looks
-like.)
-
-**Now separate carbonate from smectite.** Both light up at 2300 nm; only
-carbonate lights up at 2500 nm:
-
-```text
-(d2300 > 0.02) * (d2500 > 0.01)
+(d2310 > 0.02) * (d2510 > 0.01)
 ```
 
 The product is 1 only where both tests pass. Choose the two thresholds from
-your own band-depth histograms, not from these example numbers.
+your own band-depth histograms, not from these example numbers — on
+`HRL000040FF` the 99th percentile of each index is around 0.019 and 0.014, so
+those two example thresholds already select a small fraction of the scene.
 
-**Deliverable 3:** band-depth maps for 2300 nm, 2500 nm and 1000 nm, plus the
+```{admonition} Average channels, do not trust one
+:class: warning
+Single CRISM channels carry spikes that a naive band depth reads as a 9 %
+absorption. The published CRISM summary parameters average several channels at
+each shoulder and centre for exactly this reason. If your map is speckled with
+extreme single pixels, that is what you are seeing — median-filter the cube
+first ({doc}`Filters <../../user-content/filters>`) or widen the index.
+```
+
+**Deliverable 3:** band-depth maps for 2310 nm, 2510 nm and 1050 nm, plus the
 combined carbonate mask, with your thresholds stated and justified.
 
 ---

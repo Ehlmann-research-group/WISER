@@ -25,13 +25,13 @@ so they can be used directly as course labs.
 * - B
   - {doc}`Mineral Mapping at Cuprite <lab-cuprite-minerals>`
   - Economic geology
-  - AVIRIS-Classic
-  - ~600 MB, no account
+  - AVIRIS-Classic, 224 bands
+  - 2.05 GB, no account
 * - C
   - {doc}`Martian Mineralogy with CRISM <lab-mars-crism>`
   - Planetary science
-  - MRO/CRISM
-  - Free, no account
+  - MRO/CRISM, 489 bands
+  - 640 MB, no account
 * - D
   - {doc}`Surface Mineralogy with EMIT <lab-emit-dust>`
   - Earth system science
@@ -65,10 +65,13 @@ so they can be used directly as course labs.
 
 ```{admonition} Where the screenshots come from
 :class: note
-Labs A and F are illustrated with figures captured by driving WISER through
-exactly the steps described, on the data named. Labs B–E specify the same level
-of detail but ship no screenshots, because their datasets are large downloads
-the documentation build does not carry — capture your own as you work.
+**Labs A, B, C and F** are illustrated with figures captured by driving WISER
+through exactly the steps described, on exactly the data named — including the
+band indices, pixel coordinates and band-math expressions in the text.
+
+**Labs D and E** specify the same level of detail but ship no screenshots.
+Both datasets sit behind an **Earthdata Login**, which the figure harness
+cannot authenticate to, so capture your own as you work.
 ```
 
 ## What every lab expects you to do

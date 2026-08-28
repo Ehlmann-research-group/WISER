@@ -11,8 +11,8 @@ download yourself. They are written to work as course labs — each has
 deliverables and questions — and equally as worked references for what WISER
 can do.
 
-Every screenshot in the Getting Started series, and in Labs A and F, was
-produced by driving WISER through the steps described. Nothing is a mockup.
+Every screenshot in the Getting Started series, and in Labs A, B, C and F,
+was produced by driving WISER through the steps described. Nothing is a mockup.
 
 ---
 

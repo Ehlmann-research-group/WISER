@@ -76,6 +76,14 @@ USGS_LIB = SPECTRA_DIR / "usgs_resampHeadwallSWIR.hdr"  # 481 USGS mineral spect
 # Downloaded -- the full AVIRIS-NG Caltech subset, 680x500x425.
 AVNG = DATA / "ang20171108t184227_corr_v2p13_subset_bil.hdr"
 
+# Lab B -- AVIRIS-Classic reflectance flightline over Cuprite, Nevada. The
+# committed header covers lines 2400-3799 of f230918t01p00r11_rfl; see the lab
+# for the byte-range recipe that produces it.
+CUPRITE = DATA / "f230918t01p00r11_rfl_cuprite.hdr"
+
+# Lab C -- CRISM MTRDR I/F cube over Jezero Crater, Mars.
+CRISM = DATA / "HRL000040FF_07_IF183J_MTR3.HDR"
+
 
 class SceneSkipped(Exception):
     """Raised by a scene whose input data is not present."""
@@ -204,12 +212,22 @@ class Shoot:
 
     # -- capture -----------------------------------------------------------
 
-    def shot(self, name: str, widget=None):
+    def shot(self, name: str, widget=None, frame=None):
         # soft_pump, not pump: pump() ends in QApplication.quit(), which closes
         # (and deleteLater()s) any result window we are about to photograph.
         OUT.mkdir(parents=True, exist_ok=True)
         self.soft_pump()
+        # Dock panes only claim their space once the window is about to be
+        # painted, so a region framed earlier would be framed against the wrong
+        # viewport. Do it here, with the geometry the grab will actually use.
         target = widget if widget is not None else self.win
+        if frame is not None:
+            # The first grab of a scene is what forces the docks to claim their
+            # space; throw one away so the framing below sees the final layout.
+            target.grab()
+            self.soft_pump()
+            self.frame_region(*frame)
+            self.soft_pump()
         path = OUT / f"{name}.png"
         target.grab().save(str(path))
         _shrink(path)
@@ -244,6 +262,44 @@ class Shoot:
 
     # -- view control ------------------------------------------------------
 
+    def shoot_spectrum_plot(self, name: str, size=(1050, 620), x_range=None, y_range=None):
+        """Float the spectrum plot's dock so band detail is legible, then grab it.
+
+        *x_range* / *y_range* pin the axes, which the plot's own settings dialog
+        also exposes. Needed wherever unreliable channels at a detector edge
+        would otherwise drive the autoscale (CRISM past ~2.6 um, for one).
+        """
+        plot = self.win._spectrum_plot
+        if x_range is not None:
+            plot.set_x_autorange(False)
+            plot.set_x_range(x_range)
+        if y_range is not None:
+            plot.set_y_autorange(False)
+            plot.set_y_range(y_range)
+        self.soft_pump()
+        dock = plot.parentWidget()
+        while dock is not None and not hasattr(dock, "setFloating"):
+            dock = dock.parentWidget()
+        if dock is None:
+            self.shot(name, plot)
+            return
+        dock.setFloating(True)
+        dock.resize(*size)
+        self.soft_pump()
+        self.shot(name, dock)
+
+    def collect_pixels(self, pixels):
+        """Click each (label, (x, y), colour) pixel and collect its spectrum."""
+        for label, (x, y), colour in pixels:
+            self.tm.click_raster_coord_main_view_rv((0, 0), (x, y))
+            self.pump()
+            active = self.state.get_active_spectrum()
+            if active is not None:
+                active.set_name(label)
+                active.set_color(colour)
+            self.tm.collect_active_spectrum()
+            self.pump()
+
     def show_all_panes(self):
         self.tm.click_spectrum_plot_display_toggle()
         self.tm.click_zoom_pane_display_toggle()
@@ -269,6 +325,38 @@ class Shoot:
             self.pump()
         self.fit()
 
+    def frame_region(self, x0, y0, x1, y1, pos=(0, 0)):
+        """Zoom and scroll the main view so the raster box (x0,y0)-(x1,y1) fills it.
+
+        Orthocorrected flight lines carry wide no-data margins; framing the part
+        that carries data beats fitting the whole array into the figure. Call it
+        via ``shot(..., frame=BOX)`` so it runs against the final layout.
+        """
+        rv = self.rv(pos)
+        viewport = rv._scroll_area.viewport()
+        w, h = viewport.width(), viewport.height()
+        scale = min(w / max(x1 - x0, 1), h / max(y1 - y0, 1))
+        rv.scale_image(scale)
+        # The scroll area only recomputes its scrollbar ranges once the rescaled
+        # pixmap is in place; setting a value before that clamps it to zero.
+        self.pump()
+        # Offscreen, the scroll area does not get the resize event that would
+        # refresh its scrollbar ranges, so they still describe the previous
+        # scale and any value we set is clamped. Set the range from the pixmap
+        # we just produced, then scroll.
+        sa = rv._scroll_area
+        sa.horizontalScrollBar().setRange(0, max(0, sa.widget().width() - w))
+        sa.verticalScrollBar().setRange(0, max(0, sa.widget().height() - h))
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        rv.set_scrollbar_state((int(cx * scale - w / 2), int(cy * scale - h / 2)))
+        self.soft_pump()
+        if os.environ.get("WISER_FIGURE_DEBUG"):
+            vr = rv.get_visible_region()
+            print(
+                f"    frame_region: viewport {w}x{h} scale {scale:.3f} "
+                f"visible=({vr.x()},{vr.y()},{vr.width()},{vr.height()})"
+            )
+
     def stretch_2_5(self):
         """Apply a 2.5% linear stretch through the real stretch-builder path.
 
@@ -289,6 +377,23 @@ class Shoot:
                 "  !! stretch builder raised IndexError (band count changed on "
                 "this view since the last stretch) -- figure left unstretched"
             )
+
+    def stretch_decorrelation(self):
+        """Apply a decorrelation stretch, the RGB-only option in the same dialog.
+
+        Raw SWIR composites are nearly grey because neighbouring bands are so
+        strongly correlated; this rotates the display bands onto their principal
+        axes and stretches those, which is what makes mineral zoning visible.
+        """
+        try:
+            self.main_pane()._on_stretch_builder(rasterview_pos=(0, 0))
+            self.pump()
+            self.tm.get_stretch_config((0, 0))._ui.rb_stretch_decorrelation.click()
+            self.pump()
+            self.tm.close_stretch_builder()
+            self.pump()
+        except IndexError:
+            print("  !! stretch builder raised IndexError -- figure left unstretched")
 
 
 SCENES: Dict[str, Callable[[], None]] = {}
@@ -359,6 +464,61 @@ AVNG_PIXELS = [
     ("Asphalt", (631, 129), "#666666"),
 ]
 
+# The part of the flight-line window that carries data: everything outside is
+# the orthocorrection's -9999 fill.
+CUPRITE_DISTRICT = (220, 600, 1000, 1400)
+
+# Cuprite: 224 bands, 378.9-2498.3 nm at ~9.5 nm sampling.
+CUPRITE_BANDS = {
+    480: 10,
+    550: 18,
+    660: 29,
+    860: 53,
+    1650: 136,
+    2100: 183,
+    2160: 189,
+    2170: 190,
+    2200: 193,
+    2250: 198,
+    2340: 207,
+    2400: 213,
+}
+
+# Endmembers picked on band position, not by eye: alunite is the pixel whose
+# deepest SWIR band sits at 2170 nm; kaolinite the one with a 2160 shoulder
+# alongside a deeper 2200; muscovite the one with 2200 and no shoulder.
+CUPRITE_PIXELS = [
+    ("Alunite", (353, 993), "#d73027"),
+    ("Kaolinite", (663, 745), "#4575b4"),
+    ("Muscovite", (266, 1033), "#1a9850"),
+    ("Calcite", (253, 364), "#8073ac"),
+]
+
+# CRISM: 489 bands, 436-3897 nm.
+CRISM_BANDS = {
+    440: 1,
+    530: 14,
+    600: 25,
+    997: 75,
+    1080: 83,
+    1330: 121,
+    1506: 148,
+    1900: 208,
+    2230: 258,
+    2310: 270,
+    2400: 283,
+    2510: 300,
+    2529: 303,
+    2600: 314,
+}
+
+# Pixels carrying both the 2.31 and 2.51 um bands -- the carbonate pair.
+CRISM_PIXELS = [
+    ("Carbonate A", (123, 298), "#d73027"),
+    ("Carbonate B", (182, 229), "#4575b4"),
+    ("Carbonate C", (106, 371), "#1a9850"),
+]
+
 
 @scene("avng_overview")
 def avng_overview():
@@ -397,29 +557,9 @@ def avng_spectra():
     s.fit()
     s.stretch_2_5()
 
-    for label, (x, y), colour in AVNG_PIXELS:
-        s.tm.click_raster_coord_main_view_rv((0, 0), (x, y))
-        s.pump()
-        active = s.state.get_active_spectrum()
-        if active is not None:
-            active.set_name(label)
-            active.set_color(colour)
-        s.tm.collect_active_spectrum()
-        s.pump()
+    s.collect_pixels(AVNG_PIXELS)
     s.shot("lab_avng_spectra_window")
-
-    # Float the plot's dock so the 425-band detail is legible in the figure.
-    plot = s.win._spectrum_plot
-    dock = plot.parentWidget()
-    while dock is not None and not hasattr(dock, "setFloating"):
-        dock = dock.parentWidget()
-    if dock is not None:
-        dock.setFloating(True)
-        dock.resize(1050, 620)
-        s.soft_pump()
-        s.shot("lab_avng_spectra_plot", dock)
-    else:
-        s.shot("lab_avng_spectra_plot", plot)
+    s.shoot_spectrum_plot("lab_avng_spectra_plot")
 
     s.close()
 
@@ -969,6 +1109,262 @@ def board():
         s.pump()
     s.shot("lab_board_spectra", s.win._spectrum_plot)
 
+    s.close()
+
+
+# --------------------------------------------------------------------------
+# Lab B: Cuprite, Nevada -- AVIRIS-Classic reflectance
+# --------------------------------------------------------------------------
+
+
+def _band_depth_bandmath(s, shot_name, result_name, centre, low, high, bands):
+    """Run a linear-continuum band depth through the real band-math pipeline.
+
+    ``1 - c / ((1 - f) * a + f * b)`` with the shoulders *a* and *b* and the
+    interpolation weight *f* fixed by the actual band wavelengths, so the
+    expression the reader types is the one that produced the figure.
+    """
+    from functools import partial
+
+    from wiser import bandmath as bm
+    from wiser.bandmath.utils import bandmath_success_callback
+    from wiser.gui.bandmath_dialog import BandMathDialog
+
+    f = (centre - low) / (high - low)
+    expression = f"1 - c / ({1 - f:.3f} * a + {f:.3f} * b)"
+
+    dlg = BandMathDialog(s.state)
+    dlg.resize(960, 660)
+    dlg.show()
+    s.soft_pump()
+    dlg._ui.ledit_expression.setText(expression)
+    dlg._analyze_expr()
+    s.soft_pump()
+
+    binding = {"a": bands[low], "b": bands[high], "c": bands[centre]}
+    tbl = dlg._ui.tbl_variables
+    for row in range(tbl.rowCount()):
+        name = tbl.item(row, 0).text()
+        chooser = tbl.cellWidget(row, 2)
+        if name in binding and hasattr(chooser, "band_chooser"):
+            chooser.band_chooser.setCurrentIndex(binding[name])
+    dlg._ui.ledit_result_name.setText(result_name)
+    s.soft_pump()
+    s.shot(shot_name, dlg)
+
+    expr = dlg.get_expression()
+    expr_info = dlg.get_expression_info()
+    variables = dlg.get_variable_bindings()
+    dlg.close()
+    s.pump()
+
+    before = len(s.state.get_datasets())
+    bm.start_bandmath_evaluation(
+        bandmath_expr=expr,
+        expr_info=expr_info,
+        result_name=result_name,
+        cache=s.state.get_cache(),
+        variables=variables,
+        app_state=s.state,
+        succeeded_callback=partial(
+            bandmath_success_callback,
+            s.win,
+            s.state,
+            expression=expr,
+            batch_enabled=False,
+            load_into_wiser=True,
+        ),
+    )
+    if not s.wait_for_datasets(before + 1, timeout_s=600):
+        return None
+    return s.state.get_datasets()[-1]
+
+
+@scene("cuprite_overview")
+def cuprite_overview():
+    """Cuprite: true colour beside the SWIR composite that shows the alteration."""
+    require(CUPRITE, "the Cuprite AVIRIS-Classic subset")
+
+    s = Shoot(size=(1500, 950))
+    ds = s.open(CUPRITE)
+    print("    dataset:", ds.get_name(), "shape", ds.get_shape())
+    s.show_all_panes()
+    b = CUPRITE_BANDS
+    s.display(ds, bands=(b[660], b[550], b[480]))
+    s.stretch_2_5()
+    s.shot("lab_cuprite_truecolour", frame=CUPRITE_DISTRICT)
+
+    # Alteration composite: 2200 / 2170 / 2340 nm. Kaolinite and muscovite are
+    # red, alunite green, calcite blue.
+    s.display(ds, bands=(b[2200], b[2170], b[2340]))
+    s.stretch_2_5()
+    s.shot("lab_cuprite_swir", frame=CUPRITE_DISTRICT)
+
+    # The same three bands, decorrelated: the alteration zoning only separates
+    # into colour once the bands' mutual correlation is removed.
+    s.stretch_decorrelation()
+    s.shot("lab_cuprite_decorr", frame=CUPRITE_DISTRICT)
+
+    s.close()
+
+
+@scene("cuprite_spectra")
+def cuprite_spectra():
+    """Cuprite: one SWIR spectrum per alteration mineral."""
+    require(CUPRITE, "the Cuprite AVIRIS-Classic subset")
+
+    s = Shoot(size=(1500, 950))
+    ds = s.open(CUPRITE)
+    s.show_all_panes()
+    b = CUPRITE_BANDS
+    s.display(ds, bands=(b[2200], b[2170], b[2340]))
+    s.stretch_2_5()
+    s.frame_region(*CUPRITE_DISTRICT)
+    s.collect_pixels(CUPRITE_PIXELS)
+    s.shot("lab_cuprite_spectra_window", frame=CUPRITE_DISTRICT)
+    s.shoot_spectrum_plot("lab_cuprite_spectra_plot", size=(1100, 640))
+    # The diagnostic minerals all live between 2.0 and 2.5 um; the full-range
+    # plot is dominated by the 1400 and 1900 nm water-vapour bands, where
+    # atmospherically corrected reflectance is meaningless.
+    s.shoot_spectrum_plot(
+        "lab_cuprite_swir_spectra", size=(1100, 640), x_range=(2000, 2500), y_range=(0.10, 0.48)
+    )
+    s.close()
+
+
+@scene("cuprite_continuum")
+def cuprite_continuum():
+    """Cuprite: what continuum removal does to the kaolinite doublet."""
+    require(CUPRITE, "the Cuprite AVIRIS-Classic subset")
+    from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+
+    s = Shoot(size=(1500, 950))
+    ds = s.open(CUPRITE)
+    s.show_all_panes()
+    b = CUPRITE_BANDS
+    s.display(ds, bands=(b[2200], b[2170], b[2340]))
+    s.stretch_2_5()
+
+    kaolinite = [p for p in CUPRITE_PIXELS if p[0] == "Kaolinite"]
+    s.collect_pixels(kaolinite)
+    collected = s.state.get_collected_spectra()
+    if collected:
+        ContinuumRemovalPlugin().plot_continuum_removal(collected[-1], {"wiser": s.state})
+        s.pump()
+    s.shoot_spectrum_plot("lab_cuprite_continuum", size=(1100, 640))
+    # Zoomed onto the diagnostic window: the 2160/2200 doublet that identifies
+    # kaolinite is unambiguous once the sloping continuum is divided out.
+    s.shoot_spectrum_plot(
+        "lab_cuprite_continuum_swir", size=(1100, 640), x_range=(2000, 2500), y_range=(0.60, 1.05)
+    )
+    s.close()
+
+
+@scene("cuprite_bandmath")
+def cuprite_bandmath():
+    """Cuprite: the 2170 nm alunite band depth as a map."""
+    require(CUPRITE, "the Cuprite AVIRIS-Classic subset")
+
+    s = Shoot(size=(1500, 950))
+    s.open(CUPRITE)
+    s.show_all_panes()
+    s.fit()
+
+    result = _band_depth_bandmath(
+        s,
+        "lab_cuprite_bandmath",
+        "AluniteBD2170",
+        centre=2170,
+        low=2100,
+        high=2250,
+        bands=CUPRITE_BANDS,
+    )
+    if result is None:
+        s.close()
+        return
+    s.display(result, bands=(0,), colormap="inferno")
+    s.stretch_2_5()
+    s.shot("lab_cuprite_bd2170", frame=CUPRITE_DISTRICT)
+    s.close()
+
+
+# --------------------------------------------------------------------------
+# Lab C: Jezero Crater, Mars -- CRISM MTRDR
+# --------------------------------------------------------------------------
+
+
+@scene("crism_overview")
+def crism_overview():
+    """CRISM: the archive's own composite over Jezero Crater."""
+    require(CRISM, "the CRISM Jezero MTRDR cube")
+
+    s = Shoot(size=(1400, 950))
+    ds = s.open(CRISM)
+    print("    dataset:", ds.get_name(), "shape", ds.get_shape())
+    s.show_all_panes()
+    s.fit()
+    s.stretch_2_5()
+    s.fit()
+    s.shot("lab_crism_default")
+
+    c = CRISM_BANDS
+    s.display(ds, bands=(c[2529], c[1506], c[1080]))
+    s.stretch_2_5()
+    s.fit()
+    s.shot("lab_crism_fal")
+    s.close()
+
+
+@scene("crism_spectra")
+def crism_spectra():
+    """CRISM: the paired 2.31 / 2.51 um carbonate bands."""
+    require(CRISM, "the CRISM Jezero MTRDR cube")
+
+    s = Shoot(size=(1400, 950))
+    ds = s.open(CRISM)
+    s.show_all_panes()
+    c = CRISM_BANDS
+    s.display(ds, bands=(c[2529], c[1506], c[1080]))
+    s.stretch_2_5()
+    s.collect_pixels(CRISM_PIXELS)
+    s.shot("lab_crism_spectra_window")
+    s.shoot_spectrum_plot(
+        "lab_crism_spectra_plot", size=(1100, 640), x_range=(900, 2650), y_range=(0.150, 0.215)
+    )
+    # The carbonate pair is only a few percent deep; zoom the axes onto it so a
+    # reader can see what they are meant to be looking for.
+    s.shoot_spectrum_plot(
+        "lab_crism_carbonate_pair", size=(1100, 640), x_range=(2150, 2600), y_range=(0.165, 0.200)
+    )
+    s.close()
+
+
+@scene("crism_bandmath")
+def crism_bandmath():
+    """CRISM: the 2.51 um band depth that separates carbonate from smectite."""
+    require(CRISM, "the CRISM Jezero MTRDR cube")
+
+    s = Shoot(size=(1400, 950))
+    s.open(CRISM)
+    s.show_all_panes()
+    s.fit()
+
+    result = _band_depth_bandmath(
+        s,
+        "lab_crism_bandmath",
+        "CarbonateBD2510",
+        centre=2510,
+        low=2400,
+        high=2600,
+        bands=CRISM_BANDS,
+    )
+    if result is None:
+        s.close()
+        return
+    s.display(result, bands=(0,), colormap="inferno")
+    s.stretch_2_5()
+    s.fit()
+    s.shot("lab_crism_carbonate")
     s.close()
 
 

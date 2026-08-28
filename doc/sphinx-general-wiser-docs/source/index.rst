@@ -118,16 +118,23 @@ WISER source tree, so there is nothing to download. For full scenes, the
 :doc:`Applied Labs <tutorials/labs/index>` walk through these end to end:
 
 - `AVIRIS-NG Caltech subset <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
-  (plus its `header <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`_)
+  (plus its `header <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`__)
   --- 425 bands over Pasadena, and the basis of
   :doc:`Lab A <tutorials/labs/lab-aviris-ng-urban>`
+- `AVIRIS-Classic reflectance over Cuprite, Nevada
+  <https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl>`_
+  (plus its `header <https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl.hdr>`__)
+  --- 224 bands, the basis of :doc:`Lab B <tutorials/labs/lab-cuprite-minerals>`
 - `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ and
   `AVIRIS free data <https://aviris.jpl.nasa.gov/data/free_data.html>`_ ---
-  airborne scenes, including Cuprite
+  more airborne scenes
 - `EMIT L2A Reflectance <https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2arfl-001>`_ ---
   spaceborne imaging spectroscopy of arid land surfaces
 - `PACE/OCI <https://pace.oceansciences.org/access_pace_data.htm>`_ ---
   hyperspectral ocean colour
+- `CRISM MTRDR over Jezero Crater
+  <https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2007/2007_029/hrl000040ff/>`_
+  --- 489 bands, the basis of :doc:`Lab C <tutorials/labs/lab-mars-crism>`
 - `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ and the
   `Mars Orbital Data Explorer <https://ode.rsl.wustl.edu/mars/>`_ ---
   CRISM, OMEGA, M3 and more
