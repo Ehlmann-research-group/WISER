@@ -46,7 +46,7 @@ class Cache:
         Raises:
             AssertionError: If the cache size does not reduce to zero after clearing.
         """
-        for key in self._cache:
+        for key in list(self._cache):
             self._size -= self._cache[key].nbytes
             del self._cache[key]
         assert np.isclose(self._size, 0.0)
@@ -66,24 +66,35 @@ class Cache:
         """
         Adds a new item to the cache. Evicts existing items if necessary to maintain capacity.
 
+        The item is stored whether or not the key is already present, because callers
+        add an item only after a lookup missed -- a new key must be inserted, not
+        skipped.
+
         Args:
             key (int): The key associated with the value.
             value (Union[np.ndarray, np.ma.masked_array]): The data to be cached.
 
         Returns:
-            bool: True if the item was added to the cache, False if it was not.
+            bool: True if the item was added to the cache, False if it was not
+                (which happens when the value on its own is larger than the capacity).
         """
+        data_size = value.nbytes
+        if data_size > self._capacity:
+            logger.debug(f"Size of data exceeds cache size: {data_size} > {self._capacity}")
+            return False
         if key in self._cache:
-            data_size = value.nbytes
-            if data_size > self._capacity:
-                logger.debug(f"Size of data exceeds cache size: {data_size} > {self._capacity}")
-                return False
-            if self._size + data_size > self._capacity:
-                self._evict()
-            self._cache[key] = value
-            self._size += value.nbytes
-            return True
-        return False
+            # Replacing an entry: give back the old value's bytes before adding the
+            # new value's, otherwise the key is counted twice in the running size.
+            # Deleting and re-inserting also moves the refreshed entry to the back of
+            # the OrderedDict, so FIFO eviction treats it as the newest item.
+            self._size -= self._cache[key].nbytes
+            del self._cache[key]
+        self._cache[key] = value
+        self._size += data_size
+        # Evict once the new item is in and counted, so the loop frees enough room
+        # for it. The item just added is the newest, so the older entries go first.
+        self._evict()
+        return True
 
     def get_cache_key(self, *args):
         """

@@ -4,8 +4,8 @@ Rendering a raster is expensive: reading and normalizing bands, applying
 stretches, and packing pixels all cost real time, and the same work is requested
 repeatedly as the user scrolls, switches panes, or reopens dialogs. WISER avoids
 recomputation with a three-tier in-memory cache. This page documents what each
-tier stores, how keys and eviction work, the cache lifecycle, and a known issue
-to be aware of.
+tier stores, how keys and eviction work, the cache lifecycle, and how storing on
+a miss keeps the running size and eviction in step.
 
 This is the caching half of the [Rendering Pipeline](rendering-pipeline.md).
 
@@ -186,33 +186,26 @@ flowchart TD
 
 ---
 
-## Known Issue: `Cache.add_cache_item` Guard
+## Storing on a Miss
 
-```{warning}
-The base `Cache.add_cache_item`
-(`src/wiser/raster/data_cache.py`) currently guards its insert
-with `if key in self._cache:` and returns `False` otherwise:
+`Cache.add_cache_item` stores the entry whether or not the key is already
+present. That is what lets the render and computation caches serve hits at all:
+callers only reach it *after* a lookup missed, so the key is never already there
+and an insert-only-if-present guard would drop every new entry.
 
-​```python
-def add_cache_item(self, key, value) -> bool:
-    if key in self._cache:        # <-- only updates EXISTING keys
-        ...
-        self._cache[key] = value
-        self._size += value.nbytes
-        return True
-    return False                  # <-- a brand-new key is never stored
-​```
+Two details keep `_size` honest, and eviction with it:
 
-Callers add an item only **after** a cache miss (`in_cache(key)` returned
-`False`), so the key is never already present — which means new entries are
-never stored. As written, the **render cache and computation cache do not
-actually serve hits**: every render recomputes from scratch. The condition is
-almost certainly meant to be `if key not in self._cache:`.
+- **A replacement subtracts before it adds.** Re-storing a key that is already
+  in the cache gives back the old value's `nbytes` before adding the new
+  value's, so an overwritten key is counted once rather than twice. The
+  refreshed entry moves to the back of the `OrderedDict`, so FIFO eviction
+  treats it as the newest item rather than the oldest.
+- **Eviction runs after the insert.** `_evict()` is called once the new item is
+  in and `_size` includes it, so the loop frees enough room for the incoming
+  value instead of measuring a size that does not yet count it. A value larger
+  than the entire capacity is refused up front — `add_cache_item` returns
+  `False` and nothing is evicted on its behalf.
 
-`HistogramCache` overrides `add_cache_item` *without* this guard, so the
-histogram cache works as intended.
-
-This page documents the *intended* design (the caches are meant to store on
-miss and serve on subsequent requests). The note is here so readers aren't
-misled by the current code; fixing the guard is a separate change.
-```
+`src/tests/test_data_cache.py` covers the miss/store/hit cycle for the render
+and computation caches, the size arithmetic across replacement and removal, and
+FIFO eviction at capacity.
