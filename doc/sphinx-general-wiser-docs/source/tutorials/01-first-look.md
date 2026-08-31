@@ -83,10 +83,12 @@ The panes stay in step with each other:
 
 ```{admonition} One known rough edge
 :class: warning
-For a dataset in a **projected** CRS, the status bar currently prints those two
+This scene reads correctly, but many datasets do not. Where a projected CRS
+resolves to a standard **EPSG** geographic code — which most real-world
+GeoTIFF and UTM products do — the status bar currently prints the two
 coordinates the wrong way round: the longitude carries the `°N` label and the
-latitude carries `°E`. The numbers are right; the labels are swapped. Read the
-first value as longitude and the second as latitude until it is fixed.
+latitude carries `°E`. The numbers are right; the labels are swapped. Check the
+values against the scene's known location before trusting the labels.
 ```
 
 Every pane is dockable: drag a title bar to move it, or drag it out of the
