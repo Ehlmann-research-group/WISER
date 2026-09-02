@@ -5,8 +5,6 @@ then let K-means partition the scene without being told what to look for.
 
 **Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
 
-**Time:** about 20 minutes.
-
 ---
 
 ## Part A — Feature space
@@ -39,7 +37,7 @@ matched to pixels by position.
 :alt: Density scatter plot of the 702 nm band against the 852 nm band
 :::
 
-Every pixel is one point, coloured by how many pixels share that spot (the
+Every pixel is one point, colored by how many pixels share that spot (the
 default is a **density** plot; **To Scatter** switches to plain dots, easier to
 read where the population is sparse).
 
@@ -91,7 +89,7 @@ everything in {doc}`Tutorial 3 <03-regions-of-interest>` becomes available.
 
 Where the scatter plot compares two bands, K-means uses **all** of them: each
 pixel is a point in *n*-band space, and the algorithm partitions those points
-into **K** clusters, iterating until the centres stop moving.
+into **K** clusters, iterating until the centers stop moving.
 
 1. **Tools ▸ Data Analysis ▸ K-means**.
 2. **Input Dataset** — `caltech_4_100_150_nm`.
@@ -112,7 +110,7 @@ into **K** clusters, iterating until the centres stop moving.
    :::
 
    The seed matters more than it looks. K-means starts from randomly chosen
-   centres, so two unseeded runs on identical data give different — and
+   centers, so two unseeded runs on identical data give different — and
    differently *numbered* — clusters. Fix the seed and your figure is
    reproducible.
 
@@ -135,7 +133,7 @@ The clusters recover the scene's structure: bright roofs, darker roofs, road
 and parking surfaces, canopy, and shadow.
 
 ```{important}
-**Cluster colours and numbers mean nothing on their own.** K-means is
+**Cluster colors and numbers mean nothing on their own.** K-means is
 unsupervised: it finds groups, it does not name them. Cluster 3 is not
 "vegetation" until you check. Click **View Centroids** to plot the mean
 spectrum of each cluster — the one that climbs steeply from 702 to 852 nm is
@@ -170,13 +168,13 @@ The other Advanced Options:
 | **Algorithm** | `lloyd` (classic) or `elkan` (faster on well-separated clusters, more memory) |
 
 Bad bands are excluded from the distance computation, and nodata pixels are
-labelled −1.
+labeled −1.
 
 ---
 
 ## What you can now do
 
-- Read a two-band feature space and recognise the soil line
+- Read a two-band feature space and recognize the soil line
 - Move between feature space and image space in both directions
 - Run a reproducible unsupervised classification
 - Identify what a cluster actually is, rather than assuming

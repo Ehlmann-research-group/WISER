@@ -4,7 +4,6 @@
 - **Instrument:** AVIRIS-NG (Airborne Visible/Infrared Imaging Spectrometer —
   Next Generation), 425 bands, 377–2500 nm at ~5 nm, ~5 m pixels
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`
-- **Time:** 2–3 hours
 
 ```{admonition} You will need to download data for this lab
 :class: note
@@ -21,12 +20,12 @@ figure below was produced by running these steps in WISER.
 ## The question
 
 An urban scene is a mosaic of a few materials — vegetation, concrete, asphalt,
-roofing, water — packed at a scale of metres. A colour photograph separates
+roofing, water — packed at a scale of meters. A color photograph separates
 some of them and confuses the rest: a green roof and a green tree are the same
-colour, and two roofs of different material can look identical.
+color, and two roofs of different material can look identical.
 
 With 425 contiguous bands each of those materials has a *shape*, not just a
-colour. In this lab you use that shape to:
+color. In this lab you use that shape to:
 
 1. read the physical signature of four surfaces,
 2. map vegetation quantitatively across the scene,
@@ -94,12 +93,12 @@ with WISER.
 | Georeferencing | Universal Transverse Mercator (UTM) zone 11N on WGS-84, 2 m map info, rotation −2° |
 | Nodata | `-9999` |
 
-The 53 flagged bands are the water-vapour regions near 1400 nm and 1900 nm,
+The 53 flagged bands are the water-vapor regions near 1400 nm and 1900 nm,
 plus the noisy ends of the range. Every WISER tool drops them automatically.
 
 ---
 
-## Part 1 — Open and orient (20 min)
+## Part 1 — Open and orient
 
 1. **File ▸ Open...** and select either file. Leave the type on **All
    supported files**.
@@ -110,7 +109,7 @@ plus the noisy ends of the range. Every WISER tool drops them automatically.
 :::{figure} ../../_static/tutorials/lab_avng_truecolour.png
 :width: 95%
 :align: center
-:alt: The AVIRIS-NG Caltech scene in WISER, true colour, all panes visible
+:alt: The AVIRIS-NG Caltech scene in WISER, true color, all panes visible
 :::
 
 Opening a 551 MB cube takes a few seconds; after that, panning and zooming are
@@ -124,7 +123,7 @@ flight line — nodata, and they matter in Part 3.
 
 ### Which band is which
 
-Open the **band chooser**. Every band is labelled with its wavelength, which is
+Open the **band chooser**. Every band is labeled with its wavelength, which is
 how you pick bands by physics rather than by index.
 
 :::{figure} ../../_static/tutorials/lab_avng_band_chooser.png
@@ -144,7 +143,7 @@ The bands this lab uses:
 | 1649 nm | 254 | Short-wave infrared (SWIR) 1 |
 | 2200 nm | 364 | SWIR-2 — clay/carbonate region |
 
-### A composite true colour cannot give you
+### A composite true color cannot give you
 
 Set the band chooser to **RGB** with **2200 / 1649 / 858 nm** and re-apply a
 2.5% stretch.
@@ -152,22 +151,22 @@ Set the band chooser to **RGB** with **2200 / 1649 / 858 nm** and re-apply a
 :::{figure} ../../_static/tutorials/lab_avng_swir.png
 :width: 95%
 :align: center
-:alt: SWIR false-colour composite of the same scene
+:alt: SWIR false-color composite of the same scene
 :::
 
 Vegetation turns deep blue — it absorbs strongly in both SWIR bands but stays
 bright in the NIR. Roofs and pavement turn yellow and tan, and now they
-*separate from each other* in a way they never do in true colour. Nothing here
+*separate from each other* in a way they never do in true color. Nothing here
 is new information: it was in the cube all along, and choosing three different
 bands is all it took to see it.
 
-**Deliverable 1:** the true-colour and SWIR composites of the same area, and
-two sentences on what the SWIR composite distinguishes that true colour does
+**Deliverable 1:** the true-color and SWIR composites of the same area, and
+two sentences on what the SWIR composite distinguishes that true color does
 not.
 
 ---
 
-## Part 2 — Four surfaces, four spectra (30 min)
+## Part 2 — Four surfaces, four spectra
 
 Click each of these pixels and **collect** the spectrum
 ({doc}`Tutorial 2 <../02-spectra>`). Rename and recolour each one from the list
@@ -216,25 +215,25 @@ other common surfaces behave that way.
 1800 nm before declining through the SWIR. High and featureless is the
 signature of a broadband reflector.
 
-**Asphalt** (grey) is dark in the visible, around 0.07, and rises steadily all
+**Asphalt** (gray) is dark in the visible, around 0.07, and rises steadily all
 the way to 0.45 in the SWIR. That steady climb is what separates it from the
-roof: both are "grey" to the eye, and they are nothing alike past 1000 nm.
+roof: both are "gray" to the eye, and they are nothing alike past 1000 nm.
 
 ```{admonition} Why the gaps are not a defect
 :class: note
 The three breaks in every line are the 53 bands the header flags bad. At those
-wavelengths atmospheric water vapour absorbs nearly all the signal, so nothing
+wavelengths atmospheric water vapor absorbs nearly all the signal, so nothing
 reliable about the surface survives. WISER omits them from the plot and every
 tool excludes them from its computation. A spectrum drawn straight through
 those regions is showing you the atmosphere, not the ground.
 ```
 
-**Deliverable 2:** the four spectra on one labelled plot, with the red edge,
+**Deliverable 2:** the four spectra on one labeled plot, with the red edge,
 the two leaf-water absorptions and water's NIR cutoff annotated.
 
 ---
 
-## Part 3 — Map the vegetation (30 min)
+## Part 3 — Map the vegetation
 
 The vegetation and asphalt spectra diverge hardest between 662 nm and 858 nm.
 Turn that into a number for every pixel.
@@ -307,13 +306,13 @@ stretch dialog before you conclude anything from a computed image.
 
 ### Compare side by side
 
-Split the main view with the **grid** button and show the true-colour cube in
+Split the main view with the **grid** button and show the true-color cube in
 one panel and NDVI in the other.
 
 :::{figure} ../../_static/tutorials/lab_avng_ndvi_vs_rgb.png
 :width: 95%
 :align: center
-:alt: True colour and NDVI side by side in a 1x2 grid
+:alt: True color and NDVI side by side in a 1x2 grid
 :::
 
 **Deliverable 3:** the NDVI map with your stretch limits stated, the
@@ -322,7 +321,7 @@ justify from the histogram.
 
 ---
 
-## Part 4 — Structure without supervision (40 min)
+## Part 4 — Structure without supervision
 
 ### 4a. Feature space
 
@@ -405,7 +404,7 @@ K-means map, and a paragraph on why the clustering is noisier than the scene.
 
 ---
 
-## Part 5 — Compress 425 bands (30 min)
+## Part 5 — Compress 425 bands
 
 Right-click the image and choose **PCA**. Leave the component count at its
 maximum and click **OK**.
@@ -430,16 +429,16 @@ they are down near 10⁻⁵ — **four orders of magnitude**. The elbow is somew
 around component 10 to 15. Everything past roughly component 50 is noise, and
 the fact that 372 components exist tells you nothing about how many matter.
 
-A false-colour composite of PC1/PC2/PC3:
+A false-color composite of PC1/PC2/PC3:
 
 :::{figure} ../../_static/tutorials/lab_avng_pc_composite.png
 :width: 95%
 :align: center
-:alt: A PC1/PC2/PC3 false-colour composite
+:alt: A PC1/PC2/PC3 false-color composite
 :::
 
 Vegetation is green, roofs magenta and pink, pavement blue-purple, and roofs
-that were indistinguishable in true colour now differ. Three numbers per pixel,
+that were indistinguishable in true color now differ. Three numbers per pixel,
 carrying much of what 425 bands had to say.
 
 :::{figure} ../../_static/tutorials/lab_avng_pc1.png
@@ -465,12 +464,12 @@ explanation of the difference.
 
 ## Questions to answer
 
-1. A green roof and a tree are the same colour in the true-colour composite.
+1. A green roof and a tree are the same color in the true-color composite.
    Name two bands that separate them and explain the physics of each.
 2. Your NDVI map has a value of −3.35 somewhere. Where does that come from, and
    why does it not appear once you apply a 2.5% stretch?
 3. PCA gave 372 components for a 425-band cube. Where did the other 53 go, and
-   why is dropping them the right behaviour rather than a loss?
+   why is dropping them the right behavior rather than a loss?
 4. K-means on the raw cube is noisier than K-means on MNF components. Explain
    why in terms of what each method is ranking.
 5. The pool spectrum is essentially zero beyond 750 nm. What does that imply

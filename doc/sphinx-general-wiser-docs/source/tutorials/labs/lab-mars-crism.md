@@ -6,7 +6,6 @@
   436–3897 nm, at 18 m/pixel (full-resolution targeted, `FRT`) or 36 m
   (half-resolution long, `HRL`)
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`; {doc}`Lab B <lab-cuprite-minerals>` helps
-- **Time:** 2–3 hours
 
 ```{admonition} You will need to download data for this lab
 :class: note
@@ -96,7 +95,7 @@ carries them, so WISER plots against wavelength without it.
 
 ---
 
-## Part 1 — Open and orient (25 min)
+## Part 1 — Open and orient
 
 1. **File ▸ Open...** → the `_IF*_MTR3.IMG` file. WISER reads it as an ENVI
    raster; the `.HDR` beside it supplies the wavelengths.
@@ -123,12 +122,12 @@ Open the `.IMG`.
 :::{figure} ../../_static/tutorials/lab_crism_fal.png
 :width: 100%
 :align: center
-:alt: Jezero Crater in the CRISM FAL false-colour composite, with the delta clearly visible
+:alt: Jezero Crater in the CRISM FAL false-color composite, with the delta clearly visible
 :::
 
 The **delta** is the fan in the lower half of the scene, its channels picked
-out in grey-green against the pink-red crater floor. Colour differences here
-are already mineralogical, but as at Cuprite, colour alone names nothing.
+out in gray-green against the pink-red crater floor. Color differences here
+are already mineralogical, but as at Cuprite, color alone names nothing.
 
 4. Click across the scene and watch the spectra. Note the vertical striping:
    CRISM's detector produces column-correlated noise, visible in single-pixel
@@ -143,7 +142,7 @@ anything, and prefer ROI mean spectra
 ```
 
 ```{admonition} Ignore everything past ~2600 nm
-:class: warning
+:class: note
 The header flags **no bad bands**, but the channels beyond about 2.6 µm are at
 the detector's long-wavelength edge and are not usable; values there swing by
 hundreds of I/F units and will wreck an autoscaled plot. Pin the spectrum
@@ -151,12 +150,12 @@ plot's x-axis (gear icon ▸ axis range) to something like **900–2650 nm** bef
 you read anything.
 ```
 
-**Deliverable 1:** a false-colour image with the delta marked, and one raw
+**Deliverable 1:** a false-color image with the delta marked, and one raw
 single-pixel spectrum beside one 5 × 5 median from the same pixel.
 
 ---
 
-## Part 2 — Find the carbonate pair, then clean it up (30 min)
+## Part 2 — Find the carbonate pair, then clean it up
 
 These three spectra come from pixels on the crater margin, plotted over
 900–2650 nm with the axes pinned:
@@ -209,7 +208,7 @@ detector columns**.
 
 1. Draw an ROI over a bland, dusty area with no obvious absorptions, spanning the
    same image columns as your area of interest.
-2. Draw a second ROI over the unit you want to characterise.
+2. Draw a second ROI over the unit you want to characterize.
 3. Collect both mean spectra.
 4. **Tools ▸ Band math...**:
 
@@ -220,7 +219,7 @@ detector columns**.
    Bind both variables as type **Spectrum**.
 
 ```{admonition} What a ratio costs you
-:class: warning
+:class: note
 A ratioed spectrum is not reflectance. Band *depths* are relative to your
 denominator, so they are not comparable to laboratory values, and any feature
 your denominator contains shows up **inverted** in the result. Always report
@@ -232,7 +231,7 @@ denominator ROI identified.
 
 ---
 
-## Part 3 — Band-depth maps (45 min)
+## Part 3 — Band-depth maps
 
 Planetary work usually maps **band depth**: how deep an absorption is relative
 to a continuum drawn across it. For a band at $\lambda_c$ with shoulders at
@@ -241,7 +240,7 @@ $\lambda_s$ and $\lambda_l$:
 $$D = 1 - \frac{R_{\lambda_c}}{(1-f)\,R_{\lambda_s} + f\,R_{\lambda_l}},
 \qquad f = \frac{\lambda_c - \lambda_s}{\lambda_l - \lambda_s}$$
 
-$f$ places the continuum at the band centre. Take the **2510 nm** band, the one
+$f$ places the continuum at the band center. Take the **2510 nm** band, the one
 that separates carbonate from smectite, with shoulders at 2400 and
 2600 nm. The nearest CRISM channels are 2397.2, 2509.7 and 2602.1 nm, so
 $f = 0.549$:
@@ -282,7 +281,7 @@ rover has since sampled carbonate-bearing rock in the margin.
 
 Now build the other indices the same way:
 
-| Index | Centre | Shoulders | $f$ | What it shows |
+| Index | Center | Shoulders | $f$ | What it shows |
 |---|---|---|---|---|
 | `BD2310` | 2310 nm (band 270) | 2230 / 2400 (bands 258 / 283) | 0.480 | carbonate **and** Fe/Mg-smectite |
 | `BD2510` | 2510 nm (band 300) | 2400 / 2600 (bands 283 / 314) | 0.549 | carbonate only |
@@ -301,10 +300,10 @@ your own band-depth histograms, not from these example numbers. On
 those two example thresholds already select a small fraction of the scene.
 
 ```{admonition} Average channels, do not trust one
-:class: warning
+:class: note
 Single CRISM channels carry spikes that a naive band depth reads as a 9 %
 absorption. The published CRISM summary parameters average several channels at
-each shoulder and centre for exactly this reason. If your map is speckled with
+each shoulder and center for exactly this reason. If your map is speckled with
 extreme single pixels, that is what you are seeing. Median-filter the cube
 first ({doc}`Filters <../../user-content/filters>`) or widen the index.
 ```
@@ -314,7 +313,7 @@ combined carbonate mask, with your thresholds stated and justified.
 
 ---
 
-## Part 4 — Confirm with spectral matching (30 min)
+## Part 4 — Confirm with spectral matching
 
 Band-depth maps are indices; they can be fooled. Confirm them.
 
@@ -350,7 +349,7 @@ detection holds.
 
 ## Going further
 
-- Repeat over **Nili Fossae** (`FRT00003E12` and neighbours), the largest
+- Repeat over **Nili Fossae** (`FRT00003E12` and neighbors), the largest
   carbonate exposure known on Mars, and Jezero's watershed.
 - Compare a CRISM detection against **Perseverance** ground truth: SuperCam and
   SHERLOC results for the Jezero delta are published, giving a rare

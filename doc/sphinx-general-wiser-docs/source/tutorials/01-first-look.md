@@ -7,8 +7,6 @@ make the picture readable.
 pixel, 4-band AVIRIS subset over the Caltech campus. It ships with the WISER
 source; nothing to download.
 
-**Time:** about 10 minutes.
-
 ---
 
 ## Before you start
@@ -77,12 +75,12 @@ Then click **Zoom to fit** (the diagonal-arrows button).
 The panes stay in step with each other:
 
 - The **yellow box** in the Context pane marks what the main window is showing.
-- Clicking in the main window re-centres the **Zoom** pane there.
+- Clicking in the main window re-centers the **Zoom** pane there.
 - The **status bar** reports the pixel's display values, its `(x, y)` position,
   and — because this scene is georeferenced — its geographic coordinates.
 
 ```{admonition} One known rough edge
-:class: warning
+:class: note
 This scene reads correctly, but many datasets do not. Where a projected CRS
 resolves to a standard **EPSG** geographic code — which most real-world
 GeoTIFF and UTM products do — the status bar currently prints the two
@@ -99,7 +97,7 @@ window to float it on a second monitor.
 ## Step 3 — Choose the bands you display
 
 WISER opened this scene with the **default bands** named in its header — 2, 1,
-0, giving a 702 / 532 / 472 nm near-true-colour image.
+0, giving a 702 / 532 / 472 nm near-true-color image.
 
 1. Click the **band chooser** in the toolbar.
 
@@ -148,7 +146,7 @@ stretch** decides how they are mapped.
    :::{figure} ../_static/tutorials/t1_stretch_default.png
    :width: 55%
    :align: center
-   :alt: The stretch builder showing one histogram per colour channel
+   :alt: The stretch builder showing one histogram per color channel
    :::
 
    You get one histogram per displayed channel; the dotted line marks the
@@ -184,7 +182,7 @@ For the full set of stretch types and conditioners — including the
 <../user-content/display-and-stretch>`.
 
 ```{admonition} A second known rough edge
-:class: warning
+:class: note
 If you apply a stretch, then change the same view between **Grayscale** and
 **RGB**, reopening the stretch dialog currently raises an error. Reopen the
 dataset, or set your bands before stretching, until that is fixed.

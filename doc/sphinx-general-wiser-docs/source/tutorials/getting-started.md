@@ -74,7 +74,8 @@ scree plots, real mineral separations — go to
 
 ---
 
-**Next:** the {doc}`Labs <labs/index>` take these tools to full public datasets.
+**Next:** the {doc}`Labs <labs/index>` take these tools to full public
+datasets, in a form you can adapt into your own lab.
 
 ```{toctree}
 :hidden:

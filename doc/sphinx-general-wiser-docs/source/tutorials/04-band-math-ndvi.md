@@ -5,19 +5,17 @@ read the result as a canopy map.
 
 **Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
 
-**Time:** about 10 minutes.
-
 ---
 
 ## The idea
 
 {doc}`Tutorial 3 <03-regions-of-interest>` showed the canopy spectrum dropping
 at 702 nm and climbing at 852 nm while roofs and asphalt stayed flat. A
-**normalised difference** turns that contrast into one number per pixel:
+**normalized difference** turns that contrast into one number per pixel:
 
 $$\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{red}}}{\rho_{\text{NIR}} + \rho_{\text{red}}}$$
 
-Dividing by the sum normalises out brightness, so a shadowed leaf and a sunlit
+Dividing by the sum normalizes out brightness, so a shadowed leaf and a sunlit
 leaf score alike. Values run −1 to +1: dense green vegetation high, bare soil
 and pavement near zero, water below zero.
 
@@ -51,7 +49,7 @@ available.
    ```
 
 4. Press **Enter** or click away. WISER parses the expression and adds a row to
-   **Variable bindings** for every name it does not recognise as a function —
+   **Variable bindings** for every name it does not recognize as a function —
    here, `nir` and `red`.
 
 ---
@@ -102,7 +100,7 @@ block, and roofs, roads and parking areas as flat pale yellow.
 ```{important}
 **Set the stretch on any computed product before you read it.** Index values
 have no reason to fill the display range sensibly, and a single extreme pixel
-at a scene edge can flatten everything else into one colour. Check the
+at a scene edge can flatten everything else into one color. Check the
 histogram in the stretch dialog first. {doc}`Lab A <labs/lab-aviris-ng-urban>`
 shows what this looks like when it goes wrong.
 ```
@@ -118,7 +116,7 @@ shows what this looks like when it goes wrong.
 :::{figure} ../_static/tutorials/t4_ndvi_vs_rgb.png
 :width: 90%
 :align: center
-:alt: True-colour image and NDVI side by side in a 1x2 grid
+:alt: True-color image and NDVI side by side in a 1x2 grid
 :::
 
 When every open dataset has the same width and height, the **link** button ties
