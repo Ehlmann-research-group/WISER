@@ -438,6 +438,7 @@ def _collect_wavelength_candidates(
 
 def extract_netcdf_wavelengths(
     netcdf_dataset,
+    band_count: Optional[int] = None,
 ) -> Tuple[Optional[np.ndarray], Optional[u.Unit]]:
     """Search a ``netCDF4.Dataset`` for wavelength data at any nesting depth.
 
@@ -449,8 +450,15 @@ def extract_netcdf_wavelengths(
 
     Selection
     ---------
-    1. Return the **first** candidate (in depth-first, declaration order) that
-       has **both** a 1-D numeric data array *and* a recognised unit.
+    0. When *band_count* is given and any candidate has exactly that many
+       values, only those candidates are considered.  A file may carry several
+       wavelength arrays describing different variables -- PACE OCI L2 ships a
+       286-value array for the instrument alongside a 172-value array for the
+       hyperspectral ``Rrs`` cube -- and only the one matching the variable
+       being opened describes its bands.
+    1. Return the **first** remaining candidate (in depth-first, declaration
+       order) that has **both** a 1-D numeric data array *and* a recognised
+       unit.
     2. If no candidate has both, return the first available data array paired
        with the first available unit — either may be ``None``.
 
@@ -463,6 +471,11 @@ def extract_netcdf_wavelengths(
 
     if not candidates:
         return None, None
+
+    if band_count is not None:
+        sized = [(data, unit) for data, unit in candidates if data is not None and len(data) == band_count]
+        if sized:
+            candidates = sized
 
     # Priority 1: first candidate with both data and unit
     for data, unit in candidates:
@@ -523,7 +536,7 @@ def _collect_good_wavelength_candidates(group) -> List[np.ndarray]:
     return candidates
 
 
-def extract_netcdf_bad_bands(netcdf_dataset) -> Optional[List[int]]:
+def extract_netcdf_bad_bands(netcdf_dataset, band_count: Optional[int] = None) -> Optional[List[int]]:
     """Search a ``netCDF4.Dataset`` for a good-wavelength mask at any depth.
 
     All groups and sub-groups are visited recursively.  Variable names are
@@ -534,12 +547,20 @@ def extract_netcdf_bad_bands(netcdf_dataset) -> Optional[List[int]]:
     element whose raw value equals the variable's ``_FillValue`` is treated as
     a bad band (set to ``0``).
 
+    When *band_count* is given and any candidate has exactly that many values,
+    only those candidates are considered, for the same reason as in
+    :func:`extract_netcdf_wavelengths`.
+
     The first matching array is returned as a :class:`numpy.ndarray` of
     ``numpy.bool_``.  Returns ``None`` if no matching variable is found.
     """
     candidates = _collect_good_wavelength_candidates(netcdf_dataset)
     if not candidates:
         return None
+    if band_count is not None:
+        sized = [c for c in candidates if len(c) == band_count]
+        if sized:
+            candidates = sized
     return [int(v) for v in candidates[0]]
 
 
