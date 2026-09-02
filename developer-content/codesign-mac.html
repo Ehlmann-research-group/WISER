@@ -465,15 +465,21 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-full-sequence">The full sequence</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-by-identified-developers">Code-signing by Identified Developers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#preparing-to-notarize-from-the-command-line">Preparing to Notarize from the Command Line</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-your-application">Code-Signing Your Application</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signing-in-github-actions">Signing in GitHub Actions</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#required-configuration">Required configuration</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-a-disk-image-dmg-file">Building a Disk Image (.dmg) File</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notarizing-the-disk-image">Notarizing the Disk Image</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-of-notarization">Output of Notarization</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#final-steps">Final Steps??</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stapling-the-ticket">Stapling the Ticket</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#verifying-the-result">Verifying the Result</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
 </ul>
 </li>
@@ -499,6 +505,26 @@ the binary was code-signed with a known developer key, and also notarized
 by Apple.  This is a daunting hurdle to overcome, but it is surmountable.</p>
 <p>This document describes how to code-sign and notarize an application for
 MacOSX, using the WISER application as an example.</p>
+<section id="the-full-sequence">
+<h2>The full sequence<a class="headerlink" href="#the-full-sequence" title="Link to this heading">#</a></h2>
+<p>Three separate operations are needed, in this order, and all three are required before a
+downloaded WISER opens without a Gatekeeper prompt:</p>
+<ol class="arabic simple">
+<li><p><strong>Code-sign</strong> the <code class="docutils literal notranslate"><span class="pre">.app</span></code> with the Developer ID Application certificate (<code class="docutils literal notranslate"><span class="pre">codesign</span></code>).</p></li>
+<li><p><strong>Notarize</strong> it — upload to Apple’s malware scan, which returns a ticket
+(<code class="docutils literal notranslate"><span class="pre">xcrun</span> <span class="pre">notarytool</span></code>).</p></li>
+<li><p><strong>Staple</strong> the ticket to the artifact so Gatekeeper can validate it <em>offline</em>
+(<code class="docutils literal notranslate"><span class="pre">xcrun</span> <span class="pre">stapler</span></code>).</p></li>
+</ol>
+<p>The <code class="docutils literal notranslate"><span class="pre">.app</span></code> must be stapled <strong>before</strong> the DMG is built, because an app sitting on a
+read-only disk image cannot be stapled afterwards. The DMG is then signed, notarized and
+stapled in turn. <code class="docutils literal notranslate"><span class="pre">src/devtools/sign_mac.py</span></code> performs the whole sequence:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>sign .app -&gt; notarize -&gt; staple .app -&gt; build DMG -&gt; sign DMG -&gt; notarize -&gt; staple DMG -&gt; verify
+</pre></div>
+</div>
+<p>The rest of this document explains each operation. To actually run it, use the GitHub
+Action (below) or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-mac</span></code>; the sections after that cover what those do.</p>
+</section>
 <section id="code-signing-by-identified-developers">
 <h2>Code-signing by Identified Developers<a class="headerlink" href="#code-signing-by-identified-developers" title="Link to this heading">#</a></h2>
 <p>In order to code-sign an application, one must have an Identified Developer
@@ -626,6 +652,76 @@ file above.</p>
 </li>
 </ul>
 </section>
+<section id="signing-in-github-actions">
+<h2>Signing in GitHub Actions<a class="headerlink" href="#signing-in-github-actions" title="Link to this heading">#</a></h2>
+<p>Releases are signed by the <strong>Sign macOS release assets</strong> workflow
+(<code class="docutils literal notranslate"><span class="pre">.github/workflows/sign-macos.yml</span></code>) rather than from a laptop.  Dispatch it with the run
+ID of a completed “Build and Smoke Test WISER” run, and optionally a release tag:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">run_id</span></code> — the build run whose macOS artifact should be signed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arch</span></code> — <code class="docutils literal notranslate"><span class="pre">both</span></code> (default), <code class="docutils literal notranslate"><span class="pre">arm64</span></code>, or <code class="docutils literal notranslate"><span class="pre">x64</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">release_tag</span></code> — when set, the signed DMG is attached to that release.  Leave it empty to
+produce a workflow artifact only.</p></li>
+</ul>
+<p>The workflow refuses to sign a run that did not conclude successfully, and — when a tag is
+given — refuses when the tag does not point at the commit that was built.  It checks the
+repository out at the build commit, so <code class="docutils literal notranslate"><span class="pre">version.py</span></code> names the DMG for the artifact being
+signed rather than for whatever <code class="docutils literal notranslate"><span class="pre">main</span></code> has since moved on to.</p>
+<p>It runs the same <code class="docutils literal notranslate"><span class="pre">src/devtools/sign_mac.py</span></code> as <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-mac</span></code>, so the local and CI paths
+cannot drift.</p>
+<section id="required-configuration">
+<h3>Required configuration<a class="headerlink" href="#required-configuration" title="Link to this heading">#</a></h3>
+<p>The signing job runs in a <strong><code class="docutils literal notranslate"><span class="pre">release</span></code> environment</strong>.  Configure that environment with a
+required reviewer: the certificate is unreachable until a maintainer approves the
+deployment, which is what keeps a private key in GitHub acceptable.</p>
+<p>Environment secrets:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Secret</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MACOS_CERT_P12_BASE64</span></code></p></td>
+<td><p>Developer ID Application certificate + key, as base64 of a <code class="docutils literal notranslate"><span class="pre">.p12</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MACOS_CERT_PASSWORD</span></code></p></td>
+<td><p>Password protecting that <code class="docutils literal notranslate"><span class="pre">.p12</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NOTARY_KEY_P8_BASE64</span></code></p></td>
+<td><p>App Store Connect API key, as base64 of the <code class="docutils literal notranslate"><span class="pre">.p8</span></code> (preferred)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NOTARY_KEY_ID</span></code></p></td>
+<td><p>Key ID for that API key</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NOTARY_ISSUER_ID</span></code></p></td>
+<td><p>Issuer ID; omit for an individual (non-team) key</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AD_USERNAME</span></code>, <code class="docutils literal notranslate"><span class="pre">AD_TEAM_ID</span></code>, <code class="docutils literal notranslate"><span class="pre">AD_PASSWORD</span></code></p></td>
+<td><p>Apple ID fallback, used when no API key is set</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Export the <code class="docutils literal notranslate"><span class="pre">.p12</span></code> from Keychain Access (right-click the certificate, Export), then:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">base64</span> <span class="o">-</span><span class="n">i</span> <span class="n">Certificates</span><span class="o">.</span><span class="n">p12</span> <span class="o">|</span> <span class="n">pbcopy</span>
+</pre></div>
+</div>
+<p>The signing identity is <strong>not</strong> configured anywhere: the job reads it back out of the
+keychain it imports, and fails if that keychain does not contain exactly one code-signing
+identity.  A re-issued certificate therefore needs no workflow change.</p>
+<p>An App Store Connect API key is preferred over the Apple ID credentials because it is
+scoped to the team rather than to one person’s login and 2FA, and can be revoked on its
+own.  The workflow uses the API key when <code class="docutils literal notranslate"><span class="pre">NOTARY_KEY_P8_BASE64</span></code> is set and falls back to
+the Apple ID otherwise.</p>
+<p>It also keeps the credential out of process arguments.  <code class="docutils literal notranslate"><span class="pre">notarytool</span></code> accepts an
+app-specific password only as <code class="docutils literal notranslate"><span class="pre">--password</span></code>, or through a keychain profile that
+<code class="docutils literal notranslate"><span class="pre">store-credentials</span></code> populates the same way, so on the Apple ID path the password is
+visible in <code class="docutils literal notranslate"><span class="pre">ps</span></code> for the duration of the submission.  An API key is passed as a <em>file
+path</em>, and the Key ID and Issuer ID are identifiers rather than secrets, so nothing
+sensitive appears in the command line.</p>
+</section>
+</section>
 <section id="building-a-disk-image-dmg-file">
 <h2>Building a Disk Image (.dmg) File<a class="headerlink" href="#building-a-disk-image-dmg-file" title="Link to this heading">#</a></h2>
 <p>It is of value to build a distributable <code class="docutils literal notranslate"><span class="pre">.dmg</span></code> file from the application,
@@ -727,19 +823,37 @@ get detailed information about what happened during notarization.</p>
 </div>
 </section>
 </section>
-<section id="final-steps">
-<h2>Final Steps??<a class="headerlink" href="#final-steps" title="Link to this heading">#</a></h2>
-<p>Guess what?  If you you got to this point, you’re done!</p>
-<p>You might expect that the notarized version of the app needs to be downloaded
-from somewhere, but it actually doesn’t work that way.  When you notarize
-a macOS application for distribution, Apple simply records key details about
-the code-signed app and its packaging, and it scans the app’s binaries for
-known malware.</p>
-<p>Later, when users try to run your application, the Gatekeeper subsystem on
-their computer will talk to the Apple servers, to check this information
-recorded during notarization.</p>
-<p>Thus, you are now ready to distribute your code-signed <code class="docutils literal notranslate"><span class="pre">.dmg</span></code> file to your
-users!</p>
+<section id="stapling-the-ticket">
+<h2>Stapling the Ticket<a class="headerlink" href="#stapling-the-ticket" title="Link to this heading">#</a></h2>
+<p>Notarization records the result on Apple’s servers; it does not change the file you
+uploaded.  Left there, Gatekeeper has to contact Apple over the network the first time a
+user launches the app.  That fails for a user who is offline or behind a captive portal,
+which is a realistic situation for the classroom and field machines WISER runs on.</p>
+<p><code class="docutils literal notranslate"><span class="pre">stapler</span></code> attaches the notarization ticket to the artifact itself, so Gatekeeper can
+validate it with no network at all:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">xcrun</span> <span class="n">stapler</span> <span class="n">staple</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
+<span class="n">xcrun</span> <span class="n">stapler</span> <span class="n">validate</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
+</pre></div>
+</div>
+<p>Staple the <code class="docutils literal notranslate"><span class="pre">.app</span></code> <strong>before</strong> building the DMG.  Once the app is inside a read-only disk
+image it can no longer be modified, so an app stapled only at the DMG level ships without
+a ticket of its own and phones home on first launch.  Staple the DMG too, after its own
+notarization, so the disk image validates offline as well.</p>
+</section>
+<section id="verifying-the-result">
+<h2>Verifying the Result<a class="headerlink" href="#verifying-the-result" title="Link to this heading">#</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">codesign</span> <span class="o">--</span><span class="n">verify</span> <span class="o">--</span><span class="n">strict</span> <span class="o">--</span><span class="n">deep</span> <span class="o">--</span><span class="n">verbose</span><span class="o">=</span><span class="mi">2</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
+<span class="n">xcrun</span> <span class="n">stapler</span> <span class="n">validate</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
+<span class="n">xcrun</span> <span class="n">stapler</span> <span class="n">validate</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">macos</span><span class="o">-&lt;</span><span class="n">arch</span><span class="o">&gt;.</span><span class="n">dmg</span>
+<span class="n">spctl</span> <span class="o">--</span><span class="n">assess</span> <span class="o">--</span><span class="nb">type</span> <span class="n">exec</span> <span class="o">--</span><span class="n">verbose</span><span class="o">=</span><span class="mi">4</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">spctl</span></code> assessment is the one that reflects what an end user actually sees; it should
+report <code class="docutils literal notranslate"><span class="pre">source=Notarized</span> <span class="pre">Developer</span> <span class="pre">ID</span></code>.  <strong>It is only meaningful when Gatekeeper
+assessments are enabled</strong> — on a machine where <code class="docutils literal notranslate"><span class="pre">spctl</span> <span class="pre">--status</span></code> says <code class="docutils literal notranslate"><span class="pre">assessments</span> <span class="pre">disabled</span></code>, <code class="docutils literal notranslate"><span class="pre">spctl</span></code> reports “accepted” for anything, including an unsigned binary.  Check
+<code class="docutils literal notranslate"><span class="pre">spctl</span> <span class="pre">--status</span></code> first, and re-enable with <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">spctl</span> <span class="pre">--master-enable</span></code> when testing.
+<code class="docutils literal notranslate"><span class="pre">sign_mac.py</span></code> makes this an error rather than a false pass when run with
+<code class="docutils literal notranslate"><span class="pre">--require-gatekeeper</span></code> (as CI does).</p>
 <section id="testing">
 <h3>Testing<a class="headerlink" href="#testing" title="Link to this heading">#</a></h3>
 <p>If you want to test your code-signed and notarized application, you will
@@ -801,15 +915,21 @@ use it.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-full-sequence">The full sequence</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-by-identified-developers">Code-signing by Identified Developers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#preparing-to-notarize-from-the-command-line">Preparing to Notarize from the Command Line</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-signing-your-application">Code-Signing Your Application</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signing-in-github-actions">Signing in GitHub Actions</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#required-configuration">Required configuration</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-a-disk-image-dmg-file">Building a Disk Image (.dmg) File</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notarizing-the-disk-image">Notarizing the Disk Image</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-of-notarization">Output of Notarization</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#final-steps">Final Steps??</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stapling-the-ticket">Stapling the Ticket</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#verifying-the-result">Verifying the Result</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#testing">Testing</a></li>
 </ul>
 </li>
