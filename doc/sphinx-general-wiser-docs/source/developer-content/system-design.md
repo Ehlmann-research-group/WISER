@@ -30,7 +30,7 @@ Two consequences follow, and both are load-bearing:
 
 | The work | Use | Notes |
 |----------|-----|-------|
-| Long, expensive, needs progress and cancellation | Task system (`src/wiser/utils/task_system.py`) | Chunked execution under RAM and disk constraints; reports to the activity monitor. Documented in full below. |
+| Long, expensive, needs progress and cancellation | Task system (`src/wiser/utils/task_system.py`) | Chunked execution under RAM and disk constraints; reports to the activity monitor. Documented in full below. Use it, but do not build on it: it is more machinery than the problem needs, and simplifying it is tracked in #759. |
 | One-off CPU-bound work | `WorkScheduler` process pool (`src/wiser/utils/work_scheduler.py`) | No semantic task, no plan. Appropriate when the work is short or has no meaningful sub-stages. |
 | I/O-bound work | `WorkScheduler` thread pool | Threads are fine here: the GIL is released while waiting on I/O. |
 | Anything touching `QImage`, `QPixmap`, or a widget | GUI thread only | Qt objects cannot be created or mutated off the GUI thread. Cut the seam between the computation and the Qt handoff: return a finished array, build the Qt object on the GUI thread. |
@@ -44,6 +44,10 @@ The single documented standard for making this choice, including worked examples
 issue #753; until it lands, prefer the table above over copying whichever nearby example is
 closest to hand.
 
+Work that still runs on the GUI thread and should not: the render path described in
+[Rendering Pipeline](rendering-pipeline.md) (#758), and ROI average-spectra computation in
+`src/wiser/gui/rasterpane.py` (#468).
+
 ### Reading concurrently
 
 Because concurrent readers must not share one GDAL handle, `RasterDataImpl.reopen_dataset()`
@@ -56,6 +60,9 @@ GDAL 3.10 advertises multithreaded reads from a single handle, which would make 
 unnecessary. Testing it returned **corrupted data**. Do not remove the reopen without first
 re-verifying multithreaded reads against a known-good reference output — see issue #752.
 ```
+
+Recorded from handoff notes on the `joshua-handoff` branch, which is retained as the primary
+source.
 
 ---
 

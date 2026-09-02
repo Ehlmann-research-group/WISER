@@ -130,7 +130,8 @@ Relevant background:
 
 ## Usage Telemetry (Investigated, Not Pursued)
 
-**Decision: WISER does not collect usage telemetry, and this is not an oversight.**
+**Decision: WISER does not collect usage telemetry, and this is not an oversight.** Opt-in
+crash reporting is a separate and much narrower channel, described at the end of this section.
 
 The question was whether to instrument WISER to learn which features people actually use, so
 development effort could follow real usage rather than guesswork. It was investigated and
@@ -155,10 +156,20 @@ dialog. It is changed afterwards in the **WISER Configuration** dialog, reached 
 *Preferences…* in the WISER application menu on macOS or *File → Settings…* on Windows, under
 **General → Error Reporting**, via the checkbox *Send WISER exceptions and crashes to BugSnag*.
 
-A crash report describes a failure — the exception, the call sequence, the WISER version, the
-platform — and carries no imagery, spectra, ROIs, or file contents. It is a defect-diagnosis
-channel, deliberately narrow, and it is not a route to add usage analytics.
+A crash report describes a failure: the exception, the stack trace, the WISER version, and the
+platform. No imagery, spectra, ROIs, or file contents are attached, and the channel is not a
+route to add usage analytics.
+
+Read that as a description of the channel rather than as a privacy guarantee. A stack trace
+carries source file paths, which on a user's machine embed the home directory and therefore the
+username. `before_bugsnag_notify()` in `src/wiser/gui/bug_reporting.py` is the hook where such
+fields would be stripped, and it currently strips nothing; it carries a standing TODO to do so.
+The user-facing statement of what leaves the machine belongs in the privacy policy, not on this
+page.
 
 Naming the current provider above documents the interface as it ships; it is not a commitment to
 that provider. Whether WISER should keep sending crash reports to a third-party service at all
 is an open question, tracked in issue #775.
+
+Recorded from handoff notes on the `joshua-handoff` branch, which is retained as the primary
+source.

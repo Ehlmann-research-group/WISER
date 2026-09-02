@@ -169,6 +169,7 @@ Both setters null out `RasterView._joint_render_cache` and call
 **once per pane** — the context pane, main view, and zoom pane each hold a
 `RasterView` that renders the same change. On large images this is the single
 biggest source of interface freezes in WISER.
+```
 
 It also means "opening a dataset is slow" is mostly a *rendering* cost rather
 than a read cost. `loader.load_from_file()` probes drivers and reads metadata,
@@ -197,7 +198,6 @@ rendering code that caching was designed to absorb.
 Tracked in #758 (moving the NumPy portion off-thread), #764 (making a stretch
 change cancellable), and #69 (LoD-pyramid rendering, which would reduce the cost
 enough to change what the right fix is).
-```
 
 ---
 

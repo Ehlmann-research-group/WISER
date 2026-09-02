@@ -230,12 +230,31 @@ flowchart LR
 
 Each window is evaluated independently, and its result bands are written to an on-disk GDAL dataset incrementally.
 
+```{note}
+Chunking splits the **band** axis only, so the smallest chunk it can produce is one whole band.
+A single band larger than the memory budget still overflows it, which is reachable on images
+such as Gale HiRISE where one band can exceed 2 GB. The fix is to make chunking
+dimension-agnostic (#761) rather than to patch the band loop, since each local patch entrenches
+the band-only assumption further.
+
+Band-math plugins, the plugin API, and the plugin docs were all written assuming the whole
+dataset is in memory, so a chunking rewrite has to account for them or it breaks third-party
+plugins silently. That is tracked separately as #754.
+```
+
 ### Read-ahead pipeline
 
 The async evaluator runs two thread pools in addition to the `asyncio` event loop:
 
 - `_read_thread_pool` — 4 workers; reads raster band data from disk
 - `_write_thread_pool` — 1 worker; writes computed band windows back to disk
+
+```{warning}
+These reads are multithreaded, and they are safe only because `RasterDataImpl.reopen_dataset()`
+opens a fresh GDAL handle per read. Do not swap that for GDAL's single-handle multithreaded
+reads without re-verifying the output against a known-good reference: see
+[Reading concurrently](system-design.md#reading-concurrently) and issue #752.
+```
 
 Each expression tree node (operator) gets a pair of `queue.Queue` objects keyed by `LHS_KEY` and `RHS_KEY`. The operator submits the *next* window's read to the thread pool before it even starts computing the *current* window. By the time the current window's computation finishes, the next window's data is often already in the queue.
 
