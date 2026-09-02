@@ -60,12 +60,10 @@ Earthdata Login, worth having students create in advance.
 
 ```{admonition} Where the screenshots come from
 :class: note
-Labs A, B, C, E and F are illustrated with figures captured by driving WISER
-through exactly the steps described, on exactly the data named, including the
-band indices, pixel coordinates and band-math expressions in the text.
-
-Lab D specifies the same level of detail but ships no screenshots yet, so
-capture your own as you work.
+Every lab is illustrated with figures captured by driving WISER through exactly
+the steps described, on exactly the data named, including the band indices,
+pixel coordinates and band-math expressions in the text. Nothing here is a
+mockup, and nothing was drawn by hand.
 ```
 
 ## What carries over to your own scene

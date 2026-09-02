@@ -4,7 +4,6 @@
 - **Instrument:** EMIT (Earth Surface Mineral Dust Source Investigation) on the
   International Space Station, 285 bands, 381–2493 nm at ~7.5 nm, 60 m
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`
-- **Time:** 2 hours
 
 ```{admonition} You will need to download data for this lab
 :class: note
@@ -13,10 +12,9 @@ You will need to download some EMIT data to do this lab. You will also need to
 download it, so do that before you start. Everything is done through the
 browser; **Get the data** below has the search links and the steps.
 
-No screenshots are shipped for this lab, because the figure harness cannot
-authenticate to Earthdata, so capture your own as you work.
-{doc}`Lab A <lab-aviris-ng-urban>` shows the same workflow on airborne data,
-including every dialog you will use here.
+The figures here were captured on `EMIT_L2A_RFL_001_20230804T191650_2321613_007`,
+a August 2023 granule over the ranges of southwestern Nevada. Your scene will
+look different; the steps and the diagnostic wavelengths do not change.
 ```
 
 ---
@@ -79,15 +77,25 @@ regardless.
 
 ---
 
-## Part 1 — Open the granule (20 min)
+## Part 1 — Open the granule
 
 1. **File ▸ Open...** → the `EMIT_L2A_RFL_*.nc` file.
-2. A NetCDF file may hold several variables. When WISER asks, choose the
-   **reflectance** sub-dataset.
-3. Turn on all four panes and apply a 2.5% linear stretch.
+2. A NetCDF file holds several variables, so WISER asks which to open. Choose
+   **`reflectance`**. The others carry geolocation and per-band metadata.
+3. Turn on all four panes, build a true-color composite from about
+   660 / 550 / 480 nm, and apply a 2.5% linear stretch.
+
+:::{figure} ../../_static/tutorials/lab_emit_truecolour.png
+:width: 100%
+:align: center
+:alt: EMIT true color over desert ranges, showing brown and tan terrain with little visible variation
+:::
+
+True color tells you where the mountains and the fans are, and almost nothing
+about what they are made of. Every mineral in the table above is beige here.
 
 ```{admonition} EMIT L2A is not map-projected
-:class: warning
+:class: note
 Standard EMIT L2A granules are **spatially raw** — delivered in the
 instrument's acquisition geometry, not on a map grid. Geolocation arrives in a
 separate array, not as a simple geotransform. That is fine for the spectroscopy
@@ -97,15 +105,54 @@ before overlaying anything geographic. WISER's
 if you need it.
 ```
 
-4. Check the wavelength coverage in **Dataset Info**: 285 bands over
-   381–2493 nm, with the 1400 nm and 1900 nm water-vapour regions flagged.
+4. Now build a short-wave infrared (SWIR) composite: red **2200 nm**, green
+   **2160 nm**, blue **2340 nm**. Stretch it 2.5% linear.
 
-**Deliverable 1:** true-colour and SWIR-composite views of your scene, and the
+:::{figure} ../../_static/tutorials/lab_emit_swir.png
+:width: 100%
+:align: center
+:alt: The same scene in a SWIR composite, where alluvial fans and playa margins separate into distinct colors
+:::
+
+The same ground, in three bands chosen for what absorbs there. Clays push the
+red channel, kaolinite the green, carbonates the blue, and the fans and playa
+margins separate into units true color could not distinguish.
+
+5. Apply a **decorrelation stretch** to the same three bands.
+
+:::{figure} ../../_static/tutorials/lab_emit_decorr.png
+:width: 100%
+:align: center
+:alt: The SWIR composite after a decorrelation stretch, with the same units in saturated, strongly separated colors
+:::
+
+The decorrelation stretch removes the correlation between the three channels
+and exaggerates what is left. It makes boundaries obvious, which is what it is
+for. Do not read mineralogy from its colors: the transform is derived from this
+scene's own statistics, so the same mineral in another granule can come out a
+different color. Use it to decide where to look, then go to the spectra.
+
+6. Check the wavelength coverage in **Dataset Info**: 285 bands over
+   381–2493 nm, with the 1400 nm and 1900 nm water-vapor regions flagged.
+
+```{admonition} The flagged regions are gaps, not noise
+:class: note
+EMIT's own good-wavelength mask flags roughly **1327–1432 nm** and
+**1774–1960 nm**, where atmospheric water vapor leaves no usable surface
+signal. Two consequences for this lab. Continuum removal across a gap
+interpolates over nothing, so keep your windows on one side of it. And gypsum's
+1750 nm feature sits right at the edge: its upper shoulder falls inside the
+second gap, so the band-depth recipe used elsewhere in this lab cannot be built
+for it. Identify gypsum from its 2210 nm feature and the shape of the spectrum
+instead.
+```
+
+**Deliverable 1:** true-color and SWIR-composite views of your scene, and the
 granule's acquisition date, location and solar geometry from its metadata.
 
 ---
 
-## Part 2 — Mask what you cannot use (20 min)
+## Part 2 — Mask what you cannot use
 
 Mineral mapping only works on exposed soil and rock. Remove everything else, or
 you will map vegetation as clay.
@@ -128,21 +175,49 @@ you will map vegetation as clay.
 
 3. Check the granule's **`MASK`** file for cloud and cirrus flags, and exclude
    those areas too.
+4. Exclude standing water. A brightness test on the SWIR does it:
+
+   ```text
+   r1650 > 0.12
+   ```
+
+```{admonition} Water will pass for iron oxide if you let it
+:class: note
+Ranking this scene for iron oxide without a water mask returns brine pools
+first, every time. Their reflectance peaks near 570 nm and collapses to about
+0.005 in the SWIR, which reads as a strong red slope and a deep absorption to
+any index that only looks at band ratios. They are the brightest thing in the
+scene by those measures and they are not mineral. Mask on SWIR brightness
+before you rank anything.
+```
 
 **Deliverable 2:** your bare-ground mask, with the NDVI threshold justified
-from the NDVI histogram rather than assumed.
+from the NDVI histogram rather than assumed, and standing water excluded.
 
 ---
 
-## Part 3 — Iron oxides in the visible/NIR (30 min)
+## Part 3 — Iron oxides in the visible/NIR
 
 Hematite and goethite have broad crystal-field absorptions in the visible/NIR
 and a steep rise across the red — why iron-rich soils look red.
 
 1. Collect spectra from several reddish and several pale areas.
+
+:::{figure} ../../_static/tutorials/lab_emit_spectra_plot.png
+:width: 100%
+:align: center
+:alt: Four EMIT spectra over the full 380 to 2490 nm range, showing the iron oxide red slope and the flagged water-vapor gaps
+:::
+
+Four single pixels across the full range. The iron-oxide spectrum climbs
+steeply through the red and flattens; the three others are brighter in the SWIR
+and carry the features Part 4 uses. The two vertical breaks are the flagged
+water-vapor regions, and they are why the x-axis windows below stay on one side
+of them.
+
 2. Set the plot x-axis to **400–1300 nm** and continuum-remove.
 
-   Hematite's band centres near **860 nm**, goethite's near **920 nm**. The
+   Hematite's band centers near **860 nm**, goethite's near **920 nm**. The
    difference is small and the bands are broad, so use ROI mean spectra, not
    single pixels.
 
@@ -161,15 +236,29 @@ and a steep rise across the red — why iron-rich soils look red.
    ```
 
 **Deliverable 3:** hematite and goethite band-depth maps over the bare-ground
-mask, plus continuum-removed spectra showing the band-centre difference you are
+mask, plus continuum-removed spectra showing the band-center difference you are
 relying on.
 
 ---
 
-## Part 4 — Clays, carbonates and sulphates in the SWIR (40 min)
+## Part 4 — Clays, carbonates and sulfates in the SWIR
 
 1. Set the plot x-axis to **2000–2400 nm**, collect spectra across the scene,
    and continuum-remove.
+
+:::{figure} ../../_static/tutorials/lab_emit_swir_spectra.png
+:width: 100%
+:align: center
+:alt: The same four spectra between 2000 and 2450 nm, where kaolinite shows a doublet, muscovite a single 2200 nm band, calcite a 2340 nm band, and iron oxide nothing
+:::
+
+This is where the minerals separate. Kaolinite falls to its minimum at 2200 nm
+with a distinct shoulder at 2160, the doublet that identifies it.
+Muscovite/illite reaches the same 2200 nm minimum with no shoulder, which is
+the whole difference between them. Calcite ignores 2200 and drops at 2340.
+Iron oxide is featureless here, which is itself diagnostic: whatever is
+reddening the visible is not a clay.
+
 2. Identify features against the table at the top of this lab.
 3. Run **SFF** ({doc}`Tutorial 7 <../07-detection>`) with the USGS library, one
    narrow window per mineral:
@@ -181,7 +270,32 @@ relying on.
    | Calcite | 2280–2400 nm |
    | Gypsum | 1700–1800 nm |
 
-4. Where you have good endmembers, run **Linear Unmixing** for fractional
+4. Map the clays directly with a band depth, which needs no library at all:
+
+   ```text
+   1 - c2200 / ((1 - f) * s2130 + f * s2280)
+   ```
+
+   with `f = (2200 - 2130) / (2280 - 2130) = 0.467`.
+
+:::{figure} ../../_static/tutorials/lab_emit_bandmath.png
+:width: 100%
+:align: center
+:alt: The band math dialog holding the 2200 nm band depth expression with its three variables bound
+:::
+
+:::{figure} ../../_static/tutorials/lab_emit_clay.png
+:width: 100%
+:align: center
+:alt: The 2200 nm band depth as a map, bright along alluvial fans and playa margins and dark over bare rock
+:::
+
+The result is a map of clay abundance that owes nothing to a spectral library.
+Bright is deep absorption. The fans radiating from the ranges light up, and so
+do the playa margins, which is where windblown material is generated and where
+it settles.
+
+5. Where you have good endmembers, run **Linear Unmixing** for fractional
    abundances, and read the RMSE band first.
 
 **Deliverable 4:** a mineral map of your scene, and the fraction of unmasked
@@ -189,7 +303,7 @@ area assigned to each group.
 
 ---
 
-## Part 5 — Say what it means (20 min)
+## Part 5 — Say what it means
 
 1. Estimate the areal fraction of iron-oxide-rich versus clay/carbonate-rich
    bare ground.
@@ -212,7 +326,7 @@ depth, and residual atmospheric correction error.
 3. EMIT samples at ~7.5 nm; a laboratory spectrometer samples at ~1 nm. Which
    features here survive that difference and which are at risk?
 4. You detect kaolinite over an irrigated field. Give a mineralogical
-   explanation and an artefact explanation, and say how you would distinguish
+   explanation and an artifact explanation, and say how you would distinguish
    them.
 
 ---
@@ -226,3 +340,9 @@ depth, and residual atmospheric correction error.
 - Compare an EMIT scene against the **AVIRIS-NG** scene in
   {doc}`Lab A <lab-aviris-ng-urban>`: 60 m from orbit versus 5 m from an
   aircraft, and what each resolves.
+- Run a 2170 nm band depth over the granule used for these figures and find its
+  strongest pixels. They land on Cuprite, the site {doc}`Lab B
+  <lab-cuprite-minerals>` maps from the air at 15 m: about 0.32 against a scene
+  median near 0.03. Doing both labs gives you the same alteration system at two
+  resolutions from two platforms, which is a direct test of what 60 m pixels
+  cost you.
