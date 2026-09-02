@@ -1138,6 +1138,18 @@ window.runMermaid = runMermaid;</script>
 <li><p><code class="docutils literal notranslate"><span class="pre">_transform_tree()</span></code> — awaits <code class="docutils literal notranslate"><span class="pre">_transform_children()</span></code>, then calls the handler for the current node.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">_call_userfunc()</span></code> — detects whether the handler method is <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code> or a regular <code class="docutils literal notranslate"><span class="pre">def</span></code> and awaits it accordingly.</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncTransformer</span></code> is slated for <strong>removal</strong> — see issue #765.</p>
+<p>The concurrency is real and it does make evaluation faster (expect to give up roughly 20%; the
+original measurement was not preserved). The cost is that it is a hand-written reimplementation
+of a third-party class which entangles <code class="docutils literal notranslate"><span class="pre">asyncio</span></code> into the core of the evaluator, and the
+<a class="reference internal" href="#read-ahead-pipeline">read-ahead pipeline</a> below — a future queue maintained per expression
+node — exists only to feed it. The two are one decision and come out together.</p>
+<p>The intended replacement is parallelism from process-pool chunking (#761), with band math
+running in a subprocess so it cannot freeze the GUI thread. Do not extend <code class="docutils literal notranslate"><span class="pre">AsyncTransformer</span></code> or
+add new callers to the read-ahead queues.</p>
+</div>
 </section>
 <section id="band-window-chunking">
 <h3>Band-window chunking<a class="headerlink" href="#band-window-chunking" title="Link to this heading">#</a></h3>
@@ -1150,6 +1162,17 @@ window.runMermaid = runMermaid;</script>
     B --&gt; E[&quot;Window 100–149\n...&quot;]
     B --&gt; F[&quot;...&quot;]
     </pre><p>Each window is evaluated independently, and its result bands are written to an on-disk GDAL dataset incrementally.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Chunking splits the <strong>band</strong> axis only, so the smallest chunk it can produce is one whole band.
+A single band larger than the memory budget still overflows it, which is reachable on images
+such as Gale HiRISE where one band can exceed 2 GB. The fix is to make chunking
+dimension-agnostic (#761) rather than to patch the band loop, since each local patch entrenches
+the band-only assumption further.</p>
+<p>Band-math plugins, the plugin API, and the plugin docs were all written assuming the whole
+dataset is in memory, so a chunking rewrite has to account for them or it breaks third-party
+plugins silently. That is tracked separately as #754.</p>
+</div>
 </section>
 <section id="read-ahead-pipeline">
 <h3>Read-ahead pipeline<a class="headerlink" href="#read-ahead-pipeline" title="Link to this heading">#</a></h3>
@@ -1158,6 +1181,13 @@ window.runMermaid = runMermaid;</script>
 <li><p><code class="docutils literal notranslate"><span class="pre">_read_thread_pool</span></code> — 4 workers; reads raster band data from disk</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">_write_thread_pool</span></code> — 1 worker; writes computed band windows back to disk</p></li>
 </ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>These reads are multithreaded, and they are safe only because <code class="docutils literal notranslate"><span class="pre">RasterDataImpl.reopen_dataset()</span></code>
+opens a fresh GDAL handle per read. Do not swap that for GDAL’s single-handle multithreaded
+reads without re-verifying the output against a known-good reference: see
+<a class="reference internal" href="system-design.html#reading-concurrently"><span class="std std-ref">Reading concurrently</span></a> and issue #752.</p>
+</div>
 <p>Each expression tree node (operator) gets a pair of <code class="docutils literal notranslate"><span class="pre">queue.Queue</span></code> objects keyed by <code class="docutils literal notranslate"><span class="pre">LHS_KEY</span></code> and <code class="docutils literal notranslate"><span class="pre">RHS_KEY</span></code>. The operator submits the <em>next</em> window’s read to the thread pool before it even starts computing the <em>current</em> window. By the time the current window’s computation finishes, the next window’s data is often already in the queue.</p>
 <pre  class="mermaid">
         sequenceDiagram

@@ -477,6 +477,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-technical-challenges">Known Technical Challenges</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-telemetry-investigated-not-pursued">Usage Telemetry (Investigated, Not Pursued)</a></li>
 </ul>
             </nav>
         </div>
@@ -607,6 +608,45 @@ objects is non-trivial. Options being explored:</p>
 </ul>
 </section>
 </section>
+<hr class="docutils" />
+<section id="usage-telemetry-investigated-not-pursued">
+<h2>Usage Telemetry (Investigated, Not Pursued)<a class="headerlink" href="#usage-telemetry-investigated-not-pursued" title="Link to this heading">#</a></h2>
+<p><strong>Decision: WISER does not collect usage telemetry, and this is not an oversight.</strong> Opt-in
+crash reporting is a separate and much narrower channel, described at the end of this section.</p>
+<p>The question was whether to instrument WISER to learn which features people actually use, so
+development effort could follow real usage rather than guesswork. It was investigated and
+deliberately dropped.</p>
+<p>The reason is not technical difficulty but compliance surface. Collecting usage data from a
+desktop application carries obligations under the EU GDPR, the California CCPA, and comparable
+regimes — lawful basis, disclosure, subject-access and deletion requests, retention limits, and
+processor agreements. Doing that properly is the bulk of the work, and it outweighs the value of
+the signal for a research tool of WISER’s size. If it is ever revisited, start from “compliance
+is the hard part”, not from “how do we collect events”.</p>
+<p><strong>What to do instead:</strong> download statistics carry far less legal surface for a similar signal.
+The <code class="docutils literal notranslate"><span class="pre">snapshot-download-counts</span></code> workflow already records a daily snapshot of every release
+asset’s cumulative download count to the <code class="docutils literal notranslate"><span class="pre">stats</span></code> branch, giving per-platform and per-release
+trends over time. Prefer strengthening that over instrumenting the application.</p>
+<p><strong>Not to be confused with crash reporting.</strong> WISER does support opt-in crash reporting
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/bug_reporting.py</span></code>). It is off by default — <code class="docutils literal notranslate"><span class="pre">general.online_bug_reporting</span></code>
+defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code> — and is asked for explicitly on first run by the <em>Online Bug Reporting</em>
+dialog. It is changed afterwards in the <strong>WISER Configuration</strong> dialog, reached from
+<em>Preferences…</em> in the WISER application menu on macOS or <em>File → Settings…</em> on Windows, under
+<strong>General → Error Reporting</strong>, via the checkbox <em>Send WISER exceptions and crashes to BugSnag</em>.</p>
+<p>A crash report describes a failure: the exception, the stack trace, the WISER version, and the
+platform. No imagery, spectra, ROIs, or file contents are attached, and the channel is not a
+route to add usage analytics.</p>
+<p>Read that as a description of the channel rather than as a privacy guarantee. A stack trace
+carries source file paths, which on a user’s machine embed the home directory and therefore the
+username. <code class="docutils literal notranslate"><span class="pre">before_bugsnag_notify()</span></code> in <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/bug_reporting.py</span></code> is the hook where such
+fields would be stripped, and it currently strips nothing; it carries a standing TODO to do so.
+The user-facing statement of what leaves the machine belongs in the privacy policy, not on this
+page.</p>
+<p>Naming the current provider above documents the interface as it ships; it is not a commitment to
+that provider. Whether WISER should keep sending crash reports to a third-party service at all
+is an open question, tracked in issue #775.</p>
+<p>Recorded from handoff notes on the <code class="docutils literal notranslate"><span class="pre">joshua-handoff</span></code> branch, which is retained as the primary
+source.</p>
+</section>
 </section>
 
 
@@ -668,6 +708,7 @@ objects is non-trivial. Options being explored:</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#known-technical-challenges">Known Technical Challenges</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-telemetry-investigated-not-pursued">Usage Telemetry (Investigated, Not Pursued)</a></li>
 </ul>
   </nav></div>
 

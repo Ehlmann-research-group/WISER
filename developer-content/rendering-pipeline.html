@@ -830,6 +830,7 @@ window.runMermaid = runMermaid;</script>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-band-vs-joint-stretches">Per-band vs Joint Stretches</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-changes-reach-the-screen">How Changes Reach the Screen</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-the-pipeline-runs-on-the-gui-thread">Known Issue: The Pipeline Runs on the GUI Thread</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-read-next">Where to Read Next</a></li>
 </ul>
             </nav>
@@ -1038,6 +1039,41 @@ the originating pane.</p>
 <code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code>, so the next paint reflects the change.</p>
 </section>
 <hr class="docutils" />
+<section id="known-issue-the-pipeline-runs-on-the-gui-thread">
+<h2>Known Issue: The Pipeline Runs on the GUI Thread<a class="headerlink" href="#known-issue-the-pipeline-runs-on-the-gui-thread" title="Link to this heading">#</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code> runs <strong>synchronously on the GUI thread</strong>, and it runs
+<strong>once per pane</strong> — the context pane, main view, and zoom pane each hold a
+<code class="docutils literal notranslate"><span class="pre">RasterView</span></code> that renders the same change. On large images this is the single
+biggest source of interface freezes in WISER.</p>
+</div>
+<p>It also means “opening a dataset is slow” is mostly a <em>rendering</em> cost rather
+than a read cost. <code class="docutils literal notranslate"><span class="pre">loader.load_from_file()</span></code> probes drivers and reads metadata,
+not pixels; the band read, data-ignore masking, normalization, stretch, and
+compositing all happen here, driven off the <code class="docutils literal notranslate"><span class="pre">dataset_added</span></code> signal.</p>
+<p>Because all three paths in <a class="reference internal" href="#how-changes-reach-the-screen">How Changes Reach the Screen</a>
+funnel through this one method, moving it off-thread improves dataset open, the
+stretch builder, and the band chooser together — and a regression here breaks all
+three at once.</p>
+<p>Two constraints shape any fix:</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">QImage</span></code> / <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> tail cannot leave the GUI thread. The seam has to be
+cut between the NumPy work and the Qt handoff: finish the array off-thread,
+build the Qt object on the GUI thread.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_display_data</span></code>, <code class="docutils literal notranslate"><span class="pre">_joint_render_cache</span></code>, and the shared render cache are mutated
+mid-render. Concurrent or stale renders must be cancelled, or discarded on
+arrival, or fast clicking in the band chooser will paint the wrong image.</p></li>
+</ul>
+<p>Note also that the render and computation caches do not currently serve hits (see
+<a class="reference internal" href="data-caching.html"><span class="std std-doc">Data Caching</span></a> and issue #772), so this path runs fully uncached
+today. Profile with that fixed, or the measurement will attribute cost to the
+rendering code that caching was designed to absorb.</p>
+<p>Tracked in #758 (moving the NumPy portion off-thread), #764 (making a stretch
+change cancellable), and #69 (LoD-pyramid rendering, which would reduce the cost
+enough to change what the right fix is).</p>
+</section>
+<hr class="docutils" />
 <section id="where-to-read-next">
 <h2>Where to Read Next<a class="headerlink" href="#where-to-read-next" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -1106,6 +1142,7 @@ caches, their keys, lifecycle, and a known issue.</p></li>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-band-vs-joint-stretches">Per-band vs Joint Stretches</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-changes-reach-the-screen">How Changes Reach the Screen</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-the-pipeline-runs-on-the-gui-thread">Known Issue: The Pipeline Runs on the GUI Thread</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-read-next">Where to Read Next</a></li>
 </ul>
   </nav></div>

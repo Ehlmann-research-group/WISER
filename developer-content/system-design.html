@@ -465,6 +465,11 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#concurrency-model-why-wiser-uses-subprocesses">Concurrency Model: Why WISER Uses Subprocesses</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-mechanism">Choosing a mechanism</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-concurrently">Reading concurrently</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-task-storage-and-scheduler-system-overview">WISER Task, Storage, and Scheduler System Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-concepts">Core Concepts</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#semantictask">SemanticTask</a></li>
@@ -560,6 +565,85 @@
   <section id="system-design">
 <h1>System Design<a class="headerlink" href="#system-design" title="Link to this heading">#</a></h1>
 <p>This page documents internal architecture and design patterns in WISER.</p>
+<section id="concurrency-model-why-wiser-uses-subprocesses">
+<h2>Concurrency Model: Why WISER Uses Subprocesses<a class="headerlink" href="#concurrency-model-why-wiser-uses-subprocesses" title="Link to this heading">#</a></h2>
+<p>The task, storage, and scheduler machinery documented below exists for one reason, and it is
+worth stating before the mechanics: <strong>in Python, keeping a GUI responsive while computing is not
+a matter of spawning a thread.</strong></p>
+<p>The question this answers comes up often, usually as “ENVI stays responsive and fast without any
+of this — why can’t WISER just spawn a thread and compute?” ENVI is written in IDL, which has
+real parallel threads and is built for fast array computation: it can spawn a thread, share
+memory, compute, and be done. Python cannot. The GIL makes threads concurrent but not parallel,
+so genuinely CPU-bound work has to go to a <strong>subprocess</strong>, which means data is serialized out to
+the worker, computed on, and serialized back. That transfer cost is real; it has been reduced,
+but it cannot be eliminated. Python is also not built for array computation the way IDL is —
+even with NumPy, there is a cost to context switches between Python and the underlying C/C++.</p>
+<p>Two consequences follow, and both are load-bearing:</p>
+<ul class="simple">
+<li><p>Anything that runs on the GUI thread and takes real time freezes the whole application. Moving
+work off that thread is the standard, not an optimization.</p></li>
+<li><p>The architecture optimizes for <strong>low memory overhead and a responsive GUI</strong>, and pays for that
+in data-transfer time. This is a deliberate trade-off rather than a discovered constraint. It
+is a reasonable one to revisit with fresh measurements — but revisit it knowing it is there,
+not by accident.</p></li>
+</ul>
+<section id="choosing-a-mechanism">
+<h3>Choosing a mechanism<a class="headerlink" href="#choosing-a-mechanism" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>The work</p></th>
+<th class="head"><p>Use</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Long, expensive, needs progress and cancellation</p></td>
+<td><p>Task system (<code class="docutils literal notranslate"><span class="pre">src/wiser/utils/task_system.py</span></code>)</p></td>
+<td><p>Chunked execution under RAM and disk constraints; reports to the activity monitor. Documented in full below. Use it, but do not build on it: it is more machinery than the problem needs, and simplifying it is tracked in #759.</p></td>
+</tr>
+<tr class="row-odd"><td><p>One-off CPU-bound work</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code> process pool (<code class="docutils literal notranslate"><span class="pre">src/wiser/utils/work_scheduler.py</span></code>)</p></td>
+<td><p>No semantic task, no plan. Appropriate when the work is short or has no meaningful sub-stages.</p></td>
+</tr>
+<tr class="row-even"><td><p>I/O-bound work</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">WorkScheduler</span></code> thread pool</p></td>
+<td><p>Threads are fine here: the GIL is released while waiting on I/O.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Anything touching <code class="docutils literal notranslate"><span class="pre">QImage</span></code>, <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code>, or a widget</p></td>
+<td><p>GUI thread only</p></td>
+<td><p>Qt objects cannot be created or mutated off the GUI thread. Cut the seam between the computation and the Qt handoff: return a finished array, build the Qt object on the GUI thread.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A thread can also carry long CPU-bound work when most of the cost sits in NumPy or Numba code
+that releases the GIL, at the price of taking resources from the main thread. That is sometimes
+the right trade — notably where the result is large enough that serializing it back to the main
+process would cost more than the parallelism gains.</p>
+<p>The single documented standard for making this choice, including worked examples, is tracked in
+issue #753; until it lands, prefer the table above over copying whichever nearby example is
+closest to hand.</p>
+<p>Work that still runs on the GUI thread and should not: the render path described in
+<a class="reference internal" href="rendering-pipeline.html"><span class="std std-doc">Rendering Pipeline</span></a> (#758), and ROI average-spectra computation in
+<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterpane.py</span></code> (#468).</p>
+</section>
+<section id="reading-concurrently">
+<h3>Reading concurrently<a class="headerlink" href="#reading-concurrently" title="Link to this heading">#</a></h3>
+<p>Because concurrent readers must not share one GDAL handle, <code class="docutils literal notranslate"><span class="pre">RasterDataImpl.reopen_dataset()</span></code>
+opens a fresh handle for every read (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset_impl.py</span></code>). This is why
+multithreaded reads are safe, and it is also a real per-read cost on formats that are slow to
+open.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>GDAL 3.10 advertises multithreaded reads from a single handle, which would make the reopen
+unnecessary. Testing it returned <strong>corrupted data</strong>. Do not remove the reopen without first
+re-verifying multithreaded reads against a known-good reference output — see issue #752.</p>
+</div>
+<p>Recorded from handoff notes on the <code class="docutils literal notranslate"><span class="pre">joshua-handoff</span></code> branch, which is retained as the primary
+source.</p>
+</section>
+</section>
+<hr class="docutils" />
 <section id="wiser-task-storage-and-scheduler-system-overview">
 <h2>WISER Task, Storage, and Scheduler System Overview<a class="headerlink" href="#wiser-task-storage-and-scheduler-system-overview" title="Link to this heading">#</a></h2>
 <p>This document describes the current architecture of WISER’s task execution stack and how task planning, storage, and
@@ -1475,6 +1559,11 @@ showing the same area.</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#concurrency-model-why-wiser-uses-subprocesses">Concurrency Model: Why WISER Uses Subprocesses</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-mechanism">Choosing a mechanism</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-concurrently">Reading concurrently</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-task-storage-and-scheduler-system-overview">WISER Task, Storage, and Scheduler System Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-concepts">Core Concepts</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#semantictask">SemanticTask</a></li>
