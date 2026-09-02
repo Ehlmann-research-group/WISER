@@ -1,11 +1,27 @@
+"""Code-sign, notarize, staple, and package the WISER macOS application.
+
+The app bundle is either downloaded from a GitHub Actions build run (``--link``) or taken
+from disk (``--app-path``, used by CI, where the build already produced it). Everything
+after that is the same code path for both callers.
+
+The sequence follows Apple's recommended order for Developer ID distribution:
+
+    sign the .app -> notarize it -> staple the ticket to the .app -> build the DMG from the
+    stapled app -> sign the DMG -> notarize it -> staple the ticket to the DMG -> verify
+
+Stapling the .app before the DMG is built is what lets a user who drags WISER into
+/Applications launch it with no network round trip to Apple.
+"""
+
 import argparse
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Sequence
 
 RUN_URL_RE = re.compile(
     r"""
@@ -23,24 +39,32 @@ def die(msg: str, code: int = 1):
     sys.exit(code)
 
 
-def run(cmd, **kwargs):
-    print("+", " ".join(str(c) for c in cmd))
+def run(cmd, redact: Sequence[str] = (), capture: bool = False, **kwargs):
+    shown = []
+    for part in cmd:
+        part = str(part)
+        for secret in redact:
+            if secret:
+                part = part.replace(secret, "***")
+        shown.append(part)
+    print("+", " ".join(shown))
     try:
-        subprocess.run(cmd, check=True, text=True, **kwargs)
+        proc = subprocess.run(
+            cmd,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE if capture else None,
+            **kwargs,
+        )
     except subprocess.CalledProcessError as e:
-        print("❌ Command failed:", " ".join(str(c) for c in cmd), file=sys.stderr)
+        print("Command failed:", " ".join(shown), file=sys.stderr)
         print("Exit code:", e.returncode, file=sys.stderr)
         raise
-
-
-def which(name: str) -> Optional[str]:
-    from shutil import which as _which
-
-    return _which(name)
+    return proc.stdout if capture else None
 
 
 def ensure_tool(name: str, hint: str = ""):
-    if which(name) is None:
+    if shutil.which(name) is None:
         die(f"Required tool '{name}' not found in PATH. {hint}")
 
 
@@ -51,16 +75,7 @@ def parse_run_url(url: str):
     return m.group("owner"), m.group("repo"), m.group("run_id")
 
 
-def prepare_dist(root: Path, dist_name: str) -> Path:
-    dist_dir = root / dist_name
-    if dist_dir.exists():
-        shutil.rmtree(dist_dir)
-    dist_dir.mkdir(parents=True, exist_ok=True)
-    return dist_dir
-
-
 def find_app_bundle(dist_dir: Path, app_name: str) -> Path:
-    # Prefer the expected name; otherwise fall back to first *.app under dist
     expected = dist_dir / f"{app_name}.app"
     if expected.exists():
         return expected
@@ -68,75 +83,24 @@ def find_app_bundle(dist_dir: Path, app_name: str) -> Path:
     if not candidates:
         die(f"No .app bundle found in {dist_dir}. Expected '{app_name}.app'.")
     if len(candidates) > 1:
-        print("WARNING: multiple .app bundles found; using:", candidates[0], file=sys.stderr)
+        die(f"Multiple .app bundles found in {dist_dir}: {[str(c) for c in candidates]}")
     return candidates[0]
 
 
-def parse_args():
-    p = argparse.ArgumentParser(description="Download GH Actions artifact and package WISER for macOS.")
-    p.add_argument("--link", required=True, help="GitHub Actions run URL")
-    p.add_argument("--root", default=".", help="Project root (default: current dir)")
-    p.add_argument("--dist-name", default="dist", help='Dist folder name under root (default: "dist")')
-    p.add_argument("--artifact-name", default="wiser-macOS-X64", help="Artifact name in the run to download")
-    p.add_argument(
-        "--app-name",
-        default=os.environ.get("APP_NAME", "WISER"),
-        help='App bundle base name (default: "WISER")',
-    )
-    p.add_argument(
-        "--app-version", default=os.environ.get("APP_VERSION"), help="Version string for DMG filename"
-    )
-    p.add_argument(
-        "--arch",
-        default=None,
-        choices=["x64", "arm64"],
-        help="Target arch for the DMG filename (default: inferred from --artifact-name)",
-    )
-    p.add_argument(
-        "--sign-script",
-        default=os.path.join(os.path.dirname(__file__), "..", "..", "install-mac", "sign_wiser.sh"),
-        help="Codesign script to run (bash)",
-    )
-    p.add_argument("--notarize", action="store_true", help="Submit DMG to Apple notarization with notarytool")
-    p.add_argument("--apple-id", default=os.environ.get("AD_USERNAME"), help="Apple ID (or set AD_USERNAME)")
-    p.add_argument(
-        "--team-id", default=os.environ.get("AD_TEAM_ID"), help="Apple Team ID (or set AD_TEAM_ID)"
-    )
-    p.add_argument(
-        "--app-password",
-        default=os.environ.get("AD_PASSWORD"),
-        help="App-specific password (or set AD_PASSWORD)",
-    )
-    p.add_argument("--notary-wait", action="store_true", help="Pass --wait to notarytool submit")
-    p.add_argument(
-        "--release-tag",
-        default=None,
-        help="If set, upload the finished DMG to this GitHub release tag (gh release upload --clobber)",
-    )
-    return p.parse_args()
-
-
-def main():
-    args = parse_args()
-
-    if args.release_tag and not args.app_version:
-        die("--release-tag requires --app-version so the uploaded DMG carries the version.")
-
-    root = Path(args.root).resolve()
-    dist_dir = prepare_dist(root, args.dist_name)
-
-    # Tools
+def acquire_from_run(link: str, root: Path, dist_name: str, artifact_name: str, app_name: str) -> Path:
+    """Download the build artifact for a run and unpack the app bundle from it."""
     ensure_tool("gh", "Install: https://cli.github.com/")
-    ensure_tool("tar")  # for getting WISER.app out of tar ball
-    ensure_tool("hdiutil")
-    ensure_tool("xcrun")  # for notarytool
+    ensure_tool("tar")
+    ensure_tool("shasum")
 
-    owner, repo, run_id = parse_run_url(args.link)
-    print(f"Repo: {owner}/{repo}  Run ID: {run_id}")
-    print(f"Artifact: {args.artifact_name}")
-    print(f"Dist dir: {dist_dir}")
+    dist_dir = root / dist_name
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir)
+    dist_dir.mkdir(parents=True, exist_ok=True)
 
-    # Download artifact into dist/
+    owner, repo, run_id = parse_run_url(link)
+    print(f"Repo: {owner}/{repo}  Run ID: {run_id}  Artifact: {artifact_name}")
+
     run(
         [
             "gh",
@@ -146,123 +110,269 @@ def main():
             "-R",
             f"{owner}/{repo}",
             "-n",
-            args.artifact_name,
+            artifact_name,
             "--dir",
             str(dist_dir),
         ]
     )
 
-    # Make sure the download WISER.app.tgz is correct
-    tar_sha_path = os.path.join(dist_dir, "WISER.app.tgz.sha256")
-    run(["shasum", "-a", "256", "-c", tar_sha_path])
+    # The checksum file records the path as dist/WISER.app.tgz, so verify from the root.
+    run(["shasum", "-a", "256", "-c", str(dist_dir / "WISER.app.tgz.sha256")], cwd=str(root))
+    # tar rather than unzip: it preserves the symlinks and modes inside the bundle.
+    run(["tar", "-C", str(dist_dir), "-xzf", str(dist_dir / "WISER.app.tgz")])
 
-    # Extract the app from the tar (we need to use tar to perserve symlinks)
-    tar_path = os.path.join(dist_dir, "WISER.app.tgz")
+    return find_app_bundle(dist_dir, app_name)
+
+
+def notary_flags(args) -> tuple[list[str], list[str]]:
+    """Return (notarytool credential flags, secret strings to redact from logs)."""
+    if args.notary_key:
+        key = Path(args.notary_key).resolve()
+        if not key.exists():
+            die(f"App Store Connect API key not found: {key}")
+        if not args.notary_key_id:
+            die("--notary-key requires --notary-key-id (or NOTARY_KEY_ID).")
+        flags = ["--key", str(key), "--key-id", args.notary_key_id]
+        # An individual key inherits the caller's role and carries no issuer.
+        if args.notary_issuer:
+            flags += ["--issuer", args.notary_issuer]
+        return flags, [args.notary_key_id, args.notary_issuer or ""]
+
+    if args.apple_id and args.team_id and args.app_password:
+        return (
+            ["--apple-id", args.apple_id, "--team-id", args.team_id, "--password", args.app_password],
+            [args.app_password],
+        )
+
+    die(
+        "Notarization requires either an App Store Connect API key "
+        "(--notary-key/--notary-key-id, env NOTARY_KEY_PATH/NOTARY_KEY_ID) or an Apple ID "
+        "(--apple-id/--team-id/--app-password, env AD_USERNAME/AD_TEAM_ID/AD_PASSWORD)."
+    )
+
+
+def notarize(target: Path, flags: list[str], secrets: list[str]):
+    """Submit to Apple and wait. Raises unless the submission is Accepted."""
+    out = run(
+        ["xcrun", "notarytool", "submit", str(target), *flags, "--wait", "--output-format", "json"],
+        redact=secrets,
+        capture=True,
+    )
+    try:
+        result = json.loads(out)
+    except json.JSONDecodeError:
+        die(f"notarytool returned output that is not JSON:\n{out}")
+
+    status = result.get("status")
+    submission_id = result.get("id")
+    print(f"Notarization {submission_id}: {status}")
+    if status != "Accepted":
+        if submission_id:
+            # Printed directly so the credential flags never reach the log.
+            subprocess.run(["xcrun", "notarytool", "log", submission_id, *flags], text=True)
+        die(f"Notarization of {target.name} was not accepted (status: {status}).")
+
+
+def staple(target: Path):
+    run(["xcrun", "stapler", "staple", str(target)])
+    run(["xcrun", "stapler", "validate", str(target)])
+
+
+def build_dmg(app: Path, dmg: Path, volname: str):
+    tmp_dmg = dmg.with_name("tmp.dmg")
+    run(
+        ["hdiutil", "create", str(tmp_dmg), "-ov", "-volname", volname, "-fs", "HFS+", "-srcfolder", str(app)]
+    )
+    if dmg.exists():
+        dmg.unlink()
+    run(["hdiutil", "convert", str(tmp_dmg), "-format", "UDZO", "-o", str(dmg)])
+    tmp_dmg.unlink(missing_ok=True)
+
+
+def assess_gatekeeper(app: Path, dmg: Path, require: bool):
+    """Run the end-user Gatekeeper assessment, which needs assessments to be enabled.
+
+    On a machine with `spctl --status` disabled the assessment reports "accepted" for
+    anything, so a pass there means nothing. CI passes require=True to make that a hard
+    failure rather than a false green.
+    """
+    status = subprocess.run(["spctl", "--status"], text=True, capture_output=True).stdout
+    if "assessments enabled" not in status:
+        msg = (
+            "Gatekeeper assessments are disabled on this machine, so the end-user "
+            "Gatekeeper check cannot be performed (spctl would report 'accepted' for "
+            "anything). Re-enable with: sudo spctl --master-enable"
+        )
+        if require:
+            die(msg)
+        print(f"WARNING: {msg}", file=sys.stderr)
+        print("The signature and stapled tickets were still verified directly.", file=sys.stderr)
+        return
+
+    run(["spctl", "--assess", "--type", "exec", "--verbose=4", str(app)])
     run(
         [
-            "tar",
-            "-C",
-            str(dist_dir),
-            "-xzf",
-            tar_path,
+            "spctl",
+            "--assess",
+            "--type",
+            "open",
+            "--context",
+            "context:primary-signature",
+            "--verbose=4",
+            str(dmg),
         ]
     )
 
-    # Locate app bundle
-    app_bundle = find_app_bundle(dist_dir, args.app_name)
-    print(f"App bundle: {app_bundle}")
 
-    # Codesign via your script
-    sign_script = (root / args.sign_script).resolve()
+def parse_args():
+    p = argparse.ArgumentParser(description="Code-sign, notarize, staple, and package WISER for macOS.")
+
+    src = p.add_mutually_exclusive_group(required=True)
+    src.add_argument("--link", help="GitHub Actions run URL to download the build artifact from")
+    src.add_argument("--app-path", help="Path to an already-built .app bundle to sign")
+
+    p.add_argument("--root", default=".", help="Project root (default: current dir)")
+    p.add_argument("--dist-name", default="dist", help='Dist folder name under root (default: "dist")')
+    p.add_argument("--artifact-name", default="wiser-macOS-X64", help="Artifact name in the run to download")
+    p.add_argument(
+        "--app-name",
+        default=os.environ.get("APP_NAME", "WISER"),
+        help='App bundle base name (default: "WISER")',
+    )
+    p.add_argument(
+        "--app-version", default=os.environ.get("APP_VERSION"), help="Version string for the DMG filename"
+    )
+    p.add_argument(
+        "--arch",
+        default=None,
+        choices=["x64", "arm64"],
+        help="Target arch for the DMG filename (default: inferred from --artifact-name)",
+    )
+    p.add_argument(
+        "--identity",
+        default=os.environ.get("AD_CODESIGN_KEY_NAME"),
+        help="Code-signing identity (or set AD_CODESIGN_KEY_NAME)",
+    )
+    p.add_argument(
+        "--sign-script",
+        default=os.path.join(os.path.dirname(__file__), "..", "..", "install-mac", "sign_wiser.sh"),
+        help="Codesign script to run (bash)",
+    )
+
+    p.add_argument("--notarize", action="store_true", help="Notarize and staple with notarytool")
+    p.add_argument(
+        "--notary-key",
+        default=os.environ.get("NOTARY_KEY_PATH"),
+        help="App Store Connect API key .p8 (or set NOTARY_KEY_PATH)",
+    )
+    p.add_argument(
+        "--notary-key-id",
+        default=os.environ.get("NOTARY_KEY_ID"),
+        help="App Store Connect Key ID (or set NOTARY_KEY_ID)",
+    )
+    p.add_argument(
+        "--notary-issuer",
+        default=os.environ.get("NOTARY_ISSUER_ID"),
+        help="App Store Connect Issuer ID; omit for an individual key (or set NOTARY_ISSUER_ID)",
+    )
+    p.add_argument("--apple-id", default=os.environ.get("AD_USERNAME"), help="Apple ID (or set AD_USERNAME)")
+    p.add_argument(
+        "--team-id", default=os.environ.get("AD_TEAM_ID"), help="Apple Team ID (or set AD_TEAM_ID)"
+    )
+    p.add_argument(
+        "--app-password",
+        default=os.environ.get("AD_PASSWORD"),
+        help="App-specific password (or set AD_PASSWORD)",
+    )
+
+    p.add_argument(
+        "--require-gatekeeper",
+        action="store_true",
+        help="Fail if Gatekeeper assessments are disabled instead of warning",
+    )
+    p.add_argument(
+        "--release-tag", default=None, help="If set, upload the finished DMG to this GitHub release tag"
+    )
+    p.add_argument(
+        "--repo",
+        default=os.environ.get("GITHUB_REPOSITORY"),
+        help="owner/repo for --release-tag (default: inferred from --link)",
+    )
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    if args.release_tag and not args.app_version:
+        die("--release-tag requires --app-version so the uploaded DMG carries the version.")
+    if not args.identity:
+        die("No code-signing identity. Pass --identity or set AD_CODESIGN_KEY_NAME.")
+
+    ensure_tool("hdiutil")
+    ensure_tool("xcrun")
+    ensure_tool("codesign")
+    if args.notarize:
+        ensure_tool("ditto")
+        ensure_tool("spctl")
+
+    root = Path(args.root).resolve()
+
+    if args.link:
+        app = acquire_from_run(args.link, root, args.dist_name, args.artifact_name, args.app_name)
+        owner, repo, _ = parse_run_url(args.link)
+        repo_slug = args.repo or f"{owner}/{repo}"
+    else:
+        app = Path(args.app_path).resolve()
+        if not app.is_dir():
+            die(f"No app bundle at {app}")
+        repo_slug = args.repo
+    print(f"App bundle: {app}")
+
+    flags, secrets = notary_flags(args) if args.notarize else ([], [])
+
+    sign_script = Path(args.sign_script).resolve()
     if not sign_script.exists():
         die(f"Sign script not found: {sign_script}")
-    # Ensure executable bit (safe no-op if already set)
-    try:
-        mode = sign_script.stat().st_mode
-        sign_script.chmod(mode | 0o111)
-    except Exception:
-        pass
+    env = {**os.environ, "AD_CODESIGN_KEY_NAME": args.identity}
+    run(["bash", str(sign_script), str(app)], cwd=str(root), env=env)
 
-    # Many sign scripts expect to be run from repo root
-    run(["bash", str(sign_script), str(app_bundle)], cwd=str(root))
-
-    # Create DMG (tmp then convert to compressed UDZO)
-    tmp_dmg = dist_dir / "tmp.dmg"
-    arch = args.arch or ("arm64" if "ARM64" in args.artifact_name.upper() else "x64")
-    if args.app_version:
-        final_name = f"{args.app_name}-{args.app_version}-macos-{arch}.dmg"
-    else:
-        final_name = f"{args.app_name}-macos-{arch}.dmg"
-    final_dmg = dist_dir / final_name
-
-    # hdiutil create
-    run(
-        [
-            "hdiutil",
-            "create",
-            str(tmp_dmg),
-            "-ov",
-            "-volname",
-            args.app_name,
-            "-fs",
-            "HFS+",
-            "-srcfolder",
-            str(app_bundle),
-        ]
-    )
-
-    # hdiutil convert --> UDZO
-    run(["hdiutil", "convert", str(tmp_dmg), "-format", "UDZO", "-o", str(final_dmg)])
-
-    # remove tmp dmg
-    try:
-        tmp_dmg.unlink(missing_ok=True)  # py3.8+: ok to keep try/except
-    except TypeError:
-        if tmp_dmg.exists():
-            tmp_dmg.unlink()
-
-    print(f"DMG created: {final_dmg}")
-
-    # Notarization (optional)
     if args.notarize:
-        if not (args.apple_id and args.team_id and args.app_password):
-            die(
-                "Notarization requested but --apple-id/--team-id/"
-                "--app-password not provided (or env AD_USERNAME/"
-                "AD_TEAM_ID/AD_PASSWORD)."
-            )
-        notary_cmd = [
-            "xcrun",
-            "notarytool",
-            "submit",
-            str(final_dmg),
-            "--apple-id",
-            args.apple_id,
-            "--team-id",
-            args.team_id,
-            "--password",
-            args.app_password,
-        ]
-        if args.notary_wait:
-            notary_cmd.append("--wait")
-        run(notary_cmd)
+        # notarytool cannot take a bare bundle; ditto preserves the symlinks codesign needs.
+        app_zip = app.with_suffix(".app.zip")
+        app_zip.unlink(missing_ok=True)
+        run(["ditto", "-c", "-k", "--keepParent", str(app), str(app_zip)])
+        notarize(app_zip, flags, secrets)
+        app_zip.unlink(missing_ok=True)
+        staple(app)
+
+    arch = args.arch or ("arm64" if "ARM64" in args.artifact_name.upper() else "x64")
+    stem = f"{args.app_name}-{args.app_version}" if args.app_version else args.app_name
+    dmg = app.parent / f"{stem}-macos-{arch}.dmg"
+    build_dmg(app, dmg, args.app_name)
+
+    run(["codesign", "--force", "--timestamp", "--sign", args.identity, str(dmg)])
+
+    if args.notarize:
+        notarize(dmg, flags, secrets)
+        staple(dmg)
+
+    print("-- Verifying the finished artifacts...")
+    run(["codesign", "--verify", "--strict", "--deep", "--verbose=2", str(app)])
+    run(["codesign", "--verify", "--verbose=2", str(dmg)])
+    if args.notarize:
+        run(["xcrun", "stapler", "validate", str(app)])
+        run(["xcrun", "stapler", "validate", str(dmg)])
+        assess_gatekeeper(app, dmg, args.require_gatekeeper)
+
+    print(f"DMG ready: {dmg}")
 
     if args.release_tag:
-        run(
-            [
-                "gh",
-                "release",
-                "upload",
-                args.release_tag,
-                str(final_dmg),
-                "-R",
-                f"{owner}/{repo}",
-                "--clobber",
-            ]
-        )
-        print(f"Uploaded {final_dmg.name} to release {args.release_tag}")
-
-    print("Done. Artifact downloaded, app signed, DMG built" + (" and notarized." if args.notarize else "."))
+        if not repo_slug:
+            die("--release-tag needs --repo (or GITHUB_REPOSITORY) when signing from --app-path.")
+        ensure_tool("gh", "Install: https://cli.github.com/")
+        run(["gh", "release", "upload", args.release_tag, str(dmg), "-R", repo_slug, "--clobber"])
+        print(f"Uploaded {dmg.name} to release {args.release_tag}")
 
 
 if __name__ == "__main__":

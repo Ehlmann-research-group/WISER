@@ -1529,7 +1529,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 srs = None
 
         # ---- Wavelengths and Units (searches all groups/subgroups at any depth)
-        wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset)
+        wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset, band_count=subdataset.RasterCount)
 
         # Validate wavelengths length — drop on mismatch
         if wavelengths is not None and subdataset.RasterCount != len(wavelengths):
@@ -1540,7 +1540,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             wl_unit = u.nanometer
 
         # ---- Good-wavelength mask (bad bands)
-        bad_bands = extract_netcdf_bad_bands(netcdf_dataset)
+        bad_bands = extract_netcdf_bad_bands(netcdf_dataset, band_count=subdataset.RasterCount)
         if bad_bands is not None and subdataset.RasterCount != len(bad_bands):
             bad_bands = None
 
