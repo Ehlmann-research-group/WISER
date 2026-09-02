@@ -1648,6 +1648,71 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             self._bad_bands = bad_bands
         else:
             self._bad_bands = [1] * self.gdal_dataset.RasterCount
+        self._scaling = self._read_scaling()
+
+    def _read_scaling(self) -> Optional[Tuple[float, float]]:
+        """Return the ``(scale, offset)`` that converts stored values to physical units.
+
+        netCDF ``scale_factor`` and ``add_offset`` are attributes of a variable, so
+        every band of one subdataset carries the same pair even though GDAL exposes
+        them per band.  Returns ``None`` when the variable stores physical values
+        already, which is the common case and leaves the read path untouched.
+
+        Raises
+        ------
+        ValueError
+            If the bands disagree.  A single subdataset is a single variable, so
+            disagreement means the file does not match the netCDF data model, and
+            one physical data-ignore value could not describe it.
+        """
+        pairs = set()
+        for band_number in range(1, self.gdal_dataset.RasterCount + 1):
+            band = self.gdal_dataset.GetRasterBand(band_number)
+            pairs.add((band.GetScale(), band.GetOffset()))
+
+        if len(pairs) > 1:
+            raise ValueError(
+                f"netCDF subdataset {self._subdataset_name!r} reports more than one "
+                f"scale_factor/add_offset pair across its bands: {sorted(pairs)}"
+            )
+
+        scale, offset = pairs.pop()
+        scale = 1.0 if scale is None else float(scale)
+        offset = 0.0 if offset is None else float(offset)
+        if scale == 1.0 and offset == 0.0:
+            return None
+        return scale, offset
+
+    def _unscale(self, arr):
+        """Convert stored values to physical units.
+
+        Returns *arr* unchanged when the variable is unscaled.  Otherwise the
+        result is ``float32``:  the products this applies to store ``int16``
+        counts, and ``float32`` carries the physical value with room to spare
+        while halving the memory a full cube needs.
+        """
+        if self._scaling is None or arr is None:
+            return arr
+
+        scale, offset = self._scaling
+        out = arr.astype(np.float32)
+        out *= np.float32(scale)
+        out += np.float32(offset)
+        return out
+
+    def read_data_ignore_value(self) -> Optional[Number]:
+        """The fill value in the same units as the data :meth:`_unscale` returns.
+
+        The stored fill is scaled by the same arithmetic as the data, so callers
+        comparing against it still match.  Returning the raw fill here would let
+        every fill pixel through as an ordinary physical value.
+        """
+        raw = super().read_data_ignore_value()
+        if raw is None or self._scaling is None:
+            return raw
+
+        scale, offset = self._scaling
+        return float(np.float32(np.float32(raw) * np.float32(scale)) + np.float32(offset))
 
     @contextmanager
     def _quiet_gdal_warnings(self):
@@ -1670,7 +1735,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """
         with self._quiet_gdal_warnings():
             arr = super().get_image_data()
-        return arr
+        return self._unscale(arr)
 
     def get_image_data_subset(
         self,
@@ -1692,7 +1757,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """
         with self._quiet_gdal_warnings():
             arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
-        return arr
+        return self._unscale(arr)
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         """
@@ -1712,7 +1777,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """
         with self._quiet_gdal_warnings():
             arr = super().get_band_data(band_index, filter_data_ignore_value)
-        return arr
+        return self._unscale(arr)
 
     def sample_band_data(self, band_index, sample_factor: int):
         """
@@ -1724,7 +1789,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """
         with self._quiet_gdal_warnings():
             arr = super().sample_band_data(band_index, sample_factor)
-        return arr
+        return self._unscale(arr)
 
     def get_all_bands_at(self, x, y):
         """
@@ -1736,7 +1801,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """
         with self._quiet_gdal_warnings():
             arr = super().get_all_bands_at(x, y)
-        return arr
+        return self._unscale(arr)
 
     def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
         """
@@ -1746,8 +1811,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         are extraneous
         """
         with self._quiet_gdal_warnings():
-            arr = super().get_all_bands_at(band_list_orig)
-        return arr
+            arr = super().get_multiple_band_data(band_list_orig)
+        return self._unscale(arr)
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         """
@@ -1759,7 +1824,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """
         with self._quiet_gdal_warnings():
             arr = super().get_all_bands_at_rect(x, y, dx, dy)
-        return arr
+        return self._unscale(arr)
 
     def get_filepaths(self):
         """
