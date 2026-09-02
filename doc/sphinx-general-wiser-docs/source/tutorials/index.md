@@ -12,8 +12,8 @@ from rather than as finished assignments, and usable on their own as worked
 references for what WISER can do. Each opens with the data it needs and where to
 get it.
 
-Every screenshot in the tutorials, and in Labs A, B, C, E and F, was produced
-by driving WISER through the steps described. Nothing is a mockup.
+Every screenshot in the tutorials and the labs was produced by driving WISER
+through the steps described. Nothing is a mockup.
 
 ---
 
