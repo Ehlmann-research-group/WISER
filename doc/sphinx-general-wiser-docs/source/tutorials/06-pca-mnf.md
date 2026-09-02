@@ -6,8 +6,6 @@ Principal Component Analysis (PCA).
 
 **Data:** `caltech_425_7_7_nm.hdr` and `caltech_4_100_150_nm.hdr`.
 
-**Time:** about 15 minutes.
-
 ---
 
 ## Why reduce dimensions
@@ -72,8 +70,8 @@ less light overall, so the largest single direction of variance is albedo.
 
 Move on to bands 1, 2, 3 and the picture changes: later components carry the
 *differences* between materials rather than their brightness, which is why a
-false-colour composite of PC1/PC2/PC3 often separates surfaces that look alike
-in true colour. Lab A shows exactly that.
+false-color composite of PC1/PC2/PC3 often separates surfaces that look alike
+in true color. Lab A shows exactly that.
 
 ```{note}
 **Principal components have no physical units.** A PCA band is a projection
@@ -118,7 +116,7 @@ MNF is at **Tools ▸ Data Analysis ▸ Minimum Noise Fraction**.
 
 How WISER estimates the noise decides whether the result is meaningful:
 
-1. **Shift difference.** Each pixel is subtracted from its neighbour one row
+1. **Shift difference.** Each pixel is subtracted from its neighbor one row
    below. Adjacent pixels should be nearly the same, so what remains is mostly
    sensor noise.
 2. **Whitening.** The noise covariance rescales every band so estimated noise
@@ -129,7 +127,7 @@ How WISER estimates the noise decides whether the result is meaningful:
 ```{warning}
 The shift-difference estimate assumes neighbouring pixels are similar. It works
 on a scene with smooth spatial structure and misleads on one that is busy at
-the pixel scale — a striped scene, a dense urban scene at metre resolution, or
+the pixel scale — a striped scene, a dense urban scene at meter resolution, or
 an image with strong along-track banding. If MNF results look wrong, check this
 assumption first.
 ```
@@ -143,7 +141,7 @@ filtering. That is exactly what {doc}`MTMF <07-detection>` does internally.
 
 | Situation | Reach for |
 |---|---|
-| Quick visual survey of a big cube | **PCA**, 3–5 components as false colour |
+| Quick visual survey of a big cube | **PCA**, 3–5 components as false color |
 | Input to a classifier or unmixing | **MNF**, components up to the elbow |
 | Reducing noise before a detection run | **MNF** — that is what it is for |
 | You need real reflectance values back | Neither — go to the original cube |

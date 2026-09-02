@@ -10,8 +10,6 @@ infrared (SWIR) subset
 action. Reference spectra from
 `src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr`.
 
-**Time:** about 20 minutes.
-
 ---
 
 ## Four tools, four questions

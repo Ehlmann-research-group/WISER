@@ -3,7 +3,6 @@
 - **Field:** materials science, industrial inspection, cultural heritage, laboratory spectroscopy
 - **Instrument:** any bench or close-range imaging spectrometer
 - **Prerequisites:** {doc}`Tutorials 1–5 <../index>`
-- **Time:** 1 hour with the bundled data; a full session with your own
 
 ```{admonition} You do not need to download anything for this lab
 :class: note
@@ -32,7 +31,7 @@ them from the header and labels the axes accordingly.
 
 ---
 
-## Part 1 — Open and look (15 min)
+## Part 1 — Open and look
 
 1. **File ▸ Open...** → `circuit_4_100_150_um.hdr`.
 2. Turn on all four panes, **Zoom to fit**, and apply a **2.5% linear**
@@ -61,13 +60,13 @@ surfaces that look similar differ in how their reflectance falls towards
 1.2 µm. On a 100-plus-band bench instrument each becomes a rich, identifiable
 signature.
 
-**Deliverable 1:** labelled spectra for at least three materials on the board.
+**Deliverable 1:** labeled spectra for at least three materials on the board.
 
 ---
 
-## Part 2 — Separate materials by index (15 min)
+## Part 2 — Separate materials by index
 
-The normalised-difference trick that maps vegetation
+The normalized-difference trick that maps vegetation
 ({doc}`Tutorial 4 <../04-band-math-ndvi>`) works on any two bands that respond
 differently to the materials you care about.
 
@@ -82,14 +81,14 @@ how their reflectance changes into the near-infrared, which distinguishes
 metallised from polymer areas far more cleanly than any single band.
 
 Display with a diverging colormap, set the stretch, and compare against the
-true-colour image in a **1 × 2 grid**.
+true-color image in a **1 × 2 grid**.
 
 **Deliverable 2:** the index map, with a note on which physical difference it
 keys on.
 
 ---
 
-## Part 3 — Classify (15 min)
+## Part 3 — Classify
 
 1. Run **K-means** with K = 4 or 5 and a fixed seed
    ({doc}`Tutorial 5 <../05-classification>`).
@@ -100,18 +99,18 @@ You now have an unsupervised material map. In an inspection context this is the
 basis for anomaly detection: build the class map from a known-good board, then
 flag pixels on later boards whose spectra fall far from every centroid.
 
-**Deliverable 3:** a labelled material map with each cluster identified.
+**Deliverable 3:** a labeled material map with each cluster identified.
 
 ---
 
-## Part 4 — Build class signatures (15 min)
+## Part 4 — Build class signatures
 
 1. Draw ROIs over each material — solder mask, exposed pad, component body,
    silkscreen ({doc}`Tutorial 3 <../03-regions-of-interest>`).
 2. Collect each ROI's mean spectrum.
 3. **Export all spectra in ROI...** for each class.
 
-That export is a labelled training set: every pixel's spectrum with a class
+That export is a labeled training set: every pixel's spectrum with a class
 label attached, ready for a classifier in Python or R. Building it in WISER,
 where you can see which pixels you are labelling, is usually faster and more
 reliable than scripting it blind.
@@ -176,5 +175,5 @@ band shape and depth far better than a moving average — see
 | **Food quality** | Fruit surface | Water at 970 nm and 1450 nm; bruising shows before it is visible |
 | **Pharmaceutical** | Tablets | API and excipient distribution; blend uniformity |
 | **Cultural heritage** | Painting or manuscript | Pigment identification; underdrawing in the NIR; retouching |
-| **Forensics** | Documents, fibres | Ink discrimination where inks are visually identical |
+| **Forensics** | Documents, fibers | Ink discrimination where inks are visually identical |
 | **Soil science** | Core or sample tray | Organic carbon, clay mineralogy, moisture |

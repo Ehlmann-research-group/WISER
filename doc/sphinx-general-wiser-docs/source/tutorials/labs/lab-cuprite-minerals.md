@@ -4,7 +4,6 @@
 - **Instrument:** AVIRIS-Classic (Airborne Visible/Infrared Imaging
   Spectrometer), 224 bands, 379–2498 nm at ~9.5 nm, 15.2 m
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`, and {doc}`Lab A <lab-aviris-ng-urban>` for the mechanics on a large cube
-- **Time:** 2–3 hours
 
 ```{admonition} You will need to download data for this lab
 :class: note
@@ -23,7 +22,7 @@ cover is close to nil, and the outcrops are large enough to resolve at 15 m.
 Many method papers in the field have been demonstrated here, so your results
 have a substantial literature to check against.
 
-The alteration zoning, from the centre of each hydrothermal centre outwards:
+The alteration zoning, from the center of each hydrothermal center outwards:
 
 | Zone | Diagnostic mineral | Key absorption |
 |---|---|---|
@@ -128,7 +127,7 @@ is open.
 ```
 
 ```{admonition} Use reflectance, not radiance
-:class: warning
+:class: note
 Radiance carries the solar spectrum and the atmosphere in it, so its absorption
 features are mostly not the surface's. Every method here assumes atmospherically
 corrected **reflectance**, which is what the `_rfl` suffix means. Check the file
@@ -143,7 +142,7 @@ the sensor saves a resampling step and a class of subtle errors.
 
 ---
 
-## Part 1 — Orient yourself (20 min)
+## Part 1 — Orient yourself
 
 1. Open `f230918t01p00r11_rfl_cuprite.hdr` and turn on all four panes.
 2. Use **Choose Visible-Light Bands** (660 / 550 / 480 nm) and apply a **2.5%
@@ -152,10 +151,10 @@ the sensor saves a resampling step and a class of subtle errors.
 :::{figure} ../../_static/tutorials/lab_cuprite_truecolour.png
 :width: 100%
 :align: center
-:alt: Cuprite in true colour, a near-featureless beige desert
+:alt: Cuprite in true color, a near-featureless beige desert
 :::
 
-Cuprite in true colour is beige gravel. None of the zoning in the table above
+Cuprite in true color is beige gravel. None of the zoning in the table above
 is visible here, and no stretch of these three bands will bring it out.
 
 3. Now build a short-wave infrared (SWIR) composite: red **2200 nm**, green
@@ -165,11 +164,11 @@ is visible here, and no stretch of these three bands will bring it out.
 :::{figure} ../../_static/tutorials/lab_cuprite_swir.png
 :width: 100%
 :align: center
-:alt: The same area as a 2200/2170/2340 nm composite, still largely grey
+:alt: The same area as a 2200/2170/2340 nm composite, still largely gray
 :::
 
 Barely better, and that is not a mistake: neighbouring SWIR bands are strongly
-correlated, so an RGB composite built from three of them is close to grey no
+correlated, so an RGB composite built from three of them is close to gray no
 matter how you stretch each channel independently.
 
 4. Reopen the stretch dialog and choose **Decorrelation Stretch** (it is only
@@ -178,37 +177,37 @@ matter how you stretch each channel independently.
 :::{figure} ../../_static/tutorials/lab_cuprite_decorr.png
 :width: 100%
 :align: center
-:alt: The same three bands after a decorrelation stretch, showing strong colour separation
+:alt: The same three bands after a decorrelation stretch, showing strong color separation
 :::
 
 The decorrelation stretch rotates the three display bands onto their principal
 axes, stretches *those*, and rotates back, removing the correlation that made
-the image grey. The alteration zones separate into distinct colours.
+the image gray. The alteration zones separate into distinct colors.
 Compare this with the band-depth map in Part 3: the dark-blue patches here are
 the alunite-rich ground.
 
 ```{note}
-Colour in a decorrelation stretch is **relative**, not diagnostic. It tells you
+Color in a decorrelation stretch is **relative**, not diagnostic. It tells you
 *that* two areas differ spectrally, never *which mineral* either one is. That
 requires the spectra themselves, in Part 2.
 ```
 
 ```{admonition} No bad-band list in this file
-:class: warning
+:class: note
 Unlike many AVIRIS products, this header carries **no `bbl` entry**, so nothing
-marks the 1400 nm and 1900 nm water-vapour regions as unusable. They are still
+marks the 1400 nm and 1900 nm water-vapor regions as unusable. They are still
 unusable. Keep them out of every wavelength range you give an analysis tool,
 and expect to see them as noise spikes in Part 2.
 ```
 
-**Deliverable 1:** true-colour, plain SWIR and decorrelation-stretched
+**Deliverable 1:** true-color, plain SWIR and decorrelation-stretched
 composites of the same area, exported with **Export RGB image ▸ Export visible
 image area**, plus two sentences on what the decorrelation stretch shows that
 the other two do not.
 
 ---
 
-## Part 2 — Identify minerals by hand (40 min)
+## Part 2 — Identify minerals by hand
 
 A decorrelation stretch separates the ground into units without identifying
 them. Naming the minerals takes the spectra.
@@ -244,7 +243,7 @@ so far. Check both before reading the plot.
 :alt: Four full-range Cuprite spectra with large noise spikes at 1400 and 1900 nm
 :::
 
-The spikes at 1400 and 1900 nm are the water-vapour regions. Atmospheric
+The spikes at 1400 and 1900 nm are the water-vapor regions. Atmospheric
 correction cannot recover them, so the values there mean nothing. The mineral
 features are the small wiggles past 2000 nm, dwarfed at this scale by the
 differences in overall brightness.
@@ -286,7 +285,7 @@ band depths are now readable directly as a fraction of the continuum, about
 0.29 and 0.32 here.
 
 ```{admonition} Continuum removal fits the hull over the whole spectrum
-:class: warning
+:class: note
 WISER removes the continuum across every band in the spectrum, and the noise
 spike at 1400 nm becomes a hull vertex, visible in the first figure as the
 peak the hull is pinned to. The result is still correct *within* the SWIR, but
@@ -298,11 +297,11 @@ do not read the 1300–2000 nm part of a continuum-removed AVIRIS spectrum.
    target. Read the ranked match table.
 
 **Deliverable 2:** a continuum-removed plot of four identified spectra, each
-labelled with its mineral and the wavelength you used to call it.
+labeled with its mineral and the wavelength you used to call it.
 
 ---
 
-## Part 3 — Map the minerals (60 min)
+## Part 3 — Map the minerals
 
 ### 3a. Band depth — the direct measurement
 
@@ -310,7 +309,7 @@ Before reaching for a classifier, map a single absorption. A **band depth** is
 the diagnostic band divided by a straight continuum drawn between two shoulders
 either side of it, and WISER's band math computes it in one expression.
 
-For alunite, use 2100 nm and 2250 nm as shoulders and 2170 nm as the centre.
+For alunite, use 2100 nm and 2250 nm as shoulders and 2170 nm as the center.
 The 2170 band sits 0.467 of the way between them in wavelength, so the
 continuum at that point is `0.533 × a + 0.467 × b`:
 
@@ -334,25 +333,25 @@ continuum at that point is `0.533 × a + 0.467 × b`:
 :::{figure} ../../_static/tutorials/lab_cuprite_bd2170.png
 :width: 100%
 :align: center
-:alt: The 2170 nm alunite band-depth map, showing two bright alteration centres
+:alt: The 2170 nm alunite band-depth map, showing two bright alteration centers
 :::
 
-The two bright lobes are the opalised cores of the hydrothermal centres. Band
+The two bright lobes are the opalised cores of the hydrothermal centers. Band
 depth reaches 0.35 there, meaning the 2170 nm channel sits 35 % below the
 continuum drawn across it. Each pixel now holds a measurement rather than a
 display effect, so you can threshold it, compare it against another scene, or
 check it against a laboratory spectrum.
 
-Repeat for the other three minerals by moving the centre and shoulders:
+Repeat for the other three minerals by moving the center and shoulders:
 
-| Mineral | Centre | Shoulders | Weight on the upper shoulder |
+| Mineral | Center | Shoulders | Weight on the upper shoulder |
 |---|---|---|---|
 | Alunite | 2170 nm | 2100 / 2250 | 0.467 |
 | Kaolinite–muscovite | 2200 nm | 2130 / 2280 | 0.467 |
 | Calcite | 2340 nm | 2260 / 2400 | 0.571 |
 
 ```{admonition} Band depth does not separate kaolinite from muscovite
-:class: warning
+:class: note
 Both absorb at 2200 nm, so one band-depth map lights up for both. Separating
 them needs the *shape* of the feature, the 2160 shoulder, which is what SFF
 in 3c is for, or a ratio of the 2160 and 2200 depths.
@@ -395,7 +394,7 @@ other cannot see.
 
 ---
 
-## Part 4 — Endmembers from the data itself (40 min)
+## Part 4 — Endmembers from the data itself
 
 Library spectra are laboratory measurements of pure samples. Field pixels are
 mixtures under a real atmosphere. Pull the endmembers out of the scene instead.
@@ -426,8 +425,8 @@ illumination).
    single band-depth map cannot tell them apart. Which of SAM and SFF separates
    them better, and why does that follow from how each works?
 2. The decorrelation stretch made the alteration zones obvious, but you were
-   told not to read mineralogy from its colours. Why not — what exactly does a
-   colour in that image correspond to?
+   told not to read mineralogy from its colors. Why not — what exactly does a
+   color in that image correspond to?
 3. You get a high SAM score for buddingtonite in an area with no other
    alteration minerals. What would you check before reporting it?
 4. Your unmixing RMSE is high across a whole playa. Give two possible causes

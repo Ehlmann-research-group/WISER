@@ -6,8 +6,6 @@ bring in reference spectra from a library.
 **Data:** `src/test_utils/test_datasets/caltech_425_7_7_nm.hdr` — a **425-band**
 AVIRIS cube covering 377–2500 nm, cropped to 7 × 7 pixels. Ships with WISER.
 
-**Time:** about 10 minutes.
-
 ```{note}
 Seven by seven pixels is not a typo. This cube is a unit-test fixture, kept
 tiny so it can live in the repository. What matters here is its **spectral**
@@ -43,7 +41,7 @@ a dataset has none, WISER plots band number instead.
 
 ```{note}
 **The gaps in the spectrum are real.** Bands near 1400 nm and 1900 nm sit
-inside strong atmospheric water-vapour absorptions and carry no usable surface
+inside strong atmospheric water-vapor absorptions and carry no usable surface
 signal. They are flagged bad in the header and left out of the line. Every
 analysis tool drops flagged bands too.
 ```
@@ -60,14 +58,14 @@ Collect three pixels — a bright one, a dark one, and one in between.
 :::{figure} ../_static/tutorials/t2_collected.png
 :width: 90%
 :align: center
-:alt: Three collected spectra, colour-coded, listed below the spectrum plot
+:alt: Three collected spectra, color-coded, listed below the spectrum plot
 :::
 
 From the list below the plot:
 
 - **Untick** a spectrum to hide it without deleting it
-- **Right-click ▸ Edit...** to rename it or change its colour — do this early,
-  since everything is drawn in the same colour by default
+- **Right-click ▸ Edit...** to rename it or change its color — do this early,
+  since everything is drawn in the same color by default
 - **Right-click ▸ Save to file...** to write it out as text
 
 ---
@@ -86,7 +84,7 @@ offers the same thing as **Configure plot...**. The settings worth knowing:
 
 **Pixels to average** changes your science rather than your figure. A single
 AVIRIS pixel is noisy; a 3 × 3 median is much steadier, at the cost of mixing
-in the neighbours.
+in the neighbors.
 
 To save the figure, right-click the plot and choose **Export plot to image...**
 (EPS, PDF, PNG or SVG at 72, 100 or 300 dpi).
@@ -155,7 +153,7 @@ The same operation runs on a whole cube: right-click the image and choose
 ## What you can now do
 
 - Pull a spectrum from any pixel and read its coordinates
-- Collect, colour and compare several spectra
+- Collect, color and compare several spectra
 - Average over a neighbourhood to suppress noise
 - Load a mineral library and continuum-remove for comparison
 

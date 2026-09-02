@@ -5,8 +5,6 @@ and export the pixel spectra for use outside WISER.
 
 **Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
 
-**Time:** about 15 minutes.
-
 ---
 
 ## Why regions instead of pixels
@@ -16,7 +14,7 @@ straddle two materials. Averaging over a **Region of Interest** — tens or
 hundreds of pixels of one cover type — gives a signature stable enough to feed
 a classifier, an unmixing model, or a detection threshold.
 
-A region of interest (ROI) is a **named, coloured collection of selections**. Selections may be
+A region of interest (ROI) is a **named, colored collection of selections**. Selections may be
 rectangles, polygons or multi-pixel picks, and there may be many in one ROI,
 scattered anywhere in the scene. Overlapping selections are fine: each pixel is
 counted once.
@@ -28,13 +26,13 @@ counted once.
 Open the campus scene and turn on the Spectrum Plot. For each class:
 
 1. Click **Create ROI** (the map-pin button in the toolbar).
-2. Enter a **name** and pick a **colour**. Use a different colour per ROI —
+2. Enter a **name** and pick a **color**. Use a different color per ROI —
    it is the only thing distinguishing them on screen.
 3. Click **OK**.
 
 Create three:
 
-| ROI | Colour | Where to draw it |
+| ROI | Color | Where to draw it |
 |---|---|---|
 | **Tree canopy** | green | The rows of street trees down the middle, and the lawn in the south-east |
 | **Building roof** | red | The large bright roof at the upper left |
@@ -56,7 +54,7 @@ active — read it if a shape is not behaving.
 :::{figure} ../_static/tutorials/t3_rois_drawn.png
 :width: 90%
 :align: center
-:alt: Three coloured ROIs drawn over the Caltech scene, visible in every pane
+:alt: Three colored ROIs drawn over the Caltech scene, visible in every pane
 :::
 
 Selections appear in every pane at once, so you can place a fine selection in
