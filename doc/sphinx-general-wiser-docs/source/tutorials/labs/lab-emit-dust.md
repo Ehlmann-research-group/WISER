@@ -1,14 +1,20 @@
 # Lab D — Surface Mineralogy from Orbit with EMIT
 
 - **Field:** Earth system science, arid-land geology, climate forcing
-- **Instrument:** EMIT on the ISS — 285 bands, 381–2493 nm at ~7.5 nm, 60 m
+- **Instrument:** EMIT (Earth Surface Mineral Dust Source Investigation) on the
+  International Space Station, 285 bands, 381–2493 nm at ~7.5 nm, 60 m
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`
 - **Time:** 2 hours
 
-```{note}
-Capture your own figures — no screenshots are shipped for this lab. Unlike
-Labs A–C, this dataset sits behind an **Earthdata Login**, which the figure
-harness cannot authenticate to.
+```{admonition} You will need to download data for this lab
+:class: note
+You will need to download some EMIT data to do this lab. You will also need to
+[create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new) in order to access and
+download it, so do that before you start. Everything is done through the
+browser; **Get the data** below has the search links and the steps.
+
+No screenshots are shipped for this lab, because the figure harness cannot
+authenticate to Earthdata, so capture your own as you work.
 {doc}`Lab A <lab-aviris-ng-urban>` shows the same workflow on airborne data,
 including every dialog you will use here.
 ```
@@ -40,11 +46,11 @@ means for the dust that region emits.
 
 ## Get the data
 
-**Scene:** any EMIT **L2A Reflectance** granule over a desert — the Mojave and
+**Scene:** any EMIT **Level-2A (L2A) Reflectance** granule over a desert — the Mojave and
 Sonoran deserts, the Sahara, the Arabian Peninsula, the Taklamakan, or the Lake
 Eyre basin.
 
-1. Create a free [NASA Earthdata Login](https://urs.earthdata.nasa.gov/).
+1. [Create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new).
 2. Search for **`EMITL2ARFL`** in
    [Earthdata Search](https://search.earthdata.nasa.gov/), or browse the
    [EMIT L2A collection page](https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2arfl-001).
@@ -56,7 +62,7 @@ Each granule ships three NetCDF files: `RFL` (reflectance — the one you want),
 `RFLUNCERT` (per-band uncertainty) and `MASK` (cloud and quality flags).
 
 ```{admonition} Confirm your NetCDF reading first
-:class: tip
+:class: note
 A cropped, real EMIT L2A granule ships with the WISER source at
 `src/test_utils/test_datasets/EMIT_L2A_RFL_001_20241006T165148_2428011_003_crop.nc`
 (Imperial Valley, California, October 2024). It is cut to 32 × 32 pixels and 3

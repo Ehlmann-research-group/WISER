@@ -5,6 +5,13 @@
 - **Prerequisites:** {doc}`Tutorials 1–5 <../index>`
 - **Time:** 1 hour with the bundled data; a full session with your own
 
+```{admonition} You do not need to download anything for this lab
+:class: note
+It runs entirely on a scene already in your WISER checkout, which makes it the
+safe choice when network access or disk space cannot be relied on. Bring your
+own cube instead if you have one.
+```
+
 ---
 
 ## Why this lab exists
@@ -12,8 +19,8 @@
 Nothing in WISER assumes an aircraft or a satellite. A cube is a cube: *x*, *y*
 and wavelength. Bench-scale imaging spectrometers sort plastics for recycling,
 verify pharmaceutical tablets, detect bruising in fruit, authenticate pigments
-in paintings, and inspect electronics — and every method in the tutorials
-applies unchanged.
+in paintings, and inspect electronics, and the methods in the tutorials apply
+unchanged.
 
 This lab uses a scene already in your checkout, so you can run all of it now,
 with no download.

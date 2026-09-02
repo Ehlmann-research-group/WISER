@@ -136,7 +136,7 @@ cross-band transform. It computes the covariance of the three display bands,
 eigendecomposes it, stretches along the principal axes, and rotates back.
 
 ```{admonition} When to reach for the decorrelation stretch
-:class: tip
+:class: note
 Adjacent bands of a hyperspectral cube are highly correlated, so an RGB
 composite of three nearby bands comes out nearly grey no matter how you stretch
 the channels individually — the information is in the small differences between

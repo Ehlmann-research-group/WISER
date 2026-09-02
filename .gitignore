@@ -41,6 +41,8 @@ doc/sphinx-general-wiser-docs/source/apidocs/
 src/test_utils/test_datasets/ang20171108t184227*
 src/test_utils/test_datasets/f230918t01p00r11*
 src/test_utils/test_datasets/HRL000040FF*
+src/test_utils/test_datasets/EMIT_L2A_RFL_001_20230804*
+src/test_utils/test_datasets/PACE_OCI*
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*

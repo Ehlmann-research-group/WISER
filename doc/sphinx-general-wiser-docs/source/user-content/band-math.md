@@ -139,7 +139,7 @@ reference.
 ## Memory
 
 ```{admonition} Band math is not streamed for every case
-:class: important
+:class: note
 Band math loads its operands into memory. WISER shows the expected result size
 before you run and chunks large image-cube expressions where it can, but a
 full-size flight line with several intermediates can still exhaust available

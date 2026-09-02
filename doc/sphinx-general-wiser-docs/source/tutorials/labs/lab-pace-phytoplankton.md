@@ -1,14 +1,21 @@
 # Lab E — Phytoplankton and Coastal Water with PACE
 
 - **Field:** biological and optical oceanography, water quality
-- **Instrument:** PACE/OCI — hyperspectral 340–895 nm at ~5 nm, plus SWIR bands, 1 km
+- **Instrument:** OCI (Ocean Color Instrument) on PACE (Plankton, Aerosol,
+  Cloud, ocean Ecosystem), hyperspectral 340–895 nm at ~5 nm plus short-wave
+  infrared bands, 1 km
 - **Prerequisites:** {doc}`Tutorials 1–5 <../index>`
 - **Time:** 2 hours
 
-```{note}
-Capture your own figures — no screenshots are shipped for this lab. Unlike
-Labs A–C, this dataset sits behind an **Earthdata Login**, which the figure
-harness cannot authenticate to.
+```{admonition} You will need to download data for this lab
+:class: note
+You will need to download some PACE data to do this lab. You will also need to
+[create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new) in order to access and
+download it, so do that before you start. Everything is done through the
+browser; **Get the data** below has the search links and the steps.
+
+No screenshots are shipped for this lab, because the figure harness cannot
+authenticate to Earthdata, so capture your own as you work.
 {doc}`Lab A <lab-aviris-ng-urban>` shows the same dialogs on airborne data.
 ```
 
@@ -39,7 +46,7 @@ organic matter that confound coastal water.
 Three things drive colour in coastal water and must be told apart:
 
 - **Phytoplankton** — pigment absorptions, and a fluorescence peak near 685 nm
-- **CDOM** (coloured dissolved organic matter) — smooth exponential rise
+- **Coloured dissolved organic matter (CDOM)** (coloured dissolved organic matter) — smooth exponential rise
   towards the blue, no features
 - **Suspended sediment** — high, broadly flat reflectance rising to the red
 
@@ -52,8 +59,9 @@ wavelengths from 346 to 895 nm plus 5 SWIR bands. Level-2 **AOP** (giving
 remote-sensing reflectance $R_{rs}$) is the more rigorous choice for open-ocean
 work.
 
-1. Create a free [NASA Earthdata Login](https://urs.earthdata.nasa.gov/).
-2. Search the [OB.DAAC](https://oceancolor.gsfc.nasa.gov/) or
+1. [Create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new).
+2. Search the Ocean Biology Distributed Active Archive Centre
+   ([OB.DAAC](https://oceancolor.gsfc.nasa.gov/)) or
    [Earthdata Search](https://search.earthdata.nasa.gov/) for **PACE OCI L2
    SFREFL** or **L2 AOP**.
 3. Pick a scene over a coastal region with contrast: Chesapeake Bay, the Baltic
@@ -127,8 +135,8 @@ High ratio → clear water; low → more chlorophyll. It is a proxy, not a
 concentration, and it fails in coastal water where CDOM also absorbs blue —
 which is why the next index exists.
 
-**Fluorescence line height** — the 685 nm bump above a baseline between its
-shoulders:
+**Fluorescence line height (FLH)** — the 685 nm bump above a baseline between
+its shoulders:
 
 ```text
 b685 - (0.5 * b665 + 0.5 * b710)

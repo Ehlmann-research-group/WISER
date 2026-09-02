@@ -76,7 +76,7 @@ The polygon selector is always live.
 
 The highlighted pixels land exactly on the tree crowns, hedges and lawns. You
 went from *a shape in feature space* to *a place on the ground* without knowing
-in advance what either was — which is the point of the tool.
+in advance what either was.
 
 Click **Create ROI from Selection** to turn that into a Region of Interest, and
 everything in {doc}`Tutorial 3 <03-regions-of-interest>` becomes available.

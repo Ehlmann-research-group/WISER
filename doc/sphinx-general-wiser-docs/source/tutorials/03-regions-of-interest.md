@@ -16,7 +16,7 @@ straddle two materials. Averaging over a **Region of Interest** — tens or
 hundreds of pixels of one cover type — gives a signature stable enough to feed
 a classifier, an unmixing model, or a detection threshold.
 
-An ROI is a **named, coloured collection of selections**. Selections may be
+A region of interest (ROI) is a **named, coloured collection of selections**. Selections may be
 rectangles, polygons or multi-pixel picks, and there may be many in one ROI,
 scattered anywhere in the scene. Overlapping selections are fine: each pixel is
 counted once.
@@ -81,7 +81,7 @@ Collect it, then repeat for the other two.
 :alt: Mean spectra for the tree-canopy, building-roof and parking-lot ROIs
 :::
 
-**Read the plot.** Three classes, three unmistakable shapes:
+**Read the plot.** Three classes, three distinct shapes:
 
 - **Building roof** (red) — bright at every wavelength and almost flat. A
   broadband reflector.
