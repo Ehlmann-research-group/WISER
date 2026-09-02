@@ -15,7 +15,7 @@ Each produces a **new dataset**; the input is untouched. Runs proceed in the
 background — track them in the Activity Monitor.
 
 ```{admonition} Filter for a reason
-:class: important
+:class: note
 Smoothing throws information away. Filter when you have a specific noise
 problem — a spectrum you cannot read, salt-and-pepper speckle, striping — not
 as a routine first step. In particular, do not smooth before

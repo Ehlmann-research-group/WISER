@@ -1,13 +1,20 @@
 # Lab A — Urban Vegetation and Materials with AVIRIS-NG
 
 - **Field:** urban ecology, land-cover mapping, remote-sensing methods
-- **Instrument:** AVIRIS-NG — 425 bands, 377–2500 nm at ~5 nm, ~5 m pixels
+- **Instrument:** AVIRIS-NG (Airborne Visible/Infrared Imaging Spectrometer —
+  Next Generation), 425 bands, 377–2500 nm at ~5 nm, ~5 m pixels
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`
 - **Time:** 2–3 hours
 
-This is the lab to start with. The data is one download with no account, the
-scene is a place you can look up, and every figure below was produced by
-running the steps in WISER.
+```{admonition} You will need to download data for this lab
+:class: note
+You will need to download some AVIRIS-NG data to do this lab. **Get the data**
+below has a click-to-download link and a terminal command, and says where to
+put the files.
+```
+
+This is the lab to start with: the scene is a place you can look up, and every
+figure below was produced by running these steps in WISER.
 
 ---
 
@@ -33,7 +40,20 @@ colour. In this lab you use that shape to:
 **Scene:** `ang20171108t184227` — AVIRIS-NG over Pasadena, California,
 8 November 2017, subset to the Caltech campus and its surroundings.
 
-Download both files from JPL — no account, no login:
+Both files come from JPL, with no account and no login. Take whichever route
+suits you.
+
+**Click to download.** Save both into `src/test_utils/test_datasets/`:
+
+- [`ang20171108t184227_corr_v2p13_subset_bil`](https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil)
+  — the data, 551 MB
+- [`ang20171108t184227_corr_v2p13_subset_bil.hdr`](https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr)
+  — the header, 14 KB
+
+Both sit in the same [JPL tutorial directory](https://avng.jpl.nasa.gov/pub/DThompson/istutor/)
+if you would rather browse.
+
+**Or from a terminal:**
 
 ```bash
 cd src/test_utils/test_datasets
@@ -42,7 +62,7 @@ curl -O https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_
 curl -O https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr
 ```
 
-The data file is **551 MB**; the header is 15 KB. Put them in the same
+The data file is **551 MB**; the header is 14 KB. Put them in the same
 directory — WISER finds the data file from the header, or the header from the
 data file, but only if they sit together.
 
@@ -68,10 +88,10 @@ with WISER.
 |---|---|
 | Dimensions | 680 samples × 500 lines × **425 bands** |
 | Wavelengths | 376.9 – 2500.5 nm, mean sampling **5.01 nm** |
-| Data type | 32-bit float, BIL interleave |
+| Data type | 32-bit float, band-interleaved-by-line (BIL) |
 | Units | Surface reflectance (`corr` = atmospherically corrected) |
 | Bad bands | **53 of 425** flagged in the header's `bbl` |
-| Georeferencing | UTM Zone 11N, WGS-84, 2 m map info, rotation −2° |
+| Georeferencing | Universal Transverse Mercator (UTM) zone 11N on WGS-84, 2 m map info, rotation −2° |
 | Nodata | `-9999` |
 
 The 53 flagged bands are the water-vapour regions near 1400 nm and 1900 nm,
@@ -120,8 +140,8 @@ The bands this lab uses:
 | 482 nm | 21 | Blue |
 | 552 nm | 35 | Green |
 | 662 nm | 57 | Red — chlorophyll absorption |
-| 858 nm | 96 | NIR — the top of the red edge |
-| 1649 nm | 254 | SWIR-1 |
+| 858 nm | 96 | Near-infrared (NIR) — the top of the red edge |
+| 1649 nm | 254 | Short-wave infrared (SWIR) 1 |
 | 2200 nm | 364 | SWIR-2 — clay/carbonate region |
 
 ### A composite true colour cannot give you
@@ -178,8 +198,6 @@ plot. Floating the Spectrum Plot dock gives the 425 bands room to breathe:
 
 ### Read them
 
-This one figure contains most of what optical remote sensing rests on.
-
 **Vegetation** (green) is dark and flat through the visible, then jumps almost
 vertically at about 700 nm from 0.04 to 0.71 — the **red edge**, the boundary
 between chlorophyll absorption and the cellular scattering of leaf mesophyll.
@@ -191,8 +209,8 @@ the two SWIR shoulders near 1650 nm and 2200 nm.
 **Water** (blue) is the mirror image: brightest in the blue at about 0.38,
 falling steadily through the green and red, and essentially **zero beyond
 750 nm**. Liquid water absorbs the near-infrared almost completely. Any pixel
-that is dark in the NIR and bright in the blue is water, and no other common
-surface behaves that way.
+that is dark in the near-infrared and bright in the blue is usually water; few
+other common surfaces behave that way.
 
 **The roof** (red) is bright — around 0.95 — and nearly flat from 500 nm to
 1800 nm before declining through the SWIR. High and featureless is the
@@ -279,7 +297,7 @@ street trees line up along the avenues, the athletic field and the lawns are
 solid green, and the buildings and roads are red.
 
 ```{admonition} The general rule
-:class: important
+:class: note
 **Any computed product needs its stretch set before you read it.** The values
 that come out of band math, an index, a band-depth calculation or a detection
 score have no reason to fill a display range sensibly, and one nodata pixel at
@@ -366,7 +384,7 @@ On this cube — 680 × 500 × 425 — the run took **16 seconds**.
 :::
 
 ```{admonition} Read this result critically
-:class: important
+:class: note
 It is speckled. Clusters change from pixel to pixel across surfaces that are
 obviously uniform on the ground, and the six classes do not map cleanly onto
 six materials.
@@ -420,9 +438,9 @@ A false-colour composite of PC1/PC2/PC3:
 :alt: A PC1/PC2/PC3 false-colour composite
 :::
 
-Vegetation is green, roofs magenta and pink, pavement blue-purple — and roofs
+Vegetation is green, roofs magenta and pink, pavement blue-purple, and roofs
 that were indistinguishable in true colour now differ. Three numbers per pixel,
-carrying most of what 425 bands had to say.
+carrying much of what 425 bands had to say.
 
 :::{figure} ../../_static/tutorials/lab_avng_pc1.png
 :width: 95%

@@ -108,7 +108,8 @@ Try the library that ships with the source:
 src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr
 ```
 
-That is **481 USGS mineral spectra** resampled to a 285-band Headwall SWIR
+That is **481 USGS mineral spectra** resampled to a 285-band Headwall
+short-wave infrared (SWIR)
 sensor — alunite, jarosite, kaolinite, calcite, the reference set used for
 mineral mapping.
 

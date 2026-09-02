@@ -1,19 +1,27 @@
 # Lab B — Mineral Mapping at Cuprite, Nevada
 
 - **Field:** economic geology, alteration mapping
-- **Instrument:** AVIRIS-Classic — 224 bands, 379–2498 nm at ~9.5 nm, 15.2 m
+- **Instrument:** AVIRIS-Classic (Airborne Visible/Infrared Imaging
+  Spectrometer), 224 bands, 379–2498 nm at ~9.5 nm, 15.2 m
 - **Prerequisites:** {doc}`Tutorials 1–7 <../index>`, and {doc}`Lab A <lab-aviris-ng-urban>` for the mechanics on a large cube
 - **Time:** 2–3 hours
+
+```{admonition} You will need to download data for this lab
+:class: note
+You will need to download some AVIRIS-Classic data to do this lab. **Get the
+data** below has two routes: one command that fetches only the part you need,
+or a click-to-download link for the whole flight line.
+```
 
 ---
 
 ## The setting
 
-Cuprite, Nevada is the reference site of imaging spectroscopy. A hydrothermal
+Cuprite, Nevada is a common reference site for imaging spectroscopy. A hydrothermal
 system altered the volcanic rocks into concentric mineral zones, vegetation
 cover is close to nil, and the outcrops are large enough to resolve at 15 m.
-Almost every method paper in the field has been demonstrated here, so your
-results have a large literature to check against.
+Many method papers in the field have been demonstrated here, so your results
+have a substantial literature to check against.
 
 The alteration zoning, from the centre of each hydrothermal centre outwards:
 
@@ -32,15 +40,21 @@ Those wavelengths are the whole lab.
 
 ## Get the data
 
-**Scene:** `f230918t01p00r11_rfl` — an orthocorrected AVIRIS-Classic
+**Scene:** `f230918t01p00r11_rfl`, an orthocorrected AVIRIS-Classic
 **reflectance** flight line flown on 18 September 2023, published open (no
 login) in a public directory on JPL's AVIRIS distribution server. It runs
 110 km north–south through southwestern Nevada and crosses Cuprite about
 40 % of the way along.
 
-The whole line is **10.2 GB**. You only need the part over Cuprite, and because
-the file is **BIL** interleaved every image line is one contiguous block of
-bytes — so a single ranged download gets you a usable cube.
+The whole line is **10.2 GB**, and you only need the part over Cuprite. Take
+either route below: the first downloads a tenth as much but needs a terminal,
+the second is three clicks and a long wait.
+
+### Route 1 — fetch only the part you need (2.05 GB)
+
+Because the file is **band-interleaved-by-line** (BIL), every image line is one
+contiguous
+block of bytes, so a single ranged request gets you a usable cube.
 
 **1. Fetch the header** (a few kB, and it carries the 224 wavelengths):
 
@@ -58,7 +72,7 @@ curl -r 3513753600-5563443199 \
 ```
 
 ```{admonition} Where that byte range comes from
-:class: tip
+:class: note
 One line is `samples × bands × 4 bytes` = 1634 × 224 × 4 = **1 464 064 bytes**.
 Line 2400 therefore starts at 2400 × 1 464 064 = 3 513 753 600, and line 3800
 starts one byte past the end of the range. Change the two line numbers and
@@ -85,17 +99,45 @@ the fact through **Edit dataset...** in the Dataset Info pane.
 The result is a 1634 × 1400 × 224 cube. Valid data occupies samples ~220–1000;
 everything outside is fill.
 
+### Route 2 — download the whole flight line (10.2 GB)
+
+If you would rather not use a terminal, take both files straight from the
+archive. Save them side by side and leave the names alone: the header that
+ships with the file already describes it correctly, so there is nothing to
+edit.
+
+- [`f230918t01p00r11_rfl`](https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl)
+  — the data, **10.2 GB**
+- [`f230918t01p00r11_rfl.hdr`](https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl.hdr)
+  — the header, 5 KB
+
+Both are in the same [public directory](https://popo.jpl.nasa.gov/pub/RKokaly/)
+if you would rather browse.
+
+```{admonition} Route 2 shifts every y coordinate by 2400
+:class: note
+The pixel coordinates quoted throughout this lab refer to the 1400-line subset
+from Route 1, whose first line is line 2400 of the full flight line. If you
+took Route 2, add **2400** to every *y* value: the alunite pixel listed as
+(353, 993) is at (353, 3393) in the whole line. The *x* values are the same
+either way.
+
+The archive header also omits `data ignore value = -9999`, so add that line
+whichever route you take, or set it through **Edit dataset...** once the file
+is open.
+```
+
 ```{admonition} Use reflectance, not radiance
 :class: warning
 Radiance carries the solar spectrum and the atmosphere in it, so its absorption
 features are mostly not the surface's. Every method here assumes atmospherically
-corrected **reflectance** — that is what the `_rfl` suffix means. Check the file
+corrected **reflectance**, which is what the `_rfl` suffix means. Check the file
 name and header description first.
 ```
 
 **Reference spectra (optional, for Part 3):** download `usgs_splib07.zip` from
 the [USGS Spectral Library Version 7 release](https://dx.doi.org/10.5066/F7RR1WDJ).
-Use the version **convolved to AVIRIS-Classic** — the library ships copies
+Use the version **convolved to AVIRIS-Classic**. The library ships copies
 resampled to AVIRIS-Classic, HyMap, Hyperion, CRISM, M3 and VIMS, and matching
 the sensor saves a resampling step and a class of subtle errors.
 
@@ -113,11 +155,11 @@ the sensor saves a resampling step and a class of subtle errors.
 :alt: Cuprite in true colour, a near-featureless beige desert
 :::
 
-**This is the point of the lab.** One of the most intensely studied
-hydrothermal systems on Earth, and in true colour it is beige gravel. Nothing
-about the mineral zoning is visible.
+Cuprite in true colour is beige gravel. None of the zoning in the table above
+is visible here, and no stretch of these three bands will bring it out.
 
-3. Now build a SWIR composite: red **2200 nm**, green **2170 nm**, blue
+3. Now build a short-wave infrared (SWIR) composite: red **2200 nm**, green
+   **2170 nm**, blue
    **2340 nm**, and stretch it 2.5% linear again.
 
 :::{figure} ../../_static/tutorials/lab_cuprite_swir.png
@@ -126,8 +168,8 @@ about the mineral zoning is visible.
 :alt: The same area as a 2200/2170/2340 nm composite, still largely grey
 :::
 
-Barely better. That is not a mistake — **neighbouring SWIR bands are strongly
-correlated**, so an RGB composite built from three of them is close to grey no
+Barely better, and that is not a mistake: neighbouring SWIR bands are strongly
+correlated, so an RGB composite built from three of them is close to grey no
 matter how you stretch each channel independently.
 
 4. Reopen the stretch dialog and choose **Decorrelation Stretch** (it is only
@@ -140,15 +182,15 @@ matter how you stretch each channel independently.
 :::
 
 The decorrelation stretch rotates the three display bands onto their principal
-axes, stretches *those*, and rotates back — removing exactly the correlation
-that made the image grey. The alteration zones separate into distinct colours.
+axes, stretches *those*, and rotates back, removing the correlation that made
+the image grey. The alteration zones separate into distinct colours.
 Compare this with the band-depth map in Part 3: the dark-blue patches here are
 the alunite-rich ground.
 
 ```{note}
 Colour in a decorrelation stretch is **relative**, not diagnostic. It tells you
 *that* two areas differ spectrally, never *which mineral* either one is. That
-requires the spectra themselves — Part 2.
+requires the spectra themselves, in Part 2.
 ```
 
 ```{admonition} No bad-band list in this file
@@ -168,13 +210,16 @@ the other two do not.
 
 ## Part 2 — Identify minerals by hand (40 min)
 
-Colour separation tells you units exist. Only the spectra name them.
+A decorrelation stretch separates the ground into units without identifying
+them. Naming the minerals takes the spectra.
 
 1. Click across the bright altered ground and collect spectra. Set **Number of
-   pixels to average** to a 3 × 3 **median** — a single AVIRIS pixel at 2200 nm
-   is noisy.
+   pixels to average** to a 3 × 3 **median**, because a single AVIRIS pixel at
+   2200 nm is noisy.
 
-The four spectra below come from pixels chosen by band position, not by eye:
+The four spectra below come from pixels chosen by band position, not by eye.
+The coordinates are Route 1's; add 2400 to each *y* if you downloaded the whole
+flight line:
 
 | Mineral | Pixel (x, y) | Deepest SWIR band |
 |---|---|---|
@@ -189,8 +234,8 @@ The four spectra below come from pixels chosen by band position, not by eye:
 :alt: The Cuprite scene with four spectra collected, listed in the Spectra pane
 :::
 
-The status bar confirms which pixel you are on — `Pixel: (253, 364)` above —
-and the **Spectra and Spectral Libraries** pane lists what you have collected
+The status bar confirms which pixel you are on (`Pixel: (253, 364)` above), and
+the **Spectra and Spectral Libraries** pane lists what you have collected
 so far. Check both before reading the plot.
 
 :::{figure} ../../_static/tutorials/lab_cuprite_spectra_plot.png
@@ -199,10 +244,10 @@ so far. Check both before reading the plot.
 :alt: Four full-range Cuprite spectra with large noise spikes at 1400 and 1900 nm
 :::
 
-Two things to read off the full-range plot. The **1400 and 1900 nm spikes** are
-the water-vapour regions — atmospheric correction cannot recover them and the
-values there are meaningless. And the diagnostic mineral features are the small
-wiggles past 2000 nm, dwarfed at this scale by overall brightness differences.
+The spikes at 1400 and 1900 nm are the water-vapour regions. Atmospheric
+correction cannot recover them, so the values there mean nothing. The mineral
+features are the small wiggles past 2000 nm, dwarfed at this scale by the
+differences in overall brightness.
 
 2. Set the plot's x-axis range to **2000–2500 nm** (the gear icon in the
    Spectrum Plot toolbar) so the SWIR features fill the frame.
@@ -236,14 +281,14 @@ Now each mineral is obvious:
 :alt: The continuum-removed kaolinite spectrum zoomed to 2000-2500 nm, showing the doublet
 :::
 
-Zoomed in, the kaolinite doublet is unambiguous — **2160** and a deeper
-**2210** — and the band depths are now directly readable as a fraction of the
-continuum (about 0.29 and 0.32 here).
+Zoomed in, the kaolinite doublet is unambiguous: 2160 and a deeper 2210. The
+band depths are now readable directly as a fraction of the continuum, about
+0.29 and 0.32 here.
 
 ```{admonition} Continuum removal fits the hull over the whole spectrum
 :class: warning
 WISER removes the continuum across every band in the spectrum, and the noise
-spike at 1400 nm becomes a hull vertex — visible in the first figure as the
+spike at 1400 nm becomes a hull vertex, visible in the first figure as the
 peak the hull is pinned to. The result is still correct *within* the SWIR, but
 do not read the 1300–2000 nm part of a continuum-removed AVIRIS spectrum.
 ```
@@ -292,11 +337,11 @@ continuum at that point is `0.533 × a + 0.467 × b`:
 :alt: The 2170 nm alunite band-depth map, showing two bright alteration centres
 :::
 
-The two bright lobes are the opalised cores of the hydrothermal centres, and
-band depth reaches **0.35** — a 35 % absorption, which is very strong. Unlike
-the decorrelation stretch, this image is **quantitative**: the value at each
-pixel is a physical measurement you can threshold, compare between scenes, or
-check against a laboratory spectrum.
+The two bright lobes are the opalised cores of the hydrothermal centres. Band
+depth reaches 0.35 there, meaning the 2170 nm channel sits 35 % below the
+continuum drawn across it. Each pixel now holds a measurement rather than a
+display effect, so you can threshold it, compare it against another scene, or
+check it against a laboratory spectrum.
 
 Repeat for the other three minerals by moving the centre and shoulders:
 
@@ -309,7 +354,7 @@ Repeat for the other three minerals by moving the centre and shoulders:
 ```{admonition} Band depth does not separate kaolinite from muscovite
 :class: warning
 Both absorb at 2200 nm, so one band-depth map lights up for both. Separating
-them needs the *shape* of the feature — the 2160 shoulder — which is what SFF
+them needs the *shape* of the feature, the 2160 shoulder, which is what SFF
 in 3c is for, or a ratio of the 2160 and 2200 depths.
 ```
 
@@ -317,7 +362,7 @@ in 3c is for, or a ratio of the 2160 and 2200 depths.
 
 1. **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**, target **Image Cube**.
 2. Add the USGS library; tick alunite, kaolinite, muscovite and calcite.
-3. **Wavelength range: 2000–2400 nm.** This is what makes SAM work here — over
+3. **Wavelength range: 2000–2400 nm.** This is what makes SAM work here: over
    the full range the albedo and iron-oxide variation in the visible dominates
    the angle and swamps the clay signal.
 4. Start at the default 5° threshold and **Run SAM**.
@@ -339,7 +384,7 @@ Repeat with SFF, one feature at a time:
 | Calcite | 2280–2400 nm |
 
 Compare **`SFF RMSE`** against **`SAM Angle`**. SFF should separate kaolinite
-from muscovite better than SAM does — the two have similar overall SWIR shape
+from muscovite better than SAM does, because the two have similar SWIR shape
 but different feature *structure*, which is exactly the distinction SFF makes.
 
 **Deliverable 3:** the alunite band-depth map from 3a alongside SAM and SFF
@@ -365,7 +410,7 @@ mixtures under a real atmosphere. Pull the endmembers out of the scene instead.
 5. Run **Linear Unmixing** with those spectra as endmembers.
 
 **Read the RMSE band before the abundance bands.** High residual marks pixels
-your endmember set cannot explain — usually a material you missed. Add an
+your endmember set cannot explain, usually a material you missed. Add an
 endmember and re-run until the residual is flat.
 
 **Deliverable 4:** abundance maps and the RMSE map, plus a comparison of your
@@ -395,8 +440,8 @@ illumination).
 ## Going further
 
 - Compare your alteration map against the published USGS Cuprite maps at
-  [crustal.usgs.gov/speclab](https://crustal.usgs.gov/speclab/).
+  [the USGS Spectroscopy Lab](https://www.usgs.gov/labs/spectroscopy-lab).
 - Repeat with an **AVIRIS-NG** scene (5 nm sampling instead of 10 nm) and see
   which mineral separations improve.
 - Run the same analysis on a **radiance** product and document how the results
-  degrade — a useful demonstration of why atmospheric correction matters.
+  degrade, a useful demonstration of why atmospheric correction matters.

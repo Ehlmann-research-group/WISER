@@ -1,7 +1,8 @@
 # Tutorial 6 — PCA and MNF
 
 **Goal:** compress a cube into a handful of bands, judge how many are worth
-keeping, and know when to reach for MNF instead of PCA.
+keeping, and know when to reach for the Minimum Noise Fraction (MNF) instead of
+Principal Component Analysis (PCA).
 
 **Data:** `caltech_425_7_7_nm.hdr` and `caltech_4_100_150_nm.hdr`.
 

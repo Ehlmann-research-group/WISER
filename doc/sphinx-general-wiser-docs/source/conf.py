@@ -55,6 +55,7 @@ myst_enable_extensions = [
     "deflist",  # definition lists
     "tasklist",  # renders - [ ] checkboxes
     "attrs_inline",  # inline attribute syntax
+    "dollarmath",  # $…$ and $$…$$ maths, used by the tutorials and labs
 ]
 
 # Generate anchors for headings h1-h3 so intra-page links like [text](#some-heading)

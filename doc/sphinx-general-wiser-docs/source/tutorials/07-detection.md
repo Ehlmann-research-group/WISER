@@ -4,7 +4,8 @@
 substance?**" using WISER's four matching and unmixing tools, and know which
 one to reach for.
 
-**Data:** `caltech_15_20_22_bb.hdr` — a 20 × 22 pixel, 15-band SWIR subset
+**Data:** `caltech_15_20_22_bb.hdr` — a 20 × 22 pixel, 15-band short-wave
+infrared (SWIR) subset
 (1308–1454 nm) carrying a **bad-band list**, so you can see band flagging in
 action. Reference spectra from
 `src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr`.
@@ -114,7 +115,7 @@ ones: kaolinite 2160/2200 nm, alunite 2170 nm, calcite 2340 nm, gypsum
 
 Three outputs, one band per reference:
 
-- **`SFF RMSE`** — fit error; **lower is better**
+- **`SFF RMSE`** — root-mean-square fit error; **lower is better**
 - **`SFF SCALE`** — fitted feature depth, loosely an abundance indicator
 - **`SFF CLS`** — boolean `RMSE < threshold` (default 0.03)
 
@@ -229,5 +230,5 @@ check that the absorptions you expect are actually there.
 
 ---
 
-**Next:** the {doc}`Applied Labs <labs/index>` take these tools to real,
+**Next:** the {doc}`Labs <labs/index>` take these tools to real,
 downloadable scenes.

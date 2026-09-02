@@ -17,7 +17,7 @@ and CU Boulder. Questions: wiser_AT_lists.lasp.colorado.edu.
 
    * - :doc:`Install WISER <installation>`
      - Download an installer, or run from source
-   * - :doc:`Tutorials <tutorials/index>`
+   * - :doc:`Tutorials and Example Workflows <tutorials/index>`
      - Seven short walkthroughs on data that ships with WISER, then six applied
        labs on full public datasets
    * - :doc:`User Manual <user-content/user-manual>`
@@ -113,9 +113,9 @@ multi-file datasets, sub-datasets and troubleshooting.
 Data to try
 -----------
 
-The :doc:`Getting Started tutorials <tutorials/index>` run on fixtures in the
+The :doc:`Tutorials <tutorials/getting-started>` run on fixtures in the
 WISER source tree, so there is nothing to download. For full scenes, the
-:doc:`Applied Labs <tutorials/labs/index>` walk through these end to end:
+:doc:`Labs <tutorials/labs/index>` walk through these end to end:
 
 - `AVIRIS-NG Caltech subset <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
   (plus its `header <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`__)

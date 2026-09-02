@@ -22,7 +22,7 @@ leaf score alike. Values run −1 to +1: dense green vegetation high, bare soil
 and pavement near zero, water below zero.
 
 ```{admonition} A note on which "red" you have
-:class: important
+:class: note
 
 Textbook NDVI uses a red band near **670 nm**, at the bottom of the chlorophyll
 absorption. The reddest band in this cube is **702 nm**, on the shoulder of the
@@ -157,7 +157,7 @@ separate, and cut there.
 unary `-`, and the comparisons `==` `!=` `<` `>` `<=` `>=`.
 
 **Built-in functions:** `sin`, `cos`, `tan`, `arcsin`, `arccos`, `arctan`,
-`arctan2`, `dotprod`. **That is the whole list** — there is no built-in `sqrt`,
+`arctan2`, `dotprod`. That is the whole list: there is no built-in `sqrt`,
 `log` or `exp`. Use `** 0.5` for a square root; for anything else a
 {doc}`band-math plugin <../extending-wiser/bandmath_plugins>` adds functions
 without rebuilding WISER.
