@@ -1,7 +1,15 @@
 # Labs
 
-Six applied workflows, each sized for a 2–3 hour session. All but Lab F need
-a dataset you download first; each lab opens with what it needs.
+Six worked analyzes to build a lab from. Each carries one field's question
+through a real dataset, with the band indices, pixel coordinates and expressions
+written out, so you can run it as printed or change it knowing what every number
+in it does.
+
+Treat them as baselines rather than finished assignments. The parts, the
+deliverables and the questions at the end of each one are a starting set: swap
+the scene for a region your students work on, drop a part that does not fit the
+course, or keep the structure and change the science. All but Lab F need a
+dataset you download first, and each opens with what it needs.
 
 ```{list-table}
 :header-rows: 1
@@ -37,37 +45,33 @@ a dataset you download first; each lab opens with what it needs.
   - Ships with WISER
 ```
 
-## Choosing one
-
-| If you want | Start with |
-|---|---|
-| The best-supported route in, and a full 425-band cube end to end | **Lab A** |
-| No download at all | **Lab F**, which runs on data already in your checkout |
-| The canonical imaging-spectroscopy exercise | **Lab B**. Cuprite is where most methods in this field were first demonstrated, so your results have a literature to check against |
-| Something other than Earth, still no account | **Lab C**. CRISM data are open, and the Jezero carbonate detection is one you can reproduce |
-| A current mission and a live science question | **Lab D** or **Lab E** |
-
 ```{admonition} For instructors
 :class: note
-Each lab lists **deliverables** and **questions to answer**. **Lab F** runs
-entirely on bundled data, which makes it the safest choice when you cannot rely
-on students having network access or disk space. **Labs A, B and C** need no
-account of any kind; **D** and **E** need a free NASA Earthdata Login, worth
-having students create in advance.
+Nothing here is fixed. These scenes were chosen because the data is public and
+the answers are checkable against published work, not because they are the right
+subject for your course. The same sequence of steps runs on a scene from your own
+field site.
+
+For planning: **Lab F** runs entirely on bundled data, which makes it the safest
+choice when you cannot rely on students having network access or disk space.
+**Labs A, B and C** need no account of any kind. **D** and **E** need a free NASA
+Earthdata Login, worth having students create in advance.
 ```
 
 ```{admonition} Where the screenshots come from
 :class: note
-Labs A, B, C and F are illustrated with figures captured by driving WISER
+Labs A, B, C, E and F are illustrated with figures captured by driving WISER
 through exactly the steps described, on exactly the data named, including the
 band indices, pixel coordinates and band-math expressions in the text.
 
-Labs D and E specify the same level of detail but ship no screenshots. Both
-datasets sit behind an Earthdata Login, which the figure harness cannot
-authenticate to, so capture your own as you work.
+Lab D specifies the same level of detail but ships no screenshots yet, so
+capture your own as you work.
 ```
 
-## What every lab expects you to do
+## What carries over to your own scene
+
+Change the data and the science and this part does not, which makes it the
+sequence worth keeping in whatever you build.
 
 1. **Check what you are opening.** Reflectance or radiance, Level 1 or Level 2,
    map-projected or not. Half the mistakes in imaging spectroscopy are made
