@@ -147,6 +147,62 @@ Finally, enter the authority name and code (e.g. `EPSG:32611`) into WISER.
 
 ---
 
+## Reference System Creator
+
+Some datasets — planetary imagery in particular — use a coordinate reference
+system with no EPSG code, because no authority has catalogued it. The
+**Reference System Creator** (**Tools ▸ Reference System Creator**) builds one,
+and it stays available to the Georeferencer, the Mosaic tool and the dataset
+editor for the rest of the session.
+
+It has two tabs.
+
+### From CRS String
+
+The quicker route when you already have a definition. Paste a **WKT string**, a
+**PROJ string**, or an **authority code** such as `EPSG:4326`, give it a name,
+and click **Validate**. WISER reports whether it can load the definition and
+what it resolved to. If validation succeeds, **Add to WISER** registers it.
+
+Use this to check a `coordinate system string` copied out of an ENVI header
+before relying on it.
+
+### From Parameters
+
+Build a CRS field by field when you have the projection parameters but no
+string:
+
+| Field | Meaning |
+|---|---|
+| **Starting Ref System** | An existing CRS to base yours on, so you only change what differs |
+| **Ref System Name** | The name it will appear under in WISER |
+| **Projection Type** | The map projection |
+| **Shape** | The body's figure — sphere or ellipsoid |
+| **Semi-Major Axis** | The equatorial radius, in metres |
+| **Semi-minor axis / inverse flattening / eccentricity** | The second axis parameter, in whichever form you have it |
+| **Prime Meridian** | Longitude origin, in degrees |
+| **Center Longitude** | The projection's central meridian |
+| **Central Lat / 90 deg** | The latitude of origin, or a pole for polar projections |
+| **Scale Factor** | Scale at the projection origin (1.0 for most) |
+
+**Reset Fields** clears the form back to the starting reference system;
+**Create Reference System** registers the result.
+
+```{tip}
+Building a Mars or Moon CRS is the usual reason to reach for this tab — see
+{doc}`Lab C <../tutorials/labs/lab-mars-crism>`. Set the **Shape** and
+**Semi-Major Axis** to the body's figure — 3396190 m for the Mars IAU 2000
+ellipsoid, 1737400 m for the Moon — before choosing a projection.
+```
+
+Custom coordinate systems are saved in a {doc}`project <projects>`, so a
+`.wiserproj` carries the CRS its datasets need.
+
+How definitions are validated and stored:
+{doc}`CRS Creator Internals <../developer-content/crs-creator-internals>`.
+
+---
+
 ## Similarity Transform
 
 The similarity transform tool allows you to do two things: rotate/scale an

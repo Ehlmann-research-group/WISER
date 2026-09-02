@@ -34,6 +34,12 @@ height**, since points are matched to pixels by position; mismatched dimensions
 raise an error. The plot is computed in the background (a loading spinner shows
 meanwhile), and pixels with NaN values are dropped.
 
+:::{figure} ../../_static/tutorials/t8_scatter_plot.png
+:width: 70%
+:align: center
+:alt: A density scatter plot of two bands showing the soil line and a vegetation plume
+:::
+
 ## Reading the plot
 
 By default you get a **density scatter plot**: instead of drawing millions of
@@ -54,6 +60,18 @@ The plot always has a **polygon selector** active:
   highlight color.
 - Press **Escape** or **Clear selection** to start over.
 
+:::{figure} ../../_static/tutorials/t8_scatter_selection.png
+:width: 70%
+:align: center
+:alt: A polygon selection around a cluster, with the selected points outlined
+:::
+
+:::{figure} ../../_static/tutorials/t8_scatter_highlight.png
+:width: 85%
+:align: center
+:alt: The selected feature-space pixels highlighted back on the image
+:::
+
 ## Controls reference
 
 The strip just below the toolbar:
@@ -72,3 +90,8 @@ The strip just below the toolbar:
 
 The standard Matplotlib navigation toolbar (pan, zoom, save image) sits above
 the strip.
+
+## See also
+
+- {doc}`Tutorial 5 — Classifying a Scene <../../tutorials/05-classification>`
+- {doc}`Regions of Interest <../regions-of-interest>`
