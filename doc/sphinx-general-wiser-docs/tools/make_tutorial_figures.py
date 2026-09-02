@@ -84,6 +84,12 @@ CUPRITE = DATA / "f230918t01p00r11_rfl_cuprite.hdr"
 # Lab C -- CRISM MTRDR I/F cube over Jezero Crater, Mars.
 CRISM = DATA / "HRL000040FF_07_IF183J_MTR3.HDR"
 
+# Lab D -- EMIT L2A reflectance granule over western Nevada, 4 August 2023.
+EMIT = DATA / "EMIT_L2A_RFL_001_20230804T191650_2321613_007.nc"
+
+# Lab E -- PACE OCI L2 apparent optical properties, 21 November 2024.
+PACE = DATA / "PACE_OCI.20241121T193951.L2.OC_AOP.V3_2.nc"
+
 
 class SceneSkipped(Exception):
     """Raised by a scene whose input data is not present."""
@@ -325,6 +331,29 @@ class Shoot:
             self.pump()
         self.fit()
 
+    def open_netcdf(self, path, subdataset=None, name=None):
+        """Open one subdataset of a netCDF file, skipping the chooser dialog.
+
+        ``ApplicationState.open_file`` puts up ``SubdatasetFileOpenerDialog``
+        for a file with several subdatasets, and that dialog is modal, so a
+        script has nothing to click. Load the implementation directly instead,
+        which is the same path the storage client uses.
+        """
+        from wiser.raster.dataset import RasterDataSet
+        from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+
+        impls = NetCDF_GDALRasterDataImpl.try_load_file(
+            str(path), subdataset_name=subdataset, interactive=False
+        )
+        if not impls:
+            raise SceneSkipped(f"no subdataset loaded from {path.name}")
+        dataset = RasterDataSet(impls[0])
+        if not dataset.get_name():
+            dataset.set_name(name or path.stem[:40])
+        self.state.add_dataset(dataset)
+        self.pump()
+        return dataset
+
     def frame_region(self, x0, y0, x1, y1, pos=(0, 0)):
         """Zoom and scroll the main view so the raster box (x0,y0)-(x1,y1) fills it.
 
@@ -517,6 +546,73 @@ CRISM_PIXELS = [
     ("Carbonate A", (123, 298), "#d73027"),
     ("Carbonate B", (182, 229), "#4575b4"),
     ("Carbonate C", (106, 371), "#1a9850"),
+]
+
+# EMIT: 285 bands, 381-2493 nm. Bands 1327-1432 and 1774-1960 nm are flagged in
+# the granule's own good-wavelength mask and carry no usable signal.
+EMIT_BANDS = {
+    480: 13,
+    550: 23,
+    660: 38,
+    750: 50,
+    860: 64,
+    900: 70,
+    1300: 123,
+    1650: 170,
+    2100: 231,
+    2130: 235,
+    2160: 239,
+    2200: 244,
+    2250: 251,
+    2260: 252,
+    2280: 255,
+    2340: 263,
+    2400: 271,
+}
+
+# Endmembers found by band position on land only: a band-depth index run over
+# the whole scene is maximised by open water, not by any mineral.
+# The whole granule, for figures that should show the full swath.
+EMIT_FULL = (0, 0, 1242, 1280)
+PACE_FULL = (0, 0, 1272, 1710)
+# Ocean colour L2 is mostly cloud: only 16% of this granule carries a
+# retrieval, and it concentrates in the southern third.  Framing there
+# shows water structure instead of a field of no-data.
+PACE_WATER = (0, 1100, 620, 1710)
+
+# y is measured from the top of the displayed image, and the netCDF rows are
+# stored bottom-up, so these are 1279 - (file row).
+EMIT_PIXELS = [
+    ("Iron oxide", (1224, 1239), "#b2182b"),
+    ("Kaolinite", (208, 55), "#4575b4"),
+    ("Muscovite/illite", (844, 155), "#1a9850"),
+    ("Calcite", (152, 1259), "#8073ac"),
+]
+
+# PACE OCI Rrs: 172 bands, 346-719 nm.
+PACE_BANDS = {
+    412: 27,
+    443: 39,
+    490: 58,
+    510: 66,
+    555: 84,
+    620: 101,
+    660: 125,
+    667: 131,
+    670: 133,
+    685: 145,
+    710: 165,
+}
+
+# Water types spanning the granule, all passing a no-negative-Rrs check.
+# All four sit inside PACE_WATER, so a reader sees the region and clicks in it.
+# Picked on physical Rrs with a no-negative-in-the-visible test, which about
+# 84% of the granule fails -- ocean colour L2 is mostly cloud.
+PACE_PIXELS = [
+    ("Clear ocean", (118, 1448), "#2166ac"),
+    ("Transitional", (388, 1550), "#67a9cf"),
+    ("High chlorophyll", (291, 1230), "#1a9850"),
+    ("Sediment plume", (582, 1283), "#b2182b"),
 ]
 
 
@@ -1365,6 +1461,189 @@ def crism_bandmath():
     s.stretch_2_5()
     s.fit()
     s.shot("lab_crism_carbonate")
+    s.close()
+
+
+# --------------------------------------------------------------------------
+# Lab D: western Nevada -- EMIT L2A reflectance
+# --------------------------------------------------------------------------
+
+
+@scene("emit_overview")
+def emit_overview():
+    """EMIT: true colour and a SWIR composite over the Nevada ranges."""
+    require(EMIT, "the EMIT L2A granule")
+
+    s = Shoot(size=(1400, 950))
+    ds = s.open_netcdf(EMIT, subdataset="reflectance", name="EMIT L2A reflectance")
+    print("    dataset:", ds.get_name(), "shape", ds.get_shape())
+    s.show_all_panes()
+    b = EMIT_BANDS
+    s.display(ds, bands=(b[660], b[550], b[480]))
+    s.stretch_2_5()
+    s.shot("lab_emit_truecolour", frame=EMIT_FULL)
+
+    # 2200 / 2160 / 2340 nm: clays red, kaolinite orange, carbonate blue.
+    s.display(ds, bands=(b[2200], b[2160], b[2340]))
+    s.stretch_2_5()
+    s.shot("lab_emit_swir", frame=EMIT_FULL)
+
+    s.stretch_decorrelation()
+    s.shot("lab_emit_decorr", frame=EMIT_FULL)
+    s.close()
+
+
+@scene("emit_spectra")
+def emit_spectra():
+    """EMIT: one spectrum per mineral, with the flagged bands left out."""
+    require(EMIT, "the EMIT L2A granule")
+
+    s = Shoot(size=(1400, 950))
+    ds = s.open_netcdf(EMIT, subdataset="reflectance", name="EMIT L2A reflectance")
+    s.show_all_panes()
+    b = EMIT_BANDS
+    s.display(ds, bands=(b[2200], b[2160], b[2340]))
+    s.stretch_2_5()
+    s.collect_pixels(EMIT_PIXELS)
+    s.shoot_spectrum_plot("lab_emit_spectra_plot", size=(1100, 640))
+    # The SWIR window, where every mineral here is told apart.
+    s.shoot_spectrum_plot(
+        "lab_emit_swir_spectra", size=(1100, 640), x_range=(2000, 2450), y_range=(0.10, 0.55)
+    )
+    s.close()
+
+
+@scene("emit_bandmath")
+def emit_bandmath():
+    """EMIT: the 2200 nm clay band depth as a map."""
+    require(EMIT, "the EMIT L2A granule")
+
+    s = Shoot(size=(1400, 950))
+    s.open_netcdf(EMIT, subdataset="reflectance", name="EMIT L2A reflectance")
+    s.show_all_panes()
+    s.fit()
+
+    result = _band_depth_bandmath(
+        s,
+        "lab_emit_bandmath",
+        "ClayBD2200",
+        centre=2200,
+        low=2130,
+        high=2280,
+        bands=EMIT_BANDS,
+    )
+    if result is None:
+        s.close()
+        return
+    s.display(result, bands=(0,), colormap="inferno")
+    s.stretch_2_5()
+    s.shot("lab_emit_clay", frame=EMIT_FULL)
+    s.close()
+
+
+# --------------------------------------------------------------------------
+# Lab E: the eastern Pacific and the Gulf shelf -- PACE OCI
+# --------------------------------------------------------------------------
+
+
+@scene("pace_overview")
+def pace_overview():
+    """PACE: the granule, and where the water retrievals actually are."""
+    require(PACE, "the PACE OCI L2 granule")
+
+    s = Shoot(size=(1400, 950))
+    ds = s.open_netcdf(PACE, name="PACE OCI Rrs")
+    print("    dataset:", ds.get_name(), "shape", ds.get_shape())
+    s.show_all_panes()
+    p = PACE_BANDS
+    s.display(ds, bands=(p[660], p[555], p[443]))
+    s.stretch_2_5()
+    s.shot("lab_pace_truecolour", frame=PACE_WATER)
+    s.close()
+
+
+@scene("pace_spectra")
+def pace_spectra():
+    """PACE: remote-sensing reflectance for four water types."""
+    require(PACE, "the PACE OCI L2 granule")
+
+    s = Shoot(size=(1400, 950))
+    ds = s.open_netcdf(PACE, name="PACE OCI Rrs")
+    s.show_all_panes()
+    p = PACE_BANDS
+    s.display(ds, bands=(p[660], p[555], p[443]))
+    s.stretch_2_5()
+    s.collect_pixels(PACE_PIXELS)
+    s.shoot_spectrum_plot(
+        "lab_pace_spectra_plot", size=(1100, 640), x_range=(350, 719), y_range=(-0.002, 0.032)
+    )
+    s.close()
+
+
+@scene("pace_bandmath")
+def pace_bandmath():
+    """PACE: the blue-green band ratio the chlorophyll algorithms are built on."""
+    require(PACE, "the PACE OCI L2 granule")
+    from functools import partial
+
+    from wiser import bandmath as bm
+    from wiser.bandmath.utils import bandmath_success_callback
+    from wiser.gui.bandmath_dialog import BandMathDialog
+
+    s = Shoot(size=(1400, 950))
+    s.open_netcdf(PACE, name="PACE OCI Rrs")
+    s.show_all_panes()
+    s.fit()
+
+    dlg = BandMathDialog(s.state)
+    dlg.resize(960, 660)
+    dlg.show()
+    s.soft_pump()
+    dlg._ui.ledit_expression.setText("blue / green")
+    dlg._analyze_expr()
+    s.soft_pump()
+    binding = {"blue": PACE_BANDS[443], "green": PACE_BANDS[555]}
+    tbl = dlg._ui.tbl_variables
+    for row in range(tbl.rowCount()):
+        name = tbl.item(row, 0).text()
+        chooser = tbl.cellWidget(row, 2)
+        if name in binding and hasattr(chooser, "band_chooser"):
+            chooser.band_chooser.setCurrentIndex(binding[name])
+    dlg._ui.ledit_result_name.setText("BlueGreenRatio")
+    s.soft_pump()
+    s.shot("lab_pace_bandmath", dlg)
+
+    expression = dlg.get_expression()
+    expr_info = dlg.get_expression_info()
+    variables = dlg.get_variable_bindings()
+    dlg.close()
+    s.pump()
+
+    before = len(s.state.get_datasets())
+    bm.start_bandmath_evaluation(
+        bandmath_expr=expression,
+        expr_info=expr_info,
+        result_name="BlueGreenRatio",
+        cache=s.state.get_cache(),
+        variables=variables,
+        app_state=s.state,
+        succeeded_callback=partial(
+            bandmath_success_callback,
+            s.win,
+            s.state,
+            expression=expression,
+            batch_enabled=False,
+            load_into_wiser=True,
+        ),
+    )
+    if not s.wait_for_datasets(before + 1, timeout_s=600):
+        s.close()
+        return
+
+    ratio = s.state.get_datasets()[-1]
+    s.display(ratio, bands=(0,), colormap="viridis")
+    s.stretch_2_5()
+    s.shot("lab_pace_ratio", frame=PACE_FULL)
     s.close()
 
 
