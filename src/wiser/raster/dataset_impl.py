@@ -206,6 +206,19 @@ class RasterDataImpl(abc.ABC):
     def read_data_ignore_value(self) -> Optional[Number]:
         return None
 
+    def reads_are_transformed(self) -> bool:
+        """Whether the read methods return something other than what the file stores.
+
+        ``False`` for every implementation that hands back stored values, which
+        is all of them but the packed-netCDF case.  Consumers that reach past
+        the read methods into a backing GDAL dataset -- ``georef_warp`` and
+        ``similarity_transform_dialog`` both do, to let GDAL stream the raster
+        rather than materializing a cube -- must check this first, because the
+        data-ignore value this implementation reports goes with the read
+        methods' units, not the backing dataset's.
+        """
+        return False
+
     def read_bad_bands(self) -> List[int]:
         return [1] * self.num_bands()
 
@@ -1406,6 +1419,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _GEOTRANSFORM_KEYS = {"NC_GLOBAL#geotransform", "geotransform"}
     _SRS_KEYS = {"NC_GLOBAL#spatial_ref", "spatial_ref"}
 
+    # The defaults ``np.ma.masked_values`` compares with, which is what
+    # RasterDataSet masks the data-ignore value with.  Mirrored here so
+    # _validate_fill_separation can check a scaled fill against the same
+    # tolerance that will later be used to find it.
+    _MASK_RTOL = 1e-05
+    _MASK_ATOL = 1e-08
+
     @staticmethod
     def _parse_geotransform_string(
         gtr: str,
@@ -1582,6 +1602,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
     @classmethod
     def try_load_file(cls, path: str, subdataset_name: str = None, **kwargs) -> ["NetCDF_GDALRasterDataImpl"]:
+        """Open a netCDF file, choosing a subdataset where the file has them.
+
+        A file with no subdatasets -- what GDAL reports for a netCDF holding a
+        single data variable -- falls back to the plain
+        :class:`GDALRasterDataImpl`, which does not apply ``scale_factor`` /
+        ``add_offset``.  A packed single-variable file therefore still reads as
+        stored counts.
+        """
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1649,6 +1677,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         else:
             self._bad_bands = [1] * self.gdal_dataset.RasterCount
         self._scaling = self._read_scaling()
+        self._validate_fill_separation()
 
     def _read_scaling(self) -> Optional[Tuple[float, float]]:
         """Return the ``(scale, offset)`` that converts stored values to physical units.
@@ -1665,45 +1694,126 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             disagreement means the file does not match the netCDF data model, and
             one physical data-ignore value could not describe it.
         """
-        pairs = set()
+        pairs = {}
         for band_number in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_number)
-            pairs.add((band.GetScale(), band.GetOffset()))
+            pairs[band_number] = (band.GetScale(), band.GetOffset())
 
-        if len(pairs) > 1:
+        distinct = set(pairs.values())
+        if len(distinct) > 1:
+            # Reported per band, in band order:  the pairs are not mutually
+            # orderable once one band reports None for a value another gives.
             raise ValueError(
                 f"netCDF subdataset {self._subdataset_name!r} reports more than one "
-                f"scale_factor/add_offset pair across its bands: {sorted(pairs)}"
+                f"scale_factor/add_offset pair across its bands: {pairs}"
             )
 
-        scale, offset = pairs.pop()
+        scale, offset = distinct.pop()
         scale = 1.0 if scale is None else float(scale)
         offset = 0.0 if offset is None else float(offset)
         if scale == 1.0 and offset == 0.0:
             return None
         return scale, offset
 
-    def _unscale(self, arr):
+    def _validate_fill_separation(self) -> None:
+        """Check that the scaled fill can still be told apart from real data.
+
+        :class:`~wiser.raster.dataset.RasterDataSet` masks with
+        ``np.ma.masked_values``, which compares within :attr:`_MASK_RTOL` /
+        :attr:`_MASK_ATOL` rather than exactly.  A stored fill sits one
+        ``scale`` away from its neighbouring count, so scaling both leaves the
+        fill distinguishable only while that step stays wider than the
+        comparison tolerance at the fill's physical magnitude.  A large
+        ``add_offset`` over a fine ``scale_factor`` breaks it, and the symptom
+        would be real values next to the fill silently masked as fill.
+
+        Raises
+        ------
+        ValueError
+            If the tolerance band around the scaled fill is wide enough to
+            swallow an adjacent count.
+        """
+        if self._scaling is None or self.data_ignore is None:
+            return
+
+        scale, _ = self._scaling
+        scaled_fill = self.read_data_ignore_value()
+        tolerance = self._MASK_ATOL + self._MASK_RTOL * abs(scaled_fill)
+        if abs(scale) <= tolerance:
+            raise ValueError(
+                f"netCDF subdataset {self._subdataset_name!r} packs data too finely for its "
+                f"fill value to stay distinguishable:  scale_factor {scale} is inside the "
+                f"masking tolerance {tolerance} around the scaled fill {scaled_fill}, so real "
+                f"values next to the fill would be masked as fill."
+            )
+
+    def _unscaled_dtype(self) -> np.dtype:
+        """The dtype :meth:`_unscale` returns, chosen to carry the stored values exactly.
+
+        A stored float keeps its own width:  scaling it cannot recover precision
+        it never had, and widening a float32 cube to float64 would double what a
+        read costs for nothing.  Integers of 16 bits or fewer -- the ``int16``
+        packing these products use -- go to ``float32``, which represents every
+        such count exactly at half the memory of ``float64``.  Wider integers go
+        to ``float64``, because ``int32`` counts above 2**24 are not exactly
+        representable in ``float32`` and narrowing them would drop precision
+        with nothing reporting it.
+        """
+        stored = super().get_elem_type()
+        if np.issubdtype(stored, np.floating):
+            return stored
+        if stored.itemsize <= 2:
+            return np.dtype(np.float32)
+        return np.dtype(np.float64)
+
+    def _apply_scaling(self, values: np.ndarray) -> np.ndarray:
+        """Apply the stored transform in one dtype and one operation order.
+
+        Both the data and the data-ignore value are scaled through here, which
+        is load-bearing rather than tidy:  the masking in ``RasterDataSet``
+        compares pixels against the reported ignore value, so the scaled
+        sentinel has to come out of the same arithmetic as the scaled fill
+        pixels for the two to still compare equal.
+        """
+        scale, offset = self._scaling
+        dtype = self._unscaled_dtype()
+        out = values.astype(dtype)
+        out *= dtype.type(scale)
+        out += dtype.type(offset)
+        return out
+
+    def _unscale(self, arr: Optional[np.ndarray]) -> Optional[np.ndarray]:
         """Convert stored values to physical units.
 
-        Returns *arr* unchanged when the variable is unscaled.  Otherwise the
-        result is ``float32``:  the products this applies to store ``int16``
-        counts, and ``float32`` carries the physical value with room to spare
-        while halving the memory a full cube needs.
+        Returns *arr* unchanged when the variable is unscaled, which is the
+        common case and leaves the read path as it was.  Otherwise the result
+        is the dtype :meth:`_unscaled_dtype` names.
         """
         if self._scaling is None or arr is None:
             return arr
 
-        scale, offset = self._scaling
-        out = arr.astype(np.float32)
-        out *= np.float32(scale)
-        out += np.float32(offset)
-        return out
+        return self._apply_scaling(arr)
+
+    def get_elem_type(self) -> np.dtype:
+        """The dtype the read methods return, which is not the dtype the file stores.
+
+        A scaled variable reads back as :meth:`_unscaled_dtype`.  Reporting the
+        stored integer type would be wrong in a way that destroys data:  the
+        export paths ask for this type and cast the read array to it, so a
+        physical reflectance would truncate to zero on the way out.
+        """
+        if self._scaling is None:
+            return super().get_elem_type()
+        return self._unscaled_dtype()
+
+    def reads_are_transformed(self) -> bool:
+        """``True`` when the read methods disagree with :attr:`gdal_dataset`."""
+        return self._scaling is not None
 
     def read_data_ignore_value(self) -> Optional[Number]:
-        """The fill value in the same units as the data :meth:`_unscale` returns.
+        """The fill value in the units :meth:`_unscale` returns, not the stored units.
 
-        The stored fill is scaled by the same arithmetic as the data, so callers
+        The stored fill goes through the same arithmetic as the data, so callers
         comparing against it still match.  Returning the raw fill here would let
         every fill pixel through as an ordinary physical value.
         """
@@ -1711,8 +1821,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         if raw is None or self._scaling is None:
             return raw
 
-        scale, offset = self._scaling
-        return float(np.float32(np.float32(raw) * np.float32(scale)) + np.float32(offset))
+        return float(self._apply_scaling(np.asarray(raw)))
 
     @contextmanager
     def _quiet_gdal_warnings(self):
