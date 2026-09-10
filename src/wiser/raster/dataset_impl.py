@@ -1608,7 +1608,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         single data variable -- falls back to the plain
         :class:`GDALRasterDataImpl`, which does not apply ``scale_factor`` /
         ``add_offset``.  A packed single-variable file therefore still reads as
-        stored counts.
+        stored counts.  See #794.
         """
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
