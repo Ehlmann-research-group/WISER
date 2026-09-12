@@ -400,6 +400,13 @@ class GDALRasterDataImpl(RasterDataImpl):
         Opens and returns a new GDAL dataset equivalent to the current one,
         always creating a new dataset from the file path. This is needed to do
         asynchronous I/O.
+
+        A separate handle per read is deliberate: concurrent readers must not
+        share one GDAL handle. GDAL 3.10 advertises multithreaded reads from a
+        single handle, which would make this reopen unnecessary, but testing it
+        returned corrupted data. Do not remove the reopen without first
+        re-verifying multithreaded reads against a known-good reference output.
+        See issue #752.
         """
         file_paths = self.get_filepaths()
         if not file_paths:
@@ -1522,7 +1529,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 srs = None
 
         # ---- Wavelengths and Units (searches all groups/subgroups at any depth)
-        wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset)
+        wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset, band_count=subdataset.RasterCount)
 
         # Validate wavelengths length — drop on mismatch
         if wavelengths is not None and subdataset.RasterCount != len(wavelengths):
@@ -1533,7 +1540,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             wl_unit = u.nanometer
 
         # ---- Good-wavelength mask (bad bands)
-        bad_bands = extract_netcdf_bad_bands(netcdf_dataset)
+        bad_bands = extract_netcdf_bad_bands(netcdf_dataset, band_count=subdataset.RasterCount)
         if bad_bands is not None and subdataset.RasterCount != len(bad_bands):
             bad_bands = None
 

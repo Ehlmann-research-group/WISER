@@ -125,3 +125,51 @@ Relevant background:
 
 - [GDAL and multiprocessing](https://gdal.org/tutorials/multiprocessing.html)
 - [Pickle error with GDAL Dataset](https://gis.stackexchange.com/questions/361703/pickle-error-with-gdal-dataset)
+
+---
+
+## Usage Telemetry (Investigated, Not Pursued)
+
+**Decision: WISER does not collect usage telemetry, and this is not an oversight.** Opt-in
+crash reporting is a separate and much narrower channel, described at the end of this section.
+
+The question was whether to instrument WISER to learn which features people actually use, so
+development effort could follow real usage rather than guesswork. It was investigated and
+deliberately dropped.
+
+The reason is not technical difficulty but compliance surface. Collecting usage data from a
+desktop application carries obligations under the EU GDPR, the California CCPA, and comparable
+regimes — lawful basis, disclosure, subject-access and deletion requests, retention limits, and
+processor agreements. Doing that properly is the bulk of the work, and it outweighs the value of
+the signal for a research tool of WISER's size. If it is ever revisited, start from "compliance
+is the hard part", not from "how do we collect events".
+
+**What to do instead:** download statistics carry far less legal surface for a similar signal.
+The `snapshot-download-counts` workflow already records a daily snapshot of every release
+asset's cumulative download count to the `stats` branch, giving per-platform and per-release
+trends over time. Prefer strengthening that over instrumenting the application.
+
+**Not to be confused with crash reporting.** WISER does support opt-in crash reporting
+(`src/wiser/gui/bug_reporting.py`). It is off by default — `general.online_bug_reporting`
+defaults to `False` — and is asked for explicitly on first run by the *Online Bug Reporting*
+dialog. It is changed afterwards in the **WISER Configuration** dialog, reached from
+*Preferences…* in the WISER application menu on macOS or *File → Settings…* on Windows, under
+**General → Error Reporting**, via the checkbox *Send WISER exceptions and crashes to BugSnag*.
+
+A crash report describes a failure: the exception, the stack trace, the WISER version, and the
+platform. No imagery, spectra, ROIs, or file contents are attached, and the channel is not a
+route to add usage analytics.
+
+Read that as a description of the channel rather than as a privacy guarantee. A stack trace
+carries source file paths, which on a user's machine embed the home directory and therefore the
+username. `before_bugsnag_notify()` in `src/wiser/gui/bug_reporting.py` is the hook where such
+fields would be stripped, and it currently strips nothing; it carries a standing TODO to do so.
+The user-facing statement of what leaves the machine belongs in the privacy policy, not on this
+page.
+
+Naming the current provider above documents the interface as it ships; it is not a commitment to
+that provider. Whether WISER should keep sending crash reports to a third-party service at all
+is an open question, tracked in issue #775.
+
+Recorded from handoff notes on the `joshua-handoff` branch, which is retained as the primary
+source.

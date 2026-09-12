@@ -1,7 +1,12 @@
+import os
+import shutil
+import tempfile
 import unittest
 
 import tests.context
 from wiser.raster import utils
+
+import netCDF4 as nc
 
 import numpy as np
 from astropy import units as u
@@ -236,3 +241,78 @@ class TestRasterUtils(unittest.TestCase):
         self.assertAlmostEqual(out[2], 0.50)
         self.assertAlmostEqual(out[3], 1.00)
         self.assertAlmostEqual(out[4], 1.50)
+
+
+class TestNetCDFBandCountSelection(unittest.TestCase):
+    """Selecting the wavelength array that belongs to the variable being opened.
+
+    A netCDF product may carry several wavelength arrays describing different
+    variables.  PACE OCI L2 is the case that motivated this:  a 286-value array
+    for the instrument sits at the root, and the 172-value array describing the
+    hyperspectral ``Rrs`` cube sits in a sub-group.  Taking the first candidate
+    in declaration order returns the instrument array, whose length then fails
+    the caller's band-count check, and the cube loses its spectral axis with no
+    error reported.
+    """
+
+    def _write_two_arrays(self, path):
+        """A file whose first-declared wavelength array is the wrong length."""
+        with nc.Dataset(path, "w") as ds:
+            ds.createDimension("instrument_bands", 5)
+            ds.createDimension("cube_bands", 3)
+
+            instrument = ds.createVariable("wavelength", "f4", ("instrument_bands",))
+            instrument.units = "nm"
+            instrument[:] = [400.0, 500.0, 600.0, 700.0, 800.0]
+            instrument_mask = ds.createVariable("good_wavelengths", "i1", ("instrument_bands",))
+            instrument_mask[:] = [1, 1, 1, 1, 1]
+
+            group = ds.createGroup("sensor_band_parameters")
+            cube = group.createVariable("wavelength_3d", "f4", ("cube_bands",))
+            cube.units = "nm"
+            cube[:] = [450.0, 550.0, 650.0]
+            cube_mask = group.createVariable("good_wavelengths_3d", "i1", ("cube_bands",))
+            cube_mask[:] = [1, 0, 1]
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self._tmp, "two_arrays.nc")
+        self._write_two_arrays(self.path)
+
+    def tearDown(self):
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    def test_wavelengths_prefers_the_array_matching_the_band_count(self):
+        with nc.Dataset(self.path) as ds:
+            wavelengths, unit = utils.extract_netcdf_wavelengths(ds, band_count=3)
+
+        self.assertEqual(len(wavelengths), 3)
+        np.testing.assert_allclose(wavelengths, [450.0, 550.0, 650.0])
+        self.assertEqual(unit, u.nanometer)
+
+    def test_wavelengths_without_a_band_count_take_declaration_order(self):
+        # The caller may not know the band count; behaviour is unchanged there.
+        with nc.Dataset(self.path) as ds:
+            wavelengths, _ = utils.extract_netcdf_wavelengths(ds)
+
+        self.assertEqual(len(wavelengths), 5)
+
+    def test_wavelengths_fall_back_when_no_array_matches(self):
+        # 7 matches neither array:  return the declaration-order candidate and
+        # leave the caller's own length check to reject it.
+        with nc.Dataset(self.path) as ds:
+            wavelengths, _ = utils.extract_netcdf_wavelengths(ds, band_count=7)
+
+        self.assertEqual(len(wavelengths), 5)
+
+    def test_bad_bands_prefer_the_mask_matching_the_band_count(self):
+        with nc.Dataset(self.path) as ds:
+            bad_bands = utils.extract_netcdf_bad_bands(ds, band_count=3)
+
+        self.assertEqual(bad_bands, [1, 0, 1])
+
+    def test_bad_bands_without_a_band_count_take_declaration_order(self):
+        with nc.Dataset(self.path) as ds:
+            bad_bands = utils.extract_netcdf_bad_bands(ds, band_count=None)
+
+        self.assertEqual(bad_bands, [1, 1, 1, 1, 1])

@@ -215,4 +215,27 @@ histogram cache works as intended.
 This page documents the *intended* design (the caches are meant to store on
 miss and serve on subsequent requests). The note is here so readers aren't
 misled by the current code; fixing the guard is a separate change.
+
+Tracked as issue #772. The fix is not purely a flipped condition: the branch
+adds `value.nbytes` unconditionally, which would double-count the size on a
+genuine replacement, so the insert and replace paths need distinct accounting.
+Until it is fixed, any measurement of the rendering path is a measurement of an
+uncached pipeline — see [Rendering Pipeline](rendering-pipeline.md).
 ```
+
+---
+
+## Relationship to LoD Rendering
+
+The computation cache's real payoff is in `get_band_data_normalized()`
+(`src/wiser/raster/dataset.py`), where it saves re-normalizing a band on every
+call — the rendering hot path. It was built for one concrete scenario: keeping
+the image shown in a `RasterView` cached so that switching between datasets, and
+dragging in the Stretch Builder, stay responsive.
+
+Whether the per-dataset read cache on `Dataset` should stay a separate mechanism,
+or fold into the storage service and client, is deliberately parked in issue #762
+rather than being answered here. The reason is that its fate is not its own: if
+LoD-pyramid rendering (#69) makes data access and compute cheap enough, this
+cache may stop earning its keep entirely. Settle the rendering question before
+rewriting the cache.

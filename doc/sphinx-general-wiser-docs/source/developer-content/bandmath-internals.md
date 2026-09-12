@@ -201,6 +201,20 @@ lark.visitors.Transformer
 - `_transform_tree()` — awaits `_transform_children()`, then calls the handler for the current node.
 - `_call_userfunc()` — detects whether the handler method is `async def` or a regular `def` and awaits it accordingly.
 
+```{note}
+`AsyncTransformer` is slated for **removal** — see issue #765.
+
+The concurrency is real and it does make evaluation faster (expect to give up roughly 20%; the
+original measurement was not preserved). The cost is that it is a hand-written reimplementation
+of a third-party class which entangles `asyncio` into the core of the evaluator, and the
+[read-ahead pipeline](#read-ahead-pipeline) below — a future queue maintained per expression
+node — exists only to feed it. The two are one decision and come out together.
+
+The intended replacement is parallelism from process-pool chunking (#761), with band math
+running in a subprocess so it cannot freeze the GUI thread. Do not extend `AsyncTransformer` or
+add new callers to the read-ahead queues.
+```
+
 ### Band-window chunking
 
 For an `IMAGE_CUBE` result, the spectral dimension is split into **band windows**. `compute_bands_per_chunk()` calculates the maximum number of bands that fit in the available memory budget. `iter_band_windows(total_bands, num_bands)` yields `(current_bands, next_bands)` pairs — the second element is the window that will be needed next, enabling read-ahead.
@@ -216,12 +230,31 @@ flowchart LR
 
 Each window is evaluated independently, and its result bands are written to an on-disk GDAL dataset incrementally.
 
+```{note}
+Chunking splits the **band** axis only, so the smallest chunk it can produce is one whole band.
+A single band larger than the memory budget still overflows it, which is reachable on images
+such as Gale HiRISE where one band can exceed 2 GB. The fix is to make chunking
+dimension-agnostic (#761) rather than to patch the band loop, since each local patch entrenches
+the band-only assumption further.
+
+Band-math plugins, the plugin API, and the plugin docs were all written assuming the whole
+dataset is in memory, so a chunking rewrite has to account for them or it breaks third-party
+plugins silently. That is tracked separately as #754.
+```
+
 ### Read-ahead pipeline
 
 The async evaluator runs two thread pools in addition to the `asyncio` event loop:
 
 - `_read_thread_pool` — 4 workers; reads raster band data from disk
 - `_write_thread_pool` — 1 worker; writes computed band windows back to disk
+
+```{warning}
+These reads are multithreaded, and they are safe only because `RasterDataImpl.reopen_dataset()`
+opens a fresh GDAL handle per read. Do not swap that for GDAL's single-handle multithreaded
+reads without re-verifying the output against a known-good reference: see
+[Reading concurrently](system-design.md#reading-concurrently) and issue #752.
+```
 
 Each expression tree node (operator) gets a pair of `queue.Queue` objects keyed by `LHS_KEY` and `RHS_KEY`. The operator submits the *next* window's read to the thread pool before it even starts computing the *current* window. By the time the current window's computation finishes, the next window's data is often already in the queue.
 
