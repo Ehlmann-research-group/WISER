@@ -242,7 +242,7 @@ sense with the new class and that the class can remain multi-threaded.
 - [ ] Has all metadata
 - [ ] Has geo transform
 - [ ] Stretch builder works
-- [ ] Band chooser works (greyscale and colour map)
+- [ ] Band chooser works (grayscale and color map)
 - [ ] Georeferencing
     - Note: linking views for bad warps may be broken
 - [ ] Similarity transform tooling works
@@ -300,8 +300,8 @@ Run through all items below before cutting a new WISER release. Mark items
 that have known bugs with a note.
 
 - [ ] All file types and sizes: ROI average works
-- [ ] All file types and sizes: colour map can be changed
-- [ ] All file types and sizes: colour map works with 1-band images
+- [ ] All file types and sizes: color map can be changed
+- [ ] All file types and sizes: color map works with 1-band images
 - [ ] Files can be saved correctly (including subset save)
     - Known: when images are saved from a compute dataset, they do not inherit
       the spatial reference system or data-ignore value from the parent dataset
@@ -326,7 +326,7 @@ that have known bugs with a note.
 
 ## Notes on Stretch Builder and Band Math Tests
 
-Stretch builder cache behaviour to verify:
+Stretch builder cache behavior to verify:
 
 - Caches link states for min/max and slider link.
 - After linking, remembers the values provided by the link and does not revert

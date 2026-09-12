@@ -1,7 +1,7 @@
 # Display and Contrast Stretch
 
 This page covers everything that decides **what you see** — which bands are
-drawn, and how their values are mapped to colour. None of it changes the
+drawn, and how their values are mapped to color. None of it changes the
 underlying data: spectra, band math and every analysis tool read the raw
 values, never the stretched display values.
 
@@ -34,7 +34,7 @@ that dataset; untick it to change one panel only.
 
 ### Colormaps
 
-In grayscale mode a **colormap** maps the single band's values to colour. Any
+In grayscale mode a **colormap** maps the single band's values to color. Any
 Matplotlib colormap is available, with a preview.
 
 :::{figure} ../_static/images/colormap.png
@@ -60,7 +60,7 @@ Choose one that suits the quantity:
 ```{warning}
 A rainbow colormap such as `jet` on continuous data invents visual boundaries
 where the data has none, and is unreadable to a large fraction of people with
-colour-vision deficiency. Use a perceptually uniform sequential map such as
+color-vision deficiency. Use a perceptually uniform sequential map such as
 `viridis` instead.
 ```
 
@@ -81,7 +81,7 @@ band combinations of the same scene.
 :::{figure} ../_static/tutorials/t4_ndvi_vs_rgb.png
 :width: 90%
 :align: center
-:alt: A true-colour image and an NDVI result side by side in a 1x2 grid
+:alt: A true-color image and an NDVI result side by side in a 1x2 grid
 :::
 
 In grid view the dataset chooser, band chooser and contrast-stretch controls
@@ -107,7 +107,7 @@ decides the mapping.
 :::{figure} ../_static/tutorials/t1_stretch_default.png
 :width: 55%
 :align: center
-:alt: The stretch builder showing one histogram per colour channel
+:alt: The stretch builder showing one histogram per color channel
 :::
 
 You get one histogram per displayed channel, with the current endpoints marked.
@@ -129,7 +129,7 @@ stretch is the right default for almost any scene.**
 **Equalize stretch** — histogram equalisation. Redistributes values so the
 output is uniformly dense across the display range, maximising apparent detail
 everywhere but destroying any linear relationship between brightness and value.
-Good for inspection, wrong for a figure whose greyscale readers will interpret.
+Good for inspection, wrong for a figure whose grayscale readers will interpret.
 
 **Decorrelation stretch** — available only in **RGB** mode, since it is a
 cross-band transform. It computes the covariance of the three display bands,
@@ -138,14 +138,14 @@ eigendecomposes it, stretches along the principal axes, and rotates back.
 ```{admonition} When to reach for the decorrelation stretch
 :class: note
 Adjacent bands of a hyperspectral cube are highly correlated, so an RGB
-composite of three nearby bands comes out nearly grey no matter how you stretch
+composite of three nearby bands comes out nearly gray no matter how you stretch
 the channels individually — the information is in the small differences between
 them, and a per-channel stretch cannot expose it. A decorrelation stretch
-exaggerates exactly those differences and turns a grey image into a strongly
-coloured one where colour tracks spectral **shape**.
+exaggerates exactly those differences and turns a gray image into a strongly
+colored one where color tracks spectral **shape**.
 
 Standard practice for thermal-infrared imagery and for SWIR composites over
-altered terrain. Treat the colours as qualitative: they are a rotated, rescaled
+altered terrain. Treat the colors as qualitative: they are a rotated, rescaled
 coordinate system, not radiance.
 ```
 
@@ -163,7 +163,7 @@ reopen the dataset, until that is fixed.
 
 ### Conditioners
 
-A conditioner is applied to the normalised data **before** the stretch:
+A conditioner is applied to the normalized data **before** the stretch:
 
 - **None** — identity
 - **Square root** — `sqrt(x)` for `x` in [0, 1]; brightens the dark end
@@ -188,7 +188,7 @@ rather than on the clouds.
 Use it when a dataset has no data-ignore value, or when a computed result has a
 huge theoretical range but a narrow interesting one — see the NDVI example in
 {doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>`, where flight-line edges
-drag the minimum to −3.35 and flatten the whole scene to one colour.
+drag the minimum to −3.35 and flatten the whole scene to one color.
 
 **Link sliders across all channels** and **Apply minimum/maximum values across
 all channels** make the same change to every channel at once.
@@ -199,11 +199,11 @@ all channels** make the same change to every channel at once.
 
 For each displayed channel, in order:
 
-1. Band data is normalised to floating point in [0.0, 1.0] — 32-bit float
+1. Band data is normalized to floating point in [0.0, 1.0] — 32-bit float
    unless the input is 64-bit. Min/max limits are **not** applied here; they
    only affect the histograms used to configure the stretch.
-2. The **conditioner** is applied: normalised in, normalised out.
-3. The **stretch** is applied: normalised in, normalised out.
+2. The **conditioner** is applied: normalized in, normalized out.
+3. The **stretch** is applied: normalized in, normalized out.
 4. The result is multiplied by 255 and cast to an 8-bit unsigned integer.
 
 Values flagged by the dataset's **data ignore value** become NaN before any of

@@ -65,7 +65,7 @@ Common tasks
      - :doc:`Opening Data Files <opening-data-files>`
    * - Make a dark image readable
      - :doc:`Display and Contrast Stretch <display-and-stretch>`
-   * - Fix a computed index that displays as one flat colour
+   * - Fix a computed index that displays as one flat color
      - :doc:`Display and Contrast Stretch <display-and-stretch>`
    * - Get numbers out of a region
      - :doc:`Regions of Interest <regions-of-interest>`

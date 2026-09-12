@@ -60,7 +60,7 @@ active — read it if a shape is not behaving.
 Selections appear in every pane at once, so you can place a fine selection in
 the zoom pane while watching where it falls in the scene as a whole.
 
-```{tip}
+```{note}
 Build one ROI out of several small selections rather than one big one. Two
 patches of canopy at opposite corners make a better class signature than one
 block, because they sample more of the illumination and species variation.
@@ -102,7 +102,7 @@ Right-click inside a selection for the rest of the ROI operations:
 | **Export all spectra in ROI...** | An ASCII file with **every pixel's** spectrum — the input for statistics in Python, R or MATLAB |
 | **Export ROI...** | A `.geojson` of the ROI geometry, for GIS or for sharing |
 | **Make ROI into mask** | A new single-band dataset, 1 inside the region and 0 outside — usable directly in band math |
-| **Edit ROI information...** | Rename, recolour, change the description |
+| **Edit ROI information...** | Rename, recolor, change the description |
 | **Delete selection *n* from ROI... / Delete Region of Interest...** | Remove one shape, or the whole region |
 
 Session-wide equivalents: **File ▸ Import regions of interest...**, and

@@ -24,7 +24,7 @@ rebuild.
 * - {doc}`Testing and QA <testing-and-qa>`
   - Test layout, pytest markers, the GUI test harness, what to write for a change
 * - {doc}`CI/CD and Releases <ci-cd-and-releases>`
-  - The pipeline, artefacts, versioning, release procedure
+  - The pipeline, artifacts, versioning, release procedure
 * - {doc}`Design Documents <design-documents>`
   - How and when to write one before a large change
 ```
@@ -72,7 +72,7 @@ which component owns what.
 * - {doc}`Viewport System <viewport-system>`
   - Panes, scroll and zoom state, how the views stay in step
 * - {doc}`Rendering Pipeline <rendering-pipeline>`
-  - Band data to pixels: normalisation, conditioners, stretches, colormaps
+  - Band data to pixels: normalization, conditioners, stretches, colormaps
 * - {doc}`Stretch Builder <stretch-builder>`
   - The contrast-stretch dialog and the stretch classes behind it
 * - {doc}`Band Chooser <band-chooser>`

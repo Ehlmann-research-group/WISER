@@ -7,13 +7,13 @@
 
 ```{admonition} You will need to download data for this lab
 :class: note
-You will need to download some EMIT data to do this lab. You will also need to
-[create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new) in order to access and
-download it, so do that before you start. Everything is done through the
-browser; **Get the data** below has the search links and the steps.
+You will need a [free Earthdata account](https://urs.earthdata.nasa.gov/users/new)
+to search for and download EMIT granules, so create one before you start.
+Everything is done through the browser; **Get the data** below has the search
+links and the steps.
 
 The figures here were captured on `EMIT_L2A_RFL_001_20230804T191650_2321613_007`,
-a August 2023 granule over the ranges of southwestern Nevada. Your scene will
+an August 2023 granule over the ranges of southwestern Nevada. Your scene will
 look different; the steps and the diagnostic wavelengths do not change.
 ```
 
@@ -44,19 +44,19 @@ means for the dust that region emits.
 
 ## Get the data
 
-**Scene:** any EMIT **Level-2A (L2A) Reflectance** granule over a desert — the Mojave and
-Sonoran deserts, the Sahara, the Arabian Peninsula, the Taklamakan, or the Lake
-Eyre basin.
+**Scene:** any EMIT **Level-2A (L2A) Reflectance** granule over a desert, such
+as the Mojave and Sonoran deserts, the Sahara, the Arabian Peninsula, the
+Taklamakan, or the Lake Eyre basin.
 
 1. [Create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new).
 2. Search for **`EMITL2ARFL`** in
    [Earthdata Search](https://search.earthdata.nasa.gov/), or browse the
    [EMIT L2A collection page](https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2arfl-001).
-3. Download the **`EMIT_L2A_RFL_*.nc`** file. Each is around 1.8 GB — pick one
+3. Download the **`EMIT_L2A_RFL_*.nc`** file. Each is around 1.8 GB. Pick one
    scene deliberately, checking the browse image for low cloud and low
    vegetation.
 
-Each granule ships three NetCDF files: `RFL` (reflectance — the one you want),
+Each granule ships three NetCDF files: `RFL` (reflectance, the one you want),
 `RFLUNCERT` (per-band uncertainty) and `MASK` (cloud and quality flags).
 
 ```{admonition} Confirm your NetCDF reading first
@@ -64,7 +64,7 @@ Each granule ships three NetCDF files: `RFL` (reflectance — the one you want),
 A cropped, real EMIT L2A granule ships with the WISER source at
 `src/test_utils/test_datasets/EMIT_L2A_RFL_001_20241006T165148_2428011_003_crop.nc`
 (Imperial Valley, California, October 2024). It is cut to 32 × 32 pixels and 3
-bands, so it will not carry this lab's science — but opening it takes seconds
+bands, so it will not carry this lab's science, but opening it takes seconds
 and confirms your NetCDF path works before you spend an hour on a 1.8 GB
 download.
 ```
@@ -88,11 +88,14 @@ regardless.
 :::{figure} ../../_static/tutorials/lab_emit_truecolour.png
 :width: 100%
 :align: center
-:alt: EMIT true color over desert ranges, showing brown and tan terrain with little visible variation
+:alt: EMIT true color over desert ranges, showing brown and tan terrain with some reddening where iron oxides are exposed
 :::
 
 True color tells you where the mountains and the fans are, and almost nothing
-about what they are made of. Every mineral in the table above is beige here.
+about what they are made of. Iron oxide reddens some surfaces, which is what
+Part 3 sends you back here to sample, but red alone does not tell hematite from
+goethite, and the clays, carbonates and sulfates in the table above are all
+beige.
 
 ```{admonition} EMIT L2A is not map-projected
 :class: note
@@ -105,7 +108,7 @@ before overlaying anything geographic. WISER's
 if you need it.
 ```
 
-4. Now build a short-wave infrared (SWIR) composite: red **2200 nm**, green
+4. Build a short-wave infrared (SWIR) composite: red **2200 nm**, green
    **2160 nm**, blue **2340 nm**. Stretch it 2.5% linear.
 
 :::{figure} ../../_static/tutorials/lab_emit_swir.png
@@ -184,11 +187,11 @@ you will map vegetation as clay.
 ```{admonition} Water will pass for iron oxide if you let it
 :class: note
 Ranking this scene for iron oxide without a water mask returns brine pools
-first, every time. Their reflectance peaks near 570 nm and collapses to about
-0.005 in the SWIR, which reads as a strong red slope and a deep absorption to
-any index that only looks at band ratios. They are the brightest thing in the
-scene by those measures and they are not mineral. Mask on SWIR brightness
-before you rank anything.
+first. Their reflectance peaks near 570 nm and collapses to about 0.005 in the
+SWIR, which reads as a strong red slope and a deep absorption to any index that
+only looks at band ratios. They are the brightest thing in the scene by those
+measures and they are not mineral. Mask on SWIR brightness before you rank
+anything.
 ```
 
 **Deliverable 2:** your bare-ground mask, with the NDVI threshold justified
@@ -199,7 +202,7 @@ from the NDVI histogram rather than assumed, and standing water excluded.
 ## Part 3 — Iron oxides in the visible/NIR
 
 Hematite and goethite have broad crystal-field absorptions in the visible/NIR
-and a steep rise across the red — why iron-rich soils look red.
+and a steep rise across the red, which is why iron-rich soils look red.
 
 1. Collect spectra from several reddish and several pale areas.
 
@@ -252,11 +255,10 @@ relying on.
 :alt: The same four spectra between 2000 and 2450 nm, where kaolinite shows a doublet, muscovite a single 2200 nm band, calcite a 2340 nm band, and iron oxide nothing
 :::
 
-This is where the minerals separate. Kaolinite falls to its minimum at 2200 nm
-with a distinct shoulder at 2160, the doublet that identifies it.
-Muscovite/illite reaches the same 2200 nm minimum with no shoulder, which is
-the whole difference between them. Calcite ignores 2200 and drops at 2340.
-Iron oxide is featureless here, which is itself diagnostic: whatever is
+Kaolinite falls to its minimum at 2200 nm with a distinct shoulder at 2160,
+the doublet that identifies it. Muscovite/illite reaches the same 2200 nm
+minimum with no shoulder, which is how you tell the two apart here. Calcite
+ignores 2200 and drops at 2340. Iron oxide is featureless here: whatever is
 reddening the visible is not a clay.
 
 2. Identify features against the table at the top of this lab.
@@ -290,10 +292,10 @@ reddening the visible is not a clay.
 :alt: The 2200 nm band depth as a map, bright along alluvial fans and playa margins and dark over bare rock
 :::
 
-The result is a map of clay abundance that owes nothing to a spectral library.
-Bright is deep absorption. The fans radiating from the ranges light up, and so
-do the playa margins, which is where windblown material is generated and where
-it settles.
+The result is a map of clay absorption strength that owes nothing to a spectral
+library. Bright is deep absorption. The fans radiating from the ranges light
+up, and so do the playa margins, which is where windblown material is generated
+and where it settles.
 
 5. Where you have good endmembers, run **Linear Unmixing** for fractional
    abundances, and read the RMSE band first.
@@ -335,7 +337,7 @@ depth, and residual atmospheric correction error.
 
 - **EMIT L2B** delivers the mission's own mineral maps. Download it for your
   scene and compare against what you produced.
-- **EMIT L2B CH4/CO2** carries methane and carbon-dioxide plume detections — a
+- **EMIT L2B CH4/CO2** carries methane and carbon-dioxide plume detections, a
   completely different use of the same instrument.
 - Compare an EMIT scene against the **AVIRIS-NG** scene in
   {doc}`Lab A <lab-aviris-ng-urban>`: 60 m from orbit versus 5 m from an

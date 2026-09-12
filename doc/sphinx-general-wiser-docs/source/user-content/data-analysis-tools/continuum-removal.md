@@ -24,7 +24,7 @@ result is set to 1.0 rather than dividing by zero.
 
 - **Illumination and brightness drop out.** A shadowed and a sunlit pixel of
   the same material give nearly the same continuum-removed spectrum.
-- **Band depth becomes measurable.** `1 − value` at a band centre is the
+- **Band depth becomes measurable.** `1 − value` at a band center is the
   fractional depth, comparable between spectra.
 - **Instrument and grain-size effects are reduced**, though not eliminated —
   grain size changes band depth as well as continuum level.

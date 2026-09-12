@@ -68,7 +68,7 @@ Formats are **PNG**, **TIFF** and **JPEG**.
 ```{important}
 This writes **display values** — 8-bit RGB after the contrast stretch — not
 data. It is the right thing for a figure, a slide or a report, and the wrong
-thing for anything you intend to analyse further. Use **Save dataset as...**
+thing for anything you intend to analyze further. Use **Save dataset as...**
 for that.
 ```
 
