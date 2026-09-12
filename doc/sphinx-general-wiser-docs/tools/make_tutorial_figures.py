@@ -1185,26 +1185,29 @@ def filters():
     s.close()
 
 
+# Named by appearance in the image, not by any spectral identification: four
+# bands cannot identify a material.  Each sits in a locally uniform patch, and
+# the three span the scene's brightness range, which the earlier picks did not.
+BOARD_PIXELS = [
+    ("Component body", (81, 24), "#1a1a1a"),
+    ("Board substrate", (97, 127), "#1a9850"),
+    ("Bright pad", (58, 73), "#b2182b"),
+]
+
+
 @scene("board")
 def board():
-    """Materials lab: the bundled circuit-board scene."""
+    """Tutorial 8: the bundled circuit-board scene."""
     s = Shoot()
     s.open(BOARD)
     s.show_all_panes()
     s.fit()
     s.stretch_2_5()
-    s.shot("lab_board_rgb")
+    s.shot("t8_board_rgb")
 
-    for (x, y), colour in [((28, 38), "#1a9850"), ((104, 96), "#b2182b"), ((74, 62), "#2166ac")]:
-        s.tm.click_raster_coord_main_view_rv((0, 0), (x, y))
-        s.pump()
-        active = s.state.get_active_spectrum()
-        if active is not None:
-            active.set_color(colour)
-        s.tm.collect_active_spectrum()
-        s.pump()
-    s.shot("lab_board_spectra", s.win._spectrum_plot)
-
+    s.collect_pixels(BOARD_PIXELS)
+    # Wavelengths are micrometers here, which is the point of the fixture.
+    s.shoot_spectrum_plot("t8_board_spectra", size=(1100, 560), x_range=(0.48, 1.26), y_range=(0.08, 0.92))
     s.close()
 
 
