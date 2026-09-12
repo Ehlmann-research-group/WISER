@@ -8,9 +8,9 @@
 
 ```{admonition} You will need to download data for this lab
 :class: note
-You will need to download some PACE data to do this lab. You will also need to
-[create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new) in order to access and
-download it, so do that before you start. Everything is done through the
+This lab uses PACE data you download yourself, and you need a
+[free Earthdata account](https://urs.earthdata.nasa.gov/users/new) to access it, so create one
+before you start. Everything is done through the
 browser; **Get the data** below has the search links and the steps.
 
 This lab also needs a WISER newer than 3.0b0. PACE stores reflectance as packed
@@ -43,27 +43,29 @@ organic matter that confound coastal water.
 | **Phycocyanin** | ~620 nm | **Cyanobacteria — harmful blooms** |
 | **Carotenoids** | 490–530 nm | Most groups; photoprotective |
 
-Three things drive color in coastal water and must be told apart:
-
-- **Phytoplankton** — pigment absorptions, and a fluorescence peak near 685 nm
-- **Colored dissolved organic matter (CDOM)** — smooth exponential rise
-  towards the blue, no features
-- **Suspended sediment** — high, broadly flat reflectance rising to the red
+Three things drive color in coastal water and must be told apart.
+Phytoplankton show pigment absorptions and a fluorescence peak near 685 nm.
+Colored dissolved organic matter (CDOM) has no features, only a smooth
+exponential rise towards the blue. Suspended sediment is high and broadly flat,
+rising to the red.
 
 ---
 
 ## Get the data
 
-**Product:** PACE OCI **Level-2 Regional Surface Reflectance** (`SFREFL`) — 122
-wavelengths from 346 to 895 nm plus 5 SWIR bands. Level-2 **AOP** (giving
-remote-sensing reflectance $R_{rs}$) is the more rigorous choice for open-ocean
-work.
+**Product:** PACE OCI **Level-2 Apparent Optical Properties** (`AOP`), which
+carries remote-sensing reflectance $R_{rs}$ in sr⁻¹ across 172 wavelengths from
+346 to 719 nm. Every wavelength and value
+quoted in this lab assumes AOP. The **Regional Surface Reflectance** product
+(`SFREFL`) — 122 wavelengths from 346 to 895 nm plus 5 SWIR bands — is a
+related alternative, but it carries `rhos`, dimensionless surface reflectance,
+and has no `Rrs` variable at all.
 
 1. [Create a free Earthdata account](https://urs.earthdata.nasa.gov/users/new).
 2. Search the Ocean Biology Distributed Active Archive Center
    ([OB.DAAC](https://oceancolor.gsfc.nasa.gov/)) or
    [Earthdata Search](https://search.earthdata.nasa.gov/) for **PACE OCI L2
-   SFREFL** or **L2 AOP**.
+   AOP**.
 3. Pick a scene over a coastal region with contrast: Chesapeake Bay, the Baltic
    (reliable summer cyanobacteria blooms), Lake Erie (late-summer
    *Microcystis*), the Gulf of Mexico, or the California Current.
@@ -75,8 +77,7 @@ Data run from March 2024 to the present.
 ```{admonition} Level 2, not Level 1
 :class: note
 The water-leaving signal is a few percent of what the satellite measures; the
-rest is atmosphere. Ocean color is the application where atmospheric
-correction matters most. Use an **L2** product, where it has been done for you.
+rest is atmosphere. Use an **L2** product, where it has been done for you.
 An L1 radiance scene will show you the atmosphere, not the ocean.
 ```
 
@@ -105,16 +106,15 @@ Most of the frame is black, and that is the ordinary condition for ocean color
 at Level 2. About one pixel in six of this granule carries a retrieval; the
 rest was cloud, sun glint or otherwise rejected, and the processing left it
 empty. Expect to work in the clear part of a scene rather than across all of
-it. What survives here is worth the hunt: deep blue open water on the left, a
-turbid coastal band threaded with eddies and filaments, and a plume at the
-bottom.
+it. What survives shows deep blue open water on the left, a turbid coastal band
+threaded with eddies and filaments, and a plume at the bottom.
 
 **Deliverable 1:** a stretched true-color image in which water structure —
 fronts, plumes, blooms — is visible, plus a note on the stretch limits used.
 
 ---
 
-## Part 2 — Three water types, three spectra
+## Part 2 — Four water types, four spectra
 
 Draw ROIs ({doc}`Tutorial 3 <../03-regions-of-interest>`) over:
 
@@ -126,15 +126,22 @@ Draw ROIs ({doc}`Tutorial 3 <../03-regions-of-interest>`) over:
 
 Collect all four mean spectra.
 
-**Read them:**
+### Read them
 
-- **Clear water** — highest in the blue, falling steeply through green and red.
-  Almost all of the signal is molecular scattering.
-- **Bloom** — a peak in the green near 550 nm, a trough near 443 nm
-  (chlorophyll-a), a second trough near 675 nm, and often a small bump at
-  **685 nm**: chlorophyll fluorescence, light re-emitted by the cells.
-- **Sediment** — high everywhere, rising towards the red, with pigment features
-  weak or absent.
+**Clear water** is highest in the blue and falls steeply through green and red.
+Almost all of the signal is molecular scattering.
+
+**A bloom** peaks in the green near 550 nm, with a trough near 443 nm
+(chlorophyll-a) and a second trough near 675 nm, and often a small bump at
+**685 nm**: chlorophyll fluorescence, light re-emitted by the cells.
+
+**Sediment** is high everywhere and rises towards the red, with pigment
+features weak or absent.
+
+**Transitional water** keeps the blue peak but loses the steep falloff: green
+stays elevated and a little red survives. It is the most common thing in a
+coastal scene and the hardest to assign, because it is a mixture rather than a
+type.
 
 :::{figure} ../../_static/tutorials/lab_pace_spectra_plot.png
 :width: 100%
@@ -149,9 +156,8 @@ dropping steeply past 580. Sediment is several times brighter than either and
 still climbing at 600 nm. The transitional pixel sits between clear water and
 chlorophyll, which is where most coastal pixels land.
 
-Note the vertical scale. Remote-sensing reflectance runs to about 0.03 sr⁻¹
-here, a few percent of what the instrument measured before atmospheric
-correction. If your numbers are in the thousands, you are reading stored
+The vertical scale runs to about 0.03 sr⁻¹ here. Remote-sensing reflectance is
+a few percent of what the instrument measured before atmospheric correction. If your numbers are in the thousands, you are reading stored
 integers rather than reflectance; see the note at the top of this lab.
 
 **Deliverable 2:** the four mean spectra on one labeled plot, each diagnostic
@@ -161,15 +167,16 @@ feature annotated.
 
 ## Part 3 — Chlorophyll and fluorescence
 
-**Blue-green ratio** — the classical chlorophyll algorithm, in band math:
+### Blue-green ratio
+
+The classical chlorophyll algorithm, in band math:
 
 ```text
 b443 / b555
 ```
 
 High ratio → clear water; low → more chlorophyll. It is a proxy, not a
-concentration, and it fails in coastal water where CDOM also absorbs blue,
-which is why the next index exists.
+concentration, and it fails in coastal water where CDOM also absorbs blue.
 
 :::{figure} ../../_static/tutorials/lab_pace_bandmath.png
 :width: 100%
@@ -187,14 +194,15 @@ it.
 :::
 
 Bright values are clear, blue-dominated water; dark values are where
-chlorophyll and sediment have taken the blue out. Read the dark areas
-carefully. A pixel with no retrieval carries no value and renders at the same
+chlorophyll and sediment have taken the blue out. A pixel with no retrieval
+carries no value and renders at the same
 end of the color scale as a genuinely low ratio, so cloud gaps and productive
 water look alike here. Compare against the true-color image before calling any
 of it a bloom.
 
-**Fluorescence line height (FLH)** — the 685 nm bump above a baseline between
-its shoulders:
+### Fluorescence line height (FLH)
+
+The 685 nm bump above a baseline between its shoulders:
 
 ```text
 b685 - (0.5 * b665 + 0.5 * b710)
@@ -203,8 +211,10 @@ b685 - (0.5 * b665 + 0.5 * b710)
 FLH is far more robust in turbid coastal water, because sediment and CDOM
 affect the three bands almost equally and drop out of the difference.
 
-**Cyanobacteria index** — phycocyanin absorbs near 620 nm, and only
-cyanobacteria have it:
+### Cyanobacteria index
+
+Phycocyanin absorbs near 620 nm, and among the phytoplankton in these scenes it
+is essentially confined to cyanobacteria:
 
 ```text
 1 - b620 / (0.5 * b600 + 0.5 * b650)
@@ -222,13 +232,13 @@ blue-green ratio and the fluorescence line height disagree.
 
 ## Part 4 — Unmix the water
 
-1. Use your three ROI mean spectra from Part 2 as endmembers.
+1. Use your four ROI mean spectra from Part 2 as endmembers.
 2. Run **Linear Unmixing** ({doc}`Tutorial 7 <../07-detection>`) with **Sum to
    Unity** enabled — you chose endmembers meant to span the scene's water.
-3. Read the **RMSE** band first. High residual marks water your three
-   endmembers do not describe: a fourth optical type, cloud shadow, or glint.
+3. Read the **RMSE** band first. High residual marks water your four
+   endmembers do not describe: a fifth optical type, cloud shadow, or glint.
 
-**Deliverable 4:** abundance maps for the three components, the RMSE map, and a
+**Deliverable 4:** abundance maps for the four components, the RMSE map, and a
 short account of where the model breaks down.
 
 ---

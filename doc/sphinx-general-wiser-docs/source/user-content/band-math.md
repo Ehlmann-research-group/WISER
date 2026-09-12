@@ -21,7 +21,7 @@ For a worked example see
 ## How a run works
 
 1. **Type an expression** and press Enter.
-2. WISER parses it. Every name it does not recognise as a function becomes a
+2. WISER parses it. Every name it does not recognize as a function becomes a
    **variable** and gets a row in **Variable bindings**.
 3. **Bind each variable** — choose its type, then the dataset, band or spectrum
    it refers to.
@@ -128,7 +128,7 @@ folder**.
 4. Choose whether results are **loaded into WISER** as well as written to disk
    — for a large batch you usually do not want a hundred datasets open.
 5. **Create batch job**, then start it. Jobs run with progress bars and can be
-   cancelled; per-file errors are collected and shown by **View errors**.
+   canceled; per-file errors are collected and shown by **View errors**.
 
 Variables can be mixed: bind one to a batch folder and another to a single
 fixed dataset, for example to ratio every scene in a folder against one
@@ -154,9 +154,9 @@ RAM. Check the reported size, subset spatially before you start
 
 | Purpose | Expression | Notes |
 |---|---|---|
-| Normalised difference (NDVI, NDWI, NDSI…) | `(a - b) / (a + b)` | Bind `a` and `b` to the two bands |
+| Normalized difference (NDVI, NDWI, NDSI…) | `(a - b) / (a + b)` | Bind `a` and `b` to the two bands |
 | Simple ratio | `a / b` | Iron oxide: red / blue |
-| Band depth | `1 - c / (0.5 * s1 + 0.5 * s2)` | `c` the band centre, `s1`/`s2` the shoulders |
+| Band depth | `1 - c / (0.5 * s1 + 0.5 * s2)` | `c` the band center, `s1`/`s2` the shoulders |
 | Mask | `a > 0.35` | 1 where true, 0 where false |
 | Combined mask | `(a > 0.35) * (b < 0.2)` | Logical AND |
 | Reflectance from raw | `(s - d) / (w - d)` | Sample, dark, white-reference cubes |

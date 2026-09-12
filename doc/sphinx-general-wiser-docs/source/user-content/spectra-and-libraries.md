@@ -22,10 +22,10 @@ Click any pixel in the main window or the zoom pane. A crosshair marks it and
 its spectrum is plotted.
 
 - The **x-axis** is wavelength when the dataset supplies wavelengths, band
-  number otherwise. Units follow the header — nanometres, micrometres, or
+  number otherwise. Units follow the header — nanometers, micrometers, or
   whatever the file declares.
 - **Bad bands** flagged in the header are left out of the line, which is why a
-  spectrum from an airborne cube has gaps at the atmospheric water-vapour
+  spectrum from an airborne cube has gaps at the atmospheric water-vapor
   regions.
 - The **status bar** reports the pixel coordinate and, for georeferenced data,
   the ground position.
@@ -40,8 +40,8 @@ are listed under **Spectra and Spectral Libraries** below the plot, stay drawn
 together, and are saved in a {doc}`project <projects>`.
 
 From the list you can untick a spectrum to hide it, **Edit...** to rename it or
-change its colour, or **Save to file...** to write it out. Renaming and
-recolouring early is worth the seconds — everything is drawn in the same colour
+change its color, or **Save to file...** to write it out. Renaming and
+recoloring early is worth the seconds — everything is drawn in the same color
 by default.
 
 ### Which dataset the plot reads

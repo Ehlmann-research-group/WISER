@@ -132,7 +132,7 @@ such as **tab10**.
 The clusters recover the scene's structure: bright roofs, darker roofs, road
 and parking surfaces, canopy, and shadow.
 
-```{important}
+```{note}
 **Cluster colors and numbers mean nothing on their own.** K-means is
 unsupervised: it finds groups, it does not name them. Cluster 3 is not
 "vegetation" until you check. Click **View Centroids** to plot the mean

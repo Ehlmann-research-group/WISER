@@ -1,6 +1,6 @@
 # Regions of Interest
 
-A **Region of Interest (ROI)** is a named, coloured set of pixels on a raster
+A **Region of Interest (ROI)** is a named, colored set of pixels on a raster
 dataset. ROIs turn "that patch of ground" into something the rest of WISER can
 compute with: a mean spectrum, an endmember, a training set, a background
 estimate for MTMF, a mask, or an exported file.
@@ -30,8 +30,8 @@ illumination and material variation.
 
 1. Click **Create ROI** (the map-pin button) on the main toolbar or the zoom
    pane's toolbar.
-2. Enter a **name**, a **description** if you want one, and pick a **colour**.
-   Use a different colour for each ROI — it is the only thing distinguishing
+2. Enter a **name**, a **description** if you want one, and pick a **color**.
+   Use a different color for each ROI — it is the only thing distinguishing
    them on screen.
 3. Click **OK**.
 
@@ -64,7 +64,7 @@ illumination and material variation.
 :::{figure} ../_static/tutorials/t3_rois_drawn.png
 :width: 90%
 :align: center
-:alt: Three coloured ROIs drawn over a scene, visible in every pane
+:alt: Three colored ROIs drawn over a scene, visible in every pane
 :::
 
 The **status bar** describes the interaction for whichever selection type is
@@ -79,7 +79,7 @@ Right-click **inside a selection** for the ROI context menu:
 
 | Action | Result |
 |---|---|
-| **Edit ROI information...** | Rename, recolour, change the description |
+| **Edit ROI information...** | Rename, recolor, change the description |
 | **Show ROI average spectrum** | Plots the mean spectrum of every pixel in the ROI. Collect it to keep it. |
 | **Make ROI into mask** | Creates a new single-band dataset, 1 inside the ROI and 0 outside — usable directly in band math |
 | **Export ROI...** | Writes the ROI geometry as GeoJSON |

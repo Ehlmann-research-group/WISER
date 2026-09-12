@@ -27,7 +27,7 @@ absorption. The reddest band in this cube is **702 nm**, on the shoulder of the
 red edge where a leaf is already brightening. Substituting it gives a
 **red-edge NDVI**: absolute values come out lower than a 670 nm NDVI would, and
 it saturates differently over dense canopy. It separates vegetation from
-everything else just as cleanly, which is what we need here — but do not
+everything else just as cleanly, which is what you want here — but do not
 compare these numbers against published 670 nm NDVI values.
 
 Choosing bands by what they physically measure, not by what an index is
@@ -81,7 +81,7 @@ Two things on this screen are worth pausing over:
 
 ## Step 3 — Display it meaningfully
 
-A vegetation index in greyscale wastes the fact that it has a meaningful zero.
+A vegetation index in grayscale wastes the fact that it has a meaningful zero.
 
 1. Open the **band chooser** for the NDVI dataset.
 2. Select **Grayscale**, band 0, and the **RdYlGn** colormap.
@@ -97,7 +97,7 @@ A vegetation index in greyscale wastes the fact that it has a meaningful zero.
 hedgerows show as continuous green lines, the lawn in the south-east as a solid
 block, and roofs, roads and parking areas as flat pale yellow.
 
-```{important}
+```{note}
 **Set the stretch on any computed product before you read it.** Index values
 have no reason to fill the display range sensibly, and a single extreme pixel
 at a scene edge can flatten everything else into one color. Check the

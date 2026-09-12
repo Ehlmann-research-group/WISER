@@ -36,7 +36,7 @@ A red crosshair marks the pixel, and its spectrum appears in the plot.
 The status bar gives the display value per channel, the pixel coordinate —
 `Pixel: (5, 2)` — and the ground position, `Geo: (34.138414°N, -118.130206°E)`.
 
-The x-axis is in **nanometres** because the header supplies wavelengths. Where
+The x-axis is in **nanometers** because the header supplies wavelengths. Where
 a dataset has none, WISER plots band number instead.
 
 ```{note}
@@ -121,7 +121,7 @@ Imported libraries are listed but **not drawn** — a few hundred lines at once
 is unreadable. Right-click a spectrum name to show just that one; right-click
 the library name to show or hide all of it.
 
-```{tip}
+```{note}
 A library resampled to one sensor's bands will not line up with another's. The
 detection tools ({doc}`Tutorial 7 <07-detection>`) handle this for you — they
 interpolate each reference onto the target's wavelength grid before comparing.
@@ -154,7 +154,7 @@ The same operation runs on a whole cube: right-click the image and choose
 
 - Pull a spectrum from any pixel and read its coordinates
 - Collect, color and compare several spectra
-- Average over a neighbourhood to suppress noise
+- Average over a neighborhood to suppress noise
 - Load a mineral library and continuum-remove for comparison
 
 ---

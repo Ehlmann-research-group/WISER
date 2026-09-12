@@ -7,9 +7,8 @@
 
 ```{admonition} You will need to download data for this lab
 :class: note
-You will need to download some AVIRIS-Classic data to do this lab. **Get the
-data** below has two routes: one command that fetches only the part you need,
-or a click-to-download link for the whole flight line.
+**Get the data** below has two routes: one command that fetches only the part
+you need, or a click-to-download link for the whole flight line.
 ```
 
 ---
@@ -19,8 +18,8 @@ or a click-to-download link for the whole flight line.
 Cuprite, Nevada is a common reference site for imaging spectroscopy. A hydrothermal
 system altered the volcanic rocks into concentric mineral zones, vegetation
 cover is close to nil, and the outcrops are large enough to resolve at 15 m.
-Many method papers in the field have been demonstrated here, so your results
-have a substantial literature to check against.
+Many method papers in the field use it as their demonstration site, so your
+results have a substantial literature to check against.
 
 The alteration zoning, from the center of each hydrothermal center outwards:
 
@@ -33,7 +32,7 @@ The alteration zoning, from the center of each hydrothermal center outwards:
 | Playa and carbonate units | **calcite** | 2340 nm |
 | Locally | **buddingtonite** (NH₄-feldspar) | 2120 nm |
 
-Those wavelengths are the whole lab.
+The rest of the lab works from those wavelengths.
 
 ---
 
@@ -46,7 +45,7 @@ login) in a public directory on JPL's AVIRIS distribution server. It runs
 40 % of the way along.
 
 The whole line is **10.2 GB**, and you only need the part over Cuprite. Take
-either route below: the first downloads a tenth as much but needs a terminal,
+either route below: the first downloads a fifth as much but needs a terminal,
 the second is three clicks and a long wait.
 
 ### Route 1 — fetch only the part you need (2.05 GB)
@@ -61,7 +60,7 @@ block of bytes, so a single ranged request gets you a usable cube.
 curl -O https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl.hdr
 ```
 
-**2. Fetch lines 2400–3799** — 1400 lines centred on the district, 2.05 GB,
+**2. Fetch lines 2400–3799** — 1400 lines centered on the district, 2.05 GB,
 a few minutes on a decent connection:
 
 ```bash
@@ -90,10 +89,10 @@ mv f230918t01p00r11_rfl.hdr f230918t01p00r11_rfl_cuprite.hdr
 | `map info` 5th value | `4168685.200` | the new upper-left northing: 4205165.2 − 2400 × 15.2 |
 | *(add a line)* | `data ignore value = -9999` | **the archive header omits it** |
 
-That last one matters. The orthocorrection pads the rotated flight line with
-**−9999**, and here that fill is over half the frame. Undeclared, it drags every
-contrast stretch and every statistic with it. WISER will also accept it after
-the fact through **Edit dataset...** in the Dataset Info pane.
+The orthocorrection pads the rotated flight line with **−9999**, and here that
+fill is over half the frame. Undeclared, it drags every contrast stretch and
+every statistic with it. WISER will also accept it after the fact through
+**Edit dataset...** in the Dataset Info pane.
 
 The result is a 1634 × 1400 × 224 cube. Valid data occupies samples ~220–1000;
 everything outside is fill.
@@ -102,8 +101,8 @@ everything outside is fill.
 
 If you would rather not use a terminal, take both files straight from the
 archive. Save them side by side and leave the names alone: the header that
-ships with the file already describes it correctly, so there is nothing to
-edit.
+ships with the file already describes the full line correctly, so the only edit
+is the `data ignore value` line noted below.
 
 - [`f230918t01p00r11_rfl`](https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl)
   — the data, **10.2 GB**
@@ -167,7 +166,7 @@ is visible here, and no stretch of these three bands will bring it out.
 :alt: The same area as a 2200/2170/2340 nm composite, still largely gray
 :::
 
-Barely better, and that is not a mistake: neighbouring SWIR bands are strongly
+Barely better, and that is not a mistake: neighboring SWIR bands are strongly
 correlated, so an RGB composite built from three of them is close to gray no
 matter how you stretch each channel independently.
 
@@ -216,14 +215,19 @@ them. Naming the minerals takes the spectra.
    pixels to average** to a 3 × 3 **median**, because a single AVIRIS pixel at
    2200 nm is noisy.
 
-The four spectra below come from pixels chosen by band position, not by eye.
-The coordinates are Route 1's; add 2400 to each *y* if you downloaded the whole
-flight line:
+Your own clicking will find the altered ground. The four spectra below were
+picked more systematically, by searching the whole cube for the deepest
+absorption at each diagnostic wavelength — the measurement Part 3a formalizes as
+band depth. Averaging three channels rather than reading one mattered: the
+single-channel version returns detector spikes rather than minerals, with a
+maximum of 0.094 against 0.034 for the averaged version, and the spike pixels
+fell in no coherent spatial pattern. The coordinates are Route 1's; add 2400 to each *y* if
+you downloaded the whole flight line:
 
 | Mineral | Pixel (x, y) | Deepest SWIR band |
 |---|---|---|
 | Alunite | 353, 993 | 2170 nm |
-| Kaolinite | 663, 745 | 2210 nm, with a 2160 shoulder |
+| Kaolinite | 663, 745 | 2200 nm, with a 2160 shoulder |
 | Muscovite | 266, 1033 | 2200 nm |
 | Calcite | 253, 364 | 2339 nm |
 
@@ -257,10 +261,10 @@ differences in overall brightness.
 :alt: The same four spectra restricted to 2000-2500 nm, showing distinct absorption bands
 :::
 
-Now each mineral is obvious:
+Each mineral now shows a distinct absorption:
 
 - **Alunite** (red) — deepest at **2170 nm**, with a second minimum near 2210
-- **Kaolinite** (blue) — a **doublet**, 2160 and a deeper 2205
+- **Kaolinite** (blue) — a **doublet**, 2160 and a deeper 2200
 - **Muscovite** (green) — a single band at **2200 nm**, plus a 2350 secondary
 - **Calcite** (purple) — one broad, deep band at **2340 nm**, bright elsewhere
 
@@ -280,7 +284,7 @@ Now each mineral is obvious:
 :alt: The continuum-removed kaolinite spectrum zoomed to 2000-2500 nm, showing the doublet
 :::
 
-Zoomed in, the kaolinite doublet is unambiguous: 2160 and a deeper 2210. The
+Zoomed in, the kaolinite doublet is unambiguous: 2160 and a deeper 2200. The
 band depths are now readable directly as a fraction of the continuum, about
 0.29 and 0.32 here.
 
@@ -303,7 +307,7 @@ labeled with its mineral and the wavelength you used to call it.
 
 ## Part 3 — Map the minerals
 
-### 3a. Band depth — the direct measurement
+### 3a. Band depth
 
 Before reaching for a classifier, map a single absorption. A **band depth** is
 the diagnostic band divided by a straight continuum drawn between two shoulders
@@ -353,17 +357,17 @@ Repeat for the other three minerals by moving the center and shoulders:
 ```{admonition} Band depth does not separate kaolinite from muscovite
 :class: note
 Both absorb at 2200 nm, so one band-depth map lights up for both. Separating
-them needs the *shape* of the feature, the 2160 shoulder, which is what SFF
-in 3c is for, or a ratio of the 2160 and 2200 depths.
+them needs the *shape* of the feature, the 2160 shoulder: either SFF in 3c, or
+a ratio of the 2160 and 2200 depths.
 ```
 
 ### 3b. Spectral Angle Mapper
 
 1. **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**, target **Image Cube**.
 2. Add the USGS library; tick alunite, kaolinite, muscovite and calcite.
-3. **Wavelength range: 2000–2400 nm.** This is what makes SAM work here: over
-   the full range the albedo and iron-oxide variation in the visible dominates
-   the angle and swamps the clay signal.
+3. **Wavelength range: 2000–2400 nm.** Over the full range the albedo and
+   iron-oxide variation in the visible dominates the angle and swamps the clay
+   signal.
 4. Start at the default 5° threshold and **Run SAM**.
 
 Display the **`SAM Angle`** image first, with a colormap and a tight stretch.
@@ -382,15 +386,18 @@ Repeat with SFF, one feature at a time:
 | Muscovite | 2150–2250 nm |
 | Calcite | 2280–2400 nm |
 
-Compare **`SFF RMSE`** against **`SAM Angle`**. SFF should separate kaolinite
-from muscovite better than SAM does, because the two have similar SWIR shape
-but different feature *structure*, which is exactly the distinction SFF makes.
+Compare **`SFF RMSE`** against **`SAM Angle`**. SAM compares the whole spectral
+vector and reports the angle between it and the reference, which makes it
+insensitive to brightness but blind to which features account for the shape. SFF
+continuum-removes both spectra inside the window you choose and fits the
+reference's absorption to the target's, so it is scored on the depth, width and
+position of one feature. Kaolinite and muscovite share an overall SWIR slope and
+a 2200 nm minimum, and only kaolinite has the 2160 nm shoulder, so SFF over a
+2120–2250 nm window should separate them better than SAM does.
 
 **Deliverable 3:** the alunite band-depth map from 3a alongside SAM and SFF
 maps for the same four minerals, and a paragraph on where the three disagree
-and which you trust there. Band depth measures one absorption and nothing else,
-so where it and a classifier diverge, one of them is telling you something the
-other cannot see.
+and which you trust there.
 
 ---
 
@@ -421,12 +428,12 @@ illumination).
 
 ## Questions to answer
 
-1. Kaolinite and muscovite both put their deepest band at 2200 nm, and a
-   single band-depth map cannot tell them apart. Which of SAM and SFF separates
-   them better, and why does that follow from how each works?
-2. The decorrelation stretch made the alteration zones obvious, but you were
-   told not to read mineralogy from its colors. Why not — what exactly does a
-   color in that image correspond to?
+1. You have a SAM angle image and an SFF RMSE image for kaolinite over the same
+   ground. Find pixels where the two disagree. What would you check to decide
+   which one to believe?
+2. The decorrelation stretch made the alteration zones obvious, but Part 1
+   warned against reading mineralogy from its colors. Why not — what exactly
+   does a color in that image correspond to?
 3. You get a high SAM score for buddingtonite in an area with no other
    alteration minerals. What would you check before reporting it?
 4. Your unmixing RMSE is high across a whole playa. Give two possible causes
@@ -440,7 +447,7 @@ illumination).
 
 - Compare your alteration map against the published USGS Cuprite maps at
   [the USGS Spectroscopy Lab](https://www.usgs.gov/labs/spectroscopy-lab).
-- Repeat with an **AVIRIS-NG** scene (5 nm sampling instead of 10 nm) and see
+- Repeat with an **AVIRIS-NG** scene (~5 nm instead of ~9.5 nm) and see
   which mineral separations improve.
 - Run the same analysis on a **radiance** product and document how the results
-  degrade, a useful demonstration of why atmospheric correction matters.
+  degrade.

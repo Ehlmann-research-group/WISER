@@ -554,7 +554,7 @@ flowchart TD
     A["_ensure_common_grid()"] --> B["controller.build_common_grid()"]
     B -->|succeeds| Z[refresh target-CRS label]
     B -->|TargetCrsRequired| C["_prompt_for_target_crs()"]
-    C -->|dialog cancelled| Z
+    C -->|dialog canceled| Z
     C -->|accepted + valid| D["controller.build_common_grid() again"]
     D -->|UnmappableCrsError| W1[QMessageBox.warning]
     D -->|succeeds| Z
@@ -615,7 +615,7 @@ convention used throughout WISER (see the georeferencer's identical convention i
 A scene can now be added to the mosaic even when it cannot yet be placed on the common
 grid — because it is **not georeferenced**, or because its CRS **cannot be transformed**
 into the mosaic's locked target CRS. Rather than rejecting it at Add-Scene time, the
-mosaic carries it as a **pending** (disabled) scene: it stays in the list, greyed out with
+mosaic carries it as a **pending** (disabled) scene: it stays in the list, grayed out with
 a warning icon, and is excluded from the grid, the overlay, the pixel compositor, and
 export until it is georeferenced into a compatible CRS. This lets a user assemble a
 working set — including scenes they still intend to register — without the add being a
@@ -685,7 +685,7 @@ the locked target.
 
 ### List decoration (`_refresh_scene_list`)
 
-For each pending scene the list item gets a warning icon (`SP_MessageBoxWarning`), a greyed
+For each pending scene the list item gets a warning icon (`SP_MessageBoxWarning`), a grayed
 foreground, and a hover tooltip explaining *why* it is disabled (no georeferencing vs.
 incompatible CRS) and how to fix it. The visibility checkbox is deliberately left
 **enabled** — pending is an independent axis from user-hidden, and a scene's classification
@@ -1041,7 +1041,7 @@ the output geometry changes:
   the CRS constraint),   defers a `_refresh_scene_list()` to rewrite the now-stale
   `Qt.UserRole` indices safely after the drop, and does the pure-restack invalidation.
   `_refresh_scene_list()` also decorates any [pending](#pending-scenes-disabled-scenes)
-  scene with a warning icon, greyed text, and a why-disabled tooltip (visibility checkbox
+  scene with a warning icon, grayed text, and a why-disabled tooltip (visibility checkbox
   left enabled).
 
 - **Resolution mode.** A combo over `ResolutionMode` (Top / Highest / Lowest / Average /

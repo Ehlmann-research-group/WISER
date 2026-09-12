@@ -1,13 +1,13 @@
 # Tutorial 7 — Finding a Known Material
 
-**Goal:** go from "what is in this scene?" to "**where is this specific
-substance?**" using WISER's four matching and unmixing tools, and know which
-one to reach for.
+**Goal:** go from "what is in this scene?" to "where is this specific
+substance?" using WISER's four matching and unmixing tools, and know which one
+to reach for.
 
 **Data:** `caltech_15_20_22_bb.hdr` — a 20 × 22 pixel, 15-band short-wave
 infrared (SWIR) subset
-(1308–1454 nm) carrying a **bad-band list**, so you can see band flagging in
-action. Reference spectra from
+(1308–1454 nm) carrying a **bad-band list**, so you can see how flagged bands
+are dropped. Reference spectra from
 `src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr`.
 
 ---
@@ -17,9 +17,9 @@ action. Reference spectra from
 | Tool | Answers | Needs |
 |---|---|---|
 | **Spectral Angle Mapper (SAM)** | Which reference does this pixel most resemble in *shape*? | One or more reference spectra |
-| **Spectral Feature Fitting (SFF)** | Do this pixel's *absorption features* match the reference's? | A reference **and** a diagnostic wavelength range |
+| **Spectral Feature Fitting (SFF)** | Do this pixel's *absorption features* match the reference's? | A reference *and* a diagnostic wavelength range |
 | **Mixture-Tuned Matched Filter (MTMF)** | How much of this one target is present, against an unknown background? | One target spectrum |
-| **Linear Unmixing** | What fraction of each of these known materials is in this pixel? | Endmembers for **every** material present |
+| **Linear Unmixing** | What fraction of each of these known materials is in this pixel? | Endmembers for *every* material present |
 
 The ordering is roughly "how much you have to know in advance". SAM asks the
 least; unmixing asks the most and, in exchange, gives you abundances.
@@ -40,14 +40,14 @@ least; unmixing asks the most and, in exchange, gives you abundances.
 ## Step 2 — Spectral Angle Mapper
 
 SAM treats each spectrum as a vector in *n*-band space and measures the
-**angle** between pixel and reference:
+angle between pixel and reference:
 
 $$\theta = \arccos\!\left(\frac{\mathbf{p}\cdot\mathbf{r}}{\lVert\mathbf{p}\rVert\,\lVert\mathbf{r}\rVert}\right)$$
 
-Because an angle depends only on direction, **SAM ignores brightness**. A
+Because an angle depends only on direction, SAM ignores brightness. A
 sunlit and a shadowed patch of the same mineral give the same small angle,
-which makes it the workhorse for scenes with topography or uneven illumination.
-Smaller angle, better match.
+which is why it is the usual choice for scenes with topography or uneven
+illumination. Smaller angle, better match.
 
 Open **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**.
 
@@ -61,7 +61,9 @@ Open **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**.
    **Spectrum** compares one spectrum against the references and opens a ranked
    table — a fast way to identify a spectrum you just collected.)
 2. **Min/Max Wavelength** and **Units** restrict the comparison. Leaving both
-   at `0.0` uses the full overlap.
+   at `0.0` uses the full overlap, which on this 15-band cube is the whole
+   1308–1454 nm range. On a full-range cube it is the difference between
+   comparing one absorption and comparing everything at once.
 3. **Reference Library Selection** — a USGS mineral library is preloaded. Tick
    it, or use **Add Library**, **Add Spectrum** (from a text file), or **Add
    Collected Spectrum** to use a signature you measured yourself in
@@ -76,7 +78,7 @@ Two datasets come back, one band per reference:
 - **`SAM Angle, Img: <source>`** — the angle in degrees at every pixel
 - **`SAM CLS, Img: <source>`** — a boolean map of `angle < threshold`
 
-Display the **angle** image with a colormap and stretch it before trusting the
+Display the angle image with a colormap and stretch it before trusting the
 classification: the threshold is a decision you are making, and the angle image
 shows you what you are deciding about. Every reference is interpolated onto the
 target's wavelength grid first, so a library resampled to a different sensor
@@ -86,8 +88,8 @@ still works.
 
 ## Step 3 — Spectral Feature Fitting
 
-SFF asks a narrower question: forget the overall spectrum, do the **absorption
-features** line up?
+SFF asks a narrower question: forget the overall spectrum, do the absorption
+features line up?
 
 It continuum-removes both spectra — dividing out the smooth upper envelope so
 only the dips remain — inverts the result so absorptions become peaks, then
@@ -100,24 +102,26 @@ squares.
 :alt: The Spectral Feature Fitting dialog
 :::
 
-The inputs mirror SAM's, with one difference that decides whether the run is
-worth anything:
+The inputs mirror SAM's, with one difference:
 
-```{important}
+```{note}
 **Set the wavelength range to bracket the feature you care about.** SFF over a
 full spectral range averages your diagnostic band in with everything else. Over
-a window around a known absorption it is far more specific than SAM. Common
-ones: kaolinite 2160/2200 nm, alunite 2170 nm, calcite 2340 nm, gypsum
-1750 nm, chlorophyll 670 nm.
+a window around a known absorption it is far more specific than SAM. On a
+full-range cube the usual targets are kaolinite 2160/2200 nm, alunite 2170 nm,
+calcite 2340 nm, gypsum 1750 nm and chlorophyll 670 nm, all of which sit beyond
+this tutorial's 1308–1454 nm subset. On this cube, set **Min/Max Wavelength**
+to 1308 and 1454 with **Units** in nanometers and read the run as practice on
+the mechanics; the bracketing pays off on a cube that reaches the features.
 ```
 
 Three outputs, one band per reference:
 
-- **`SFF RMSE`** — root-mean-square fit error; **lower is better**
+- **`SFF RMSE`** — root-mean-square fit error; lower is better
 - **`SFF SCALE`** — fitted feature depth, loosely an abundance indicator
 - **`SFF CLS`** — boolean `RMSE < threshold` (default 0.03)
 
-Read RMSE and SCALE **together**. A low RMSE with a near-zero scale means "the
+Read RMSE and SCALE together. A low RMSE with a near-zero scale means "the
 feature is absent, and its absence fits well" — a good fit to nothing.
 
 ---
@@ -149,16 +153,18 @@ score per pixel: near 0 for background, near 1 for a pure target pixel. It also
 computes each pixel's **infeasibility** — how far its spectrum is from any
 physically plausible mixture of background and target.
 
-```{important}
+```{note}
 **A high score alone is not a detection.** The matched filter produces false
 positives on spectra that happen to project well onto the target direction. The
-mixture-tuning step separates them: a real detection has a **high score and low
-infeasibility**. Scoring pixels without checking feasibility is the classic way
+mixture-tuning step separates them: a real detection has a high score and low
+infeasibility. Scoring pixels without checking feasibility is the classic way
 to over-report a target.
 ```
 
-Output is one float32 image per target, `MTMF [target]: <source>`, nodata as
-`NaN`.
+Two float32 datasets come back per target, both with nodata as `NaN`:
+`MTMF [target]: <source>` holds the matched-filter score and
+`IF [target]: <source>` holds the infeasibility. Read them together: a high
+score is only believable where the same pixel in `IF` is low.
 
 ---
 
@@ -181,15 +187,14 @@ spectra and solves for the weights.
    cover everything in the scene, wrong when they do not.
 4. Click **OK**.
 
-The result carries **one abundance band per endmember**, in the order listed,
-plus a final **RMSE band**.
+The result carries one abundance band per endmember, in the order listed, plus
+a final RMSE band.
 
-```{important}
+```{note}
 **Read the RMSE band first.** It is the per-pixel reconstruction error, and it
 tells you where your endmember set fails to explain the data — usually because
 a material is present that you did not include. Abundances in high-RMSE areas
-are not meaningful. Unmixing is the tool that most rewards checking its own
-residual.
+are not meaningful.
 ```
 
 Endmembers must share the input's wavelength grid, and a band flagged bad in
@@ -199,16 +204,16 @@ Endmembers must share the input's wavelength grid, and a band flagged bad in
 
 ## Choosing between them
 
-- You have a spectrum and want to know **what it is** → SAM in **Spectrum**
+- You have a spectrum and want to know what it is → SAM in **Spectrum**
   mode against a library, then read the ranked table.
-- You want a map of **where a material is**, illumination varies, and you have
+- You want a map of where a material is, illumination varies, and you have
   no background information → **SAM**, inspecting the angle image before
   thresholding.
-- You know the **diagnostic absorption** and want specificity → **SFF** over a
+- You know the diagnostic absorption and want specificity → **SFF** over a
   narrow window.
-- You have **one target**, an unknown background, and want an abundance-like
+- You have one target, an unknown background, and want an abundance-like
   score → **MTMF**, checking feasibility.
-- You have endmembers for **everything** and want fractions → **Linear
+- You have endmembers for everything and want fractions → **Linear
   Unmixing**, checking RMSE.
 
 None of these tools proves a material is present. They rank pixels by how well
@@ -228,5 +233,6 @@ check that the absorptions you expect are actually there.
 
 ---
 
-**Next:** the {doc}`Labs <labs/index>` take these tools to real,
+**Next:** {doc}`Tutorial 8 <08-bench-and-close-range>` takes the same tools to
+a laboratory cube, and then the {doc}`Labs <labs/index>` take them to real,
 downloadable scenes.

@@ -27,14 +27,13 @@ In this lab you make those detections yourself.
 
 | Mineral | Diagnostic absorptions | Why it matters |
 |---|---|---|
-| **Olivine** | broad compound band centred ~1000 nm | Primary igneous; unweathered |
+| **Olivine** | broad compound band centered ~1000 nm | Primary igneous; unweathered |
 | **Mg-carbonate** | paired bands near **2310** and **2510 nm** | Aqueous alteration; biosignature host |
 | **Fe/Mg-smectite** | ~2300 nm with a 1400/1900 nm hydration pair | Prolonged water–rock interaction |
 | **Pyroxene** | broad bands near 1000 and 2000 nm | Primary igneous |
 
-Carbonate and Fe/Mg-smectite both absorb near 2300 nm. Separating them is the
-analytical crux, and it is done on the **2510 nm** band: carbonate has it,
-smectite does not.
+Carbonate and Fe/Mg-smectite both absorb near 2300 nm. The **2510 nm** band
+separates them: carbonate has it, smectite does not.
 
 ---
 
@@ -187,7 +186,7 @@ At this scale the mineral bands are barely perceptible. Tighten the axes onto
 :alt: The same three spectra zoomed to 2150-2600 nm, showing paired absorptions near 2310 and 2510 nm
 :::
 
-Now the **pair** is unmistakable: a minimum near **2310 nm**, a recovery through
+On this scale the **pair** resolves: a minimum near **2310 nm**, a recovery through
 2360–2410, and a second minimum near **2510 nm**. Both bands are only about
 **2–3 % deep**. A smectite would give you the first and not the second.
 
@@ -252,7 +251,7 @@ $f = 0.549$:
    ```
 
 2. Bind `a` → **2400 nm** (band 283), `b` → **2600 nm** (band 314),
-   `c` → **2510 nm** (band 300). Name it `CarbonateBD2510`.
+   `c` → **2510 nm** (band 300). Name it `BD2510`.
 
 :::{figure} ../../_static/tutorials/lab_crism_bandmath.png
 :width: 80%
@@ -272,8 +271,7 @@ $f = 0.549$:
 The bright material forms a coherent, sinuous unit following the crater margin
 and the delta front. A 2 %-deep band in scattered pixels would be noise; the
 same depth mapping onto a geological contact is a mineral. The vertical
-striping is CRISM column noise, and separating the two is much of the skill
-here.
+striping is CRISM column noise.
 
 This is the Jezero **marginal carbonate** unit. Orbital carbonate detections
 like this one were part of the case for landing *Perseverance* here, and the
@@ -287,14 +285,15 @@ Now build the other indices the same way:
 | `BD2510` | 2510 nm (band 300) | 2400 / 2600 (bands 283 / 314) | 0.549 | carbonate only |
 | `BD1050` | 1050 nm (band 78) | 860 / 1470 (bands 54 / 142) | 0.309 | olivine |
 
-**Now separate carbonate from smectite.** Both light up at 2310 nm; only
+Now separate carbonate from smectite. Both light up at 2310 nm; only
 carbonate lights up at 2510 nm:
 
 ```text
-(d2310 > 0.02) * (d2510 > 0.01)
+(BD2310 > 0.02) * (BD2510 > 0.01)
 ```
 
-The product is 1 only where both tests pass. Choose the two thresholds from
+Bind `BD2310` and `BD2510` to the two band-depth layers you just built. The
+product is 1 only where both tests pass. Choose the two thresholds from
 your own band-depth histograms, not from these example numbers. On
 `HRL000040FF` the 99th percentile of each index is around 0.019 and 0.014, so
 those two example thresholds already select a small fraction of the scene.
@@ -336,9 +335,9 @@ detection holds.
 
 ## Questions to answer
 
-1. Why is the 2500 nm band, rather than the deeper 2300 nm band, the one that
+1. Why is the 2510 nm band, rather than the deeper 2310 nm band, the one that
    identifies carbonate?
-2. Your 2300 nm band-depth map lights up along one image column across the
+2. Your 2310 nm band-depth map lights up along one image column across the
    whole scene. What is that, and how would you confirm it?
 3. What does a ratioed spectrum let you claim, and what does it stop you from
    claiming?

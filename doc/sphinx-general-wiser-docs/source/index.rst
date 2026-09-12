@@ -2,9 +2,9 @@ WISER Documentation
 ===================
 
 **WISER** — the Workbench for Imaging Spectroscopy Exploration and Research —
-is an open-source, cross-platform application for visualising and analysing
+is an open-source, cross-platform application for visualising and analyzing
 hyperspectral imagery. It is written in Python on Qt/PySide, runs on
-**macOS, Windows and Linux**, and needs no commercial licence.
+**macOS, Windows and Linux**, and needs no commercial license.
 
 Developed and maintained by the
 `Ehlmann Research Group <https://github.com/Ehlmann-research-group>`_ at Caltech
@@ -41,7 +41,7 @@ What WISER does
 
 **Read spectra**
 
-- Click any pixel for its spectrum; collect, colour, average and export them
+- Click any pixel for its spectrum; collect, color, average and export them
 - Import ENVI spectral libraries and ASCII spectra
 - Continuum removal on a spectrum, a collection, or a whole cube
 
@@ -52,7 +52,7 @@ What WISER does
 - Regions of Interest for class signatures, masks and pixel exports
 - Savitzky–Golay, mean, median and Gaussian filters
 
-**Analyse**
+**Analyze**
 
 - **Transforms** — Principal Component Analysis, Minimum Noise Fraction
 - **Classification** — K-means clustering
@@ -131,7 +131,7 @@ WISER source tree, so there is nothing to download. For full scenes, the
 - `EMIT L2A Reflectance <https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2arfl-001>`_ ---
   spaceborne imaging spectroscopy of arid land surfaces
 - `PACE/OCI <https://pace.oceansciences.org/access_pace_data.htm>`_ ---
-  hyperspectral ocean colour
+  hyperspectral ocean color
 - `CRISM MTRDR over Jezero Crater
   <https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2007/2007_029/hrl000040ff/>`_
   --- 489 bands, the basis of :doc:`Lab C <tutorials/labs/lab-mars-crism>`

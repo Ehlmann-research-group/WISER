@@ -18,7 +18,7 @@ The four bands in this scene are:
 | 0 | 472 nm | Blue |
 | 1 | 532 nm | Green |
 | 2 | 702 nm | Red / start of the red edge |
-| 3 | 852 nm | Near-infrared |
+| 3 | 853 nm | Near-infrared |
 
 Every step below refers to bands by number, and Tutorials 3–6 use the same
 scene.
@@ -47,7 +47,7 @@ scene.
 :alt: The Caltech scene loaded, shown in the context pane and the main window
 :::
 
-```{tip}
+```{note}
 You may select either the `.hdr` header **or** the data file beside it — WISER
 finds the other. If a file will not open, see {doc}`Opening Data Files
 <../user-content/opening-data-files>`.
@@ -79,7 +79,7 @@ The panes stay in step with each other:
 - The **status bar** reports the pixel's display values, its `(x, y)` position,
   and — because this scene is georeferenced — its geographic coordinates.
 
-```{admonition} One known rough edge
+```{admonition} Known bug: swapped coordinate labels
 :class: note
 This scene reads correctly, but many datasets do not. Where a projected CRS
 resolves to a standard **EPSG** geographic code — which most real-world
@@ -110,9 +110,9 @@ WISER opened this scene with the **default bands** named in its header — 2, 1,
 2. Two shortcuts fill the bands in for you:
 
    - **Choose Default Bands** — the combination the data file itself
-     recommends. Greyed out when the file names none.
+     recommends. Grayed out when the file names none.
    - **Choose Visible-Light Bands** — the bands nearest the red, green and blue
-     wavelengths set in WISER's preferences. Greyed out when the data has no
+     wavelengths set in WISER's preferences. Grayed out when the data has no
      wavelengths, or none in the visible range.
 
    **Apply to all views** propagates your choice to every pane; untick it to
@@ -127,10 +127,10 @@ WISER opened this scene with the **default bands** named in its header — 2, 1,
 :alt: The scene as a single near-infrared band with the viridis colormap
 :::
 
-**Read the result.** Vegetation is bright in the near-infrared — the trees
-along the walkways and the lawns to the south-east stand out, while roofs and
-asphalt stay dark. {doc}`Tutorial 4 <04-band-math-ndvi>` turns that contrast
-into a quantitative map.
+Vegetation is bright in the near-infrared — the trees along the walkways and
+the lawns to the south-east stand out, while roofs and asphalt stay dark.
+{doc}`Tutorial 4 <04-band-math-ndvi>` turns that contrast into a quantitative
+map.
 
 Switch back to **RGB** with bands 2, 1, 0 before continuing.
 
@@ -164,11 +164,11 @@ stretch** decides how they are mapped.
 3. The image updates as you change settings, so you can judge the result
    directly.
 
-:::{figure} ../_static/tutorials/t1_stretch_applied.png
-:width: 90%
-:align: center
-:alt: The Caltech scene after a 2.5% linear stretch
-:::
+   :::{figure} ../_static/tutorials/t1_stretch_applied.png
+   :width: 90%
+   :align: center
+   :alt: The Caltech scene after a 2.5% linear stretch
+   :::
 
 4. Click **OK** to keep the stretch, **Cancel** to discard it.
 
@@ -181,7 +181,7 @@ For the full set of stretch types and conditioners — including the
 **decorrelation stretch** — see {doc}`Display and Contrast Stretch
 <../user-content/display-and-stretch>`.
 
-```{admonition} A second known rough edge
+```{admonition} Known bug: stretch dialog after switching display mode
 :class: note
 If you apply a stretch, then change the same view between **Grayscale** and
 **RGB**, reopening the stretch dialog currently raises an error. Reopen the
@@ -199,5 +199,5 @@ dataset, or set your bands before stretching, until that is fixed.
 
 ---
 
-**Next:** {doc}`Tutorial 2 — Reading Spectra <02-spectra>` gets to the point of
-imaging spectroscopy: every pixel is a spectrum.
+**Next:** {doc}`Tutorial 2 — Reading Spectra <02-spectra>` — every pixel is a
+spectrum, and Tutorial 2 reads them.

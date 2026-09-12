@@ -10,10 +10,9 @@ Principal Component Analysis (PCA).
 
 ## Why reduce dimensions
 
-A 425-band cube is mostly redundant: neighbouring bands measure nearly the same
+A 425-band cube is mostly redundant: neighboring bands measure nearly the same
 thing, so the information lives in far fewer dimensions than the band count
-suggests. Reducing them first makes every later step cheaper and, more
-importantly, less noisy — classifiers and unmixing models chase sensor noise
+suggests. Reducing them first makes every later step cheaper and less noisy — classifiers and unmixing models chase sensor noise
 when handed 400 correlated channels.
 
 Two transforms, two different orderings:
@@ -63,7 +62,7 @@ returns 372 components — 425 bands minus the 53 flagged bad.
 
 ## Step 2 — Look at the components
 
-Display band 0 of the result in greyscale.
+Display band 0 of the result in grayscale.
 
 **PC1 is almost always brightness.** Everything in a scene reflects more or
 less light overall, so the largest single direction of variance is albedo.
@@ -124,8 +123,8 @@ How WISER estimates the noise decides whether the result is meaningful:
 3. **Eigendecomposition** of the whitened data covariance.
 4. **Projection** onto the top *N* eigenvectors.
 
-```{warning}
-The shift-difference estimate assumes neighbouring pixels are similar. It works
+```{note}
+The shift-difference estimate assumes neighboring pixels are similar. It works
 on a scene with smooth spatial structure and misleads on one that is busy at
 the pixel scale — a striped scene, a dense urban scene at meter resolution, or
 an image with strong along-track banding. If MNF results look wrong, check this
@@ -155,7 +154,7 @@ a proper bad-band list gives better results than one without.
 
 - Run PCA and MNF and say which one a task calls for
 - Use a scree plot to choose a component count
-- Recognise a brightness component and interpret later ones
+- Recognize a brightness component and interpret later ones
 - Say when the shift-difference noise estimate is not trustworthy
 
 ---

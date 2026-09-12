@@ -150,7 +150,7 @@ Finally, enter the authority name and code (e.g. `EPSG:32611`) into WISER.
 ## Reference System Creator
 
 Some datasets — planetary imagery in particular — use a coordinate reference
-system with no EPSG code, because no authority has catalogued it. The
+system with no EPSG code, because no authority has cataloged it. The
 **Reference System Creator** (**Tools ▸ Reference System Creator**) builds one,
 and it stays available to the Georeferencer, the Mosaic tool and the dataset
 editor for the rest of the session.
@@ -178,7 +178,7 @@ string:
 | **Ref System Name** | The name it will appear under in WISER |
 | **Projection Type** | The map projection |
 | **Shape** | The body's figure — sphere or ellipsoid |
-| **Semi-Major Axis** | The equatorial radius, in metres |
+| **Semi-Major Axis** | The equatorial radius, in meters |
 | **Semi-minor axis / inverse flattening / eccentricity** | The second axis parameter, in whichever form you have it |
 | **Prime Meridian** | Longitude origin, in degrees |
 | **Center Longitude** | The projection's central meridian |

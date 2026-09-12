@@ -180,7 +180,7 @@ The bar along the bottom reports, left to right:
 
 - A **message area** — WISER's running commentary, and the instructions for
   whichever selection tool is active. Read it when a shape is not behaving.
-- The **display values** for each colour channel at the pixel under the cursor
+- The **display values** for each color channel at the pixel under the cursor
 - The **pixel coordinate**, as `(x, y)`
 - The **ground coordinate**, when the dataset is georeferenced
 

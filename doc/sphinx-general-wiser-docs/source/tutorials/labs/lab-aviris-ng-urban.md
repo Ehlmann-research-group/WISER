@@ -7,9 +7,8 @@
 
 ```{admonition} You will need to download data for this lab
 :class: note
-You will need to download some AVIRIS-NG data to do this lab. **Get the data**
-below has a click-to-download link and a terminal command, and says where to
-put the files.
+**Get the data** below has a click-to-download link and a terminal command,
+and says where to put the files.
 ```
 
 This is the lab to start with: the scene is a place you can look up, and every
@@ -94,7 +93,9 @@ with WISER.
 | Nodata | `-9999` |
 
 The 53 flagged bands are the water-vapor regions near 1400 nm and 1900 nm,
-plus the noisy ends of the range. Every WISER tool drops them automatically.
+plus the noisy ends of the range. WISER's analysis tools drop them
+automatically; band math and the scatter plot use whatever bands you bind,
+flagged or not.
 
 ---
 
@@ -143,7 +144,7 @@ The bands this lab uses:
 | 1649 nm | 254 | Short-wave infrared (SWIR) 1 |
 | 2200 nm | 364 | SWIR-2 — clay/carbonate region |
 
-### A composite true color cannot give you
+### A composite that true color cannot give you
 
 Set the band chooser to **RGB** with **2200 / 1649 / 858 nm** and re-apply a
 2.5% stretch.
@@ -156,7 +157,7 @@ Set the band chooser to **RGB** with **2200 / 1649 / 858 nm** and re-apply a
 
 Vegetation turns deep blue — it absorbs strongly in both SWIR bands but stays
 bright in the NIR. Roofs and pavement turn yellow and tan, and now they
-*separate from each other* in a way they never do in true color. Nothing here
+*separate from each other* in a way they do not in true color. Nothing here
 is new information: it was in the cube all along, and choosing three different
 bands is all it took to see it.
 
@@ -169,7 +170,7 @@ not.
 ## Part 2 — Four surfaces, four spectra
 
 Click each of these pixels and **collect** the spectrum
-({doc}`Tutorial 2 <../02-spectra>`). Rename and recolour each one from the list
+({doc}`Tutorial 2 <../02-spectra>`). Rename and recolor each one from the list
 below the plot, or they will all be drawn the same.
 
 | Surface | Pixel (x, y) | What it is |
@@ -211,7 +212,7 @@ falling steadily through the green and red, and essentially **zero beyond
 that is dark in the near-infrared and bright in the blue is usually water; few
 other common surfaces behave that way.
 
-**The roof** (red) is bright — around 0.95 — and nearly flat from 500 nm to
+**The roof** (red) is bright, around 0.95, and nearly flat from 500 nm to
 1800 nm before declining through the SWIR. High and featureless is the
 signature of a broadband reflector.
 
@@ -223,9 +224,13 @@ roof: both are "gray" to the eye, and they are nothing alike past 1000 nm.
 :class: note
 The three breaks in every line are the 53 bands the header flags bad. At those
 wavelengths atmospheric water vapor absorbs nearly all the signal, so nothing
-reliable about the surface survives. WISER omits them from the plot and every
-tool excludes them from its computation. A spectrum drawn straight through
-those regions is showing you the atmosphere, not the ground.
+reliable about the surface survives. The spectrum plot omits them from the
+drawn curve, and the analysis tools exclude them from their computations: PCA,
+MNF, K-means, SAM, SFF, MTMF, linear unmixing, continuum removal, and the
+smoothing and Savitzky–Golay filters. Band math and the interactive scatter
+plot are the exception, since they compute on whatever bands you bind, so keep
+the flagged wavelengths out of an expression yourself. A spectrum drawn
+straight through those regions is showing you the atmosphere, not the ground.
 ```
 
 **Deliverable 2:** the four spectra on one labeled plot, with the red edge,
@@ -257,7 +262,7 @@ Turn that into a number for every pixel.
 Unlike a 4-band sensor, AVIRIS-NG lets you use the textbook wavelengths
 directly — no substituting a red-edge band for red and hoping.
 
-### The result will look wrong. That is the lesson.
+### The result will look wrong
 
 :::{figure} ../../_static/tutorials/lab_avng_ndvi_unstretched.png
 :width: 95%
@@ -334,7 +339,7 @@ Open **Data Analysis ▸ Interactive Scatter Plot**, set **X** to band 57
 :alt: Density scatter plot of 662 nm against 858 nm for the whole scene
 :::
 
-Two structures, and both mean something:
+Two structures:
 
 - **The diagonal ridge** is the **soil line** — surfaces whose red and NIR
   reflectance rise together. Roofs, roads and bare ground all lie along it,
@@ -374,7 +379,8 @@ Region of Interest you can use anywhere else.
 :alt: The K-means dialog set to six clusters
 :::
 
-On this cube — 680 × 500 × 425 — the run took **16 seconds**.
+On this cube — 680 × 500 × 425 — the run took **16 seconds** on an Apple M3
+Max with 36 GB of RAM.
 
 :::{figure} ../../_static/tutorials/lab_avng_kmeans.png
 :width: 95%
@@ -382,18 +388,16 @@ On this cube — 680 × 500 × 425 — the run took **16 seconds**.
 :alt: Six-cluster K-means labels over the AVIRIS-NG scene
 :::
 
-```{admonition} Read this result critically
+```{admonition} Why the map is speckled
 :class: note
-It is speckled. Clusters change from pixel to pixel across surfaces that are
-obviously uniform on the ground, and the six classes do not map cleanly onto
-six materials.
+Clusters change from pixel to pixel across surfaces that are obviously uniform
+on the ground, and the six classes do not map cleanly onto six materials.
 
 That is what K-means does to a high-resolution scene with 425 correlated,
 partly noisy bands: it partitions total spectral variance, and at 5 m most of
 that variance is *within-surface* — illumination, shadow, sub-pixel mixing,
 sensor noise — rather than *between-material*. The fix is Part 5: reduce to the
-components that carry signal, then cluster those. Compare the two and you will
-see the difference immediately.
+components that carry signal, then cluster those, and compare the two maps.
 
 Cluster indices are also arbitrary. Use **View Centroids** to plot each
 cluster's mean spectrum and find out what it actually is before naming it.
@@ -415,8 +419,9 @@ maximum and click **OK**.
 :alt: The PCA dialog
 :::
 
-The run took **7 seconds** and produced **372 components** — 425 bands minus
-the 53 flagged bad. The scree plot opens automatically.
+The run took **7 seconds** on the same machine and produced
+**372 components** — 425 bands minus the 53 flagged bad. The scree plot opens
+automatically.
 
 :::{figure} ../../_static/tutorials/lab_avng_scree.png
 :width: 80%
@@ -444,7 +449,7 @@ carrying much of what 425 bands had to say.
 :::{figure} ../../_static/tutorials/lab_avng_pc1.png
 :width: 95%
 :align: center
-:alt: The first principal component in greyscale
+:alt: The first principal component in grayscale
 :::
 
 PC1 is overall brightness, as it almost always is: everything reflects more or
@@ -480,7 +485,7 @@ explanation of the difference.
 ## Going further
 
 - **Map impervious surface.** Combine the NDVI mask with a SWIR brightness
-  threshold and estimate the impervious fraction per block — the standard input
+  threshold and estimate the impervious fraction per block — a standard input
   to urban runoff and heat-island models.
 - **Look for roofing materials.** Collect roof spectra, continuum-remove them,
   and run {doc}`SFF <../07-detection>` over 2000–2400 nm. Asphalt shingle,

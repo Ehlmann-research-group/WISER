@@ -46,7 +46,7 @@ leave out. The tree has three groups:
 
 Checking or unchecking a group toggles everything in it; if you then uncheck a few
 individual items, the group shows a partial check. **Include All** and **Exclude
-All** reset the whole tree. A group with nothing in it is greyed out.
+All** reset the whole tree. A group with nothing in it is grayed out.
 
 ### Products follow the dataset or ROI they came from
 
@@ -105,7 +105,7 @@ is also mirrored in the Activity Monitor.
 
 You can **cancel** from that dialog. Cancelling means nothing happened: WISER builds
 the new project alongside the destination and only puts it in place once it is
-complete, so a cancelled save — like one interrupted by a crash or a full disk —
+complete, so a canceled save — like one interrupted by a crash or a full disk —
 leaves any project already saved at that location exactly as it was.
 
 ---
