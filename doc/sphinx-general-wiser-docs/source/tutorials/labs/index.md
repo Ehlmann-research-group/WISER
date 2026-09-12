@@ -1,6 +1,6 @@
 # Labs
 
-Six worked analyzes to build a lab from. Each carries one field's question
+Five worked analyses to build a lab from. Each carries one field's question
 through a real dataset, with the band indices, pixel coordinates and expressions
 written out, so you can run it as printed or change it knowing what every number
 in it does.
@@ -8,8 +8,9 @@ in it does.
 Treat them as baselines rather than finished assignments. The parts, the
 deliverables and the questions at the end of each one are a starting set: swap
 the scene for a region your students work on, drop a part that does not fit the
-course, or keep the structure and change the science. All but Lab F need a
-dataset you download first, and each opens with what it needs.
+course, or keep the structure and change the science. Each lab works on a real
+dataset that you download first, and each opens with what it needs and where to
+get it.
 
 ```{list-table}
 :header-rows: 1
@@ -39,10 +40,6 @@ dataset you download first, and each opens with what it needs.
   - {doc}`Phytoplankton and Coastal Water with PACE <lab-pace-phytoplankton>`
   - Biological oceanography, water quality
   - PACE/OCI L2 — Earthdata Login
-* - F
-  - {doc}`Close-Range Materials Imaging <lab-materials-imaging>`
-  - Materials, inspection, cultural heritage
-  - Ships with WISER
 ```
 
 ```{admonition} For instructors
@@ -52,10 +49,11 @@ the answers are checkable against published work, not because they are the right
 subject for your course. The same sequence of steps runs on a scene from your own
 field site.
 
-For planning: **Lab F** runs entirely on bundled data, which makes it the safest
-choice when you cannot rely on students having network access or disk space.
-**Labs A, B and C** need no account of any kind. **D** and **E** need a free NASA
-Earthdata Login, worth having students create in advance.
+For planning: **Labs A, B and C** need no account of any kind, and **D** and
+**E** need a free NASA Earthdata Login, which is worth having students create in
+advance. Download sizes are in the table above. If you need a session that runs
+without a download, the {doc}`Tutorials <../getting-started>` all work on data
+that ships with WISER.
 ```
 
 ```{admonition} Where the screenshots come from
@@ -97,5 +95,4 @@ lab-cuprite-minerals
 lab-mars-crism
 lab-emit-dust
 lab-pace-phytoplankton
-lab-materials-imaging
 ```

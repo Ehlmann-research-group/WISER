@@ -28,7 +28,7 @@ finds is the sensor's, and pre-smoothing invalidates that.
 ## Savitzky–Golay filter
 
 The Savitzky–Golay filter fits a low-order polynomial to a sliding window of
-each pixel's spectrum by least squares and replaces the centre value with the
+each pixel's spectrum by least squares and replaces the center value with the
 fitted one. Because it fits a curve rather than averaging, it removes noise
 while leaving the **position, shape and depth** of absorption bands close to
 intact — exactly what a moving average destroys.
@@ -101,7 +101,7 @@ other.
   here — same job, far less damage to band shape.
 - **Spatial** smoothing trades resolution for signal-to-noise: each band's
   image gets cleaner and every pixel's spectrum becomes a mixture of its
-  neighbours'. Reasonable on a coarse scene where you want regional patterns;
+  neighbors'. Reasonable on a coarse scene where you want regional patterns;
   destructive when you care about small targets.
 
 ```{tip}
@@ -119,5 +119,5 @@ more clearly.
 - {doc}`Minimum Noise Fraction <data-analysis-tools/mnf>` — separates signal
   from noise rather than blurring both
 - {doc}`Tutorial 2 — Reading Spectra <../tutorials/02-spectra>`
-- {doc}`Lab F — Close-Range Materials Imaging <../tutorials/labs/lab-materials-imaging>` —
+- {doc}`Tutorial 8 — Bench and Close-Range Data <../tutorials/08-bench-and-close-range>` —
   where Savitzky–Golay earns its place

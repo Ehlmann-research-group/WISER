@@ -1,8 +1,8 @@
 # Tutorials
 
-Seven short tutorials, roughly two hours end to end, on data that ships with
-the WISER source. Nothing to download. Work through them in order and you will
-have used every major tool in the application on a real scene.
+Eight short tutorials, a little over two hours end to end, on data that ships
+with the WISER source. Nothing to download. Work through them in order and you
+will have used every major tool in the application on a real scene.
 
 ```{list-table}
 :header-rows: 1
@@ -40,6 +40,10 @@ have used every major tool in the application on a real scene.
   - {doc}`Finding a Known Material <07-detection>`
   - SAM, SFF, MTMF and linear unmixing, and which to reach for
   - `caltech_15_20_22_bb`
+* - 8
+  - {doc}`Bench and Close-Range Data <08-bench-and-close-range>`
+  - The same tools on a laboratory cube, and what a bench instrument needs from you
+  - `circuit_4_100_150_um`
 ```
 
 ## The data
@@ -87,4 +91,5 @@ datasets, in a form you can adapt into your own lab.
 05-classification
 06-pca-mnf
 07-detection
+08-bench-and-close-range
 ```
