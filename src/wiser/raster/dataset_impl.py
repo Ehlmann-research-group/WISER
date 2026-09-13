@@ -1721,7 +1721,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         :class:`~wiser.raster.dataset.RasterDataSet` masks with
         ``np.ma.masked_values``, which compares within :attr:`_MASK_RTOL` /
         :attr:`_MASK_ATOL` rather than exactly.  A stored fill sits one
-        ``scale`` away from its neighbouring count, so scaling both leaves the
+        ``scale`` away from its neighboring count, so scaling both leaves the
         fill distinguishable only while that step stays wider than the
         comparison tolerance at the fill's physical magnitude.  A large
         ``add_offset`` over a fine ``scale_factor`` breaks it, and the symptom
@@ -1744,11 +1744,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 f"netCDF subdataset {self._subdataset_name!r} packs data too finely for its "
                 f"fill value to stay distinguishable:  scale_factor {scale} is inside the "
                 f"masking tolerance {tolerance} around the scaled fill {scaled_fill}, so real "
-                f"values next to the fill would be masked as fill."
+                f"values next to the fill would be masked as fill.  To read it anyway, convert "
+                f"the variable outside WISER with `gdal_translate -unscale -ot Float32 "
+                f"-a_nodata none` and set the data-ignore value on the result in the Dataset "
+                f"Editor."
             )
 
     def _unscaled_dtype(self) -> np.dtype:
-        """The dtype :meth:`_unscale` returns, chosen to carry the stored values exactly.
+        """The dtype :meth:`_unscale` returns, the narrowest that carries the counts.
 
         A stored float keeps its own width:  scaling it cannot recover precision
         it never had, and widening a float32 cube to float64 would double what a
@@ -1758,6 +1761,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         to ``float64``, because ``int32`` counts above 2**24 are not exactly
         representable in ``float32`` and narrowing them would drop precision
         with nothing reporting it.
+
+        float64 holds every ``int32`` count exactly, and 64-bit counts only up
+        to 2**53.  A packed ``int64`` above that is narrowed here, and no wider
+        float would help:  at those magnitudes float64's spacing already exceeds
+        one ``scale`` step, so adjacent counts are not distinct in physical
+        units either.  CF recommends byte, short or int for packed data, which
+        stays inside the exact range.
         """
         stored = super().get_elem_type()
         if np.issubdtype(stored, np.floating):

@@ -26,12 +26,14 @@ import unittest
 
 import netCDF4 as nc
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, osr
 
 import tests.context  # noqa: F401 -- adds src/ to sys.path
 
+from wiser.gui.similarity_transform_dialog import create_translated_dataset
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+from wiser.raster.georef_warp import TRANSFORM_TYPES, build_warp_kwargs, warp_dataset_to_path
 from wiser.raster.loader import RasterDataLoader
 
 SCALE = 2.0e-06
@@ -41,7 +43,9 @@ FILL = -32767
 BANDS, ROWS, COLS = 3, 4, 5
 
 
-class TestNetCDFScaling(unittest.TestCase):
+class _PackedNetCDFFixture:
+    """A synthetic netCDF carrying one packed variable and one unpacked one."""
+
     def setUp(self):
         self._tmp = tempfile.mkdtemp()
         self.path = os.path.join(self._tmp, "scaled.nc")
@@ -81,6 +85,8 @@ class TestNetCDFScaling(unittest.TestCase):
         stored = np.flipud(self.raw[band])
         return stored.astype(np.float32) * np.float32(SCALE) + np.float32(OFFSET)
 
+
+class TestNetCDFScaling(_PackedNetCDFFixture, unittest.TestCase):
     def test_scaled_variable_returns_physical_values(self):
         ds = self._open("rrs")
         arr = ds.get_band_data(1, filter_data_ignore_value=False)
@@ -202,6 +208,69 @@ class TestNetCDFScaling(unittest.TestCase):
         )
 
 
+class TestNetCDFScalingConsumers(_PackedNetCDFFixture, unittest.TestCase):
+    """The two call sites that reach past the read methods into ``gdal_dataset``.
+
+    Each hands the backing GDAL dataset to GDAL along with the dataset's
+    data-ignore value.  For a packed variable those two disagree -- the backing
+    dataset holds counts while the ignore value is physical -- so both guard on
+    ``reads_are_transformed()`` and take a per-band array path instead.  Nothing
+    but these tests holds that guard in place.
+    """
+
+    def test_similarity_translation_writes_physical_values(self):
+        ds = self._open("rrs")
+        out_path = os.path.join(self._tmp, "translated.tif")
+
+        create_translated_dataset(ds, (0.0, 1.0, 0.0, 0.0, 0.0, 1.0), out_path)
+
+        written = gdal.Open(out_path)
+        band = written.GetRasterBand(1)
+        # CreateCopy on the backing dataset would write Int16 counts here, with
+        # a physical nodata stamped on top of them.
+        self.assertEqual(gdal.GetDataTypeName(band.DataType), "Float32")
+        self.assertAlmostEqual(band.GetNoDataValue(), ds.get_data_ignore_value(), places=9)
+
+        # The fill pixel is excluded:  the shared writer fills masked entries
+        # with its own DEFAULT_IGNORE_VALUE rather than the dataset's, so it
+        # disagrees with the nodata asserted above on every dataset that takes
+        # this path, packed or not.
+        real = np.ones((ROWS, COLS), dtype=bool)
+        real[ROWS - 1, 0] = False
+        np.testing.assert_allclose(band.ReadAsArray()[real], self._expected(0)[real], rtol=1e-6)
+        written = None
+
+    def test_warp_writes_physical_values(self):
+        ds = self._open("rrs")
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(32611)
+        srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        gcps = [
+            gdal.GCP(500000.0 + col * 10.0, 4000000.0 - row * 10.0, 0, col, row)
+            for col, row in [(0.0, 0.0), (COLS, 0.0), (0.0, ROWS), (COLS, ROWS)]
+        ]
+        warp_kwargs, _ = build_warp_kwargs(gdal.GRA_NearestNeighbour, TRANSFORM_TYPES.POLY_1, srs)
+        out_path = os.path.join(self._tmp, "warped.tif")
+
+        warp_dataset_to_path(ds, gcps, warp_kwargs, srs, out_path)
+
+        written = gdal.Open(out_path)
+        band = written.GetRasterBand(1)
+        # Translating the backing dataset gives an Int16 VRT, and GDAL rounds
+        # the physical nodata to 0 against it:  zero-count pixels drop out as
+        # fill while the real fill resamples in as data.
+        self.assertEqual(gdal.GetDataTypeName(band.DataType), "Float32")
+        self.assertAlmostEqual(band.GetNoDataValue(), ds.get_data_ignore_value(), places=9)
+
+        values = band.ReadAsArray()
+        real = values[values != np.float32(band.GetNoDataValue())]
+        self.assertGreater(real.size, 0)
+        # Every stored count scales into a narrow band around the offset; a
+        # count that reached the output unscaled would be orders of magnitude out.
+        np.testing.assert_allclose(real, OFFSET, atol=1e-3)
+        written = None
+
+
 class TestNetCDFScalingContract(unittest.TestCase):
     """The open-time checks on a packed variable, driven without a real file."""
 
@@ -292,6 +361,18 @@ class TestNetCDFScalingContract(unittest.TestCase):
         # narrowing them would drop precision with nothing reporting it.
         impl = self._impl_with([self._Band(SCALE, OFFSET)] * 3, gdal_data_type=gdal.GDT_Int32)
         self.assertEqual(impl._unscaled_dtype(), np.dtype(np.float64))
+
+    def test_packed_64_bit_counts_are_carried_only_below_2_53(self):
+        # float64 is the widest this returns, and the docstring's exactness
+        # claim stops at 2**53.  Above it no float would do better:  float64's
+        # spacing there already exceeds one scale step.
+        impl = self._impl_with([self._Band(SCALE, OFFSET)] * 3, gdal_data_type=gdal.GDT_Int64)
+        self.assertEqual(impl._unscaled_dtype(), np.dtype(np.float64))
+
+        impl._scaling = (1.0, 0.0)
+        carried = impl._unscale(np.array([2**53 - 1, 2**53 + 1], dtype=np.int64))
+        self.assertEqual(int(carried[0]), 2**53 - 1)
+        self.assertNotEqual(int(carried[1]), 2**53 + 1)
 
     def test_scaled_fill_matches_the_scaled_data_exactly(self):
         # The masking compares data against the reported ignore value, so the
