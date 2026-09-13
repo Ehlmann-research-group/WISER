@@ -18,7 +18,7 @@ and CU Boulder. Questions: wiser_AT_lists.lasp.colorado.edu.
    * - :doc:`Install WISER <installation>`
      - Download an installer, or run from source
    * - :doc:`Tutorials and Example Workflows <tutorials/index>`
-     - Seven short walkthroughs on data that ships with WISER, then six applied
+     - Eight short walkthroughs on data that ships with WISER, then five applied
        labs on full public datasets
    * - :doc:`User Manual <user-content/user-manual>`
      - The reference for every pane, dialog and option
