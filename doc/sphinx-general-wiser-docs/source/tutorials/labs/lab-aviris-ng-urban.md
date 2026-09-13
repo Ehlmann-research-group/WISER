@@ -493,6 +493,6 @@ explanation of the difference.
 - **Find the stressed trees.** Compare NDVI against a red-edge position index
   computed from the 700–740 nm bands, which AVIRIS-NG samples finely enough to
   resolve. Red-edge position shifts before NDVI drops.
-- **Compare against EMIT.** {doc}`Lab C <lab-emit-dust>` uses the same
+- **Compare against EMIT.** {doc}`Lab D <lab-emit-dust>` uses the same
   measurement from orbit at 60 m. Run the same NDVI on both and see what 5 m
   resolves that 60 m averages away.

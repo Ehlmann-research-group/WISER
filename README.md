@@ -12,8 +12,8 @@ WISER is supported on macOS (ARM and Intel), Windows 10/11, and Linux.
 - **[WISER Documentation](https://ehlmann-research-group.github.io/WISER/)** —
   tutorials, user manual, developer guide, and plugin API reference
 - **[Tutorials](https://ehlmann-research-group.github.io/WISER/tutorials/index.html)** —
-  seven step-by-step walkthroughs on data that ships with this repository
-  (`src/test_utils/`), plus six applied labs on full public datasets
+  eight step-by-step walkthroughs on data that ships with this repository
+  (`src/test_utils/`), plus five applied labs on full public datasets
 - **[Plugin Repository](https://github.com/Ehlmann-research-group/WISER-Plugin-Repository)** —
   Community-contributed plugins
 
