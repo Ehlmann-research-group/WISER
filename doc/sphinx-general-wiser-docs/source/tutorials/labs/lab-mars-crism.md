@@ -18,12 +18,14 @@ below has click-to-download links and the equivalent commands.
 ## The question
 
 Jezero Crater held a lake. A delta built out into it, and the surrounding
-watershed carries olivine- and carbonate-bearing units. Carbonate forms in the
-presence of water and preserves biosignatures well, which is a large part of
-why *Perseverance* landed there in 2021. The detections were made from orbit,
-with CRISM, before any lander confirmed them.
+watershed carries olivine- and carbonate-bearing units. Carbonate forms where
+water has been, and on Earth carbonate rocks are among the better keepers of
+traces of past life, so a carbonate-bearing delta was an appealing place to send
+a rover. *Perseverance* landed there in 2021.
 
-In this lab you make those detections yourself.
+What makes this a good lab is that the carbonate was found from orbit, with
+CRISM, years before anything landed. In this lab you make that detection
+yourself, from the same instrument.
 
 | Mineral | Diagnostic absorptions | Why it matters |
 |---|---|---|
@@ -32,8 +34,13 @@ In this lab you make those detections yourself.
 | **Fe/Mg-smectite** | ~2300 nm with a 1400/1900 nm hydration pair | Prolonged water–rock interaction |
 | **Pyroxene** | broad bands near 1000 and 2000 nm | Primary igneous |
 
-Carbonate and Fe/Mg-smectite both absorb near 2300 nm. The **2510 nm** band
-separates them: carbonate has it, smectite does not.
+Carbonate and Fe/Mg-smectite both absorb near 2300 nm, so 2300 nm on its own
+cannot tell you which you have. The **2510 nm** band is what separates them:
+carbonate has it, smectite does not. That pairing is how the carbonate in this
+region was originally identified from CRISM
+([Ehlmann et al. 2008](https://doi.org/10.1126/science.1164759), which reports
+Mg-carbonate in Nili Fossae from its 2.3, 2.5 and 4 µm absorptions). Parts 2 and
+3 have you use the same pair.
 
 ---
 
@@ -335,14 +342,23 @@ detection holds.
 
 ## Questions to answer
 
-1. Why is the 2510 nm band, rather than the deeper 2310 nm band, the one that
-   identifies carbonate?
-2. Your 2310 nm band-depth map lights up along one image column across the
-   whole scene. What is that, and how would you confirm it?
-3. What does a ratioed spectrum let you claim, and what does it stop you from
-   claiming?
-4. Olivine band depth increases with both abundance **and** grain size. What
-   does that do to a map you might want to read as abundance?
+1. In Part 2 you saw that carbonate and smectite both absorb near 2310 nm. Now
+   look at 2510 nm in each spectrum. Which one has a band there? Given that
+   2310 nm is the deeper feature, why is 2510 nm the more useful one for telling
+   the two apart?
+2. Your 2310 nm band-depth map lights up along a single image column, top to
+   bottom. That is not geology. What is it, and how would you convince yourself
+   you were right?
+3. Part 2 has you ratio a spectrum against a bland reference from the same
+   scene. What does that let you say about your pixel that you could not say
+   before, and what does it stop you from saying?
+4. Olivine band depth gets deeper with more olivine, but also with coarser
+   grains. If you handed someone your olivine map, what would you want to warn
+   them not to read it as?
+5. If you downloaded the `_SR` product, its `BD2500` and `OLINDEX` bands are the
+   mission's versions of the maps you built in Part 3. Open one beside yours.
+   Do they agree about where the carbonate is, and if not, whose thresholds
+   would you question first?
 
 ---
 

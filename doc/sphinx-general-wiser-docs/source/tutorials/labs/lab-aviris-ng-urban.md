@@ -469,16 +469,20 @@ explanation of the difference.
 
 ## Questions to answer
 
-1. A green roof and a tree are the same color in the true-color composite.
-   Name two bands that separate them and explain the physics of each.
-2. Your NDVI map has a value of −3.35 somewhere. Where does that come from, and
-   why does it not appear once you apply a 2.5% stretch?
-3. PCA gave 372 components for a 425-band cube. Where did the other 53 go, and
-   why is dropping them the right behavior rather than a loss?
-4. K-means on the raw cube is noisier than K-means on MNF components. Explain
-   why in terms of what each method is ranking.
-5. The pool spectrum is essentially zero beyond 750 nm. What does that imply
-   for detecting *shallow* or *turbid* water, as opposed to a clean deep pool?
+1. A green roof and a green tree look the same in your true-color image. Find
+   two bands where their spectra clearly separate, and say what is different
+   about the two surfaces at each of those wavelengths.
+2. Somewhere in your NDVI map there is a value of −3.35. NDVI is supposed to run
+   from −1 to 1. Where did that come from, and why does it stop being a problem
+   once you apply a 2.5% stretch?
+3. You ran PCA on a 425-band cube and got 372 components back. What happened to
+   the other 53, and why is WISER right to drop them rather than hand you empty
+   bands?
+4. K-means on the raw cube comes out noisier than K-means on the MNF components.
+   Both are clustering the same scene. What is each one sorting the pixels by?
+5. The pool spectrum falls to almost nothing past 750 nm, which is what makes
+   clean deep water easy to spot. What would that same behavior do to your
+   chances of finding shallow or muddy water?
 
 ---
 

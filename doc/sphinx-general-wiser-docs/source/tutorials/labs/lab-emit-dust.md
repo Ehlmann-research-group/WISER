@@ -21,24 +21,33 @@ look different; the steps and the diagnostic wavelengths do not change.
 
 ## The question
 
-Windblown mineral dust warms or cools the atmosphere depending on what it is
-made of. Iron-oxide-rich dust absorbs sunlight and warms; clay-rich dust
-scatters and cools. Before EMIT, the mineral composition of the world's dust
-source regions was largely guessed at, and climate models carried that guess as
-a major uncertainty.
+Windblown mineral dust changes how much sunlight reaches the ground, and which
+way it pushes depends on what the dust is made of. Iron oxides are dark and
+absorb; clays are paler and scatter more of the light back. What that adds up
+to across the whole atmosphere is genuinely unsettled. EMIT was flown to help
+pin it down: JPL describes the mission's maps as intended to improve forecasts
+of ["the role of mineral dust in the radiative forcing (warming or cooling) of
+the atmosphere"](https://science.jpl.nasa.gov/projects/EMIT/). Which of the two
+it comes out as, globally, is still an open question.
 
-EMIT was flown to measure it. In this lab you do the core EMIT measurement on
-one scene: separate iron oxides from clays and carbonates, and say what that
-means for the dust that region emits.
+Part of why it is unsettled is that nobody had measured what the world's dust
+source regions are actually made of. That is the measurement you are doing here,
+on one scene: separate iron oxides from clays and carbonates, and say what that
+implies for the dust this region emits.
 
-| Mineral group | Diagnostic feature | Radiative effect of the dust |
+| Mineral group | Diagnostic feature | Optical behavior |
 |---|---|---|
-| **Hematite** | broad ~860 nm; steep red slope | Strongly absorbing — warming |
-| **Goethite** | broad ~920 nm; steep red slope | Absorbing — warming |
-| **Kaolinite** | doublet 2160 + 2200 nm | Scattering — cooling |
-| **Illite / muscovite** | 2200 nm | Scattering — cooling |
+| **Hematite** | broad ~860 nm; steep red slope | Strongly absorbing |
+| **Goethite** | broad ~920 nm; steep red slope | Absorbing |
+| **Kaolinite** | doublet 2160 + 2200 nm | Scattering |
+| **Illite / muscovite** | 2200 nm | Scattering |
 | **Calcite / dolomite** | 2340 nm | Scattering |
 | **Gypsum** | 1750 nm, 2210 nm | Scattering |
+
+Whether a mineral absorbs or scatters is straightforward; these are the
+ten-odd minerals EMIT was built to look for. Turning a map of them into a
+number for warming or cooling is the hard part, and not something this lab
+attempts.
 
 ---
 
@@ -58,6 +67,13 @@ Taklamakan, or the Lake Eyre basin.
 
 Each granule ships three NetCDF files: `RFL` (reflectance, the one you want),
 `RFLUNCERT` (per-band uncertainty) and `MASK` (cloud and quality flags).
+
+If you want something to check your own work against later, EMIT also publishes
+a [Level-2B mineral product](https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2bmin-001)
+for the same scenes, at the same 60 m, which reports an identified mineral and a
+band depth per pixel for ten minerals including hematite, goethite, kaolinite
+and calcite. Part 4 has you compute band depths by hand; downloading the L2B
+granule for your scene lets you put the two side by side in WISER.
 
 ```{admonition} Confirm your NetCDF reading first
 :class: note
@@ -311,25 +327,34 @@ area assigned to each group.
    bare ground.
 2. Locate the likely emitting surfaces — dry lake beds, alluvial fans, dune
    fields, disturbed agricultural soil.
-3. State whether dust emitted from **this** region would tend to warm or cool,
-   and how confident you are.
+3. Say which way you would expect dust from **this** region to lean, absorbing
+   or scattering, and how much you would trust that.
 
-**Deliverable 5:** a paragraph answering (3), with your uncertainties named
-explicitly: mixed pixels, the masking you applied, grain-size effects on band
-depth, and residual atmospheric correction error.
+**Deliverable 5:** a paragraph answering (3), naming what could undermine it:
+mixed pixels, the masking you applied, grain size affecting band depth, and
+leftover atmospheric correction error. You are stopping at absorbing versus
+scattering; say why getting to warming versus cooling would take more than one
+scene.
 
 ---
 
 ## Questions to answer
 
-1. Band depth responds to grain size as well as abundance. What does that do to
-   a claim that "this area is 40% hematite"?
-2. Why does this lab mask vegetation before mapping minerals rather than after?
-3. EMIT samples at ~7.5 nm; a laboratory spectrometer samples at ~1 nm. Which
-   features here survive that difference and which are at risk?
-4. You detect kaolinite over an irrigated field. Give a mineralogical
-   explanation and an artifact explanation, and say how you would distinguish
-   them.
+1. Your band-depth map is brightest where a mineral's absorption is deepest.
+   But a coarse-grained patch and an abundant patch can both look bright. What
+   does that do to a sentence like "this area is 40% hematite"?
+2. The lab has you mask vegetation in Part 2, before mapping minerals in Parts 3
+   and 4. What would have gone wrong if you had done it the other way round?
+3. EMIT samples about every 7.5 nm. A laboratory spectrometer samples about
+   every 1 nm. Look at the kaolinite doublet near 2160 and 2200 nm in your
+   spectra. Is it still two features, and would you have known to call it a
+   doublet from EMIT alone?
+4. You find what looks like kaolinite over an irrigated field. Give one
+   explanation where the mineral is really there and one where something else
+   produced that shape, and say what you would look at to tell them apart.
+5. If you downloaded the L2B mineral product for your scene, open it next to
+   your own band-depth maps. Where do you and the mission disagree, and does
+   that make you doubt your bands or their thresholds?
 
 ---
 

@@ -18,8 +18,11 @@ you need, or a click-to-download link for the whole flight line.
 Cuprite, Nevada is a common reference site for imaging spectroscopy. A hydrothermal
 system altered the volcanic rocks into concentric mineral zones, vegetation
 cover is close to nil, and the outcrops are large enough to resolve at 15 m.
-Many method papers in the field use it as their demonstration site, so your
-results have a substantial literature to check against.
+Many method papers use it as their demonstration site, so your results have a
+substantial literature to check against. The most detailed mineral map of the
+site was made from AVIRIS data much like yours
+([Swayze et al. 2014](https://doi.org/10.2113/econgeo.109.5.1179)), and it is
+worth looking at once you have your own maps.
 
 The alteration zoning, from the center of each hydrothermal center outwards:
 
@@ -428,18 +431,19 @@ illumination).
 
 ## Questions to answer
 
-1. You have a SAM angle image and an SFF RMSE image for kaolinite over the same
-   ground. Find pixels where the two disagree. What would you check to decide
-   which one to believe?
-2. The decorrelation stretch made the alteration zones obvious, but Part 1
-   warned against reading mineralogy from its colors. Why not — what exactly
-   does a color in that image correspond to?
-3. You get a high SAM score for buddingtonite in an area with no other
-   alteration minerals. What would you check before reporting it?
-4. Your unmixing RMSE is high across a whole playa. Give two possible causes
-   and say how you would tell them apart.
-5. Why does restricting the wavelength range change a SAM result at all, given
-   that SAM is supposed to be insensitive to brightness?
+1. Put your SAM result and your SFF result for kaolinite side by side and find
+   somewhere they disagree. The two are measuring different things about the
+   same spectrum. What would you look at to decide which one to trust there?
+2. The decorrelation stretch in Part 1 made the alteration zones jump out, but
+   the text warned you not to read mineralogy off its colors. What does a color
+   in that image actually correspond to?
+3. You get a strong buddingtonite match in a spot with no other alteration
+   minerals around it. Before you tell anyone, what would you want to check?
+4. Your unmixing RMSE is high across a whole playa. Give two things that could
+   cause that and say how you would tell which it was.
+5. SAM is supposed to ignore brightness, yet changing the wavelength range you
+   run it over changes the answer. Why should that be, if brightness is not what
+   it is comparing?
 
 ---
 
