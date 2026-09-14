@@ -13,10 +13,12 @@ This lab uses PACE data you download yourself, and you need a
 before you start. Everything is done through the
 browser; **Get the data** below has the search links and the steps.
 
-This lab also needs a WISER newer than 3.0b0. PACE stores reflectance as packed
-integers with a scale factor, and 3.0b0 reads the stored integers, so every
-spectrum comes back in the tens of thousands instead of in reflectance units.
-Build from source, or use a later release.
+This lab also needs a WISER newer than 3.0b0. `Rrs` is
+[stored as scaled integers](https://www.earthdata.nasa.gov/data/catalog/ob-cloud-pace-oci-l2-aop-3.1),
+with the real value recovered from the variable's `scale_factor` and
+`add_offset` attributes. WISER 3.0b0 reads the stored integers and ignores
+those attributes, so every spectrum comes back in the tens of thousands
+instead of in reflectance units. Build from source, or use a later release.
 ```
 
 ---
@@ -25,29 +27,35 @@ Build from source, or use a later release.
 
 Ocean color satellites have counted chlorophyll for decades, but a handful of
 broad bands can only tell you *how much* phytoplankton there is. Different
-groups — diatoms, cyanobacteria, coccolithophores, dinoflagellates — carry
-different accessory pigments with narrow, distinctive absorptions. Resolving
-them needs a spectrometer.
+groups carry different pigments, and those pigments absorb at different
+wavelengths, so an instrument that samples the spectrum finely can start to say
+something about *which* phytoplankton. How far that can be taken is still being
+worked out. The IOCCG's review of the problem concludes that identifying
+phytoplankton groups from satellite data
+[remains uncertain](https://www.ioccg.org/reports/IOCCG_Report_15_2014.pdf), so
+this lab stays well short of it. You will separate a few water types that look
+different from each other, not name species.
 
-PACE flies one. Its Ocean Color Instrument samples continuously from the
-ultraviolet into the near-infrared, making it possible to ask *which*
-phytoplankton, and to separate their signal from the sediment and dissolved
-organic matter that confound coastal water.
+PACE's Ocean Color Instrument samples from the ultraviolet into the
+near-infrared, which is what lets you do all of the band math below on one
+scene.
 
-| Pigment | Absorption | Found in |
+Here are the bands this lab uses, and why each one:
+
+| Band | Used in | Why that wavelength |
 |---|---|---|
-| **Chlorophyll-a** | 443 nm and 675 nm | All phytoplankton |
-| **Chlorophyll-b** | 470 nm | Green algae, prochlorophytes |
-| **Chlorophyll-c** | 460, 630 nm | Diatoms, dinoflagellates |
-| **Phycoerythrin** | ~565 nm | Cryptophytes, some cyanobacteria |
-| **Phycocyanin** | ~620 nm | **Cyanobacteria — harmful blooms** |
-| **Carotenoids** | 490–530 nm | Most groups; photoprotective |
+| **443 nm** | blue-green ratio | Chlorophyll-a absorbs strongly in the blue |
+| **555 nm** | blue-green ratio | Near the green reflectance peak of algal water |
+| **620 nm** | cyanobacteria index | Phycocyanin, a cyanobacterial pigment, absorbs here |
+| **600, 650 nm** | cyanobacteria index | Shoulders either side of 620, for the baseline |
+| **665, 710 nm** | fluorescence line height | Shoulders either side of 685, for the baseline |
+| **685 nm** | fluorescence line height | Chlorophyll fluorescence emission peak |
 
-Three things drive color in coastal water and must be told apart.
-Phytoplankton show pigment absorptions and a fluorescence peak near 685 nm.
-Colored dissolved organic matter (CDOM) has no features, only a smooth
-exponential rise towards the blue. Suspended sediment is high and broadly flat,
-rising to the red.
+You will see three kinds of spectrum in a coastal scene, and most of the work
+is telling them apart. Phytoplankton show pigment absorptions and a small peak
+near 685 nm. Colored dissolved organic matter (CDOM) shows no features, only a
+smooth rise towards the blue. Suspended sediment is high across the visible and
+rises towards the red.
 
 ---
 
@@ -56,7 +64,15 @@ rising to the red.
 **Product:** PACE OCI **Level-2 Apparent Optical Properties** (`AOP`), which
 carries remote-sensing reflectance $R_{rs}$ in sr⁻¹ across 172 wavelengths from
 346 to 719 nm. Every wavelength and value
-quoted in this lab assumes AOP. The **Regional Surface Reflectance** product
+quoted in this lab assumes AOP.
+
+Alongside `Rrs`, the granule holds `l2_flags` — a per-pixel bitmask marking
+cloud, land, glint and the other conditions that stopped a retrieval, and
+`nflh`, a normalized fluorescence line height computed by the mission. Both are
+[listed in the product documentation](https://www.earthdata.nasa.gov/data/catalog/ob-cloud-pace-oci-l2-aop-3.1),
+and both come back in WISER's subdataset list when you open the file. Part 3
+computes its own fluorescence index, which gives you something to check `nflh`
+against. The **Regional Surface Reflectance** product
 (`SFREFL`) — 122 wavelengths from 346 to 895 nm plus 5 SWIR bands — is a
 related alternative, but it carries `rhos`, dimensionless surface reflectance,
 and has no `Rrs` variable at all.
@@ -176,7 +192,9 @@ b443 / b555
 ```
 
 High ratio → clear water; low → more chlorophyll. It is a proxy, not a
-concentration, and it fails in coastal water where CDOM also absorbs blue.
+concentration, and in coastal water it cannot tell the two apart: chlorophyll
+and CDOM both absorb blue, so both push the ratio the same direction. That is
+the limitation Part 3's other two indices are built to work around.
 
 :::{figure} ../../_static/tutorials/lab_pace_bandmath.png
 :width: 100%
@@ -208,20 +226,30 @@ The 685 nm bump above a baseline between its shoulders:
 b685 - (0.5 * b665 + 0.5 * b710)
 ```
 
-FLH is far more robust in turbid coastal water, because sediment and CDOM
-affect the three bands almost equally and drop out of the difference.
+This is a difference rather than a ratio, and that is the point: sediment and
+CDOM vary smoothly across 665, 685 and 710 nm, so whatever they add to the
+baseline is largely subtracted back out. A narrow feature at 685 nm survives;
+a smooth slope does not.
+
+The granule's own `nflh` variable is the mission's version of this. Open it
+beside your result and compare.
 
 ### Cyanobacteria index
 
-Phycocyanin absorbs near 620 nm, and among the phytoplankton in these scenes it
-is essentially confined to cyanobacteria:
+Phycocyanin absorbs near 620 nm, and among the phytoplankton common in these
+waters it is mostly cyanobacteria that carry it. So a dip at 620 nm that the
+wavelengths either side of it do not share is worth looking for. The expression
+has the same shape as the one above, a feature measured against a baseline
+built from its two shoulders:
 
 ```text
 1 - b620 / (0.5 * b600 + 0.5 * b650)
 ```
 
-A positive result over a bloom is evidence of a cyanobacterial rather than a
-diatom bloom, which matters because cyanobacterial blooms can be toxic.
+A positive value means 620 nm came back darker than its shoulders predict,
+which may point to a cyanobacterial bloom rather than, say, a diatom one. Treat
+it as a hint rather than an identification. Other things darken that part of the
+spectrum too, and water sampled from a boat is what would settle it.
 
 Display each index with a sequential colormap and a tight stretch.
 
@@ -261,15 +289,22 @@ its centroid spectrum.
 
 ## Questions to answer
 
-1. Why does the blue-green ratio overestimate chlorophyll in CDOM-rich water,
-   and why is fluorescence line height less affected?
-2. The water-leaving signal is a small fraction of what the sensor sees. What
-   does that imply about how much a 1% atmospheric-correction error matters
-   here compared with a land scene?
-3. PACE pixels are about 1 km. What does that do to your ability to map a river
-   plume, and what would you need instead?
-4. You find high FLH but no phycocyanin absorption. What kind of bloom is it,
-   and does it warrant a health advisory?
+1. Your blue-green ratio map and your fluorescence map disagree over the plume,
+   even though both were built from the same pixels. One divides two bands, the
+   other subtracts a baseline. Why would sediment affect those two differently?
+2. The granule comes with its own `nflh` band. Open it next to the fluorescence
+   map you made in Part 3. Do they broadly agree? If not, what would you try
+   changing first?
+3. Open `l2_flags` and look at how much of the scene has no retrieval at all.
+   Does that change how you would describe the classes you made in Part 5?
+4. In Part 1, WISER applied the file's scale factor and offset for you. That is
+   what puts your Part 2 spectra in the range you plotted them on, a few
+   hundredths of a sr⁻¹. Without it they would come back in the tens of
+   thousands. What might someone conclude about this water if they did not
+   notice?
+5. PACE pixels are about 1 km across. Compare a spectrum from the middle of the
+   plume with one a few pixels offshore. How sharp is the edge between them, and
+   how much of the plume do you think you are actually seeing?
 
 ---
 
