@@ -430,7 +430,7 @@ that variance is *within-surface* — illumination, shadow, sub-pixel mixing,
 sensor noise — rather than *between-material*. The fix is Part 5: reduce to the
 components that carry signal, then cluster those, and compare the two maps.
 
-Cluster indices are also arbitrary. Use **View Centroids** to plot each
+Cluster indices are also arbitrary. Click **View Centroids**, then **View** on your run's row, to plot each
 cluster's mean spectrum and find out what it actually is before naming it.
 ```
 

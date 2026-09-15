@@ -1024,15 +1024,33 @@ def kmeans():
 
     before = len(s.state.get_datasets())
     dlg.perform_kmeans()
-    dlg.close()
     if s.wait_for_datasets(before + 1, timeout_s=600):
-        for w in list(getattr(s.state, "_matplotlib_display_widgets", [])):
-            if "entroid" in (w.windowTitle() or ""):
-                s.shot("t5_kmeans_centroids", w)
-                break
+        # Two clicks, not one:  View Centroids opens a run-history table, and
+        # the View button on a row is what plots the centroid spectra.  The
+        # plot is registered in _generic_spectrum_plots rather than in
+        # _matplotlib_display_widgets.
+        dlg._on_view_centroids()
+        s.soft_pump()
+        history = dlg._centroids_dialog
+        if history is not None:
+            records = history._history.get_records()
+            if records:
+                history._on_view_clicked(records[-1].run_id)
+                s.soft_pump()
+                plots = list(getattr(s.state, "_generic_spectrum_plots", []))
+                if plots:
+                    plot = plots[-1]
+                    plot.resize(900, 620)
+                    s.soft_pump()
+                    s.shot("t5_kmeans_centroids", plot)
+            history.close()
+        dlg.close()
+
         labels = s.state.get_datasets()[-1]
         s.display(labels, bands=(0,), colormap="tab10")
         s.shot("t5_kmeans_labels")
+    else:
+        dlg.close()
 
     s.close()
 
