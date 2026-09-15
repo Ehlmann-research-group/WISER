@@ -401,44 +401,79 @@ a 2200 nm minimum, and only kaolinite has the 2160 nm shoulder, so SFF over a
 
 ### 3d. One map, four minerals
 
-So far you have four separate maps, one per mineral. A geologist wants one map
-with four colors. Band math will build it, because `SAM CLS` bands are 1 where
-the mineral was detected and 0 where it was not, and you can use those as
-switches.
+So far you have separate maps, one per mineral. A geologist wants one map with
+four colors. Band math will build it from the band depths you computed in 3a.
 
-The catch is overlap. A pixel can pass the threshold for both kaolinite and
-muscovite, so you cannot simply add the four bands together — a pixel that is
-both would score 2 + 3 = 5 and come out as a mineral you never mapped. Instead,
-give the minerals a precedence order and let each one claim only the pixels the
-ones before it did not:
+First repeat 3a for kaolinite–muscovite and calcite, so you have three band
+depths open: `AluniteBD2170`, `KaolMuscBD2200` and `CalciteBD2340`.
+
+```{admonition} Clear the data-ignore value on each band depth first
+:class: note
+Band math carries the source dataset's data-ignore value through the
+expression. This flight line declares `data ignore value = -9999`, so each band
+depth inherits an ignore value of its own — and the moment you compare that
+value against a threshold, `9999 > 0.05` evaluates to `1`, which is exactly the
+number your first mineral class uses. Every alunite pixel would be marked
+no-data.
+
+For each of the three band-depth datasets, right-click it, choose **Edit...** to
+open the **Dataset Editor**, clear the **data ignore** field, and click **OK**.
+Tracked as [#798](https://github.com/Ehlmann-research-group/WISER/issues/798); until that is fixed, clearing the field is the fix.
+```
+
+Now one expression assigns every pixel a class. The catch is overlap: a pixel
+can pass the threshold for two minerals at once, so you cannot add the three
+tests together — a pixel that is both would score 1 + 2 = 3 and come out as a
+mineral you never mapped. Give the minerals a precedence order instead, and let
+each one claim only the pixels the ones before it did not:
 
 1. Open **Tools ▸ Band math...** and type:
 
    ```text
-   a + (1 - a) * k * 2 + (1 - a) * (1 - k) * m * 3 + (1 - a) * (1 - k) * (1 - m) * c * 4
+   (al > 0.05) + (1 - (al > 0.05)) * (km > 0.05) * 2 + (1 - (al > 0.05)) * (1 - (km > 0.05)) * (ca > 0.05) * 3
    ```
 
-2. Bind `a`, `k`, `m` and `c` to the alunite, kaolinite, muscovite and calcite
-   bands of your **`SAM CLS`** dataset, all as **Image Band**.
+2. Bind `al`, `km` and `ca` to band 0 of the three band-depth datasets, all as
+   **Image Band**.
 3. Name the result `MineralClasses` and click **OK**.
-4. Switch to it with **Select dataset to view**, open the **Band chooser**,
-   select **Grayscale**, tick **Use a colormap** and choose a categorical
-   colormap such as **tab10**. Click **OK**.
 
-Every pixel now holds 0 for unclassified, 1 for alunite, 2 for kaolinite, 3 for
-muscovite or 4 for calcite, drawn in four distinct colors.
+:::{figure} ../../_static/tutorials/lab_cuprite_combine_bandmath.png
+:width: 80%
+:align: center
+:alt: The band math dialog with the precedence expression and its three band-depth bindings
+:::
+
+4. Switch to the result with **Select dataset to view**, open the **Band
+   chooser**, select **Grayscale**, tick **Use a colormap** and choose a
+   categorical colormap such as **tab10**. Click **OK**.
+
+:::{figure} ../../_static/tutorials/lab_cuprite_mineral_classes.png
+:width: 100%
+:align: center
+:alt: The four-color mineral map: alunite in red through the opalised cores, kaolinite and muscovite in pink around them, calcite in cyan over the playa
+:::
+
+Every pixel now holds 0 for unclassified, 1 for alunite, 2 for
+kaolinite–muscovite or 3 for calcite, in four distinct colors. Alunite picks out
+the two opalised cores, the kaolinite–muscovite class wraps around them, and
+calcite covers the playa to the west — the zoning from the table at the top of
+this lab, mapped from the data.
 
 ```{admonition} Interpretation
 :class: note
 Read the precedence order as part of your method, not as a detail. You put
-alunite first, so anywhere alunite and kaolinite were both detected is now
-colored alunite, and the kaolinite class is really "kaolinite where alunite was
-not." Reorder the expression and the boundaries between zones move. Say which
-order you used when you present the map.
+alunite first, so anywhere alunite and kaolinite were both above threshold is
+now colored alunite, and the kaolinite class is really "kaolinite where alunite
+was not." Reorder the expression and the boundaries between zones move. Say
+which order you used when you present the map.
 
-This is also why the map is worth less than the four maps it came from. A single
+The 0.05 threshold is the other decision. It is shallow enough to keep weak
+outcrops and deep enough to exclude unaltered ground, but it is a choice, and
+the map has no way of showing you how close a pixel was to it.
+
+This is also why the single map is worth less than the three it came from. One
 color per pixel throws away the fact that a pixel matched two minerals, which is
-usually the interesting thing about it. Keep both.
+often the interesting thing about it. Keep both.
 ```
 
 ### 3e. Let the classifier find the zones
