@@ -505,10 +505,13 @@ CUPRITE_BANDS = {
     860: 53,
     1650: 136,
     2100: 183,
+    2130: 186,
     2160: 189,
     2170: 190,
     2200: 193,
     2250: 198,
+    2260: 199,
+    2280: 201,
     2340: 207,
     2400: 213,
 }
@@ -1239,6 +1242,73 @@ def board():
 # --------------------------------------------------------------------------
 
 
+def _bandmath(s, expression, result_name, bindings, shot_name=None):
+    """Evaluate *expression* through the real band-math pipeline.
+
+    *bindings* maps each variable name to a ``(dataset_id, band_index)`` pair,
+    so an expression can combine bands from several datasets -- which is what
+    building one classified map out of several single-band results requires.
+    """
+    from functools import partial
+
+    from wiser import bandmath as bm
+    from wiser.bandmath.utils import bandmath_success_callback
+    from wiser.gui.bandmath_dialog import BandMathDialog
+
+    dlg = BandMathDialog(s.state)
+    dlg.resize(960, 660)
+    dlg.show()
+    s.soft_pump()
+    dlg._ui.ledit_expression.setText(expression)
+    dlg._analyze_expr()
+    s.soft_pump()
+
+    tbl = dlg._ui.tbl_variables
+    for row in range(tbl.rowCount()):
+        name = tbl.item(row, 0).text()
+        chooser = tbl.cellWidget(row, 2)
+        if name not in bindings or not hasattr(chooser, "dataset_chooser"):
+            continue
+        ds_id, band_index = bindings[name]
+        index = chooser.dataset_chooser.findData(ds_id)
+        if index >= 0:
+            chooser.dataset_chooser.setCurrentIndex(index)
+            chooser._populate_band_chooser()
+        band_row = chooser.band_chooser.findData(band_index)
+        chooser.band_chooser.setCurrentIndex(band_row if band_row >= 0 else band_index)
+    dlg._ui.ledit_result_name.setText(result_name)
+    s.soft_pump()
+    if shot_name is not None:
+        s.shot(shot_name, dlg)
+
+    expr = dlg.get_expression()
+    expr_info = dlg.get_expression_info()
+    variables = dlg.get_variable_bindings()
+    dlg.close()
+    s.pump()
+
+    before = len(s.state.get_datasets())
+    bm.start_bandmath_evaluation(
+        bandmath_expr=expr,
+        expr_info=expr_info,
+        result_name=result_name,
+        cache=s.state.get_cache(),
+        variables=variables,
+        app_state=s.state,
+        succeeded_callback=partial(
+            bandmath_success_callback,
+            s.win,
+            s.state,
+            expression=expr,
+            batch_enabled=False,
+            load_into_wiser=True,
+        ),
+    )
+    if not s.wait_for_datasets(before + 1, timeout_s=900):
+        return None
+    return s.state.get_datasets()[-1]
+
+
 def _band_depth_bandmath(s, shot_name, result_name, centre, low, high, bands):
     """Run a linear-continuum band depth through the real band-math pipeline.
 
@@ -1413,6 +1483,72 @@ def cuprite_bandmath():
 # --------------------------------------------------------------------------
 # Lab C: Jezero Crater, Mars -- CRISM MTRDR
 # --------------------------------------------------------------------------
+
+
+@scene("cuprite_classes")
+def cuprite_classes():
+    """Cuprite: three band depths thresholded and merged into one mineral map."""
+    require(CUPRITE, "the Cuprite AVIRIS-Classic subset")
+
+    s = Shoot(size=(1500, 950))
+    ds = s.open(CUPRITE)
+    s.show_all_panes()
+    b = CUPRITE_BANDS
+    dsid = ds.get_id()
+
+    # One band depth per mineral, each against a linear continuum between its
+    # shoulders.  Clearing the ignore value afterwards is load-bearing:  band
+    # math carries the source's ignore value through the expression, so the
+    # depth inherits one, and a later comparison evaluates that value too --
+    # `9999 > 0.05` is 1, which would make the mineral class its own no-data.
+    depths = {}
+    for key, name, centre, low, high in [
+        ("al", "AluniteBD2170", 2170, 2100, 2250),
+        ("km", "KaolMuscBD2200", 2200, 2130, 2280),
+        ("ca", "CalciteBD2340", 2340, 2260, 2400),
+    ]:
+        f = (centre - low) / (high - low)
+        expr = f"1 - c / ({1 - f:.3f} * a + {f:.3f} * b)"
+        result = _bandmath(
+            s,
+            expr,
+            name,
+            {"a": (dsid, b[low]), "b": (dsid, b[high]), "c": (dsid, b[centre])},
+        )
+        if result is None:
+            s.close()
+            return
+        result.set_data_ignore_value(None)
+        depths[key] = result
+
+    # Merge in one expression, with an explicit precedence:  alunite, then
+    # kaolinite/muscovite, then calcite.  Each mineral claims only the pixels
+    # the earlier ones left, so overlapping detections cannot sum into a class
+    # that was never mapped.
+    combine = (
+        "(al > 0.05)"
+        " + (1 - (al > 0.05)) * (km > 0.05) * 2"
+        " + (1 - (al > 0.05)) * (1 - (km > 0.05)) * (ca > 0.05) * 3"
+    )
+    classes = _bandmath(
+        s,
+        combine,
+        "MineralClasses",
+        {
+            "al": (depths["al"].get_id(), 0),
+            "km": (depths["km"].get_id(), 0),
+            "ca": (depths["ca"].get_id(), 0),
+        },
+        shot_name="lab_cuprite_combine_bandmath",
+    )
+    if classes is None:
+        s.close()
+        return
+    classes.set_data_ignore_value(None)
+
+    s.display(classes, bands=(0,), colormap="tab10")
+    s.shot("lab_cuprite_mineral_classes", frame=CUPRITE_DISTRICT)
+    s.close()
 
 
 @scene("crism_overview")
