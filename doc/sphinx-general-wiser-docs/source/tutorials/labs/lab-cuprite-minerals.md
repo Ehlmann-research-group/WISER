@@ -399,9 +399,76 @@ position of one feature. Kaolinite and muscovite share an overall SWIR slope and
 a 2200 nm minimum, and only kaolinite has the 2160 nm shoulder, so SFF over a
 2120–2250 nm window should separate them better than SAM does.
 
-**Deliverable 3:** the alunite band-depth map from 3a alongside SAM and SFF
-maps for the same four minerals, and a paragraph on where the three disagree
-and which you trust there.
+### 3d. One map, four minerals
+
+So far you have four separate maps, one per mineral. A geologist wants one map
+with four colors. Band math will build it, because `SAM CLS` bands are 1 where
+the mineral was detected and 0 where it was not, and you can use those as
+switches.
+
+The catch is overlap. A pixel can pass the threshold for both kaolinite and
+muscovite, so you cannot simply add the four bands together — a pixel that is
+both would score 2 + 3 = 5 and come out as a mineral you never mapped. Instead,
+give the minerals a precedence order and let each one claim only the pixels the
+ones before it did not:
+
+1. Open **Tools ▸ Band math...** and type:
+
+   ```text
+   a + (1 - a) * k * 2 + (1 - a) * (1 - k) * m * 3 + (1 - a) * (1 - k) * (1 - m) * c * 4
+   ```
+
+2. Bind `a`, `k`, `m` and `c` to the alunite, kaolinite, muscovite and calcite
+   bands of your **`SAM CLS`** dataset, all as **Image Band**.
+3. Name the result `MineralClasses` and click **OK**.
+4. Switch to it with **Select dataset to view**, open the **Band chooser**,
+   select **Grayscale**, tick **Use a colormap** and choose a categorical
+   colormap such as **tab10**. Click **OK**.
+
+Every pixel now holds 0 for unclassified, 1 for alunite, 2 for kaolinite, 3 for
+muscovite or 4 for calcite, drawn in four distinct colors.
+
+```{admonition} Interpretation
+:class: note
+Read the precedence order as part of your method, not as a detail. You put
+alunite first, so anywhere alunite and kaolinite were both detected is now
+colored alunite, and the kaolinite class is really "kaolinite where alunite was
+not." Reorder the expression and the boundaries between zones move. Say which
+order you used when you present the map.
+
+This is also why the map is worth less than the four maps it came from. A single
+color per pixel throws away the fact that a pixel matched two minerals, which is
+usually the interesting thing about it. Keep both.
+```
+
+### 3e. Let the classifier find the zones
+
+The map in 3d needed you to name four minerals first. K-means does not.
+
+1. Run **Tools ▸ Data Analysis ▸ K-means** on the cube with **K clusters** set
+   to 6, and a fixed **Random Seed**.
+2. Display the labels with a categorical colormap, as in 3d.
+3. Reopen the **K-means Dialog** and click **View Centroids**. Each cluster's
+   mean spectrum is plotted together.
+4. Work along the plot and name each cluster from its SWIR features: a minimum
+   at 2170 nm is alunite, 2200 nm with a 2160 shoulder is kaolinite, 2200 nm
+   without the shoulder is muscovite, 2340 nm is calcite. Clusters with no SWIR
+   feature are unaltered ground.
+
+```{admonition} Interpretation
+:class: note
+This is the step that separates a spectral image from a picture. The classifier
+grouped pixels by the shape of their spectra without being told what any mineral
+looks like, and **View Centroids** hands you the average spectrum of each group
+so you can identify it afterwards. Compare the result against your 3d map: where
+the two agree you have a mineral zone that shows up whether or not you went
+looking for it.
+```
+
+**Deliverable 3:** the alunite band-depth map from 3a, SAM and SFF maps for the
+same four minerals, and the combined mineral map from 3d. Add a paragraph on
+where the methods disagree and which you trust there, and name the precedence
+order you used in 3d.
 
 ---
 

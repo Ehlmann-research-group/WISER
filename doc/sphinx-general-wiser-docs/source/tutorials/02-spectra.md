@@ -62,6 +62,21 @@ there when you click a new pixel.
 Collect three pixels — a bright one, a dark one, and one in between. Each is
 drawn in the same default color, which is why the next step matters.
 
+Then keep clicking. Work across the scene pixel by pixel and watch the active
+spectrum redraw each time.
+
+```{admonition} Interpretation
+:class: note
+This 7 × 7 fixture holds 49 pixels, and every one of them carries 425 numbers.
+Clicking across it is not sampling a picture, it is reading a different
+measurement out of each patch of ground.
+
+Two pixels that look almost identical on screen can have visibly different
+spectra, because the display is showing you three of the 425 bands and the plot
+is showing you all of them. That gap between what the image shows and what the
+data holds is the reason for the rest of these tutorials.
+```
+
 :::{figure} ../_static/tutorials/t2_collected.png
 :width: 90%
 :align: center
