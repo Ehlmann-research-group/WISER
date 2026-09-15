@@ -27,8 +27,11 @@ yourself before laboratory measurements mean anything.
 
 ## Step 1 — Open it, and check the units
 
-1. **File ▸ Open...** → `circuit_4_100_150_um.hdr`.
-2. Turn on all four panes, **Zoom to fit**, and apply a **2.5% linear** stretch.
+1. From the **Main Menu**, go to **File** and select **Open...**, then choose
+   `circuit_4_100_150_um.hdr`.
+2. Click the four pane toggles on the Main Toolbar, then **Zoom to fit**.
+3. Click **Stretch builder**, select **Linear Stretch**, click **2.5% linear**,
+   and click **OK**.
 
 :::{figure} ../_static/tutorials/t8_board_rgb.png
 :width: 90%
@@ -40,21 +43,31 @@ At 150 × 150 pixels over a few centimeters of board, individual pixels are
 large on screen. The dark rectangles are component bodies, the pale field is
 board substrate, and the small bright spots are pads and plated through-holes.
 
-Open **Dataset Info** and look at the wavelengths. They read 0.525 to 1.200 in
-micrometers, because that is what the ENVI header declares, and WISER labels
-the spectrum-plot axis to match rather than silently assuming nanometers. This
-is worth confirming on any instrument you have not used before: a cube whose
-axis is off by a factor of a thousand will still plot, and will still be wrong
-against every library you compare it to.
+Look at the **Dataset Info** pane and find the wavelengths. They read 0.525 to
+1.200 in micrometers, because that is what the ENVI header declares, and WISER
+labels the spectrum-plot axis to match rather than assuming nanometers.
+
+```{admonition} Interpretation
+:class: note
+Confirm the wavelength units on any instrument you have not used before. A cube
+whose axis is off by a factor of a thousand will still plot, and will still be
+wrong against every library you compare it against. Nothing in the software can
+catch this for you, because both are valid units.
+```
 
 ---
 
 ## Step 2 — Collect a spectrum per material
 
-Click one pixel on a component body, one on the board substrate, and one on a
-bright pad, collecting and renaming each spectrum
-({doc}`Tutorial 2 <02-spectra>`). Pick pixels in the middle of a uniform area;
-at this pixel size an edge pixel is a mixture of both sides.
+1. Click one pixel on a dark component body. Click **Collect spectrum** on the
+   Spectrum Plot toolbar.
+2. Right-click the new spectrum in the list below the plot, choose **Edit...**,
+   and set **Spectrum name:** and **Plot color:** in the **Spectrum
+   Information** dialog.
+3. Repeat for a pixel on the pale board substrate and one on a bright pad.
+
+Pick pixels in the middle of a uniform area. At this pixel size an edge pixel is
+a mixture of both sides.
 
 :::{figure} ../_static/tutorials/t8_board_spectra.png
 :width: 100%
@@ -130,9 +143,11 @@ against *your* materials under *your* optics, which beats any published library
 for the specific question you are asking.
 
 **Smooth before differentiating.** Bench spectra of dark materials are noisy.
-The **Savitzky–Golay filter** (right-click the image ▸ **Filters ▸
-Savitzky–Golay Filter...**) smooths along the spectral axis while preserving
-band shape and depth far better than a moving average — see
+Right-click the image and choose **Filters ▸ Savitzky-Golay Filter...**. The
+dialog asks for a **Window Length (odd)** and a **Polynomial Order**. It smooths
+along the spectral axis while preserving band shape and depth better than a
+moving average does. The same menu offers **Mean**, **Median** and **Gaussian
+Smoothing Filter...**, which smooth spatially instead — see
 {doc}`Filters <../user-content/filters>`.
 
 ---

@@ -146,7 +146,8 @@ the sensor saves a resampling step and a class of subtle errors.
 
 ## Part 1 — Orient yourself
 
-1. Open `f230918t01p00r11_rfl_cuprite.hdr` and turn on all four panes.
+1. Open `f230918t01p00r11_rfl_cuprite.hdr` with **File ▸ Open...**, then click
+   the four pane toggles on the Main Toolbar.
 2. Use **Choose Visible-Light Bands** (660 / 550 / 480 nm) and apply a **2.5%
    linear** stretch.
 
@@ -255,7 +256,7 @@ correction cannot recover them, so the values there mean nothing. The mineral
 features are the small wiggles past 2000 nm, dwarfed at this scale by the
 differences in overall brightness.
 
-2. Set the plot's x-axis range to **2000–2500 nm** (the gear icon in the
+2. Set the plot's x-axis range to **2000–2500 nm** (click **Configure** in the
    Spectrum Plot toolbar) so the SWIR features fill the frame.
 
 :::{figure} ../../_static/tutorials/lab_cuprite_swir_spectra.png
@@ -409,14 +410,20 @@ and which you trust there.
 Library spectra are laboratory measurements of pure samples. Field pixels are
 mixtures under a real atmosphere. Pull the endmembers out of the scene instead.
 
-1. Run **MNF** and keep components up to the scree-plot elbow
+1. Run **Tools ▸ Data Analysis ▸ Minimum Noise Fraction**. Set **Choose
+   Dataset** to the Cuprite cube, leave **Num Components** at its default for a
+   first pass, and click **OK**. Keep components up to the scree-plot elbow
    ({doc}`Tutorial 6 <../06-pca-mnf>`).
-2. Open the **Interactive Scatter Plot** on MNF band 1 against MNF band 2.
+2. Right-click the image and choose **Data Analysis ▸ Interactive Scatter
+   Plot**. Set **X Axis Band** to MNF band 1 and **Y Axis Band** to MNF band 2,
+   set **Render Onto** to the MNF result, and click **Create Plot**.
    Mixtures fall inside the convex hull of the pure materials, so the
    **corners** of the point cloud are your candidate endmembers.
 3. Lasso each corner and **Create ROI from Selection**.
 4. Collect each ROI's **mean spectrum**.
-5. Run **Linear Unmixing** with those spectra as endmembers.
+5. Run **Tools ▸ Data Analysis ▸ Linear Unmixing**. Set **Input Dataset** to
+   the Cuprite cube, click **Add Collected Spectrum** once per endmember to
+   load the ROI means, and click **OK**.
 
 **Read the RMSE band before the abundance bands.** High residual marks pixels
 your endmember set cannot explain, usually a material you missed. Add an

@@ -21,11 +21,15 @@ For the same measurement over a real scene, see
 
 ## Step 1 — Click a pixel, get a spectrum
 
-1. **File ▸ Open...** → `caltech_425_7_7_nm.hdr`.
-2. Turn on the **Spectrum Plot** and **Zoom** panes, then **Zoom to fit**.
+1. From the **Main Menu**, go to **File** and select **Open...**, then choose
+   `caltech_425_7_7_nm.hdr`.
+2. On the Main Toolbar, click the **Spectrum Plot** and **Zoom** pane toggles to
+   show both panes, then click **Zoom to fit**. At 7 × 7 pixels the scene fills
+   the window and each pixel becomes a large block.
 3. Click any pixel in the main window.
 
-A red crosshair marks the pixel, and its spectrum appears in the plot.
+A red crosshair marks the pixel you clicked, and its spectrum is drawn in the
+Spectrum Plot pane.
 
 :::{figure} ../_static/tutorials/t2_one_spectrum.png
 :width: 90%
@@ -50,10 +54,13 @@ analysis tool drops flagged bands too.
 
 ## Step 2 — Collect spectra so you can compare them
 
-A clicked spectrum is the **active** spectrum: it is replaced the moment you
-click elsewhere. To keep one, press **Collect spectrum** in the plot toolbar.
+A clicked spectrum is the **active** spectrum, and it is replaced the moment you
+click elsewhere. To keep one, click **Collect spectrum** on the Spectrum Plot
+pane's own toolbar. The spectrum is added to the list below the plot and stays
+there when you click a new pixel.
 
-Collect three pixels — a bright one, a dark one, and one in between.
+Collect three pixels — a bright one, a dark one, and one in between. Each is
+drawn in the same default color, which is why the next step matters.
 
 :::{figure} ../_static/tutorials/t2_collected.png
 :width: 90%
@@ -63,38 +70,50 @@ Collect three pixels — a bright one, a dark one, and one in between.
 
 From the list below the plot:
 
-- **Untick** a spectrum to hide it without deleting it
-- **Right-click ▸ Edit...** to rename it or change its color — do this early,
-  since everything is drawn in the same color by default
-- **Right-click ▸ Save to file...** to write it out as text
+- **Untick** the checkbox beside a spectrum to hide it without deleting it.
+- **Right-click a spectrum ▸ Edit...** opens the **Spectrum Information**
+  dialog. Set **Spectrum name:** and **Plot color:** here. The dialog also shows
+  the pixel **Location:** it came from, and an **Average mode:** of **Mean** or
+  **Median** with an **Area-average size**, which is the same averaging Step 3
+  describes.
+- **Right-click a spectrum ▸ Save to file...** writes it out as text.
+- **Right-click ▸ Discard...** removes one spectrum; **Discard all...** clears
+  the list.
 
 ---
 
 ## Step 3 — Tune the plot
 
-The **gear** icon opens the configuration dialog; the plot's right-click menu
-offers the same thing as **Configure plot...**. The settings worth knowing:
+Click **Configure** on the Spectrum Plot toolbar, or right-click anywhere in
+the plot and choose **Configure plot...**. Both open the **Spectrum Plot
+Configuration** dialog. The settings worth knowing:
 
-| Setting | Why you would change it |
-|---|---|
-| **X/Y axis range** | Zoom in on one absorption feature |
-| **Number of pixels to average** | Average an *n* × *n* box around each click, mean or median — cuts noise |
-| **Show legend** | Needed before exporting a figure |
-| **Titles, fonts, tick intervals** | Presentation |
+| Section | Setting | Why you would change it |
+|---|---|---|
+| **X Axis** / **Y Axis** | **Manually specify X axis range**, then **Minimum value:** and **Maximum value:** | Zoom in on one absorption feature |
+| **New Spectra** | **Default average mode:** and **Default area-average size** | Average an *n* × *n* box around each click, mean or median |
+| **Plot** | **Legend:** | Needed before exporting a figure |
+| **Plot** | **Plot Title:**, **Font Sizes**, **Major tick marks every** | Presentation |
+| **Selected Point** | **Draw crosshair through selected point**, **Draw with symbol:** | How the clicked pixel is marked |
 
-**Pixels to average** changes your science rather than your figure. A single
-AVIRIS pixel is noisy; a 3 × 3 median is much steadier, at the cost of mixing
-in the neighbors.
+```{admonition} Interpretation
+:class: note
+The area-average setting changes your measurement, not just your figure. A
+single AVIRIS pixel is noisy, and a 3 × 3 median is much steadier — but it
+mixes in the eight neighboring pixels, so on a boundary you get a blend of two
+surfaces rather than a cleaner version of one. Use it in the middle of a uniform
+area, not at an edge.
+```
 
-To save the figure, right-click the plot and choose **Export plot to image...**
-(EPS, PDF, PNG or SVG at 72, 100 or 300 dpi).
+To save the figure, right-click the plot and choose **Export plot to image...**,
+then pick a format (EPS, PDF, PNG or SVG) and a resolution (72, 100 or 300 dpi).
 
 ---
 
 ## Step 4 — Bring in reference spectra
 
-Measured spectra only mean something next to knowns. The **Load or import
-spectra** button in the plot toolbar offers:
+Measured spectra are easier to interpret next to known ones. Click **Load or
+import spectra** on the Spectrum Plot toolbar. It offers two options:
 
 - **Load spectral library...** — an ENVI spectral library (`.sli` + `.hdr`)
 - **Import ASCII spectral data...** — a text file; WISER asks which column

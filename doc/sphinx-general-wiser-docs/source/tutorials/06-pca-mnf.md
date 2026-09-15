@@ -32,8 +32,9 @@ components carry real signal; its trailing components are where the noise went.
 ## Step 1 — Run PCA
 
 1. Open a dataset.
-2. Right-click the image and choose **PCA** (or **Tools ▸ Data Analysis ▸
-   Principal Component Analysis**).
+2. Right-click the image and choose **Data Analysis ▸ Principal Component
+   Analysis**, or use the **Main Menu** at **Tools ▸ Data Analysis ▸ Principal
+   Component Analysis**. The **PCA Dialog** opens.
 
 :::{figure} ../_static/tutorials/t6_pca_dialog.png
 :width: 45%
@@ -41,12 +42,13 @@ components carry real signal; its trailing components are where the noise went.
 :alt: The PCA dialog with number of components and estimator matrix
 :::
 
-- **Number of Components** defaults to the maximum — the count of good bands.
-  Leave it there for a first run: you decide how many to keep *after* seeing
-  the scree plot.
-- **Estimator Matrix** offers only *Covariance* and is disabled.
-
-3. Click **OK**.
+3. **Number of Components** defaults to the maximum, which is the count of good
+   bands. Leave it there for a first run, since you decide how many to keep
+   *after* seeing the scree plot.
+4. **Estimator Matrix** offers only *Covariance* and is disabled, so there is
+   nothing to set.
+5. Click **OK**. **View Past Results** in the same dialog brings back the
+   output of an earlier run without recomputing it.
 
 WISER drops bad bands, eigendecomposes the covariance matrix of what remains,
 and projects the cube onto the leading eigenvectors. The result is added as
@@ -62,15 +64,24 @@ returns 372 components — 425 bands minus the 53 flagged bad.
 
 ## Step 2 — Look at the components
 
-Display band 0 of the result in grayscale.
+1. Switch to the result with **Select dataset to view** on the Main Toolbar.
+2. Click **Band chooser**, select **Grayscale**, set **Grayscale Band** to
+   band 0, and click **OK**.
+3. Step through bands 1, 2 and 3 the same way.
+4. To build a false-color composite, select **RGB** in the **Band Chooser** and
+   set **Red Band**, **Green Band** and **Blue Band** to bands 0, 1 and 2.
 
-**PC1 is almost always brightness.** Everything in a scene reflects more or
-less light overall, so the largest single direction of variance is albedo.
+```{admonition} Interpretation
+:class: note
+Band 0 is almost always overall brightness. Everything in a scene reflects more
+or less light in total, so the largest single direction of variance tends to be
+albedo.
 
-Move on to bands 1, 2, 3 and the picture changes: later components carry the
-*differences* between materials rather than their brightness, which is why a
-false-color composite of PC1/PC2/PC3 often separates surfaces that look alike
-in true color. Lab A shows exactly that.
+Bands 1, 2 and 3 look different, because later components carry the
+*differences* between materials rather than their brightness. That is why a
+false-color composite of the first three components often separates surfaces
+that look alike in true color. Lab A shows that on a full cube.
+```
 
 ```{note}
 **Principal components have no physical units.** A PCA band is a projection
