@@ -25,7 +25,7 @@ the Mosaic tool.
 Each scene should be georeferenced — it needs a coordinate reference system and
 real map coordinates. You can still add a scene that isn't, but it will sit in
 the list disabled until you georeference it; see
-[Pending scenes](#pending-scenes-greyed-out).
+[Pending scenes](#pending-scenes-grayed-out).
 
 ## The mosaic window
 
@@ -103,10 +103,10 @@ overlap.
 Reordering and hiding are instant: they re-draw from what is already loaded and
 never re-read the imagery.
 
-### Pending scenes (greyed out)
+### Pending scenes (grayed out)
 
 A scene that WISER cannot place on the mosaic's grid is kept in the list as a
-**pending** scene: greyed out, marked with a warning icon, and excluded from the
+**pending** scene: grayed out, marked with a warning icon, and excluded from the
 preview, the grid, and the export. Hover over it to see why. There are two
 reasons:
 
@@ -152,7 +152,7 @@ with the CRS Creator, or an authority code you type in (for example `EPSG` +
 `4326`).
 
 Changing the target CRS re-evaluates every scene: any scene that can not be
-transformed into the new CRS becomes [pending](#pending-scenes-greyed-out), and
+transformed into the new CRS becomes [pending](#pending-scenes-grayed-out), and
 any pending scene that *can* reach it goes live. If the new CRS leaves no usable
 scenes at all, WISER warns you that the preview is empty but still applies your
 choice. If the change pushes the mosaic off-screen, the preview reframes itself
@@ -210,7 +210,7 @@ What you get:
 - The chosen scene's band metadata written into the `.hdr`, so the file re-opens
   in WISER with the right spectral labels.
 
-Export runs in the background with a progress bar and can be cancelled. Large
+Export runs in the background with a progress bar and can be canceled. Large
 mosaics are streamed to disk piece by piece, so a mosaic bigger than your RAM is
 not a problem.
 
@@ -229,8 +229,8 @@ A few things worth knowing before you click it:
 
 ## Troubleshooting
 
-**A scene is greyed out with a warning icon.** It's
-[pending](#pending-scenes-greyed-out) — hover it to see whether it has no CRS or
+**A scene is grayed out with a warning icon.** It's
+[pending](#pending-scenes-grayed-out) — hover it to see whether it has no CRS or
 an incompatible one, then right-click → **Georeference…**.
 
 **The preview is blank.** Either every scene is pending or hidden, or the camera

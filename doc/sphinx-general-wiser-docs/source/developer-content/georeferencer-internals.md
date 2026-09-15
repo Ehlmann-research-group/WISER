@@ -387,6 +387,8 @@ never drift apart.
 
 ---
 
+(residual-computation-schedule_residual_recompute)=
+
 ## Residual Computation (`_schedule_residual_recompute`)
 
 Residuals are recomputed after every change to give the user immediate feedback on how
@@ -436,6 +438,8 @@ Key details:
   `transformed_gt[5]`), which is why the residuals are reported in pixels.
 
 ---
+
+(warp-output-pipeline-warp_dataset_to_path)=
 
 ## Warp / Output Pipeline (`warp_dataset_to_path`)
 
@@ -507,6 +511,8 @@ to an embedded WKT line if the authority header is missing. `compare_srs_lenient
 reconcile a loaded file's CRS against the current reference CRS.
 
 ---
+
+(programmatic-configuration-locking)=
 
 ## Programmatic Configuration & Locking
 

@@ -336,7 +336,7 @@ driven by scheduler and task-manager events.
 - caused a fail-fast termination,
 - completed a stage,
 - completed a plan,
-- or been cancelled.
+- or been canceled.
 
 It does not update widgets directly. Instead, it emits lifecycle signals through `TaskManager`.
 
@@ -532,7 +532,7 @@ callback itself raises, the row is marked failed immediately through:
 
 - `set_task_failed(activity_id, str(exc))`
 
-If the callback returns normally, the dialog marks the row cancelled locally with:
+If the callback returns normally, the dialog marks the row canceled locally with:
 
 - `set_task_cancelled(activity_id)`
 
@@ -652,7 +652,7 @@ If you take this path, your subsystem becomes responsible for ensuring that:
   model.
 - Send progress when work becomes terminal, not while it is merely in flight.
 - Append errors immediately; do not wait until the entire plan has failed.
-- Let the execution layer decide whether a task is truly finished, failed, or cancelled.
+- Let the execution layer decide whether a task is truly finished, failed, or canceled.
 - Keep the dialog as a sink for state, not a source of execution truth.
 
 ## Summary
