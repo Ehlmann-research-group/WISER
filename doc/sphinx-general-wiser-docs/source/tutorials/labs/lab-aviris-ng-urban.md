@@ -241,27 +241,41 @@ the flagged wavelengths out of an expression yourself. A spectrum drawn
 straight through those regions is showing you the atmosphere, not the ground.
 ```
 
-Now compare them properly. Click **Configure** on the Spectrum Plot toolbar,
-tick **Manually specify X axis range**, and set **Minimum value:** to 2000 and
-**Maximum value:** to 2400. The visible-range brightness differences disappear
-and you are left with the SWIR absorptions, where the roofing and paving
-materials separate from each other rather than just from the vegetation.
+Now look at one window rather than the whole range. Click **Configure** on the
+Spectrum Plot toolbar, tick **Manually specify X axis range**, and set
+**Minimum value:** to 2000 and **Maximum value:** to 2400.
 
-Set the range back to the full spectrum, then right-click in the plot and choose
-**Continuum Removal: Collected Spectra**. The overall brightness and slope are
-divided out of all four at once, leaving only the depth and shape of each
-absorption. A bright roof and a dark asphalt surface become directly
-comparable — which is what a classifier is working with.
+:::{figure} ../../_static/tutorials/lab_avng_spectra_swir.png
+:width: 100%
+:align: center
+:alt: The same four spectra restricted to 2000-2400 nm, where the roof, asphalt and vegetation separate and the pool is flat at zero
+:::
+
+The four surfaces are still separated by brightness — the roof near 0.9, asphalt
+near 0.3, vegetation near 0.15 — but now they also differ in *shape*. Asphalt
+turns over and falls through 2250 nm while vegetation holds its level and the
+roof declines steadily. The pool is flat at zero: water absorbs essentially all
+short-wave infrared light, so there is nothing left to measure.
+
+Now set the range back and try **Continuum Removal: Collected Spectra** from the
+plot's right-click menu, which divides the broad slope out of each spectrum and
+leaves the absorptions. Do it on the roof and asphalt spectra and they become
+directly comparable despite their brightness difference, which is what a
+classifier works with. Do it on the pool and you get noise, because dividing a
+near-zero spectrum by its own near-zero envelope amplifies whatever is left.
+{doc}`Lab B <lab-cuprite-minerals>` has the clearest picture of the operation,
+on a mineral spectrum where the feature is unambiguous.
 
 ```{admonition} Interpretation
 :class: note
-You have now looked at the same four pixels three ways: raw, restricted to one
-wavelength window, and continuum-removed. None of these changed the data. Each
-one changed which part of the measurement you could see.
+You have now looked at the same four pixels three ways: raw across the full
+range, restricted to one window, and continuum-removed. None of these changed
+the data. Each changed which part of the measurement you could see.
 
-A GIS would give you one number per pixel and no way to ask a different question
-of it. Here every one of those four spectra holds 425 numbers, and the plot is
-where you decide which of them matter.
+That the same operation is informative on asphalt and meaningless on water is
+the useful lesson. A processing step is not automatically appropriate to every
+pixel in a scene, and nothing in the software will stop you applying it where it
+does not belong.
 ```
 
 **Deliverable 2:** the four spectra on one labeled plot, with the red edge,

@@ -657,6 +657,11 @@ def avng_spectra():
     s.shot("lab_avng_spectra_window")
     s.shoot_spectrum_plot("lab_avng_spectra_plot")
 
+    # The same four spectra, restricted to the SWIR.  Visible-range brightness
+    # is what separates these surfaces at a glance; the 2000-2400 nm window is
+    # where the materials differ in shape rather than in level.
+    s.shoot_spectrum_plot("lab_avng_spectra_swir", x_range=(2000, 2400))
+
     s.close()
 
 
