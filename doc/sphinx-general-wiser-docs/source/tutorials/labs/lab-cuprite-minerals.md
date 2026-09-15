@@ -448,8 +448,9 @@ The map in 3d needed you to name four minerals first. K-means does not.
 1. Run **Tools ▸ Data Analysis ▸ K-means** on the cube with **K clusters** set
    to 6, and a fixed **Random Seed**.
 2. Display the labels with a categorical colormap, as in 3d.
-3. Reopen the **K-means Dialog** and click **View Centroids**. Each cluster's
-   mean spectrum is plotted together.
+3. Reopen the **K-means Dialog** and click **View Centroids**, then click
+   **View** on your run's row in the **K-Means — Past Runs** table. Each
+   cluster's mean spectrum is plotted together.
 4. Work along the plot and name each cluster from its SWIR features: a minimum
    at 2170 nm is alunite, 2200 nm with a 2160 shoulder is kaolinite, 2200 nm
    without the shoulder is muscovite, 2340 nm is calcite. Clusters with no SWIR

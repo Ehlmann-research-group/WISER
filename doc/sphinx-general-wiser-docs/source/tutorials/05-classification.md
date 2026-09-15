@@ -154,9 +154,32 @@ together, and a shadowed roof is much darker than a sunlit one.
 ```{note}
 **Cluster colors and numbers mean nothing on their own.** K-means is
 unsupervised: it finds groups, it does not name them. Cluster 3 is not
-"vegetation" until you check. Click **View Centroids** to plot the mean
-spectrum of each cluster — the one that climbs steeply from 702 to 852 nm is
-your canopy class.
+"vegetation" until you check.
+```
+
+To check, reopen the **K-means Dialog** and click **View Centroids**. That does
+not plot anything by itself — it opens **K-Means — Past Runs**, a table of every
+run in the session with its `k`, initialization method and seed. Click **View**
+on the row for your run, and the mean spectrum of each cluster is plotted
+together in a new window.
+
+:::{figure} ../_static/tutorials/t5_kmeans_centroids.png
+:width: 80%
+:align: center
+:alt: Five K-means centroid spectra plotted together, one per cluster
+:::
+
+```{admonition} Interpretation
+:class: note
+Five clusters, five mean spectra. Four of them rise gently and stay roughly
+parallel, separated mostly by overall brightness — those are the roof, road and
+pavement classes, which differ in how much they reflect more than in shape.
+
+The fifth is the one to look at. It starts lowest of all and then climbs steeply
+across the last interval, crossing two of the others. That is the red edge from
+{doc}`Tutorial 3 <03-regions-of-interest>`, and it is how you know which numbered
+cluster is your canopy class. Nothing in the label image could have told you
+that.
 ```
 
 ### Step 6 — Choosing K

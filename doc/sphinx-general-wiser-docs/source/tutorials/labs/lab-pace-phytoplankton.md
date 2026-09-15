@@ -306,8 +306,10 @@ short account of where the model breaks down.
 3. Expand **Advanced Options** and set **Random Seed** to a fixed number so the
    run is reproducible ({doc}`Tutorial 5 <../05-classification>`).
 4. Click **OK**, then wait for the run to finish in the activity monitor.
-5. Reopen the **K-means Dialog** and click **View Centroids**. Each cluster's
-   mean spectrum is plotted, which is how you work out what each one is.
+5. Reopen the **K-means Dialog** and click **View Centroids**. This opens
+   **K-Means — Past Runs**, a table of your runs; click **View** on the row for
+   this one. Each cluster's mean spectrum is then plotted together, which is how
+   you work out what each cluster is.
 6. Compare the cluster map against the index maps you built in Part 3.
 
 Optical water-type classification is used operationally to decide **which
