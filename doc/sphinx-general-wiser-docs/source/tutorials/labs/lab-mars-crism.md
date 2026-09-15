@@ -328,8 +328,12 @@ Band-depth maps are indices; they can be fooled. Confirm them.
 2. Import CRISM-convolved USGS library spectra: the
    [USGS Spectral Library Version 7](https://dx.doi.org/10.5066/F7RR1WDJ)
    ships versions resampled to **CRISM**.
-3. Run **SFF** ({doc}`Tutorial 7 <../07-detection>`) with the range set to
-   **2200–2600 nm** for carbonate and **800–1300 nm** for olivine.
+3. Run **Tools ▸ Data Analysis ▸ Spectral Feature Fitting**
+   ({doc}`Tutorial 7 <../07-detection>`). Set **Select Target Type:** to **Image
+   Cube** and **Select Target:** to your cube. Set **Min Wavelength (nm):** and
+   **Max Wavelength (nm):** to **2200** and **2600** for carbonate, then run it
+   again at **800** and **1300** for olivine. Tick the library under **Reference
+   Library Selection**, then click **Run SFF**.
 4. Cross-check against the MTRDR **`_SR`** product if you downloaded it: its
    `BD2500` and `OLINDEX` bands are the mission's own versions of what you just
    computed.

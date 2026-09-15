@@ -124,8 +124,10 @@ before overlaying anything geographic. WISER's
 if you need it.
 ```
 
-4. Build a short-wave infrared (SWIR) composite: red **2200 nm**, green
-   **2160 nm**, blue **2340 nm**. Stretch it 2.5% linear.
+4. Build a short-wave infrared (SWIR) composite. Click **Band chooser**, select
+   **RGB**, and set **Red Band** to **Band 244: 2200 nm**, **Green Band** to
+   **Band 239: 2160 nm** and **Blue Band** to **Band 263: 2340 nm**. Click
+   **OK**, then **Stretch builder ▸ Linear Stretch ▸ 2.5% linear**.
 
 :::{figure} ../../_static/tutorials/lab_emit_swir.png
 :width: 100%
@@ -137,7 +139,8 @@ The same ground, in three bands chosen for what absorbs there. Clays push the
 red channel, kaolinite the green, carbonates the blue, and the fans and playa
 margins separate into units true color could not distinguish.
 
-5. Apply a **decorrelation stretch** to the same three bands.
+5. Apply a decorrelation stretch to the same three bands: reopen **Stretch
+   builder** and select **Decorrelation Stretch** in the **Stretch** section.
 
 :::{figure} ../../_static/tutorials/lab_emit_decorr.png
 :width: 100%
@@ -183,8 +186,11 @@ you will map vegetation as clay.
    (nir - red) / (nir + red)
    ```
 
-   Bind `nir` to the band nearest **860 nm** and `red` to the band nearest
-   **670 nm**.
+   Open **Tools ▸ Band math...**, type the expression, press **Enter**, then
+   scroll right in **Variable bindings:** to **Variable Assignments**. Bind
+   `nir` to **Band 64: 860 nm** and `red` to **Band 38: 660 nm**, the nearest
+   EMIT bands to the textbook wavelengths. Give it a **Result name (optional):**
+   of `ndvi` and click **OK**.
 
 2. Build a bare-ground mask:
 
@@ -278,8 +284,11 @@ ignores 2200 and drops at 2340. Iron oxide is featureless here: whatever is
 reddening the visible is not a clay.
 
 2. Identify features against the table at the top of this lab.
-3. Run **SFF** ({doc}`Tutorial 7 <../07-detection>`) with the USGS library, one
-   narrow window per mineral:
+3. Run **Tools ▸ Data Analysis ▸ Spectral Feature Fitting**
+   ({doc}`Tutorial 7 <../07-detection>`). Set **Select Target Type:** to **Image
+   Cube**, tick the USGS library under **Reference Library Selection**, and run
+   it once per mineral, setting **Min Wavelength (nm):** and **Max Wavelength
+   (nm):** to the window below each time:
 
    | Mineral | Window |
    |---|---|

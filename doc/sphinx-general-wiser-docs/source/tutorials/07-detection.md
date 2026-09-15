@@ -28,12 +28,15 @@ least; unmixing asks the most and, in exchange, gives you abundances.
 
 ## Step 1 — Load the scene and a library
 
-1. **File ▸ Open...** → `caltech_15_20_22_bb.hdr`.
-2. Open the **Dataset Info** pane and expand the dataset. Its header carries
-   `bbl = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1 }` — bands 8 and 9 are
-   flagged bad. Every tool below drops them automatically.
-3. In the Spectrum Plot toolbar, **Load or import spectra ▸ Load spectral
-   library...** and choose `usgs_resampHeadwallSWIR.hdr`.
+1. From the **Main Menu**, go to **File** and select **Open...**, then choose
+   `caltech_15_20_22_bb.hdr`.
+2. Click the **Dataset Info** toggle on the Main Toolbar and expand the dataset
+   in the pane. Its header carries
+   `bbl = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1 }`, meaning bands 8 and
+   9 are flagged bad. Every tool below drops them automatically.
+3. Click the **Spectrum Plot** toggle to show that pane, then on its toolbar
+   click **Load or import spectra** and choose **Load spectral library...**.
+   Select `usgs_resampHeadwallSWIR.hdr`.
 
 ---
 
@@ -49,7 +52,8 @@ sunlit and a shadowed patch of the same mineral give the same small angle,
 which is why it is the usual choice for scenes with topography or uneven
 illumination. Smaller angle, better match.
 
-Open **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**.
+From the **Main Menu**, go to **Tools**, then **Data Analysis**, then select
+**Spectral Angle Mapper**. The dialog opens on its **Settings** tab.
 
 :::{figure} ../_static/tutorials/t7_sam_dialog.png
 :width: 90%
@@ -57,32 +61,44 @@ Open **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**.
 :alt: The Spectral Angle Mapper dialog with a USGS mineral library as reference
 :::
 
-1. **Select Target Type** — **Image Cube**, then pick the dataset. (Choosing
-   **Spectrum** compares one spectrum against the references and opens a ranked
-   table — a fast way to identify a spectrum you just collected.)
-2. **Min/Max Wavelength** and **Units** restrict the comparison. Leaving both
-   at `0.0` uses the full overlap, which on this 15-band cube is the whole
-   1308–1454 nm range. On a full-range cube it is the difference between
-   comparing one absorption and comparing everything at once.
-3. **Reference Library Selection** — a USGS mineral library is preloaded. Tick
-   it, or use **Add Library**, **Add Spectrum** (from a text file), or **Add
-   Collected Spectrum** to use a signature you measured yourself in
-   {doc}`Tutorial 3 <03-regions-of-interest>`.
-4. **Initial Angle (°)** is the detection threshold, default 5°. Each reference
-   also carries its own threshold, so you can be strict about one mineral and
-   loose about another.
-5. Click **Run SAM**.
+1. Set **Select Target Type:** to **Image Cube**, then pick your dataset from
+   **Select Target:** beside it. Choosing **Spectrum** instead compares a single
+   spectrum against the references and returns a ranked table, which is a fast
+   way to identify a spectrum you just collected.
+2. **Min Wavelength (nm):**, **Max Wavelength (nm):** and **Units:** restrict
+   the comparison to part of the spectrum. Leaving the two wavelengths at `0.0`
+   uses the full overlap, which on this 15-band cube is the whole 1308–1454 nm
+   range. On a full-range cube this setting is the difference between comparing
+   one absorption and comparing everything at once.
+3. Under **Reference Library Selection**, the USGS library you loaded in Step 1
+   is already listed. Tick it. **Add Library** brings in another library file
+   and **Add Spectrum** adds a single spectrum from a text file. Ticking a
+   library populates **Reference Spectra Selection** below, where you can choose
+   individual minerals rather than all of them.
+4. **Initial Threshold (°):** is the detection threshold, default 5°. Each
+   reference also carries its own threshold in the list, so you can be strict
+   about one mineral and loose about another.
+5. Click **Run SAM**. The **Run History** tab collects your runs; **Clear Runs**
+   empties it and **Save and Close** keeps the results and closes the dialog.
 
 Two datasets come back, one band per reference:
 
 - **`SAM Angle, Img: <source>`** — the angle in degrees at every pixel
 - **`SAM CLS, Img: <source>`** — a boolean map of `angle < threshold`
 
-Display the angle image with a colormap and stretch it before trusting the
-classification: the threshold is a decision you are making, and the angle image
-shows you what you are deciding about. Every reference is interpolated onto the
-target's wavelength grid first, so a library resampled to a different sensor
-still works.
+Switch to the angle image with **Select dataset to view**, give it a colormap
+in the **Band chooser**, and set a stretch before trusting the classification.
+
+```{admonition} Interpretation
+:class: note
+The threshold is a decision you are making, and the angle image is what shows
+you the decision you are making. A classification map only tells you which side
+of 5° each pixel fell on; the angle image tells you whether a pixel was just
+over the line or nowhere near it.
+
+Every reference is interpolated onto the target's wavelength grid before the
+comparison, so a library resampled to a different sensor still works.
+```
 
 ---
 

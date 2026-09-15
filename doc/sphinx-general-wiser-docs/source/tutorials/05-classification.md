@@ -11,10 +11,11 @@ then let K-means partition the scene without being told what to look for.
 
 ### Step 1 — Plot two bands against each other
 
-1. Open the campus scene.
-2. Right-click the image and choose **Data Analysis ▸ Interactive Scatter
-   Plot** (also at **Tools ▸ Data Analysis ▸ Interactive Scatter Plot**).
-3. At the bottom of the window set:
+1. Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`.
+2. Right-click anywhere on the image and choose **Data Analysis ▸ Interactive
+   Scatter Plot**. The same tool is on the **Main Menu** at **Tools ▸ Data
+   Analysis ▸ Interactive Scatter Plot**.
+3. At the bottom of the scatter plot window, set three dropdowns:
    - **X Axis Band** — `caltech_4_100_150_nm`, **Band 2: 702.42 nm**
    - **Y Axis Band** — the same dataset, **Band 3: 852.68 nm**
    - **Render Onto** — the same dataset
@@ -91,9 +92,10 @@ Where the scatter plot compares two bands, K-means uses **all** of them: each
 pixel is a point in *n*-band space, and the algorithm partitions those points
 into **K** clusters, iterating until the centers stop moving.
 
-1. **Tools ▸ Data Analysis ▸ K-means**.
-2. **Input Dataset** — `caltech_4_100_150_nm`.
-3. **K clusters** — `5`.
+1. From the **Main Menu**, go to **Tools**, then **Data Analysis**, then select
+   **K-means**. The **K-means Dialog** opens.
+2. Set **Input Dataset** to `caltech_4_100_150_nm`.
+3. Set **K clusters** to `5`.
 
    :::{figure} ../_static/tutorials/t5_kmeans_dialog.png
    :width: 45%
@@ -101,7 +103,9 @@ into **K** clusters, iterating until the centers stop moving.
    :alt: The K-means dialog with five clusters requested
    :::
 
-4. Expand **Advanced Options** and set **Random Seed** to `42`.
+4. Expand **Advanced Options**. It holds **Initialization Method**, **Number of
+   Initializations**, **Max Iterations**, **Convergence Tolerance**, **Random
+   Seed** and **Algorithm**. Set **Random Seed** to `42` and leave the rest.
 
    :::{figure} ../_static/tutorials/t5_kmeans_advanced.png
    :width: 45%
@@ -114,14 +118,23 @@ into **K** clusters, iterating until the centers stop moving.
    differently *numbered* — clusters. Fix the seed and your figure is
    reproducible.
 
-5. Click **OK**. The run proceeds in the background; watch it in the
-   **Activity Monitor**.
+5. Click **OK**. The run proceeds in the background, so WISER stays usable. To
+   watch its progress, click **Show activity monitor** at the bottom right of
+   the main window.
 
 ### Step 5 — Read the labels
 
-The result is a single-band **label image**, `K-Means Labels (k=5): ...`, whose
-pixel values are cluster indices 0…4. Display it with a categorical colormap
-such as **tab10**.
+The result is a single-band **label image** named `K-Means Labels (k=5): ...`,
+whose pixel values are cluster indices 0 to 4.
+
+1. Switch to it with the **Select dataset to view** dropdown on the Main
+   Toolbar.
+2. Click **Band chooser**, select **Grayscale**, tick **Use a colormap**, and
+   choose a categorical colormap such as **tab10**. Click **OK**.
+
+A categorical colormap matters here: the pixel values are cluster *names*, not
+amounts, so a continuous colormap would imply that cluster 3 sits between 2 and
+4 when the numbering is arbitrary.
 
 :::{figure} ../_static/tutorials/t5_kmeans_labels.png
 :width: 90%
@@ -129,8 +142,14 @@ such as **tab10**.
 :alt: The five-cluster K-means label image over the Caltech scene
 :::
 
-The clusters recover the scene's structure: bright roofs, darker roofs, road
-and parking surfaces, canopy, and shadow.
+```{admonition} Interpretation
+:class: note
+The clusters recover the scene's structure without being told what to look for:
+bright roofs, darker roofs, road and parking surfaces, canopy, and shadow. Note
+that shadow comes out as its own cluster rather than being grouped with the
+surface that is shadowed, because K-means is working on brightness and color
+together, and a shadowed roof is much darker than a sunlit one.
+```
 
 ```{note}
 **Cluster colors and numbers mean nothing on their own.** K-means is

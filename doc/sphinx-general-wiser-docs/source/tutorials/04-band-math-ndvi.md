@@ -40,26 +40,35 @@ available.
 
 ## Step 1 — Write the expression
 
-1. Open the campus scene.
-2. **Tools ▸ Band math...**
-3. In the **Expression** box, type:
+1. Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`.
+2. From the **Main Menu** at the top of the window, go to **Tools** and select
+   **Band math...** from the dropdown list. The **Band Math** dialog opens.
+3. In the **Expression:** box at the top, type:
 
    ```text
    (nir - red) / (nir + red)
    ```
 
-4. Press **Enter** or click away. WISER parses the expression and adds a row to
-   **Variable bindings** for every name it does not recognize as a function —
-   here, `nir` and `red`.
+4. Press **Enter** on your keyboard, or click elsewhere in the dialog. WISER
+   parses what you typed and adds a row under **Variable bindings:** for every
+   name it does not recognize as a function — here, `nir` and `red`.
 
 ---
 
 ## Step 2 — Bind the variables
 
-1. Leave both rows on type **Image Band**.
-2. For `nir`, choose `caltech_4_100_150_nm` and **Band 3: 852.68 nm**.
-3. For `red`, choose the same dataset and **Band 2: 702.42 nm**.
-4. Type `NDVI` in **Result name**.
+The **Variable bindings:** table has three columns: **Variable** (the name from
+your expression), **Type** (what kind of thing it binds to), and **Variable
+Assignments** (which dataset and band).
+
+1. Check that **Type** reads **Image Band** for both rows. That is the default.
+2. Scroll right in the table to reach the **Variable Assignments** column, which
+   holds two dropdowns per row: the dataset, then the band within it.
+3. In the `nir` row, set the dataset to `caltech_4_100_150_nm` and the band to
+   **Band 3: 852.68 nm**.
+4. In the `red` row, set the same dataset and **Band 2: 702.42 nm**.
+5. Type `NDVI` into **Result name (optional):** near the bottom. Without a name
+   the result is harder to find in the dataset list later.
 
 :::{figure} ../_static/tutorials/t4_bandmath_dialog.png
 :width: 90%
@@ -69,13 +78,14 @@ available.
 
 Two things on this screen are worth pausing over:
 
-- Above the table, WISER reports the **result type and size** —
-  `Result: Image Band, 150x150 (87.9KB)`. Band math is not streamed for every
-  case, so check this before running an expression on a full flight line.
-- **Toggle Help** opens the operator reference on the right. Read it: the
-  built-in set is deliberately small.
+- To the right of the **Expression:** box, WISER reports the **result type and
+  size** — `Result: Image Band, 150x150 (87.9KB)`. Band math is not streamed for
+  every case, so check this before running an expression on a full flight line.
+- **Toggle Help** opens the operator reference in a panel on the right. Read it,
+  because the built-in function set is deliberately small.
 
-5. Click **OK**. The result is added as a new dataset named **NDVI**.
+6. Click **OK**. After a moment the result is added as a new dataset named
+   **NDVI**.
 
 ---
 
@@ -83,9 +93,15 @@ Two things on this screen are worth pausing over:
 
 A vegetation index in grayscale wastes the fact that it has a meaningful zero.
 
-1. Open the **band chooser** for the NDVI dataset.
-2. Select **Grayscale**, band 0, and the **RdYlGn** colormap.
-3. Apply a **2.5% linear** contrast stretch.
+1. Use the **Select dataset to view** dropdown on the Main Toolbar to switch the
+   main window to the new **NDVI** dataset. It is drawn in grayscale, and the
+   Spectrum Plot will no longer plot a spectrum for the pixels you click,
+   because NDVI has only one band.
+2. Click **Band chooser** on the Main Toolbar. Select **Grayscale** in the
+   **General** section, set **Grayscale Band** to band 0, tick **Use a
+   colormap**, choose **RdYlGn** from the dropdown, and click **OK**.
+3. Click **Stretch builder**, select **Linear Stretch**, click **2.5% linear**,
+   and click **OK**.
 
 :::{figure} ../_static/tutorials/t4_ndvi.png
 :width: 90%
@@ -93,9 +109,14 @@ A vegetation index in grayscale wastes the fact that it has a meaningful zero.
 :alt: The NDVI result with a red-yellow-green diverging colormap
 :::
 
-**Read the map.** Every street tree resolves as an individual green crown, the
-hedgerows show as continuous green lines, the lawn in the south-east as a solid
-block, and roofs, roads and parking areas as flat pale yellow.
+```{admonition} Interpretation
+:class: note
+Every street tree resolves as an individual green crown, the hedgerows show as
+continuous green lines, and the lawn in the south-east as a solid block. Roofs,
+roads and parking areas are flat pale yellow. The index has separated the
+vegetation from everything else using two bands, where the true-color image
+needed you to recognize shapes.
+```
 
 ```{note}
 **Set the stretch on any computed product before you read it.** Index values
@@ -109,9 +130,10 @@ shows what this looks like when it goes wrong.
 
 ## Step 4 — Compare side by side
 
-1. Click the **grid** button and set the layout to **1 × 2**.
-2. Use the dataset chooser above the left panel to show
-   `caltech_4_100_150_nm`, and the right panel to show `NDVI`.
+1. Click **Split/unsplit the main view** on the Main Toolbar, the grid button,
+   and choose **1 row x 2 columns** from its menu. The main window splits in two.
+2. Use the **Select dataset to view** dropdown above the left panel to show
+   `caltech_4_100_150_nm`, and the one above the right panel to show `NDVI`.
 
 :::{figure} ../_static/tutorials/t4_ndvi_vs_rgb.png
 :width: 90%
@@ -119,8 +141,9 @@ shows what this looks like when it goes wrong.
 :alt: True-color image and NDVI side by side in a 1x2 grid
 :::
 
-When every open dataset has the same width and height, the **link** button ties
-the panels together: pan or zoom one and the others follow.
+When every open dataset has the same width and height, **Link view scrolling**
+on the Main Toolbar ties the panels together: pan or zoom one and the others
+follow. The status bar confirms with `Linked view scrolling is ON`.
 
 ```{note}
 In grid view the band chooser and contrast stretch controls move from the main
@@ -137,10 +160,10 @@ To go from a continuous index to a canopy mask, run one more expression:
 ndvi > 0.35
 ```
 
-Bind `ndvi` as an **Image Band**, band 0 of the NDVI dataset. Comparison
-operators return 1 where the test passes and 0 where it fails, so the result is
-a binary canopy mask you can count, export, or use to restrict another
-analysis.
+Open **Tools ▸ Band math...** again, type the expression, and bind `ndvi` as an
+**Image Band** pointing at band 0 of the NDVI dataset. Comparison operators
+return 1 where the test passes and 0 where it fails, so the result is a binary
+canopy mask you can count, export, or use to restrict another analysis.
 
 Pick the threshold from your own data rather than from a paper — collect an ROI
 over known canopy and another over known pavement

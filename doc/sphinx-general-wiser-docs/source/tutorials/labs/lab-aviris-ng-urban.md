@@ -105,7 +105,8 @@ flagged or not.
    supported files**.
 2. Turn on **Context**, **Zoom**, **Spectrum Plot** and **Dataset Info**, then
    **Zoom to fit**.
-3. Open the **contrast stretch** and click **2.5% linear**.
+3. Click **Stretch builder** on the Main Toolbar, select **Linear Stretch**,
+   click **2.5% linear**, and click **OK**.
 
 :::{figure} ../../_static/tutorials/lab_avng_truecolour.png
 :width: 95%

@@ -101,16 +101,25 @@ An L1 radiance scene will show you the atmosphere, not the ocean.
 
 ## Part 1 — Open and orient
 
-1. **File ▸ Open...** → the PACE `.nc` granule. One netCDF file holds many
-   variables, so WISER asks which to open. Choose `geophysical_data/Rrs`. The
-   rest are geolocation, quality flags and per-band metadata, and none of them
-   is the reflectance cube.
-2. Build a true-color composite (about 660 / 555 / 443 nm) and apply a **2.5%
-   linear** stretch.
-3. Water is dark. Open the contrast stretch and set the **Maximum** limit to
-   exclude clouds and land, so the stretch is computed on the water alone —
-   otherwise a few bright cloud pixels flatten the whole ocean to black. See
-   {doc}`Display and Contrast Stretch <../../user-content/display-and-stretch>`.
+1. From the **Main Menu**, go to **File** and select **Open...**, then choose
+   the PACE `.nc` granule. One netCDF file holds many variables, so WISER opens
+   the **Subdataset Chooser** dialog and asks which one you want.
+2. In **Subdataset Choice**, select `geophysical_data/Rrs`. The panel beside it
+   shows that subdataset's **Dataset Name**, number of **Bands**, **Wavelength
+   units**, **GeoTransform** and **Spatial Ref System**, so you can confirm you
+   picked the cube and not a metadata array. Leave **Use Good Wavelength Bands**
+   ticked, and click **OK**.
+3. Click **Band chooser** on the Main Toolbar. With **RGB** selected, set
+   **Red Band** to **Band 125: 660 nm**, **Green Band** to **Band 84: 555 nm**
+   and **Blue Band** to **Band 39: 443 nm**, then click **OK**.
+4. Click **Stretch builder**, select **Linear Stretch**, and click
+   **2.5% linear**.
+5. Water is dark, so the default stretch will be dominated by cloud and land.
+   Still in the **Stretch builder**, type a smaller value into each channel's
+   **Maximum** box and click that channel's **Apply** button, so the stretch is
+   computed on the water alone. Tick **Apply minimum/maximum values across all
+   channels** at the bottom to set all three at once. See {doc}`Display and
+   Contrast Stretch <../../user-content/display-and-stretch>`.
 
 :::{figure} ../../_static/tutorials/lab_pace_truecolour.png
 :width: 100%
@@ -202,8 +211,15 @@ the limitation Part 3's other two indices are built to work around.
 :alt: The band math dialog with the expression blue divided by green, its two variables bound to the 443 and 555 nm bands
 :::
 
-Bind `blue` to the 443 nm band and `green` to 555 nm, name the result, and run
-it.
+Open **Tools ▸ Band math...**, type the expression into **Expression:**, and
+press **Enter**. In the **Variable bindings:** table, leave **Type** as **Image
+Band** and scroll right to **Variable Assignments**. Bind `blue` to **Band 39:
+443 nm** and `green` to **Band 84: 555 nm** of your `Rrs` dataset. Type a
+**Result name (optional):**, then click **OK**.
+
+The band numbers above are for the 172-band AOP product. If yours differ, open
+the **Band chooser** and read the numbers off the dropdown, which lists every
+band as `Band N: wavelength`.
 
 :::{figure} ../../_static/tutorials/lab_pace_ratio.png
 :width: 100%
@@ -260,11 +276,23 @@ blue-green ratio and the fluorescence line height disagree.
 
 ## Part 4 — Unmix the water
 
-1. Use your four ROI mean spectra from Part 2 as endmembers.
-2. Run **Linear Unmixing** ({doc}`Tutorial 7 <../07-detection>`) with **Sum to
-   Unity** enabled — you chose endmembers meant to span the scene's water.
-3. Read the **RMSE** band first. High residual marks water your four
-   endmembers do not describe: a fifth optical type, cloud shadow, or glint.
+1. Collect your four ROI mean spectra from Part 2, if you have not already
+   ({doc}`Tutorial 3 <../03-regions-of-interest>`).
+2. From the **Main Menu**, go to **Tools ▸ Data Analysis ▸ Linear Unmixing**.
+3. Set **Input Dataset** to your `Rrs` dataset.
+4. Click **Add Collected Spectrum** once per endmember to load your four
+   spectra into the **Endmembers** list.
+5. Tick **Sum to Unity**, since you chose endmembers meant to span the scene's
+   water, then click **OK**.
+6. When it finishes, switch to the result and read the **RMSE** band first.
+
+```{admonition} Interpretation
+:class: note
+A high residual marks water your four endmembers do not describe. That could be
+a fifth optical type you did not sample, or cloud shadow, or sun glint. Reading
+RMSE before the abundance maps stops you trusting an abundance number in a
+place where the model never fit.
+```
 
 **Deliverable 4:** abundance maps for the four components, the RMSE map, and a
 short account of where the model breaks down.
@@ -273,10 +301,14 @@ short account of where the model breaks down.
 
 ## Part 5 — Cluster the optical types
 
-1. Run **K-means** with K = 5 or 6 on the water pixels
-   ({doc}`Tutorial 5 <../05-classification>`), with a fixed random seed.
-2. Click **View Centroids** and identify each cluster from its spectrum.
-3. Compare the clusters against your index maps.
+1. From the **Main Menu**, go to **Tools ▸ Data Analysis ▸ K-means**.
+2. Set **Input Dataset** to your `Rrs` dataset and **K clusters** to 5 or 6.
+3. Expand **Advanced Options** and set **Random Seed** to a fixed number so the
+   run is reproducible ({doc}`Tutorial 5 <../05-classification>`).
+4. Click **OK**, then wait for the run to finish in the activity monitor.
+5. Reopen the **K-means Dialog** and click **View Centroids**. Each cluster's
+   mean spectrum is plotted, which is how you work out what each one is.
+6. Compare the cluster map against the index maps you built in Part 3.
 
 Optical water-type classification is used operationally to decide **which
 algorithm to apply where** — a chlorophyll retrieval tuned for open ocean gives
