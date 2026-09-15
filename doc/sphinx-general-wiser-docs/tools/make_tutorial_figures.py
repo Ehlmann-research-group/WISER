@@ -497,6 +497,10 @@ AVNG_PIXELS = [
 # the orthocorrection's -9999 fill.
 CUPRITE_DISTRICT = (220, 600, 1000, 1400)
 
+# The columns the swath occupies on every line, for tools that take a spatial
+# subset:  the orthocorrected line is very nearly vertical in this window.
+CUPRITE_SWATH = (230, 970)
+
 # Cuprite: 224 bands, 378.9-2498.3 nm at ~9.5 nm sampling.
 CUPRITE_BANDS = {
     480: 10,
@@ -504,6 +508,7 @@ CUPRITE_BANDS = {
     660: 29,
     860: 53,
     1650: 136,
+    2000: 173,
     2100: 183,
     2130: 186,
     2160: 189,
@@ -1480,11 +1485,6 @@ def cuprite_bandmath():
     s.close()
 
 
-# --------------------------------------------------------------------------
-# Lab C: Jezero Crater, Mars -- CRISM MTRDR
-# --------------------------------------------------------------------------
-
-
 @scene("cuprite_classes")
 def cuprite_classes():
     """Cuprite: three band depths thresholded and merged into one mineral map."""
@@ -1549,6 +1549,92 @@ def cuprite_classes():
     s.display(classes, bands=(0,), colormap="tab10")
     s.shot("lab_cuprite_mineral_classes", frame=CUPRITE_DISTRICT)
     s.close()
+
+
+@scene("cuprite_kmeans")
+def cuprite_kmeans():
+    """Cuprite: K-means over continuum-removed SWIR, with the centroid spectra."""
+    require(CUPRITE, "the Cuprite AVIRIS-Classic subset")
+    from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+
+    s = Shoot(size=(1500, 950))
+    ds = s.open(CUPRITE)
+    s.show_all_panes()
+    s.fit()
+
+    # Continuum-remove the 2000-2400 nm window before clustering.  On raw
+    # reflectance K-means returns six brightness tiers of the same shape,
+    # because albedo varies by more across this scene than any absorption
+    # does.  Restricting the columns to the swath keeps the -9999 fill, which
+    # continuum removal turns into a flat 1.0, from taking a cluster.
+    x0, x1 = CUPRITE_SWATH
+    rows = ds.get_shape()[-2]
+    before = len(s.state.get_datasets())
+    t0 = time.time()
+    ContinuumRemovalPlugin().image(
+        x0,
+        0,
+        x1,
+        rows,
+        CUPRITE_BANDS[2000],
+        CUPRITE_BANDS[2400] + 1,
+        context={"wiser": s.state, "dataset": ds},
+    )
+    if not s.wait_for_datasets(before + 1, timeout_s=3600):
+        s.close()
+        return
+    print(f"    continuum removal took {time.time() - t0:.0f} s")
+    cr = s.state.get_datasets()[-1]
+
+    s.win.show_kmeans_dialog()
+    dlg = s.win._kmeans_dialog
+    dlg.select_dataset(cr.get_id())
+    dlg._ui.ledit_k_clusters.setText("6")
+    dlg._ui.btn_advanced_options.click()
+    dlg._ui.ledit_seed.setText("42")
+    s.soft_pump()
+    s.shot("lab_cuprite_kmeans_dialog", dlg)
+
+    before = len(s.state.get_datasets())
+    t0 = time.time()
+    dlg.perform_kmeans()
+    if not s.wait_for_datasets(before + 1, timeout_s=1800):
+        dlg.close()
+        s.close()
+        return
+    print(f"    K-means on {cr.get_shape()} took {time.time() - t0:.0f} s")
+    labels = s.state.get_datasets()[-1]
+
+    # Centroids take two clicks:  View Centroids opens the run history, and the
+    # View button on a row plots that run's centroid spectra.
+    dlg._on_view_centroids()
+    s.soft_pump()
+    history = dlg._centroids_dialog
+    if history is not None:
+        records = history._history.get_records()
+        if records:
+            history._on_view_clicked(records[-1].run_id)
+            s.soft_pump()
+            plots = list(getattr(s.state, "_generic_spectrum_plots", []))
+            if plots:
+                plot = plots[-1]
+                plot.resize(1000, 640)
+                s.soft_pump()
+                s.shot("lab_cuprite_kmeans_centroids", plot)
+        history.close()
+    dlg.close()
+
+    # The continuum-removed cube starts at the swath's first column, so the
+    # district sits at a different x here than in the flight-line window.
+    district = (0, CUPRITE_DISTRICT[1], x1 - x0, CUPRITE_DISTRICT[3])
+    s.display(labels, bands=(0,), colormap="tab10")
+    s.shot("lab_cuprite_kmeans", frame=district)
+    s.close()
+
+
+# --------------------------------------------------------------------------
+# Lab C: Jezero Crater, Mars -- CRISM MTRDR
+# --------------------------------------------------------------------------
 
 
 @scene("crism_overview")
