@@ -478,33 +478,123 @@ often the interesting thing about it. Keep both.
 
 ### 3e. Let the classifier find the zones
 
-The map in 3d needed you to name four minerals first. K-means does not.
+The map in 3d needed you to name four minerals first. K-means does not: it
+groups pixels by the shape of their spectra and leaves the naming to you.
 
-1. Run **Tools ▸ Data Analysis ▸ K-means** on the cube with **K clusters** set
-   to 6, and a fixed **Random Seed**.
-2. Display the labels with a categorical colormap, as in 3d.
-3. Reopen the **K-means Dialog** and click **View Centroids**, then click
-   **View** on your run's row in the **K-Means — Past Runs** table. Each
-   cluster's mean spectrum is plotted together.
-4. Work along the plot and name each cluster from its SWIR features: a minimum
-   at 2170 nm is alunite, 2200 nm with a 2160 shoulder is kaolinite, 2200 nm
-   without the shoulder is muscovite, 2340 nm is calcite. Clusters with no SWIR
-   feature are unaltered ground.
+Give it raw reflectance, though, and it will sort the scene by brightness.
+Albedo varies by more across Cuprite than any absorption band does, so the
+clusters come back as brightness tiers that all have the same shape. Continuum
+removal divides the overall brightness and slope out of each spectrum and
+leaves the absorptions behind. You ran it on one spectrum in Part 2;
+**Continuum Removal: Image** runs it on every pixel, over whichever band range
+you give it, and a range inside the SWIR keeps the hull off the 1400 nm spike.
+
+1. Right-click the image and choose **Continuum Removal: Image**. The
+   **Dimensions** dialog opens, with a **Dimensions** tab and a **Bands** tab.
+2. On the **Dimensions** tab, set **Number of Columns** to **Minimum:** 230 and
+   **Maximum:** 969. Leave **Number of Rows** at 0 and 1399.
+3. On the **Bands** tab, set **Minimum:** to **Band 173** and **Maximum:** to
+   **Band 213**. That is 2000 to 2399 nm, which holds every absorption in the
+   table at the top of this lab and none of the 1900 nm water-vapor noise.
+4. Click **OK**. WISER adds **Continuum Removal on
+   f230918t01p00r11_rfl_cuprite**, 740 × 1400 × 41 bands, in a few seconds.
+
+```{admonition} Why the columns stop at 230 and 969
+:class: note
+That is the width of the swath. Outside it the orthocorrection's −9999 fill
+runs from band to band unchanged, and continuum removal turns a constant
+spectrum into a flat 1.0, which is a spectral shape like any other. More than
+half the pixels in the frame hold it, so K-means would spend one of your six
+clusters describing the fill.
+
+One consequence to keep in mind: the result starts at column 230, so its pixel
+*x* coordinates run 230 lower than the ones you have been using. WISER adjusts
+the georeferencing to match, so map coordinates still line up between the two.
+```
+
+5. Open **Tools ▸ Data Analysis ▸ K-means**. Set **Input Dataset** to the
+   continuum-removal result, set **K clusters** to 6, click **Advanced
+   Options**, and type 42 into **Random Seed** so that your run reproduces.
+   Click **OK**. The run takes a few seconds on 41 bands.
+
+:::{figure} ../../_static/tutorials/lab_cuprite_kmeans_dialog.png
+:width: 55%
+:align: center
+:alt: The K-means dialog with the continuum-removal result as its input dataset, K set to 6 and the seed set to 42
+:::
+
+6. Display the labels with a categorical colormap, as in 3d: **Select dataset
+   to view**, then **Band chooser**, **Grayscale**, **Use a colormap**,
+   **tab10**.
+
+:::{figure} ../../_static/tutorials/lab_cuprite_kmeans.png
+:width: 100%
+:align: center
+:alt: Six K-means clusters over the Cuprite district, in six colors
+:::
+
+7. Reopen the **K-means Dialog**, click **View Centroids**, then click **View**
+   on your run's row in the **K-Means — Past Runs** table. Each cluster's mean
+   spectrum is plotted together.
+
+:::{figure} ../../_static/tutorials/lab_cuprite_kmeans_centroids.png
+:width: 90%
+:align: center
+:alt: Six continuum-removed centroid spectra, with minima at 2170, 2200 and 2340 nm
+:::
+
+8. Read each centroid's deepest point and name it from the table at the top of
+   this lab. The plot's x axis is the **band index of the continuum-removed
+   cube**, not wavelength
+   ([#799](https://github.com/Ehlmann-research-group/WISER/issues/799)), and
+   that cube starts at band 173 of the flight line:
+   its band 16 is 2160 nm, band 17 is 2170 nm, band 20 is 2200 nm and band 34
+   is 2340 nm.
+
+The six clusters in the figure came out as one deep band at 2170 nm, two
+centered on 2200 nm at different depths, one shallow band at 2340 nm, and two
+with no band anywhere except at the edge of the window:
+
+| Band | Depth | What it may be |
+|---|---|---|
+| 2170 nm | 0.18 | **alunite** |
+| 2200 nm | 0.13 | **muscovite** or **illite**, on the shape of it |
+| 2200 nm | 0.09 | a 2200 nm mineral, shallower, flat-bottomed from 2160 nm |
+| 2340 nm | 0.08 | **calcite** |
+| none (two clusters) | — | little or no alteration |
 
 ```{admonition} Interpretation
 :class: note
-This is the step that separates a spectral image from a picture. The classifier
-grouped pixels by the shape of their spectra without being told what any mineral
-looks like, and **View Centroids** hands you the average spectrum of each group
-so you can identify it afterwards. Compare the result against your 3d map: where
-the two agree you have a mineral zone that shows up whether or not you went
-looking for it.
+The classifier grouped these pixels without being told what any mineral looks
+like, and **View Centroids** hands you the average spectrum of each group so
+you can identify the groups afterwards. That is the step that separates a
+spectral image from a picture.
+
+Two of the six sit on 2200 nm, which is where muscovite, illite and kaolinite
+all absorb. The deeper one falls away on the short-wavelength side and comes
+back steeply — the asymmetric single band of muscovite or illite. The shallower
+one has a flat floor running from about 2160 nm to 2200 nm, which may be
+kaolinite: its diagnostic doublet has a band at each end of that floor, and
+averaging a few thousand pixels of varying composition would smooth the pair
+into a trough. It may equally be a mixture of the two. Comparing both against a
+library spectrum, or sampling the ground, is what would settle it.
+
+Every centroid dips one band inside the window, at 2010 nm. A feature that
+appears in all six clusters is telling you about the instrument or the method
+rather than the mineralogy — the continuum hull is anchored at the first and
+last band of the range you chose, so treat both ends as unreliable.
+
+Now compare the map against your 3d map. Where a K-means cluster and a
+thresholded band depth cover the same ground, you have a zone that shows up
+whether or not you went looking for it. Where they disagree, one of them is
+reporting your threshold rather than the rocks.
 ```
 
 **Deliverable 3:** the alunite band-depth map from 3a, SAM and SFF maps for the
-same four minerals, and the combined mineral map from 3d. Add a paragraph on
-where the methods disagree and which you trust there, and name the precedence
-order you used in 3d.
+same four minerals, the combined mineral map from 3d, and the cluster map from
+3e with each cluster named from its centroid. Add a paragraph on where the
+methods disagree and which you trust there, and name the precedence order you
+used in 3d.
 
 ---
 
