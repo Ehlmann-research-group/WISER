@@ -4,6 +4,25 @@ Eight short tutorials, a little over two hours end to end, on data that ships
 with the WISER source. Nothing to download. Work through them in order and you
 will have used every major tool in the application on a real scene.
 
+```{admonition} What you are actually working with
+:class: note
+A GIS layer stores one value per pixel, or three if it is a color image. The
+scenes here store hundreds. Every pixel holds a full spectrum — a measurement of
+how much light that patch of ground reflected at each of 4, 285 or 425
+wavelengths — and WISER is built to get at it.
+
+That changes what the software is for. You are not arranging layers to make a
+picture. You are reading a measurement out of any pixel you click
+({doc}`Tutorial 2 <02-spectra>`), averaging it over an area to get a signature
+you can trust ({doc}`Tutorial 3 <03-regions-of-interest>`), comparing it against
+a laboratory reference to identify what is on the ground
+({doc}`Tutorial 7 <07-detection>`), and letting the shapes of those spectra sort
+the scene into classes on their own ({doc}`Tutorial 5 <05-classification>`).
+
+Keep the Spectrum Plot pane open throughout. Most of what makes a result
+believable is visible there and nowhere else.
+```
+
 ```{list-table}
 :header-rows: 1
 :widths: 6 32 42 20

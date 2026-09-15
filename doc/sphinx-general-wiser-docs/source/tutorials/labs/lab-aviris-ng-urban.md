@@ -170,9 +170,16 @@ not.
 
 ## Part 2 — Four surfaces, four spectra
 
-Click each of these pixels and **collect** the spectrum
-({doc}`Tutorial 2 <../02-spectra>`). Rename and recolor each one from the list
-below the plot, or they will all be drawn the same.
+Click each of these pixels and click **Collect spectrum** on the Spectrum Plot
+toolbar ({doc}`Tutorial 2 <../02-spectra>`). Right-click each one in the list
+below the plot, choose **Edit...**, and set its **Spectrum name:** and **Plot
+color:** — otherwise all four are drawn the same.
+
+Before you collect them, click **Configure** on the Spectrum Plot toolbar and
+set **Default average mode:** to **Mean** with a **Default area-average size**
+of 3. At 5 m a single pixel is noisy, and a 3 × 3 mean gives a steadier
+signature. The coordinates below all sit well inside uniform patches, so the
+averaging window will not straddle a boundary.
 
 | Surface | Pixel (x, y) | What it is |
 |---|---|---|
@@ -232,6 +239,29 @@ smoothing and Savitzky–Golay filters. Band math and the interactive scatter
 plot are the exception, since they compute on whatever bands you bind, so keep
 the flagged wavelengths out of an expression yourself. A spectrum drawn
 straight through those regions is showing you the atmosphere, not the ground.
+```
+
+Now compare them properly. Click **Configure** on the Spectrum Plot toolbar,
+tick **Manually specify X axis range**, and set **Minimum value:** to 2000 and
+**Maximum value:** to 2400. The visible-range brightness differences disappear
+and you are left with the SWIR absorptions, where the roofing and paving
+materials separate from each other rather than just from the vegetation.
+
+Set the range back to the full spectrum, then right-click in the plot and choose
+**Continuum Removal: Collected Spectra**. The overall brightness and slope are
+divided out of all four at once, leaving only the depth and shape of each
+absorption. A bright roof and a dark asphalt surface become directly
+comparable — which is what a classifier is working with.
+
+```{admonition} Interpretation
+:class: note
+You have now looked at the same four pixels three ways: raw, restricted to one
+wavelength window, and continuum-removed. None of these changed the data. Each
+one changed which part of the measurement you could see.
+
+A GIS would give you one number per pixel and no way to ask a different question
+of it. Here every one of those four spectra holds 425 numbers, and the plot is
+where you decide which of them matter.
 ```
 
 **Deliverable 2:** the four spectra on one labeled plot, with the red edge,
