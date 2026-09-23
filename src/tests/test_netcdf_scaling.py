@@ -23,6 +23,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import netCDF4 as nc
 import numpy as np
@@ -269,6 +270,37 @@ class TestNetCDFScalingConsumers(_PackedNetCDFFixture, unittest.TestCase):
         # count that reached the output unscaled would be orders of magnitude out.
         np.testing.assert_allclose(real, OFFSET, atol=1e-3)
         written = None
+
+    def test_warp_of_a_fitting_variable_takes_the_whole_array_path(self):
+        """A packed variable that fits in RAM warps in one pass, not band by band.
+
+        ``warp_dataset_to_path`` picks the whole-array path on ``ratio > 1.0``.
+        That test used to be guarded by ``not isinstance(GDALRasterDataImpl)``,
+        which held while every GDAL impl was caught by the branch above it --
+        but a packed netCDF is a GDAL impl and is now excluded from that branch
+        by ``reads_are_transformed()``, so it satisfied neither and fell through
+        to the incremental path at every size.
+        """
+        ds = self._open("rrs")
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(32611)
+        srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        gcps = [
+            gdal.GCP(500000.0 + col * 10.0, 4000000.0 - row * 10.0, 0, col, row)
+            for col, row in [(0.0, 0.0), (COLS, 0.0), (0.0, ROWS), (COLS, ROWS)]
+        ]
+        warp_kwargs, _ = build_warp_kwargs(gdal.GRA_NearestNeighbour, TRANSFORM_TYPES.POLY_1, srs)
+        out_path = os.path.join(self._tmp, "warped_one_pass.tif")
+
+        with mock.patch.object(
+            ds, "get_image_data", wraps=ds.get_image_data
+        ) as whole_array, mock.patch.object(
+            ds, "get_multiple_band_data", wraps=ds.get_multiple_band_data
+        ) as per_band:
+            warp_dataset_to_path(ds, gcps, warp_kwargs, srs, out_path)
+
+        self.assertEqual(whole_array.call_count, 1)
+        self.assertEqual(per_band.call_count, 0)
 
 
 class TestNetCDFScalingContract(unittest.TestCase):

@@ -299,8 +299,12 @@ def warp_dataset_to_path(
         temp_gdal_ds = None
         gdal.Unlink(temp_vrt_path)
         progress.report(target_dataset.num_bands(), target_dataset.num_bands(), "Warping...")
-    elif not isinstance(target_dataset_impl, GDALRasterDataImpl) and ratio > 1.0:
-        # Saving the full object array
+    elif ratio > 1.0:
+        # Saving the full object array.  Reached by whatever the branch above
+        # declined:  an impl that is not GDAL-backed, and a packed netCDF whose
+        # reads are transformed.  Testing `not isinstance(GDALRasterDataImpl)`
+        # here would exclude the latter -- it is a GDAL impl -- and send every
+        # packed netCDF down the incremental path however small it is.
         warp_options = gdal.WarpOptions(**warp_kwargs)
         dataset_arr = target_dataset.get_image_data()
         temp_gdal_ds = gdal_array.OpenNumPyArray(dataset_arr, True)
@@ -311,8 +315,13 @@ def warp_dataset_to_path(
         output_dataset.FlushCache()
         progress.report(target_dataset.num_bands(), target_dataset.num_bands(), "Warping...")
     else:
-        # Saving incrementally using the numpy dataset
-        num_bands_per = int(ratio * target_dataset.num_bands())
+        # Saving incrementally using the numpy dataset.
+        #
+        # At least one band per pass:  the truncation reaches zero once a single
+        # warped band exceeds MAX_RAM_BYTES, and range() rejects a zero step.
+        # One band is the floor, so such a pass runs over the budget rather than
+        # failing to warp at all -- there is nothing left to subdivide.
+        num_bands_per = max(1, int(ratio * target_dataset.num_bands()))
         for band_index in range(0, target_dataset.num_bands(), num_bands_per):
             progress.raise_if_cancelled()
             band_list_index = [
