@@ -1,0 +1,123 @@
+# Environment preparation for the GitHub Copilot coding agent.
+#
+# The agent runs this job before it starts work, then operates with restricted network
+# access -- so everything it needs to build and exercise WISER must be installed here.
+# The job name MUST be `copilot-setup-steps` for the agent to pick it up.
+#
+# This mirrors .github/workflows/dev-CI.yml so the agent sees the same environment CI
+# does. If the test environment changes there, change it here too.
+#
+# Once set up, the agent can run the suite the same way CI does:
+#   xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
+#     bash -lc 'cd src/tests && pytest -s .'
+name: Copilot setup steps
+
+on:
+  workflow_dispatch: {}
+  # Validate the setup itself whenever it or the environment lock changes.
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+      - etc/dev-conda-lock.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+      - etc/dev-conda-lock.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore (or create on miss) linux-cached-dev
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: etc/dev-conda-lock.yml
+          environment-name: linux-cached-dev
+          cache-environment: true
+          cache-environment-key: linux-cached-dev-${{ hashFiles('etc/dev-conda-lock.yml') }}
+          cache-downloads: true
+          init-shell: bash
+
+      - name: Activate the environment for the agent's shells
+        # The agent runs commands in fresh shells that do not inherit this job's
+        # activation, so the environment has to be made the default two ways.
+        #
+        # The activation line is *prepended* to .bashrc rather than appended: Ubuntu's
+        # stock .bashrc returns early for non-interactive shells, so anything added at
+        # the end never runs under `bash -lc`.
+        #
+        # PATH alone is not enough -- GDAL and PROJ read GDAL_DATA and PROJ_LIB from the
+        # environment's activation scripts, and without them CRS and reprojection work
+        # fails in ways that look like data bugs rather than setup bugs. So the prefix
+        # goes on PATH for plain shells, and full activation happens for login shells.
+        run: |
+          set -euo pipefail
+          PREFIX="$MAMBA_ROOT_PREFIX/envs/linux-cached-dev"
+          test -x "$PREFIX/bin/python" || { echo "environment not found at $PREFIX"; exit 1; }
+
+          printf '%s\n' "$PREFIX/bin" >> "$GITHUB_PATH"
+
+          { echo 'eval "$(micromamba shell hook --shell bash)"'
+            echo 'micromamba activate linux-cached-dev'
+            cat ~/.bashrc
+          } > ~/.bashrc.new
+          mv ~/.bashrc.new ~/.bashrc
+
+      - name: Install the headless display server
+        # WISER is a Qt GUI: every test boots a real QApplication and needs a display.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb
+
+      - name: Build the generated Qt artifacts
+        # `make generated` turns the .ui/.qrc sources into src/wiser/gui/generated/.
+        # Without it the application cannot be imported at all.
+        shell: bash -leo pipefail {0}
+        run: make generated
+
+      - name: Verify the environment supports a headless Qt session
+        # Checks the environment, not the application: a broken setup should fail here
+        # rather than midway through the agent's work. It deliberately stops short of
+        # constructing DataVisualizerApp -- that touches the config directory, the
+        # plugin registry, and the storage service, so a failure there would be an app
+        # bug reported as a setup failure. dev-CI.yml is what exercises the app.
+        #
+        # What it does cover is everything that breaks when the environment is wrong:
+        # the Qt platform plugin actually loading under Xvfb, `make generated` having
+        # produced an importable resources module, and GDAL/PROJ finding their data
+        # directories from the activated environment.
+        shell: bash -leo pipefail {0}
+        run: |
+          xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
+            python - <<'PY'
+          from PySide6.QtWidgets import QApplication, QWidget
+
+          app = QApplication([])
+          print("Qt platform plugin:", app.platformName())
+
+          w = QWidget()
+          w.show()
+          app.processEvents()
+          w.close()
+
+          from wiser.gui.generated import resources  # noqa: F401  -- from `make generated`
+
+          from osgeo import gdal, osr
+          gdal.UseExceptions()
+          srs = osr.SpatialReference()
+          assert srs.ImportFromEPSG(4326) == 0, "PROJ cannot resolve EPSG:4326"
+
+          import wiser
+          from wiser.gui.app import DataVisualizerApp  # noqa: F401
+
+          app.quit()
+          print("environment OK:", wiser.__name__, "| GDAL", gdal.VersionInfo("RELEASE_NAME"))
+          PY
+        working-directory: src
