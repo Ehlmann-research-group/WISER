@@ -1,8 +1,22 @@
 # Copilot instructions — WISER
 
 WISER is a desktop GUI for analyzing hyperspectral imagery, built on PySide6 + GDAL +
-NumPy. Read `AGENTS.md` first for architecture and build commands; this file defines how
-to **review** a change.
+NumPy. This file defines how to **review** a change; the path-scoped files under
+`.github/instructions/` carry the rules for each area.
+
+For architecture and build detail, the in-repo sources are
+`doc/sphinx-general-wiser-docs/source/developer-content/` (`system-design.md`,
+`app-state.md`, `rendering-pipeline.md`, `data-caching.md`, `testing-and-qa.md`), the
+`Makefile`s, and `.github/workflows/dev-CI.yml`. Treat code and CI config as the source
+of truth where they disagree with docs.
+
+The orientation points worth having up front: the entrypoint is `src/wiser/__main__.py`
+and the GUI shell is `DataVisualizerApp` in `src/wiser/gui/app.py`; shared state lives in
+`ApplicationState` (`src/wiser/gui/app_state.py`); and compute-heavy work flows UI action
+-> `SemanticTask`/pipeline (`src/wiser/utils/task_system.py`) -> scheduler admission
+(`src/wiser/utils/work_scheduler.py`) -> storage-backed refs and leases
+(`src/wiser/utils/storage_service.py`). That split exists so the GUI stays responsive
+while large raster workloads run under explicit RAM and lifecycle control.
 
 Three facts shape every review here:
 

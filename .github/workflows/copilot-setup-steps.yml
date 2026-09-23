@@ -82,11 +82,42 @@ jobs:
         shell: bash -leo pipefail {0}
         run: make generated
 
-      - name: Verify the app boots headless
-        # A fast smoke check, so a broken environment surfaces here rather than as a
-        # confusing failure in the middle of the agent's work.
+      - name: Verify the environment supports a headless Qt session
+        # Checks the environment, not the application: a broken setup should fail here
+        # rather than midway through the agent's work. It deliberately stops short of
+        # constructing DataVisualizerApp -- that touches the config directory, the
+        # plugin registry, and the storage service, so a failure there would be an app
+        # bug reported as a setup failure. dev-CI.yml is what exercises the app.
+        #
+        # What it does cover is everything that breaks when the environment is wrong:
+        # the Qt platform plugin actually loading under Xvfb, `make generated` having
+        # produced an importable resources module, and GDAL/PROJ finding their data
+        # directories from the activated environment.
         shell: bash -leo pipefail {0}
         run: |
           xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
-            python -c "import wiser; from wiser.gui.app import DataVisualizerApp; print('wiser imports OK')"
+            python - <<'PY'
+          from PySide6.QtWidgets import QApplication, QWidget
+
+          app = QApplication([])
+          print("Qt platform plugin:", app.platformName())
+
+          w = QWidget()
+          w.show()
+          app.processEvents()
+          w.close()
+
+          from wiser.gui.generated import resources  # noqa: F401  -- from `make generated`
+
+          from osgeo import gdal, osr
+          gdal.UseExceptions()
+          srs = osr.SpatialReference()
+          assert srs.ImportFromEPSG(4326) == 0, "PROJ cannot resolve EPSG:4326"
+
+          import wiser
+          from wiser.gui.app import DataVisualizerApp  # noqa: F401
+
+          app.quit()
+          print("environment OK:", wiser.__name__, "| GDAL", gdal.VersionInfo("RELEASE_NAME"))
+          PY
         working-directory: src

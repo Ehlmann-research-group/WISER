@@ -16,12 +16,15 @@ Treat platform compatibility as a P0 concern on any diff this file applies to.
 
 The bundle is not a source tree, and these differences bite repeatedly:
 
-- **Imports must be discoverable statically.** PyInstaller traces imports; it cannot see
-  `importlib.import_module`, `__import__`, a plugin loaded by name from config, or an
-  optional dependency imported inside a function. A new dynamic import needs a
-  `hiddenimports` entry in all three specs (`WISER.spec`, `WISER-macOS.spec`,
-  `WISER-ubuntu.spec`) or it raises `ModuleNotFoundError` only in the release build.
-  Check that a diff adding one updated **every** spec, not just the author's platform.
+- **Imports must be resolvable statically.** PyInstaller's analysis follows literal
+  `import` statements, including ones inside a function, so a deferred import is fine on
+  its own. What it cannot see is a module named at runtime: `importlib.import_module`,
+  `__import__`, a plugin class loaded by fully qualified name from config, or a name
+  built from a variable. Those need a `hiddenimports` entry in all three specs
+  (`WISER.spec`, `WISER-macOS.spec`, `WISER-ubuntu.spec`) or they raise
+  `ModuleNotFoundError` only in the release build. Check that a diff adding one updated
+  **every** spec, not just the author's platform. Do not ask for `hiddenimports` on a
+  plain `import foo` — the analysis already finds it.
 - **Data files must be declared.** Anything loaded by path — a `.json`, a lookup table,
   a colormap, a shader, a GDAL support file — needs a `datas` entry. A file that exists
   next to the module in the source tree does not exist in the bundle.

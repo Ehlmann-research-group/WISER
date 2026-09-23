@@ -26,12 +26,23 @@ same diff.
 
 ## No-data, masks, and dtype
 
-- `filter_data_ignore_value=True` returns a **`numpy.ma.masked_array`**; `False` returns
-  a plain `ndarray`. These are not interchangeable. A masked array passed to code that
-  uses bare `np.mean`, `np.min`, or a Numba `njit` kernel silently uses the *fill values*
-  — the masked pixels contribute to the result. Flag any point where a masked array
-  crosses into code that does not handle masks, and any place the mask is dropped by
-  `np.asarray`, `np.ma.getdata`, or an arithmetic operation that returns a plain array.
+- The return type of `get_image_data` and `get_band_data` is **conditional**, which is
+  the trap. `filter_data_ignore_value=True` yields a `numpy.ma.masked_array` *only when
+  the dataset actually has a data-ignore value*; a dataset without one returns a plain
+  `ndarray` from the same call. So a caller written and tested against a masked dataset
+  can receive a bare array from a different file, and vice versa. Code downstream must
+  handle both, or the boundary must normalize and say so.
+- NumPy's own reductions are mask-aware — `np.mean`, `np.min`, and friends dispatch to
+  the masked implementations and exclude masked pixels. Do **not** flag those. The mask
+  is lost at specific places, and those are what to look for:
+  - `np.asarray`, `np.array(..., copy=...)`, `np.ma.getdata`, or `.data`, which hand back
+    the raw buffer with the fill values exposed.
+  - A Numba `njit` kernel, which has no masked-array support at all — the mask is gone
+    before the kernel runs. `src/wiser/gui/util.py` and the spectral tools pass explicit
+    boolean band masks alongside the data for exactly this reason; check that a new
+    kernel does the same rather than relying on a mask that cannot survive the call.
+  - Passing the array to GDAL, to a C extension, or to a write path, none of which know
+    about masks.
 - A no-data value of `0` is common and is not distinguishable from a valid zero
   reflectance unless the mask is carried. Never let no-data be replaced with `0`, and
   never introduce `np.nan_to_num` on science data — it converts "we do not know" into
