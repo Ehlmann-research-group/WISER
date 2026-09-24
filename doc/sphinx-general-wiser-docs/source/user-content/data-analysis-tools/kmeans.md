@@ -19,11 +19,23 @@ The result is added as a new dataset named `K-Means Labels (k=K): <source>`.
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t5_kmeans_dialog.png
+:width: 45%
+:align: center
+:alt: The K-means dialog with input dataset and cluster count
+:::
+
 Choose an **Input Dataset**, enter **K clusters**, and click **OK**. The run
 proceeds in the background. Click **View Centroids** to open any stored result
 and plot its centroid spectra.
 
 ### Advanced Options
+
+:::{figure} ../../_static/tutorials/t5_kmeans_advanced.png
+:width: 45%
+:align: center
+:alt: K-means advanced options
+:::
 
 Expand **Advanced Options** to control the fit (all optional; sensible defaults
 are used when blank):
@@ -38,3 +50,26 @@ are used when blank):
 - **Random Seed** — fix for reproducible results.
 - **Algorithm** — `lloyd` (classic) or `elkan` (faster on well-separated
   clusters, more memory).
+
+:::{figure} ../../_static/tutorials/t5_kmeans_labels.png
+:width: 85%
+:align: center
+:alt: A five-cluster K-means label image with a categorical colormap
+:::
+
+Cluster indices are arbitrary — cluster 3 is not "vegetation" until you check.
+Use **View Centroids** to plot each cluster's mean spectrum and identify it.
+
+```{tip}
+On a cube with hundreds of bands, run {doc}`MNF <mnf>` first and cluster the
+leading components. K-means partitions *total* variance, and on a
+high-resolution scene most of that is within-surface variation rather than
+between-material difference —
+{doc}`Lab A <../../tutorials/labs/lab-aviris-ng-urban>` shows what the raw-cube
+result looks like.
+```
+
+## See also
+
+- {doc}`Tutorial 5 — Classifying a Scene <../../tutorials/05-classification>`
+- {doc}`Interactive Scatter Plot <interactive-scatter-plot>`

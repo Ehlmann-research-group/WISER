@@ -71,5 +71,27 @@ Want to contribute a fix or feature? Start here:
    [Contributing & Code Quality](developer-content/contributing-and-quality).
 4. **Write tests** — new features and bug fixes should include tests. See the
    [Testing & QA](developer-content/testing-and-qa) guide.
-5. **Open a pull request** — link it to your issue. The PR description is the
+5. **Update the documentation** — if your change alters what a user sees, update
+   the relevant page under `doc/sphinx-general-wiser-docs/source/user-content/`
+   and re-shoot any affected tutorial screenshots. See the
+   [Developer Guide](developer-content/index) for both.
+6. **Open a pull request** — link it to your issue. The PR description is the
    merge commit body, so write it clearly.
+
+## Contributing Documentation
+
+Documentation changes are as welcome as code changes, and make a good first
+contribution.
+
+- **User-facing pages** live in `doc/sphinx-general-wiser-docs/source/user-content/`.
+- **Tutorials and labs** live in `.../source/tutorials/`.
+- **Developer pages** live in `.../source/developer-content/`.
+
+Build with `make html` from `doc/sphinx-general-wiser-docs`, and treat a new
+Sphinx warning as a broken link.
+
+**Screenshots are generated, not captured by hand.** Every tutorial figure comes
+from a scene in `doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py`,
+which drives the real application. To add or update a figure, add or edit a
+scene there and re-run it — see the
+[Developer Guide](developer-content/index).

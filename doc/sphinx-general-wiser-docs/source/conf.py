@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath("../../../src"))
 project = "WISER"
 copyright = "2019-2026, California Institute of Technology"
 author = "Ehlmann Research Group"
-release = "2.1b1"
+release = "3.0b0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -55,6 +55,7 @@ myst_enable_extensions = [
     "deflist",  # definition lists
     "tasklist",  # renders - [ ] checkboxes
     "attrs_inline",  # inline attribute syntax
+    "dollarmath",  # $…$ and $$…$$ maths, used by the tutorials and labs
 ]
 
 # Generate anchors for headings h1-h3 so intra-page links like [text](#some-heading)

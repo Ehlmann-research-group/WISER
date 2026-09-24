@@ -23,6 +23,12 @@ The result is added as a new dataset named `MNF, Img: <source>`.
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t6_mnf_dialog.png
+:width: 45%
+:align: center
+:alt: The MNF dialog with dataset and component count
+:::
+
 Pick a **Dataset**, set **Num Components** (the number of MNF bands to keep),
 and click **OK**. The spin box defaults to the maximum allowed for that
 dataset — the count of good bands, capped by the available noise samples — so
@@ -31,3 +37,9 @@ that ceiling is visible at a glance.
 Click **View Past Results** to reopen any previous run and view its scree plot
 (eigenvalue vs. component index), which helps you judge how many components are
 worth keeping.
+
+## See also
+
+- {doc}`Tutorial 6 — PCA and MNF <../../tutorials/06-pca-mnf>`
+- {doc}`Principal Component Analysis <pca>` — orders by variance instead
+- {doc}`MTMF <mtmf>` — runs a full MNF internally
