@@ -2,6 +2,8 @@ name: Build and Smoke Test WISER
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"     # weekly, Monday 07:00 UTC
 
 # This workflow only builds and smoke/test-checks WISER; it never writes to the repo or to
 # a release. Publishing the built assets to a release is a separate, manually triggered
@@ -124,7 +126,7 @@ jobs:
             arch: amd
             target_arch: amd64
             runner: ubuntu-latest
-          - distro: debian11
+          - distro: debian12
             arch: amd
             target_arch: amd64
             runner: ubuntu-latest
@@ -138,7 +140,7 @@ jobs:
             arch: arm
             target_arch: arm64
             runner: ubuntu-24.04-arm
-          - distro: debian11
+          - distro: debian12
             arch: arm
             target_arch: arm64
             runner: ubuntu-24.04-arm
@@ -178,14 +180,15 @@ jobs:
           set -euxo pipefail
           mkdir -p dist/linux
 
-          # The build is always dispatched from the commit being released, so version.py
-          # is the source of truth for the version baked into the asset name.
+          # version.py of the commit being built is the source of truth for the version
+          # baked into the asset name; a scheduled run of main is named the same as a
+          # dispatched run of that commit.
           version="$(python3 src/wiser/version.py)"
 
           # Source folder key matches build_linux_multistage.sh output layout.
           case "${{ matrix.distro }}" in
             ubuntu2004) distro_key="ubuntu_2004" ;;
-            debian11)   distro_key="debian_11" ;;
+            debian12)   distro_key="debian_12" ;;
             fedora39)   distro_key="fedora_39" ;;
             *) echo "Unknown distro: ${{ matrix.distro }}" >&2; exit 1 ;;
           esac

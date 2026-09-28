@@ -24,9 +24,9 @@ target "multistage_debian" {
   context    = "."
   dockerfile = "install-linux/multistage/Dockerfile"
   platforms  = PLATFORMS
-  tags       = ["wiser-multistage:debian11"]
+  tags       = ["wiser-multistage:debian12"]
   args = {
-    BASE_IMAGE = "debian:11"
+    BASE_IMAGE = "debian:12"
   }
   output = ["type=docker"]
 }

@@ -8,7 +8,7 @@
 #           app image, install script, and directions 
 #
 # Build args:
-#   BASE_IMAGE   e.g. ubuntu:20.04  or  debian:11
+#   BASE_IMAGE   e.g. ubuntu:20.04  or  debian:12
 # ============================================================
 
 ARG BASE_IMAGE=ubuntu:20.04
