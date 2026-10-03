@@ -335,7 +335,7 @@ folder and run `make install-dev-env`.
 
 #### Supported Distributions and Architectures
 
-WISER builds target Ubuntu 20.04, Debian 11, and Fedora 39. Builds should
+WISER builds target Ubuntu 20.04, Debian 12, and Fedora 39. Builds should
 generally work on future versions of these distributions due to their backwards
 compatibility goals. Supported Instruction Set Architectures (ISAs) are amd64
 (x86_64) and aarch64 (arm64).
@@ -374,7 +374,7 @@ Official WISER releases for Linux are produced by the GitHub Action
 `Build and Smoke WISER`. The process:
 
 1. A matrix strategy runs jobs in parallel targeting Ubuntu 20.04 + amd64,
-   Debian 11 + amd64, Fedora 39 + amd64, Ubuntu 20.04 + arm64, Debian 11 +
+   Debian 12 + amd64, Fedora 39 + amd64, Ubuntu 20.04 + arm64, Debian 12 +
    arm64, and Fedora 39 + arm64.
 2. For each target, `./build_linux_multistage.sh` is run with the OS and ISA,
    which runs the corresponding Docker bake target in `docker_bake.hcl`. The

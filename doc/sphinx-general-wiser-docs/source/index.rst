@@ -105,7 +105,7 @@ WISER builds currently target:
 
 - **macOS 15** --- ARM (Apple Silicon) and Intel
 - **Windows 10/11**
-- **Linux** --- Ubuntu 20.04+, Debian 11+, Fedora 39+ (amd64 and aarch64)
+- **Linux** --- Ubuntu 20.04+, Debian 12+, Fedora 39+ (amd64 and aarch64)
 
 System Requirements
 ^^^^^^^^^^^^^^^^^^^
@@ -116,7 +116,7 @@ The minimum and recommended specifications for running WISER are:
 
 - **Windows:** Windows 10 or 11 (64-bit)
 - **macOS:** macOS 15 or newer (Intel and Apple Silicon)
-- **Linux:** Ubuntu 20.04+, Debian 11+, or Fedora 39+ (amd64 and aarch64)
+- **Linux:** Ubuntu 20.04+, Debian 12+, or Fedora 39+ (amd64 and aarch64)
 
 **Hardware**
 
