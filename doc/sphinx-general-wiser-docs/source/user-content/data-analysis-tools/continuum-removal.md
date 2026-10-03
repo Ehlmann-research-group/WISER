@@ -91,5 +91,3 @@ need to continuum-remove first.
 
 - {doc}`Tutorial 2 — Reading Spectra <../../tutorials/02-spectra>`
 - {doc}`Spectral Feature Fitting <spectral-feature-fitting>`
-- {doc}`Lab B — Mineral Mapping at Cuprite <../../tutorials/labs/lab-cuprite-minerals>` —
-  continuum removal used to identify minerals by their SWIR bands

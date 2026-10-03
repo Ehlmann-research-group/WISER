@@ -189,8 +189,8 @@ string:
 **Create Reference System** registers the result.
 
 ```{tip}
-Building a Mars or Moon CRS is the usual reason to reach for this tab — see
-{doc}`Lab C <../tutorials/labs/lab-mars-crism>`. Set the **Shape** and
+Building a Mars or Moon CRS is the usual reason to reach for this tab. Set the
+**Shape** and
 **Semi-Major Axis** to the body's figure — 3396190 m for the Mars IAU 2000
 ellipsoid, 1737400 m for the Moon — before choosing a projection.
 ```

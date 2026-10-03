@@ -190,6 +190,4 @@ The same operation runs on a whole cube: right-click the image and choose
 ## See also
 
 - {doc}`Tutorial 2 — Reading Spectra <../tutorials/02-spectra>`
-- {doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>` — four real 425-band
-  spectra read in detail
 - {doc}`Spectrum Plot internals <../developer-content/spectrum-plot>`

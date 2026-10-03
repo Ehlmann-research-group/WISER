@@ -188,4 +188,5 @@ Smoothing Filter...**, which smooth spatially instead — see
 
 ---
 
-**Next:** the {doc}`Labs <labs/index>` take these tools to full public datasets.
+**Next:** back to the {doc}`tutorials index <index>`, or on to the
+{doc}`User Manual <../user-content/user-manual>` for the full reference.

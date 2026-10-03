@@ -86,19 +86,9 @@ cloning the repository:
 git clone https://github.com/Ehlmann-research-group/WISER.git
 ```
 
-```{admonition} Small fixtures, real scenes
-:class: note
-The fixtures are chosen so the tutorials run instantly for everyone, with no
-download. They are deliberately not impressive to look at. When you want to see
-what the same tools do on a full 425-band airborne cube — real red edges, real
-scree plots, real mineral separations — go to
-{doc}`Lab A <labs/lab-aviris-ng-urban>`, which is built on exactly that.
-```
-
 ---
 
-**Next:** the {doc}`Labs <labs/index>` take these tools to full public
-datasets, in a form you can adapt into your own lab.
+**Next:** start with {doc}`Tutorial 1 <01-first-look>`.
 
 ```{toctree}
 :hidden:

@@ -31,21 +31,11 @@ only *Covariance* and is disabled.
 When the run finishes, a PCA metadata widget and a **scree plot** (eigenvalue
 vs. component index) open automatically. Click **View Past Results** to reopen
 the scree plot for any earlier run; it helps you judge how many components are
-worth keeping.
-
-:::{figure} ../../_static/tutorials/lab_avng_scree.png
-:width: 80%
-:align: center
-:alt: A PCA scree plot on log axes for a 425-band AVIRIS-NG cube
-:::
-
-A scree plot from a real 425-band cube: eigenvalues fall four orders of
-magnitude by component 50, with the elbow near component 10–15. The 372
-components shown are 425 bands minus the 53 flagged bad.
+worth keeping. On a full-size scene, eigenvalues typically fall several orders
+of magnitude within the first few dozen components, with the elbow near
+component 10–15.
 
 ## See also
 
 - {doc}`Tutorial 6 — PCA and MNF <../../tutorials/06-pca-mnf>`
-- {doc}`Lab A <../../tutorials/labs/lab-aviris-ng-urban>` — PCA on a full
-  AVIRIS-NG cube, with the composite and the scree plot read in detail
 - {doc}`Minimum Noise Fraction <mnf>` — orders by signal-to-noise instead

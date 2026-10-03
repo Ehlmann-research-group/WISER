@@ -55,9 +55,8 @@ and projects the cube onto the leading eigenvectors. The result is added as
 **`PCA on <source>`**, ordered most to least variance.
 
 ```{note}
-PCA is fast even on a large cube. On the 680 × 500 × 425 AVIRIS-NG scene in
-{doc}`Lab A <labs/lab-aviris-ng-urban>` it completes in about **7 seconds** and
-returns 372 components — 425 bands minus the 53 flagged bad.
+PCA is fast even on a large cube: on a full-size airborne scene of several
+hundred bands it completes in seconds.
 ```
 
 ---
@@ -80,7 +79,7 @@ albedo.
 Bands 1, 2 and 3 look different, because later components carry the
 *differences* between materials rather than their brightness. That is why a
 false-color composite of the first three components often separates surfaces
-that look alike in true color. Lab A shows that on a full cube.
+that look alike in true color.
 ```
 
 ```{note}
@@ -99,9 +98,9 @@ component index, on a log scale. It answers "how many components should I
 keep?".
 
 Look for the **elbow** — where the curve flattens. Components before it hold
-structure; after it, noise. On the AVIRIS-NG scene in Lab A the eigenvalues
+structure; after it, noise. On a full-size airborne scene the eigenvalues can
 fall four orders of magnitude by component 50, with the elbow around component
-10–15: of 372 components, roughly the first dozen carry the scene.
+10–15: roughly the first dozen carry the scene.
 
 Click **View Past Results** in the PCA dialog to reopen the scree plot for any
 earlier run without recomputing.

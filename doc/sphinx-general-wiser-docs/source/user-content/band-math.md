@@ -13,8 +13,7 @@ Open it with **Tools ▸ Band math...**.
 :::
 
 For a worked example see
-{doc}`Tutorial 4 <../tutorials/04-band-math-ndvi>`; for the same thing on a
-425-band cube, {doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>`.
+{doc}`Tutorial 4 <../tutorials/04-band-math-ndvi>`.
 
 ---
 

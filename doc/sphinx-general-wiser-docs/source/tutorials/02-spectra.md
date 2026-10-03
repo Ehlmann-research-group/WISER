@@ -12,9 +12,6 @@ tiny so it can live in the repository. What matters here is its **spectral**
 depth: each of those 49 pixels carries a full 425-band AVIRIS spectrum. Zoom to
 fit and every pixel fills a large block of screen, which makes it obvious which
 one you clicked.
-
-For the same measurement over a real scene, see
-{doc}`Lab A <labs/lab-aviris-ng-urban>`.
 ```
 
 ---
