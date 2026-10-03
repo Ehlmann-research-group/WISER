@@ -18,8 +18,7 @@ and CU Boulder. Questions: wiser_AT_lists.lasp.colorado.edu.
    * - :doc:`Install WISER <installation>`
      - Download an installer, or run from source
    * - :doc:`Tutorials and Example Workflows <tutorials/index>`
-     - Eight short walkthroughs on data that ships with WISER, then five applied
-       labs on full public datasets
+     - Eight short walkthroughs on data that ships with WISER
    * - :doc:`User Manual <user-content/user-manual>`
      - The reference for every pane, dialog and option
    * - :doc:`Extend WISER <extending-wiser/index>`
@@ -114,17 +113,16 @@ Data to try
 -----------
 
 The :doc:`Tutorials <tutorials/getting-started>` run on fixtures in the
-WISER source tree, so there is nothing to download. For full scenes, the
-:doc:`Labs <tutorials/labs/index>` walk through these end to end:
+WISER source tree, so there is nothing to download. For full scenes, try
+these public datasets:
 
 - `AVIRIS-NG Caltech subset <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil>`_
   (plus its `header <https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr>`__)
-  --- 425 bands over Pasadena, and the basis of
-  :doc:`Lab A <tutorials/labs/lab-aviris-ng-urban>`
+  --- 425 bands over Pasadena
 - `AVIRIS-Classic reflectance over Cuprite, Nevada
   <https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl>`_
   (plus its `header <https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl.hdr>`__)
-  --- 224 bands, the basis of :doc:`Lab B <tutorials/labs/lab-cuprite-minerals>`
+  --- 224 bands
 - `AVIRIS Data Portal <https://aviris.jpl.nasa.gov/dataportal/>`_ and
   `AVIRIS free data <https://aviris.jpl.nasa.gov/data/free_data.html>`_ ---
   more airborne scenes
@@ -134,7 +132,7 @@ WISER source tree, so there is nothing to download. For full scenes, the
   hyperspectral ocean color
 - `CRISM MTRDR over Jezero Crater
   <https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2007/2007_029/hrl000040ff/>`_
-  --- 489 bands, the basis of :doc:`Lab C <tutorials/labs/lab-mars-crism>`
+  --- 489 bands
 - `PDS Geosciences Node <https://pds-geosciences.wustl.edu/>`_ and the
   `Mars Orbital Data Explorer <https://ode.rsl.wustl.edu/mars/>`_ ---
   CRISM, OMEGA, M3 and more

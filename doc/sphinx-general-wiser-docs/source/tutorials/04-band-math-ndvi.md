@@ -31,9 +31,7 @@ everything else just as cleanly, which is what you want here — but do not
 compare these numbers against published 670 nm NDVI values.
 
 Choosing bands by what they physically measure, not by what an index is
-conventionally called, is the whole job. {doc}`Lab A <labs/lab-aviris-ng-urban>`
-runs the same index on a 425-band cube where the textbook wavelengths are
-available.
+conventionally called, is the whole job.
 ```
 
 ---
@@ -122,8 +120,7 @@ needed you to recognize shapes.
 **Set the stretch on any computed product before you read it.** Index values
 have no reason to fill the display range sensibly, and a single extreme pixel
 at a scene edge can flatten everything else into one color. Check the
-histogram in the stretch dialog first. {doc}`Lab A <labs/lab-aviris-ng-urban>`
-shows what this looks like when it goes wrong.
+histogram in the stretch dialog first.
 ```
 
 ---

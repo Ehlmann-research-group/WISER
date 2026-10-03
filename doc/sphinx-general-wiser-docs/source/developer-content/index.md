@@ -125,19 +125,6 @@ When you change a dialog, re-run its scene and commit the new PNG with the code
 change. Adding a figure means adding or extending a scene, not hand-capturing a
 screenshot.
 
-Some scenes need a lab dataset that is too large to commit. Each one calls
-`require()` and skips itself with a message when the file is absent, so the
-scenes that run on bundled fixtures always work:
-
-| Scene prefix | Dataset | Where to get it |
-|---|---|---|
-| `avng_` | AVIRIS-NG Caltech subset, 551 MB | {doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>` |
-| `cuprite_` | AVIRIS-Classic Cuprite window, 2.05 GB | {doc}`Lab B <../tutorials/labs/lab-cuprite-minerals>` |
-| `crism_` | CRISM Jezero MTRDR cube, 640 MB | {doc}`Lab C <../tutorials/labs/lab-mars-crism>` |
-
-Each lab's "Get the data" section is the download recipe, and the files belong
-in `src/test_utils/test_datasets/`, where `.gitignore` already excludes them.
-
 ```{admonition} Two traps the harness works around
 :class: note
 `WiserTestModel.run()` ends in `QApplication.quit()`, which in Qt 6 closes

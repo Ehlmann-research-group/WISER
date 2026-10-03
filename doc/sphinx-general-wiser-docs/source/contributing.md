@@ -84,7 +84,7 @@ Documentation changes are as welcome as code changes, and make a good first
 contribution.
 
 - **User-facing pages** live in `doc/sphinx-general-wiser-docs/source/user-content/`.
-- **Tutorials and labs** live in `.../source/tutorials/`.
+- **Tutorials** live in `.../source/tutorials/`.
 - **Developer pages** live in `.../source/developer-content/`.
 
 Build with `make html` from `doc/sphinx-general-wiser-docs`, and treat a new

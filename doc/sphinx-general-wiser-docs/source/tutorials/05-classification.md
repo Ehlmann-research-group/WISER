@@ -195,8 +195,8 @@ There is no correct K. Ways to decide:
   {doc}`PCA or MNF <06-pca-mnf>` and cluster the leading components: faster,
   and far less prone to chasing noise.
 
-That last point is not a detail. {doc}`Lab A <labs/lab-aviris-ng-urban>` runs
-K-means on a raw 425-band cube and the result is visibly speckled — the method
+That last point is not a detail. Run K-means on a raw full-size 425-band cube
+and the result is visibly speckled — the method
 partitions *total* variance, and on a high-resolution scene most of that is
 within-surface variation rather than between-material difference.
 

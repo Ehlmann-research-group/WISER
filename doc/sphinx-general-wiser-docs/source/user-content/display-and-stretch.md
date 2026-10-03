@@ -186,9 +186,9 @@ rather than on the clouds.
 ```
 
 Use it when a dataset has no data-ignore value, or when a computed result has a
-huge theoretical range but a narrow interesting one — see the NDVI example in
-{doc}`Lab A <../tutorials/labs/lab-aviris-ng-urban>`, where flight-line edges
-drag the minimum to −3.35 and flatten the whole scene to one color.
+huge theoretical range but a narrow interesting one — an NDVI over a full-size
+flight line, say, where the scene edges drag the minimum far below the real
+range and flatten the whole scene to one color.
 
 **Link sliders across all channels** and **Apply minimum/maximum values across
 all channels** make the same change to every channel at once.

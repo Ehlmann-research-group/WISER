@@ -64,9 +64,7 @@ Use **View Centroids** to plot each cluster's mean spectrum and identify it.
 On a cube with hundreds of bands, run {doc}`MNF <mnf>` first and cluster the
 leading components. K-means partitions *total* variance, and on a
 high-resolution scene most of that is within-surface variation rather than
-between-material difference —
-{doc}`Lab A <../../tutorials/labs/lab-aviris-ng-urban>` shows what the raw-cube
-result looks like.
+between-material difference.
 ```
 
 ## See also

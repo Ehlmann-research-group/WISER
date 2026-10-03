@@ -250,5 +250,4 @@ check that the absorptions you expect are actually there.
 ---
 
 **Next:** {doc}`Tutorial 8 <08-bench-and-close-range>` takes the same tools to
-a laboratory cube, and then the {doc}`Labs <labs/index>` take them to real,
-downloadable scenes.
+a laboratory cube.
