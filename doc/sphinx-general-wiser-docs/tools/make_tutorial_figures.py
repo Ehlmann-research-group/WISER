@@ -447,6 +447,121 @@ def first_look():
     s.close()
 
 
+@scene("toolbar")
+def toolbar():
+    """Tutorial 1: the main toolbar with every button numbered.
+
+    Grabs the toolbar strip from a live window and marks each button with a
+    numbered callout; the tutorial lists the buttons by tooltip in the same
+    order. Button positions and labels are read from the real QActions, so the
+    figure cannot drift from the UI. The numbered list is printed on every run
+    for checking against the tutorial text.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    s = Shoot()
+    s.open(CAMPUS)
+    s.show_all_panes()
+    s.fit()
+    s.soft_pump()
+
+    win = s.win
+    mv = win._main_view
+    # Widgets added with QToolBar.addWidget() whose tooltip is empty or too
+    # verbose to serve as a name.
+    special = {
+        id(mv._cbox_zoom): "Zoom level",
+        id(mv._cbox_current_roi): "Current ROI",
+    }
+
+    entries = []  # (center_x, label), in left-to-right order
+    strip_bottom = 0
+    for tb in (win._main_toolbar, win._image_toolbar):
+        strip_bottom = max(strip_bottom, tb.mapTo(win, QPoint(0, tb.height())).y())
+        for act in tb.actions():
+            if act.isSeparator():
+                continue
+            # isVisible() is False under the offscreen platform even for
+            # widgets the grab renders, so filter on geometry alone.
+            w = tb.widgetForAction(act)
+            if w is None or w.width() <= 0:
+                continue
+            label = special.get(id(w)) or act.toolTip() or w.toolTip() or type(w).__name__
+            center = w.mapTo(win, QPoint(w.width() // 2, 0)).x()
+            entries.append((center, label))
+    entries.sort()
+
+    print("  toolbar buttons, left to right:")
+    for i, (_, label) in enumerate(entries, start=1):
+        print(f"    {i:2d}. {label}")
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    raw = OUT / "_t1_toolbar_raw.png"
+    win.grab().save(str(raw))
+
+    img = Image.open(raw).convert("RGB")
+    ratio = img.width / win.width()  # device-pixel ratio of the grab
+    right = min(win.width(), int(entries[-1][0]) + 40)
+    strip = img.crop((0, 0, int(right * ratio), int((strip_bottom - 1) * ratio)))
+    scale = 2
+    strip = strip.resize((strip.width * scale, strip.height * scale), Image.NEAREST)
+
+    radius = 13
+    band_height = 2 * (2 * radius + 10) + 8
+    canvas = Image.new("RGB", (strip.width, strip.height + band_height), "#ffffff")
+    canvas.paste(strip, (0, 0))
+    draw = ImageDraw.Draw(canvas)
+
+    font = None
+    for name in ("Helvetica.ttc", "Arial.ttf", "DejaVuSans.ttf"):
+        try:
+            font = ImageFont.truetype(name, 16)
+            break
+        except OSError:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+
+    # Alternate between two rows whenever adjacent markers would collide.
+    k = ratio * scale
+    prev_x, prev_row = -1e9, 1
+    for i, (cx, _) in enumerate(entries, start=1):
+        x = cx * k
+        row = 0 if x - prev_x >= 2 * radius + 6 else 1 - prev_row
+        prev_x, prev_row = x, row
+        cy = strip.height + 6 + radius + row * (2 * radius + 10)
+        draw.line([(x, strip.height - 2), (x, cy - radius)], fill="#999999", width=1)
+        draw.ellipse(
+            [x - radius, cy - radius, x + radius, cy + radius],
+            fill="#1f3a93",
+            outline="#1f3a93",
+        )
+        text = str(i)
+        tw = draw.textlength(text, font=font)
+        draw.text((x - tw / 2, cy - 9), text, fill="#ffffff", font=font)
+
+    path = OUT / "t1_toolbar_annotated.png"
+    canvas.save(path, "PNG", optimize=True)
+    raw.unlink()
+    _shrink(path)
+    print(f"  -> {path.name}")
+
+    s.close()
+
+
+@scene("cir")
+def cir():
+    """Tutorial 1: the colour-infrared composite (R=NIR, G=red, B=green)."""
+    s = Shoot()
+    ds = s.open(CAMPUS)
+    s.show_all_panes()
+    s.fit()
+    s.display(ds, bands=(3, 2, 1))
+    s.stretch_2_5()
+    s.shot("t1_cir_composite")
+    s.close()
+
+
 # --------------------------------------------------------------------------
 # Getting Started tutorials (bundled fixtures)
 # --------------------------------------------------------------------------
