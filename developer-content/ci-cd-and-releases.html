@@ -625,8 +625,9 @@ nightly.</p>
 <section id="deployment-tests">
 <h4>Deployment Tests<a class="headerlink" href="#deployment-tests" title="Link to this heading">#</a></h4>
 <p>We currently have a github action that builds WISER on the github runners then runs
-our smoke tests then uploads distribution files to github. Currently, this only happens
-by workflow_dispatch, which means a developer must manually make it run.</p>
+our smoke tests then uploads distribution files to github. It runs by workflow_dispatch
+and on a weekly schedule (Monday 07:00 UTC) against <code class="docutils literal notranslate"><span class="pre">main</span></code>, so breakage from upstream base
+images and package mirrors shows up between releases rather than at release time.</p>
 <p>There are also simple make recipes to build and test wiser locally.
 The make commands <code class="docutils literal notranslate"><span class="pre">smoke-test-win-build</span></code> and <code class="docutils literal notranslate"><span class="pre">smoke-test-mac-build</span></code> when run from the root directory
 build WISER and run the <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> locally. This is useful to find build bugs as well.</p>
@@ -667,7 +668,7 @@ identifiable from the name (the public downloads page groups assets by these tok
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">windows</span><span class="o">-</span><span class="n">x64</span><span class="o">-</span><span class="n">setup</span><span class="o">.</span><span class="n">exe</span>
 <span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">macos</span><span class="o">-</span><span class="n">arm64</span><span class="o">.</span><span class="n">dmg</span>
 <span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">macos</span><span class="o">-</span><span class="n">x64</span><span class="o">.</span><span class="n">dmg</span>
-<span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">linux</span><span class="o">-&lt;</span><span class="n">distro</span><span class="o">&gt;-</span><span class="n">x64</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>     <span class="c1"># distro: ubuntu2004 | debian11 | fedora39</span>
+<span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">linux</span><span class="o">-&lt;</span><span class="n">distro</span><span class="o">&gt;-</span><span class="n">x64</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>     <span class="c1"># distro: ubuntu2004 | debian12 | fedora39</span>
 <span class="n">WISER</span><span class="o">-&lt;</span><span class="n">version</span><span class="o">&gt;-</span><span class="n">linux</span><span class="o">-&lt;</span><span class="n">distro</span><span class="o">&gt;-</span><span class="n">arm64</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>
 </pre></div>
 </div>
@@ -681,9 +682,9 @@ step in <code class="docutils literal notranslate"><span class="pre">prod-deploy
 bits you ship are the exact bits you tested.</p>
 <ul class="simple">
 <li><p><strong>Linux</strong> builds are unsigned, so a CI tarball <em>is</em> the final asset. <code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>
-(run via <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>) builds and tests each distro and uploads the tarballs as
-run artifacts. When you are ready to release, <code class="docutils literal notranslate"><span class="pre">publish-release-assets.yml</span></code> attaches the
-tarballs from that specific run to the release — it verifies the run succeeded and that
+(run via <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>, and weekly against <code class="docutils literal notranslate"><span class="pre">main</span></code>) builds and tests each distro and
+uploads the tarballs as run artifacts. When you are ready to release,
+<code class="docutils literal notranslate"><span class="pre">publish-release-assets.yml</span></code> attaches the tarballs from that specific run to the release — it verifies the run succeeded and that
 the tag points at the built commit, so nothing is rebuilt at release time.</p></li>
 <li><p><strong>Windows / macOS</strong> are signed locally with the maintainer’s certificates, then uploaded
 with the canonical name via the sign scripts’ <code class="docutils literal notranslate"><span class="pre">--release-tag</span> <span class="pre">&lt;tag&gt;</span></code> option (see the

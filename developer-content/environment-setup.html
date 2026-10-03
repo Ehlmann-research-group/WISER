@@ -798,7 +798,7 @@ and <code class="docutils literal notranslate"><span class="pre">pip</span> <spa
 folder and run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
 <section id="supported-distributions-and-architectures">
 <h4>Supported Distributions and Architectures<a class="headerlink" href="#supported-distributions-and-architectures" title="Link to this heading">#</a></h4>
-<p>WISER builds target Ubuntu 20.04, Debian 11, and Fedora 39. Builds should
+<p>WISER builds target Ubuntu 20.04, Debian 12, and Fedora 39. Builds should
 generally work on future versions of these distributions due to their backwards
 compatibility goals. Supported Instruction Set Architectures (ISAs) are amd64
 (x86_64) and aarch64 (arm64).</p>
@@ -833,7 +833,7 @@ run:</p>
 <code class="docutils literal notranslate"><span class="pre">Build</span> <span class="pre">and</span> <span class="pre">Smoke</span> <span class="pre">WISER</span></code>. The process:</p>
 <ol class="arabic simple">
 <li><p>A matrix strategy runs jobs in parallel targeting Ubuntu 20.04 + amd64,
-Debian 11 + amd64, Fedora 39 + amd64, Ubuntu 20.04 + arm64, Debian 11 +
+Debian 12 + amd64, Fedora 39 + amd64, Ubuntu 20.04 + arm64, Debian 12 +
 arm64, and Fedora 39 + arm64.</p></li>
 <li><p>For each target, <code class="docutils literal notranslate"><span class="pre">./build_linux_multistage.sh</span></code> is run with the OS and ISA,
 which runs the corresponding Docker bake target in <code class="docutils literal notranslate"><span class="pre">docker_bake.hcl</span></code>. The
