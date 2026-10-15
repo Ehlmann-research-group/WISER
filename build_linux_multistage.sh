@@ -3,7 +3,7 @@ set -euxo pipefail
 
 # ============================================================
 # Valid args:
-#   distro: ubuntu2004 | debian11 | fedora39
+#   distro: ubuntu2004 | debian12 | fedora39
 #   arch:   amd -> amd64 | arm -> arm64
 #
 # Example:
@@ -14,7 +14,7 @@ BAKE_FILE="install-linux/docker_bake.hcl"
 
 if [[ $# -ne 2 ]]; then
   echo "ERROR: Expected 2 arguments: <distro> <arch>"
-  echo "  distro: ubuntu2004 | debian11 | fedora39"
+  echo "  distro: ubuntu2004 | debian12 | fedora39"
   echo "  arch:   amd | arm"
   exit 1
 fi
@@ -35,10 +35,10 @@ case "$DISTRO" in
     img="wiser-multistage:ubuntu20.04"
     base_name="ubuntu_2004"
     ;;
-  debian11)
+  debian12)
     tgt="multistage_debian"
-    img="wiser-multistage:debian11"
-    base_name="debian_11"
+    img="wiser-multistage:debian12"
+    base_name="debian_12"
     ;;
   fedora39)
     tgt="multistage_fedora"
@@ -47,7 +47,7 @@ case "$DISTRO" in
     ;;
   *)
     echo "ERROR: Invalid distro: $DISTRO"
-    echo "Valid: ubuntu2004 | debian11 | fedora39"
+    echo "Valid: ubuntu2004 | debian12 | fedora39"
     exit 1
     ;;
 esac

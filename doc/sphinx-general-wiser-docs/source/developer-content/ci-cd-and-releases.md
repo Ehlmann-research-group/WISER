@@ -112,8 +112,9 @@ nightly.
 #### Deployment Tests
 
 We currently have a github action that builds WISER on the github runners then runs
-our smoke tests then uploads distribution files to github. Currently, this only happens
-by workflow_dispatch, which means a developer must manually make it run.
+our smoke tests then uploads distribution files to github. It runs by workflow_dispatch
+and on a weekly schedule (Monday 07:00 UTC) against `main`, so breakage from upstream base
+images and package mirrors shows up between releases rather than at release time.
 
 There are also simple make recipes to build and test wiser locally.
 The make commands `smoke-test-win-build` and `smoke-test-mac-build` when run from the root directory
@@ -163,7 +164,7 @@ identifiable from the name (the public downloads page groups assets by these tok
 WISER-<version>-windows-x64-setup.exe
 WISER-<version>-macos-arm64.dmg
 WISER-<version>-macos-x64.dmg
-WISER-<version>-linux-<distro>-x64.tar.gz     # distro: ubuntu2004 | debian11 | fedora39
+WISER-<version>-linux-<distro>-x64.tar.gz     # distro: ubuntu2004 | debian12 | fedora39
 WISER-<version>-linux-<distro>-arm64.tar.gz
 ```
 
@@ -177,9 +178,9 @@ Assets are **built once and promoted** — the release event never triggers a bu
 bits you ship are the exact bits you tested.
 
 - **Linux** builds are unsigned, so a CI tarball *is* the final asset. `prod-deploy.yml`
-  (run via `workflow_dispatch`) builds and tests each distro and uploads the tarballs as
-  run artifacts. When you are ready to release, `publish-release-assets.yml` attaches the
-  tarballs from that specific run to the release — it verifies the run succeeded and that
+  (run via `workflow_dispatch`, and weekly against `main`) builds and tests each distro and
+  uploads the tarballs as run artifacts. When you are ready to release,
+  `publish-release-assets.yml` attaches the tarballs from that specific run to the release — it verifies the run succeeded and that
   the tag points at the built commit, so nothing is rebuilt at release time.
 - **Windows / macOS** are signed locally with the maintainer's certificates, then uploaded
   with the canonical name via the sign scripts' `--release-tag <tag>` option (see the

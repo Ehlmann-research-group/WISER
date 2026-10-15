@@ -72,6 +72,27 @@ What WISER does
   self-contained
 - A plugin API for adding your own analyses without rebuilding
 
+System Requirements
+^^^^^^^^^^^^^^^^^^^
+
+The minimum and recommended specifications for running WISER are:
+
+**Operating system**
+
+- **Windows:** Windows 10 or 11 (64-bit)
+- **macOS:** macOS 15 or newer (Intel and Apple Silicon)
+- **Linux:** Ubuntu 20.04+, Debian 12+, or Fedora 39+ (amd64 and aarch64)
+
+**Hardware**
+
+- **CPU architecture:** x86_64 (Intel/AMD) or arm64 (Apple Silicon / aarch64)
+- **Memory:** 8 GB minimum; 16--32 GB recommended for large datasets
+- **Storage:** ~1 GB for installation; SSD strongly recommended
+- **GPU:** Not required
+
+If you encounter issues building or running WISER, please
+`open a GitHub Issue <https://github.com/Ehlmann-research-group/WISER/issues>`_.
+
 ----
 
 Formats WISER reads

@@ -193,8 +193,13 @@ def create_translated_dataset(
     driver: gdal.Driver = gdal.GetDriverByName("GTiff")
     new_dataset = None
     try:
-        if isinstance(dataset.get_impl(), GDALRasterDataImpl):
-            impl = dataset.get_impl()
+        impl = dataset.get_impl()
+        if isinstance(impl, GDALRasterDataImpl) and not impl.reads_are_transformed():
+            # CreateCopy copies the backing dataset, so this is only sound while
+            # that dataset holds the same values the read methods return.  A
+            # packed netCDF does not, and copy_metadata_to_gdal_dataset would
+            # stamp a physical nodata onto stored counts; it takes the per-band
+            # path below, which reads through the scaling.
             translation_gdal_dataset = impl.gdal_dataset
             if driver is None:
                 raise RuntimeError("GDAL driver not available")
