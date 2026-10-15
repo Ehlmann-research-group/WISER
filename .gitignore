@@ -19,9 +19,30 @@ Install-WISER-*.exe
 Secret.mk
 Secret.sh
 
+# Code-signing keys and certs — private key material, DO NOT CHECK IN!
+*.p12
+*.pfx
+*.p8
+*.key
+*.certSigningRequest
+
 .vscode/
+.idea/
 
 .claude/
+
+# Sphinx build output and autodoc2-generated API pages
+doc/sphinx-general-wiser-docs/build/
+doc/sphinx-general-wiser-docs/source/apidocs/
+
+# Lab scenes that are downloaded rather than committed (see each lab's "Get the
+# data" step). The AVIRIS-NG Caltech subset is ~550 MB, the Cuprite window
+# ~2 GB and the CRISM Jezero cube ~640 MB.
+src/test_utils/test_datasets/ang20171108t184227*
+src/test_utils/test_datasets/f230918t01p00r11*
+src/test_utils/test_datasets/HRL000040FF*
+src/test_utils/test_datasets/EMIT_L2A_RFL_001_20230804*
+src/test_utils/test_datasets/PACE_OCI*
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*

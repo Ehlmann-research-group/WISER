@@ -187,7 +187,7 @@ Two constraints shape any fix:
   cut between the NumPy work and the Qt handoff: finish the array off-thread,
   build the Qt object on the GUI thread.
 - `_display_data`, `_joint_render_cache`, and the shared render cache are mutated
-  mid-render. Concurrent or stale renders must be cancelled, or discarded on
+  mid-render. Concurrent or stale renders must be canceled, or discarded on
   arrival, or fast clicking in the band chooser will paint the wrong image.
 
 Note also that the render and computation caches do not currently serve hits (see

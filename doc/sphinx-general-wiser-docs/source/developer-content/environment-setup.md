@@ -1,35 +1,11 @@
-# Developer Guide
+# Environment Setup
 
-This guide walks you through setting up a WISER development environment and
-covers the full contributor workflow from first clone to merged PR.
+Install conda, create the development environment, and run WISER from source.
 
-**Reading order for new contributors:**
-
-1. **This page** — install conda, set up the dev environment, run WISER from source
-2. [Contributing & Code Quality](contributing-and-quality.md) — code style, PR process, review standards
-3. [Testing & QA](testing-and-qa.md) — running tests, writing tests, CI
-4. [CI/CD and Releases](ci-cd-and-releases.md) — how releases are built and shipped (see
-   also: [macOS Code Signing](codesign-mac.md) and [Windows Code Signing](codesign-win.md))
-5. [System Design](system-design.md) — architecture overview for deeper changes
-6. [Design Documents](design-documents.md) — longer-form design rationale
-
-For a deeper look at how individual subsystems are implemented, see the
-[Code Documentation](code-documentation.md) section.
-
-```{toctree}
-:hidden:
-:maxdepth: 1
-
-contributing-and-quality.md
-testing-and-qa.md
-ci-cd-and-releases.md
-codesign-mac.md
-codesign-win.md
-system-design.md
-plugin-system.md
-plugin-dependencies.md
-design-documents.md
-```
+Once you are running, continue with
+[Contributing & Code Quality](contributing-and-quality.md) and
+[Testing & QA](testing-and-qa.md). The [Developer Guide](index.md) index lists
+everything else.
 
 ## Developer Environment Setup
 

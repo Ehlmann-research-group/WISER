@@ -17,6 +17,12 @@ The result is added as a new dataset named `PCA on <source>`.
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t6_pca_dialog.png
+:width: 45%
+:align: center
+:alt: The PCA dialog with number of components and estimator matrix
+:::
+
 Right-click a raster image and choose **PCA**. In the dialog, set **Number of
 Components** (how many PCA bands to keep) and click **OK**. The spin box
 defaults to the maximum — the count of good bands. **Estimator Matrix** offers
@@ -25,4 +31,11 @@ only *Covariance* and is disabled.
 When the run finishes, a PCA metadata widget and a **scree plot** (eigenvalue
 vs. component index) open automatically. Click **View Past Results** to reopen
 the scree plot for any earlier run; it helps you judge how many components are
-worth keeping.
+worth keeping. On a full-size scene, eigenvalues typically fall several orders
+of magnitude within the first few dozen components, with the elbow near
+component 10–15.
+
+## See also
+
+- {doc}`Tutorial 6 — PCA and MNF <../../tutorials/06-pca-mnf>`
+- {doc}`Minimum Noise Fraction <mnf>` — orders by signal-to-noise instead

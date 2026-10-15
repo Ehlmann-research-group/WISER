@@ -30,6 +30,12 @@ Target Detection & Spectral Matching
 - :doc:`Spectral Feature Fitting (SFF) <spectral-feature-fitting>` — match
   pixels to reference spectra by their absorption features.
 
+Feature Isolation
+-----------------
+
+- :doc:`Continuum Removal <continuum-removal>` --- divide out a spectrum's
+  smooth envelope so only its absorption features remain.
+
 Unmixing
 --------
 
@@ -51,5 +57,6 @@ Visualization
    mtmf
    spectral-angle-mapper
    spectral-feature-fitting
+   continuum-removal
    linear-unmixing
    interactive-scatter-plot

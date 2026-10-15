@@ -32,6 +32,13 @@ spectrum:
 
 ## Using the tool
 
+:::{figure} ../../_static/tutorials/t7_sam_dialog.png
+:width: 75%
+:align: center
+:alt: The Spectral Angle Mapper dialog
+:::
+
+
 Inputs work the same way as [Spectral Feature Fitting](spectral-feature-fitting.md):
 
 1. **Target** — choose **Image Cube** (or **Spectrum**) and select the dataset
@@ -44,3 +51,7 @@ Inputs work the same way as [Spectral Feature Fitting](spectral-feature-fitting.
    the method threshold but individually overridable.
 4. Click **Run SAM**. Image-cube runs proceed in the background; spectrum runs
    open a ranked details table with a comparison plot.
+
+## See also
+
+- {doc}`Tutorial 7 — Finding a Known Material <../../tutorials/07-detection>`
