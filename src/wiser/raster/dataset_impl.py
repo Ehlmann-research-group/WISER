@@ -1664,9 +1664,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         self._spatial_ref: Optional[osr.SpatialReference] = spatial_ref
         self._wavelength_units: Optional[u.Unit] = band_units
         self._wavelengths: Optional[np.ndarray] = wavelengths
-        if geotransform is None:
-            geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-        self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
+        self._geotransform: Optional[Tuple[float, float, float, float, float, float]] = geotransform
         self._subdataset_name = subdataset_name
         if self._wavelengths is not None:
             assert (
@@ -2008,8 +2006,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return band_info
 
     def read_geo_transform(self) -> Tuple:
+        """Return the file-declared global geotransform, else GDAL's for the subdataset.
+
+        GDAL derives a geotransform from CF coordinate variables, and reports the
+        identity transform when the subdataset has no georeferencing, which is
+        how every GDAL-backed dataset in WISER signals "not georeferenced".
+        """
         with self._quiet_gdal_warnings():
-            if self._geotransform:
+            if self._geotransform is not None:
                 return self._geotransform
             return super().read_geo_transform()
 
