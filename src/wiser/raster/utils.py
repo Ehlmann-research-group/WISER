@@ -901,6 +901,19 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "R
     # or close here so callers can keep stamping/reading before closing.
 
 
+def srs_from_wkt(wkt: str) -> osr.SpatialReference:
+    """
+    Build an ``osr.SpatialReference`` from WKT with the traditional GIS axis
+    order (x/easting/longitude first), matching GDAL geotransforms.  Without
+    this, GDAL 3 uses the authority's axis order, so for EPSG geographic CRSs
+    such as EPSG:4326 ``TransformPoint`` takes and returns (lat, lon).
+    """
+    srs = osr.SpatialReference()
+    srs.ImportFromWkt(wkt)
+    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    return srs
+
+
 def get_bbox(gt, width, height):
     """Compute (minX, minY, maxX, maxY) of a raster given its GeoTransform."""
     xs, ys = [], []

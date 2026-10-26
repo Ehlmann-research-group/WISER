@@ -8,7 +8,7 @@ from PySide6.QtWidgets import *
 
 from wiser.gui.generated.subdataset_chooser_dialog_ui import Ui_SubdatasetChooser
 from .util import populate_combo_box_with_units
-from wiser.raster.utils import extract_netcdf_wavelengths, extract_netcdf_bad_bands
+from wiser.raster.utils import extract_netcdf_wavelengths, extract_netcdf_bad_bands, srs_from_wkt
 from osgeo import gdal, osr
 
 import numpy as np
@@ -381,10 +381,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         if not self._ui.chk_box_srs.isChecked() or not self._spatial_ref_wkt:
             return None
 
-        srs = osr.SpatialReference()
-        # ImportFromWkt expects *str* in Python 3
-        srs.ImportFromWkt(self._spatial_ref_wkt)
-        return srs
+        return srs_from_wkt(self._spatial_ref_wkt)
 
     def accept(self):
         from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl

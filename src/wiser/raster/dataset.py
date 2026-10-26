@@ -33,6 +33,7 @@ from .utils import (
     can_transform_between_srs,
     have_spatial_overlap,
     build_band_info_from_wavelengths,
+    srs_from_wkt,
 )
 
 if TYPE_CHECKING:
@@ -264,8 +265,7 @@ class SpatialMetadata:
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
         srs = None
         if self._wkt_spatial_reference:
-            srs = osr.SpatialReference()
-            srs.ImportFromWkt(self._wkt_spatial_reference)
+            srs = srs_from_wkt(self._wkt_spatial_reference)
         return srs
 
     def __eq__(self, other: "SpatialMetadata") -> bool:
@@ -829,9 +829,7 @@ class RasterDataSet(Serializable):
         if wkt_spatial_reference is None:
             self._spatial_ref = None
         else:
-            spatial_ref = osr.SpatialReference()
-            spatial_ref.ImportFromWkt(wkt_spatial_reference)
-            self._spatial_ref = spatial_ref
+            self._spatial_ref = srs_from_wkt(wkt_spatial_reference)
         self.set_dirty()
 
     def _set_geo_transform(self, geo_transform: Tuple) -> None:
@@ -852,6 +850,7 @@ class RasterDataSet(Serializable):
             self._wkt_spatial_reference = None
         else:
             self._spatial_ref = spatial_ref.Clone()
+            self._spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
             self._wkt_spatial_reference = self._spatial_ref.ExportToWkt()
         self.set_dirty()
 
@@ -1497,14 +1496,14 @@ class RasterDataSet(Serializable):
 
         if source.get_spatial_ref() is not None:
             self._spatial_ref = source.get_spatial_ref().Clone()
+            self._spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         else:
             self._spatial_ref = None
 
         if source.get_wkt_spatial_reference():
             self._wkt_spatial_reference = source.get_wkt_spatial_reference()
             if self._spatial_ref is None:
-                self._spatial_ref = osr.SpatialReference()
-                self._spatial_ref.ImportFromWkt(self._wkt_spatial_reference)
+                self._spatial_ref = srs_from_wkt(self._wkt_spatial_reference)
         else:
             self._wkt_spatial_reference = None
 
@@ -1712,9 +1711,7 @@ class RasterDataSet(Serializable):
             self._bad_bands = serial_bad_bands
         if serial_wkt_spatial_ref:
             self._wkt_spatial_reference = serial_wkt_spatial_ref
-            spatial_ref = osr.SpatialReference()
-            spatial_ref.ImportFromWkt(serial_wkt_spatial_ref)
-            self._spatial_ref = spatial_ref
+            self._spatial_ref = srs_from_wkt(serial_wkt_spatial_ref)
         if serial_geo_transform:
             self._geo_transform = serial_geo_transform
         if serial_wavelengths or serial_band_info:
