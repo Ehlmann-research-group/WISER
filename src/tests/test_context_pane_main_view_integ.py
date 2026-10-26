@@ -8,6 +8,7 @@ All tests ensure that user interactions in one pane correctly update or reflect
 in the other, and that edge cases like dataset removal or linking maintain consistent state.
 """
 import unittest
+from pathlib import Path
 
 import tests.context
 
@@ -707,16 +708,22 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_cp_remove_not_chosen_dataset(self.test_model.click_link_button)
 
 
+_DATASETS = Path(__file__).resolve().parent.parent / "test_utils" / "test_datasets"
+
+
 class TestContextPaneClickRecenter(unittest.TestCase):
     """
-    A context-pane click recenters a main-view raster-view only when that view
-    shows the context pane's dataset, or when linked scrolling is on and the
-    view's dataset maps onto it. Views that cannot be mapped do not move.
+    With linked scrolling off, a context-pane click recenters only the
+    main-view raster-views showing the context pane's dataset.  With it on, the
+    first raster-view that can be mapped from that dataset is recentered and
+    the others follow the main view's link mode; if none can be mapped,
+    nothing moves.
     """
 
-    CALTECH = "../test_utils/test_datasets/caltech_4_100_150_nm"
-    CALTECH_ROTATED = "../test_utils/test_datasets/caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif"
-    CIRCUIT = "../test_utils/test_datasets/circuit_4_100_150_um"
+    CALTECH = str(_DATASETS / "caltech_4_100_150_nm")
+    CALTECH_ROTATED = str(_DATASETS / "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
+    CIRCUIT = str(_DATASETS / "circuit_4_100_150_um")
+    JPL = str(_DATASETS / "jpl_15_40_30")
 
     CLICK = (120, 120)
 
@@ -795,18 +802,50 @@ class TestContextPaneClickRecenter(unittest.TestCase):
         self.assertTrue(self._contains((0, 0), self.CLICK))
         self.assertTrue(self._contains((0, 1), target))
 
-    def test_linked_leaves_unmappable_tile_alone(self):
+    def test_linked_maps_click_into_first_mappable_tile_and_syncs_rest(self):
         datasets = self._show(self.CALTECH, self.CALTECH_ROTATED, context_path=self.CIRCUIT)
         self.assertTrue(self.test_model.click_link_button())
+        self.assertEqual(self.test_model.main_view._link_view_state, GeographicLinkState.SPATIAL)
         self.assertEqual(
             datasets[self.CIRCUIT].determine_link_state(datasets[self.CALTECH_ROTATED]),
             GeographicLinkState.NO_LINK,
         )
-        right_before = self._scroll((0, 1))
+        target = reference_pixel_to_target_pixel_ds(
+            self.CLICK, datasets[self.CALTECH], datasets[self.CALTECH_ROTATED]
+        )
+        self.assertFalse(self._contains((0, 1), target))
 
         self.test_model.click_raster_coord_context_pane(self.CLICK)
 
-        self.assertEqual(self._scroll((0, 1)), right_before)
+        self.assertTrue(self._contains((0, 0), self.CLICK))
+        self.assertTrue(self._contains((0, 1), target))
+
+    def test_linked_nothing_moves_when_no_tile_maps(self):
+        datasets = self._show(self.CALTECH, self.CALTECH_ROTATED, context_path=self.JPL)
+        self.assertTrue(self.test_model.click_link_button())
+        for path in (self.CALTECH, self.CALTECH_ROTATED):
+            self.assertEqual(
+                datasets[self.JPL].determine_link_state(datasets[path]), GeographicLinkState.NO_LINK
+            )
+        click = (25, 35)
+        self.assertFalse(self._contains((0, 0), click))
+        before = (self._scroll((0, 0)), self._scroll((0, 1)))
+
+        self.test_model.click_raster_coord_context_pane(click)
+
+        self.assertEqual((self._scroll((0, 0)), self._scroll((0, 1))), before)
+
+    def test_single_view_recenters_on_click(self):
+        tm = self.test_model
+        dataset = tm.load_dataset(self.CALTECH)
+        for _ in range(4):
+            tm.click_main_view_zoom_in()
+        tm.set_context_pane_dataset_chooser_id(dataset.get_id())
+        self.assertFalse(self._contains((0, 0), self.CLICK))
+
+        tm.click_raster_coord_context_pane(self.CLICK)
+
+        self.assertTrue(self._contains((0, 0), self.CLICK))
 
 
 """
