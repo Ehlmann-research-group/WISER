@@ -17,9 +17,9 @@ from wiser.raster.mosaic_controller import (
     compute_union_overlaps,
     reprojected_footprint_geometry,
     _footprint_envelope,
-    _srs_from_wkt,
     _warped_resolution,
 )
+from wiser.raster.utils import srs_from_wkt
 
 import pytest
 
@@ -370,7 +370,7 @@ def test_reprojected_footprint_matches_envelope(tmp_path):
     # grid builder's _footprint_envelope (which does the same reprojection).
     scene = _make_scene(tmp_path, "s", epsg=32611, origin=(400000.0, 3800000.0), pixel=30.0)
     src = scene.dataset.get_spatial_ref()
-    target = _srs_from_wkt(_wkt_for_epsg(4326))
+    target = srs_from_wkt(_wkt_for_epsg(4326))
 
     geom = reprojected_footprint_geometry(scene, src, target)
     env = geom.GetEnvelope()  # (min_x, max_x, min_y, max_y)
@@ -401,7 +401,7 @@ def test_scene_extent_in_common_crs_live_and_pending(tmp_path):
     # The live scene's extent equals its footprint envelope in the target CRS, ordered
     # (min_x, min_y, max_x, max_y) -- the exact tuple fit_to_extent consumes.
     src = live.dataset.get_spatial_ref()
-    target = _srs_from_wkt(c.get_target_crs())
+    target = srs_from_wkt(c.get_target_crs())
     expected = _footprint_envelope(live, src, target)
     got = c.scene_extent_in_common_crs(live)
     assert got == pytest.approx(expected)

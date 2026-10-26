@@ -907,9 +907,17 @@ def srs_from_wkt(wkt: str) -> osr.SpatialReference:
     order (x/easting/longitude first), matching GDAL geotransforms.  Without
     this, GDAL 3 uses the authority's axis order, so for EPSG geographic CRSs
     such as EPSG:4326 ``TransformPoint`` takes and returns (lat, lon).
+
+    Raises ``ValueError`` if GDAL cannot parse ``wkt``, whether or not GDAL
+    exceptions are enabled.
     """
     srs = osr.SpatialReference()
-    srs.ImportFromWkt(wkt)
+    try:
+        err = srs.ImportFromWkt(wkt)
+    except RuntimeError as e:
+        raise ValueError(f"Invalid WKT spatial reference: {e}") from e
+    if err != 0:
+        raise ValueError(f"Invalid WKT spatial reference (OGR error {err})")
     srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     return srs
 

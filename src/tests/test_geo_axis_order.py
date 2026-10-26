@@ -18,12 +18,14 @@ from osgeo import gdal, osr
 
 import tests.context  # noqa: F401 -- adds src/ to sys.path
 
+from PySide6.QtCore import QPoint, QRect
 from PySide6.QtWidgets import QApplication
 
 from wiser.gui.geo_coords_config import CoordinateDisplayConfig
 from wiser.gui.geo_coords_dialog import GeoCoordsDialog
 from wiser.gui.image_coords_widget import ImageCoordsWidget
-from wiser.raster.dataset import GeographicLinkState, SpatialMetadata
+from wiser.gui.rasterpane import RasterPane
+from wiser.raster.dataset import GeographicLinkState, SpatialMetadata, reference_pixel_to_target_pixel_ds
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import srs_from_wkt
 
@@ -154,18 +156,63 @@ def test_goto_dialog_fields_are_lon_lat(tmp_path):
     assert emitted == [(0, 0)]
 
 
-def test_geographic_and_projected_datasets_link_spatially(tmp_path):
-    to_utm = osr.CoordinateTransformation(_traditional_srs(4326), _traditional_srs(_UTM_11N))
-    easting, northing, _ = to_utm.TransformPoint(-118.13, 34.14)
-    utm = _load(
-        _write_geotiff(tmp_path / "utm11n.tif", _UTM_11N, (easting, 30.0, 0.0, northing, 0.0, -30.0), size=20)
-    )
-    geog = _load(
-        _write_geotiff(tmp_path / "wgs84.tif", 4326, (-118.131, 0.0002, 0.0, 34.139, 0.0, -0.0002), size=10)
-    )
+def _geotiff_at(tmp_path: Path, name: str, epsg: int, lon: float, lat: float, pixel_size: float, size: int):
+    """North-up GeoTIFF in ``epsg`` whose upper-left corner is at (lon, lat)."""
+    if epsg == 4326:
+        x0, y0 = lon, lat
+    else:
+        x0, y0, _ = osr.CoordinateTransformation(
+            _traditional_srs(4326), _traditional_srs(epsg)
+        ).TransformPoint(lon, lat)
+    gt = (x0, pixel_size, 0.0, y0, 0.0, -pixel_size)
+    return _load(_write_geotiff(tmp_path / name, epsg, gt, size=size)), gt
 
-    assert geog.determine_link_state(utm) == GeographicLinkState.SPATIAL
-    assert utm.determine_link_state(geog) == GeographicLinkState.SPATIAL
+
+def _expected_pixel(ref_gt, ref_epsg, tgt_gt, tgt_epsg, pixel):
+    """Target pixel for a reference pixel, from the north-up geotransforms and a direct OSR transform."""
+    x = ref_gt[0] + pixel[0] * ref_gt[1]
+    y = ref_gt[3] + pixel[1] * ref_gt[5]
+    x, y, _ = osr.CoordinateTransformation(
+        _traditional_srs(ref_epsg), _traditional_srs(tgt_epsg)
+    ).TransformPoint(x, y)
+    return (int((x - tgt_gt[0]) / tgt_gt[1] + 0.5), int((y - tgt_gt[3]) / tgt_gt[5] + 0.5))
+
+
+@pytest.fixture
+def caltech_rasters(tmp_path):
+    """Overlapping Caltech rasters in EPSG:4326, UTM 11N, and EPSG:4087, all of different sizes."""
+    return {
+        4326: _geotiff_at(tmp_path, "wgs84.tif", 4326, -118.131, 34.139, 0.0002, 10),
+        _UTM_11N: _geotiff_at(tmp_path, "utm11n.tif", _UTM_11N, -118.132, 34.140, 30.0, 20),
+        4087: _geotiff_at(tmp_path, "epsg4087.tif", 4087, -118.1325, 34.1405, 25.0, 30),
+    }
+
+
+@pytest.mark.parametrize(
+    "ref_epsg, tgt_epsg",
+    [(4326, _UTM_11N), (_UTM_11N, 4326), (4087, _UTM_11N), (_UTM_11N, 4087)],
+)
+def test_linked_pixel_is_transformed_between_crs(caltech_rasters, ref_epsg, tgt_epsg):
+    ref, ref_gt = caltech_rasters[ref_epsg]
+    tgt, tgt_gt = caltech_rasters[tgt_epsg]
+    assert tgt.determine_link_state(ref) == GeographicLinkState.SPATIAL
+
+    pixel = (5, 5)
+    expected = _expected_pixel(ref_gt, ref_epsg, tgt_gt, tgt_epsg, pixel)
+    assert 0 <= expected[0] < tgt.get_width() and 0 <= expected[1] < tgt.get_height()
+    assert reference_pixel_to_target_pixel_ds(pixel, ref, tgt) == expected
+
+
+def test_linked_viewport_is_transformed_between_crs(caltech_rasters):
+    _qapp()
+    ref, ref_gt = caltech_rasters[4326]
+    tgt, tgt_gt = caltech_rasters[_UTM_11N]
+    viewport = QRect(QPoint(2, 3), QPoint(6, 7))
+    polygon = RasterPane._transform_viewport_to_polygon(None, viewport, ref, tgt)
+    corners = [viewport.topLeft(), viewport.topRight(), viewport.bottomRight(), viewport.bottomLeft()]
+    assert [(p.x(), p.y()) for p in polygon] == [
+        _expected_pixel(ref_gt, 4326, tgt_gt, _UTM_11N, (c.x(), c.y())) for c in corners
+    ]
 
 
 def _utm_11n_wkt() -> str:
@@ -224,3 +271,9 @@ def test_srs_from_wkt_transforms_lon_lat():
     easting, northing, _ = osr.CoordinateTransformation(wgs84, utm).TransformPoint(_SYDNEY_LON, _SYDNEY_LAT)
     lon, lat, _ = osr.CoordinateTransformation(utm, wgs84).TransformPoint(easting, northing)
     assert (lon, lat) == pytest.approx((_SYDNEY_LON, _SYDNEY_LAT), abs=1e-9)
+
+
+@pytest.mark.parametrize("wkt", ["", "not a wkt string"])
+def test_srs_from_wkt_rejects_invalid_wkt(wkt):
+    with pytest.raises(ValueError, match="Invalid WKT"):
+        srs_from_wkt(wkt)
