@@ -1439,8 +1439,10 @@ class RasterDataSet(Serializable):
             return GeographicLinkState.PIXEL
 
         ds0_srs = self.get_spatial_ref()
-
         ds_srs = dataset.get_spatial_ref()
+        if ds0_srs is None or ds_srs is None:
+            return GeographicLinkState.NO_LINK
+
         can_transform = can_transform_between_srs(ds0_srs, ds_srs)
         have_overlap = have_spatial_overlap(
             ds0_srs,
@@ -1452,7 +1454,7 @@ class RasterDataSet(Serializable):
             dataset.get_width(),
             dataset.get_height(),
         )
-        if ds0_srs is None or ds_srs is None or not can_transform or not have_overlap:
+        if not can_transform or not have_overlap:
             return GeographicLinkState.NO_LINK
 
         return GeographicLinkState.SPATIAL

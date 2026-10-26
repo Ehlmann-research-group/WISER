@@ -663,6 +663,21 @@ class MainViewWidget(RasterPane):
                 else:
                     raise ValueError(f"Geographic link state is incorrect: {link_state}")
 
+    def make_reference_point_visible(self, x, y, reference_rasterview: RasterView) -> None:
+        """
+        Centers raster-views on pixel (x, y) of the dataset shown in
+        ``reference_rasterview``, a raster-view outside this pane.
+
+        With linked scrolling off, only raster-views showing that same dataset
+        move.  With it on, every raster-view is centered on the corresponding
+        pixel of its own dataset, mapped as in ``_sync_scroll_state``;
+        raster-views whose dataset cannot be mapped are left where they are.
+        """
+        reference_ds = reference_rasterview.get_raster_data()
+        for rv in self._rasterviews.values():
+            if rv.get_raster_data() is reference_ds or self._link_view_scrolling:
+                rv.make_point_visible(x, y, reference_rasterview=reference_rasterview)
+
     def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
         """
         Sets the "viewport highlight" to be displayed in this raster-pane. This

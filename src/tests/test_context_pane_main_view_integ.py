@@ -16,6 +16,7 @@ from tests.utils import are_pixels_close, are_qrects_close
 # from utils import are_pixels_close, are_qrects_close
 
 from test_utils.test_model import WiserTestModel
+from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
 import numpy as np
 
@@ -704,6 +705,108 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
     def test_cp_remove_not_chosen_dataset_while_linked(self):
         """Variant of `test_cp_remove_not_chosen_dataset` for linked views."""
         self.test_cp_remove_not_chosen_dataset(self.test_model.click_link_button)
+
+
+class TestContextPaneClickRecenter(unittest.TestCase):
+    """
+    A context-pane click recenters a main-view raster-view only when that view
+    shows the context pane's dataset, or when linked scrolling is on and the
+    view's dataset maps onto it. Views that cannot be mapped do not move.
+    """
+
+    CALTECH = "../test_utils/test_datasets/caltech_4_100_150_nm"
+    CALTECH_ROTATED = "../test_utils/test_datasets/caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif"
+    CIRCUIT = "../test_utils/test_datasets/circuit_4_100_150_um"
+
+    CLICK = (120, 120)
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def _show(self, left_path, right_path, context_path=None):
+        """
+        Show ``left_path`` in tile (0, 0) and ``right_path`` in tile (0, 1),
+        zoomed in so both tiles can scroll, with the context pane on
+        ``context_path`` (``left_path`` when omitted).
+        """
+        tm = self.test_model
+        tm.set_main_view_layout((1, 2))
+        datasets = {}
+        for path in dict.fromkeys([left_path, right_path, context_path or left_path]):
+            datasets[path] = tm.load_dataset(path)
+        tm.set_main_view_rv((0, 0), datasets[left_path].get_id())
+        tm.set_main_view_rv((0, 1), datasets[right_path].get_id())
+        for _ in range(4):
+            tm.click_main_view_zoom_in()
+        tm.set_context_pane_dataset_chooser_id(datasets[context_path or left_path].get_id())
+        return datasets
+
+    def _scroll(self, rv_pos):
+        return self.test_model.get_main_view_rv(rv_pos).get_scrollbar_state()
+
+    def _contains(self, rv_pos, point):
+        visible = self.test_model.get_main_view_rv_visible_region(rv_pos)
+        return visible.contains(QPoint(int(point[0]), int(point[1])))
+
+    def test_unlinked_moves_only_context_dataset_tile(self):
+        self._show(self.CALTECH, self.CALTECH_ROTATED)
+        self.assertFalse(self.test_model.is_main_view_linked())
+        self.assertFalse(self._contains((0, 0), self.CLICK))
+        right_before = self._scroll((0, 1))
+
+        self.test_model.click_raster_coord_context_pane(self.CLICK)
+
+        self.assertTrue(self._contains((0, 0), self.CLICK))
+        self.assertEqual(self._scroll((0, 1)), right_before)
+
+    def test_unlinked_same_dataset_moves_every_tile_showing_it(self):
+        self._show(self.CALTECH, self.CALTECH)
+
+        self.test_model.click_raster_coord_context_pane(self.CLICK)
+
+        self.assertTrue(self._contains((0, 0), self.CLICK))
+        self.assertTrue(self._contains((0, 1), self.CLICK))
+
+    def test_pixel_linked_moves_both_tiles_to_same_pixel(self):
+        self._show(self.CALTECH, self.CIRCUIT)
+        self.assertTrue(self.test_model.click_link_button())
+        self.assertEqual(self.test_model.main_view._link_view_state, GeographicLinkState.PIXEL)
+
+        self.test_model.click_raster_coord_context_pane(self.CLICK)
+
+        self.assertTrue(self._contains((0, 0), self.CLICK))
+        self.assertEqual(self._scroll((0, 1)), self._scroll((0, 0)))
+
+    def test_spatial_linked_moves_other_tile_to_geographic_match(self):
+        datasets = self._show(self.CALTECH, self.CALTECH_ROTATED)
+        self.assertTrue(self.test_model.click_link_button())
+        self.assertEqual(self.test_model.main_view._link_view_state, GeographicLinkState.SPATIAL)
+        target = reference_pixel_to_target_pixel_ds(
+            self.CLICK, datasets[self.CALTECH], datasets[self.CALTECH_ROTATED]
+        )
+        self.assertFalse(self._contains((0, 1), target))
+
+        self.test_model.click_raster_coord_context_pane(self.CLICK)
+
+        self.assertTrue(self._contains((0, 0), self.CLICK))
+        self.assertTrue(self._contains((0, 1), target))
+
+    def test_linked_leaves_unmappable_tile_alone(self):
+        datasets = self._show(self.CALTECH, self.CALTECH_ROTATED, context_path=self.CIRCUIT)
+        self.assertTrue(self.test_model.click_link_button())
+        self.assertEqual(
+            datasets[self.CIRCUIT].determine_link_state(datasets[self.CALTECH_ROTATED]),
+            GeographicLinkState.NO_LINK,
+        )
+        right_before = self._scroll((0, 1))
+
+        self.test_model.click_raster_coord_context_pane(self.CLICK)
+
+        self.assertEqual(self._scroll((0, 1)), right_before)
 
 
 """
