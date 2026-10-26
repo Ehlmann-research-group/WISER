@@ -131,11 +131,12 @@ class SaveDatasetDetails(QWidget):
         A handler for when the file-chooser for the "save-filename" is shown.
         """
 
-        # TODO(donnie):  Do we want a filter on this dialog?
         file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         file_dialog.setFileMode(QFileDialog.AnyFile)
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+        file_dialog.setNameFilter(self.tr("ENVI raster (*.img)"))
+        file_dialog.setDefaultSuffix("img")
 
         # If there is already an initial filename, select it in the dialog.
         initial_filename = self._ui.ledit_filename.text().strip()
@@ -152,7 +153,8 @@ class SaveDatasetDetails(QWidget):
     def _update_save_filenames(self):
         """
         When the "save-filename" field changes, the "writes to" field is updated
-        with the actual files that will be written to.
+        with the actual files that will be written to, or with the reason the
+        filename cannot be saved to.
         """
         self._ui.lbl_filenames_value.clear()
 
@@ -167,7 +169,11 @@ class SaveDatasetDetails(QWidget):
         format = self._ui.cbox_save_format.currentText()
 
         loader = self._app_state.get_loader()
-        filenames = loader.get_save_filenames(path, format)
+        try:
+            filenames = loader.get_save_filenames(path, format)
+        except ValueError as e:
+            self._ui.lbl_filenames_value.setText(str(e))
+            return
 
         display_filenames = "\n".join([os.path.basename(filename) for filename in filenames])
         self._ui.lbl_filenames_value.setText(display_filenames)
@@ -176,6 +182,21 @@ class SaveDatasetDetails(QWidget):
         path = self._ui.ledit_filename.text().strip()
         if not path:
             QMessageBox.warning(self, self.tr("Missing filename"), self.tr("Filename must be specified"))
+            return False
+
+        if not os.path.isabs(path):
+            QMessageBox.warning(
+                self,
+                self.tr("Invalid filename"),
+                self.tr("Filename must be an absolute path:  {0}").format(path),
+            )
+            return False
+
+        loader = self._app_state.get_loader()
+        try:
+            loader.get_save_filenames(path, self._ui.cbox_save_format.currentText())
+        except ValueError as e:
+            QMessageBox.warning(self, self.tr("Invalid filename"), str(e))
             return False
 
         return True
@@ -438,10 +459,8 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         # ========================================
         # General tab
 
-        path = self._ui.ledit_filename.text().strip()
-        if not path:
+        if not super().verify_config():
             self._ui.tabWidget.setCurrentWidget(self._ui.tab_general)
-            QMessageBox.warning(self, self.tr("Missing filename"), self.tr("Filename must be specified"))
             return False
 
         # ========================================
