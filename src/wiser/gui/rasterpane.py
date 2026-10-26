@@ -1341,8 +1341,8 @@ class RasterPane(QWidget):
         rasterviews.
         """
         dataset = self._app_state.get_dataset(ds_id)
-        bands = find_display_bands(dataset)
-        self._display_bands[ds_id] = bands
+        if ds_id not in self._display_bands:
+            self._display_bands[ds_id] = find_display_bands(dataset)
 
         self._update_rasterview_toolbars()
 
