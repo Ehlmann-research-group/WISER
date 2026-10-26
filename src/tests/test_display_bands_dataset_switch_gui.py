@@ -79,6 +79,24 @@ class TestDisplayBandsDatasetSwitch(unittest.TestCase):
             with self.subTest(pane=name):
                 self.assertEqual(tuple(pane._display_bands[ds_b.get_id()]), expected)
 
+    def test_reused_dataset_id_gets_default_bands(self):
+        ds_a = self.test_model.load_dataset(DATASET_A)
+        a_id = ds_a.get_id()
+        bands = (10, 5, 2)
+        self.test_model.main_window._on_display_bands_change(a_id, bands, None, True)
+        self.test_model.run()
+
+        self.test_model.app_state.clear_session()
+        self.test_model.run()
+        ds_b = self.test_model.load_dataset(DATASET_B)
+        self.assertEqual(ds_b.get_id(), a_id)
+        expected = tuple(find_display_bands(ds_b))
+        self.assertNotEqual(expected, bands)
+
+        for name, pane in self._panes().items():
+            with self.subTest(pane=name):
+                self.assertEqual(tuple(pane._display_bands[a_id]), expected)
+
 
 if __name__ == "__main__":
     unittest.main()
