@@ -1419,6 +1419,10 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _GEOTRANSFORM_KEYS = {"NC_GLOBAL#geotransform", "geotransform"}
     _SRS_KEYS = {"NC_GLOBAL#spatial_ref", "spatial_ref"}
 
+    # Passed as ``spatial_ref`` to open a subdataset with no spatial reference
+    # instead of the one GDAL reports for it.  Compared by identity, never read.
+    NO_SPATIAL_REF = osr.SpatialReference()
+
     # The defaults ``np.ma.masked_values`` compares with, which is what
     # RasterDataSet masks the data-ignore value with.  Mirrored here so
     # _validate_fill_separation can check a scaled fill against the same
@@ -1963,6 +1967,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return [self._subdataset_name]
 
     def read_spatial_ref(self):
+        """Return the declared spatial reference, else GDAL's for the subdataset.
+
+        A ``spatial_ref`` of ``None`` at construction means none was declared, so
+        GDAL's is used.  :attr:`NO_SPATIAL_REF` means the user declined one, so
+        there is none.
+        """
+        if self._spatial_ref is self.NO_SPATIAL_REF:
+            return None
         if self._spatial_ref is not None:
             return self._spatial_ref
         return super().read_spatial_ref()
@@ -2029,6 +2041,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def get_wkt_spatial_reference(self) -> Optional[str]:
         with self._quiet_gdal_warnings():
+            if self._spatial_ref is self.NO_SPATIAL_REF:
+                return None
             if self._spatial_ref:
                 return self._spatial_ref.ExportToWkt()
             return super().get_wkt_spatial_reference()

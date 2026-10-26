@@ -19,14 +19,14 @@ import unittest
 
 import netCDF4 as nc
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, osr
 
 import tests.context  # noqa: F401 -- adds src/ to sys.path
 
 from tests.test_project_datasets import _FakeAppState
 from wiser.project import ProjectBundle
 from wiser.project.persisters.datasets import load_datasets, save_datasets
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, SpatialMetadata
 from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
 from wiser.raster.mosaic_ingestion import (
     SceneValidationError,
@@ -172,15 +172,43 @@ class TestNetCDFGeoTransform(unittest.TestCase):
                 dialog.accept()
                 self.assertEqual(dialog.netcdf_impl.read_geo_transform(), IDENTITY)
 
-    def test_dialog_without_georeferencing_disables_the_checkbox(self):
+    def test_dialog_without_georeferencing_disables_the_checkboxes(self):
         dialog = self._dialog(self._path("plain.nc", cf_grid=False))
-        checkbox = dialog._ui.chk_box_geo_transform
 
-        self.assertFalse(checkbox.isEnabled())
-        self.assertFalse(checkbox.isChecked())
-        self.assertEqual(checkbox.text(), "No geotransform available")
+        for checkbox in (dialog._ui.chk_box_geo_transform, dialog._ui.chk_box_srs):
+            self.assertFalse(checkbox.isEnabled())
+            self.assertFalse(checkbox.isChecked())
+        self.assertEqual(dialog._ui.chk_box_geo_transform.text(), "No geotransform available")
         dialog.accept()
         self.assertEqual(dialog.netcdf_impl.read_geo_transform(), IDENTITY)
+        self.assertIsNone(dialog.netcdf_impl.read_spatial_ref())
+
+    def test_dialog_offers_the_gdal_spatial_ref_of_a_cf_grid(self):
+        path = self._path("cf.nc", cf_grid=True)
+        gdal_srs = gdal.Open(f'NETCDF:"{path}":reflectance').GetSpatialRef()
+        self.assertIsNotNone(gdal_srs)
+        dialog = self._dialog(path)
+
+        self.assertTrue(dialog._ui.chk_box_srs.isEnabled())
+        self.assertTrue(dialog._ui.chk_box_srs.isChecked())
+        dialog.accept()
+        dataset = RasterDataSet(dialog.netcdf_impl)
+        # Axis order is a separate question (#779); this compares the CRS itself.
+        ignore_axis_order = ["IGNORE_DATA_AXIS_TO_SRS_AXIS_MAPPING=YES"]
+        self.assertTrue(dataset.get_spatial_ref().IsSame(gdal_srs, ignore_axis_order))
+        self.assertTrue(dataset.get_spatial_ref().IsSame(self._open(path).get_spatial_ref()))
+        self.assertTrue(dataset.has_geographic_info())
+
+    def test_dialog_srs_unchecked_opens_without_a_spatial_ref(self):
+        dialog = self._dialog(self._path("cf.nc", cf_grid=True))
+        dialog._ui.chk_box_srs.setChecked(False)
+        dialog.accept()
+        dataset = RasterDataSet(dialog.netcdf_impl)
+
+        self.assertIsNone(dataset.get_spatial_ref())
+        self.assertIsNone(dataset.get_wkt_spatial_reference())
+        self.assertFalse(dataset.has_geographic_info())
+        self.assertFalse(is_dataset_georeferenced(dataset))
 
     def test_declared_geotransform_takes_precedence_over_the_cf_grid(self):
         path = self._path("declared.nc", cf_grid=True, declared=DECLARED)
@@ -206,47 +234,75 @@ class TestNetCDFGeoTransform(unittest.TestCase):
 
 
 class TestNetCDFGeoTransformProjectRestore(unittest.TestCase):
-    """A project snapshot must not replace the georeference the reopened file provides."""
+    """A project snapshot's identity transform must not replace the reopened file's own."""
 
     def setUp(self):
         self._tmp = tempfile.mkdtemp()
-        self.path = os.path.join(self._tmp, "cf.nc")
-        _write(self.path, cf_grid=True)
-        self.cf_transform = gdal.Open(f'NETCDF:"{self.path}":reflectance').GetGeoTransform()
 
     def tearDown(self):
         shutil.rmtree(self._tmp, ignore_errors=True)
 
-    def _reopen_with_snapshot_transform(self, geo_transform):
+    def _round_trip(self, path, edit_source=None, edit_meta=None):
         src = _FakeAppState()
-        descriptor = f'NETCDF:"{self.path}":reflectance'
-        src.add_dataset(
-            src.get_loader().load_from_file(
-                self.path, data_cache=None, interactive=False, subdataset_name=descriptor
-            )[0]
-        )
+        descriptor = f'NETCDF:"{path}":reflectance'
+        source = src.get_loader().load_from_file(
+            path, data_cache=None, interactive=False, subdataset_name=descriptor
+        )[0]
+        if edit_source is not None:
+            edit_source(source)
+        src.add_dataset(source)
         bundle = ProjectBundle.create(os.path.join(self._tmp, "proj"))
         manifest = {}
         save_datasets(src, manifest, bundle)
-        meta = manifest["datasets"][0]["metadata"]
-        self.assertTrue(meta["wkt_spatial_ref"])
-        meta["geo_transform"] = list(geo_transform)
+        if edit_meta is not None:
+            edit_meta(manifest["datasets"][0]["metadata"])
 
         dst = _FakeAppState()
         self.assertEqual(load_datasets(manifest, dst, bundle), [])
         (restored,) = dst.get_datasets()
         return restored
 
-    def test_identity_snapshot_keeps_the_cf_transform(self):
-        restored = self._reopen_with_snapshot_transform(IDENTITY)
+    def _cf_path(self):
+        path = os.path.join(self._tmp, "cf.nc")
+        _write(path, cf_grid=True)
+        return path, gdal.Open(f'NETCDF:"{path}":reflectance').GetGeoTransform()
 
-        self.assertEqual(restored.get_geo_transform(), self.cf_transform)
+    def test_identity_snapshot_keeps_the_cf_transform(self):
+        path, cf_transform = self._cf_path()
+
+        def as_saved_before_the_fix(meta):
+            self.assertTrue(meta["wkt_spatial_ref"])
+            meta["geo_transform"] = list(IDENTITY)
+
+        restored = self._round_trip(path, edit_meta=as_saved_before_the_fix)
+
+        self.assertEqual(restored.get_geo_transform(), cf_transform)
         self.assertTrue(restored.has_geographic_info())
 
     def test_georeferenced_snapshot_is_restored(self):
-        restored = self._reopen_with_snapshot_transform(DECLARED)
+        path, _ = self._cf_path()
+
+        def user_transform(meta):
+            meta["geo_transform"] = list(DECLARED)
+
+        restored = self._round_trip(path, edit_meta=user_transform)
 
         self.assertEqual(restored.get_geo_transform(), DECLARED)
+
+    def test_user_spatial_ref_on_an_ungeoreferenced_dataset_is_restored(self):
+        path = os.path.join(self._tmp, "plain.nc")
+        _write(path, cf_grid=False)
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(32611)
+
+        def assign_srs(dataset):
+            self.assertIsNone(dataset.get_spatial_ref())
+            dataset.copy_spatial_metadata(SpatialMetadata(IDENTITY, srs.ExportToWkt()))
+
+        restored = self._round_trip(path, edit_source=assign_srs)
+
+        self.assertEqual(restored.get_geo_transform(), IDENTITY)
+        self.assertTrue(restored.get_spatial_ref().IsSame(srs))
 
 
 if __name__ == "__main__":

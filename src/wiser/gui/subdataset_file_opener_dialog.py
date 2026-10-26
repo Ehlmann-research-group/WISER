@@ -82,6 +82,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         # return quickly later on.
         self._declared_geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
         self._geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
+        self._declared_spatial_ref_wkt: Optional[str] = None
         self._spatial_ref_wkt: Optional[str] = None  # Keep raw string until asked for osr object
         self._wavelengths: Optional[np.ndarray] = None
         self._bad_bands: Optional[List[int]] = None
@@ -135,6 +136,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         self._ui.cbox_subdataset_choice.activated.connect(self._init_bands_table_widget)
         self._ui.cbox_subdataset_choice.activated.connect(self._update_geo_transform)
+        self._ui.cbox_subdataset_choice.activated.connect(self._update_spatial_ref)
 
         subdatasets = self._gdal_dataset.GetSubDatasets()
         for subdataset_name, description in subdatasets:
@@ -195,10 +197,21 @@ class SubdatasetFileOpenerDialog(QDialog):
     def _init_spatial_ref(self) -> None:
         """Initialise the spatial reference system check-box."""
         metadata = self._gdal_dataset.GetMetadata() or {}
-        srs_string: Optional[str] = next(
+        self._declared_spatial_ref_wkt = next(
             (metadata[k] for k in self._spatial_ref_search_keys if k in metadata),
             None,
         )
+
+        self._update_spatial_ref()
+        self._ui.chk_box_srs.setChecked(self._spatial_ref_wkt is not None)
+        self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
+
+    def _update_spatial_ref(self) -> None:
+        """Show the file-declared spatial reference, else GDAL's for the chosen subdataset."""
+        srs_string = self._declared_spatial_ref_wkt
+        if not srs_string:
+            srs_string = gdal.Open(self._get_subdataset_choice()[1]).GetProjection() or None
+        self._spatial_ref_wkt = srs_string
 
         def _truncate_pretty_wkt(wkt_str: str, max_lines: int, max_len: int) -> str:
             """
@@ -234,7 +247,6 @@ class SubdatasetFileOpenerDialog(QDialog):
         MAX_LINE_LENGTH = 60
 
         if srs_string:
-            self._spatial_ref_wkt = srs_string
             try:
                 srs = osr.SpatialReference()
                 srs.ImportFromWkt(srs_string)
@@ -249,13 +261,11 @@ class SubdatasetFileOpenerDialog(QDialog):
                     display_text = raw
             finally:
                 self._ui.chk_box_srs.setText(display_text)
-                self._ui.chk_box_srs.setChecked(True)
+                self._ui.chk_box_srs.setEnabled(True)
         else:
             self._ui.chk_box_srs.setText("No spatial reference system available")
             self._ui.chk_box_srs.setChecked(False)
             self._ui.chk_box_srs.setEnabled(False)
-
-        self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
 
     def _init_bands_table_widget(self) -> None:
         """Populate the *Bands List* QTableWidget with band indices and optional
@@ -385,13 +395,17 @@ class SubdatasetFileOpenerDialog(QDialog):
             return self._NO_GEO_TRANSFORM
         return self._geo_transform
 
-    def _get_spatial_reference(self) -> Optional[osr.SpatialReference]:
-        """Return an *osgeo.osr.SpatialReference* built from the WKT in the GDAL
-        metadata **if** the user left the SRS check-box enabled. Otherwise
-        *None*.
+    def _get_spatial_reference(self) -> osr.SpatialReference:
+        """Return the spatial reference the dataset opens with.
+
+        Checked, the one shown on the check-box.  Unchecked, or with none
+        available, ``NetCDF_GDALRasterDataImpl.NO_SPATIAL_REF``, so the dataset
+        opens with no spatial reference rather than falling back to GDAL's.
         """
-        if not self._ui.chk_box_srs.isChecked() or not self._spatial_ref_wkt:
-            return None
+        from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+
+        if not self._ui.chk_box_srs.isChecked():
+            return NetCDF_GDALRasterDataImpl.NO_SPATIAL_REF
 
         srs = osr.SpatialReference()
         # ImportFromWkt expects *str* in Python 3
