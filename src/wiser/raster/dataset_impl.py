@@ -1971,7 +1971,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         A ``spatial_ref`` of ``None`` at construction means none was declared, so
         GDAL's is used.  :attr:`NO_SPATIAL_REF` means the user declined one, so
-        there is none.
+        there is none.  A decline is not saved with a project:  reopening one
+        opens the subdataset non-interactively, with GDAL's spatial reference.
         """
         if self._spatial_ref is self.NO_SPATIAL_REF:
             return None

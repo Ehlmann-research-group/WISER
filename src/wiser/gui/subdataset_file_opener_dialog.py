@@ -135,8 +135,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._ui.cbox_subdataset_choice.clear()
 
         self._ui.cbox_subdataset_choice.activated.connect(self._init_bands_table_widget)
-        self._ui.cbox_subdataset_choice.activated.connect(self._update_geo_transform)
-        self._ui.cbox_subdataset_choice.activated.connect(self._update_spatial_ref)
+        self._ui.cbox_subdataset_choice.activated.connect(self._update_georeferencing)
 
         subdatasets = self._gdal_dataset.GetSubDatasets()
         for subdataset_name, description in subdatasets:
@@ -167,18 +166,34 @@ class SubdatasetFileOpenerDialog(QDialog):
             )
 
         self._update_geo_transform()
-        self._ui.chk_box_geo_transform.setChecked(self._geo_transform is not None)
 
         # Ensure the grey-out is correct on first show.
         self._set_checkbox_enabled_state(
             self._ui.chk_box_geo_transform, self._ui.chk_box_geo_transform.isChecked()
         )
 
+    def _update_georeferencing(self) -> None:
+        """Re-evaluate both check-boxes for the chosen subdataset, as on first show.
+
+        Signals are blocked so unchecking the SRS does not also uncheck the
+        geotransform, which it does only when the user unchecks it.
+        """
+        checkboxes = (self._ui.chk_box_geo_transform, self._ui.chk_box_srs)
+        for chk in checkboxes:
+            chk.blockSignals(True)
+        self._update_geo_transform()
+        self._update_spatial_ref()
+        for chk in checkboxes:
+            chk.blockSignals(False)
+            self._set_checkbox_enabled_state(chk, chk.isChecked())
+
     def _update_geo_transform(self) -> None:
         """Show the file-declared geotransform, else GDAL's for the chosen subdataset.
 
         GDAL derives a subdataset's geotransform from CF coordinate variables, so
-        the check-box shows the transform the dataset opens with.
+        the check-box shows the transform the dataset opens with.  The check-box is
+        checked whenever a transform is available, whatever was chosen for the
+        previously selected subdataset.
         """
         self._geo_transform = self._declared_geo_transform
         if self._geo_transform is None:
@@ -189,6 +204,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         if self._geo_transform is not None:
             chk.setText(str(self._geo_transform))
             chk.setEnabled(True)
+            chk.setChecked(True)
         else:
             chk.setText("No geotransform available")
             chk.setChecked(False)
@@ -203,11 +219,14 @@ class SubdatasetFileOpenerDialog(QDialog):
         )
 
         self._update_spatial_ref()
-        self._ui.chk_box_srs.setChecked(self._spatial_ref_wkt is not None)
         self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
 
     def _update_spatial_ref(self) -> None:
-        """Show the file-declared spatial reference, else GDAL's for the chosen subdataset."""
+        """Show the file-declared spatial reference, else GDAL's for the chosen subdataset.
+
+        The check-box is checked whenever a spatial reference is available,
+        whatever was chosen for the previously selected subdataset.
+        """
         srs_string = self._declared_spatial_ref_wkt
         if not srs_string:
             srs_string = gdal.Open(self._get_subdataset_choice()[1]).GetProjection() or None
@@ -262,6 +281,7 @@ class SubdatasetFileOpenerDialog(QDialog):
             finally:
                 self._ui.chk_box_srs.setText(display_text)
                 self._ui.chk_box_srs.setEnabled(True)
+                self._ui.chk_box_srs.setChecked(True)
         else:
             self._ui.chk_box_srs.setText("No spatial reference system available")
             self._ui.chk_box_srs.setChecked(False)
@@ -390,6 +410,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         transform available, GDAL's identity transform:  WISER's marker for
         "not georeferenced", passed explicitly so the dataset does not fall back
         to GDAL's transform for the subdataset.
+
+        Known limitation:  the choice is not saved with a project.  A reopened
+        project opens the subdataset with the file's own transform.
         """
         if not self._ui.chk_box_geo_transform.isChecked():
             return self._NO_GEO_TRANSFORM
@@ -401,6 +424,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         Checked, the one shown on the check-box.  Unchecked, or with none
         available, ``NetCDF_GDALRasterDataImpl.NO_SPATIAL_REF``, so the dataset
         opens with no spatial reference rather than falling back to GDAL's.
+
+        Known limitation:  declining is not saved with a project.  A reopened
+        project opens the subdataset with the file's own spatial reference.
         """
         from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
 

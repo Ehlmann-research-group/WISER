@@ -81,6 +81,32 @@ def _write(path, *, cf_grid, declared=None, lats=LATS):
             var[:] = np.arange(ROWS * COLS, dtype="f4").reshape(ROWS, COLS)
 
 
+def _write_mixed(path):
+    """Write one variable on the CF grid and one on bare ``(y, x)`` dimensions."""
+    with nc.Dataset(path, "w") as ds:
+        ds.createDimension("lat", ROWS)
+        ds.createDimension("lon", COLS)
+        ds.createDimension("y", ROWS)
+        ds.createDimension("x", COLS)
+        crs = ds.createVariable("crs", "i4")
+        crs.grid_mapping_name = "latitude_longitude"
+        crs.semi_major_axis = 6378137.0
+        crs.inverse_flattening = 298.257223563
+        lat = ds.createVariable("lat", "f8", ("lat",))
+        lat.standard_name = "latitude"
+        lat.units = "degrees_north"
+        lat[:] = LATS
+        lon = ds.createVariable("lon", "f8", ("lon",))
+        lon.standard_name = "longitude"
+        lon.units = "degrees_east"
+        lon[:] = LONS
+        gridded = ds.createVariable("gridded", "f4", ("lat", "lon"))
+        gridded.grid_mapping = "crs"
+        gridded[:] = 0.0
+        bare = ds.createVariable("bare", "f4", ("y", "x"))
+        bare[:] = 0.0
+
+
 class TestNetCDFGeoTransform(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.mkdtemp()
@@ -171,6 +197,71 @@ class TestNetCDFGeoTransform(unittest.TestCase):
                 dialog._ui.chk_box_geo_transform.setChecked(False)
                 dialog.accept()
                 self.assertEqual(dialog.netcdf_impl.read_geo_transform(), IDENTITY)
+
+    def test_dialog_checkboxes_follow_the_chosen_subdataset(self):
+        path = os.path.join(self._tmp, "mixed.nc")
+        _write_mixed(path)
+        gridded_gt = gdal.Open(f'NETCDF:"{path}":gridded').GetGeoTransform()
+        self.assertIsNone(gdal.Open(f'NETCDF:"{path}":bare').GetGeoTransform(can_return_null=True))
+        dialog = self._dialog(path)
+        cbox = dialog._ui.cbox_subdataset_choice
+        geo, srs = dialog._ui.chk_box_geo_transform, dialog._ui.chk_box_srs
+
+        def choose(variable):
+            index = next(i for i in range(cbox.count()) if cbox.itemData(i)[0] == variable)
+            cbox.setCurrentIndex(index)
+            cbox.activated.emit(index)
+
+        choose("gridded")
+        geo.setChecked(False)
+        choose("bare")
+        for checkbox in (geo, srs):
+            self.assertFalse(checkbox.isEnabled())
+            self.assertFalse(checkbox.isChecked())
+        self.assertEqual(geo.text(), "No geotransform available")
+
+        choose("gridded")
+        for checkbox in (geo, srs):
+            self.assertTrue(checkbox.isEnabled())
+            self.assertTrue(checkbox.isChecked())
+        self.assertEqual(geo.text(), str(gridded_gt))
+        dialog.accept()
+        self.assertEqual(dialog.netcdf_impl.read_geo_transform(), gridded_gt)
+
+    def test_dialog_ungeoreferenced_subdataset_opens_without_georeferencing(self):
+        path = os.path.join(self._tmp, "mixed.nc")
+        _write_mixed(path)
+        dialog = self._dialog(path)
+        cbox = dialog._ui.cbox_subdataset_choice
+        index = next(i for i in range(cbox.count()) if cbox.itemData(i)[0] == "bare")
+        cbox.setCurrentIndex(index)
+        cbox.activated.emit(index)
+        dialog.accept()
+
+        self.assertEqual(dialog.netcdf_impl.read_geo_transform(), IDENTITY)
+        self.assertIsNone(dialog.netcdf_impl.read_spatial_ref())
+
+    def test_declined_spatial_ref_survives_serialization(self):
+        dialog = self._dialog(self._path("cf.nc", cf_grid=True))
+        dialog._ui.chk_box_srs.setChecked(False)
+        dialog.accept()
+        dataset = RasterDataSet(dialog.netcdf_impl)
+
+        copy = RasterDataSet.deserialize_into_class(dataset.get_serialized_form())
+
+        self.assertIsNone(copy.get_wkt_spatial_reference())
+        self.assertIsNone(copy.get_spatial_ref())
+
+    def test_spatial_ref_survives_serialization(self):
+        dialog = self._dialog(self._path("cf.nc", cf_grid=True))
+        dialog.accept()
+        dataset = RasterDataSet(dialog.netcdf_impl)
+
+        copy = RasterDataSet.deserialize_into_class(dataset.get_serialized_form())
+
+        self.assertEqual(copy.get_wkt_spatial_reference(), dataset.get_wkt_spatial_reference())
+        self.assertTrue(copy.get_spatial_ref().IsSame(dataset.get_spatial_ref()))
+        self.assertEqual(copy.get_geo_transform(), dataset.get_geo_transform())
 
     def test_dialog_without_georeferencing_disables_the_checkboxes(self):
         dialog = self._dialog(self._path("plain.nc", cf_grid=False))
