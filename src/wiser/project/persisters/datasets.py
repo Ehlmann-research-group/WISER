@@ -383,6 +383,7 @@ def _apply_metadata_snapshot(dataset: "RasterDataSet", meta: Dict[str, Any]) -> 
     import astropy.units as u
 
     from wiser.raster.dataset import SpatialMetadata
+    from wiser.raster.mosaic_ingestion import _is_identity_geo_transform
 
     num_bands = dataset.num_bands()
 
@@ -426,6 +427,9 @@ def _apply_metadata_snapshot(dataset: "RasterDataSet", meta: Dict[str, Any]) -> 
     geo = meta.get("geo_transform")
     if wkt and isinstance(geo, list) and len(geo) == 6:
         try:
-            dataset.copy_spatial_metadata(SpatialMetadata(tuple(geo), wkt))
+            # An identity transform means "not georeferenced"; restoring one would
+            # replace whatever georeference the reopened file provides.
+            if not _is_identity_geo_transform(geo):
+                dataset.copy_spatial_metadata(SpatialMetadata(tuple(geo), wkt))
         except Exception:
             pass

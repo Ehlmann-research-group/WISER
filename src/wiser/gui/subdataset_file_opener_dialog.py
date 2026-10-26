@@ -39,6 +39,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         "spatial_ref",  # Fallback – rare but seen in some files
     }
 
+    # GDAL's default geotransform, which WISER reads as "not georeferenced".
+    _NO_GEO_TRANSFORM = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+
     # ---------------------------------------------------------------------
     # Construction / UI initialisation
     # ---------------------------------------------------------------------
@@ -77,6 +80,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Keep internal copies of potentially optional metadata so getters can
         # return quickly later on.
+        self._declared_geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
         self._geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
         self._spatial_ref_wkt: Optional[str] = None  # Keep raw string until asked for osr object
         self._wavelengths: Optional[np.ndarray] = None
@@ -112,24 +116,6 @@ class SubdatasetFileOpenerDialog(QDialog):
     # Helpers
     # ------------------------------------------------------------------
     @staticmethod
-    def _parse_geotransform_string(
-        gtr: str,
-    ) -> Optional[Tuple[float, float, float, float, float, float]]:
-        """Convert the NC_GLOBAL#geotransform style string into a 6-tuple of
-        floats in the order GDAL expects.
-        Example input::
-            "{47.6381040971226,0.000542232520256367,-0,-20.9576106620263,-0,-0.000542232520256367}"
-        """
-        cleaned = gtr.strip().lstrip("{").rstrip("}")
-        parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-        if len(parts) != 6:
-            return None
-        try:
-            return tuple(float(p) for p in parts)  # type: ignore[return-value]
-        except ValueError:
-            return None
-
-    @staticmethod
     def _set_checkbox_enabled_state(chk: QCheckBox, enabled: bool) -> None:
         """Grey-out the text on *chk* when *enabled* is *False* without disabling
         the widget itself (the user can still re-enable it).
@@ -148,6 +134,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._ui.cbox_subdataset_choice.clear()
 
         self._ui.cbox_subdataset_choice.activated.connect(self._init_bands_table_widget)
+        self._ui.cbox_subdataset_choice.activated.connect(self._update_geo_transform)
 
         subdatasets = self._gdal_dataset.GetSubDatasets()
         for subdataset_name, description in subdatasets:
@@ -161,28 +148,49 @@ class SubdatasetFileOpenerDialog(QDialog):
             self._ui.cbox_subdataset_choice.setCurrentIndex(0)
 
     def _init_geo_transform(self) -> None:
-        """Initialise the geo-transform check-box."""
+        """Initialise the geo-transform check-box.
+
+        Raises
+        ------
+        ValueError
+            If the file declares a global geotransform that is not six numbers.
+        """
+        from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+
         metadata = self._gdal_dataset.GetMetadata() or {}
-        geo_string: Optional[str] = next(
-            (metadata[k] for k in self._geotransform_search_keys if k in metadata),
-            None,
-        )
+        key = next((k for k in self._geotransform_search_keys if k in metadata), None)
+        if key is not None:
+            self._declared_geo_transform = NetCDF_GDALRasterDataImpl._parse_geotransform_string(
+                key, metadata[key]
+            )
 
-        if geo_string is not None:
-            self._geo_transform = self._parse_geotransform_string(geo_string)
-
-        if self._geo_transform:
-            self._ui.chk_box_geo_transform.setText(str(self._geo_transform))
-            self._ui.chk_box_geo_transform.setChecked(True)
-        else:
-            self._ui.chk_box_geo_transform.setText("No geotransform available")
-            self._ui.chk_box_geo_transform.setChecked(False)
-            self._ui.chk_box_geo_transform.setEnabled(False)
+        self._update_geo_transform()
+        self._ui.chk_box_geo_transform.setChecked(self._geo_transform is not None)
 
         # Ensure the grey-out is correct on first show.
         self._set_checkbox_enabled_state(
             self._ui.chk_box_geo_transform, self._ui.chk_box_geo_transform.isChecked()
         )
+
+    def _update_geo_transform(self) -> None:
+        """Show the file-declared geotransform, else GDAL's for the chosen subdataset.
+
+        GDAL derives a subdataset's geotransform from CF coordinate variables, so
+        the check-box shows the transform the dataset opens with.
+        """
+        self._geo_transform = self._declared_geo_transform
+        if self._geo_transform is None:
+            subdataset = gdal.Open(self._get_subdataset_choice()[1])
+            self._geo_transform = subdataset.GetGeoTransform(can_return_null=True)
+
+        chk = self._ui.chk_box_geo_transform
+        if self._geo_transform is not None:
+            chk.setText(str(self._geo_transform))
+            chk.setEnabled(True)
+        else:
+            chk.setText("No geotransform available")
+            chk.setChecked(False)
+            chk.setEnabled(False)
 
     def _init_spatial_ref(self) -> None:
         """Initialise the spatial reference system check-box."""
@@ -365,12 +373,16 @@ class SubdatasetFileOpenerDialog(QDialog):
 
     def _get_geo_transform(
         self,
-    ) -> Optional[Tuple[float, float, float, float, float, float]]:
-        """Return the geo-transform tuple if the user left the check-box enabled
-        **and** the dataset actually has one. Otherwise *None*.
+    ) -> Tuple[float, float, float, float, float, float]:
+        """Return the geotransform the dataset opens with.
+
+        Checked, the transform shown on the check-box.  Unchecked, or with no
+        transform available, GDAL's identity transform:  WISER's marker for
+        "not georeferenced", passed explicitly so the dataset does not fall back
+        to GDAL's transform for the subdataset.
         """
         if not self._ui.chk_box_geo_transform.isChecked():
-            return None
+            return self._NO_GEO_TRANSFORM
         return self._geo_transform
 
     def _get_spatial_reference(self) -> Optional[osr.SpatialReference]:
