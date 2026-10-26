@@ -30,8 +30,8 @@ ACCEPTED = [
     ("ndvi", "ndvi", "ndvi.hdr"),
     ("ndvi.img", "ndvi.img", "ndvi.hdr"),
     ("ndvi.hdr", "ndvi.img", "ndvi.hdr"),
-    ("ndvi.Img", "ndvi.Img", "ndvi.hdr"),
-    ("NDVI.IMG", "NDVI.IMG", "NDVI.hdr"),
+    ("ndvi.Img", "ndvi.img", "ndvi.hdr"),
+    ("NDVI.IMG", "NDVI.img", "NDVI.hdr"),
     ("NDVI.HDR", "NDVI.img", "NDVI.hdr"),
     ("my.ndvi.img", "my.ndvi.img", "my.ndvi.hdr"),
 ]

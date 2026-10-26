@@ -2129,10 +2129,11 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         *   ``name.img``:  writes ``name.img`` and ``name.hdr``.
         *   ``name.hdr``:  writes ``name.img`` and ``name.hdr``.
 
-        Extensions are matched case-insensitively.  The header is always named
-        ``name.hdr``, which is what GDAL's ENVI driver writes with
-        ``SUFFIX=REPLACE``:  the extension after the last "." is replaced, so
-        ``my.ndvi.img`` writes ``my.ndvi.hdr``.
+        Extensions are matched case-insensitively, and the data file is always
+        written with a lowercase ``.img`` so it can be found again on a
+        case-sensitive filesystem.  The header is always named ``name.hdr``,
+        which is what GDAL's ENVI driver writes by default:  the extension after
+        the last "." is replaced, so ``my.ndvi.img`` writes ``my.ndvi.hdr``.
 
         A ``ValueError`` is raised for any other extension (e.g. ``.tif``,
         ``.bsq``, or ``my.ndvi.result``), and for a filename that is empty or
@@ -2149,9 +2150,9 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if not stem:
             raise ValueError(f'"{basename}" is not a valid ENVI save filename')
 
-        if ext.lower() == ".hdr":
+        if ext.lower() in (".hdr", ".img"):
             img_path = os.path.join(dirname, stem + ".img")
-        elif ext == "" or ext.lower() == ".img":
+        elif ext == "":
             img_path = path
         else:
             raise ValueError(
@@ -2298,7 +2299,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # header file since GDAL doesn't understand most of the ENVI attributes.
 
         driver = gdal.GetDriverByName("ENVI")
-        driver_options: List[str] = ["INTERLEAVE=BSQ", "SUFFIX=REPLACE"]
+        driver_options: List[str] = ["INTERLEAVE=BSQ"]
         logger.debug(
             f'driver.Create("{img_path}", {dst_width}, {dst_height}, '
             + f"{dst_bands}, {gdal_elem_type}, {driver_options})"
