@@ -589,3 +589,20 @@ def test_a_legacy_entry_without_a_glt_restores_unchanged(tmp_path):
     (restored,) = dst.get_datasets()
     assert restored.get_subdataset_name() == descriptor
     assert (restored.get_width(), restored.get_height()) == (6, 5)
+
+
+def test_an_orthorectified_emit_dataset_round_trips(tmp_path):
+    path = os.path.abspath(EMIT_SUBSET)
+    src = _FakeAppState()
+    dataset = src.get_loader().load_from_file(
+        path, data_cache=None, interactive=False, subdataset_name=f'NETCDF:"{path}":reflectance'
+    )[0]
+    src.add_dataset(dataset)
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    entry = dataset_to_pyrep(dataset, bundle, src.get_loader())
+    assert (entry["width"], entry["height"]) == (157, 185)
+
+    dst = _FakeAppState()
+    assert load_datasets({"datasets": [entry]}, dst, bundle) == []
+    (restored,) = dst.get_datasets()
+    assert (restored.get_width(), restored.get_height()) == (157, 185)

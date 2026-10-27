@@ -825,6 +825,10 @@ class DataVisualizerApp(QMainWindow):
             shutil.rmtree(extract_dir, ignore_errors=True)
             self._clear_project_extract_dir()
             self._current_project_path = None
+            # clear_session restarts dataset ids, so remembered exclusions would
+            # name unrelated datasets added later.
+            self._current_excluded = set()
+            self._current_self_contained = False
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
         except Exception as e:
