@@ -187,7 +187,11 @@ def test_out_of_range_glt_raises(tmp_path, edit, message):
 
 
 def _write_swath_file(
-    path, glt_x_dims=("ortho_y", "ortho_x"), refl_dims=("downtrack", "crosstrack", "bands"), fill=True
+    path,
+    glt_x_dims=("ortho_y", "ortho_x"),
+    refl_dims=("downtrack", "crosstrack", "bands"),
+    fill=True,
+    lat_name="lat",
 ):
     with nc.Dataset(path, "w") as ds:
         for name, size in (
@@ -204,7 +208,7 @@ def _write_swath_file(
         )
         refl[:] = np.arange(np.prod(refl.shape), dtype="f4").reshape(refl.shape)
         location = ds.createGroup("location")
-        for name in ("lat", "lon"):
+        for name in (lat_name, "lon"):
             location.createVariable(name, "f8", ("downtrack", "crosstrack"))[:] = 0.0
         glt_x = location.createVariable("glt_x", "i4", glt_x_dims)
         glt_y = location.createVariable("glt_y", "i4", ("ortho_y", "ortho_x"))
@@ -230,8 +234,9 @@ def test_synthetic_swath_file_opens_on_the_ortho_grid(tmp_path):
         ({"glt_x_dims": ("ortho_y", "other")}, "must be integer tables of one 2D shape"),
         ({"refl_dims": ("crosstrack", "downtrack", "bands")}, "which is not the location/lat swath"),
         ({"fill": False}, "has no fill value"),
+        ({"lat_name": "latitude"}, "has a GLT but WISER cannot match 'reflectance'"),
     ],
-    ids=["glt-shape-mismatch", "swath-transposed", "no-fill-value"],
+    ids=["glt-shape-mismatch", "swath-transposed", "no-fill-value", "no-location-lat"],
 )
 def test_inconsistent_glt_raises(tmp_path, kwargs, message):
     path = str(tmp_path / "swath.nc")
@@ -288,3 +293,63 @@ def test_save_as_writes_the_ortho_grid(impl, tmp_path):
     # ENVI "map info" stores the origin to about 1e-8 degree (millimetres).
     np.testing.assert_allclose(saved.GetGeoTransform(), DECLARED_GEOTRANSFORM, rtol=0, atol=1e-7)
     np.testing.assert_array_equal(saved.GetRasterBand(41).ReadAsArray(), impl.get_band_data(40))
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        lambda impl: impl.get_all_bands_at(-1, 0),
+        lambda impl: impl.get_all_bands_at(157, 0),
+        lambda impl: impl.get_all_bands_at(0, 185),
+        lambda impl: impl.get_all_bands_at_rect(-1, 50, 3, 3),
+        lambda impl: impl.get_all_bands_at_rect(155, 50, 3, 3),
+        lambda impl: impl.get_all_bands_at_rect(-5, -5, 2, 2),
+        lambda impl: impl.get_image_data_subset(-1, 0, 0, 2, 2, 3),
+        lambda impl: impl.get_image_data_subset(156, 184, 0, 2, 2, 3),
+        lambda impl: impl.get_image_data_subset(157, 0, 0, 1, 1, 1),
+    ],
+    ids=[
+        "pixel-left",
+        "pixel-right",
+        "pixel-below",
+        "rect-left",
+        "rect-right",
+        "rect-wholly-negative",
+        "subset-left",
+        "subset-corner",
+        "subset-1x1-past-width",
+    ],
+)
+def test_reads_outside_the_ortho_grid_raise(impl, read):
+    with pytest.raises(ValueError, match="is not inside the 157 x 185 ortho grid"):
+        read(impl)
+
+
+def test_off_grid_area_average_gets_the_caller_fallback(impl):
+    from PySide6.QtCore import QRect
+
+    from wiser.raster.spectrum import calc_rect_spectrum
+
+    plain = RasterDataSet(_open(PLAIN_NETCDF), None)
+    assert np.all(np.isnan(calc_rect_spectrum(plain, QRect(-5, -5, 2, 2))))
+
+    ortho = RasterDataSet(impl, None)
+    for rect in (QRect(-5, -5, 2, 2), QRect(-1, 50, 3, 3)):
+        spectrum = calc_rect_spectrum(ortho, rect)
+        assert spectrum.shape == (285,)
+        assert np.all(np.isnan(spectrum))
+
+
+def test_chunked_multi_band_read_matches_netcdf(raw, monkeypatch):
+    chunked = _open(EMIT_SUBSET)
+    # Two bands of the 18 x 36 swath window per read, so the bands span several reads.
+    monkeypatch.setattr(chunked, "_ORTHO_READ_CHUNK_BYTES", 2 * 18 * 36 * 4)
+    bands = list(range(20, 27))
+    has_source = raw["glt_x"] != 0
+    expected = np.full((len(bands), 185, 157), FILL, dtype=np.float32)
+    expected[:, has_source] = raw["reflectance"][
+        raw["glt_y"][has_source] - 1, raw["glt_x"][has_source] - 1, :
+    ][:, bands].T
+
+    np.testing.assert_array_equal(chunked.get_multiple_band_data(bands), expected)
+    np.testing.assert_array_equal(chunked.get_image_data_subset(0, 0, 20, 157, 185, 7), expected)

@@ -1426,6 +1426,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _MASK_RTOL = 1e-05
     _MASK_ATOL = 1e-08
 
+    # Swath bytes one GLT read holds at a time; see _read_ortho.
+    _ORTHO_READ_CHUNK_BYTES = 64 * 1024 * 1024
+
     @staticmethod
     def _parse_geotransform_string(
         gtr: str,
@@ -1774,33 +1777,66 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         """Read an ortho-grid window, in stored units, through the GLT.
 
         Only the swath window spanning the source pixels of the requested ortho
-        window is read.  The result is shaped like ``ReadAsArray``:  ``(dy, dx)``
-        for one band, else ``(len(band_list), dy, dx)``.  Ortho pixels with no
-        source hold the data-ignore value.
+        window is read, :attr:`_ORTHO_READ_CHUNK_BYTES` of it at a time, so a
+        whole-cube read holds one band chunk of swath beside the result.  The
+        result is shaped like ``ReadAsArray``:  ``(dy, dx)`` for one band, else
+        ``(len(band_list), dy, dx)``.  Ortho pixels with no source hold the
+        data-ignore value.
+
+        Raises
+        ------
+        ValueError
+            If the window is empty or not wholly inside the ortho grid, as GDAL
+            refuses such a window on the swath path.
         """
+        width, height = self.get_width(), self.get_height()
+        if dx < 1 or dy < 1 or x < 0 or y < 0 or x + dx > width or y + dy > height:
+            raise ValueError(
+                f"Window x={x} y={y} dx={dx} dy={dy} is not inside the {width} x {height} "
+                f"ortho grid of {self._subdataset_name}"
+            )
+
         rows, cols = (a[y : y + dy, x : x + dx] for a in self._glt)
         has_source = rows >= 0
-        shape = (dy, dx) if len(band_list) == 1 else (len(band_list), dy, dx)
-        out = np.empty(shape, dtype=GDALRasterDataImpl.get_elem_type(self))
+        out = np.empty((len(band_list), dy, dx), dtype=GDALRasterDataImpl.get_elem_type(self))
 
         if has_source.any():
             src_rows = rows[has_source]
             src_cols = cols[has_source]
             row0 = int(src_rows.min())
             col0 = int(src_cols.min())
-            with self._quiet_gdal_warnings():
-                swath = self.reopen_dataset().ReadAsArray(
-                    xoff=col0,
-                    yoff=row0,
-                    xsize=int(src_cols.max()) - col0 + 1,
-                    ysize=int(src_rows.max()) - row0 + 1,
-                    band_list=[b + 1 for b in band_list],
-                )
-            out[..., has_source] = swath[..., src_rows - row0, src_cols - col0]
+            src_rows = src_rows - row0
+            src_cols = src_cols - col0
+            xsize = int(src_cols.max()) + 1
+            ysize = int(src_rows.max()) + 1
+            chunk = max(1, self._ORTHO_READ_CHUNK_BYTES // (xsize * ysize * out.itemsize))
+            dataset = self.reopen_dataset()
+            for start in range(0, len(band_list), chunk):
+                bands = band_list[start : start + chunk]
+                with self._quiet_gdal_warnings():
+                    swath = dataset.ReadAsArray(
+                        xoff=col0,
+                        yoff=row0,
+                        xsize=xsize,
+                        ysize=ysize,
+                        band_list=[b + 1 for b in bands],
+                    )
+                swath = swath.reshape(len(bands), ysize, xsize)
+                out[start : start + len(bands), has_source] = swath[:, src_rows, src_cols]
 
         if not has_source.all():
-            out[..., ~has_source] = self.data_ignore
-        return out
+            out[:, ~has_source] = self.data_ignore
+        return out[0] if len(band_list) == 1 else out
+
+    def swath_shape(self) -> Optional[Tuple[int, int]]:
+        """The ``(rows, columns)`` of the swath behind an ortho grid, or ``None``.
+
+        ``None`` means no GLT applies and the dataset is served in the
+        geometry the file stores.
+        """
+        if self._glt is None:
+            return None
+        return self.gdal_dataset.RasterYSize, self.gdal_dataset.RasterXSize
 
     def reopen_dataset(self):
         """Reopen as the base class does, in netCDF row order when a GLT applies.

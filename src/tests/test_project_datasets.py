@@ -11,6 +11,7 @@ import os
 
 import netCDF4 as nc
 import numpy as np
+import pytest
 from astropy import units as u
 
 import tests.context  # noqa: F401
@@ -21,6 +22,7 @@ from wiser.project import ProjectBundle, unzip_bundle, zip_bundle
 from wiser.project.persisters.datasets import (
     STORAGE_REFERENCE,
     STORAGE_SIDECAR,
+    ProjectDatasetGridError,
     dataset_to_pyrep,
     load_datasets,
     save_datasets,
@@ -418,6 +420,12 @@ def test_subdataset_recorded_as_base_path_and_descriptor():
         def get_geo_transform(self):
             return None
 
+        def get_width(self):
+            return 6
+
+        def get_height(self):
+            return 5
+
     entry = dataset_to_pyrep(_StubDataset(), None, None)
     assert entry["storage"] == STORAGE_REFERENCE
     assert entry["path"] == base_path
@@ -511,3 +519,73 @@ def test_non_dict_and_non_list_dataset_entries_are_skipped(tmp_path):
     # A non-list section (hand-edited/corrupt) is ignored, not iterated as keys.
     assert load_datasets({"datasets": {"0": {"id": 1}}}, dst, bundle) == []
     assert dst.get_datasets() == []
+
+
+EMIT_SUBSET = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "test_utils",
+    "test_datasets",
+    "EMIT_L2A_RFL_001_20260821T180123_2623312_016_subset_aid0000.nc",
+)
+
+
+def _reference_entry(path, subdataset_name, **grid):
+    return {
+        "type": "RasterDataSet",
+        "id": 4,
+        "name": "scene",
+        "storage": STORAGE_REFERENCE,
+        "path": path,
+        "subdataset_name": subdataset_name,
+        **grid,
+    }
+
+
+def test_entry_records_the_pixel_grid(tmp_path):
+    src = _FakeAppState()
+    _memory_dataset(src, "in-mem")
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    manifest = {}
+    save_datasets(src, manifest, bundle)
+
+    (entry,) = manifest["datasets"]
+    assert (entry["width"], entry["height"]) == (6, 5)
+
+
+def test_a_dataset_reopening_on_another_grid_is_refused(tmp_path):
+    nc_path = _netcdf_with_subdatasets(tmp_path)
+    entry = _reference_entry(nc_path, f'NETCDF:"{nc_path}":reflectance', width=6, height=4)
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    dst = _FakeAppState()
+
+    with pytest.raises(
+        ProjectDatasetGridError, match="saved on a 6 x 4 pixel grid, but the file now opens as 6 x 5"
+    ):
+        load_datasets({"datasets": [entry]}, dst, bundle)
+    assert dst.get_datasets() == []
+
+
+def test_a_legacy_entry_for_an_orthorectified_emit_file_is_refused(tmp_path):
+    path = os.path.abspath(EMIT_SUBSET)
+    entry = _reference_entry(path, f'NETCDF:"{path}":reflectance')
+    bundle = ProjectBundle.create(tmp_path / "proj")
+
+    with pytest.raises(
+        ProjectDatasetGridError, match="saved before WISER orthorectified EMIT data"
+    ) as excinfo:
+        load_datasets({"datasets": [entry]}, _FakeAppState(), bundle)
+    assert "36 x 18 swath grid" in str(excinfo.value)
+    assert "157 x 185 orthorectified grid" in str(excinfo.value)
+
+
+def test_a_legacy_entry_without_a_glt_restores_unchanged(tmp_path):
+    nc_path = _netcdf_with_subdatasets(tmp_path)
+    descriptor = f'NETCDF:"{nc_path}":reflectance'
+    bundle = ProjectBundle.create(tmp_path / "proj")
+    dst = _FakeAppState()
+
+    assert load_datasets({"datasets": [_reference_entry(nc_path, descriptor)]}, dst, bundle) == []
+    (restored,) = dst.get_datasets()
+    assert restored.get_subdataset_name() == descriptor
+    assert (restored.get_width(), restored.get_height()) == (6, 5)

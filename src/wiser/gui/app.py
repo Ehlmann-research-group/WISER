@@ -41,6 +41,7 @@ from wiser.raster.spectrum import (
 )
 from wiser.project.bundle import ProjectBundle
 from wiser.project.migrate import ProjectTooNewError
+from wiser.project.persisters.datasets import ProjectDatasetGridError
 from wiser.project.orchestrate import (
     open_bundle,
     project_embeds_datasets,
@@ -816,6 +817,14 @@ class DataVisualizerApp(QMainWindow):
             report = restore_bundle(bundle, self._app_state)
         except ProjectTooNewError as e:
             shutil.rmtree(extract_dir, ignore_errors=True)
+            QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
+            return
+        except ProjectDatasetGridError as e:
+            # The restore cleared the session, so it is no longer the project last
+            # opened or saved; a plain Save must not overwrite that file with it.
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            self._clear_project_extract_dir()
+            self._current_project_path = None
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
         except Exception as e:
