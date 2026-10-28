@@ -32,7 +32,7 @@ from wiser.raster.dataset import (
     transform_geo_coord,
 )
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.utils import srs_from_wkt
+from wiser.raster.utils import can_transform_between_srs, srs_from_wkt
 
 pytestmark = [pytest.mark.functional]
 
@@ -291,3 +291,24 @@ def test_transform_geo_coord_raises_between_celestial_bodies(use_exceptions):
     with osr.ExceptionMgr(useExceptions=use_exceptions):
         with pytest.raises(RuntimeError, match="celestial body"):
             transform_geo_coord(mars.to_geographic_coords((0, 0)), mars.get_spatial_ref(), earth)
+
+
+@pytest.mark.parametrize("use_exceptions", [False, True])
+def test_earth_and_mars_datasets_do_not_link(use_exceptions):
+    mars = _load(_DATASETS / "ESP_048952_1785_COLOR_crop.JP2")
+    earth = _load(_DATASETS / "caltech_4_100_150_nm_epsg4087.tif")
+    with osr.ExceptionMgr(useExceptions=use_exceptions):
+        assert not can_transform_between_srs(mars.get_spatial_ref(), earth.get_spatial_ref())
+        assert earth.determine_link_state(mars) == GeographicLinkState.NO_LINK
+        assert mars.determine_link_state(earth) == GeographicLinkState.NO_LINK
+
+
+@pytest.mark.parametrize("use_exceptions", [False, True])
+def test_dataset_without_srs_does_not_link(use_exceptions):
+    earth = _load(_DATASETS / "caltech_4_100_150_nm_epsg4087.tif")
+    no_srs = _in_memory()
+    with osr.ExceptionMgr(useExceptions=use_exceptions):
+        assert not can_transform_between_srs(earth.get_spatial_ref(), None)
+        assert not can_transform_between_srs(None, earth.get_spatial_ref())
+        assert earth.determine_link_state(no_srs) == GeographicLinkState.NO_LINK
+        assert no_srs.determine_link_state(earth) == GeographicLinkState.NO_LINK

@@ -957,12 +957,23 @@ def bboxes_intersect(b1, b2):
     )
 
 
-def can_transform_between_srs(srs1: osr.SpatialReference, srs2: osr.SpatialReference):
-    try:
-        ct = osr.CoordinateTransformation(srs1, srs2)  # noqa: F841
-        return True
-    except BaseException:
+def can_transform_between_srs(
+    srs1: Optional[osr.SpatialReference], srs2: Optional[osr.SpatialReference]
+) -> bool:
+    """
+    Return True if GDAL has a coordinate transformation from ``srs1`` to
+    ``srs2``.  Returns False if either is ``None`` or no transformation exists
+    (e.g. they are on different celestial bodies), whether or not GDAL
+    exceptions are enabled.
+    """
+    if srs1 is None or srs2 is None:
         return False
+    try:
+        with osr.ExceptionMgr(useExceptions=True):
+            osr.CoordinateTransformation(srs1, srs2)
+    except RuntimeError:
+        return False
+    return True
 
 
 def have_spatial_overlap(
