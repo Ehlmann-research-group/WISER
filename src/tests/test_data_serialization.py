@@ -95,6 +95,7 @@ class TestDataSerialization(unittest.TestCase):
 
         spatial_ref = osr.SpatialReference()
         spatial_ref.ImportFromEPSG(4326)
+        spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         expected_wkt = spatial_ref.ExportToWkt()
         expected_geo_transform = (100.0, 1.0, 0.0, 200.0, 0.0, -1.0)
 
@@ -143,6 +144,7 @@ class TestDataSerialization(unittest.TestCase):
 
         spatial_ref = osr.SpatialReference()
         spatial_ref.ImportFromEPSG(4326)
+        spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         expected_wkt = spatial_ref.ExportToWkt()
         expected_geo_transform = (10.0, 2.0, 0.0, 20.0, 0.0, -2.0)
 

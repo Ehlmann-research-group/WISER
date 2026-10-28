@@ -184,8 +184,11 @@ class GeoCoordsDialog(QDialog):
             #     print(f'Axis {i} name is "{spatial_ref.GetAxisName(None, i)}"')
 
             # TODO(donnie):  What to do if not 2 axes?
-            self._ui.lbl_axis_1.setText(spatial_ref.GetAxisName(None, 0) + ":")
-            self._ui.lbl_axis_2.setText(spatial_ref.GetAxisName(None, 1) + ":")
+            # Label the fields in data-axis order, which is what TransformPoint
+            # consumes; the SRS's own axis order differs for e.g. EPSG:4326.
+            axis_map = spatial_ref.GetDataAxisToSRSAxisMapping()
+            self._ui.lbl_axis_1.setText(spatial_ref.GetAxisName(None, abs(axis_map[0]) - 1) + ":")
+            self._ui.lbl_axis_2.setText(spatial_ref.GetAxisName(None, abs(axis_map[1]) - 1) + ":")
 
             units = get_srs_units(spatial_ref)
             if units is None:

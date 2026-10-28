@@ -20,7 +20,7 @@ from wiser import plugins
 
 from wiser.raster import roi_export
 from wiser.raster.dataset_impl import NumPyRasterDataImpl
-from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds
+from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds, transform_geo_coord
 from wiser.raster.dataset import find_display_bands
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, SinglePixelSelection
@@ -2073,7 +2073,11 @@ class RasterPane(QWidget):
         transformed_points = []
         for pt in corners:
             # Convert viewport pixel coordinates to geographic coordinates.
-            geo_coords = reference_dataset.to_geographic_coords((pt.x(), pt.y()))
+            geo_coords = transform_geo_coord(
+                reference_dataset.to_geographic_coords((pt.x(), pt.y())),
+                reference_dataset.get_spatial_ref(),
+                target_dataset.get_spatial_ref(),
+            )
             # Convert geographic coordinates to pixel coordinates in the target dataset.
             pixel_coords = target_dataset.geo_to_pixel_coords(geo_coords)
             transformed_points.append(QPoint(*pixel_coords))

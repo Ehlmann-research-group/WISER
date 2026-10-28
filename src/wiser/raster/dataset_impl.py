@@ -19,6 +19,7 @@ from .utils import (
     numpy_dtype_to_gdal_export_types,
     parse_unit_from_string,
     extract_netcdf_wavelengths,
+    srs_from_wkt,
 )
 from .loaders import envi
 
@@ -673,7 +674,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         spatial_ref = self.gdal_dataset.GetSpatialRef()
         if spatial_ref is not None:
-            spatial_ref.SetAxisMappingStrategy(osr.OAMS_AUTHORITY_COMPLIANT)
+            spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         return spatial_ref
 
     def get_save_state(self) -> SaveState:
@@ -1543,8 +1544,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         srs_string = next((md[k] for k in cls._SRS_KEYS if k in md), None)
         if srs_string:
             try:
-                srs = osr.SpatialReference()
-                srs.ImportFromWkt(srs_string)
+                srs = srs_from_wkt(srs_string)
             except Exception:
                 srs = None
 

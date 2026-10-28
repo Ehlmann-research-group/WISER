@@ -33,6 +33,7 @@ from .utils import (
     can_transform_between_srs,
     have_spatial_overlap,
     build_band_info_from_wavelengths,
+    srs_from_wkt,
 )
 
 if TYPE_CHECKING:
@@ -67,18 +68,43 @@ def pixel_coord_to_geo_coord(
     return (geo_x, geo_y)
 
 
-def geo_coord_to_angular_coord(geo_coord: Tuple[Number, Number], spatial_ref) -> Tuple[Number, Number]:
+def geo_coord_to_angular_coord(geo_coord: Tuple[Number, Number], spatial_ref) -> Tuple[float, float]:
     """
     A helper function to translate a linear geographic coordinate into an
-    angular (lat, lon) geographic coordinate using the spatial-reference system
-    from GDAL.
+    angular (lon, lat) geographic coordinate, in the units of the geographic
+    CRS underlying ``spatial_ref`` (normally degrees).  ``spatial_ref`` must use
+    the traditional GIS axis order, as every ``RasterDataSet`` spatial
+    reference does; the result is then (lon, lat) for every CRS.
 
     See this URL for more details:  https://gdal.org/tutorials/osr_api_tut.html
     """
     (geo_x, geo_y) = geo_coord
     ang_spatial_ref = spatial_ref.CloneGeogCS()
     coord_xform = osr.CoordinateTransformation(spatial_ref, ang_spatial_ref)
-    return coord_xform.TransformPoint(geo_x, geo_y)
+    lon, lat, _ = coord_xform.TransformPoint(geo_x, geo_y)
+    return (lon, lat)
+
+
+def transform_geo_coord(
+    geo_coord: Tuple[float, float],
+    src_srs: osr.SpatialReference,
+    dst_srs: osr.SpatialReference,
+) -> Tuple[float, float]:
+    """
+    Transform a linear geographic coordinate from ``src_srs`` into ``dst_srs``.
+    Both spatial references must use the traditional GIS axis order, as every
+    ``RasterDataSet`` spatial reference does.  The coordinate is returned
+    unchanged when the two spatial references are the same.
+
+    Raises ``RuntimeError`` if GDAL has no transformation between the two
+    spatial references (e.g. they are on different celestial bodies) or cannot
+    transform this coordinate, whether or not GDAL exceptions are enabled.
+    """
+    if src_srs.IsSame(dst_srs):
+        return geo_coord
+    with osr.ExceptionMgr(useExceptions=True):
+        x, y, _ = osr.CoordinateTransformation(src_srs, dst_srs).TransformPoint(geo_coord[0], geo_coord[1])
+    return (x, y)
 
 
 def reference_pixel_to_target_pixel_ds(
@@ -103,7 +129,11 @@ def reference_pixel_to_target_pixel_ds(
         # Pixel links mean the datasets have the same width and height
         pass
     elif link_state == GeographicLinkState.SPATIAL:
-        geo_coords = reference_dataset.to_geographic_coords((x, y))
+        geo_coords = transform_geo_coord(
+            reference_dataset.to_geographic_coords((x, y)),
+            reference_dataset.get_spatial_ref(),
+            target_dataset.get_spatial_ref(),
+        )
         transformed_center = target_dataset.geo_to_pixel_coords(geo_coords)
 
         x = transformed_center[0]
@@ -264,8 +294,7 @@ class SpatialMetadata:
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
         srs = None
         if self._wkt_spatial_reference:
-            srs = osr.SpatialReference()
-            srs.ImportFromWkt(self._wkt_spatial_reference)
+            srs = srs_from_wkt(self._wkt_spatial_reference)
         return srs
 
     def __eq__(self, other: "SpatialMetadata") -> bool:
@@ -829,9 +858,7 @@ class RasterDataSet(Serializable):
         if wkt_spatial_reference is None:
             self._spatial_ref = None
         else:
-            spatial_ref = osr.SpatialReference()
-            spatial_ref.ImportFromWkt(wkt_spatial_reference)
-            self._spatial_ref = spatial_ref
+            self._spatial_ref = srs_from_wkt(wkt_spatial_reference)
         self.set_dirty()
 
     def _set_geo_transform(self, geo_transform: Tuple) -> None:
@@ -852,6 +879,7 @@ class RasterDataSet(Serializable):
             self._wkt_spatial_reference = None
         else:
             self._spatial_ref = spatial_ref.Clone()
+            self._spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
             self._wkt_spatial_reference = self._spatial_ref.ExportToWkt()
         self.set_dirty()
 
@@ -1323,6 +1351,12 @@ class RasterDataSet(Serializable):
         return geo_coord
 
     def to_angular_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
+        """
+        Returns the (lon, lat) of ``pixel_coord`` in the dataset's underlying
+        geographic CRS (normally degrees), or ``None`` if the dataset has no
+        spatial reference.  Integer pixel coordinates give the pixel's
+        upper-left corner; add 0.5 for its center.
+        """
         if self._spatial_ref is None:
             return None
 
@@ -1441,7 +1475,8 @@ class RasterDataSet(Serializable):
         ds0_srs = self.get_spatial_ref()
 
         ds_srs = dataset.get_spatial_ref()
-        can_transform = can_transform_between_srs(ds0_srs, ds_srs)
+        if not can_transform_between_srs(ds0_srs, ds_srs):
+            return GeographicLinkState.NO_LINK
         have_overlap = have_spatial_overlap(
             ds0_srs,
             self.get_geo_transform(),
@@ -1452,7 +1487,7 @@ class RasterDataSet(Serializable):
             dataset.get_width(),
             dataset.get_height(),
         )
-        if ds0_srs is None or ds_srs is None or not can_transform or not have_overlap:
+        if not have_overlap:
             return GeographicLinkState.NO_LINK
 
         return GeographicLinkState.SPATIAL
@@ -1497,14 +1532,14 @@ class RasterDataSet(Serializable):
 
         if source.get_spatial_ref() is not None:
             self._spatial_ref = source.get_spatial_ref().Clone()
+            self._spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         else:
             self._spatial_ref = None
 
         if source.get_wkt_spatial_reference():
             self._wkt_spatial_reference = source.get_wkt_spatial_reference()
             if self._spatial_ref is None:
-                self._spatial_ref = osr.SpatialReference()
-                self._spatial_ref.ImportFromWkt(self._wkt_spatial_reference)
+                self._spatial_ref = srs_from_wkt(self._wkt_spatial_reference)
         else:
             self._wkt_spatial_reference = None
 
@@ -1712,9 +1747,7 @@ class RasterDataSet(Serializable):
             self._bad_bands = serial_bad_bands
         if serial_wkt_spatial_ref:
             self._wkt_spatial_reference = serial_wkt_spatial_ref
-            spatial_ref = osr.SpatialReference()
-            spatial_ref.ImportFromWkt(serial_wkt_spatial_ref)
-            self._spatial_ref = spatial_ref
+            self._spatial_ref = srs_from_wkt(serial_wkt_spatial_ref)
         if serial_geo_transform:
             self._geo_transform = serial_geo_transform
         if serial_wavelengths or serial_band_info:
