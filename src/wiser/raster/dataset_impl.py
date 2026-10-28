@@ -1558,10 +1558,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         srs = None
         srs_string = next((md[k] for k in cls._SRS_KEYS if k in md), None)
         if srs_string:
-            try:
-                srs = srs_from_wkt(srs_string)
-            except Exception:
-                srs = None
+            srs = srs_from_wkt(srs_string)
 
         # ---- Wavelengths and Units (searches all groups/subgroups at any depth)
         wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset, band_count=subdataset.RasterCount)
@@ -1712,7 +1709,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         ------
         ValueError
             If the file has a GLT but no ``location/lat`` to identify the
-            swath, or the GLT applies but is inconsistent:  the variable's raster is
+            swath, the GLT applies but the file declares no global geotransform
+            for the ortho grid, or the GLT is inconsistent:  the variable's raster is
             not the ``location/lat`` swath, ``glt_x`` and ``glt_y`` are not
             integer tables of one 2D shape, they disagree on which ortho pixels
             have no source, an index falls outside the swath, or ortho pixels
@@ -1733,6 +1731,12 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             )
         if not set(lat.dimensions) <= set(nc_var.dimensions):
             return None
+
+        if self._geotransform is None:
+            raise ValueError(
+                f"{file_path} has a GLT but no global geotransform attribute, so the "
+                f"orthorectified grid it maps into is undefined"
+            )
 
         swath_shape = tuple(lat.shape)
         raster_shape = (self.gdal_dataset.RasterYSize, self.gdal_dataset.RasterXSize)

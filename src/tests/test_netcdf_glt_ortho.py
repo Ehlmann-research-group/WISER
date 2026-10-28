@@ -192,8 +192,11 @@ def _write_swath_file(
     refl_dims=("downtrack", "crosstrack", "bands"),
     fill=True,
     lat_name="lat",
+    geotransform=True,
 ):
     with nc.Dataset(path, "w") as ds:
+        if geotransform:
+            ds.geotransform = np.array([10.0, 0.5, 0.0, 20.0, 0.0, -0.5], dtype="f8")
         for name, size in (
             ("downtrack", 3),
             ("crosstrack", 4),
@@ -235,8 +238,9 @@ def test_synthetic_swath_file_opens_on_the_ortho_grid(tmp_path):
         ({"refl_dims": ("crosstrack", "downtrack", "bands")}, "which is not the location/lat swath"),
         ({"fill": False}, "has no fill value"),
         ({"lat_name": "latitude"}, "has a GLT but WISER cannot match 'reflectance'"),
+        ({"geotransform": False}, "has a GLT but no global geotransform attribute"),
     ],
-    ids=["glt-shape-mismatch", "swath-transposed", "no-fill-value", "no-location-lat"],
+    ids=["glt-shape-mismatch", "swath-transposed", "no-fill-value", "no-location-lat", "no-geotransform"],
 )
 def test_inconsistent_glt_raises(tmp_path, kwargs, message):
     path = str(tmp_path / "swath.nc")

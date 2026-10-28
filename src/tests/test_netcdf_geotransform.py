@@ -1,8 +1,8 @@
 """Regression tests: a netCDF subdataset's geotransform must come from the file.
 
 A netCDF can georeference a variable in two ways:  a global ``geotransform``
-attribute (EMIT L2A), or CF ``lat``/``lon`` coordinate variables (NASA AppEEARS
-area samples and most gridded products).  WISER used to read only the global
+attribute (EMIT L2A, including NASA AppEEARS crops of it), or CF ``lat``/``lon``
+coordinate variables (most gridded products).  WISER used to read only the global
 attribute and invent an identity transform when it was absent, which put pixel
 indices on screen as if they were longitude and latitude.
 
@@ -165,6 +165,13 @@ class TestNetCDFGeoTransform(unittest.TestCase):
                     self._open(path)
                 with self.assertRaisesRegex(ValueError, message):
                     self._dialog(path)
+
+    def test_malformed_declared_spatial_ref_raises(self):
+        path = self._path("bad_srs.nc", cf_grid=True)
+        with nc.Dataset(path, "a") as ds:
+            ds.spatial_ref = "not a spatial reference"
+        with self.assertRaises(ValueError):
+            self._open(path)
 
     def _dialog(self, path):
         from PySide6.QtWidgets import QApplication
