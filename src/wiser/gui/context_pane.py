@@ -153,6 +153,7 @@ class ContextPane(RasterPane):
                 stretches = self._app_state.get_stretches(ds_id, bands)
 
             rasterview.set_raster_data(dataset, bands, stretches)
+            self._apply_colormap(rasterview)
 
     def _on_dataset_changed(self, act):
         (rasterview_pos, ds_id) = act.data()

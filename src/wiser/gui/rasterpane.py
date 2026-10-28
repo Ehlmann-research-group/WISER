@@ -315,6 +315,10 @@ class RasterPane(QWidget):
         # dataset.
         self._display_bands: Dict[int, Tuple] = {}
 
+        # The colormap name chosen for each dataset's grayscale display, keyed
+        # by dataset ID.  Datasets with no entry are displayed without one.
+        self._colormaps: Dict[int, Optional[str]] = {}
+
         self._size_hint = size_hint
         self._embed_toolbar = embed_toolbar
 
@@ -1058,6 +1062,7 @@ class RasterPane(QWidget):
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
+        self._apply_colormap(rasterview)
         if dataset is not None and self._num_views == (1, 1) and self._dataset_chooser is not None:
             self._dataset_chooser.check_dataset(dataset.get_id())
 
@@ -1099,6 +1104,7 @@ class RasterPane(QWidget):
         # print(f'Display-band information:  {self._display_bands}')
 
         self._display_bands[ds_id] = bands
+        self._colormaps[ds_id] = colormap
 
         # If the specified data set is the one currently being displayed, update
         # the UI display.
@@ -1110,6 +1116,20 @@ class RasterPane(QWidget):
                 stretches = self._app_state.get_stretches(ds_id, bands)
 
                 rv.set_display_bands(bands, stretches=stretches, colormap=colormap)
+
+    def _apply_colormap(self, rasterview: RasterView):
+        """
+        Reapply the colormap recorded for the rasterview's dataset, which
+        ``RasterView.set_raster_data`` clears.
+        """
+        dataset = rasterview.get_raster_data()
+        if dataset is None:
+            return
+        colormap = self._colormaps.get(dataset.get_id())
+        if colormap is not None:
+            rasterview.set_display_bands(
+                rasterview.get_display_bands(), stretches=rasterview.get_stretches(), colormap=colormap
+            )
 
     def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
         if rasterview_pos is not None:
@@ -1374,6 +1394,7 @@ class RasterPane(QWidget):
         """
         if ds_id in self._display_bands:
             del self._display_bands[ds_id]
+        self._colormaps.pop(ds_id, None)
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 

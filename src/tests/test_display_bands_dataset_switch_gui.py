@@ -10,6 +10,7 @@ from pathlib import Path
 
 import tests.context  # noqa: F401
 
+import numpy as np
 import pytest
 from PySide6.QtGui import QAction
 
@@ -96,6 +97,44 @@ class TestDisplayBandsDatasetSwitch(unittest.TestCase):
         for name, pane in self._panes().items():
             with self.subTest(pane=name):
                 self.assertEqual(tuple(pane._display_bands[a_id]), expected)
+
+    def test_colormap_survives_main_view_switch(self):
+        ds_gray = self.test_model.load_dataset(
+            np.linspace(0.0, 1.0, 600, dtype=np.float32).reshape(1, 20, 30)
+        )
+        ds_b = self.test_model.load_dataset(DATASET_B)
+        gray_id = ds_gray.get_id()
+        self._switch_main_view(gray_id)
+        self.test_model.main_window._on_display_bands_change(gray_id, (0,), "viridis", True)
+        self.test_model.run()
+
+        for _ in range(2):
+            self._switch_main_view(ds_b.get_id())
+            self._switch_main_view(gray_id)
+
+        for name, pane in self._panes().items():
+            with self.subTest(pane=name):
+                rv = pane.get_rasterview()
+                self.assertIs(rv.get_raster_data(), ds_gray)
+                self.assertEqual(rv.get_colormap(), "viridis")
+
+    def test_reopened_dataset_has_no_stale_colormap(self):
+        arr = np.linspace(0.0, 1.0, 600, dtype=np.float32).reshape(1, 20, 30)
+        ds_gray = self.test_model.load_dataset(arr)
+        self.test_model.load_dataset(DATASET_B)
+        self.test_model.main_window._on_display_bands_change(ds_gray.get_id(), (0,), "viridis", True)
+        self.test_model.run()
+
+        self.test_model.app_state.clear_session()
+        self.test_model.run()
+        ds_new = self.test_model.load_dataset(arr)
+        self.assertEqual(ds_new.get_id(), ds_gray.get_id())
+
+        for name, pane in self._panes().items():
+            with self.subTest(pane=name):
+                rv = pane.get_rasterview()
+                self.assertIs(rv.get_raster_data(), ds_new)
+                self.assertIsNone(rv.get_colormap())
 
 
 if __name__ == "__main__":
