@@ -25,7 +25,12 @@ from wiser.gui.geo_coords_config import CoordinateDisplayConfig
 from wiser.gui.geo_coords_dialog import GeoCoordsDialog
 from wiser.gui.image_coords_widget import ImageCoordsWidget
 from wiser.gui.rasterpane import RasterPane
-from wiser.raster.dataset import GeographicLinkState, SpatialMetadata, reference_pixel_to_target_pixel_ds
+from wiser.raster.dataset import (
+    GeographicLinkState,
+    SpatialMetadata,
+    reference_pixel_to_target_pixel_ds,
+    transform_geo_coord,
+)
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import srs_from_wkt
 
@@ -277,3 +282,12 @@ def test_srs_from_wkt_transforms_lon_lat():
 def test_srs_from_wkt_rejects_invalid_wkt(wkt):
     with pytest.raises(ValueError, match="Invalid WKT"):
         srs_from_wkt(wkt)
+
+
+@pytest.mark.parametrize("use_exceptions", [False, True])
+def test_transform_geo_coord_raises_between_celestial_bodies(use_exceptions):
+    mars = _load(_DATASETS / "ESP_048952_1785_COLOR_crop.JP2")
+    earth = _traditional_srs(4087)
+    with osr.ExceptionMgr(useExceptions=use_exceptions):
+        with pytest.raises(RuntimeError, match="celestial body"):
+            transform_geo_coord(mars.to_geographic_coords((0, 0)), mars.get_spatial_ref(), earth)

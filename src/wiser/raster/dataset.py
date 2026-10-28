@@ -95,10 +95,15 @@ def transform_geo_coord(
     Both spatial references must use the traditional GIS axis order, as every
     ``RasterDataSet`` spatial reference does.  The coordinate is returned
     unchanged when the two spatial references are the same.
+
+    Raises ``RuntimeError`` if GDAL has no transformation between the two
+    spatial references (e.g. they are on different celestial bodies) or cannot
+    transform this coordinate, whether or not GDAL exceptions are enabled.
     """
     if src_srs.IsSame(dst_srs):
         return geo_coord
-    x, y, _ = osr.CoordinateTransformation(src_srs, dst_srs).TransformPoint(geo_coord[0], geo_coord[1])
+    with osr.ExceptionMgr(useExceptions=True):
+        x, y, _ = osr.CoordinateTransformation(src_srs, dst_srs).TransformPoint(geo_coord[0], geo_coord[1])
     return (x, y)
 
 
