@@ -10,6 +10,7 @@ import os
 import tempfile
 from unittest import mock
 
+import numpy as np
 import pytest
 
 import tests.context  # noqa: F401
@@ -18,6 +19,8 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QMessageBox
 
 from test_utils.test_model import WiserTestModel
+from wiser.bandmath import BandMathExprInfo, VariableType
+from wiser.bandmath.utils import save_band_from_bandmath_result, save_image_from_bandmath_result
 from wiser.gui.save_dataset import SaveDatasetDialog
 from wiser.raster.dataset_impl import ENVI_GDALRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
@@ -169,3 +172,32 @@ def test_failed_save_shows_critical_dialog(test_model, dataset, tmp_path, name):
     critical.assert_called_once()
     assert path in critical.call_args.args[2]
     assert os.listdir(tmp_path) == []
+
+
+@pytest.mark.parametrize("save_fn", [save_band_from_bandmath_result, save_image_from_bandmath_result])
+def test_bandmath_output_folder_accepts_dotted_result_name(test_model, tmp_path, save_fn):
+    # Batch band math names each output "<input stem><suffix>", and input stems such
+    # as PACE's "PACE_OCI.20241121T193951.L2.OC_AOP.V3_2" contain dots.
+    name = "PACE_OCI.20241121T193951.L2.OC_AOP.V3_2_ndvi"
+    if save_fn is save_band_from_bandmath_result:
+        result = np.arange(12, dtype=np.float32).reshape(3, 4)
+        kwargs = {"result": result, "app_state": test_model.app_state}
+        expected = result[np.newaxis]
+    else:
+        expected = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+        # No app_state, so no cache:  an uncached in-memory cube saves without an ID.
+        kwargs = {"result_type": VariableType.IMAGE_CUBE, "result": expected, "app_state": None}
+
+    save_fn(
+        **kwargs,
+        result_name=name,
+        expression="a",
+        expr_info=BandMathExprInfo(),
+        output_folder=str(tmp_path),
+        loader=RasterDataLoader(),
+    )
+
+    assert sorted(os.listdir(tmp_path)) == [f"{name}.hdr", f"{name}.img"]
+    reopened = RasterDataLoader().load_from_file(str(tmp_path / f"{name}.hdr"), interactive=False)[0]
+    np.testing.assert_array_equal(reopened.get_image_data(), expected)
+    reopened = None
