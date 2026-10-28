@@ -125,9 +125,11 @@ class _ProgressTaskRunner(QObject):
         self._done = True
         self._app_services.activity_monitor.set_task_finished(self._activity_id)
         self._dialog.finish()
-        if self._on_success is not None:
-            self._on_success(result)
-        self._cleanup()
+        try:
+            if self._on_success is not None:
+                self._on_success(result)
+        finally:
+            self._cleanup()
 
     def _on_failed(self, message: str) -> None:
         # Cancellation surfaces here too (the worker raises ProgressCancelled): swallow
@@ -138,9 +140,11 @@ class _ProgressTaskRunner(QObject):
         self._done = True
         self._app_services.activity_monitor.set_task_failed(self._activity_id, message)
         self._dialog.finish()
-        if self._on_error is not None:
-            self._on_error(message)
-        self._cleanup()
+        try:
+            if self._on_error is not None:
+                self._on_error(message)
+        finally:
+            self._cleanup()
 
     def request_cancel(self) -> None:
         """

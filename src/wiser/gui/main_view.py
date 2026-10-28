@@ -371,22 +371,9 @@ class MainViewWidget(RasterPane):
         self._app_state._app._on_save_dataset(dataset.get_id())
 
     def _on_close_dataset(self, rasterview):
-        # If dataset is modified, ask user if they want to save it.
         dataset = rasterview.get_raster_data()
-        if dataset.is_dirty():
-            response = QMessageBox.question(
-                self,
-                self.tr("Save modified dataset?"),
-                self.tr("Dataset has unsaved changes.  Save it?"),
-            )
-
-            if response == QMessageBox.Yes:
-                # User wants to save the dataset, so let them do so.
-                # TODO(donnie):  Don't do it this way!
-                self._app_state._app._on_save_dataset(dataset.get_id())
-
-        # Finally, remove the dataset.
-        self._app_state.remove_dataset(dataset.get_id())
+        # TODO(donnie):  Don't do it this way!
+        self._app_state._app._on_close_dataset(dataset.get_id())
 
     def _on_dataset_changed(self, act):
         super()._on_dataset_changed(act)
