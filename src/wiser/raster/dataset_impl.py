@@ -2119,21 +2119,48 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
     @staticmethod
     def get_save_filenames(path: str) -> List[str]:
-        # Note that the save-filename may not yet exist.
-        if path.endswith(".hdr"):
-            hdr_path = path
-            img_path = path[:-4] + ".img"
+        """
+        Returns ``[img_path, hdr_path]``, the two files an ENVI save to ``path``
+        writes.  The save-filename may not yet exist.
 
+        The filename (the last component of ``path``) must be one of:
+
+        *   ``name`` with no extension:  writes ``name`` and ``name.hdr``.
+        *   ``name.img``:  writes ``name.img`` and ``name.hdr``.
+        *   ``name.hdr``:  writes ``name.img`` and ``name.hdr``.
+
+        Extensions are matched case-insensitively, and the data file is always
+        written with a lowercase ``.img`` so it can be found again on a
+        case-sensitive filesystem.  The header is always named ``name.hdr``,
+        which is what GDAL's ENVI driver writes by default:  the extension after
+        the last "." is replaced, so ``my.ndvi.img`` writes ``my.ndvi.hdr``.
+
+        A ``ValueError`` is raised for any other extension (e.g. ``.tif``,
+        ``.bsq``, or ``my.ndvi.result``), and for a filename that is empty or
+        starts with ".", since none of these can be written as ENVI under the
+        given name.
+        """
+        dirname, basename = os.path.split(path)
+        idx = basename.rfind(".")
+        if idx == -1:
+            stem, ext = basename, ""
         else:
+            stem, ext = basename[:idx], basename[idx:]
+
+        if not stem:
+            raise ValueError(f'"{basename}" is not a valid ENVI save filename')
+
+        if ext.lower() in (".hdr", ".img"):
+            img_path = os.path.join(dirname, stem + ".img")
+        elif ext == "":
             img_path = path
+        else:
+            raise ValueError(
+                f'Cannot save ENVI data as "{basename}":  the filename must have '
+                + 'no extension, or end in ".img" or ".hdr"'
+            )
 
-            idx = path.rfind(".")
-            if idx != -1 and len(path) - idx <= 5:
-                hdr_path = path[:idx] + ".hdr"
-            else:
-                hdr_path = path + ".hdr"
-
-        return [img_path, hdr_path]
+        return [img_path, os.path.join(dirname, stem + ".hdr")]
 
     @staticmethod
     def save_dataset_as(
@@ -2145,6 +2172,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # A no-op reporter keeps this callable from non-GUI/test contexts without
         # threading a real reporter through every caller.
         progress = progress or ProgressReporter()
+
+        img_path, hdr_path = ENVI_GDALRasterDataImpl.get_save_filenames(path)
 
         def map_default_display_bands(display_bands, include_bands):
             # Build a mapping of source-image band-indexes to
@@ -2272,12 +2301,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         driver = gdal.GetDriverByName("ENVI")
         driver_options: List[str] = ["INTERLEAVE=BSQ"]
         logger.debug(
-            f'driver.Create("{path}", {dst_width}, {dst_height}, '
+            f'driver.Create("{img_path}", {dst_width}, {dst_height}, '
             + f"{dst_bands}, {gdal_elem_type}, {driver_options})"
         )
 
         dst_gdal_dataset = driver.Create(
-            path, dst_width, dst_height, dst_bands, gdal_elem_type, driver_options
+            img_path, dst_width, dst_height, dst_bands, gdal_elem_type, driver_options
         )
 
         if src_dataset.has_geographic_info():
@@ -2384,7 +2413,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             # (Rebind to None rather than `del` so the name stays bound for the
             # linter's control-flow analysis on the normal path below.)
             dst_gdal_dataset = None
-            for fname in ENVI_GDALRasterDataImpl.get_save_filenames(path):
+            for fname in (img_path, hdr_path):
                 try:
                     os.remove(fname)
                 except OSError:
@@ -2397,15 +2426,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         header_progress.report_fraction(1.0, "Writing header")
 
-        # Generate the header file now.
-        # TODO(donnie):  What to do if an exception is raised???
-        (hdr_filename, img_filename) = envi.find_envi_filenames(path)
-
+        # Generate the header file now, replacing the one GDAL wrote.
         dst_metadata = {}
 
         # Read in the GDAL-generated metadata, and copy over the data-format
         # specific configuration values.
-        gdal_metadata = envi.load_envi_header(hdr_filename)
+        gdal_metadata = envi.load_envi_header(hdr_path)
         for name in [
             "samples",
             "lines",
@@ -2443,7 +2469,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if 0 in dst_bad_bands:
             dst_metadata["bbl"] = dst_bad_bands
 
-        envi.write_envi_header(hdr_filename, dst_metadata)
+        envi.write_envi_header(hdr_path, dst_metadata)
 
         # TODO(donnie):  Maybe reopen the file and return a dataset-impl for it.
         # dst_dataset_impl = ENVI_GDALRasterDataImpl(dst_gdal_dataset)

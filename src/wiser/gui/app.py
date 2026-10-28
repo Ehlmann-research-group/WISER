@@ -618,13 +618,21 @@ class DataVisualizerApp(QMainWindow):
             if dataset_id is not None and self._app_state.has_dataset(dataset_id):
                 self._app_state.get_dataset(dataset_id).set_dirty(False)
 
+        def _on_failed(message):
+            logger.error("Save dataset failed: %s", message)
+            QMessageBox.critical(
+                self,
+                self.tr("Save Failed"),
+                self.tr("Could not save the dataset to {0}:\n\n{1}").format(path, message),
+            )
+
         return run_with_progress(
             self._app_services,
             self,
             self.tr("Saving dataset"),
             _do_save,
             on_success=_on_ok,
-            on_error=lambda msg: logger.error("Save dataset failed: %s", msg),
+            on_error=_on_failed,
             meta={"Dataset": dataset.get_name(), "Path": path},
         )
 
