@@ -95,8 +95,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Populate every part of the dialog
         self._init_subdataset_cbox()
-        self._init_geo_transform()
-        self._init_spatial_ref()
+        self._init_georeferencing()
         # Must be before _init_bands_table_widget
         self._init_bands_table_widget()
 
@@ -148,8 +147,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         if self._ui.cbox_subdataset_choice.count():
             self._ui.cbox_subdataset_choice.setCurrentIndex(0)
 
-    def _init_geo_transform(self) -> None:
-        """Initialise the geo-transform check-box.
+    def _init_georeferencing(self) -> None:
+        """Read the file-declared geotransform and spatial reference, and initialise
+        both check-boxes.
 
         Raises
         ------
@@ -164,16 +164,15 @@ class SubdatasetFileOpenerDialog(QDialog):
             self._declared_geo_transform = NetCDF_GDALRasterDataImpl._parse_geotransform_string(
                 key, metadata[key]
             )
-
-        self._update_geo_transform()
-
-        # Ensure the grey-out is correct on first show.
-        self._set_checkbox_enabled_state(
-            self._ui.chk_box_geo_transform, self._ui.chk_box_geo_transform.isChecked()
+        self._declared_spatial_ref_wkt = next(
+            (metadata[k] for k in self._spatial_ref_search_keys if k in metadata),
+            None,
         )
 
+        self._update_georeferencing()
+
     def _update_georeferencing(self) -> None:
-        """Re-evaluate both check-boxes for the chosen subdataset, as on first show.
+        """Evaluate both check-boxes for the chosen subdataset.
 
         Signals are blocked so unchecking the SRS does not also uncheck the
         geotransform, which it does only when the user unchecks it.
@@ -209,17 +208,6 @@ class SubdatasetFileOpenerDialog(QDialog):
             chk.setText("No geotransform available")
             chk.setChecked(False)
             chk.setEnabled(False)
-
-    def _init_spatial_ref(self) -> None:
-        """Initialise the spatial reference system check-box."""
-        metadata = self._gdal_dataset.GetMetadata() or {}
-        self._declared_spatial_ref_wkt = next(
-            (metadata[k] for k in self._spatial_ref_search_keys if k in metadata),
-            None,
-        )
-
-        self._update_spatial_ref()
-        self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
 
     def _update_spatial_ref(self) -> None:
         """Show the file-declared spatial reference, else GDAL's for the chosen subdataset.
