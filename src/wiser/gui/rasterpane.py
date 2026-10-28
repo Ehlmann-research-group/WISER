@@ -1131,14 +1131,6 @@ class RasterPane(QWidget):
                 rasterview.get_display_bands(), stretches=rasterview.get_stretches(), colormap=colormap
             )
 
-    def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
-        if rasterview_pos is not None:
-            self.get_rasterview(rasterview_pos).make_point_visible(x, y)
-
-        else:
-            for rv in self._rasterviews.values():
-                rv.make_point_visible(x, y)
-
     def create_viewport_highlight_dictionary(
         self,
         viewport: Union[List[QRect], QRect, QRectF],

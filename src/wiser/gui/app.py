@@ -1294,8 +1294,9 @@ class DataVisualizerApp(QMainWindow):
         # In the context pane, the rasterview position should always be (0, 0).
         assert rasterview_position == (0, 0)
 
-        # Make all the views in the main image window show the point.
-        self._main_view.make_point_visible(ds_point.x(), ds_point.y(), rasterview_pos=None)
+        self._main_view.make_reference_point_visible(
+            ds_point.x(), ds_point.y(), self._context_pane.get_rasterview(rasterview_position)
+        )
 
     def _on_mainview_viewport_change(self, rasterview_position):
         """

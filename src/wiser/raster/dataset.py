@@ -1473,7 +1473,6 @@ class RasterDataSet(Serializable):
             return GeographicLinkState.PIXEL
 
         ds0_srs = self.get_spatial_ref()
-
         ds_srs = dataset.get_spatial_ref()
         if not can_transform_between_srs(ds0_srs, ds_srs):
             return GeographicLinkState.NO_LINK

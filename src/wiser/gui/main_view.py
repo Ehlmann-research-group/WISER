@@ -663,6 +663,37 @@ class MainViewWidget(RasterPane):
                 else:
                     raise ValueError(f"Geographic link state is incorrect: {link_state}")
 
+    def make_reference_point_visible(self, x, y, reference_rasterview: RasterView) -> None:
+        """
+        Centers raster-views on pixel (x, y) of the dataset shown in
+        ``reference_rasterview``, a raster-view outside this pane.
+
+        With linked scrolling off, only raster-views showing that same dataset
+        move.  With it on, the first raster-view whose dataset can be mapped
+        from the reference dataset is centered on the corresponding pixel, and
+        every other raster-view is centered on that pixel mapped into its own
+        dataset.  Each raster-view is centered on the point itself rather than
+        on the first raster-view's visible centre, which differs from the point
+        when that view is scrolled against an edge.  If no raster-view can be
+        mapped from the reference dataset, nothing moves.
+        """
+        reference_ds = reference_rasterview.get_raster_data()
+        if not self._link_view_scrolling:
+            for rv in self._rasterviews.values():
+                if rv.get_raster_data() is reference_ds:
+                    rv.make_point_visible(x, y)
+            return
+
+        for rv in self._rasterviews.values():
+            target = reference_pixel_to_target_pixel_ds((x, y), reference_ds, rv.get_raster_data())
+            if target is not None:
+                rv.make_point_visible(*target)
+                for other in self._rasterviews.values():
+                    if other is not rv:
+                        other.update()
+                        other.make_point_visible(*target, reference_rasterview=rv)
+                return
+
     def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
         """
         Sets the "viewport highlight" to be displayed in this raster-pane. This
