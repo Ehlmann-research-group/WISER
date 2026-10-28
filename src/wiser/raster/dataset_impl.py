@@ -1431,6 +1431,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _MASK_RTOL = 1e-05
     _MASK_ATOL = 1e-08
 
+    # Swath bytes one GLT read holds at a time; see _read_ortho.
+    _ORTHO_READ_CHUNK_BYTES = 64 * 1024 * 1024
+
     @staticmethod
     def _parse_geotransform_string(key: str, gtr: str) -> Tuple[float, float, float, float, float, float]:
         """Parse the GDAL metadata value of the global geotransform attribute ``key``.
@@ -1688,6 +1691,183 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             self._bad_bands = [1] * self.gdal_dataset.RasterCount
         self._scaling = self._read_scaling()
         self._validate_fill_separation()
+        self._glt = self._read_glt()
+
+    def _read_glt(self) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Return the 0-based swath ``(rows, cols)`` each ortho pixel reads from.
+
+        EMIT products store their variables in raw swath geometry, while the
+        global ``geotransform`` and ``spatial_ref`` describe the orthorectified
+        grid that the ``location/glt_x`` / ``location/glt_y`` lookup tables map
+        into.  The tables hold 1-based column and row indices into the swath as
+        stored in this file (an AppEEARS crop indexes its own cropped swath), and
+        0 where no swath pixel lands; those ortho pixels are -1 in the result.
+        When a GLT applies, the dataset is presented on the ortho grid.
+
+        Returns ``None`` when the file has no ``location/glt_x`` and
+        ``location/glt_y``, or when this variable does not span the
+        ``location/lat`` swath dimensions.
+
+        Raises
+        ------
+        ValueError
+            If the file has a GLT but no ``location/lat`` to identify the
+            swath, or the GLT applies but is inconsistent:  the variable's raster is
+            not the ``location/lat`` swath, ``glt_x`` and ``glt_y`` are not
+            integer tables of one 2D shape, they disagree on which ortho pixels
+            have no source, an index falls outside the swath, or ortho pixels
+            with no source exist but the variable has no fill value for them.
+        """
+        location = self._netcdf_dataset.groups.get("location")
+        if location is None or not {"glt_x", "glt_y"} <= set(location.variables):
+            return None
+
+        file_path = self._netcdf_dataset.filepath()
+        var_path = self._subdataset_name.split(":")[-1]
+        nc_var = self._nc_resolve_var(self._netcdf_dataset, var_path)
+        lat = location.variables.get("lat")
+        if nc_var is None or lat is None:
+            raise ValueError(
+                f"{file_path} has a GLT but WISER cannot match {var_path!r} to the "
+                f"location/lat swath it indexes"
+            )
+        if not set(lat.dimensions) <= set(nc_var.dimensions):
+            return None
+
+        swath_shape = tuple(lat.shape)
+        raster_shape = (self.gdal_dataset.RasterYSize, self.gdal_dataset.RasterXSize)
+        swath_dim_order = [d for d in nc_var.dimensions if d in lat.dimensions]
+        if raster_shape != swath_shape or swath_dim_order != list(lat.dimensions):
+            raise ValueError(
+                f"{file_path}: {var_path!r} has dimensions {nc_var.dimensions} and raster "
+                f"shape {raster_shape}, which is not the location/lat swath "
+                f"{lat.dimensions} {swath_shape} its GLT indexes"
+            )
+
+        glt_x = location.variables["glt_x"]
+        glt_y = location.variables["glt_y"]
+        if (
+            glt_x.ndim != 2
+            or glt_x.shape != glt_y.shape
+            or not np.issubdtype(glt_x.dtype, np.integer)
+            or not np.issubdtype(glt_y.dtype, np.integer)
+        ):
+            raise ValueError(
+                f"{file_path}: location/glt_x {glt_x.shape} {glt_x.dtype} and location/glt_y "
+                f"{glt_y.shape} {glt_y.dtype} must be integer tables of one 2D shape"
+            )
+
+        glt_x.set_auto_mask(False)
+        glt_y.set_auto_mask(False)
+        cols = np.asarray(glt_x[:])
+        rows = np.asarray(glt_y[:])
+
+        no_source = cols == 0
+        if not np.array_equal(no_source, rows == 0):
+            raise ValueError(f"{file_path}: location/glt_x and location/glt_y disagree on which pixels are 0")
+
+        height, width = swath_shape
+        out_of_range = ~no_source & ((cols < 1) | (cols > width) | (rows < 1) | (rows > height))
+        if out_of_range.any():
+            raise ValueError(
+                f"{file_path}: {np.count_nonzero(out_of_range)} GLT entries fall outside the "
+                f"1-based {height} x {width} swath (glt_y range {rows.min()}..{rows.max()}, "
+                f"glt_x range {cols.min()}..{cols.max()})"
+            )
+
+        if no_source.any() and self.data_ignore is None:
+            raise ValueError(
+                f"{file_path}: the GLT leaves ortho pixels without a source, but {var_path!r} "
+                f"has no fill value to mark them with"
+            )
+
+        return rows - 1, cols - 1
+
+    def _read_ortho(self, x: int, y: int, dx: int, dy: int, band_list: List[int]) -> np.ndarray:
+        """Read an ortho-grid window, in stored units, through the GLT.
+
+        Only the swath window spanning the source pixels of the requested ortho
+        window is read, :attr:`_ORTHO_READ_CHUNK_BYTES` of it at a time, so a
+        whole-cube read holds one band chunk of swath beside the result.  The
+        result is shaped like ``ReadAsArray``:  ``(dy, dx)`` for one band, else
+        ``(len(band_list), dy, dx)``.  Ortho pixels with no source hold the
+        data-ignore value.
+
+        Raises
+        ------
+        ValueError
+            If the window is empty or not wholly inside the ortho grid, as GDAL
+            refuses such a window on the swath path.
+        """
+        width, height = self.get_width(), self.get_height()
+        if dx < 1 or dy < 1 or x < 0 or y < 0 or x + dx > width or y + dy > height:
+            raise ValueError(
+                f"Window x={x} y={y} dx={dx} dy={dy} is not inside the {width} x {height} "
+                f"ortho grid of {self._subdataset_name}"
+            )
+
+        rows, cols = (a[y : y + dy, x : x + dx] for a in self._glt)
+        has_source = rows >= 0
+        out = np.empty((len(band_list), dy, dx), dtype=GDALRasterDataImpl.get_elem_type(self))
+
+        if has_source.any():
+            src_rows = rows[has_source]
+            src_cols = cols[has_source]
+            row0 = int(src_rows.min())
+            col0 = int(src_cols.min())
+            src_rows = src_rows - row0
+            src_cols = src_cols - col0
+            xsize = int(src_cols.max()) + 1
+            ysize = int(src_rows.max()) + 1
+            chunk = max(1, self._ORTHO_READ_CHUNK_BYTES // (xsize * ysize * out.itemsize))
+            dataset = self.reopen_dataset()
+            for start in range(0, len(band_list), chunk):
+                bands = band_list[start : start + chunk]
+                with self._quiet_gdal_warnings():
+                    swath = dataset.ReadAsArray(
+                        xoff=col0,
+                        yoff=row0,
+                        xsize=xsize,
+                        ysize=ysize,
+                        band_list=[b + 1 for b in bands],
+                    )
+                swath = swath.reshape(len(bands), ysize, xsize)
+                out[start : start + len(bands), has_source] = swath[:, src_rows, src_cols]
+
+        if not has_source.all():
+            out[:, ~has_source] = self.data_ignore
+        return out[0] if len(band_list) == 1 else out
+
+    def swath_shape(self) -> Optional[Tuple[int, int]]:
+        """The ``(rows, columns)`` of the swath behind an ortho grid, or ``None``.
+
+        ``None`` means no GLT applies and the dataset is served in the
+        geometry the file stores.
+        """
+        if self._glt is None:
+            return None
+        return self.gdal_dataset.RasterYSize, self.gdal_dataset.RasterXSize
+
+    def reopen_dataset(self):
+        """Reopen as the base class does, in netCDF row order when a GLT applies.
+
+        GDAL presents a netCDF variable without a y coordinate variable
+        bottom-up, while the GLT indexes rows in file order.
+        """
+        if self._glt is None:
+            return super().reopen_dataset()
+        with gdal.config_option("GDAL_NETCDF_BOTTOMUP", "NO"):
+            return super().reopen_dataset()
+
+    def get_width(self):
+        if self._glt is None:
+            return super().get_width()
+        return self._glt[0].shape[1]
+
+    def get_height(self):
+        if self._glt is None:
+            return super().get_height()
+        return self._glt[0].shape[0]
 
     def _read_scaling(self) -> Optional[Tuple[float, float]]:
         """Return the ``(scale, offset)`` that converts stored values to physical units.
@@ -1828,7 +2008,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def reads_are_transformed(self) -> bool:
         """``True`` when the read methods disagree with :attr:`gdal_dataset`."""
-        return self._scaling is not None
+        return self._scaling is not None or self._glt is not None
 
     def read_data_ignore_value(self) -> Optional[Number]:
         """The fill value in the units :meth:`_unscale` returns, not the stored units.
@@ -1862,8 +2042,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_image_data()
+        if self._glt is not None:
+            arr = self._read_ortho(0, 0, self.get_width(), self.get_height(), list(range(self.num_bands())))
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_image_data()
         return self._unscale(arr)
 
     def get_image_data_subset(
@@ -1884,8 +2067,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
+        if self._glt is not None:
+            arr = self._read_ortho(x, y, dx, dy, list(range(band, band + dband)))
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
         return self._unscale(arr)
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -1904,8 +2090,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_band_data(band_index, filter_data_ignore_value)
+        if self._glt is not None:
+            arr = self._read_ortho(0, 0, self.get_width(), self.get_height(), [band_index])
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_band_data(band_index, filter_data_ignore_value)
         return self._unscale(arr)
 
     def sample_band_data(self, band_index, sample_factor: int):
@@ -1916,8 +2105,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().sample_band_data(band_index, sample_factor)
+        if self._glt is not None:
+            band = self._read_ortho(0, 0, self.get_width(), self.get_height(), [band_index])
+            height, width = band.shape
+            arr = band[::sample_factor, ::sample_factor][: height // sample_factor, : width // sample_factor]
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().sample_band_data(band_index, sample_factor)
         return self._unscale(arr)
 
     def get_all_bands_at(self, x, y):
@@ -1928,8 +2122,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_all_bands_at(x, y)
+        if self._glt is not None:
+            arr = self._read_ortho(x, y, 1, 1, list(range(self.num_bands()))).reshape(-1)
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_all_bands_at(x, y)
         return self._unscale(arr)
 
     def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
@@ -1939,8 +2136,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_multiple_band_data(band_list_orig)
+        if self._glt is not None:
+            arr = self._read_ortho(0, 0, self.get_width(), self.get_height(), list(band_list_orig))
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_multiple_band_data(band_list_orig)
         return self._unscale(arr)
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
@@ -1951,8 +2151,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_all_bands_at_rect(x, y, dx, dy)
+        if self._glt is not None:
+            arr = self._read_ortho(x, y, dx, dy, list(range(self.num_bands())))
+            if arr.ndim == 2:
+                arr = arr[np.newaxis, :, :]
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_all_bands_at_rect(x, y, dx, dy)
         return self._unscale(arr)
 
     def get_filepaths(self):

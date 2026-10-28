@@ -28,7 +28,7 @@ from wiser.utils.progress import ProgressReporter
 from .bundle import ProjectBundle, remove_path, unzip_bundle, zip_bundle
 from .persisters.bandmath import load_bandmath, save_bandmath
 from .persisters.crs import load_user_crs, save_user_crs
-from .persisters.datasets import load_datasets, save_datasets
+from .persisters.datasets import ProjectDatasetGridError, load_datasets, save_datasets
 from .persisters.libraries import load_libraries, save_libraries
 from .persisters.rois import load_rois, save_rois
 from .persisters.runs import load_runs, save_runs
@@ -169,7 +169,10 @@ def restore_bundle(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict
 
     Mutates ``app_state`` and fires its reload signals, so it must run on the GUI
     thread.  Raises :class:`~wiser.project.migrate.ProjectTooNewError` for a project
-    written by a newer WISER.
+    written by a newer WISER, and
+    :class:`~wiser.project.persisters.datasets.ProjectDatasetGridError`, leaving the
+    session cleared, when a dataset reopens on a different pixel grid than it was
+    saved on.
     """
     return _restore(bundle, app_state)
 
@@ -285,6 +288,11 @@ def _restore(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, 
     for name, load in loaders:
         try:
             report[name] = load()
+        except ProjectDatasetGridError:
+            # Restoring the rest would put pixel references on different ground, so
+            # the open fails as a whole and leaves no half-restored session behind.
+            app_state.clear_session()
+            raise
         except Exception as exc:
             # A persister is supposed to drop-and-report a bad entry, never raise.
             # If one slips through, contain it: the session has already been cleared,

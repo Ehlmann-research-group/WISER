@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from wiser.utils.progress import ProgressReporter
 
 from ..bundle import ProjectBundle
+from ..migrate import ProjectFormatError
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,10 @@ DATASET_PYREP_TYPE = "RasterDataSet"
 # Storage kinds recorded in a dataset's manifest entry.
 STORAGE_REFERENCE = "reference"  # file-backed: re-opened from its original path
 STORAGE_SIDECAR = "sidecar"  # in-memory: snapshotted to datasets/ as ENVI
+
+
+class ProjectDatasetGridError(ProjectFormatError):
+    """Raised when a reopened dataset's pixel grid is not the one the project was saved on."""
 
 
 def dataset_to_pyrep(
@@ -73,6 +78,10 @@ def dataset_to_pyrep(
         "name": dataset.get_name(),
         "description": dataset.get_description(),
         "metadata": _metadata_to_pyrep(dataset),
+        # The pixel grid every pixel coordinate in the project refers to; checked
+        # on load so a file that now opens on a different grid is refused.
+        "width": dataset.get_width(),
+        "height": dataset.get_height(),
     }
 
     subdataset_name = dataset.get_subdataset_name()
@@ -204,6 +213,10 @@ def load_datasets(
     missing from the bundle -- so the caller can warn without aborting the load
     rather than leaving a dangling reference.  Entries with no integer id (a
     malformed manifest) are skipped, since there is no id to preserve or report.
+
+    Raises :class:`ProjectDatasetGridError` rather than dropping a dataset that
+    reopens on a different pixel grid (see :func:`_check_pixel_grid`):  the
+    project's pixel references would otherwise land on different ground.
     """
     loader = app_state.get_loader()
     cache = app_state.get_cache()
@@ -267,9 +280,50 @@ def _load_dataset(
     # A file may yield several sub-datasets; the persister round-trips the
     # primary one, matching how a plain single-raster file is opened.
     dataset = datasets[0]
+    _check_pixel_grid(dataset, entry, path)
     _apply_source_metadata(dataset, entry)
     _apply_metadata_snapshot(dataset, entry.get("metadata") or {})
     return dataset
+
+
+def _check_pixel_grid(dataset: "RasterDataSet", entry: Dict[str, Any], path: str) -> None:
+    """Refuse a reopened dataset whose pixel grid is not the one the project was saved on.
+
+    ROIs, pixel spectra and other references store pixel coordinates, so a file
+    that now opens on a different grid would put them silently on different
+    ground.  An entry from before the grid was recorded is accepted unless the
+    dataset is now orthorectified through an EMIT GLT, which always changes it.
+
+    Raises
+    ------
+    ProjectDatasetGridError
+        If the recorded ``width`` / ``height`` differ from the reopened
+        dataset's, or the entry records none and the dataset is now served on a
+        GLT ortho grid rather than its swath.
+    """
+    from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+
+    width, height = dataset.get_width(), dataset.get_height()
+    if "width" in entry or "height" in entry:
+        if (entry.get("width"), entry.get("height")) != (width, height):
+            raise ProjectDatasetGridError(
+                f"The project's dataset {entry.get('name')!r} ({path}) was saved on a "
+                f"{entry.get('width')} x {entry.get('height')} pixel grid, but the file now "
+                f"opens as {width} x {height}.  Its regions of interest and pixel references "
+                f"would fall on different ground, so the project was not opened."
+            )
+        return
+
+    impl = dataset.get_impl()
+    if isinstance(impl, NetCDF_GDALRasterDataImpl) and impl.swath_shape() is not None:
+        swath_shape = impl.swath_shape()
+        raise ProjectDatasetGridError(
+            f"The project was saved before WISER orthorectified EMIT data.  Its dataset "
+            f"{entry.get('name')!r} ({path}) was saved on the {swath_shape[1]} x {swath_shape[0]} "
+            f"swath grid, but WISER now opens it on its {width} x {height} orthorectified grid, "
+            f"so the project's regions of interest and pixel references would fall on different "
+            f"ground.  The project was not opened."
+        )
 
 
 def _sidecar_path(bundle: ProjectBundle, rel: str) -> Optional[str]:

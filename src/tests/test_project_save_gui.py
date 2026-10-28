@@ -249,3 +249,50 @@ class TestProjectSaveGui(unittest.TestCase):
         self._save()
         entry = self._manifest(referenced)["datasets"][0]
         self.assertEqual(entry["storage"], STORAGE_REFERENCE)
+
+    # -- a dataset that reopens on a different pixel grid -------------------
+
+    def test_a_project_on_a_changed_pixel_grid_is_refused_and_forgotten(self):
+        # The restore clears the session before the grid check fails, so the window
+        # must stop treating the session as the project it last opened or saved.
+        src_dir, _ = self._file_backed_dataset("sources")
+        portable = os.path.join(self.tmp_path, "portable.wiserproj")
+        self._save_as(portable, self_contained=True)
+        shutil.rmtree(src_dir)
+        self._open(portable)
+        old_extract_dir = self.main_window._project_extract_dir
+        self.assertTrue(os.path.isdir(old_extract_dir))
+
+        extra = self.test_model.load_dataset(np.zeros((3, 4, 5), dtype=np.float32))
+        focused = os.path.join(self.tmp_path, "focused.wiserproj")
+        self._save_as(focused, self_contained=True, excluded=[("dataset", extra.get_id())])
+        self.assertTrue(self.main_window._current_excluded)
+        self.assertTrue(self.main_window._current_self_contained)
+
+        manifest = self._manifest(portable)
+        manifest["datasets"][0]["width"] += 1
+        regridded = os.path.join(self.tmp_path, "regridded.wiserproj")
+        with zipfile.ZipFile(portable) as src, zipfile.ZipFile(regridded, "w") as dst:
+            for item in src.infolist():
+                data = src.read(item.filename)
+                if item.filename == "manifest.json":
+                    data = json.dumps(manifest).encode()
+                dst.writestr(item, data)
+
+        with (
+            mock.patch("wiser.gui.app.QMessageBox.question", return_value=QMessageBox.Yes),
+            mock.patch("wiser.gui.app.QFileDialog.getOpenFileName", return_value=(regridded, "")),
+            mock.patch("wiser.gui.app.QMessageBox.critical") as complained,
+        ):
+            runner = self.main_window.on_open_project()
+            self._wait_for(lambda: getattr(runner, "_done", False))
+            self.test_model.app.processEvents()
+
+        self.assertTrue(complained.called, "the refused open was not reported")
+        self.assertIn("pixel grid", complained.call_args[0][2])
+        self.assertEqual(self.app_state.get_datasets(), [])
+        self.assertIsNone(self.main_window._current_project_path)
+        self.assertIsNone(self.main_window._project_extract_dir)
+        self.assertFalse(os.path.exists(old_extract_dir))
+        self.assertEqual(self.main_window._current_excluded, set())
+        self.assertFalse(self.main_window._current_self_contained)
