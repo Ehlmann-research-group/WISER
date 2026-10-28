@@ -20,7 +20,7 @@ from wiser import plugins
 
 from wiser.raster import roi_export
 from wiser.raster.dataset_impl import NumPyRasterDataImpl
-from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds
+from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds, transform_geo_coord
 from wiser.raster.dataset import find_display_bands
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, SinglePixelSelection
@@ -314,6 +314,10 @@ class RasterPane(QWidget):
         # entries are the corresponding tuple of the bands to display for the
         # dataset.
         self._display_bands: Dict[int, Tuple] = {}
+
+        # The colormap name chosen for each dataset's grayscale display, keyed
+        # by dataset ID.  Datasets with no entry are displayed without one.
+        self._colormaps: Dict[int, Optional[str]] = {}
 
         self._size_hint = size_hint
         self._embed_toolbar = embed_toolbar
@@ -1058,6 +1062,7 @@ class RasterPane(QWidget):
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
+        self._apply_colormap(rasterview)
         if dataset is not None and self._num_views == (1, 1) and self._dataset_chooser is not None:
             self._dataset_chooser.check_dataset(dataset.get_id())
 
@@ -1099,6 +1104,7 @@ class RasterPane(QWidget):
         # print(f'Display-band information:  {self._display_bands}')
 
         self._display_bands[ds_id] = bands
+        self._colormaps[ds_id] = colormap
 
         # If the specified data set is the one currently being displayed, update
         # the UI display.
@@ -1111,13 +1117,19 @@ class RasterPane(QWidget):
 
                 rv.set_display_bands(bands, stretches=stretches, colormap=colormap)
 
-    def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
-        if rasterview_pos is not None:
-            self.get_rasterview(rasterview_pos).make_point_visible(x, y)
-
-        else:
-            for rv in self._rasterviews.values():
-                rv.make_point_visible(x, y)
+    def _apply_colormap(self, rasterview: RasterView):
+        """
+        Reapply the colormap recorded for the rasterview's dataset, which
+        ``RasterView.set_raster_data`` clears.
+        """
+        dataset = rasterview.get_raster_data()
+        if dataset is None:
+            return
+        colormap = self._colormaps.get(dataset.get_id())
+        if colormap is not None:
+            rasterview.set_display_bands(
+                rasterview.get_display_bands(), stretches=rasterview.get_stretches(), colormap=colormap
+            )
 
     def create_viewport_highlight_dictionary(
         self,
@@ -1341,8 +1353,8 @@ class RasterPane(QWidget):
         rasterviews.
         """
         dataset = self._app_state.get_dataset(ds_id)
-        bands = find_display_bands(dataset)
-        self._display_bands[ds_id] = bands
+        if ds_id not in self._display_bands:
+            self._display_bands[ds_id] = find_display_bands(dataset)
 
         self._update_rasterview_toolbars()
 
@@ -1374,6 +1386,7 @@ class RasterPane(QWidget):
         """
         if ds_id in self._display_bands:
             del self._display_bands[ds_id]
+        self._colormaps.pop(ds_id, None)
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
@@ -2052,7 +2065,11 @@ class RasterPane(QWidget):
         transformed_points = []
         for pt in corners:
             # Convert viewport pixel coordinates to geographic coordinates.
-            geo_coords = reference_dataset.to_geographic_coords((pt.x(), pt.y()))
+            geo_coords = transform_geo_coord(
+                reference_dataset.to_geographic_coords((pt.x(), pt.y())),
+                reference_dataset.get_spatial_ref(),
+                target_dataset.get_spatial_ref(),
+            )
             # Convert geographic coordinates to pixel coordinates in the target dataset.
             pixel_coords = target_dataset.geo_to_pixel_coords(geo_coords)
             transformed_points.append(QPoint(*pixel_coords))

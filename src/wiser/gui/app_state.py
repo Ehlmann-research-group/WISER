@@ -535,7 +535,8 @@ class ApplicationState(QObject):
 
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()
-            can_transform = can_transform_between_srs(ds0_srs, ds_srs)
+            if not can_transform_between_srs(ds0_srs, ds_srs):
+                return False, GeographicLinkState.NO_LINK
             have_overlap = have_spatial_overlap(
                 ds0_srs,
                 ds0.get_geo_transform(),
@@ -546,7 +547,7 @@ class ApplicationState(QObject):
                 ds.get_width(),
                 ds.get_height(),
             )
-            if ds_srs is None or not can_transform or not have_overlap:
+            if not have_overlap:
                 return False, GeographicLinkState.NO_LINK
 
         return True, GeographicLinkState.SPATIAL

@@ -687,3 +687,24 @@ def test_restore_contains_a_failing_persister(tmp_path, monkeypatch):
 
     assert report["stretches"] and report["stretches"][0]["section"] == "stretches"
     assert dst.get_datasets()  # datasets restored despite the stretches failure
+
+
+def test_a_dataset_on_a_changed_pixel_grid_fails_the_whole_open(tmp_path):
+    from wiser.project import ProjectBundle
+    from wiser.project.persisters.datasets import ProjectDatasetGridError
+
+    src, _ = _populated_session()
+    save_project(src, tmp_path / "session_dir")
+    bundle = ProjectBundle.open(tmp_path / "session_dir")
+    manifest = bundle.read_manifest()
+    manifest["datasets"][0]["width"] += 1
+    bundle.write_manifest(manifest)
+
+    dst = _FakeAppState()
+    stale = dst.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    dst.add_dataset(stale, ds_id=99)
+
+    with pytest.raises(ProjectDatasetGridError, match="pixel grid"):
+        load_project(tmp_path / "session_dir", dst)
+    assert dst.get_datasets() == []
+    assert dst.get_rois() == []

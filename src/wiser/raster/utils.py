@@ -901,6 +901,27 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "R
     # or close here so callers can keep stamping/reading before closing.
 
 
+def srs_from_wkt(wkt: str) -> osr.SpatialReference:
+    """
+    Build an ``osr.SpatialReference`` from WKT with the traditional GIS axis
+    order (x/easting/longitude first), matching GDAL geotransforms.  Without
+    this, GDAL 3 uses the authority's axis order, so for EPSG geographic CRSs
+    such as EPSG:4326 ``TransformPoint`` takes and returns (lat, lon).
+
+    Raises ``ValueError`` if GDAL cannot parse ``wkt``, whether or not GDAL
+    exceptions are enabled.
+    """
+    srs = osr.SpatialReference()
+    try:
+        err = srs.ImportFromWkt(wkt)
+    except RuntimeError as e:
+        raise ValueError(f"Invalid WKT spatial reference: {e}") from e
+    if err != 0:
+        raise ValueError(f"Invalid WKT spatial reference (OGR error {err})")
+    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    return srs
+
+
 def get_bbox(gt, width, height):
     """Compute (minX, minY, maxX, maxY) of a raster given its GeoTransform."""
     xs, ys = [], []
@@ -936,12 +957,23 @@ def bboxes_intersect(b1, b2):
     )
 
 
-def can_transform_between_srs(srs1: osr.SpatialReference, srs2: osr.SpatialReference):
-    try:
-        ct = osr.CoordinateTransformation(srs1, srs2)  # noqa: F841
-        return True
-    except BaseException:
+def can_transform_between_srs(
+    srs1: Optional[osr.SpatialReference], srs2: Optional[osr.SpatialReference]
+) -> bool:
+    """
+    Return True if GDAL has a coordinate transformation from ``srs1`` to
+    ``srs2``.  Returns False if either is ``None`` or no transformation exists
+    (e.g. they are on different celestial bodies), whether or not GDAL
+    exceptions are enabled.
+    """
+    if srs1 is None or srs2 is None:
         return False
+    try:
+        with osr.ExceptionMgr(useExceptions=True):
+            osr.CoordinateTransformation(srs1, srs2)
+    except RuntimeError:
+        return False
+    return True
 
 
 def have_spatial_overlap(

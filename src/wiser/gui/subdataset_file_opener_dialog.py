@@ -8,7 +8,7 @@ from PySide6.QtWidgets import *
 
 from wiser.gui.generated.subdataset_chooser_dialog_ui import Ui_SubdatasetChooser
 from .util import populate_combo_box_with_units
-from wiser.raster.utils import extract_netcdf_wavelengths, extract_netcdf_bad_bands
+from wiser.raster.utils import extract_netcdf_wavelengths, extract_netcdf_bad_bands, srs_from_wkt
 from osgeo import gdal, osr
 
 import numpy as np
@@ -38,6 +38,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         "NC_GLOBAL#spatial_ref",
         "spatial_ref",  # Fallback – rare but seen in some files
     }
+
+    # GDAL's default geotransform, which WISER reads as "not georeferenced".
+    _NO_GEO_TRANSFORM = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
     # ---------------------------------------------------------------------
     # Construction / UI initialisation
@@ -77,7 +80,9 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Keep internal copies of potentially optional metadata so getters can
         # return quickly later on.
+        self._declared_geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
         self._geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
+        self._declared_spatial_ref_wkt: Optional[str] = None
         self._spatial_ref_wkt: Optional[str] = None  # Keep raw string until asked for osr object
         self._wavelengths: Optional[np.ndarray] = None
         self._bad_bands: Optional[List[int]] = None
@@ -90,8 +95,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Populate every part of the dialog
         self._init_subdataset_cbox()
-        self._init_geo_transform()
-        self._init_spatial_ref()
+        self._init_georeferencing()
         # Must be before _init_bands_table_widget
         self._init_bands_table_widget()
 
@@ -112,24 +116,6 @@ class SubdatasetFileOpenerDialog(QDialog):
     # Helpers
     # ------------------------------------------------------------------
     @staticmethod
-    def _parse_geotransform_string(
-        gtr: str,
-    ) -> Optional[Tuple[float, float, float, float, float, float]]:
-        """Convert the NC_GLOBAL#geotransform style string into a 6-tuple of
-        floats in the order GDAL expects.
-        Example input::
-            "{47.6381040971226,0.000542232520256367,-0,-20.9576106620263,-0,-0.000542232520256367}"
-        """
-        cleaned = gtr.strip().lstrip("{").rstrip("}")
-        parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-        if len(parts) != 6:
-            return None
-        try:
-            return tuple(float(p) for p in parts)  # type: ignore[return-value]
-        except ValueError:
-            return None
-
-    @staticmethod
     def _set_checkbox_enabled_state(chk: QCheckBox, enabled: bool) -> None:
         """Grey-out the text on *chk* when *enabled* is *False* without disabling
         the widget itself (the user can still re-enable it).
@@ -148,6 +134,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._ui.cbox_subdataset_choice.clear()
 
         self._ui.cbox_subdataset_choice.activated.connect(self._init_bands_table_widget)
+        self._ui.cbox_subdataset_choice.activated.connect(self._update_georeferencing)
 
         subdatasets = self._gdal_dataset.GetSubDatasets()
         for subdataset_name, description in subdatasets:
@@ -160,37 +147,78 @@ class SubdatasetFileOpenerDialog(QDialog):
         if self._ui.cbox_subdataset_choice.count():
             self._ui.cbox_subdataset_choice.setCurrentIndex(0)
 
-    def _init_geo_transform(self) -> None:
-        """Initialise the geo-transform check-box."""
+    def _init_georeferencing(self) -> None:
+        """Read the file-declared geotransform and spatial reference, and initialise
+        both check-boxes.
+
+        Raises
+        ------
+        ValueError
+            If the file declares a global geotransform that is not six numbers.
+        """
+        from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+
         metadata = self._gdal_dataset.GetMetadata() or {}
-        geo_string: Optional[str] = next(
-            (metadata[k] for k in self._geotransform_search_keys if k in metadata),
-            None,
-        )
-
-        if geo_string is not None:
-            self._geo_transform = self._parse_geotransform_string(geo_string)
-
-        if self._geo_transform:
-            self._ui.chk_box_geo_transform.setText(str(self._geo_transform))
-            self._ui.chk_box_geo_transform.setChecked(True)
-        else:
-            self._ui.chk_box_geo_transform.setText("No geotransform available")
-            self._ui.chk_box_geo_transform.setChecked(False)
-            self._ui.chk_box_geo_transform.setEnabled(False)
-
-        # Ensure the grey-out is correct on first show.
-        self._set_checkbox_enabled_state(
-            self._ui.chk_box_geo_transform, self._ui.chk_box_geo_transform.isChecked()
-        )
-
-    def _init_spatial_ref(self) -> None:
-        """Initialise the spatial reference system check-box."""
-        metadata = self._gdal_dataset.GetMetadata() or {}
-        srs_string: Optional[str] = next(
+        key = next((k for k in self._geotransform_search_keys if k in metadata), None)
+        if key is not None:
+            self._declared_geo_transform = NetCDF_GDALRasterDataImpl._parse_geotransform_string(
+                key, metadata[key]
+            )
+        self._declared_spatial_ref_wkt = next(
             (metadata[k] for k in self._spatial_ref_search_keys if k in metadata),
             None,
         )
+
+        self._update_georeferencing()
+
+    def _update_georeferencing(self) -> None:
+        """Evaluate both check-boxes for the chosen subdataset.
+
+        Signals are blocked so unchecking the SRS does not also uncheck the
+        geotransform, which it does only when the user unchecks it.
+        """
+        checkboxes = (self._ui.chk_box_geo_transform, self._ui.chk_box_srs)
+        for chk in checkboxes:
+            chk.blockSignals(True)
+        self._update_geo_transform()
+        self._update_spatial_ref()
+        for chk in checkboxes:
+            chk.blockSignals(False)
+            self._set_checkbox_enabled_state(chk, chk.isChecked())
+
+    def _update_geo_transform(self) -> None:
+        """Show the file-declared geotransform, else GDAL's for the chosen subdataset.
+
+        GDAL derives a subdataset's geotransform from CF coordinate variables, so
+        the check-box shows the transform the dataset opens with.  The check-box is
+        checked whenever a transform is available, whatever was chosen for the
+        previously selected subdataset.
+        """
+        self._geo_transform = self._declared_geo_transform
+        if self._geo_transform is None:
+            subdataset = gdal.Open(self._get_subdataset_choice()[1])
+            self._geo_transform = subdataset.GetGeoTransform(can_return_null=True)
+
+        chk = self._ui.chk_box_geo_transform
+        if self._geo_transform is not None:
+            chk.setText(str(self._geo_transform))
+            chk.setEnabled(True)
+            chk.setChecked(True)
+        else:
+            chk.setText("No geotransform available")
+            chk.setChecked(False)
+            chk.setEnabled(False)
+
+    def _update_spatial_ref(self) -> None:
+        """Show the file-declared spatial reference, else GDAL's for the chosen subdataset.
+
+        The check-box is checked whenever a spatial reference is available,
+        whatever was chosen for the previously selected subdataset.
+        """
+        srs_string = self._declared_spatial_ref_wkt
+        if not srs_string:
+            srs_string = gdal.Open(self._get_subdataset_choice()[1]).GetProjection() or None
+        self._spatial_ref_wkt = srs_string
 
         def _truncate_pretty_wkt(wkt_str: str, max_lines: int, max_len: int) -> str:
             """
@@ -226,7 +254,6 @@ class SubdatasetFileOpenerDialog(QDialog):
         MAX_LINE_LENGTH = 60
 
         if srs_string:
-            self._spatial_ref_wkt = srs_string
             try:
                 srs = osr.SpatialReference()
                 srs.ImportFromWkt(srs_string)
@@ -241,13 +268,12 @@ class SubdatasetFileOpenerDialog(QDialog):
                     display_text = raw
             finally:
                 self._ui.chk_box_srs.setText(display_text)
+                self._ui.chk_box_srs.setEnabled(True)
                 self._ui.chk_box_srs.setChecked(True)
         else:
             self._ui.chk_box_srs.setText("No spatial reference system available")
             self._ui.chk_box_srs.setChecked(False)
             self._ui.chk_box_srs.setEnabled(False)
-
-        self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
 
     def _init_bands_table_widget(self) -> None:
         """Populate the *Bands List* QTableWidget with band indices and optional
@@ -365,26 +391,37 @@ class SubdatasetFileOpenerDialog(QDialog):
 
     def _get_geo_transform(
         self,
-    ) -> Optional[Tuple[float, float, float, float, float, float]]:
-        """Return the geo-transform tuple if the user left the check-box enabled
-        **and** the dataset actually has one. Otherwise *None*.
+    ) -> Tuple[float, float, float, float, float, float]:
+        """Return the geotransform the dataset opens with.
+
+        Checked, the transform shown on the check-box.  Unchecked, or with no
+        transform available, GDAL's identity transform:  WISER's marker for
+        "not georeferenced", passed explicitly so the dataset does not fall back
+        to GDAL's transform for the subdataset.
+
+        Known limitation:  the choice is not saved with a project.  A reopened
+        project opens the subdataset with the file's own transform.
         """
         if not self._ui.chk_box_geo_transform.isChecked():
-            return None
+            return self._NO_GEO_TRANSFORM
         return self._geo_transform
 
-    def _get_spatial_reference(self) -> Optional[osr.SpatialReference]:
-        """Return an *osgeo.osr.SpatialReference* built from the WKT in the GDAL
-        metadata **if** the user left the SRS check-box enabled. Otherwise
-        *None*.
-        """
-        if not self._ui.chk_box_srs.isChecked() or not self._spatial_ref_wkt:
-            return None
+    def _get_spatial_reference(self) -> osr.SpatialReference:
+        """Return the spatial reference the dataset opens with.
 
-        srs = osr.SpatialReference()
-        # ImportFromWkt expects *str* in Python 3
-        srs.ImportFromWkt(self._spatial_ref_wkt)
-        return srs
+        Checked, the one shown on the check-box.  Unchecked, or with none
+        available, ``NetCDF_GDALRasterDataImpl.NO_SPATIAL_REF``, so the dataset
+        opens with no spatial reference rather than falling back to GDAL's.
+
+        Known limitation:  declining is not saved with a project.  A reopened
+        project opens the subdataset with the file's own spatial reference.
+        """
+        from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
+
+        if not self._ui.chk_box_srs.isChecked():
+            return NetCDF_GDALRasterDataImpl.NO_SPATIAL_REF
+
+        return srs_from_wkt(self._spatial_ref_wkt)
 
     def accept(self):
         from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl

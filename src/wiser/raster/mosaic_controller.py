@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from osgeo import gdal, ogr, osr
 
-from wiser.raster.utils import can_transform_between_srs
+from wiser.raster.utils import can_transform_between_srs, srs_from_wkt
 
 if TYPE_CHECKING:
     # Type-only imports. ``wiser.raster.dataset`` pulls in Qt at import time (via
@@ -477,7 +477,7 @@ class MosaicController:
         if target_wkt is None:
             return None
         srs = scene.dataset.get_spatial_ref()
-        if srs is None or not can_transform_between_srs(srs, _srs_from_wkt(target_wkt)):
+        if srs is None or not can_transform_between_srs(srs, srs_from_wkt(target_wkt)):
             return ScenePendingReason.INCOMPATIBLE_CRS
         return None
 
@@ -539,7 +539,7 @@ class MosaicController:
         Raises :class:`UnmappableCrsError` naming any scene whose CRS cannot be
         mapped to the target (or that has no CRS at all).
         """
-        target_srs = _srs_from_wkt(target_wkt)
+        target_srs = srs_from_wkt(target_wkt)
         unmappable: List[str] = []
         for scene in self._visible_scenes():
             srs = scene.dataset.get_spatial_ref()
@@ -569,7 +569,7 @@ class MosaicController:
         target_wkt = self._target_crs_wkt
         if target_wkt is None:
             return
-        target_srs = _srs_from_wkt(target_wkt)
+        target_srs = srs_from_wkt(target_wkt)
         if srs is None or not can_transform_between_srs(srs, target_srs):
             raise UnmappableCrsError(
                 f'"{dataset_name}" cannot be reprojected to the mosaic\'s target CRS '
@@ -594,7 +594,7 @@ class MosaicController:
         src_srs = scene.dataset.get_spatial_ref()
         if src_srs is None or scene.footprint_wkt is None:
             return None
-        return _footprint_envelope(scene, src_srs, _srs_from_wkt(target_wkt))
+        return _footprint_envelope(scene, src_srs, srs_from_wkt(target_wkt))
 
     def visible_scene_footprints_in_common_crs(
         self,
@@ -613,7 +613,7 @@ class MosaicController:
         target_wkt = self._target_crs_wkt
         if target_wkt is None:
             return []
-        target_srs = _srs_from_wkt(target_wkt)
+        target_srs = srs_from_wkt(target_wkt)
         result: List[Tuple[MosaicScene, ogr.Geometry]] = []
         # Only live scenes: pending scenes have no footprint (non-georeferenced) or a
         # CRS that cannot reach the target, so neither can be drawn on the common canvas.
@@ -661,7 +661,7 @@ class MosaicController:
                 "must be chosen before the common grid can be built."
             )
         self._target_crs_wkt = target_wkt
-        target_srs = _srs_from_wkt(target_wkt)
+        target_srs = srs_from_wkt(target_wkt)
 
         # 2) Per-scene: extent (footprint envelope in target CRS) and the resolution
         #    GDAL would warp it to in the target CRS (SuggestedWarpOutput).
@@ -716,18 +716,6 @@ class MosaicController:
 #
 # Kept as free functions (not methods) so the grid math above reads as pure
 # geometry; these are the only places that touch GDAL/OGR/OSR directly.
-
-
-def _srs_from_wkt(wkt: str) -> osr.SpatialReference:
-    """
-    Build an ``osr.SpatialReference`` from WKT using traditional GIS
-    (long/lat, x/y) axis order, matching the geotransform convention used
-    throughout WISER (see the georeferencer's use of OAMS_TRADITIONAL_GIS_ORDER).
-    """
-    srs = osr.SpatialReference()
-    srs.ImportFromWkt(wkt)
-    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-    return srs
 
 
 def _crs_display_name(srs: Optional[osr.SpatialReference]) -> str:

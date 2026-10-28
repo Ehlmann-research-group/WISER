@@ -19,6 +19,7 @@ from .utils import (
     numpy_dtype_to_gdal_export_types,
     parse_unit_from_string,
     extract_netcdf_wavelengths,
+    srs_from_wkt,
 )
 from .loaders import envi
 
@@ -673,7 +674,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         spatial_ref = self.gdal_dataset.GetSpatialRef()
         if spatial_ref is not None:
-            spatial_ref.SetAxisMappingStrategy(osr.OAMS_AUTHORITY_COMPLIANT)
+            spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         return spatial_ref
 
     def get_save_state(self) -> SaveState:
@@ -1419,6 +1420,10 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _GEOTRANSFORM_KEYS = {"NC_GLOBAL#geotransform", "geotransform"}
     _SRS_KEYS = {"NC_GLOBAL#spatial_ref", "spatial_ref"}
 
+    # Passed as ``spatial_ref`` to open a subdataset with no spatial reference
+    # instead of the one GDAL reports for it.  Compared by identity, never read.
+    NO_SPATIAL_REF = osr.SpatialReference()
+
     # The defaults ``np.ma.masked_values`` compares with, which is what
     # RasterDataSet masks the data-ignore value with.  Mirrored here so
     # _validate_fill_separation can check a scaled fill against the same
@@ -1426,18 +1431,29 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _MASK_RTOL = 1e-05
     _MASK_ATOL = 1e-08
 
+    # Swath bytes one GLT read holds at a time; see _read_ortho.
+    _ORTHO_READ_CHUNK_BYTES = 64 * 1024 * 1024
+
     @staticmethod
-    def _parse_geotransform_string(
-        gtr: str,
-    ) -> Optional[Tuple[float, float, float, float, float, float]]:
+    def _parse_geotransform_string(key: str, gtr: str) -> Tuple[float, float, float, float, float, float]:
+        """Parse the GDAL metadata value of the global geotransform attribute ``key``.
+
+        GDAL renders the attribute as ``"{x0,dx,rx,y0,ry,dy}"``.
+
+        Raises
+        ------
+        ValueError
+            If the value is not six numbers.  A file that declares a geotransform
+            WISER cannot read must not open with a different one.
+        """
         cleaned = gtr.strip().lstrip("{").rstrip("}")
         parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-        if len(parts) != 6:
-            return None
-        try:
-            return tuple(float(p) for p in parts)  # type: ignore[return-value]
-        except ValueError:
-            return None
+        if len(parts) == 6:
+            try:
+                return tuple(float(p) for p in parts)  # type: ignore[return-value]
+            except ValueError:
+                pass
+        raise ValueError(f"netCDF attribute {key} is not a geotransform of six numbers: {gtr!r}")
 
     @staticmethod
     def _nc_resolve_var(root_ds, var_path: str):
@@ -1536,17 +1552,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         # ---- SRS & GeoTransform from GDAL metadata
         md = gdal_dataset.GetMetadata() or {}
-        geo_string = next((md[k] for k in cls._GEOTRANSFORM_KEYS if k in md), None)
-        geotransform = cls._parse_geotransform_string(geo_string) if geo_string else None
+        geo_key = next((k for k in cls._GEOTRANSFORM_KEYS if k in md), None)
+        geotransform = cls._parse_geotransform_string(geo_key, md[geo_key]) if geo_key else None
 
         srs = None
         srs_string = next((md[k] for k in cls._SRS_KEYS if k in md), None)
         if srs_string:
-            try:
-                srs = osr.SpatialReference()
-                srs.ImportFromWkt(srs_string)
-            except Exception:
-                srs = None
+            srs = srs_from_wkt(srs_string)
 
         # ---- Wavelengths and Units (searches all groups/subgroups at any depth)
         wavelengths, wl_unit = extract_netcdf_wavelengths(netcdf_dataset, band_count=subdataset.RasterCount)
@@ -1656,7 +1668,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         spatial_ref: Optional[osr.SpatialReference],
         band_units: Optional[u.Unit],
         wavelengths: Optional[np.ndarray],
-        geotransform: Optional[Tuple],
+        geotransform: Optional[Tuple[float, float, float, float, float, float]],
         bad_bands: List[int] = None,
     ):
         super().__init__(gdal_dataset)
@@ -1664,9 +1676,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         self._spatial_ref: Optional[osr.SpatialReference] = spatial_ref
         self._wavelength_units: Optional[u.Unit] = band_units
         self._wavelengths: Optional[np.ndarray] = wavelengths
-        if geotransform is None:
-            geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-        self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
+        self._geotransform: Optional[Tuple[float, float, float, float, float, float]] = geotransform
         self._subdataset_name = subdataset_name
         if self._wavelengths is not None:
             assert (
@@ -1678,6 +1688,190 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             self._bad_bands = [1] * self.gdal_dataset.RasterCount
         self._scaling = self._read_scaling()
         self._validate_fill_separation()
+        self._glt = self._read_glt()
+
+    def _read_glt(self) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Return the 0-based swath ``(rows, cols)`` each ortho pixel reads from.
+
+        EMIT products store their variables in raw swath geometry, while the
+        global ``geotransform`` and ``spatial_ref`` describe the orthorectified
+        grid that the ``location/glt_x`` / ``location/glt_y`` lookup tables map
+        into.  The tables hold 1-based column and row indices into the swath as
+        stored in this file (an AppEEARS crop indexes its own cropped swath), and
+        0 where no swath pixel lands; those ortho pixels are -1 in the result.
+        When a GLT applies, the dataset is presented on the ortho grid.
+
+        Returns ``None`` when the file has no ``location/glt_x`` and
+        ``location/glt_y``, or when this variable does not span the
+        ``location/lat`` swath dimensions.
+
+        Raises
+        ------
+        ValueError
+            If the file has a GLT but no ``location/lat`` to identify the
+            swath, the GLT applies but the file declares no global geotransform
+            for the ortho grid, or the GLT is inconsistent:  the variable's raster is
+            not the ``location/lat`` swath, ``glt_x`` and ``glt_y`` are not
+            integer tables of one 2D shape, they disagree on which ortho pixels
+            have no source, an index falls outside the swath, or ortho pixels
+            with no source exist but the variable has no fill value for them.
+        """
+        location = self._netcdf_dataset.groups.get("location")
+        if location is None or not {"glt_x", "glt_y"} <= set(location.variables):
+            return None
+
+        file_path = self._netcdf_dataset.filepath()
+        var_path = self._subdataset_name.split(":")[-1]
+        nc_var = self._nc_resolve_var(self._netcdf_dataset, var_path)
+        lat = location.variables.get("lat")
+        if nc_var is None or lat is None:
+            raise ValueError(
+                f"{file_path} has a GLT but WISER cannot match {var_path!r} to the "
+                f"location/lat swath it indexes"
+            )
+        if not set(lat.dimensions) <= set(nc_var.dimensions):
+            return None
+
+        if self._geotransform is None:
+            raise ValueError(
+                f"{file_path} has a GLT but no global geotransform attribute, so the "
+                f"orthorectified grid it maps into is undefined"
+            )
+
+        swath_shape = tuple(lat.shape)
+        raster_shape = (self.gdal_dataset.RasterYSize, self.gdal_dataset.RasterXSize)
+        swath_dim_order = [d for d in nc_var.dimensions if d in lat.dimensions]
+        if raster_shape != swath_shape or swath_dim_order != list(lat.dimensions):
+            raise ValueError(
+                f"{file_path}: {var_path!r} has dimensions {nc_var.dimensions} and raster "
+                f"shape {raster_shape}, which is not the location/lat swath "
+                f"{lat.dimensions} {swath_shape} its GLT indexes"
+            )
+
+        glt_x = location.variables["glt_x"]
+        glt_y = location.variables["glt_y"]
+        if (
+            glt_x.ndim != 2
+            or glt_x.shape != glt_y.shape
+            or not np.issubdtype(glt_x.dtype, np.integer)
+            or not np.issubdtype(glt_y.dtype, np.integer)
+        ):
+            raise ValueError(
+                f"{file_path}: location/glt_x {glt_x.shape} {glt_x.dtype} and location/glt_y "
+                f"{glt_y.shape} {glt_y.dtype} must be integer tables of one 2D shape"
+            )
+
+        glt_x.set_auto_mask(False)
+        glt_y.set_auto_mask(False)
+        cols = np.asarray(glt_x[:])
+        rows = np.asarray(glt_y[:])
+
+        no_source = cols == 0
+        if not np.array_equal(no_source, rows == 0):
+            raise ValueError(f"{file_path}: location/glt_x and location/glt_y disagree on which pixels are 0")
+
+        height, width = swath_shape
+        out_of_range = ~no_source & ((cols < 1) | (cols > width) | (rows < 1) | (rows > height))
+        if out_of_range.any():
+            raise ValueError(
+                f"{file_path}: {np.count_nonzero(out_of_range)} GLT entries fall outside the "
+                f"1-based {height} x {width} swath (glt_y range {rows.min()}..{rows.max()}, "
+                f"glt_x range {cols.min()}..{cols.max()})"
+            )
+
+        if no_source.any() and self.data_ignore is None:
+            raise ValueError(
+                f"{file_path}: the GLT leaves ortho pixels without a source, but {var_path!r} "
+                f"has no fill value to mark them with"
+            )
+
+        return rows - 1, cols - 1
+
+    def _read_ortho(self, x: int, y: int, dx: int, dy: int, band_list: List[int]) -> np.ndarray:
+        """Read an ortho-grid window, in stored units, through the GLT.
+
+        Only the swath window spanning the source pixels of the requested ortho
+        window is read, :attr:`_ORTHO_READ_CHUNK_BYTES` of it at a time, so a
+        whole-cube read holds one band chunk of swath beside the result.  The
+        result is shaped like ``ReadAsArray``:  ``(dy, dx)`` for one band, else
+        ``(len(band_list), dy, dx)``.  Ortho pixels with no source hold the
+        data-ignore value.
+
+        Raises
+        ------
+        ValueError
+            If the window is empty or not wholly inside the ortho grid, as GDAL
+            refuses such a window on the swath path.
+        """
+        width, height = self.get_width(), self.get_height()
+        if dx < 1 or dy < 1 or x < 0 or y < 0 or x + dx > width or y + dy > height:
+            raise ValueError(
+                f"Window x={x} y={y} dx={dx} dy={dy} is not inside the {width} x {height} "
+                f"ortho grid of {self._subdataset_name}"
+            )
+
+        rows, cols = (a[y : y + dy, x : x + dx] for a in self._glt)
+        has_source = rows >= 0
+        out = np.empty((len(band_list), dy, dx), dtype=GDALRasterDataImpl.get_elem_type(self))
+
+        if has_source.any():
+            src_rows = rows[has_source]
+            src_cols = cols[has_source]
+            row0 = int(src_rows.min())
+            col0 = int(src_cols.min())
+            src_rows = src_rows - row0
+            src_cols = src_cols - col0
+            xsize = int(src_cols.max()) + 1
+            ysize = int(src_rows.max()) + 1
+            chunk = max(1, self._ORTHO_READ_CHUNK_BYTES // (xsize * ysize * out.itemsize))
+            dataset = self.reopen_dataset()
+            for start in range(0, len(band_list), chunk):
+                bands = band_list[start : start + chunk]
+                with self._quiet_gdal_warnings():
+                    swath = dataset.ReadAsArray(
+                        xoff=col0,
+                        yoff=row0,
+                        xsize=xsize,
+                        ysize=ysize,
+                        band_list=[b + 1 for b in bands],
+                    )
+                swath = swath.reshape(len(bands), ysize, xsize)
+                out[start : start + len(bands), has_source] = swath[:, src_rows, src_cols]
+
+        if not has_source.all():
+            out[:, ~has_source] = self.data_ignore
+        return out[0] if len(band_list) == 1 else out
+
+    def swath_shape(self) -> Optional[Tuple[int, int]]:
+        """The ``(rows, columns)`` of the swath behind an ortho grid, or ``None``.
+
+        ``None`` means no GLT applies and the dataset is served in the
+        geometry the file stores.
+        """
+        if self._glt is None:
+            return None
+        return self.gdal_dataset.RasterYSize, self.gdal_dataset.RasterXSize
+
+    def reopen_dataset(self):
+        """Reopen as the base class does, in netCDF row order when a GLT applies.
+
+        GDAL presents a netCDF variable without a y coordinate variable
+        bottom-up, while the GLT indexes rows in file order.
+        """
+        if self._glt is None:
+            return super().reopen_dataset()
+        with gdal.config_option("GDAL_NETCDF_BOTTOMUP", "NO"):
+            return super().reopen_dataset()
+
+    def get_width(self):
+        if self._glt is None:
+            return super().get_width()
+        return self._glt[0].shape[1]
+
+    def get_height(self):
+        if self._glt is None:
+            return super().get_height()
+        return self._glt[0].shape[0]
 
     def _read_scaling(self) -> Optional[Tuple[float, float]]:
         """Return the ``(scale, offset)`` that converts stored values to physical units.
@@ -1818,7 +2012,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def reads_are_transformed(self) -> bool:
         """``True`` when the read methods disagree with :attr:`gdal_dataset`."""
-        return self._scaling is not None
+        return self._scaling is not None or self._glt is not None
 
     def read_data_ignore_value(self) -> Optional[Number]:
         """The fill value in the units :meth:`_unscale` returns, not the stored units.
@@ -1852,8 +2046,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_image_data()
+        if self._glt is not None:
+            arr = self._read_ortho(0, 0, self.get_width(), self.get_height(), list(range(self.num_bands())))
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_image_data()
         return self._unscale(arr)
 
     def get_image_data_subset(
@@ -1874,8 +2071,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
+        if self._glt is not None:
+            arr = self._read_ortho(x, y, dx, dy, list(range(band, band + dband)))
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
         return self._unscale(arr)
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -1894,8 +2094,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_band_data(band_index, filter_data_ignore_value)
+        if self._glt is not None:
+            arr = self._read_ortho(0, 0, self.get_width(), self.get_height(), [band_index])
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_band_data(band_index, filter_data_ignore_value)
         return self._unscale(arr)
 
     def sample_band_data(self, band_index, sample_factor: int):
@@ -1906,8 +2109,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().sample_band_data(band_index, sample_factor)
+        if self._glt is not None:
+            band = self._read_ortho(0, 0, self.get_width(), self.get_height(), [band_index])
+            height, width = band.shape
+            arr = band[::sample_factor, ::sample_factor][: height // sample_factor, : width // sample_factor]
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().sample_band_data(band_index, sample_factor)
         return self._unscale(arr)
 
     def get_all_bands_at(self, x, y):
@@ -1918,8 +2126,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_all_bands_at(x, y)
+        if self._glt is not None:
+            arr = self._read_ortho(x, y, 1, 1, list(range(self.num_bands()))).reshape(-1)
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_all_bands_at(x, y)
         return self._unscale(arr)
 
     def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
@@ -1929,8 +2140,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_multiple_band_data(band_list_orig)
+        if self._glt is not None:
+            arr = self._read_ortho(0, 0, self.get_width(), self.get_height(), list(band_list_orig))
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_multiple_band_data(band_list_orig)
         return self._unscale(arr)
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
@@ -1941,8 +2155,13 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         This uses a context manager to quiet netcdf specific gdal warnings that
         are extraneous
         """
-        with self._quiet_gdal_warnings():
-            arr = super().get_all_bands_at_rect(x, y, dx, dy)
+        if self._glt is not None:
+            arr = self._read_ortho(x, y, dx, dy, list(range(self.num_bands())))
+            if arr.ndim == 2:
+                arr = arr[np.newaxis, :, :]
+        else:
+            with self._quiet_gdal_warnings():
+                arr = super().get_all_bands_at_rect(x, y, dx, dy)
         return self._unscale(arr)
 
     def get_filepaths(self):
@@ -1957,7 +2176,18 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return [self._subdataset_name]
 
     def read_spatial_ref(self):
-        return self._spatial_ref
+        """Return the declared spatial reference, else GDAL's for the subdataset.
+
+        A ``spatial_ref`` of ``None`` at construction means none was declared, so
+        GDAL's is used.  :attr:`NO_SPATIAL_REF` means the user declined one, so
+        there is none.  A decline is not saved with a project:  reopening one
+        opens the subdataset non-interactively, with GDAL's spatial reference.
+        """
+        if self._spatial_ref is self.NO_SPATIAL_REF:
+            return None
+        if self._spatial_ref is not None:
+            return self._spatial_ref
+        return super().read_spatial_ref()
 
     def read_band_unit(self):
         return self._wavelength_units
@@ -2008,13 +2238,21 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return band_info
 
     def read_geo_transform(self) -> Tuple:
+        """Return the file-declared global geotransform, else GDAL's for the subdataset.
+
+        GDAL derives a geotransform from CF coordinate variables, and reports the
+        identity transform when the subdataset has no georeferencing, which is
+        how every GDAL-backed dataset in WISER signals "not georeferenced".
+        """
         with self._quiet_gdal_warnings():
-            if self._geotransform:
+            if self._geotransform is not None:
                 return self._geotransform
             return super().read_geo_transform()
 
     def get_wkt_spatial_reference(self) -> Optional[str]:
         with self._quiet_gdal_warnings():
+            if self._spatial_ref is self.NO_SPATIAL_REF:
+                return None
             if self._spatial_ref:
                 return self._spatial_ref.ExportToWkt()
             return super().get_wkt_spatial_reference()
@@ -2119,21 +2357,48 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
     @staticmethod
     def get_save_filenames(path: str) -> List[str]:
-        # Note that the save-filename may not yet exist.
-        if path.endswith(".hdr"):
-            hdr_path = path
-            img_path = path[:-4] + ".img"
+        """
+        Returns ``[img_path, hdr_path]``, the two files an ENVI save to ``path``
+        writes.  The save-filename may not yet exist.
 
+        The filename (the last component of ``path``) must be one of:
+
+        *   ``name`` with no extension:  writes ``name`` and ``name.hdr``.
+        *   ``name.img``:  writes ``name.img`` and ``name.hdr``.
+        *   ``name.hdr``:  writes ``name.img`` and ``name.hdr``.
+
+        Extensions are matched case-insensitively, and the data file is always
+        written with a lowercase ``.img`` so it can be found again on a
+        case-sensitive filesystem.  The header is always named ``name.hdr``,
+        which is what GDAL's ENVI driver writes by default:  the extension after
+        the last "." is replaced, so ``my.ndvi.img`` writes ``my.ndvi.hdr``.
+
+        A ``ValueError`` is raised for any other extension (e.g. ``.tif``,
+        ``.bsq``, or ``my.ndvi.result``), and for a filename that is empty or
+        starts with ".", since none of these can be written as ENVI under the
+        given name.
+        """
+        dirname, basename = os.path.split(path)
+        idx = basename.rfind(".")
+        if idx == -1:
+            stem, ext = basename, ""
         else:
+            stem, ext = basename[:idx], basename[idx:]
+
+        if not stem:
+            raise ValueError(f'"{basename}" is not a valid ENVI save filename')
+
+        if ext.lower() in (".hdr", ".img"):
+            img_path = os.path.join(dirname, stem + ".img")
+        elif ext == "":
             img_path = path
+        else:
+            raise ValueError(
+                f'Cannot save ENVI data as "{basename}":  the filename must have '
+                + 'no extension, or end in ".img" or ".hdr"'
+            )
 
-            idx = path.rfind(".")
-            if idx != -1 and len(path) - idx <= 5:
-                hdr_path = path[:idx] + ".hdr"
-            else:
-                hdr_path = path + ".hdr"
-
-        return [img_path, hdr_path]
+        return [img_path, os.path.join(dirname, stem + ".hdr")]
 
     @staticmethod
     def save_dataset_as(
@@ -2145,6 +2410,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # A no-op reporter keeps this callable from non-GUI/test contexts without
         # threading a real reporter through every caller.
         progress = progress or ProgressReporter()
+
+        img_path, hdr_path = ENVI_GDALRasterDataImpl.get_save_filenames(path)
 
         def map_default_display_bands(display_bands, include_bands):
             # Build a mapping of source-image band-indexes to
@@ -2272,12 +2539,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         driver = gdal.GetDriverByName("ENVI")
         driver_options: List[str] = ["INTERLEAVE=BSQ"]
         logger.debug(
-            f'driver.Create("{path}", {dst_width}, {dst_height}, '
+            f'driver.Create("{img_path}", {dst_width}, {dst_height}, '
             + f"{dst_bands}, {gdal_elem_type}, {driver_options})"
         )
 
         dst_gdal_dataset = driver.Create(
-            path, dst_width, dst_height, dst_bands, gdal_elem_type, driver_options
+            img_path, dst_width, dst_height, dst_bands, gdal_elem_type, driver_options
         )
 
         if src_dataset.has_geographic_info():
@@ -2384,7 +2651,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             # (Rebind to None rather than `del` so the name stays bound for the
             # linter's control-flow analysis on the normal path below.)
             dst_gdal_dataset = None
-            for fname in ENVI_GDALRasterDataImpl.get_save_filenames(path):
+            for fname in (img_path, hdr_path):
                 try:
                     os.remove(fname)
                 except OSError:
@@ -2397,15 +2664,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         header_progress.report_fraction(1.0, "Writing header")
 
-        # Generate the header file now.
-        # TODO(donnie):  What to do if an exception is raised???
-        (hdr_filename, img_filename) = envi.find_envi_filenames(path)
-
+        # Generate the header file now, replacing the one GDAL wrote.
         dst_metadata = {}
 
         # Read in the GDAL-generated metadata, and copy over the data-format
         # specific configuration values.
-        gdal_metadata = envi.load_envi_header(hdr_filename)
+        gdal_metadata = envi.load_envi_header(hdr_path)
         for name in [
             "samples",
             "lines",
@@ -2443,7 +2707,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if 0 in dst_bad_bands:
             dst_metadata["bbl"] = dst_bad_bands
 
-        envi.write_envi_header(hdr_filename, dst_metadata)
+        envi.write_envi_header(hdr_path, dst_metadata)
 
         # TODO(donnie):  Maybe reopen the file and return a dataset-impl for it.
         # dst_dataset_impl = ENVI_GDALRasterDataImpl(dst_gdal_dataset)
