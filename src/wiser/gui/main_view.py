@@ -671,8 +671,11 @@ class MainViewWidget(RasterPane):
         With linked scrolling off, only raster-views showing that same dataset
         move.  With it on, the first raster-view whose dataset can be mapped
         from the reference dataset is centered on the corresponding pixel, and
-        ``_sync_scroll_state`` carries the others along in this pane's link
-        mode.  If no raster-view can be mapped, nothing moves.
+        every other raster-view is centered on that pixel mapped into its own
+        dataset.  Each raster-view is centered on the point itself rather than
+        on the first raster-view's visible centre, which differs from the point
+        when that view is scrolled against an edge.  If no raster-view can be
+        mapped from the reference dataset, nothing moves.
         """
         reference_ds = reference_rasterview.get_raster_data()
         if not self._link_view_scrolling:
@@ -685,7 +688,10 @@ class MainViewWidget(RasterPane):
             target = reference_pixel_to_target_pixel_ds((x, y), reference_ds, rv.get_raster_data())
             if target is not None:
                 rv.make_point_visible(*target)
-                self._sync_scroll_state(rv)
+                for other in self._rasterviews.values():
+                    if other is not rv:
+                        other.update()
+                        other.make_point_visible(*target, reference_rasterview=rv)
                 return
 
     def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):

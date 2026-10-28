@@ -727,12 +727,40 @@ class TestContextPaneClickRecenter(unittest.TestCase):
 
     CLICK = (120, 120)
 
+    # The default window size comes from widget size hints, so it varies with
+    # the platform's fonts.  A fixed size keeps the tile viewports comparable
+    # across platforms; _zoom_in_until_partial removes the remaining dependence.
+    WINDOW_SIZE = (640, 480)
+
     def setUp(self):
         self.test_model = WiserTestModel()
+        self.test_model.main_window.resize(*self.WINDOW_SIZE)
+        self.test_model.run()
 
     def tearDown(self):
         self.test_model.close_app()
         del self.test_model
+
+    def _zoom_in_until_partial(self):
+        """
+        Zoom the main view in until every tile shows at most a third of its
+        dataset's width and height.  Zooming keeps the view centred, so a point
+        outside the dataset's middle third then starts outside the visible
+        region on any viewport size.
+        """
+        tm = self.test_model
+        for _ in range(12):
+            regions = [
+                (rv.get_visible_region(), rv.get_raster_data())
+                for rv in tm.main_view.get_all_rasterviews()
+                if rv.get_raster_data() is not None
+            ]
+            if all(
+                3 * r.width() <= ds.get_width() and 3 * r.height() <= ds.get_height() for r, ds in regions
+            ):
+                return
+            tm.click_main_view_zoom_in()
+        self.fail("main view could not be zoomed in to a partial view")
 
     def _show(self, left_path, right_path, context_path=None):
         """
@@ -747,8 +775,7 @@ class TestContextPaneClickRecenter(unittest.TestCase):
             datasets[path] = tm.load_dataset(path)
         tm.set_main_view_rv((0, 0), datasets[left_path].get_id())
         tm.set_main_view_rv((0, 1), datasets[right_path].get_id())
-        for _ in range(4):
-            tm.click_main_view_zoom_in()
+        self._zoom_in_until_partial()
         tm.set_context_pane_dataset_chooser_id(datasets[context_path or left_path].get_id())
         return datasets
 
@@ -786,7 +813,12 @@ class TestContextPaneClickRecenter(unittest.TestCase):
         self.test_model.click_raster_coord_context_pane(self.CLICK)
 
         self.assertTrue(self._contains((0, 0), self.CLICK))
-        self.assertEqual(self._scroll((0, 1)), self._scroll((0, 0)))
+        self.assertTrue(self._contains((0, 1), self.CLICK))
+        left, right = (
+            self.test_model.get_main_view_rv(pos).get_visible_region_center() for pos in ((0, 0), (0, 1))
+        )
+        self.assertLessEqual(abs(left[0] - right[0]), 1)
+        self.assertLessEqual(abs(left[1] - right[1]), 1)
 
     def test_spatial_linked_moves_other_tile_to_geographic_match(self):
         datasets = self._show(self.CALTECH, self.CALTECH_ROTATED)
@@ -800,6 +832,25 @@ class TestContextPaneClickRecenter(unittest.TestCase):
         self.test_model.click_raster_coord_context_pane(self.CLICK)
 
         self.assertTrue(self._contains((0, 0), self.CLICK))
+        self.assertTrue(self._contains((0, 1), target))
+
+    def test_spatial_linked_shows_click_near_edge_in_other_tile(self):
+        datasets = self._show(self.CALTECH, self.CALTECH_ROTATED)
+        self.assertTrue(self.test_model.click_link_button())
+        click = (145, 145)
+        target = reference_pixel_to_target_pixel_ds(
+            click, datasets[self.CALTECH], datasets[self.CALTECH_ROTATED]
+        )
+        rotated = datasets[self.CALTECH_ROTATED]
+        self.assertTrue(0 <= target[0] < rotated.get_width() and 0 <= target[1] < rotated.get_height())
+
+        self.test_model.click_raster_coord_context_pane(click)
+
+        # Tile (0, 0) is scrolled against its edge, so its visible centre is not
+        # the clicked pixel; tile (0, 1) must still show the clicked location.
+        center = self.test_model.get_main_view_rv((0, 0)).get_visible_region_center()
+        self.assertGreater(max(abs(center[0] - click[0]), abs(center[1] - click[1])), 5)
+        self.assertTrue(self._contains((0, 0), click))
         self.assertTrue(self._contains((0, 1), target))
 
     def test_linked_maps_click_into_first_mappable_tile_and_syncs_rest(self):
@@ -838,8 +889,7 @@ class TestContextPaneClickRecenter(unittest.TestCase):
     def test_single_view_recenters_on_click(self):
         tm = self.test_model
         dataset = tm.load_dataset(self.CALTECH)
-        for _ in range(4):
-            tm.click_main_view_zoom_in()
+        self._zoom_in_until_partial()
         tm.set_context_pane_dataset_chooser_id(dataset.get_id())
         self.assertFalse(self._contains((0, 0), self.CLICK))
 
