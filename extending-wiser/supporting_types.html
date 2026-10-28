@@ -1157,7 +1157,11 @@ masked array the sentinel is added to the existing mask.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.to_angular_coords">
 <span class="sig-name descname"><span class="pre">to_angular_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_coord</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.to_angular_coords" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Returns the (lon, lat) of <code class="docutils literal notranslate"><span class="pre">pixel_coord</span></code> in the dataset’s underlying
+geographic CRS (normally degrees), or <code class="docutils literal notranslate"><span class="pre">None</span></code> if the dataset has no
+spatial reference.  Integer pixel coordinates give the pixel’s
+upper-left corner; add 0.5 for its center.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.geo_to_pixel_coords">

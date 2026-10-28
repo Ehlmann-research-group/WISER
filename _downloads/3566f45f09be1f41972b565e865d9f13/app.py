@@ -41,6 +41,7 @@ from wiser.raster.spectrum import (
 )
 from wiser.project.bundle import ProjectBundle
 from wiser.project.migrate import ProjectTooNewError
+from wiser.project.persisters.datasets import ProjectDatasetGridError
 from wiser.project.orchestrate import (
     open_bundle,
     project_embeds_datasets,
@@ -618,13 +619,21 @@ class DataVisualizerApp(QMainWindow):
             if dataset_id is not None and self._app_state.has_dataset(dataset_id):
                 self._app_state.get_dataset(dataset_id).set_dirty(False)
 
+        def _on_failed(message):
+            logger.error("Save dataset failed: %s", message)
+            QMessageBox.critical(
+                self,
+                self.tr("Save Failed"),
+                self.tr("Could not save the dataset to {0}:\n\n{1}").format(path, message),
+            )
+
         return run_with_progress(
             self._app_services,
             self,
             self.tr("Saving dataset"),
             _do_save,
             on_success=_on_ok,
-            on_error=lambda msg: logger.error("Save dataset failed: %s", msg),
+            on_error=_on_failed,
             meta={"Dataset": dataset.get_name(), "Path": path},
         )
 
@@ -816,6 +825,18 @@ class DataVisualizerApp(QMainWindow):
             report = restore_bundle(bundle, self._app_state)
         except ProjectTooNewError as e:
             shutil.rmtree(extract_dir, ignore_errors=True)
+            QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
+            return
+        except ProjectDatasetGridError as e:
+            # The restore cleared the session, so it is no longer the project last
+            # opened or saved; a plain Save must not overwrite that file with it.
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            self._clear_project_extract_dir()
+            self._current_project_path = None
+            # clear_session restarts dataset ids, so remembered exclusions would
+            # name unrelated datasets added later.
+            self._current_excluded = set()
+            self._current_self_contained = False
             QMessageBox.critical(self, self.tr("Cannot Open Project"), str(e))
             return
         except Exception as e:
@@ -1286,8 +1307,9 @@ class DataVisualizerApp(QMainWindow):
         # In the context pane, the rasterview position should always be (0, 0).
         assert rasterview_position == (0, 0)
 
-        # Make all the views in the main image window show the point.
-        self._main_view.make_point_visible(ds_point.x(), ds_point.y(), rasterview_pos=None)
+        self._main_view.make_reference_point_visible(
+            ds_point.x(), ds_point.y(), self._context_pane.get_rasterview(rasterview_position)
+        )
 
     def _on_mainview_viewport_change(self, rasterview_position):
         """

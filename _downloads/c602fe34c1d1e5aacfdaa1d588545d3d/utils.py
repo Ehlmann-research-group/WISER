@@ -168,7 +168,9 @@ def save_image_from_bandmath_result(
 ) -> RasterDataSet:
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
-    save_path = os.path.join(output_folder, result_name)
+    # The name is built from user input and input filenames, which may contain
+    # dots, so it gets an explicit ".img" for the ENVI save-filename rule.
+    save_path = os.path.join(output_folder, result_name + ".img")
     # Below result type occurs if the dataset was so big it need to be saved to disk
     if result_type == VariableType.IMAGE_CUBE_DATASET:
         metadata = result.get_metadata()
@@ -268,7 +270,9 @@ def save_band_from_bandmath_result(
         raise AttributeError("Must pass loader into function")
     if not app_state:
         raise AttributeError("Must pass app_state into function")
-    save_path = os.path.join(output_folder, result_name)
+    # The name is built from user input and input filenames, which may contain
+    # dots, so it gets an explicit ".img" for the ENVI save-filename rule.
+    save_path = os.path.join(output_folder, result_name + ".img")
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     if isinstance(result, SerializedForm):
