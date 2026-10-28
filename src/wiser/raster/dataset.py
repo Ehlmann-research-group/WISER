@@ -1744,9 +1744,14 @@ class RasterDataSet(Serializable):
             self._data_ignore_value = serial_data_ignore_value
         if serial_bad_bands:
             self._bad_bands = serial_bad_bands
-        if serial_wkt_spatial_ref:
+        # A present key is authoritative:  an empty value means the dataset has no
+        # spatial reference, even if the reopened impl reports one.
+        if "wkt_spatial_ref" in metadata:
             self._wkt_spatial_reference = serial_wkt_spatial_ref
-            self._spatial_ref = srs_from_wkt(serial_wkt_spatial_ref)
+            if serial_wkt_spatial_ref:
+                self._spatial_ref = srs_from_wkt(serial_wkt_spatial_ref)
+            else:
+                self._spatial_ref = None
         if serial_geo_transform:
             self._geo_transform = serial_geo_transform
         if serial_wavelengths or serial_band_info:

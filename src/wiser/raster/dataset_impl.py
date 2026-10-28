@@ -1420,6 +1420,10 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _GEOTRANSFORM_KEYS = {"NC_GLOBAL#geotransform", "geotransform"}
     _SRS_KEYS = {"NC_GLOBAL#spatial_ref", "spatial_ref"}
 
+    # Passed as ``spatial_ref`` to open a subdataset with no spatial reference
+    # instead of the one GDAL reports for it.  Compared by identity, never read.
+    NO_SPATIAL_REF = osr.SpatialReference()
+
     # The defaults ``np.ma.masked_values`` compares with, which is what
     # RasterDataSet masks the data-ignore value with.  Mirrored here so
     # _validate_fill_separation can check a scaled fill against the same
@@ -1428,17 +1432,25 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     _MASK_ATOL = 1e-08
 
     @staticmethod
-    def _parse_geotransform_string(
-        gtr: str,
-    ) -> Optional[Tuple[float, float, float, float, float, float]]:
+    def _parse_geotransform_string(key: str, gtr: str) -> Tuple[float, float, float, float, float, float]:
+        """Parse the GDAL metadata value of the global geotransform attribute ``key``.
+
+        GDAL renders the attribute as ``"{x0,dx,rx,y0,ry,dy}"``.
+
+        Raises
+        ------
+        ValueError
+            If the value is not six numbers.  A file that declares a geotransform
+            WISER cannot read must not open with a different one.
+        """
         cleaned = gtr.strip().lstrip("{").rstrip("}")
         parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-        if len(parts) != 6:
-            return None
-        try:
-            return tuple(float(p) for p in parts)  # type: ignore[return-value]
-        except ValueError:
-            return None
+        if len(parts) == 6:
+            try:
+                return tuple(float(p) for p in parts)  # type: ignore[return-value]
+            except ValueError:
+                pass
+        raise ValueError(f"netCDF attribute {key} is not a geotransform of six numbers: {gtr!r}")
 
     @staticmethod
     def _nc_resolve_var(root_ds, var_path: str):
@@ -1537,8 +1549,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         # ---- SRS & GeoTransform from GDAL metadata
         md = gdal_dataset.GetMetadata() or {}
-        geo_string = next((md[k] for k in cls._GEOTRANSFORM_KEYS if k in md), None)
-        geotransform = cls._parse_geotransform_string(geo_string) if geo_string else None
+        geo_key = next((k for k in cls._GEOTRANSFORM_KEYS if k in md), None)
+        geotransform = cls._parse_geotransform_string(geo_key, md[geo_key]) if geo_key else None
 
         srs = None
         srs_string = next((md[k] for k in cls._SRS_KEYS if k in md), None)
@@ -1656,7 +1668,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         spatial_ref: Optional[osr.SpatialReference],
         band_units: Optional[u.Unit],
         wavelengths: Optional[np.ndarray],
-        geotransform: Optional[Tuple],
+        geotransform: Optional[Tuple[float, float, float, float, float, float]],
         bad_bands: List[int] = None,
     ):
         super().__init__(gdal_dataset)
@@ -1664,9 +1676,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         self._spatial_ref: Optional[osr.SpatialReference] = spatial_ref
         self._wavelength_units: Optional[u.Unit] = band_units
         self._wavelengths: Optional[np.ndarray] = wavelengths
-        if geotransform is None:
-            geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-        self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
+        self._geotransform: Optional[Tuple[float, float, float, float, float, float]] = geotransform
         self._subdataset_name = subdataset_name
         if self._wavelengths is not None:
             assert (
@@ -1957,7 +1967,18 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return [self._subdataset_name]
 
     def read_spatial_ref(self):
-        return self._spatial_ref
+        """Return the declared spatial reference, else GDAL's for the subdataset.
+
+        A ``spatial_ref`` of ``None`` at construction means none was declared, so
+        GDAL's is used.  :attr:`NO_SPATIAL_REF` means the user declined one, so
+        there is none.  A decline is not saved with a project:  reopening one
+        opens the subdataset non-interactively, with GDAL's spatial reference.
+        """
+        if self._spatial_ref is self.NO_SPATIAL_REF:
+            return None
+        if self._spatial_ref is not None:
+            return self._spatial_ref
+        return super().read_spatial_ref()
 
     def read_band_unit(self):
         return self._wavelength_units
@@ -2008,13 +2029,21 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return band_info
 
     def read_geo_transform(self) -> Tuple:
+        """Return the file-declared global geotransform, else GDAL's for the subdataset.
+
+        GDAL derives a geotransform from CF coordinate variables, and reports the
+        identity transform when the subdataset has no georeferencing, which is
+        how every GDAL-backed dataset in WISER signals "not georeferenced".
+        """
         with self._quiet_gdal_warnings():
-            if self._geotransform:
+            if self._geotransform is not None:
                 return self._geotransform
             return super().read_geo_transform()
 
     def get_wkt_spatial_reference(self) -> Optional[str]:
         with self._quiet_gdal_warnings():
+            if self._spatial_ref is self.NO_SPATIAL_REF:
+                return None
             if self._spatial_ref:
                 return self._spatial_ref.ExportToWkt()
             return super().get_wkt_spatial_reference()

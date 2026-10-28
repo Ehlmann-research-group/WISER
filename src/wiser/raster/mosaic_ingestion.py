@@ -73,7 +73,7 @@ class SceneValidationError(ValueError):
         self.reason = reason
 
 
-def _is_identity_geo_transform(geo_transform: Tuple[float, ...]) -> bool:
+def is_identity_geo_transform(geo_transform: Tuple[float, ...]) -> bool:
     """True if ``geo_transform`` is GDAL's identity sentinel (i.e. ungeoreferenced)."""
     if geo_transform is None or len(geo_transform) != len(_IDENTITY_GEO_TRANSFORM):
         # A malformed/absent transform is treated as "not georeferenced".
@@ -96,7 +96,7 @@ def is_dataset_georeferenced(dataset: "RasterDataSet") -> bool:
     Note ``get_geo_transform()`` never returns ``None`` (it returns the identity
     transform for ungeoreferenced data), so the geotransform check is identity-based.
     """
-    return not _is_identity_geo_transform(dataset.get_geo_transform()) and bool(
+    return not is_identity_geo_transform(dataset.get_geo_transform()) and bool(
         dataset.get_wkt_spatial_reference()
     )
 
@@ -153,7 +153,7 @@ def validate_scene(dataset: "RasterDataSet", existing_scenes: List["MosaicScene"
     longer calls it directly (it splits the georef check off so ungeoreferenced scenes
     can be added as pending), but it is kept as the canonical full check.
     """
-    if _is_identity_geo_transform(dataset.get_geo_transform()):
+    if is_identity_geo_transform(dataset.get_geo_transform()):
         raise SceneValidationError(
             "Scene is not georeferenced (no geotransform); it cannot be placed on the " "mosaic grid."
         )
