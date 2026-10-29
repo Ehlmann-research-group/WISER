@@ -7,7 +7,7 @@ import tempfile
 import traceback
 import webbrowser
 from functools import partial
-from typing import Callable, Optional, Set, Tuple
+from typing import Callable, List, Optional, Set, Tuple
 
 from PySide6.QtGui import QKeySequence
 
@@ -167,6 +167,11 @@ class DataVisualizerApp(QMainWindow):
         self._current_excluded: Set[Tuple[str, object]] = set()
         self._current_self_contained: bool = False
         self._project_extract_dir: Optional[str] = None
+
+        # True while modified datasets are being saved ahead of a quit or a project
+        # open, which then goes ahead only once every save has succeeded.  A cancelled
+        # save holds it until its worker has stopped writing.
+        self._saving_unsaved: bool = False
 
         self._activity_monitor: ActivityMonitorDialog = ActivityMonitorDialog(parent=self)
         self._activity_monitor_button: ActivityMonitorButton = ActivityMonitorButton(
@@ -599,7 +604,8 @@ class DataVisualizerApp(QMainWindow):
             logger.debug(f"Save-Dataset Config:\n{pprint.pformat(config)}")
 
             dataset = self._app_state.get_dataset(ds_id)
-            self._save_dataset_helper(dataset, path, format, config, on_saved=on_saved)
+            return self._save_dataset_helper(dataset, path, format, config, on_saved=on_saved)
+        return None
 
     def _save_dataset_helper(
         self, dataset, path, format, config, on_saved: Optional[Callable[[], None]] = None
@@ -669,19 +675,81 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.remove_dataset(ds_id)
 
+    def _unsaved_datasets(self) -> List[RasterDataSet]:
+        return [ds for ds in self._app_state.get_datasets() if ds.is_dirty()]
+
+    def _resolve_unsaved_datasets(
+        self, unsaved: List[RasterDataSet], question: str, proceed: Callable[[], None]
+    ) -> bool:
+        """
+        Ask Save / Discard / Cancel about the ``unsaved`` datasets before an operation
+        that would lose them.  Returns True only on Discard, when the operation may go
+        ahead now.  On Save the datasets go through Save As one at a time and
+        ``proceed`` is called once every save has succeeded; a cancelled Save As
+        dialog or a failed or cancelled save ends it there, so ``proceed`` is never
+        called and the datasets not yet saved stay modified.  A dataset removed
+        before its turn comes ends it the same way, with the error raised.
+        """
+        names = "\n".join(ds.get_name() for ds in unsaved)
+        response = QMessageBox.question(
+            self,
+            self.tr("Unsaved Datasets"),
+            self.tr("These datasets have unsaved changes:\n\n{0}\n\n{1}").format(names, question),
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+        if response == QMessageBox.Save:
+            self._saving_unsaved = True
+            self._save_datasets_in_turn([ds.get_id() for ds in unsaved], proceed)
+        return response == QMessageBox.Discard
+
+    def _save_datasets_in_turn(self, ds_ids: List[int], proceed: Callable[[], None]) -> None:
+        if not ds_ids:
+            self._saving_unsaved = False
+            proceed()
+            return
+
+        saved = []
+
+        def _on_saved():
+            saved.append(ds_ids[0])
+            # Deferred so the finished save re-enables this window before the next
+            # Save As dialog, which it parents, opens.
+            QTimer.singleShot(0, lambda: self._save_datasets_in_turn(ds_ids[1:], proceed))
+
+        def _on_finished():
+            if not saved:
+                self._saving_unsaved = False
+
+        runner = None
+        try:
+            runner = self._on_save_dataset(ds_ids[0], on_saved=_on_saved)
+        finally:
+            if runner is None:
+                self._saving_unsaved = False
+        if runner is not None:
+            # The runner is deleted however the save ends; one that never reported
+            # success failed or was cancelled.
+            runner.destroyed.connect(_on_finished)
+
     def quit_app(self):
-        """User-triggered operation to exit the application."""
-
-        # TODO(donnie):  Ask user to save any unsaved state?  (This also means
-        #     we must detect unsaved state.)
-
-        # TODO(donnie):  Maybe save Qt state?
-        # Exit WISER
-        QApplication.exit(0)
+        """
+        User-triggered operation to exit the application.  Exits only once the
+        main window has closed, so unsaved datasets are dealt with first.
+        """
+        if self.close():
+            QApplication.exit(0)
 
     def closeEvent(self, event):
-        # TODO(donnie):  Ask user to save any unsaved state?  (This also means
-        #     we must detect unsaved state.)
+        if self._saving_unsaved:
+            event.ignore()
+            return
+        unsaved = self._unsaved_datasets()
+        if unsaved and not self._resolve_unsaved_datasets(
+            unsaved, self.tr("Save them before quitting?"), self.quit_app
+        ):
+            event.ignore()
+            return
 
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
@@ -793,15 +861,33 @@ class DataVisualizerApp(QMainWindow):
         )
 
     def on_open_project(self, checked=False):
-        """Open a project file, replacing the current session after confirmation."""
-        reply = QMessageBox.question(
-            self,
-            self.tr("Open Project"),
-            self.tr("Opening a project discards the current session.  Continue?"),
-        )
-        if reply != QMessageBox.Yes:
+        """
+        Open a project file, replacing the current session after confirmation.  When
+        datasets have unsaved changes the confirmation is the Save / Discard / Cancel
+        question, and on Save the open goes ahead once they have all saved.
+        """
+        if self._saving_unsaved:
             return None
+        unsaved = self._unsaved_datasets()
+        if unsaved:
+            if not self._resolve_unsaved_datasets(
+                unsaved,
+                self.tr("Opening a project discards the current session.  Save them first?"),
+                self._choose_and_open_project,
+            ):
+                return None
+        else:
+            reply = QMessageBox.question(
+                self,
+                self.tr("Open Project"),
+                self.tr("Opening a project discards the current session.  Continue?"),
+            )
+            if reply != QMessageBox.Yes:
+                return None
 
+        return self._choose_and_open_project()
+
+    def _choose_and_open_project(self):
         (path, _) = QFileDialog.getOpenFileName(
             self,
             self.tr("Open Project"),
