@@ -283,6 +283,9 @@ def _load_dataset(
     _check_pixel_grid(dataset, entry, path)
     _apply_source_metadata(dataset, entry)
     _apply_metadata_snapshot(dataset, entry.get("metadata") or {})
+    # Re-applying the snapshot goes through setters that mark the dataset modified,
+    # but it now matches what the project holds, so it has nothing unsaved.
+    dataset.set_dirty(False)
     return dataset
 
 
