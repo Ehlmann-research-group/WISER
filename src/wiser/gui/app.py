@@ -33,6 +33,7 @@ from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
+from wiser.raster.dataset import reference_pixel_to_target_pixel_ds
 from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import (
@@ -1380,7 +1381,7 @@ class DataVisualizerApp(QMainWindow):
 
             # Set the "active spectrum" based on the current config and the
             # appropriate dataset
-            self._update_active_spectrum(spectrum_ds, ds_point)
+            self._update_linked_active_spectrum(ds, spectrum_ds, ds_point)
 
         else:
             # Non-linked scrolling:  Change the dataset of other panes before
@@ -1480,7 +1481,7 @@ class DataVisualizerApp(QMainWindow):
 
             # Set the "active spectrum" based on the current config and the
             # appropriate dataset
-            self._update_active_spectrum(spectrum_ds, ds_point)
+            self._update_linked_active_spectrum(ds, spectrum_ds, ds_point)
 
         else:
             # Non-linked scrolling:  Change the dataset of other panes before
@@ -1503,6 +1504,19 @@ class DataVisualizerApp(QMainWindow):
             # Set the "active spectrum" based on the current config and the
             # appropriate dataset
             self._update_active_spectrum(spectrum_ds, ds_point)
+
+    def _update_linked_active_spectrum(self, dataset, spectrum_dataset, ds_point):
+        """
+        Set the "active spectrum" from ``spectrum_dataset`` at the pixel linked
+        to ``ds_point`` in ``dataset``.  The active spectrum is cleared if
+        ``spectrum_dataset`` cannot be linked with ``dataset``, or the linked
+        pixel is outside ``spectrum_dataset``.
+        """
+        target = reference_pixel_to_target_pixel_ds(ds_point.toTuple(), dataset, spectrum_dataset)
+        if target is None or not spectrum_dataset.is_pixel_in_image_bounds(target):
+            self._app_state.set_active_spectrum(None)
+            return
+        self._update_active_spectrum(spectrum_dataset, QPoint(*target))
 
     def _update_active_spectrum(self, dataset, ds_point):
         """

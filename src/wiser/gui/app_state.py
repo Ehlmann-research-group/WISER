@@ -489,23 +489,6 @@ class ApplicationState(QObject):
 
         return True
 
-    def multiple_datasets_link_compatible(self):
-        same_size = self.multiple_datasets_same_size()
-        if same_size:
-            return same_size, GeographicLinkState.PIXEL
-
-        datasets = list(self._datasets.values())
-        ds0_srs = datasets[0].get_spatial_ref()
-        if ds0_srs is None:
-            return False, GeographicLinkState.NO_LINK
-
-        for ds in datasets[1:]:
-            ds_srs = ds.get_spatial_ref()
-            if ds_srs is None or not ds0_srs.IsSame(ds_srs):
-                return False, GeographicLinkState.NO_LINK
-
-        return True, GeographicLinkState.SPATIAL
-
     def multiple_displayed_datasets_link_compatible(
         self,
     ) -> Tuple[bool, GeographicLinkState]:
