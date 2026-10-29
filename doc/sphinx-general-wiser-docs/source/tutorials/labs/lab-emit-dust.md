@@ -113,15 +113,15 @@ Part 3 sends you back here to sample, but red alone does not tell hematite from
 goethite, and the clays, carbonates and sulfates in the table above are all
 beige.
 
-```{admonition} EMIT L2A is not map-projected
+```{admonition} WISER shows EMIT L2A on a map grid
 :class: note
-Standard EMIT L2A granules are **spatially raw** — delivered in the
-instrument's acquisition geometry, not on a map grid. Geolocation arrives in a
-separate array, not as a simple geotransform. That is fine for the spectroscopy
-here, but do not treat pixel positions as map coordinates, and orthorectify
-before overlaying anything geographic. WISER's
-{doc}`Georeferencer <../../user-content/spatial-tools>` handles the alignment
-if you need it.
+EMIT L2A granules store reflectance in the instrument's acquisition geometry,
+not on a map grid, and ship a geometry lookup table (`location/glt_x` and
+`location/glt_y`) that places each pixel on a north-up latitude/longitude grid.
+WISER applies that table when it opens the file, so the image appears
+north-up and the status-bar coordinates are map coordinates. Grid cells no
+pixel maps to — the wedges around the tilted swath — hold no data. The same
+applies to EMIT subsets downloaded from AppEEARS.
 ```
 
 4. Build a short-wave infrared (SWIR) composite. Click **Band chooser**, select
