@@ -7,7 +7,7 @@ import tempfile
 import traceback
 import webbrowser
 from functools import partial
-from typing import Set, Tuple
+from typing import Callable, Optional, Set, Tuple
 
 from PySide6.QtGui import QKeySequence
 
@@ -33,6 +33,7 @@ from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
+from wiser.raster.dataset import reference_pixel_to_target_pixel_ds
 from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.spectrum import (
@@ -578,7 +579,7 @@ class DataVisualizerApp(QMainWindow):
 
         menu.setEnabled(self._app_state.num_datasets() > 0)
 
-    def _on_save_dataset(self, ds_id: int):
+    def _on_save_dataset(self, ds_id: int, on_saved: Optional[Callable[[], None]] = None):
         dialog = SaveDatasetDialog(self._app_state, ds_id, parent=self)
         result = dialog.exec()
         # print(f'Save dialog result = {result}')
@@ -598,9 +599,11 @@ class DataVisualizerApp(QMainWindow):
             logger.debug(f"Save-Dataset Config:\n{pprint.pformat(config)}")
 
             dataset = self._app_state.get_dataset(ds_id)
-            self._save_dataset_helper(dataset, path, format, config)
+            self._save_dataset_helper(dataset, path, format, config, on_saved=on_saved)
 
-    def _save_dataset_helper(self, dataset, path, format, config):
+    def _save_dataset_helper(
+        self, dataset, path, format, config, on_saved: Optional[Callable[[], None]] = None
+    ):
         """
         We use the dataset helper to consolidate the actual saving functionality
         into one function. This way we can more easily test the saving functionality.
@@ -608,6 +611,9 @@ class DataVisualizerApp(QMainWindow):
         The save runs on a worker thread via ``run_with_progress`` so it can report
         fine-grained per-band progress (and be cancelled) through both a progress
         dialog and the Activity Monitor.
+
+        ``on_saved`` is called with no arguments on the GUI thread once the save
+        succeeds.  It is not called if the save fails or is cancelled.
         """
         dataset_id = dataset.get_id()
 
@@ -618,6 +624,8 @@ class DataVisualizerApp(QMainWindow):
             # Mark the dataset clean now that its contents are safely on disk.
             if dataset_id is not None and self._app_state.has_dataset(dataset_id):
                 self._app_state.get_dataset(dataset_id).set_dirty(False)
+            if on_saved is not None:
+                on_saved()
 
         def _on_failed(message):
             logger.error("Save dataset failed: %s", message)
@@ -638,20 +646,27 @@ class DataVisualizerApp(QMainWindow):
         )
 
     def _on_close_dataset(self, ds_id: int):
-        # If dataset is modified, ask user if they want to save it.
+        """
+        Close the dataset.  A modified dataset asks Save / Discard / Cancel first.
+        On Save the dataset is removed only after the save succeeds, so cancelling
+        the Save As dialog or a failed save leaves it open.
+        """
         dataset = self._app_state.get_dataset(ds_id)
         if dataset.is_dirty():
             response = QMessageBox.question(
                 self,
                 self.tr("Save modified dataset?"),
                 self.tr("Dataset has unsaved changes.  Save it?"),
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Save,
             )
 
-            if response == QMessageBox.Yes:
-                # User wants to save the dataset, so let them do so.
-                self._on_save_dataset(ds_id)
+            if response == QMessageBox.Save:
+                self._on_save_dataset(ds_id, on_saved=lambda: self._app_state.remove_dataset(ds_id))
+                return
+            if response != QMessageBox.Discard:
+                return
 
-        # Finally, remove the dataset.
         self._app_state.remove_dataset(ds_id)
 
     def quit_app(self):
@@ -1380,7 +1395,7 @@ class DataVisualizerApp(QMainWindow):
 
             # Set the "active spectrum" based on the current config and the
             # appropriate dataset
-            self._update_active_spectrum(spectrum_ds, ds_point)
+            self._update_linked_active_spectrum(ds, spectrum_ds, ds_point)
 
         else:
             # Non-linked scrolling:  Change the dataset of other panes before
@@ -1480,7 +1495,7 @@ class DataVisualizerApp(QMainWindow):
 
             # Set the "active spectrum" based on the current config and the
             # appropriate dataset
-            self._update_active_spectrum(spectrum_ds, ds_point)
+            self._update_linked_active_spectrum(ds, spectrum_ds, ds_point)
 
         else:
             # Non-linked scrolling:  Change the dataset of other panes before
@@ -1503,6 +1518,19 @@ class DataVisualizerApp(QMainWindow):
             # Set the "active spectrum" based on the current config and the
             # appropriate dataset
             self._update_active_spectrum(spectrum_ds, ds_point)
+
+    def _update_linked_active_spectrum(self, dataset, spectrum_dataset, ds_point):
+        """
+        Set the "active spectrum" from ``spectrum_dataset`` at the pixel linked
+        to ``ds_point`` in ``dataset``.  The active spectrum is cleared if
+        ``spectrum_dataset`` cannot be linked with ``dataset``, or the linked
+        pixel is outside ``spectrum_dataset``.
+        """
+        target = reference_pixel_to_target_pixel_ds(ds_point.toTuple(), dataset, spectrum_dataset)
+        if target is None or not spectrum_dataset.is_pixel_in_image_bounds(target):
+            self._app_state.set_active_spectrum(None)
+            return
+        self._update_active_spectrum(spectrum_dataset, QPoint(*target))
 
     def _update_active_spectrum(self, dataset, ds_point):
         """

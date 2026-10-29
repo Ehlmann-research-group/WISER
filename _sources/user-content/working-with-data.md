@@ -321,7 +321,8 @@ When multiple images are displayed in grid view, the plot will display spectra
 from any dataset that the user clicks. Using the upper left icon on the plot,
 the user can opt to always pull spectra from one particular dataset. This is
 particularly useful with linked datasets in grid view such that clicking on one
-image will display a spectrum from the same pixel in a linked image.
+image will display a spectrum from the corresponding pixel in a linked image
+(the same ground location when both images are georeferenced).
 
 :::{figure} ../_static/images/plot_clicked_dataset.png
 :width: 400px

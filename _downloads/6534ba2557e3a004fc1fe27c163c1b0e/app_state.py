@@ -1,4 +1,5 @@
 import enum
+import itertools
 import os
 import warnings
 from typing import Any, Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
@@ -21,7 +22,6 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
-from wiser.raster.utils import have_spatial_overlap, can_transform_between_srs
 
 from wiser.raster.stretch import StretchBase
 
@@ -489,67 +489,25 @@ class ApplicationState(QObject):
 
         return True
 
-    def multiple_datasets_link_compatible(self):
-        same_size = self.multiple_datasets_same_size()
-        if same_size:
-            return same_size, GeographicLinkState.PIXEL
-
-        datasets = list(self._datasets.values())
-        ds0_srs = datasets[0].get_spatial_ref()
-        if ds0_srs is None:
-            return False, GeographicLinkState.NO_LINK
-
-        for ds in datasets[1:]:
-            ds_srs = ds.get_spatial_ref()
-            if ds_srs is None or not ds0_srs.IsSame(ds_srs):
-                return False, GeographicLinkState.NO_LINK
-
-        return True, GeographicLinkState.SPATIAL
-
     def multiple_displayed_datasets_link_compatible(
         self,
     ) -> Tuple[bool, GeographicLinkState]:
+        """
+        Returns whether the main view's displayed datasets can be linked, and
+        how:  ``PIXEL`` when every pair links by pixel, ``SPATIAL`` when every
+        pair links and at least one links spatially, and ``NO_LINK`` when fewer
+        than two datasets are displayed or any pair cannot link.  Each pair's
+        link is ``RasterDataSet.determine_link_state``.
+        """
         displayed_datasets = self._app._main_view.get_visible_datasets()
-
-        same_size = True
         if len(displayed_datasets) < 2:
             return False, GeographicLinkState.NO_LINK
 
-        # Else, make sure they're all the same size
-        ds0_dim = (
-            displayed_datasets[0].get_width(),
-            displayed_datasets[0].get_height(),
-        )
-        for ds in displayed_datasets[1:]:
-            ds_dim = (ds.get_width(), ds.get_height())
-            if ds_dim != ds0_dim:
-                same_size = False
-
-        if same_size:
-            return same_size, GeographicLinkState.PIXEL
-
-        ds0_srs: osr.SpatialReference = displayed_datasets[0].get_spatial_ref()
-        ds0 = displayed_datasets[0]
-        if ds0_srs is None:
+        link_states = {a.determine_link_state(b) for a, b in itertools.combinations(displayed_datasets, 2)}
+        if GeographicLinkState.NO_LINK in link_states:
             return False, GeographicLinkState.NO_LINK
-
-        for ds in displayed_datasets[1:]:
-            ds_srs = ds.get_spatial_ref()
-            if not can_transform_between_srs(ds0_srs, ds_srs):
-                return False, GeographicLinkState.NO_LINK
-            have_overlap = have_spatial_overlap(
-                ds0_srs,
-                ds0.get_geo_transform(),
-                ds0.get_width(),
-                ds0.get_height(),
-                ds_srs,
-                ds.get_geo_transform(),
-                ds.get_width(),
-                ds.get_height(),
-            )
-            if not have_overlap:
-                return False, GeographicLinkState.NO_LINK
-
+        if link_states == {GeographicLinkState.PIXEL}:
+            return True, GeographicLinkState.PIXEL
         return True, GeographicLinkState.SPATIAL
 
     def multiple_displayed_datasets_same_size(self):

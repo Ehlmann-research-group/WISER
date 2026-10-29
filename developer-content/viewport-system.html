@@ -1156,7 +1156,7 @@ Each <code class="docutils literal notranslate"><span class="pre">TiledRasterVie
 <p><strong>Controls:</strong></p>
 <ul class="simple">
 <li><p>View layout grid (<code class="docutils literal notranslate"><span class="pre">_init_rasterviews</span></code>, <code class="docutils literal notranslate"><span class="pre">_on_split_views</span></code>)</p></li>
-<li><p>Linked-scrolling mode: <code class="docutils literal notranslate"><span class="pre">NO_LINK</span></code>, <code class="docutils literal notranslate"><span class="pre">PIXEL</span></code> (same-dimension sync), or <code class="docutils literal notranslate"><span class="pre">SPATIAL</span></code> (geographic coordinate transform)</p></li>
+<li><p>Linked-scrolling mode: <code class="docutils literal notranslate"><span class="pre">NO_LINK</span></code>, <code class="docutils literal notranslate"><span class="pre">PIXEL</span></code> (same-dimension sync when either dataset is not georeferenced), or <code class="docutils literal notranslate"><span class="pre">SPATIAL</span></code> (geographic coordinate transform when both are), per <code class="docutils literal notranslate"><span class="pre">RasterDataSet.determine_link_state</span></code></p></li>
 <li><p>Zoom range: 0.25×–16× in ×1.25 increments</p></li>
 <li><p>Synchronizing scroll positions across views when linked (<code class="docutils literal notranslate"><span class="pre">_sync_scroll_state</span></code>)</p></li>
 <li><p>ROI/selection tools (rectangle, polygon, multi-pixel)</p></li>

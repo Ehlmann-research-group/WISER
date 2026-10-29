@@ -1218,7 +1218,12 @@ the image dimensions from self.get_width() (x direction) and self.get_height() (
 </dd>
 </dl>
 </dd>
-<dt>Returns:</dt><dd><p>GeographicLinkState: 0 is no link, 1 is pixel link, 2 is spatial link</p>
+<dt>Returns:</dt><dd><p>GeographicLinkState: If both datasets are georeferenced (see
+<code class="docutils literal notranslate"><span class="pre">is_dataset_georeferenced</span></code>), <code class="docutils literal notranslate"><span class="pre">SPATIAL</span></code> when a transformation
+exists between their spatial references and their footprints
+overlap, else <code class="docutils literal notranslate"><span class="pre">NO_LINK</span></code>.  If either is not georeferenced,
+<code class="docutils literal notranslate"><span class="pre">PIXEL</span></code> when they have the same width and height, else
+<code class="docutils literal notranslate"><span class="pre">NO_LINK</span></code>.</p>
 </dd>
 </dl>
 </dd></dl>
