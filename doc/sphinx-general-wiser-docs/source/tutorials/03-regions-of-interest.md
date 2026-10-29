@@ -5,13 +5,15 @@ and export the pixel spectra for use outside WISER.
 
 **Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
 
+**Reference:** {doc}`Regions of Interest <../user-content/regions-of-interest>`.
+
 ---
 
 ## Why regions instead of pixels
 
 A single pixel's spectrum carries sensor noise, and on a 4-band scene it may
-straddle two materials. Averaging over a **Region of Interest** — tens or
-hundreds of pixels of one cover type — gives a signature stable enough to feed
+straddle two materials. Averaging over a **Region of Interest** (tens or
+hundreds of pixels of one cover type) gives a signature stable enough to feed
 a classifier, an unmixing model, or a detection threshold.
 
 A region of interest (ROI) is a **named, colored collection of selections**. Selections may be
@@ -93,7 +95,7 @@ block, because they sample more of the illumination and species variation.
 
 ```{admonition} Interpretation
 :class: note
-Three classes, three distinct shapes:
+Each class has a distinct shape:
 
 - **Building roof** (red) is bright at every wavelength and almost flat.
 - **Tree canopy** (green) is dark from 472 to 702 nm, then climbs steeply into
@@ -110,26 +112,16 @@ either of the others. That is the difference {doc}`Tutorial 4
 
 ## Step 4 — Get the data out
 
-Right-click inside a selection for the rest of the ROI operations:
+Right-click inside the canopy selection and choose **Export all spectra in
+ROI...**. The ASCII file holds **every pixel's** spectrum, not just the mean,
+which is what you need to report a standard deviation or to check whether a
+class is bimodal and should be split. For a signature, the mean spectrum you
+already collected is usually enough.
 
-| Action | What you get |
-|---|---|
-| **Export all spectra in ROI...** | An ASCII file with **every pixel's** spectrum — the input for statistics in Python, R or MATLAB |
-| **Export ROI...** | A `.geojson` of the ROI geometry, for GIS or for sharing |
-| **Make ROI into mask** | A new single-band dataset, 1 inside the region and 0 outside — usable directly in band math |
-| **Edit ROI information...** | Rename, recolor, change the description |
-| **Delete Region of Interest...** | Remove the whole region. WISER asks for confirmation first |
-
-To move regions between sessions, use **File ▸ Import regions of interest...**
-to bring a `.geojson` in, and **Export all ROIs...** on the image right-click
-menu to write every region out at once.
-
-```{note}
-Exporting the pixel spectra of a large ROI produces a large file — WISER asks
-for confirmation above 200 pixels. The mean spectrum is usually what you want;
-export per-pixel spectra when you need the *distribution*, for example to
-report a standard deviation or check a class for bimodality.
-```
+The same menu turns the region into a 0/1 mask for band math, exports its
+geometry as GeoJSON, and renames or deletes it. Every ROI operation, and the
+session-wide import and export, is listed in
+{doc}`Regions of Interest <../user-content/regions-of-interest>`.
 
 ---
 

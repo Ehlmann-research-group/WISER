@@ -17,7 +17,7 @@ different illumination, at different scales, or by different instruments.
 3. The spectrum is **divided** by the interpolated hull.
 
 The result is 1.0 wherever the spectrum touches its own continuum and dips
-towards 0 inside each absorption band. Where the hull evaluates to zero the
+toward 0 inside each absorption band. Where the hull evaluates to zero the
 result is set to 1.0 rather than dividing by zero.
 
 ## What it buys you
@@ -26,15 +26,15 @@ result is set to 1.0 rather than dividing by zero.
   the same material give nearly the same continuum-removed spectrum.
 - **Band depth becomes measurable.** `1 − value` at a band center is the
   fractional depth, comparable between spectra.
-- **Instrument and grain-size effects are reduced**, though not eliminated —
+- **Instrument and grain-size effects are reduced**, though not eliminated:
   grain size changes band depth as well as continuum level.
 
 ```{admonition} What it costs you
 :class: warning
 A continuum-removed spectrum is **not reflectance**. Absolute level is gone by
-construction, so anything depending on it — albedo, radiative-transfer input, a
-brightness-based classifier — cannot be computed from the result. Keep the
-original alongside.
+construction, so anything depending on it, such as albedo, radiative-transfer
+input or a brightness-based classifier, cannot be computed from the result. Keep
+the original alongside.
 
 The hull is also sensitive to the endpoints of the wavelength range you feed
 it. Removing the continuum over 400–2500 nm and over 2100–2300 nm gives

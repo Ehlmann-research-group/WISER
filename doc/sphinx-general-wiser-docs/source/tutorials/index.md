@@ -1,11 +1,11 @@
 # Tutorials and Example Workflows
 
 {doc}`Tutorials <getting-started>` run on data that ships with the WISER
-source, so there is nothing to download. Eight of them, a little over two hours
-end to end, covering every major tool in the application.
+source, so there is nothing to download. There are eight, a little over two
+hours end to end, and together they cover every major tool in the application.
 
-Every screenshot in the tutorials was produced by driving WISER
-through the steps described. Nothing is a mockup.
+Every screenshot in the tutorials was taken from WISER while running the steps
+described, not mocked up.
 
 ---
 

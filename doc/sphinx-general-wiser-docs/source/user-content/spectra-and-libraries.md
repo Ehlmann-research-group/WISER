@@ -1,8 +1,7 @@
 # Spectra and Spectral Libraries
 
-The Spectrum Plot is where imaging spectroscopy stops being image processing.
-Click a pixel and you get its spectrum; collect several and you can compare
-them; import a library and you can identify them.
+The Spectrum Plot shows the spectrum of any pixel you click. Collect several
+spectra to compare them, and import a library to identify them.
 
 Show the plot with the **Spectrum Plot** display toggle on the main toolbar.
 
@@ -22,7 +21,7 @@ Click any pixel in the main window or the zoom pane. A crosshair marks it and
 its spectrum is plotted.
 
 - The **x-axis** is wavelength when the dataset supplies wavelengths, band
-  number otherwise. Units follow the header — nanometers, micrometers, or
+  number otherwise. Units follow the header: nanometers, micrometers, or
   whatever the file declares.
 - **Bad bands** flagged in the header are left out of the line, which is why a
   spectrum from an airborne cube has gaps at the atmospheric water-vapor
@@ -40,9 +39,9 @@ are listed under **Spectra and Spectral Libraries** below the plot, stay drawn
 together, and are saved in a {doc}`project <projects>`.
 
 From the list you can untick a spectrum to hide it, **Edit...** to rename it or
-change its color, or **Save to file...** to write it out. Renaming and
-recoloring early is worth the seconds — everything is drawn in the same color
-by default.
+change its color, or **Save to file...** to write it out. Rename and recolor
+spectra as you collect them, because everything is drawn in the same color by
+default.
 
 ### Which dataset the plot reads
 
@@ -54,23 +53,24 @@ by default.
 
 The control at the plot's top left chooses which dataset spectra are pulled
 from. Left alone, the plot follows whichever image you click. Pinned to one
-dataset, a click anywhere — including on a different, linked image in grid view
-— gives you that dataset's spectrum at that pixel.
+dataset, a click anywhere, including on a different linked image in grid view,
+gives you that dataset's spectrum at that pixel.
 
 ---
 
 ## Averaging
 
 A single pixel's spectrum carries the sensor's full noise. In the
-configuration dialog (the **gear** icon), **Number of pixels to average**
+configuration dialog (the **gear** icon), **Default area-average size**
 averages an *n* × *n* box around each click, with a choice of **mean** or
 **median**.
 
 - **Mean** suppresses random noise.
-- **Median** is better when a few pixels in the box are outliers — a bad
+- **Median** is better when a few pixels in the box are outliers, such as a bad
   detector element, a specular highlight, a mixed edge pixel.
 
-This changes what you *see*, not the data. For a stable class signature use a
+This changes the spectrum you extract, not the cube. For a stable class
+signature use a
 {doc}`Region of Interest <regions-of-interest>` instead: it averages over an
 area you chose deliberately rather than a square box.
 
@@ -78,17 +78,16 @@ area you chose deliberately rather than a square box.
 
 ## Configuring the plot
 
-The **gear** icon opens the configuration dialog — the plot's right-click menu
+The **gear** icon opens the configuration dialog. The plot's right-click menu
 offers the same thing as **Configure plot...**:
 
-| Group | Settings |
+| Section | Settings |
 |---|---|
-| Titles | Plot title, x- and y-axis titles |
-| Fonts | Family and size |
-| Ranges | x- and y-axis minimum and maximum |
-| Ticks | Major and minor tick intervals on each axis |
-| Averaging | Number of pixels to average; mean or median |
-| Legend | Show or hide |
+| **Plot** | **Font:** family; **Font Sizes** for the title, legend, axis labels, selected point and tick labels; **Plot Title:**; **Legend:** placement |
+| **Selected Point** | **Draw with symbol:** and **Draw crosshair through selected point** |
+| **X Axis** | **Manually specify X axis range** (**Minimum value:**, **Maximum value:**); **X Axis Units:**; **Manually configure X axis tick marks** (**Major tick marks every**, **Minor tick marks every**); **X Axis Label:** |
+| **Y Axis** | The same range, tick-mark and label settings as the X axis |
+| **New Spectra** | **Default area-average size** (X and Y) and **Default average mode:** (mean or median) |
 
 :::{figure} ../_static/images/plot_config.png
 :width: 55%
@@ -96,8 +95,8 @@ offers the same thing as **Configure plot...**:
 :alt: The spectrum plot configuration dialog
 :::
 
-Setting the **x-axis range** to bracket one absorption feature is the single
-most useful thing here — a 400–2500 nm plot hides a 40 nm-wide band that a
+The most useful setting here is the **x-axis range**: set it to bracket one
+absorption feature. A 400–2500 nm plot hides a 40 nm-wide band that a
 2100–2300 nm plot makes obvious.
 
 To save a figure, right-click the plot and choose **Export plot to image...**:
@@ -124,8 +123,9 @@ The **Load or import spectra** button in the plot toolbar offers:
 The same operation is on the **File** menu as **Import spectra from text
 file...**.
 
-Imported libraries are **listed but not drawn** — several hundred spectra at
-once is unreadable. Right-click a spectrum name to show that one; right-click
+Imported libraries are **listed but not drawn**, because several hundred spectra
+at once would be unreadable. Right-click a spectrum name to show that one;
+right-click
 the library name to show or hide all of it.
 
 ### Libraries that ship with WISER
@@ -148,8 +148,7 @@ the library name to show or hide all of it.
 ```{tip}
 Prefer a library **convolved to your sensor** where one exists. The detection
 tools interpolate references onto the target's wavelength grid anyway, but
-starting from the right sampling avoids a class of subtle errors around narrow
-features.
+starting from the right sampling is better.
 ```
 
 ---

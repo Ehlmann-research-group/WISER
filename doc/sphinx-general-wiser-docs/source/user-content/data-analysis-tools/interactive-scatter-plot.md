@@ -1,11 +1,10 @@
 # Interactive Scatter Plot
 
-The Interactive Scatter Plot plots two bands against each other — every pixel
+The Interactive Scatter Plot plots two bands against each other. Every pixel
 becomes one point, positioned by its value in the **X band** (horizontal) and
-**Y band** (vertical). Its real power is the two-way link to the image: draw a
-shape around a cluster of points and the matching pixels light up in the image,
-so you can discover structure in *feature space* and instantly see *where* it
-lives in the scene.
+**Y band** (vertical). The plot has a two-way link to the image: draw a shape
+around a cluster of points and the matching pixels light up in the image, so you
+can find structure in *feature space* and see *where* it lies in the scene.
 
 Open it from a raster view's **Data Analysis ▸ Interactive Scatter Plot** menu.
 
@@ -46,8 +45,8 @@ By default you get a **density scatter plot**: instead of drawing millions of
 overlapping dots, color encodes how many pixels fall on each spot, with a
 colorbar labeled *Number of points per spectral value*. Bright/dense regions
 are common pixel values. Use **To Scatter** to switch to a plain dot plot, and
-**To Density** to switch back. **To Scatter** is useful for areas that do not
-have a dense enough pixel population to show up when **To Density** is selected.
+**To Density** to switch back. Use **To Scatter** for areas too sparse to show
+up in the density plot.
 
 ## Selecting points
 

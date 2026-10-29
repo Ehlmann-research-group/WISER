@@ -30,9 +30,8 @@ The result is added as a new dataset named `MNF, Img: <source>`.
 :::
 
 Pick a **Dataset**, set **Num Components** (the number of MNF bands to keep),
-and click **OK**. The spin box defaults to the maximum allowed for that
-dataset — the count of good bands, capped by the available noise samples — so
-that ceiling is visible at a glance.
+and click **OK**. The spin box defaults to the maximum allowed for that dataset:
+the count of good bands, capped by the available noise samples.
 
 Click **View Past Results** to reopen any previous run and view its scree plot
 (eigenvalue vs. component index), which helps you judge how many components are

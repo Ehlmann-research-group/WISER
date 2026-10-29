@@ -12,14 +12,14 @@ Typical uses:
 - Bringing scenes with different coordinate reference systems onto one common
   projection.
 
-Open it from the menu bar: **Tools → Mosaic**. The window is non-modal, so you
+Open it from the menu bar: **Tools ▸ Mosaic**. The window is non-modal, so you
 can keep working in the main WISER window (opening more files, changing display
 bands) while it is open.
 
 ## Before you start
 
 Scenes are picked from the datasets **already loaded in WISER**, not from a file
-picker. Load every image you want to mosaic first (**File → Open**), then open
+picker. Load every image you want to mosaic first (**File ▸ Open**), then open
 the Mosaic tool.
 
 Each scene should be georeferenced — it needs a coordinate reference system and
@@ -42,11 +42,11 @@ The window has two parts:
 |--------|-----|
 | Pan | Middle-click and drag |
 | Zoom | Mouse wheel (zooms toward the cursor) |
-| Frame one scene | Right-click the scene in the **Scenes** list → **Zoom to Scene** |
+| Frame one scene | Right-click the scene in the **Scenes** list ▸ **Zoom to Scene** |
 
 The preview frames the whole mosaic once, the first time there is something to
-show. After that it never moves the camera on you — adding a scene will not
-yank your view away from where you were looking.
+show. After that it never moves the view on its own, so adding a scene leaves
+you looking where you were.
 
 ### What the overlay colors mean
 
@@ -55,8 +55,8 @@ yank your view away from where you were looking.
 - **Dashed box** — the bounding box of the whole mosaic; this is the extent that
   will be exported.
 - **Magenta / purple shading** — where a scene is *covered* by another scene
-  above it in the stack. This is where the stacking order is actually deciding
-  which pixels you see.
+  above it in the stack. This is where the stacking order decides which pixels
+  you see.
 
 The overlay is purely a visual aid. It marks overlaps; it does not change which
 pixels win.
@@ -67,7 +67,7 @@ pixels win.
 2. Click **Add Scene…**.
 
 A progress dialog appears while WISER prepares the scene. This blocks only the
-mosaic window — the rest of WISER stays usable — and you can cancel it.
+mosaic window, so the rest of WISER stays usable, and you can cancel it.
 
 Your original file is never modified. WISER works on its own temporary copies
 for the whole session.
@@ -78,15 +78,16 @@ Two things will stop a scene from being added at all:
 - **Its band count doesn't match.** Every scene in a mosaic must have the same
   number of bands as the first scene you added.
 
-Anything else — a missing data-ignore value, a different pixel size, a different
-CRS, a different data type — is fine. Those are handled for you.
+Anything else is handled for you, including a missing data-ignore value, a
+different pixel size, a different CRS or a different data type.
 
 ```{note}
 The preview shows each scene using the bands **currently displayed for it in the
-main WISER window**, with a contrast stretch applied per scene to account for outliers. If you want a
-different band combination in the preview, change the displayed bands in the
-main view *before* adding the scene. This only affects how the preview looks —
-the exported file always contains all the bands, with their original values.
+main WISER window**, with a contrast stretch applied per scene to account for
+outliers. If you want a different band combination in the preview, change the
+displayed bands in the main view *before* adding the scene. This only affects
+how the preview looks: the exported file always contains all the bands, with
+their original values.
 ```
 
 ## The scene stack
@@ -116,7 +117,7 @@ reasons:
 
 This is deliberate: you can assemble your whole working set up front, including
 scenes you still intend to register, instead of hitting a dead end at Add
-Scene. Fix a pending scene by right-clicking it → **Georeference…** (below).
+Scene. Fix a pending scene by right-clicking it ▸ **Georeference…** (below).
 Once it has a compatible CRS it goes live on its own and the mosaic rebuilds to
 include it.
 
@@ -136,7 +137,7 @@ position in the stack, so you can see whether the fix worked.
 
 You can re-run the warp as many times as you like; each attempt replaces the
 last rather than piling up. The correction lives for the mosaic session and is
-baked into the exported file — it does not overwrite your original dataset on
+baked into the exported file. It does not overwrite your original dataset on
 disk.
 
 ## Target CRS
@@ -151,7 +152,7 @@ CRS, a built-in preset (WGS 84, Web Mercator, NAD83 / UTM 15N), a CRS you made
 with the CRS Creator, or an authority code you type in (for example `EPSG` +
 `4326`).
 
-Changing the target CRS re-evaluates every scene: any scene that can not be
+Changing the target CRS re-evaluates every scene: any scene that cannot be
 transformed into the new CRS becomes [pending](#pending-scenes-grayed-out), and
 any pending scene that *can* reach it goes live. If the new CRS leaves no usable
 scenes at all, WISER warns you that the preview is empty but still applies your
@@ -187,8 +188,8 @@ How pixel values are computed when a scene is reprojected onto the output grid.
 
 ### Band metadata
 
-Choose which scene's band metadata — wavelengths, band names, bad-band list —
-gets written onto the exported file. It defaults to the top scene. This is
+Choose which scene's band metadata (wavelengths, band names, bad-band list) gets
+written onto the exported file. It defaults to the top scene. This is
 labeling only: it never changes how many bands the output has, or the pixel
 values.
 
@@ -214,10 +215,10 @@ Export runs in the background with a progress bar and can be canceled. Large
 mosaics are streamed to disk piece by piece, so a mosaic bigger than your RAM is
 not a problem.
 
-A few things worth knowing before you click it:
+Before you click it, note:
 
 - **Pending scenes are skipped.** If any exist, WISER asks you to confirm before
-  continuing; they simply won't be in the output.
+  continuing; they won't be in the output.
 - **Hidden scenes are skipped.** Unticked scenes are not exported.
 - **Metadata edits made after adding a scene are not picked up.** A mosaic scene
   is a snapshot taken when you added it. If you edit a dataset's metadata (say,
@@ -225,26 +226,26 @@ A few things worth knowing before you click it:
   export uses the values from when the scene was added, and WISER warns you which
   scenes have drifted. To pick up the edit, remove the scene and add it again.
 - **The result is not loaded back into WISER.** Open the exported file with
-  **File → Open** if you want to look at it.
+  **File ▸ Open** if you want to look at it.
 
 ## Troubleshooting
 
 **A scene is grayed out with a warning icon.** It's
 [pending](#pending-scenes-grayed-out) — hover it to see whether it has no CRS or
-an incompatible one, then right-click → **Georeference…**.
+an incompatible one, then right-click ▸ **Georeference…**.
 
 **The preview is blank.** Either every scene is pending or hidden, or the camera
-is parked away from the scenes. Right-click a live scene → **Zoom to Scene** to
+is parked away from the scenes. Right-click a live scene ▸ **Zoom to Scene** to
 jump back to it.
 
-**A scene won't add at all.** Check the band count — it has to match the first
-scene in the mosaic — and check it isn't already in the list.
+**A scene won't add at all.** Check that the band count matches the first scene
+ in the mosaic, and that the scene isn't already in the list.
 
-**A scene is in the wrong place.** Right-click it → **Georeference…** and warp
+**A scene is in the wrong place.** Right-click it ▸ **Georeference…** and warp
 it in place; see [Fixing a misplaced scene](#fixing-a-misplaced-scene).
 
-**Changing the output resolution does nothing to the preview.** That's expected
-— it only sizes the exported file.
+**Changing the output resolution does nothing to the preview.** That's expected:
+ it only sets the size of the exported file.
 
 **The exported values look interpolated.** Set **Resampling** back to
 **Nearest Neighbor** and export again.

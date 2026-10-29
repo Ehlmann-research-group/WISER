@@ -18,7 +18,7 @@ One ROI holds any number of **selections**, each one of:
 - **Multi-pixel selection** — click individual pixels
 
 Selections may be scattered anywhere in the scene and may overlap. **Overlap is
-not a problem** — every operation counts each pixel once.
+not a problem**: every operation counts each pixel once.
 
 Building one ROI from several small, well-separated selections usually gives a
 better class signature than one large block, because it samples more of the
@@ -28,10 +28,11 @@ illumination and material variation.
 
 ## Creating one
 
-1. Click **Create ROI** (the map-pin button) on the main toolbar or the zoom
+1. Click **Add new Region of Interest** (the map-pin button) on the main toolbar
+   or the zoom
    pane's toolbar.
 2. Enter a **name**, a **description** if you want one, and pick a **color**.
-   Use a different color for each ROI — it is the only thing distinguishing
+   Use a different color for each ROI, because it is the only thing distinguishing
    them on screen.
 3. Click **OK**.
 
@@ -107,10 +108,10 @@ Session-wide equivalents:
 
 ```{note}
 Exporting the per-pixel spectra of a large ROI produces a large file, and WISER
-asks for confirmation above 200 pixels. Export the mean spectrum when you want
-a signature; export per-pixel spectra when you need the *distribution* — to
-report a standard deviation, or to check whether a class is bimodal and should
-be split.
+asks for confirmation above 200 pixels. Export the mean spectrum when you want a
+signature; export per-pixel spectra when you need the *distribution*: to report
+a standard deviation, or to check whether a class is bimodal and should be
+split.
 ```
 
 ---
@@ -122,11 +123,11 @@ be split.
 | {doc}`Linear Unmixing <data-analysis-tools/linear-unmixing>` | An ROI's mean spectrum, collected, becomes an endmember |
 | {doc}`SAM <data-analysis-tools/spectral-angle-mapper>` / {doc}`SFF <data-analysis-tools/spectral-feature-fitting>` | **Add Collected Spectrum** uses an ROI mean as a reference |
 | {doc}`MTMF <data-analysis-tools/mtmf>` | **ROI Based** noise estimation uses an ROI as the background sample |
-| {doc}`K-Means <data-analysis-tools/kmeans>` | Manual initialisation can start from ROI mean spectra |
+| {doc}`K-Means <data-analysis-tools/kmeans>` | Manual initialization can start from ROI mean spectra |
 | {doc}`Band Math <band-math>` | **Make ROI into mask** gives you a 0/1 band to multiply by |
 | {doc}`Interactive Scatter Plot <data-analysis-tools/interactive-scatter-plot>` | **Create ROI from Selection** turns a feature-space cluster into an ROI |
 
-That last one runs the other way round: instead of drawing a region on the
+That last one runs the other way around: instead of drawing a region on the
 image and asking what it is, you select a cluster in feature space and find out
 where on the ground it lives.
 
@@ -136,7 +137,7 @@ where on the ground it lives.
 
 ROIs, their selections and their average spectra are saved in a
 {doc}`project <projects>`. If you exclude an ROI's source dataset from a project
-save, its average spectrum is kept as a **snapshot** — it still plots, but WISER
+save, its average spectrum is kept as a **snapshot**: it still plots, but WISER
 can no longer recompute it from the image.
 
 GeoJSON export is the route for taking ROIs to GIS software or to a colleague
