@@ -371,22 +371,9 @@ class MainViewWidget(RasterPane):
         self._app_state._app._on_save_dataset(dataset.get_id())
 
     def _on_close_dataset(self, rasterview):
-        # If dataset is modified, ask user if they want to save it.
         dataset = rasterview.get_raster_data()
-        if dataset.is_dirty():
-            response = QMessageBox.question(
-                self,
-                self.tr("Save modified dataset?"),
-                self.tr("Dataset has unsaved changes.  Save it?"),
-            )
-
-            if response == QMessageBox.Yes:
-                # User wants to save the dataset, so let them do so.
-                # TODO(donnie):  Don't do it this way!
-                self._app_state._app._on_save_dataset(dataset.get_id())
-
-        # Finally, remove the dataset.
-        self._app_state.remove_dataset(dataset.get_id())
+        # TODO(donnie):  Don't do it this way!
+        self._app_state._app._on_close_dataset(dataset.get_id())
 
     def _on_dataset_changed(self, act):
         super()._on_dataset_changed(act)
@@ -530,12 +517,16 @@ class MainViewWidget(RasterPane):
     def on_rasterview_dataset_changed(self):
         """
         Currently, this function is used to change the dataset link state when
-        a new dataset is showed to a raster view. If the new dataset's dimensions
-        does not match the currently displayed datasets, we stop linking.
+        a new dataset is showed to a raster view. If the displayed datasets can
+        still be linked, the link state is updated for them; otherwise we stop
+        linking.
         """
         # We only do something if link_view_scroll is true, if not we do nothing
         if self._link_view_scrolling:
-            if not self._app_state.multiple_displayed_datasets_link_compatible()[0]:
+            linkable, link_state = self._app_state.multiple_displayed_datasets_link_compatible()
+            if linkable:
+                self._link_view_state = link_state
+            else:
                 self._act_link_view_scroll.setChecked(False)
                 self._link_view_scrolling = False
 
@@ -560,9 +551,9 @@ class MainViewWidget(RasterPane):
                 self.tr("Cannot Link Views"),
                 self.tr(
                     "Cannot link views unless multiple datasets\n"
-                    + "are loaded, and either are all the same\n"
-                    + "dimensions or have overlapping coordinate\n"
-                    + "spatial reference systems."
+                    + "are displayed, and each pair of them either\n"
+                    + "overlaps geographically or, if either is\n"
+                    + "not georeferenced, has the same dimensions."
                 ),
             )
 
@@ -823,11 +814,10 @@ class MainViewWidget(RasterPane):
                 return
             reference_point = self._pixel_highlight.get_pixel()
             reference_pixel = (reference_point.x(), reference_point.y())
-            target_pixel = reference_pixel_to_target_pixel_ds(
-                reference_pixel, dataset, rv_dataset, link_state=self._link_view_state
-            )
+            target_pixel = reference_pixel_to_target_pixel_ds(reference_pixel, dataset, rv_dataset)
             if target_pixel is None:
-                raise ValueError("Target pixel is none even though main view scrolling is linked!")
+                # The highlighted dataset cannot be linked with this rasterview's.
+                return
             target_point = QPoint(*target_pixel)
         else:
             if dataset is not None and rasterview.get_raster_data() is not dataset:

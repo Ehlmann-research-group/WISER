@@ -276,7 +276,7 @@ classDiagram
 
 **Controls:**
 - View layout grid (`_init_rasterviews`, `_on_split_views`)
-- Linked-scrolling mode: `NO_LINK`, `PIXEL` (same-dimension sync), or `SPATIAL` (geographic coordinate transform)
+- Linked-scrolling mode: `NO_LINK`, `PIXEL` (same-dimension sync when either dataset is not georeferenced), or `SPATIAL` (geographic coordinate transform when both are), per `RasterDataSet.determine_link_state`
 - Zoom range: 0.25×–16× in ×1.25 increments
 - Synchronizing scroll positions across views when linked (`_sync_scroll_state`)
 - ROI/selection tools (rectangle, polygon, multi-pixel)

@@ -13,6 +13,7 @@ from .geo_coords_config import *
 from .geo_coords_dialog import GeoCoordsDialog
 
 from wiser.raster import RasterDataSet
+from wiser.raster.mosaic_ingestion import is_dataset_georeferenced
 
 
 def to_deg_min_sec(value):
@@ -183,7 +184,7 @@ class ImageCoordsWidget(QDialog):
 
         config = self._get_config_for_dataset(self._dataset)
 
-        if config.spatial_ref is None:
+        if config.spatial_ref is None or not is_dataset_georeferenced(self._dataset):
             self._set_pixel_coords_text(self._pixel_coords)
             self._set_geo_visible(False)
 
@@ -207,8 +208,7 @@ class ImageCoordsWidget(QDialog):
 
         config = self._get_config_for_dataset(self._dataset)
         dialog = GeoCoordsDialog(self._dataset, config, parent=self)
-        dataset_has_geo_srs = self._dataset is not None and self._dataset.get_spatial_ref() is not None
-        if not dataset_has_geo_srs:
+        if not is_dataset_georeferenced(self._dataset):
             dialog._ui.tabWidget.setTabVisible(0, False)
             dialog._ui.tabWidget.setTabVisible(1, False)
         dialog.config_changed.connect(self._on_display_config_changed)

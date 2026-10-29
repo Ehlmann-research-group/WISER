@@ -202,7 +202,7 @@ dialog will be disabled.
 ## Grid View and Image Linking
 
 WISER allows simultaneous viewing of multiple images in the main window through
-the grid view, and images of the same size can be linked. Any grid dimensions
+the grid view, and the images can be linked. Any grid dimensions
 can be input. Click the grid icon to split or unsplit the main view.
 
 :::{figure} ../_static/images/grid_options.png
@@ -221,5 +221,9 @@ toolbar.
 :alt: WISER grid view showing multiple images side by side
 :::
 
-Images in the grid can only be linked if all images open in WISER have the same
+Images in the grid can be linked when every pair of displayed images can be
+linked. Two georeferenced images (each with a geotransform and a spatial
+reference system) are linked by geographic location, so they must overlap on
+the ground and have spatial reference systems that can be transformed between.
+Otherwise, two images are linked pixel for pixel, which requires the same
 spatial dimensions.
