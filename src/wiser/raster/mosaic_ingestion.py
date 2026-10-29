@@ -90,9 +90,11 @@ def is_dataset_georeferenced(dataset: "RasterDataSet") -> bool:
     geotransform **and** a non-empty spatial reference.
 
     This is the single definition of "georeferenced" shared by the strict
-    :func:`validate_scene` gate and the mosaic's live/pending classification (the
-    "pending scene" feature). A dataset that fails this cannot be materialized onto the
-    common grid and is carried as a pending placeholder until it is georeferenced.
+    :func:`validate_scene` gate, the mosaic's live/pending classification (the
+    "pending scene" feature), the status-bar and go-to-coordinate geographic display,
+    and view linking. A dataset that fails this cannot be materialized onto the
+    common grid and is carried as a pending placeholder until it is georeferenced;
+    its pixel indices are never shown or used as geographic coordinates.
     Note ``get_geo_transform()`` never returns ``None`` (it returns the identity
     transform for ungeoreferenced data), so the geotransform check is identity-based.
     """

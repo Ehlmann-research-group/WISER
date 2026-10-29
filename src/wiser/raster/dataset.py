@@ -35,6 +35,7 @@ from .utils import (
     build_band_info_from_wavelengths,
     srs_from_wkt,
 )
+from .mosaic_ingestion import is_dataset_georeferenced
 
 if TYPE_CHECKING:
     from wiser.raster.loader import RasterDataLoader
@@ -1464,13 +1465,17 @@ class RasterDataSet(Serializable):
                 The dataset that we want to determine our dataset's link state with
 
         Returns:
-            GeographicLinkState: 0 is no link, 1 is pixel link, 2 is spatial link
+            GeographicLinkState: If both datasets are georeferenced (see
+            ``is_dataset_georeferenced``), ``SPATIAL`` when a transformation
+            exists between their spatial references and their footprints
+            overlap, else ``NO_LINK``.  If either is not georeferenced,
+            ``PIXEL`` when they have the same width and height, else
+            ``NO_LINK``.
         """
-        ds0_dim = (self.get_width(), self.get_height())
-        ds_dim = (dataset.get_width(), dataset.get_height())
-
-        if ds_dim == ds0_dim:
-            return GeographicLinkState.PIXEL
+        if not (is_dataset_georeferenced(self) and is_dataset_georeferenced(dataset)):
+            ds0_dim = (self.get_width(), self.get_height())
+            ds_dim = (dataset.get_width(), dataset.get_height())
+            return GeographicLinkState.PIXEL if ds_dim == ds0_dim else GeographicLinkState.NO_LINK
 
         ds0_srs = self.get_spatial_ref()
         ds_srs = dataset.get_spatial_ref()
