@@ -10,6 +10,12 @@ infrared (SWIR) subset
 are dropped. Reference spectra from
 `src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr`.
 
+**Reference:** {doc}`Spectral Angle Mapper
+<../user-content/data-analysis-tools/spectral-angle-mapper>`, {doc}`Spectral
+Feature Fitting <../user-content/data-analysis-tools/spectral-feature-fitting>`,
+{doc}`Mixture-Tuned Matched Filter <../user-content/data-analysis-tools/mtmf>`,
+{doc}`Linear Unmixing <../user-content/data-analysis-tools/linear-unmixing>`.
+
 ---
 
 ## Four tools, four questions
@@ -50,7 +56,7 @@ $$\theta = \arccos\!\left(\frac{\mathbf{p}\cdot\mathbf{r}}{\lVert\mathbf{p}\rVer
 Because an angle depends only on direction, SAM ignores brightness. A
 sunlit and a shadowed patch of the same mineral give the same small angle,
 which is why it is the usual choice for scenes with topography or uneven
-illumination. Smaller angle, better match.
+illumination. A smaller angle means a better match.
 
 From the **Main Menu**, go to **Tools**, then **Data Analysis**, then select
 **Spectral Angle Mapper**. The dialog opens on its **Settings** tab.
@@ -62,24 +68,23 @@ From the **Main Menu**, go to **Tools**, then **Data Analysis**, then select
 :::
 
 1. Set **Select Target Type:** to **Image Cube**, then pick your dataset from
-   **Select Target:** beside it. Choosing **Spectrum** instead compares a single
-   spectrum against the references and returns a ranked table, which is a fast
-   way to identify a spectrum you just collected.
-2. **Min Wavelength (nm):**, **Max Wavelength (nm):** and **Units:** restrict
-   the comparison to part of the spectrum. Leaving the two wavelengths at `0.0`
+   **Select Target:** beside it.
+2. Leave **Min Wavelength (nm):** and **Max Wavelength (nm):** at `0.0`. That
    uses the full overlap, which on this 15-band cube is the whole 1308–1454 nm
    range. On a full-range cube this setting is the difference between comparing
    one absorption and comparing everything at once.
-3. Under **Reference Library Selection**, the USGS library you loaded in Step 1
-   is already listed. Tick it. **Add Library** brings in another library file
-   and **Add Spectrum** adds a single spectrum from a text file. Ticking a
-   library populates **Reference Spectra Selection** below, where you can choose
-   individual minerals rather than all of them.
-4. **Initial Threshold (°):** is the detection threshold, default 5°. Each
-   reference also carries its own threshold in the list, so you can be strict
-   about one mineral and loose about another.
-5. Click **Run SAM**. The **Run History** tab collects your runs; **Clear Runs**
-   empties it and **Save and Close** keeps the results and closes the dialog.
+3. Under **Reference Library Selection**, tick the USGS library you loaded in
+   Step 1.
+4. Leave **Initial Threshold (°):** at its default of 5°.
+5. Click **Run SAM**.
+
+Choosing **Spectrum** instead of **Image Cube** in the first step compares a
+single spectrum against the references and returns a ranked table, which is a
+fast way to identify a spectrum you just collected. Adding references from
+other files, choosing individual minerals, and setting a separate threshold per
+reference are covered in
+{doc}`Spectral Angle Mapper
+<../user-content/data-analysis-tools/spectral-angle-mapper>`.
 
 Two datasets come back, one band per reference:
 
@@ -91,10 +96,9 @@ in the **Band chooser**, and set a stretch before trusting the classification.
 
 ```{admonition} Interpretation
 :class: note
-The threshold is a decision you are making, and the angle image is what shows
-you the decision you are making. A classification map only tells you which side
-of 5° each pixel fell on; the angle image tells you whether a pixel was just
-over the line or nowhere near it.
+You choose the threshold, and the angle image shows you what that choice does. A
+classification map only tells you which side of 5° each pixel fell on; the angle
+image tells you whether a pixel was just over the line or nowhere near it.
 
 Every reference is interpolated onto the target's wavelength grid before the
 comparison, so a library resampled to a different sensor still works.
@@ -107,10 +111,10 @@ comparison, so a library resampled to a different sensor still works.
 SFF asks a narrower question: forget the overall spectrum, do the absorption
 features line up?
 
-It continuum-removes both spectra — dividing out the smooth upper envelope so
-only the dips remain — inverts the result so absorptions become peaks, then
-finds the single **scale factor** that best matches their depths by least
-squares.
+It continuum-removes both spectra, dividing out the smooth upper envelope so
+only the dips remain. It then inverts the result so absorptions become peaks,
+and finds by least squares the single **scale factor** that best matches their
+depths.
 
 :::{figure} ../_static/tutorials/t7_sff_dialog.png
 :width: 90%
@@ -118,7 +122,11 @@ squares.
 :alt: The Spectral Feature Fitting dialog
 :::
 
-The inputs mirror SAM's, with one difference:
+Open it from the same **Tools ▸ Data Analysis** menu. The inputs mirror SAM's
+and are listed in
+{doc}`Spectral Feature Fitting
+<../user-content/data-analysis-tools/spectral-feature-fitting>`,
+with one difference:
 
 ```{note}
 **Set the wavelength range to bracket the feature you care about.** SFF over a
@@ -137,15 +145,15 @@ Three outputs, one band per reference:
 - **`SFF SCALE`** — fitted feature depth, loosely an abundance indicator
 - **`SFF CLS`** — boolean `RMSE < threshold` (default 0.03)
 
-Read RMSE and SCALE together. A low RMSE with a near-zero scale means "the
-feature is absent, and its absence fits well" — a good fit to nothing.
+Read RMSE and SCALE together. A low RMSE with a near-zero scale is a good fit to
+a feature that is not there.
 
 ---
 
 ## Step 4 — Mixture-Tuned Matched Filter
 
 MTMF is for the case where you know your target but nothing about the
-background — the usual situation in target detection.
+background, the usual situation in target detection.
 
 :::{figure} ../_static/tutorials/t7_mtmf_dialog.png
 :width: 55%
@@ -153,20 +161,20 @@ background — the usual situation in target detection.
 :alt: The MTMF dialog showing input cube, noise method and target
 :::
 
-1. **Select Image Cube** — the dataset to search.
-2. **Noise method**:
-   - **Image Cube Based** — shift difference within the scene; pick a
-     direction (Down/Up/Left/Right)
-   - **Dark Image Based** — a separate dark/noise dataset with the same bands
-   - **ROI Based** — an ROI over a region you consider background, plus the
-     dataset it comes from
-3. **Target** — the reference spectrum to detect.
+1. **Select Image Cube**: the dataset to search.
+2. **Noise method**: leave it on **Image Cube Based**, which estimates noise
+   from the scene itself by shift difference.
+3. **Target**: the reference spectrum to detect.
 4. Click **OK**.
+
+If you have a dark frame, or a region you know is background, the other two
+noise methods use it instead. They are described in
+{doc}`Mixture-Tuned Matched Filter <../user-content/data-analysis-tools/mtmf>`.
 
 Internally MTMF runs a full MNF ({doc}`Tutorial 6 <06-pca-mnf>`) so the noise
 is white, projects the target into that space, and computes a matched-filter
 score per pixel: near 0 for background, near 1 for a pure target pixel. It also
-computes each pixel's **infeasibility** — how far its spectrum is from any
+computes each pixel's **infeasibility**: how far its spectrum is from any
 physically plausible mixture of background and target.
 
 ```{note}
@@ -195,12 +203,12 @@ spectra and solves for the weights.
 :alt: The Linear Unmixing dialog with endmember list and Sum to Unity
 :::
 
-1. **Input Dataset** — the cube.
-2. Build the **Endmembers** list (at least two): **Add Collected Spectrum** for
-   signatures measured in-app, **Import Spectrum** for a text file.
-3. Optionally tick **Sum to Unity** and set its weight. This softly forces each
-   pixel's abundances to add to 1 — right when you believe your endmembers
-   cover everything in the scene, wrong when they do not.
+1. **Input Dataset**: the cube.
+2. Build the **Endmembers** list (at least two) with **Add Collected
+   Spectrum**, from signatures you collected in the Spectrum Plot.
+3. Optionally tick **Sum to Unity**. This softly forces each pixel's
+   abundances to add to 1, which is right when you believe your endmembers
+   cover everything in the scene and wrong when they do not.
 4. Click **OK**.
 
 The result carries one abundance band per endmember, in the order listed, plus
@@ -213,8 +221,9 @@ a material is present that you did not include. Abundances in high-RMSE areas
 are not meaningful.
 ```
 
-Endmembers must share the input's wavelength grid, and a band flagged bad in
-*either* the dataset or an endmember is excluded from the fit.
+Importing endmembers from a file, the **Sum to Unity** weight, and how bad
+bands are handled are described in
+{doc}`Linear Unmixing <../user-content/data-analysis-tools/linear-unmixing>`.
 
 ---
 
@@ -234,7 +243,7 @@ Endmembers must share the input's wavelength grid, and a band flagged bad in
 
 None of these tools proves a material is present. They rank pixels by how well
 they match a hypothesis you supplied. Confirmation comes from the spectrum
-itself — go back to the Spectrum Plot, look at the pixels a tool flagged, and
+itself. Go back to the Spectrum Plot, look at the pixels a tool flagged, and
 check that the absorptions you expect are actually there.
 
 ---
@@ -244,7 +253,7 @@ check that the absorptions you expect are actually there.
 - Run all four matching and unmixing tools
 - Pick the one that suits what you know going in
 - Set a wavelength window around a diagnostic feature
-- Read the diagnostic outputs — angle, RMSE, infeasibility — rather than only
+- Read the diagnostic outputs (angle, RMSE, infeasibility) rather than only
   the classification
 
 ---

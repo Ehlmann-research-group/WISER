@@ -2,14 +2,14 @@
 
 PCA reduces a hyperspectral cube to a smaller set of bands ordered by
 **variance**: the first principal component captures the most variation in the
-data, the second the next most, and so on. Bands deemed *bad* are dropped
+data, the second the next most, and so on. Bands flagged *bad* are dropped
 before the fit, so only good bands contribute.
 
 ## How it works
 
 The covariance matrix of the (good-band) spectra is eigendecomposed. Each
-eigenvector is a *principal component* — a direction in spectral space — and
-its eigenvalue is the variance the data has along that direction. The cube is
+eigenvector is a *principal component*, a direction in spectral space, and its
+eigenvalue is the variance the data has along that direction. The cube is
 projected onto the top *N* eigenvectors (largest eigenvalues), producing a new
 dataset with *N* PCA bands ordered from most to least variance.
 

@@ -3,21 +3,21 @@
 WISER reads several raster formats natively and can fall back to any format GDAL
 supports. Most of the time you can pick a file and WISER works out the rest.
 
-This page covers the cases where it is worth being deliberate — because **the
-file type you choose in the Open dialog matters**, and so does *which* file you
+This page covers the cases where you need to choose with care: **the file type
+you choose in the Open dialog matters**, and so does *which* file you
 pick when a dataset is spread across more than one.
 
 ---
 
 ## The file type you choose matters
 
-The **file type** dropdown at the bottom of the Open dialog is not only a way of
-hiding files you are not interested in. It also tells WISER **what the file is**.
+The **file type** dropdown at the bottom of the Open dialog hides files you are
+not interested in, and it also tells WISER **what the file is**.
 
 - Leaving it on **All supported files** asks WISER to work the format out for
   itself. This is the right choice almost always.
-- Choosing a **specific type** — "ENVI raster files", "NetCDF raster files",
-  "PDS3 raster files", and so on — tells WISER to open the file *as that format*
+- Choosing a **specific type**, such as "ENVI raster files", "NetCDF raster
+  files" or "PDS3 raster files", tells WISER to open the file *as that format*
   and nothing else.
 
 ### Why this matters
@@ -27,13 +27,12 @@ raster or a PDS3 product; an `.xml` file might be a PDS4 label or something else
 entirely. WISER inspects the contents rather than trusting the extension, and it
 is right the overwhelming majority of the time.
 
-But when a file is genuinely ambiguous — or when it is unusual enough that
-automatic detection picks a format that reads it, just not the way you want —
-picking the type explicitly settles it.
+When a file is ambiguous, or when automatic detection picks a format that reads
+it but not the way you want, picking the type explicitly settles it.
 
 ```{tip}
-If a file opens but the data looks wrong — wrong number of bands, missing
-wavelengths, unexpected scaling — try opening it again with the file type set
+If a file opens but the data looks wrong (wrong number of bands, missing
+wavelengths, unexpected scaling) try opening it again with the file type set
 explicitly. Automatic detection may have chosen a format that *can* read the
 file but does not understand all of its metadata.
 ```
@@ -71,7 +70,7 @@ WISER cannot open the header on its own.
 ```{note}
 If you have an ENVI header whose data file is missing or has been renamed to
 something unexpected, WISER reports which filenames it looked for. Renaming the
-data file to match the header — same name, one of the extensions above — is
+data file to match the header (same name, one of the extensions above) is
 usually enough to fix it.
 ```
 
@@ -107,8 +106,8 @@ PDS4 products use an `.xml` label — select that.
 If your file is not in this list, try **Try luck with GDAL** in the file-type
 dropdown. GDAL supports a great many formats beyond those WISER handles
 specially, and this option asks it to open the file with whatever driver fits.
-Data loaded this way may carry less metadata — wavelengths and band names in
-particular — than a natively supported format.
+Data loaded this way may carry less metadata than a natively supported format,
+wavelengths and band names in particular.
 
 ---
 

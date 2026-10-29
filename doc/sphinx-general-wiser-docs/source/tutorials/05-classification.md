@@ -5,6 +5,10 @@ then let K-means partition the scene without being told what to look for.
 
 **Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
 
+**Reference:** {doc}`Interactive Scatter Plot
+<../user-content/data-analysis-tools/interactive-scatter-plot>`, {doc}`K-Means
+Clustering <../user-content/data-analysis-tools/kmeans>`.
+
 ---
 
 ## Part A — Feature space
@@ -42,7 +46,7 @@ Every pixel is one point, colored by how many pixels share that spot (the
 default is a **density** plot; **To Scatter** switches to plain dots, easier to
 read where the population is sparse).
 
-The shape is textbook:
+The cloud has two parts:
 
 - **The diagonal ridge** from the origin to the upper right is the **soil
   line** — surfaces whose 702 nm and 852 nm reflectances rise together. Roofs,
@@ -60,6 +64,11 @@ The polygon selector is always live.
    **double-click** or **Enter**.
 2. The selected points are outlined, the **N pts** counter updates, and the
    matching pixels are marked on the **Render Onto** image.
+
+The plot's other controls (colormap, axis limits, highlight color) are
+described in
+{doc}`Interactive Scatter Plot
+<../user-content/data-analysis-tools/interactive-scatter-plot>`.
 
 :::{figure} ../_static/tutorials/t8_scatter_selection.png
 :width: 70%
@@ -103,9 +112,8 @@ into **K** clusters, iterating until the centers stop moving.
    :alt: The K-means dialog with five clusters requested
    :::
 
-4. Expand **Advanced Options**. It holds **Initialization Method**, **Number of
-   Initializations**, **Max Iterations**, **Convergence Tolerance**, **Random
-   Seed** and **Algorithm**. Set **Random Seed** to `42` and leave the rest.
+4. Expand **Advanced Options**, set **Random Seed** to `42`, and leave the
+   other options at their defaults.
 
    :::{figure} ../_static/tutorials/t5_kmeans_advanced.png
    :width: 45%
@@ -113,9 +121,9 @@ into **K** clusters, iterating until the centers stop moving.
    :alt: K-means advanced options: init method, iterations, tolerance, seed, algorithm
    :::
 
-   The seed matters more than it looks. K-means starts from randomly chosen
-   centers, so two unseeded runs on identical data give different — and
-   differently *numbered* — clusters. Fix the seed and your figure is
+   K-means starts from randomly chosen centers, so two unseeded runs on
+   identical data give different clusters, numbered differently. Fix the seed
+   and your figure is
    reproducible.
 
 5. Click **OK**. The run proceeds in the background, so WISER stays usable. To
@@ -145,10 +153,10 @@ amounts, so a continuous colormap would imply that cluster 3 sits between 2 and
 ```{admonition} Interpretation
 :class: note
 The clusters recover the scene's structure without being told what to look for:
-bright roofs, darker roofs, road and parking surfaces, canopy, and shadow. Note
-that shadow comes out as its own cluster rather than being grouped with the
-surface that is shadowed, because K-means is working on brightness and color
-together, and a shadowed roof is much darker than a sunlit one.
+bright roofs, darker roofs, road and parking surfaces, canopy, and shadow.
+Shadow comes out as its own cluster rather than being grouped with the surface
+that is shadowed, because K-means is working on brightness and color together,
+and a shadowed roof is much darker than a sunlit one.
 ```
 
 ```{note}
@@ -158,7 +166,7 @@ unsupervised: it finds groups, it does not name them. Cluster 3 is not
 ```
 
 To check, reopen the **K-means Dialog** and click **View Centroids**. That does
-not plot anything by itself — it opens **K-Means — Past Runs**, a table of every
+not plot anything by itself. It opens **K-Means — Past Runs**, a table of every
 run in the session with its `k`, initialization method and seed. Click **View**
 on the row for your run, and the mean spectrum of each cluster is plotted
 together in a new window.
@@ -171,9 +179,9 @@ together in a new window.
 
 ```{admonition} Interpretation
 :class: note
-Five clusters, five mean spectra. Four of them rise gently and stay roughly
-parallel, separated mostly by overall brightness — those are the roof, road and
-pavement classes, which differ in how much they reflect more than in shape.
+Four of the five mean spectra rise gently and stay roughly parallel, separated
+mostly by overall brightness. Those are the roof, road and pavement classes,
+which differ in how much they reflect more than in shape.
 
 The fifth is the one to look at. It starts lowest of all and then climbs steeply
 across the last interval, crossing two of the others. That is the red edge from
@@ -195,22 +203,16 @@ There is no correct K. Ways to decide:
   {doc}`PCA or MNF <06-pca-mnf>` and cluster the leading components: faster,
   and far less prone to chasing noise.
 
-That last point is not a detail. Run K-means on a raw full-size 425-band cube
-and the result is visibly speckled — the method
-partitions *total* variance, and on a high-resolution scene most of that is
+Run K-means on a raw full-size 425-band cube and the result is visibly speckled,
+because the method partitions *total* variance, and on a high-resolution scene
+most of that is
 within-surface variation rather than between-material difference.
 
-The other Advanced Options:
-
-| Option | Effect |
-|---|---|
-| **Initialization** | `k-means++` (default), `random`, or `manual` — pick your own starting spectra, which turns K-means into a semi-supervised classifier |
-| **Number of Initializations** | Re-runs from different starts, keeps the best; raise when results look unstable |
-| **Max Iterations / Convergence Tolerance** | Stopping rules |
-| **Algorithm** | `lloyd` (classic) or `elkan` (faster on well-separated clusters, more memory) |
-
-Bad bands are excluded from the distance computation, and nodata pixels are
-labeled −1.
+One Advanced Option changes what K-means is: **Initialization Method** set to
+`manual` lets you pick the starting spectra, for example ROI means from
+{doc}`Tutorial 3 <03-regions-of-interest>`, which turns it into a
+semi-supervised classifier. The remaining options are described in
+{doc}`K-Means Clustering <../user-content/data-analysis-tools/kmeans>`.
 
 ---
 

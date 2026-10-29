@@ -2,8 +2,9 @@
 
 ## Georeferencer
 
-The Georeferencer tool lets you assign or correct the spatial reference system
-(CRS) of a raster dataset and apply geometric transformations to align it with
+The Georeferencer tool lets you assign or correct the coordinate reference
+system (CRS) of a raster dataset and apply geometric transformations to align it
+with
 real-world coordinates.
 
 ## Reference System Information
@@ -71,12 +72,12 @@ Example: `EPSG:4326`
 
 An authority identifier consists of an authority name and an authority code.
 An authority name specifies the organization that maintains a catalog of
-coordinate reference systems. An authority code is used to access a specific
-spatial reference system in that organization. Together, you are able to easily
-access the parameters that describe a coordinate reference system without having
-to specify the full WKT string or full PROJJSON schema.
+coordinate reference systems. An authority code picks out one coordinate
+reference system in that catalog. Together, the name and code give you the
+parameters of a coordinate reference system without writing out the full WKT
+string or PROJJSON schema.
 
-The Georeferencer tool in WISER allows you to specify a coordinate reference
+The Georeferencer tool in WISER lets you specify a coordinate reference
 system by the authority name and authority code.
 
 :::{figure} ../_static/images/georef_authority_code_entry.png
@@ -84,11 +85,10 @@ system by the authority name and authority code.
 :alt: Georeferencer authority code entry dialog
 :::
 
-If you do not know your authority name or authority code but you do have the WKT
-string or PROJJSON schema, then you will likely be able to find your authority
-name and code combo. The example below guides you through this process.
+If you have the WKT string or PROJJSON schema but not the authority name and
+code, you can usually look them up.
 
-Say you have this WKT string (found in your `.hdr` file):
+For example, say you have this WKT string (found in your `.hdr` file):
 
 ```
 coordinate system string = {PROJCS["UTM_Zone_11N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-117.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]}
@@ -149,7 +149,7 @@ Finally, enter the authority name and code (e.g. `EPSG:32611`) into WISER.
 
 ## Reference System Creator
 
-Some datasets — planetary imagery in particular — use a coordinate reference
+Some datasets, planetary imagery in particular, use a coordinate reference
 system with no EPSG code, because no authority has cataloged it. The
 **Reference System Creator** (**Tools ▸ Reference System Creator**) builds one,
 and it stays available to the Georeferencer, the Mosaic tool and the dataset
@@ -205,27 +205,26 @@ How definitions are validated and stored:
 
 ## Similarity Transform
 
-The similarity transform tool allows you to do two things: rotate/scale an
+The similarity transform tool does two things: rotate/scale an
 image and translate an image's coordinate system.
 
 ### Translating Coordinate System
 
-This section refers to the tool with the title 'Translate Coordinate Sys' in
-the Similarity Transform Dialog window.
+This section covers the **Translate Coordinate Sys** tool in the Similarity
+Transform dialog.
 
-The way we translate the coordinate system is by changing the upper-left
-coordinates of the geotransform. If you do not know what a geotransform is,
-[this link](https://gdal.org/en/stable/tutorials/geotransforms_tut.html) is a
-useful reference. From this link, you will see that we change GT(0) and GT(3).
-This translates the geotransform for your coordinate system.
+The tool translates the coordinate system by changing the upper-left coordinates
+of the geotransform, GT(0) and GT(3). GDAL's [geotransform
+tutorial](https://gdal.org/en/stable/tutorials/geotransforms_tut.html) explains
+what a geotransform is.
 
 GT(0) corresponds to Lon/East and GT(3) corresponds to Lat/North. When the
 'Translate Lat/North' and 'Translate Lon/East' fields are 0, the 'New Upper
 Left Pixel Lat/North' field will equal GT(3) and the 'New Upper Left Pixel
 Lon/East' field will equal GT(0). By entering values into the 'Translate
 Lat/North' and 'Translate Lon/East' editable fields, you will change the new
-upper left coordinate of your geo transform.
+upper left coordinate of your geotransform.
 
-You can click on any pixel in the raster dataset and see the new spatial
-coordinate it will have. This information is under the raster image. Note that
-this feature only works with datasets that have geographic information.
+Click any pixel in the raster dataset to see the new spatial coordinate it will
+have, shown under the raster image. This works only with datasets that have
+geographic information.

@@ -5,6 +5,9 @@ read the result as a canopy map.
 
 **Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
 
+**Reference:** {doc}`Band Math <../user-content/band-math>`, {doc}`Display and
+Contrast Stretch <../user-content/display-and-stretch>`.
+
 ---
 
 ## The idea
@@ -22,16 +25,16 @@ and pavement near zero, water below zero.
 ```{admonition} A note on which "red" you have
 :class: note
 
-Textbook NDVI uses a red band near **670 nm**, at the bottom of the chlorophyll
+Standard NDVI uses a red band near **670 nm**, at the bottom of the chlorophyll
 absorption. The reddest band in this cube is **702 nm**, on the shoulder of the
-red edge where a leaf is already brightening. Substituting it gives a
-**red-edge NDVI**: absolute values come out lower than a 670 nm NDVI would, and
-it saturates differently over dense canopy. It separates vegetation from
-everything else just as cleanly, which is what you want here — but do not
-compare these numbers against published 670 nm NDVI values.
+red edge where a leaf is already brightening. Substituting it gives a **red-edge
+NDVI**: absolute values come out lower than a 670 nm NDVI would, and it
+saturates differently over dense canopy. It separates vegetation from everything
+else just as cleanly, which is what you want here. Do not compare these numbers
+against published 670 nm NDVI values, though.
 
-Choosing bands by what they physically measure, not by what an index is
-conventionally called, is the whole job.
+Choose bands by what they physically measure, not by what an index is
+conventionally called.
 ```
 
 ---
@@ -74,7 +77,7 @@ Assignments** (which dataset and band).
 :alt: The band math dialog with the NDVI expression and both variables bound
 :::
 
-Two things on this screen are worth pausing over:
+Note two things on this screen:
 
 - To the right of the **Expression:** box, WISER reports the **result type and
   size** — `Result: Image Band, 150x150 (87.9KB)`. Band math is not streamed for
@@ -89,7 +92,8 @@ Two things on this screen are worth pausing over:
 
 ## Step 3 — Display it meaningfully
 
-A vegetation index in grayscale wastes the fact that it has a meaningful zero.
+A vegetation index has a meaningful zero, and a grayscale display does not show
+it.
 
 1. Use the **Select dataset to view** dropdown on the Main Toolbar to switch the
    main window to the new **NDVI** dataset. It is drawn in grayscale, and the
@@ -162,7 +166,7 @@ Open **Tools ▸ Band math...** again, type the expression, and bind `ndvi` as a
 return 1 where the test passes and 0 where it fails, so the result is a binary
 canopy mask you can count, export, or use to restrict another analysis.
 
-Pick the threshold from your own data rather than from a paper — collect an ROI
+Pick the threshold from your own data rather than from a paper: collect an ROI
 over known canopy and another over known pavement
 ({doc}`Tutorial 3 <03-regions-of-interest>`), look at where their NDVI values
 separate, and cut there.

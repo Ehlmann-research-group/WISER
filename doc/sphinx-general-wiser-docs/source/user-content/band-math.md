@@ -27,7 +27,7 @@ For a worked example see
 4. Give the output a **Result name**.
 5. Click **OK**.
 
-Above the table, WISER reports the **result type and size** — for example
+Above the table, WISER reports the **result type and size**, for example
 `Result: Image Band, 150x150 (87.9KB)`. Read it before running anything large.
 
 **Toggle Help** opens a reference panel listing every operator, beside the
@@ -68,14 +68,15 @@ sin  cos  tan  arcsin  arccos  arctan  arctan2  dotprod
 
 ```{admonition} That is the complete list
 :class: warning
-There is **no** built-in `sqrt`, `log`, `exp`, `abs`, `min` or `max`. Use
-`** 0.5` for a square root. For anything else, write a
-{doc}`band-math plugin <../extending-wiser/bandmath_plugins>` — a plugin
-registers new functions in this dialog without rebuilding WISER, and is the
-supported way to extend the language.
+There is **no** built-in `sqrt`, `log`, `exp`, `abs`, `min` or `max`. Use `**
+0.5` for a square root. For anything else, write a {doc}`band-math plugin
+<../extending-wiser/bandmath_plugins>`. A plugin registers new functions in this
+dialog without rebuilding WISER, and is the supported way to extend the
+language.
 ```
 
-`dotprod` takes the dot product of two operands — useful for projecting a cube
+`dotprod` takes the dot product of two operands, which is useful for projecting
+a cube
 onto a spectrum.
 
 ## Variables
@@ -94,7 +95,7 @@ Each variable binds to one of:
 
 Numeric literals may be used directly and need no binding.
 
-Types combine as you would expect — a cube times a number is a cube; a cube
+Types combine as you would expect: a cube times a number is a cube; a cube
 divided by a spectrum divides every pixel's spectrum band-by-band. WISER checks
 compatibility when it parses and tells you before running if shapes do not
 match.
@@ -117,15 +118,15 @@ Saved expressions are also stored in a {doc}`project <projects>`.
 Tick **Enable Batch Processing** to apply one expression to **every raster in a
 folder**.
 
-1. Set an **input folder**. Variables can then be bound to *batch* types —
-   `Image Cube Batch` or `Image Band Batch` — which resolve against each file
+1. Set an **input folder**. Variables can then be bound to *batch* types (`Image
+   Cube Batch` or `Image Band Batch`), which resolve against each file
    in turn.
 2. For a batch band variable, pick the band by **index** or by **wavelength**
    with a tolerance. Choose wavelength when the files come from different
    sensors or have different band counts.
 3. Set an **output folder** and a **result suffix**.
-4. Choose whether results are **loaded into WISER** as well as written to disk
-   — for a large batch you usually do not want a hundred datasets open.
+4. Choose whether results are **loaded into WISER** as well as written to disk.
+   For a large batch you usually do not want a hundred datasets open.
 5. **Create batch job**, then start it. Jobs run with progress bars and can be
    canceled; per-file errors are collected and shown by **View errors**.
 

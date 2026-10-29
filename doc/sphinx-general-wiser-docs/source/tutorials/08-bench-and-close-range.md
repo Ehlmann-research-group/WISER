@@ -8,6 +8,10 @@ already had done to it.
 pixel, 4-band close-range scene of a printed circuit board at 0.525, 0.635,
 0.740 and 1.200 µm. Note the units: micrometers, not nanometers.
 
+**Reference:** {doc}`Opening Data Files <../user-content/opening-data-files>`,
+{doc}`Spectra and Spectral Libraries <../user-content/spectra-and-libraries>`,
+{doc}`Filters and Smoothing <../user-content/filters>`.
+
 ---
 
 ## A cube is a cube
@@ -75,7 +79,7 @@ a mixture of both sides.
 :alt: Three spectra from the circuit board, well separated in brightness, with the component body nearly flat and the substrate falling steeply into the near infrared
 :::
 
-Three surfaces, three curves. The component body is dark and almost flat. The
+The component body is dark and almost flat. The
 board substrate falls steadily across the range. The bright pad is highest
 everywhere and turns over slightly, peaking at 0.635 µm rather than at the
 shortest band.
@@ -99,8 +103,8 @@ brightness, is what a classifier should key on.
 ## What four bands cannot do
 
 Be honest about the limits of this scene before drawing conclusions from it.
-The four bands are strongly correlated — the three visible ones at 0.986 to
-0.995 — and a principal-component transform puts **97% of the variance in the
+The four bands are strongly correlated (the three visible ones at 0.986 to
+0.995), and a principal-component transform puts **97% of the variance in the
 first component**, with all four loadings the same sign. A first component like
 that is brightness. Run K-means on this cube and the clusters come back sorted
 by brightness, which is what a threshold on a single band would have given you.
@@ -139,15 +143,15 @@ brightness, over methods that depend on absolute level.
 
 **Save your own library.** Image known reference materials, collect their
 spectra, and export them as an ENVI spectral library. Then SAM and SFF work
-against *your* materials under *your* optics, which beats any published library
-for the specific question you are asking.
+against *your* materials under *your* optics, which is often better than a
+published library for the specific question you are asking.
 
 **Smooth before differentiating.** Bench spectra of dark materials are noisy.
 Right-click the image and choose **Filters ▸ Savitzky-Golay Filter...**. The
 dialog asks for a **Window Length (odd)** and a **Polynomial Order**. It smooths
 along the spectral axis while preserving band shape and depth better than a
 moving average does. The same menu offers **Mean**, **Median** and **Gaussian
-Smoothing Filter...**, which smooth spatially instead — see
+Smoothing Filter...**, which can smooth spatially or spectrally. See
 {doc}`Filters <../user-content/filters>`.
 
 ---

@@ -5,9 +5,9 @@ The reference for WISER's interface: every pane, dialog and option, and what
 each one is for.
 
 If you are new to WISER, start with the :doc:`Tutorials <../tutorials/index>`
-instead — they walk through the same tools in the order you would actually use
-them, on data that ships with the source. Come back here for the detail on a
-particular control.
+instead. They walk through the same tools in the order you would use them, on
+data that ships with the source. Come back here for the detail on a particular
+control.
 
 Getting around
 --------------

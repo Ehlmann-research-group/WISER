@@ -1,6 +1,6 @@
 # Display and Contrast Stretch
 
-This page covers everything that decides **what you see** — which bands are
+This page covers everything that decides **what you see**: which bands are
 drawn, and how their values are mapped to color. None of it changes the
 underlying data: spectra, band math and every analysis tool read the raw
 values, never the stretched display values.
@@ -29,7 +29,7 @@ Two shortcuts fill the bands in for you:
   wavelengths configured in WISER's preferences. Disabled when the dataset has
   no wavelength information, or none in the visible range.
 
-**Apply to all views** propagates your choice to every pane and panel showing
+**Apply to all views** applies your choice to every pane and panel showing
 that dataset; untick it to change one panel only.
 
 ### Colormaps
@@ -75,7 +75,8 @@ color-vision deficiency. Use a perceptually uniform sequential map such as
 :::
 
 The **grid** button splits the main window into a grid of any dimensions, so
-you can view several datasets at once — a result next to its input, or several
+you can view several datasets at once, such as a result next to its input, or
+several
 band combinations of the same scene.
 
 :::{figure} ../_static/tutorials/t4_ndvi_vs_rgb.png
@@ -93,7 +94,7 @@ height**.
 
 The spectrum plot has its own control, at its top left, for choosing which
 dataset it reads from. Pin it to one dataset and clicking any linked panel
-gives you that dataset's spectrum at the clicked pixel — how you compare an
+gives you that dataset's spectrum at the clicked pixel. This is how you compare an
 original cube against a smoothed or transformed version at the same location.
 
 ---
@@ -116,22 +117,22 @@ discards it.
 
 ### Stretch types
 
-**100% linear stretch** — maps each band's own minimum and maximum to 0 and
+**Full Linear Stretch** — maps each band's own minimum and maximum to 0 and
 255. Usually too flat to be useful, because a single bright outlier compresses
 everything else.
 
-**Linear stretch** — maps a range `[low, high]` you choose to 0–255, clipping
+**Linear Stretch** — maps a range `[low, high]` you choose to 0–255, clipping
 outside it. Set the endpoints with the sliders or by typing values. The **2.5%
 linear** and **5% linear** buttons choose the endpoints for you, excluding that
 percentage of extreme values split evenly between the tails. **A 2.5% linear
 stretch is the right default for almost any scene.**
 
-**Equalize stretch** — histogram equalisation. Redistributes values so the
-output is uniformly dense across the display range, maximising apparent detail
+**Equalize Stretch** — histogram equalization. Redistributes values so the
+output is uniformly dense across the display range, maximizing apparent detail
 everywhere but destroying any linear relationship between brightness and value.
 Good for inspection, wrong for a figure whose grayscale readers will interpret.
 
-**Decorrelation stretch** — available only in **RGB** mode, since it is a
+**Decorrelation Stretch** — available only in **RGB** mode, since it is a
 cross-band transform. It computes the covariance of the three display bands,
 eigendecomposes it, stretches along the principal axes, and rotates back.
 
@@ -139,18 +140,18 @@ eigendecomposes it, stretches along the principal axes, and rotates back.
 :class: note
 Adjacent bands of a hyperspectral cube are highly correlated, so an RGB
 composite of three nearby bands comes out nearly gray no matter how you stretch
-the channels individually — the information is in the small differences between
+the channels individually. The information is in the small differences between
 them, and a per-channel stretch cannot expose it. A decorrelation stretch
 exaggerates exactly those differences and turns a gray image into a strongly
 colored one where color tracks spectral **shape**.
 
-Standard practice for thermal-infrared imagery and for SWIR composites over
+It is standard practice for thermal-infrared imagery and for SWIR composites over
 altered terrain. Treat the colors as qualitative: they are a rotated, rescaled
 coordinate system, not radiance.
 ```
 
-In RGB mode all three channels use the **same stretch type** — you cannot mix a
-linear red channel with an equalised green one. The *parameters* of each
+In RGB mode all three channels use the **same stretch type**: you cannot mix a
+linear red channel with an equalized green one. The *parameters* of each
 channel are independent.
 
 ```{admonition} A known rough edge
@@ -179,15 +180,16 @@ are considered at all.
 
 ```{important}
 Values outside the min/max limits are **filtered out**, not clamped. They are
-excluded from the histogram, which means excluded from the calculation of an
-N% linear stretch and of an equalisation. That is the point of the control: set
-a maximum below your cloud tops and the stretch is computed on the ground
-rather than on the clouds.
+excluded from the histogram, which means excluded from the calculation of an N%
+linear stretch and of an equalization. This is what the control is for: set a
+maximum below your cloud tops and the stretch is computed on the ground rather
+than on the clouds.
 ```
 
-Use it when a dataset has no data-ignore value, or when a computed result has a
-huge theoretical range but a narrow interesting one — an NDVI over a full-size
-flight line, say, where the scene edges drag the minimum far below the real
+Use it when a dataset has no data ignore value, or when a computed result has a
+huge theoretical range but a narrow interesting one. An example is an NDVI over
+a full-size flight line, where the scene edges drag the minimum far below the
+real
 range and flatten the whole scene to one color.
 
 **Link sliders across all channels** and **Apply minimum/maximum values across
@@ -199,7 +201,7 @@ all channels** make the same change to every channel at once.
 
 For each displayed channel, in order:
 
-1. Band data is normalized to floating point in [0.0, 1.0] — 32-bit float
+1. Band data is normalized to floating point in [0.0, 1.0], as 32-bit float
    unless the input is 64-bit. Min/max limits are **not** applied here; they
    only affect the histograms used to configure the stretch.
 2. The **conditioner** is applied: normalized in, normalized out.

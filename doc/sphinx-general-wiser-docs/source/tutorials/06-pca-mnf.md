@@ -6,26 +6,31 @@ Principal Component Analysis (PCA).
 
 **Data:** `caltech_425_7_7_nm.hdr` and `caltech_4_100_150_nm.hdr`.
 
+**Reference:** {doc}`Principal Component Analysis
+<../user-content/data-analysis-tools/pca>`, {doc}`Minimum Noise Fraction
+<../user-content/data-analysis-tools/mnf>`.
+
 ---
 
 ## Why reduce dimensions
 
 A 425-band cube is mostly redundant: neighboring bands measure nearly the same
 thing, so the information lives in far fewer dimensions than the band count
-suggests. Reducing them first makes every later step cheaper and less noisy — classifiers and unmixing models chase sensor noise
+suggests. Reducing them first makes every later step cheaper and less noisy.
+Classifiers and unmixing models chase sensor noise
 when handed 400 correlated channels.
 
-Two transforms, two different orderings:
+The two transforms order their components differently:
 
 | | Orders components by | Use it when |
 |---|---|---|
 | **PCA** | **Variance** | A quick look, display, or feeding a classifier |
 | **MNF** | **Signal-to-noise ratio** | Noise varies between bands — which on a real spectrometer it always does |
 
-The distinction matters. PCA calls a component important if the data spreads
-out along it — and a noisy band spreads out. MNF estimates the noise first,
-rescales so noise is equal in every direction, *then* decomposes. Its leading
-components carry real signal; its trailing components are where the noise went.
+PCA calls a component important if the data spreads out along it, and a noisy
+band spreads out too. MNF estimates the noise first, rescales so noise is equal
+in every direction, and *then* decomposes. Its leading components carry real
+signal, and its trailing components hold the noise.
 
 ---
 
@@ -42,21 +47,16 @@ components carry real signal; its trailing components are where the noise went.
 :alt: The PCA dialog with number of components and estimator matrix
 :::
 
-3. **Number of Components** defaults to the maximum, which is the count of good
-   bands. Leave it there for a first run, since you decide how many to keep
-   *after* seeing the scree plot.
-4. **Estimator Matrix** offers only *Covariance* and is disabled, so there is
-   nothing to set.
-5. Click **OK**. **View Past Results** in the same dialog brings back the
-   output of an earlier run without recomputing it.
+3. Leave **Number of Components** at its default, the maximum. You decide how
+   many to keep *after* seeing the scree plot.
+4. Click **OK**.
 
 WISER drops bad bands, eigendecomposes the covariance matrix of what remains,
 and projects the cube onto the leading eigenvectors. The result is added as
 **`PCA on <source>`**, ordered most to least variance.
 
 ```{note}
-PCA is fast even on a large cube: on a full-size airborne scene of several
-hundred bands it completes in seconds.
+PCA is fast even on a full-size airborne scene of several hundred bands.
 ```
 
 ---
@@ -83,10 +83,10 @@ that look alike in true color.
 ```
 
 ```{note}
-**Principal components have no physical units.** A PCA band is a projection
-onto an eigenvector, so its values are not reflectance and its sign is
-arbitrary — an inverted-looking component is not a bug. Interpret them by what
-they separate, and go back to the original cube whenever you need real spectra.
+**Principal components have no physical units.** A PCA band is a projection onto
+an eigenvector, so its values are not reflectance and its sign is arbitrary, so
+an inverted-looking component is not a bug. Interpret them by what they
+separate, and go back to the original cube whenever you need real spectra.
 ```
 
 ---
@@ -97,13 +97,14 @@ When the run finishes, WISER opens a **scree plot**: eigenvalue against
 component index, on a log scale. It answers "how many components should I
 keep?".
 
-Look for the **elbow** — where the curve flattens. Components before it hold
+Look for the **elbow**, where the curve flattens. Components before it hold
 structure; after it, noise. On a full-size airborne scene the eigenvalues can
 fall four orders of magnitude by component 50, with the elbow around component
 10–15: roughly the first dozen carry the scene.
 
 Click **View Past Results** in the PCA dialog to reopen the scree plot for any
-earlier run without recomputing.
+earlier run without recomputing. The dialog's options are described in
+{doc}`Principal Component Analysis <../user-content/data-analysis-tools/pca>`.
 
 ---
 
@@ -117,28 +118,24 @@ MNF is at **Tools ▸ Data Analysis ▸ Minimum Noise Fraction**.
 :alt: The MNF dialog with dataset and component count
 :::
 
-1. Pick the **Dataset** — the dropdown starts on *(no data)*, so choose it
+1. Pick the **Dataset**. The dropdown starts on *(no data)*, so choose it
    explicitly.
-2. **Num Components** defaults to the maximum for that dataset: the good-band
-   count, capped by the number of noise samples available.
+2. Leave **Num Components** at its default, the maximum for that dataset.
 3. Click **OK**. The result is **`MNF, Img: <source>`**.
 
-How WISER estimates the noise decides whether the result is meaningful:
-
-1. **Shift difference.** Each pixel is subtracted from its neighbor one row
-   below. Adjacent pixels should be nearly the same, so what remains is mostly
-   sensor noise.
-2. **Whitening.** The noise covariance rescales every band so estimated noise
-   has unit variance in all directions.
-3. **Eigendecomposition** of the whitened data covariance.
-4. **Projection** onto the top *N* eigenvectors.
+How WISER estimates the noise decides whether the result is meaningful. It
+uses the **shift difference**: each pixel minus its neighbor one row below.
+Adjacent pixels should be nearly the same, so what remains is mostly sensor
+noise. The full sequence, from noise estimate through whitening to
+projection, is in
+{doc}`Minimum Noise Fraction <../user-content/data-analysis-tools/mnf>`.
 
 ```{note}
 The shift-difference estimate assumes neighboring pixels are similar. It works
-on a scene with smooth spatial structure and misleads on one that is busy at
-the pixel scale — a striped scene, a dense urban scene at meter resolution, or
-an image with strong along-track banding. If MNF results look wrong, check this
-assumption first.
+on a scene with smooth spatial structure and misleads on one that is busy at the
+pixel scale, such as a striped scene, a dense urban scene at meter resolution,
+or an image with strong along-track banding. If MNF results look wrong, check
+this assumption first.
 ```
 
 Use MNF's leading components as the input to K-means, unmixing, or matched

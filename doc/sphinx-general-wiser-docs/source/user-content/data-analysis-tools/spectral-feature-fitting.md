@@ -1,8 +1,8 @@
 # Spectral Feature Fitting (SFF)
 
 SFF measures how well each pixel matches a **reference spectrum** by comparing
-their **absorption features** — the dips a material produces at characteristic
-wavelengths — rather than the overall spectrum.
+their **absorption features**, the dips a material produces at characteristic
+wavelengths, rather than the overall spectrum.
 
 ## How it works
 
@@ -25,7 +25,7 @@ numbers come out per pixel:
 
 Because it keys on absorption shape, SFF works best when you **restrict the
 wavelength range to a known diagnostic feature**. References are interpolated
-onto the target's wavelength grid, bad bands are dropped.
+onto the target's wavelength grid, and bad bands are dropped.
 
 In **Image Cube** mode each run produces three datasets, one band per
 reference spectrum:
@@ -52,8 +52,8 @@ Inputs work the same way as [Spectral Angle Mapper](spectral-angle-mapper.md):
 3. **References** — check one or more reference spectra. Add them via **Add
    Library**, **Add Spectrum** (from a text file), or **Add Collected
    Spectrum**; a default USGS mineral library is preloaded. Each reference has
-   its own threshold (**Initial RMSE**, default 0.03), seeded from the method
-   threshold but individually overridable.
+   its own threshold (**Initial RMSE**, default 0.03), which starts at the
+   method threshold and can be changed for each reference.
 4. Click **Run SFF**. Image-cube runs proceed in the background; spectrum runs
    open a ranked details table with a comparison plot.
 

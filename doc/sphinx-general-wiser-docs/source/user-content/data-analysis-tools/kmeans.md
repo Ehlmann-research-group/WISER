@@ -40,7 +40,7 @@ and plot its centroid spectra.
 Expand **Advanced Options** to control the fit (all optional; sensible defaults
 are used when blank):
 
-- **Initialization Method** — `k-means++` (smart default), `random`, or
+- **Initialization Method** — `k-means++` (the default), `random`, or
   `manual` (pick your own starting spectra; this hides the seed/initializations
   fields since the start is fixed).
 - **Number of Initializations** — how many times to re-run with different
@@ -57,7 +57,7 @@ are used when blank):
 :alt: A five-cluster K-means label image with a categorical colormap
 :::
 
-Cluster indices are arbitrary — cluster 3 is not "vegetation" until you check.
+Cluster indices are arbitrary: cluster 3 is not "vegetation" until you check.
 Use **View Centroids** to plot each cluster's mean spectrum and identify it.
 
 ```{tip}

@@ -46,10 +46,10 @@ Click **Show Advanced** for the rest:
 | **Default display bands** | The RGB or grayscale combination the file recommends when reopened |
 
 ```{tip}
-Spatial and spectral subsetting here is the practical answer to a scene too
-large to work with. Cut a full flight line down to your study area and the
-wavelength range you need, save that, and every subsequent analysis — band math
-especially — becomes tractable.
+Use spatial and spectral subsetting here when a scene is too large to work with.
+Cut a full flight line down to your study area and the wavelength range you
+need, save that, and every later analysis, band math especially, becomes
+manageable.
 ```
 
 ---
@@ -66,10 +66,9 @@ Right-click the image ▸ **Export RGB image**, then one of:
 Formats are **PNG**, **TIFF** and **JPEG**.
 
 ```{important}
-This writes **display values** — 8-bit RGB after the contrast stretch — not
-data. It is the right thing for a figure, a slide or a report, and the wrong
-thing for anything you intend to analyze further. Use **Save dataset as...**
-for that.
+This writes **display values** (8-bit RGB after the contrast stretch), not data.
+It is the right thing for a figure, a slide or a report, and the wrong thing for
+anything you intend to analyze further. Use **Save dataset as...** for that.
 ```
 
 ---
@@ -99,9 +98,9 @@ Read them back with **File ▸ Import regions of interest...**.
 
 ## Saving the session
 
-**File ▸ Save Project As...** writes everything — datasets, ROIs, collected
-spectra, contrast stretches, saved band-math expressions, analysis runs,
-imported libraries and custom coordinate systems — to a single `.wiserproj`.
+**File ▸ Save Project As...** writes everything to a single `.wiserproj`:
+ datasets, ROIs, collected spectra, contrast stretches, saved band-math
+ expressions, analysis runs, imported libraries and custom coordinate systems.
 
 Choose **Save self-contained** when the project needs to travel: it copies the
 imagery into the project file rather than pointing at files on your disk.

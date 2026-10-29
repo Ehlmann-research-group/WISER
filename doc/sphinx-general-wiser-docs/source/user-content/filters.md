@@ -12,13 +12,13 @@ one you want. There is no Tools-menu equivalent.
 | **Gaussian** | Your choice of axis | Smooth structure; well-behaved weighting |
 
 Each produces a **new dataset**; the input is untouched. Runs proceed in the
-background — track them in the Activity Monitor.
+background; track them in the Activity Monitor.
 
 ```{admonition} Filter for a reason
 :class: note
 Smoothing throws information away. Filter when you have a specific noise
-problem — a spectrum you cannot read, salt-and-pepper speckle, striping — not
-as a routine first step. In particular, do not smooth before
+problem, such as a spectrum you cannot read, salt-and-pepper speckle or
+striping, and not as a routine first step. In particular, do not smooth before
 {doc}`MNF <data-analysis-tools/mnf>`: MNF's noise estimate assumes the noise it
 finds is the sensor's, and pre-smoothing invalidates that.
 ```
@@ -31,12 +31,12 @@ The Savitzky–Golay filter fits a low-order polynomial to a sliding window of
 each pixel's spectrum by least squares and replaces the center value with the
 fitted one. Because it fits a curve rather than averaging, it removes noise
 while leaving the **position, shape and depth** of absorption bands close to
-intact — exactly what a moving average destroys.
+intact. A moving average destroys exactly those.
 
 This is the standard smoothing step in spectroscopy, and the right choice
 whenever you intend to measure a band afterwards.
 
-Right-click the image and choose **Filters ▸ Savitzky–Golay Filter...**.
+Right-click the image and choose **Filters ▸ Savitzky-Golay Filter...**.
 
 :::{figure} ../_static/tutorials/t9_savgol_dialog.png
 :width: 45%
@@ -51,7 +51,7 @@ Right-click the image and choose **Filters ▸ Savitzky–Golay Filter...**.
 | **Choose Dataset** | The cube to filter. |
 
 **Choosing the parameters.** Start with a window of 5–9 bands and order 2 or 3.
-The window should be **narrower than the narrowest feature you care about** — a
+The window should be **narrower than the narrowest feature you care about**: a
 21-band window will flatten a 15-band absorption. Raising the order preserves
 more curvature at the cost of removing less noise.
 
@@ -98,15 +98,15 @@ other.
 
 - **Spectral** smoothing reduces noise in each pixel's spectrum, which is what
   you want before reading a shallow absorption band. Prefer **Savitzky–Golay**
-  here — same job, far less damage to band shape.
+  here: it does the same job with far less damage to band shape.
 - **Spatial** smoothing trades resolution for signal-to-noise: each band's
   image gets cleaner and every pixel's spectrum becomes a mixture of its
   neighbors'. Reasonable on a coarse scene where you want regional patterns;
   destructive when you care about small targets.
 
 ```{tip}
-Averaging in the {doc}`Spectrum Plot <spectra-and-libraries>` — the **Number of
-pixels to average** setting, mean or median over an *n* × *n* box — gives you
+Averaging in the {doc}`Spectrum Plot <spectra-and-libraries>` — the **Default
+area-average size** setting, mean or median over an *n* × *n* box — gives you
 the effect of spatial smoothing on the spectra you are looking at, without
 producing a whole new dataset. Use it when you only want to *read* a spectrum
 more clearly.

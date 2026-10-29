@@ -6,7 +6,7 @@ their *angle* rather than their brightness.
 
 ## How it works
 
-Picture each spectrum — a pixel's, and a reference's — as a vector in
+Picture each spectrum, a pixel's or a reference's, as a vector in
 *n*-dimensional space, where *n* is the number of bands. SAM computes the
 **angle between those two vectors**:
 
@@ -15,7 +15,7 @@ angle = arccos( (pixel · reference) / (‖pixel‖ ‖reference‖) )
 ```
 
 reported in degrees. Because it depends only on the *direction* of the vectors,
-not their length, SAM is **insensitive to illumination and brightness** — a
+not their length, SAM is **insensitive to illumination and brightness**: a
 brightly lit and a shadowed pixel of the same material point the same way and
 give the same (small) angle. A **smaller angle means a better match**; an angle
 below the per-reference threshold marks the pixel as a detection.
@@ -46,9 +46,9 @@ Inputs work the same way as [Spectral Feature Fitting](spectral-feature-fitting.
 2. **Wavelength range** — set the min/max and units to restrict the comparison.
 3. **References** — check one or more reference spectra. Add them via **Add
    Library**, **Add Spectrum** (from a text file), or **Add Collected
-   Spectrum**; a default USGS mineral library is preloaded to get you started. Each
-   reference has its own threshold (**Initial Angle (°)**, default 5°), seeded from
-   the method threshold but individually overridable.
+   Spectrum**; a default USGS mineral library is preloaded to get you started.
+   Each reference has its own threshold (**Initial Angle (°)**, default 5°),
+   which starts at the method threshold and can be changed for each reference.
 4. Click **Run SAM**. Image-cube runs proceed in the background; spectrum runs
    open a ranked details table with a comparison plot.
 

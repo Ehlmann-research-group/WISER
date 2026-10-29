@@ -2,7 +2,7 @@ WISER Documentation
 ===================
 
 **WISER** — the Workbench for Imaging Spectroscopy Exploration and Research —
-is an open-source, cross-platform application for visualising and analyzing
+is an open-source, cross-platform application for visualizing and analyzing
 hyperspectral imagery. It is written in Python on Qt/PySide, runs on
 **macOS, Windows and Linux**, and needs no commercial license.
 
@@ -58,7 +58,7 @@ What WISER does
 - **Detection** — Spectral Angle Mapper, Spectral Feature Fitting,
   Mixture-Tuned Matched Filter
 - **Unmixing** — Linear Unmixing with per-pixel residuals
-- **Visualisation** — Interactive Scatter Plot linked back to the image
+- **Visualization** — Interactive Scatter Plot linked back to the image
 
 **Handle geometry**
 

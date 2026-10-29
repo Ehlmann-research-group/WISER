@@ -4,7 +4,8 @@
 bring in reference spectra from a library.
 
 **Data:** `src/test_utils/test_datasets/caltech_425_7_7_nm.hdr` — a **425-band**
-AVIRIS cube covering 377–2500 nm, cropped to 7 × 7 pixels. Ships with WISER.
+AVIRIS cube covering 377–2500 nm, cropped to 7 × 7 pixels. Ships with the WISER
+source.
 
 ```{note}
 Seven by seven pixels is not a typo. This cube is a unit-test fixture, kept
@@ -13,6 +14,9 @@ depth: each of those 49 pixels carries a full 425-band AVIRIS spectrum. Zoom to
 fit and every pixel fills a large block of screen, which makes it obvious which
 one you clicked.
 ```
+
+**Reference:** {doc}`Spectra and Spectral Libraries
+<../user-content/spectra-and-libraries>`.
 
 ---
 
@@ -34,17 +38,19 @@ Spectrum Plot pane.
 :alt: A single AVIRIS spectrum plotted from a clicked pixel
 :::
 
-The status bar gives the display value per channel, the pixel coordinate —
-`Pixel: (5, 2)` — and the ground position, `Geo: (34.138414°N, -118.130206°E)`.
+The status bar gives the display value per channel, the pixel coordinate, such
+as `Pixel: (5, 2)`, and the ground position, such as `Geo: (34.138414°N,
+-118.130206°E)`.
 
 The x-axis is in **nanometers** because the header supplies wavelengths. Where
 a dataset has none, WISER plots band number instead.
 
 ```{note}
-**The gaps in the spectrum are real.** Bands near 1400 nm and 1900 nm sit
-inside strong atmospheric water-vapor absorptions and carry no usable surface
-signal. They are flagged bad in the header and left out of the line. Every
-analysis tool drops flagged bands too.
+**The gaps in the spectrum are real.** Bands near 1400 nm and 1900 nm sit inside
+strong atmospheric water-vapor absorptions and carry no usable surface signal.
+They are flagged bad in the header and left out of the line. The transform,
+classification and detection tools (PCA, MNF, K-means, SAM, SFF, MTMF and linear
+unmixing) drop flagged bands too.
 ```
 
 ---
@@ -56,8 +62,9 @@ click elsewhere. To keep one, click **Collect spectrum** on the Spectrum Plot
 pane's own toolbar. The spectrum is added to the list below the plot and stays
 there when you click a new pixel.
 
-Collect three pixels — a bright one, a dark one, and one in between. Each is
-drawn in the same default color, which is why the next step matters.
+Collect three pixels: a bright one, a dark one, and one in between. Each is
+drawn in the same default color, so give each its own color with **Edit...**
+from the list below the plot.
 
 Then keep clicking. Work across the scene pixel by pixel and watch the active
 spectrum redraw each time.
@@ -65,8 +72,7 @@ spectrum redraw each time.
 ```{admonition} Interpretation
 :class: note
 This 7 × 7 fixture holds 49 pixels, and every one of them carries 425 numbers.
-Clicking across it is not sampling a picture, it is reading a different
-measurement out of each patch of ground.
+Each click reads a different measurement out of a different patch of ground.
 
 Two pixels that look almost identical on screen can have visibly different
 spectra, because the display is showing you three of the 425 bands and the plot
@@ -98,21 +104,25 @@ From the list below the plot:
 
 Click **Configure** on the Spectrum Plot toolbar, or right-click anywhere in
 the plot and choose **Configure plot...**. Both open the **Spectrum Plot
-Configuration** dialog. The settings worth knowing:
+Configuration** dialog. Three settings matter for this tutorial:
 
-| Section | Setting | Why you would change it |
-|---|---|---|
-| **X Axis** / **Y Axis** | **Manually specify X axis range**, then **Minimum value:** and **Maximum value:** | Zoom in on one absorption feature |
-| **New Spectra** | **Default average mode:** and **Default area-average size** | Average an *n* × *n* box around each click, mean or median |
-| **Plot** | **Legend:** | Needed before exporting a figure |
-| **Plot** | **Plot Title:**, **Font Sizes**, **Major tick marks every** | Presentation |
-| **Selected Point** | **Draw crosshair through selected point**, **Draw with symbol:** | How the clicked pixel is marked |
+- Under **X Axis**, tick **Manually specify X axis range** and set
+  **Minimum value:** and **Maximum value:** to zoom in on one absorption
+  feature.
+- Under **New Spectra**, **Default area-average size** and **Default average
+  mode:** average an *n* × *n* box around each click, by mean or median.
+- Under **Plot**, pick a **Legend:** position before you export a figure. It
+  defaults to **No legend**.
+
+The rest of the dialog (fonts, titles, tick marks, and how the selected point
+is drawn) is listed in
+{doc}`Spectra and Spectral Libraries <../user-content/spectra-and-libraries>`.
 
 ```{admonition} Interpretation
 :class: note
-The area-average setting changes your measurement, not just your figure. A
-single AVIRIS pixel is noisy, and a 3 × 3 median is much steadier — but it
-mixes in the eight neighboring pixels, so on a boundary you get a blend of two
+The area-average setting changes the spectrum you extract, not the cube. A
+single AVIRIS pixel is noisy, and a 3 × 3 median is much steadier, but it mixes
+in the eight neighboring pixels, so on a boundary you get a blend of two
 surfaces rather than a cleaner version of one. Use it in the middle of a uniform
 area, not at an edge.
 ```
@@ -137,10 +147,9 @@ Try the library that ships with the source:
 src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr
 ```
 
-That is **481 USGS mineral spectra** resampled to a 285-band Headwall
-short-wave infrared (SWIR)
-sensor — alunite, jarosite, kaolinite, calcite, the reference set used for
-mineral mapping.
+That is **481 USGS mineral spectra**, including alunite, jarosite, kaolinite and
+calcite, resampled to a 285-band Headwall short-wave infrared (SWIR) sensor. It
+is the reference set used for mineral mapping.
 
 :::{figure} ../_static/tutorials/t2_library.png
 :width: 90%
@@ -148,13 +157,14 @@ mineral mapping.
 :alt: The USGS mineral library loaded alongside the collected spectra
 :::
 
-Imported libraries are listed but **not drawn** — a few hundred lines at once
-is unreadable. Right-click a spectrum name to show just that one; right-click
+Imported libraries are listed but **not drawn**, because a few hundred lines at
+once would be unreadable. Right-click a spectrum name to show just that one;
+right-click
 the library name to show or hide all of it.
 
 ```{note}
 A library resampled to one sensor's bands will not line up with another's. The
-detection tools ({doc}`Tutorial 7 <07-detection>`) handle this for you — they
+detection tools ({doc}`Tutorial 7 <07-detection>`) handle this for you: they
 interpolate each reference onto the target's wavelength grid before comparing.
 For eyeballing spectra, mismatched sampling is fine.
 ```

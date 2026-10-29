@@ -92,8 +92,9 @@ small, and it reopens against the files already on your disk. Check it when you 
 the project to stand on its own: to archive it, move it to another machine, or share
 it with a colleague.
 
-Datasets that only exist inside WISER — a band math result, a PCA output — have no
-file on disk to point at, so they are always stored inside the project either way.
+Datasets that exist only inside WISER, such as a band math result or a PCA
+output, have no file on disk to point at, so they are always stored inside the
+project either way.
 
 ### While the project is being written
 
@@ -103,9 +104,10 @@ large scene. WISER shows a progress dialog while it works and leaves the main wi
 disabled until it finishes, so the save cannot be disturbed halfway through. Progress
 is also mirrored in the Activity Monitor.
 
-You can **cancel** from that dialog. Cancelling means nothing happened: WISER builds
+You can **cancel** from that dialog. Canceling means nothing happened: WISER
+builds
 the new project alongside the destination and only puts it in place once it is
-complete, so a canceled save — like one interrupted by a crash or a full disk —
+complete, so a canceled save, like one interrupted by a crash or a full disk,
 leaves any project already saved at that location exactly as it was.
 
 ---
@@ -119,8 +121,9 @@ a second project file.
 
 :::{tip}
 Because Save Project As lets you deselect anything, you can explore freely in one
-session and then split the results into several focused projects — one holding the
-NDVI work, another holding a classification — each saved from the same session with
+session and then split the results into several focused projects (one holding
+the NDVI work, another holding a classification), each saved from the same
+session with
 a different selection.
 :::
 
@@ -128,14 +131,15 @@ a different selection.
 
 ## Opening a project
 
-Choose **File ▸ Open Project...**. Opening a project replaces your current session,
-so WISER asks you to confirm first — save your work beforehand if you need it.
+Choose **File ▸ Open Project...**. Opening a project replaces your current
+session, so WISER asks you to confirm first. Save your work beforehand if you
+need it.
 
-A self-contained project has to be unpacked before it can be opened, which takes a
-moment for a large one, so WISER shows the same progress dialog it shows when
-saving. You can cancel it: your current session is only replaced once the project has
-been unpacked successfully, so cancelling an open leaves the session you already had
-exactly as it was, rather than half-replaced.
+A self-contained project has to be unpacked before it can be opened, which takes
+a moment for a large one, so WISER shows the same progress dialog it shows when
+saving. You can cancel it: your current session is only replaced once the
+project has been unpacked successfully, so canceling an open leaves the session
+you already had exactly as it was, rather than half-replaced.
 
 If anything in the project cannot be restored, WISER still opens it and tells you
 what was left out. The usual cause is a **referenced** data file that has since been
@@ -149,7 +153,8 @@ holds, in the same mode it was saved in.
 
 ## Version compatibility
 
-A project written by any released version of WISER can be opened by every later
-version. The reverse is not true: if you try to open a project created by a *newer*
+WISER is designed so that a project written by any released version can be
+opened by every later version. The reverse is not true: if you try to open a
+project created by a *newer*
 version of WISER than the one you are running, WISER tells you to upgrade rather
 than opening it and misreading it.
