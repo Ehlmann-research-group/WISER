@@ -35,6 +35,7 @@ from .utils import (
     build_band_info_from_wavelengths,
     srs_from_wkt,
 )
+from .mosaic_ingestion import is_dataset_georeferenced
 
 if TYPE_CHECKING:
     from wiser.raster.loader import RasterDataLoader
@@ -1471,6 +1472,9 @@ class RasterDataSet(Serializable):
 
         if ds_dim == ds0_dim:
             return GeographicLinkState.PIXEL
+
+        if not (is_dataset_georeferenced(self) and is_dataset_georeferenced(dataset)):
+            return GeographicLinkState.NO_LINK
 
         ds0_srs = self.get_spatial_ref()
         ds_srs = dataset.get_spatial_ref()
