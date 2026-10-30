@@ -12,6 +12,7 @@ It includes:
 
 This module is intended to be used for integration and GUI-level testing.
 """
+
 import gc
 import os
 
@@ -118,8 +119,17 @@ class WiserTestModel:
 
     def _tear_down_windows(self):
         """Closes all open windows and processes pending events."""
+        self._discard_unsaved_datasets()
         QApplication.closeAllWindows()
         QApplication.processEvents()
+
+    def _discard_unsaved_datasets(self):
+        """
+        Closing the main window asks about modified datasets, and nothing would
+        answer that question at teardown, so their changes are discarded first.
+        """
+        for dataset in self.app_state.get_datasets():
+            dataset.set_dirty(False)
 
     def _set_up(self):
         """Initializes and shows the main WISER window and references internal components."""
@@ -157,6 +167,7 @@ class WiserTestModel:
 
         This should be called at the end of every test using this class to avoid leaks.
         """
+        self._discard_unsaved_datasets()
         self.main_window.close()
         self._tear_down_windows()
         if hasattr(self, "app"):

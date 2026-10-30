@@ -28,7 +28,7 @@ from wiser.utils.progress import ProgressReporter
 from .bundle import ProjectBundle, remove_path, unzip_bundle, zip_bundle
 from .persisters.bandmath import load_bandmath, save_bandmath
 from .persisters.crs import load_user_crs, save_user_crs
-from .persisters.datasets import ProjectDatasetGridError, load_datasets, save_datasets
+from .persisters.datasets import STORAGE_SIDECAR, ProjectDatasetGridError, load_datasets, save_datasets
 from .persisters.libraries import load_libraries, save_libraries
 from .persisters.rois import load_rois, save_rois
 from .persisters.runs import load_runs, save_runs
@@ -58,6 +58,12 @@ def save_project(
     (rather than referenced by path) so the project is portable/shareable.
     Returns the path written.
 
+    Once ``dest`` is in place, each dataset written into the bundle as a copy (an
+    in-memory dataset, or any dataset under a self-contained save) is marked clean:
+    the project now holds its pixels.  A dataset the project only references, or
+    leaves out, keeps its unsaved state: a reference is only as lasting as the file it
+    names, which for a large band-math result is a temporary file deleted on exit.
+
     ``progress`` (a :class:`~wiser.utils.progress.ProgressReporter`) reports the save
     and is checked for cancellation at each dataset and each file added to the
     archive; cancelling raises
@@ -77,10 +83,13 @@ def save_project(
         collect, package = progress.split((0.7, "Collecting project data"), (0.3, "Writing project file"))
         with tempfile.TemporaryDirectory(prefix="wiserproj-save-") as work:
             bundle = ProjectBundle.create(work)
-            _write_bundle(app_state, bundle, resolver, self_contained, collect)
+            copied_ids = _write_bundle(app_state, bundle, resolver, self_contained, collect)
             zip_bundle(bundle, dest, package)
     else:
-        _write_bundle_directory(app_state, dest, resolver, self_contained, progress)
+        copied_ids = _write_bundle_directory(app_state, dest, resolver, self_contained, progress)
+    for ds_id in copied_ids:
+        if app_state.has_dataset(ds_id):
+            app_state.get_dataset(ds_id).set_dirty(False)
     return dest
 
 
@@ -90,14 +99,15 @@ def _write_bundle_directory(
     resolver: DependencyResolver,
     self_contained: bool,
     progress: ProgressReporter,
-) -> None:
+) -> "frozenset[int]":
     """Write a bundle *directory*, swapping it into place only once it is complete.
 
     :func:`_write_bundle` clears the bundle before writing it, so writing straight into
     ``dest`` would destroy the project already there the instant the save began -- the
     same hazard :func:`~wiser.project.bundle.zip_bundle` avoids by building a ``.part``
     file.  The new bundle is staged beside ``dest`` and the old one kept until the new
-    one is in place, so a cancelled or failed save costs the user nothing.
+    one is in place, so a cancelled or failed save costs the user nothing.  Returns the
+    ids of the datasets copied into the bundle.
     """
     staging = dest.with_name(dest.name + ".part")
     previous = dest.with_name(dest.name + ".bak")
@@ -105,7 +115,9 @@ def _write_bundle_directory(
     # clear whatever is actually there rather than assuming its kind.
     remove_path(staging)
     try:
-        _write_bundle(app_state, ProjectBundle.create(staging), resolver, self_contained, progress)
+        copied_ids = _write_bundle(
+            app_state, ProjectBundle.create(staging), resolver, self_contained, progress
+        )
     except BaseException:
         remove_path(staging)
         raise
@@ -122,6 +134,7 @@ def _write_bundle_directory(
         remove_path(staging)
         raise
     remove_path(previous)
+    return copied_ids
 
 
 def open_bundle(
@@ -224,7 +237,8 @@ def _write_bundle(
     resolver: DependencyResolver,
     self_contained: bool = False,
     progress: Optional[ProgressReporter] = None,
-) -> None:
+) -> "frozenset[int]":
+    """Write the session into ``bundle``; returns the ids of the datasets copied into it."""
     # Clear any prior contents so re-saving over an existing bundle directory does
     # not leave stale sidecars the new manifest no longer references.
     bundle.clear_contents()
@@ -263,6 +277,7 @@ def _write_bundle(
     save_runs(app_state, manifest, resolver)
     bundle.write_manifest(manifest)
     session_progress.report_fraction(1.0)
+    return frozenset(entry["id"] for entry in manifest["datasets"] if entry["storage"] == STORAGE_SIDECAR)
 
 
 def _restore(bundle: ProjectBundle, app_state: "ApplicationState") -> Dict[str, List[Any]]:

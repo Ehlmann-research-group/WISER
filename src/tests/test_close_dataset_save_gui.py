@@ -7,6 +7,7 @@ open.  Both entry points are covered: File > Close dataset and the main view's
 context menu.
 """
 
+import os
 import threading
 from unittest import mock
 
@@ -20,8 +21,11 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 
 from test_utils.test_model import WiserTestModel
 from wiser.gui.progress_task import run_with_progress
+from wiser.project.orchestrate import load_project, save_project
 
 pytestmark = [pytest.mark.integration]
+
+TEST_DATASETS = os.path.join(os.path.dirname(__file__), "..", "test_utils", "test_datasets")
 
 
 def _wait_for(predicate, timeout_ms=60000, step_ms=20):
@@ -199,3 +203,21 @@ def test_cancelled_save_task_keeps_dataset(test_model, dirty_dataset, close, tmp
     critical.assert_not_called()
     assert test_model.app_state.has_dataset(ds_id)
     assert dirty_dataset.is_dirty()
+
+
+def test_dataset_restored_from_a_project_closes_without_asking(test_model, close, tmp_path):
+    # Restoring re-applies the saved metadata, which marks the dataset modified, but
+    # it holds exactly what the project does: there is nothing to save.
+    scene = test_model.load_dataset(os.path.join(TEST_DATASETS, "caltech_4_100_150_nm"))
+    scene.set_data_ignore_value(-9999.0)
+    project = tmp_path / "session.wiserproj"
+    save_project(test_model.app_state, project)
+    load_project(project, test_model.app_state, extract_dir=tmp_path / "unpacked")
+    test_model.run()
+    (restored,) = test_model.app_state.get_datasets()
+
+    with mock.patch.object(QMessageBox, "question") as question:
+        close(test_model, restored.get_id())
+
+    question.assert_not_called()
+    assert not test_model.app_state.has_dataset(restored.get_id())

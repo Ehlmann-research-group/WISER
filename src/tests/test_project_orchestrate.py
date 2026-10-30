@@ -708,3 +708,105 @@ def test_a_dataset_on_a_changed_pixel_grid_fails_the_whole_open(tmp_path):
         load_project(tmp_path / "session_dir", dst)
     assert dst.get_datasets() == []
     assert dst.get_rois() == []
+
+
+def _unsaved_in_memory_and_file_backed(app, src_dir):
+    """An edited in-memory cube and an edited file-backed scene, both unsaved."""
+    cube = app.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    app.add_dataset(cube)
+    cube.set_description("edited")
+    scene = _file_backed_dataset(app, src_dir, "scene")
+    scene.set_data_ignore_value(-9999.0)
+    assert cube.is_dirty() and scene.is_dirty()
+    return cube, scene
+
+
+@pytest.mark.parametrize("dest_name", ["session.wiserproj", "session_dir"])
+def test_a_referenced_save_marks_only_the_datasets_it_copies_saved(tmp_path, dest_name):
+    # The project holds the in-memory cube's pixels, so the cube has nothing unsaved.
+    # The scene is only referenced, and a reference is only as lasting as the file it
+    # names, so the scene stays unsaved even though the manifest records its edits.
+    app = _FakeAppState()
+    cube, scene = _unsaved_in_memory_and_file_backed(app, tmp_path / "sources")
+
+    save_project(app, tmp_path / dest_name)
+
+    assert not cube.is_dirty()
+    assert scene.is_dirty()
+
+
+def test_a_self_contained_save_marks_every_dataset_saved(tmp_path):
+    app = _FakeAppState()
+    cube, scene = _unsaved_in_memory_and_file_backed(app, tmp_path / "sources")
+
+    save_project(app, tmp_path / "portable.wiserproj", self_contained=True)
+
+    assert not cube.is_dirty()
+    assert not scene.is_dirty()
+
+
+def test_an_excluded_dataset_stays_unsaved(tmp_path):
+    from wiser.project.save_plan import resolver_for_excluded
+
+    app = _FakeAppState()
+    cube, _ = _unsaved_in_memory_and_file_backed(app, tmp_path / "sources")
+    excluded = {("dataset", cube.get_id())}
+
+    save_project(app, tmp_path / "session.wiserproj", resolver_for_excluded(app, excluded))
+
+    assert cube.is_dirty()
+
+
+@pytest.mark.parametrize("dest_name", ["session.wiserproj", "session_dir"])
+def test_a_cancelled_save_leaves_datasets_unsaved(tmp_path, dest_name):
+    app = _FakeAppState()
+    cube, scene = _unsaved_in_memory_and_file_backed(app, tmp_path / "sources")
+
+    with pytest.raises(ProgressCancelled):
+        save_project(app, tmp_path / dest_name, progress=ProgressReporter(is_cancelled=lambda: True))
+
+    assert cube.is_dirty()
+    assert scene.is_dirty()
+
+
+def test_a_referenced_band_math_temp_result_stays_unsaved(tmp_path):
+    # A large band-math result is written to a temporary file, so a referenced save
+    # only points at a file WISER deletes on exit: the result is still unsaved.
+    from osgeo import gdal
+
+    from wiser.bandmath import VariableType
+    from wiser.bandmath.analyzer import get_bandmath_expr_info
+    from wiser.bandmath.evaluator import create_output_dataset
+
+    variables = {"image": (VariableType.IMAGE_CUBE, _sample_array())}
+    result, result_gdal, *_ = create_output_dataset(
+        expr_info=get_bandmath_expr_info("image + 1", variables, {}),
+        gdal_type=gdal.GDT_Float32,
+        result_name="result",
+        cache=None,
+        temp_folder_path=str(tmp_path / "temp_output"),
+    )
+    result_gdal.FlushCache()
+    app = _FakeAppState()
+    app.add_dataset(result)
+
+    save_project(app, tmp_path / "session.wiserproj")
+
+    assert result.is_dirty()
+
+
+def test_restored_datasets_have_nothing_unsaved(tmp_path):
+    # Restoring re-applies each dataset's metadata through setters that mark it
+    # modified, but what was restored is exactly what the project holds.
+    src = _FakeAppState()
+    _unsaved_in_memory_and_file_backed(src, tmp_path / "sources")
+    save_project(src, tmp_path / "session.wiserproj")
+
+    dst = _FakeAppState()
+    load_project(tmp_path / "session.wiserproj", dst, extract_dir=tmp_path / "unpacked")
+
+    restored = {ds.get_id(): ds for ds in dst.get_datasets()}
+    assert len(restored) == 2
+    (scene,) = [ds for ds in restored.values() if ds.get_name() == "scene"]
+    assert scene.get_data_ignore_value() == -9999.0
+    assert not any(ds.is_dirty() for ds in restored.values())
