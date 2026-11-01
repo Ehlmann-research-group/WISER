@@ -39,10 +39,13 @@ signal, and its trailing components hold the noise.
 
 ## Step 1 — Run PCA
 
-1. Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`.
+1. Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`. PCA has no
+   dataset chooser and runs on whatever the main window shows, so use **Select
+   dataset to view** to make sure it shows `caltech_4_100_150_nm`, not a result
+   from an earlier tutorial.
 2. Right-click the image and choose **Data Analysis ▸ Principal Component
    Analysis**, or choose **Tools ▸ Data Analysis ▸ Principal Component
-   Analysis**. The **PCA Dialog** opens.
+   Analysis**. A dialog titled **PCA: caltech_4_100_150_nm** opens.
 
 :::{figure} ../_static/tutorials/t6_pca_dialog.png
 :width: 45%
@@ -122,9 +125,8 @@ MNF is at **Tools ▸ Data Analysis ▸ Minimum Noise Fraction**.
 :alt: The MNF dialog with dataset and component count
 :::
 
-1. Set **Dataset** to `caltech_4_100_150_nm`. The dropdown starts on
-   *(no data)*, so choose it explicitly. The figure shows a different dataset;
-   the dialog is the same.
+1. Set **Choose Dataset** to `caltech_4_100_150_nm`. The dropdown starts on
+   *(no data)*, so choose it explicitly.
 2. Leave **Num Components** at its default, the maximum for that dataset.
 3. Click **OK**. The result is **`MNF, Img: <source>`**.
 

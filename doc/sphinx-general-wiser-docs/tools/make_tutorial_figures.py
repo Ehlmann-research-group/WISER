@@ -802,15 +802,18 @@ def scatter():
 
 @scene("mnf")
 def mnf():
-    """Tutorial 6: the MNF dialog."""
+    """Tutorial 6: the MNF dialog, set to the campus scene."""
     s = Shoot()
-    s.open(CUBE)
+    s.open(CAMPUS)
     s.show_all_panes()
     s.fit()
     s.win.show_mnf_dialog()
     s.soft_pump()
     dlg = s.find_dialog("MinimumNoiseFractionDialog")
     if dlg is not None:
+        combo = dlg._ui.comboBox
+        combo.setCurrentIndex(combo.findText(CAMPUS.stem))
+        s.soft_pump()
         s.shot("t6_mnf_dialog", dlg)
         dlg.close()
     s.close()
@@ -818,9 +821,9 @@ def mnf():
 
 @scene("pca_dialog")
 def pca_dialog():
-    """Tutorial 6: the PCA dialog on a bundled cube."""
+    """Tutorial 6: the PCA dialog on the campus scene."""
     s = Shoot()
-    s.open(CUBE)
+    s.open(CAMPUS)
     s.show_all_panes()
     s.fit()
     s.win.show_pca_dialog()
@@ -830,22 +833,54 @@ def pca_dialog():
     s.close()
 
 
+# Tutorial 7, Step 1: three pixels collected as the MTMF target and endmembers.
+SWIR_PIXELS = [
+    ("Pixel A", (3, 3), "#1f77b4"),
+    ("Pixel B", (10, 12), "#d62728"),
+    ("Pixel C", (17, 18), "#2ca02c"),
+]
+
+
+def configure_spectral_tool(s: Shoot, dlg, dataset) -> None:
+    """Set a SAM/SFF dialog up as Tutorial 7 instructs.
+
+    Image Cube target, 1308-1454 nm, and the Headwall library added in place of
+    the bundled USGS library.
+    """
+    ui = dlg._ui
+    ui.SelectTargetData.setCurrentText("Image Cube")
+    s.soft_pump()
+    combo = ui.SelectTargetData_2
+    combo.setCurrentIndex(combo.findText(dataset.get_name()))
+    ui.lineEdit.setText("1308")
+    ui.lineEdit_2.setText("1454")
+    for row in dlg._lib_rows:
+        row["checkbox"].setChecked(False)
+    dlg.addLibraryRow()
+    row = dlg._lib_rows[-1]
+    row["checkbox"].setText(USGS_LIB.name)
+    row["checkbox"].setChecked(True)
+    row["path"] = str(USGS_LIB)
+    s.soft_pump()
+
+
 @scene("detection")
 def detection():
-    """Tutorial 7: the four matching and unmixing dialogs."""
+    """Tutorial 7: the four matching and unmixing dialogs, set up as the steps say."""
+    from wiser.gui.mtmf import NoiseMethodType
+
     s = Shoot()
-    s.open(SWIR)
+    ds = s.open(SWIR)
     s.show_all_panes()
     s.fit()
-    s.tm.import_spectral_library(str(USGS_LIB))
-    s.pump()
+    s.collect_pixels(SWIR_PIXELS)
 
     s.win.show_spectral_angle_mapper_dialog()
     s.soft_pump()
     dlg = s.find_dialog("SAMTool")
     if dlg is not None:
         dlg.resize(1000, 720)
-        s.soft_pump()
+        configure_spectral_tool(s, dlg, ds)
         s.shot("t7_sam_dialog", dlg)
         dlg.close()
 
@@ -854,11 +889,19 @@ def detection():
     dlg = s.find_dialog("SFFTool")
     if dlg is not None:
         dlg.resize(1000, 720)
-        s.soft_pump()
+        configure_spectral_tool(s, dlg, ds)
         s.shot("t7_sff_dialog", dlg)
         dlg.close()
 
     s.win.show_mtmf_dialog()
+    s.soft_pump()
+    ui = s.win._mtmf_dialog._ui
+    ui.cbox_noise_method_type.setCurrentIndex(
+        ui.cbox_noise_method_type.findData(NoiseMethodType.IMAGE_CUBE_BASED)
+    )
+    s.soft_pump()
+    ui.cbox_input.setCurrentIndex(ui.cbox_input.findText(ds.get_name()))
+    ui.cbox_target.setCurrentIndex(ui.cbox_target.findText(SWIR_PIXELS[0][0]))
     s.soft_pump()
     s.shot("t7_mtmf_dialog", s.win._mtmf_dialog)
     s.win._mtmf_dialog.close()

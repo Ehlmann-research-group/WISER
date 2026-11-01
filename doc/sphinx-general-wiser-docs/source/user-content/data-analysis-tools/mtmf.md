@@ -45,7 +45,8 @@ target produces two float32 datasets:
 
 1. **Input** — leave the type as **Image Cube** and choose the dataset to
    analyze. (Spectrum input is not currently supported.)
-2. **Noise method** — choose how background noise is estimated:
+2. **Noise method** (the dropdown below the input; it starts on **ROI
+   Based**) — choose how background noise is estimated:
    - **Image Cube Based** — estimate noise from the scene itself via the
      shift-difference method; pick a direction (Down/Up/Left/Right) in the
      row below.

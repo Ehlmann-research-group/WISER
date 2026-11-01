@@ -61,9 +61,9 @@ click elsewhere. To keep one, click **Collect spectrum** on the Spectrum Plot
 pane's own toolbar. The spectrum is added to the list below the plot and stays
 there when you click a new pixel.
 
-Collect three pixels: a bright one, a dark one, and one in between. Each is
-drawn in the same default color, so give each its own color: right-click its
-name in the list below the plot, choose **Edit...**, and set **Plot color:**.
+Collect three pixels: a bright one, a dark one, and one in between. WISER
+picks a random color for each. To choose your own, right-click its name in the
+list below the plot, choose **Edit...**, and set **Plot color:**.
 
 :::{figure} ../_static/tutorials/t2_collected.png
 :width: 90%
@@ -80,8 +80,9 @@ From the list below the plot:
   **Median** with an **Area-average size**, which is the same averaging Step 3
   describes.
 - **Right-click a spectrum ▸ Save to file...** writes it out as text.
-- **Right-click ▸ Discard...** removes one spectrum; **Discard all...** clears
-  the list.
+- **Right-click a spectrum ▸ Discard...** removes one spectrum. Right-click the
+  **Collected Spectra** group name and choose **Discard all...** to clear the
+  list.
 
 Then keep clicking. Work across the scene pixel by pixel and watch the active
 spectrum redraw each time.
@@ -173,14 +174,14 @@ For eyeballing spectra, mismatched sampling is fine.
 ## Step 5 — Flatten the continuum
 
 Absorption features are easier to compare once the broad slope is divided out.
-Right-click in the Spectrum Plot and choose:
+Right-click a spectrum's name in the list below the plot and choose:
 
-- **Continuum Removal: Single Spectrum** — the active spectrum
+- **Continuum Removal: Single Spectrum** — that spectrum
 - **Continuum Removal: Collected Spectra** — everything you have collected
 
 WISER fits the upper convex hull (a line of straight segments stretched across
-the tops of the spectrum), divides by it, and adds the result as a new
-spectrum. Overall brightness and slope disappear; the depth and shape of each
+the tops of the spectrum) and divides by it. It adds two new collected spectra:
+`<name> Continuum Removed`, and the hull itself as `Convex Hull <name>`. Overall brightness and slope disappear; the depth and shape of each
 absorption band remain. That is what makes a shadowed and a sunlit pixel of the
 same material comparable, and it is the step
 {doc}`Spectral Feature Fitting <../user-content/data-analysis-tools/spectral-feature-fitting>`

@@ -155,13 +155,14 @@ starting from the right sampling is better.
 
 ## Continuum removal
 
-Right-click in the plot for:
+Right-click a spectrum's name in the list below the plot for:
 
-- **Continuum Removal: Single Spectrum** — the active spectrum
+- **Continuum Removal: Single Spectrum** — that spectrum
 - **Continuum Removal: Collected Spectra** — everything collected
 
-WISER fits the upper convex hull of the spectrum, divides by it, and adds the
-result as a new spectrum. Overall brightness and slope are removed; the
+WISER fits the upper convex hull of the spectrum, divides by it, and adds two
+collected spectra: `<name> Continuum Removed` and the hull, `Convex Hull
+<name>`. Overall brightness and slope are removed; the
 position, depth and shape of every absorption band remain.
 
 That is what makes a sunlit and a shadowed pixel of the same material

@@ -131,7 +131,9 @@ compute
 
 $$R = \frac{S - D}{W - D}$$
 
-with band math, binding `S`, `W` and `D` as image cubes. Everything
+with band math. Set **Type** to **Image Cube** for all three variables: WISER
+guesses a type from each name, and it guesses **Spectrum** for `S` and **Image
+Band** for `W` and `D`. Everything
 spectroscopic depends on this step. Raw digital numbers carry your lamp's
 spectrum and your sensor's response, and no reference library will match them.
 

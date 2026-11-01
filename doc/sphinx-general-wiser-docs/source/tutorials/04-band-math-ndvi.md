@@ -81,7 +81,7 @@ Assignments** (which dataset and band).
 Two things on this screen are worth knowing:
 
 - To the right of the **Expression:** box, WISER reports the **result type and
-  size** — `Result: Image Band, 150x150 (87.9KB)`. Band math is not streamed for
+  size** — `Result: Image Band 150x150 (87.9KB)`. Band math is not streamed for
   every case, so check this before running an expression on a full flight line.
 - **Toggle Help** opens the operator reference in a panel on the right. Read it,
   because the built-in function set is deliberately small.
@@ -114,7 +114,8 @@ than gray levels do.
 :class: note
 Every street tree resolves as an individual green crown, the hedgerows show as
 continuous green lines, and the lawn in the south-east as a solid block. Roofs,
-roads and parking areas are flat pale yellow. The index has separated the
+roads and parking areas render red to orange; only vegetation reaches
+yellow-green and green. The index has separated the
 vegetation from everything else using two bands, where the true-color image
 needed you to recognize shapes.
 ```
@@ -142,8 +143,8 @@ histogram in the stretch dialog first.
 :alt: True-color image and NDVI side by side in a 1x2 grid
 :::
 
-Linked scrolling works when every open dataset has the same width and height:
-pan or zoom one panel and the others follow. The status bar confirms with `Linked view scrolling is ON`.
+Linked scrolling works when the displayed datasets have the same width and
+height, as these do: pan or zoom one panel and the others follow. The status bar confirms with `Linked view scrolling is ON`.
 
 ```{note}
 In grid view the band chooser and contrast stretch controls move from the Main

@@ -83,7 +83,7 @@ buttons by these names.
 | 3 | Show/hide the zoom pane | 12 | Zoom out |
 | 4 | Show/hide the spectrum pane | 13 | Zoom to actual size |
 | 5 | Show/hide dataset information | 14 | Zoom to fit |
-| 6 | Select dataset to view | 15 | Zoom level |
+| 6 | Select dataset to view | 15 | Zoom level (no tooltip) |
 | 7 | Band chooser | 16 | Add new Region of Interest |
 | 8 | Stretch builder | 17 | ROI dropdown (no tooltip) |
 | 9 | Split/unsplit the main view | 18 | Add selection to current ROI |

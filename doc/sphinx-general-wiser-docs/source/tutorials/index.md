@@ -2,8 +2,8 @@
 
 Start with the {doc}`Tutorials <getting-started>`.
 
-Every screenshot in the tutorials was taken from WISER while running the steps
-described, not mocked up.
+Every screenshot in the tutorials was taken from WISER by a script that runs
+the steps described, not mocked up.
 
 ---
 

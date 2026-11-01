@@ -46,12 +46,13 @@ different points. **Report the range you used.**
 
 ### On a spectrum
 
-Right-click in the Spectrum Plot and choose:
+Right-click a spectrum's name in the list below the Spectrum Plot and choose:
 
-- **Continuum Removal: Single Spectrum** — the active spectrum
+- **Continuum Removal: Single Spectrum** — that spectrum
 - **Continuum Removal: Collected Spectra** — every collected spectrum
 
-Each result is added as a new spectrum, so you keep the original.
+Each run adds two collected spectra, `<name> Continuum Removed` and the hull
+`Convex Hull <name>`, so you keep the original.
 
 :::{figure} ../../_static/images/cont_remove_spectra.png
 :width: 30%

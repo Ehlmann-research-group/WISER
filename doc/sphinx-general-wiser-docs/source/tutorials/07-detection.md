@@ -11,8 +11,8 @@ see how flagged bands are dropped. Reference spectra from
 
 ```{note}
 This cube is for practicing the mechanics of each tool. Its 1308–1454 nm range
-sits mostly inside the 1400 nm water-vapor absorption and contains none of the
-features that identify minerals, so the results below are not mineral
+straddles the 1400 nm water-vapor absorption, whose core is flagged bad, and
+contains none of the features that identify minerals, so the results below are not mineral
 identifications. Run the same steps on a full-range cube for real ones.
 ```
 
@@ -38,16 +38,14 @@ least; unmixing asks the most and, in exchange, gives you abundances.
 
 ---
 
-## Step 1 — Load the scene and a library
+## Step 1 — Load the scene and collect spectra
 
 1. Choose **File ▸ Open...** and select `caltech_15_20_22_bb.hdr`.
 2. If the **Dataset Info** pane is not showing, click its pane toggle on the
-   Main Toolbar. Expand the dataset in the pane. Its header carries
-   `bbl = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1 }`, meaning bands 8 and
-   9 are flagged bad. Every tool below drops them automatically.
-3. If the **Spectrum Plot** pane is not showing, click its pane toggle. On the
-   Spectrum Plot toolbar, click **Load or import spectra** and choose **Load
-   spectral library...**. Select `usgs_resampHeadwallSWIR.hdr`.
+   Main Toolbar. Expand the dataset, then expand **Bands (15)**. Bands 8 and 9
+   (1348.5 and 1353.6 nm) end in **(bad)**: the header's bad-band list flags
+   them. Every tool below drops them automatically.
+3. If the **Spectrum Plot** pane is not showing, click its pane toggle.
 4. Click three pixels that look different from each other, and click **Collect
    spectrum** after each, as in {doc}`Tutorial 2 <02-spectra>`. Steps 4 and 5
    use these as the MTMF target and as unmixing endmembers.
@@ -66,7 +64,7 @@ sunlit and a shadowed patch of the same mineral give the same small angle,
 which is why it is the usual choice for scenes with topography or uneven
 illumination. A smaller angle means a better match.
 
-Choose **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**. The dialog opens on its **Settings** tab.
+Choose **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**.
 
 :::{figure} ../_static/tutorials/t7_sam_dialog.png
 :width: 90%
@@ -74,15 +72,20 @@ Choose **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**. The dialog opens o
 :alt: The Spectral Angle Mapper dialog with a USGS mineral library as reference
 :::
 
-1. Set **Select Target Type:** to **Image Cube**, then pick your dataset from
-   **Select Target:** beside it.
-2. Leave **Min Wavelength (nm):** and **Max Wavelength (nm):** at `0.0`. That
-   uses the full overlap, which on this 15-band cube is the whole 1308–1454 nm
-   range. On a full-range cube this setting is the difference between comparing
-   one absorption and comparing everything at once.
-3. Under **Reference Library Selection**, tick the USGS library you loaded in
-   Step 1.
-4. Leave **Initial Threshold (°):** at its default of 5°.
+1. In the **Settings** section, set **Select Target Type:** to **Image Cube**
+   (it starts on **Spectrum**), then pick your dataset from **Select Target:**
+   beside it.
+2. Set **Min Wavelength:** to `1308` and **Max Wavelength:** to `1454`, and
+   leave **Units:** on **nm (nanometer)**. The fields start empty and the run
+   will not start without them. Here the range covers the whole cube; on a
+   full-range cube it decides whether you compare one absorption or everything
+   at once.
+3. **Reference Library Selection** already lists WISER's bundled
+   `USGS_Mineral_Spectral_Library.hdr`, ticked. Click **Add Library**, select
+   `src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr`, and untick the
+   bundled library, so the output has one band per Headwall reference. A
+   library loaded in the Spectrum Plot does not appear in this list.
+4. Leave **Initial Angle (°)** at its default of 5.
 5. Click **Run SAM**.
 
 Choosing **Spectrum** instead of **Image Cube** in the first step compares a
@@ -98,7 +101,8 @@ Two datasets come back, one band per reference:
 - **`SAM Angle, Img: <source>`** — the angle in degrees at every pixel
 - **`SAM CLS, Img: <source>`** — a boolean map of `angle < threshold`
 
-Each band is named after its reference, such as `Spec: Kaolinite CM9`. Switch
+Each band is named after its reference, such as
+`Spec: kaolini1.spc Kaolinite CM9`. Switch
 to the angle image with **Select dataset to view**, open the **Band chooser**,
 select **Grayscale**, pick one mineral's band from **Grayscale Band**, and tick
 **Use a colormap**. Set a stretch before trusting the classification.
@@ -136,10 +140,11 @@ SAM's and are listed in
 {doc}`Spectral Feature Fitting
 <../user-content/data-analysis-tools/spectral-feature-fitting>`.
 
-1. Set the target to your dataset and tick the USGS library, as for SAM.
-2. Set **Min/Max Wavelength** to 1308 and 1454, with **Units** in nanometers.
-   Unlike SAM, SFF continuum-removes over exactly this window, so set it
-   deliberately rather than leaving it at `0.0`.
+1. Set the target type, dataset, wavelength range and library exactly as for
+   SAM: **Image Cube**, your dataset, 1308 to 1454 nm, and the Headwall library
+   added with **Add Library** in place of the bundled one. SFF continuum-removes
+   over exactly this window.
+2. Leave **Initial RMSE** at its default of 0.03.
 3. Click **Run SFF**.
 
 ```{note}
@@ -154,9 +159,10 @@ cube.
 
 Three outputs, one band per reference:
 
-- **`SFF RMSE`** — root-mean-square fit error; lower is better
-- **`SFF SCALE`** — fitted feature depth, loosely an abundance indicator
-- **`SFF CLS`** — boolean `RMSE < threshold` (default 0.03)
+- **`SFF RMSE, Img: <source>`** — root-mean-square fit error; lower is better
+- **`SFF SCALE, Img: <source>`** — fitted feature depth, loosely an abundance
+  indicator
+- **`SFF CLS, Img: <source>`** — boolean `RMSE < threshold`
 
 Read RMSE and SCALE together. A low RMSE with a near-zero scale is a good fit to
 a feature that is not there.
@@ -174,9 +180,13 @@ background, the usual situation in target detection.
 :alt: The MTMF dialog showing input cube, noise method and target
 :::
 
+Choose **Tools ▸ Data Analysis ▸ Mixture Tuned Matched Filter**.
+
 1. **Select Image Cube**: the dataset to search.
-2. **Noise method**: leave it on **Image Cube Based**, which estimates noise
-   from the scene itself by shift difference.
+2. In the noise-method dropdown below it, choose **Image Cube Based**. It
+   starts on **ROI Based**, which needs an ROI this scene does not have. Image
+   Cube Based estimates noise from the scene itself; leave **Shift Diff
+   Method** at **Shift Difference Down**.
 3. **Target**: the spectrum to detect. The list holds the spectra you
    collected in Step 1, not library entries; choose one of them.
 4. Click **OK**.
@@ -216,6 +226,8 @@ spectra and solves for the weights.
 :align: center
 :alt: The Linear Unmixing dialog with endmember list and Sum to Unity
 :::
+
+Choose **Tools ▸ Data Analysis ▸ Linear Unmixing**.
 
 1. **Input Dataset**: the cube.
 2. Click **Add Collected Spectrum** and pick at least two of the spectra you

@@ -52,8 +52,8 @@ up in the density plot.
 
 The plot always has a **polygon selector** active:
 
-- Click to drop vertices around a cluster; finish with a **double-click** or
-  **Enter**.
+- Click to drop vertices around a cluster; close the polygon by clicking the
+  first vertex again.
 - Selected points are outlined on the plot, the **point count** updates, and
   the corresponding pixels are drawn on the **Render Onto** image in your
   highlight color.
@@ -75,7 +75,7 @@ The plot always has a **polygon selector** active:
 
 The strip just below the toolbar:
 
-- **N pts** — live count of selected points.
+- **Point count** (for example `1,234 pts`) — live count of selected points.
 - **Clear selection** — remove the polygon and all highlights.
 - **Create ROI from Selection** — save the selected pixels as a Region of
   Interest (named *Scatter Plot Selection*) for use in other tools.
