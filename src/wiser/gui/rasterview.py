@@ -761,6 +761,7 @@ class RasterView(QWidget):
                 changed |= ImageColors.BLUE
 
         self._display_bands = display_bands
+        self._stretches = stretches if stretches is not None else [None] * len(display_bands)
         self._colormap = colormap
         # Display-band selection feeds the joint stretch input; invalidate.
         self._joint_render_cache = None

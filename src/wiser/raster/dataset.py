@@ -1774,7 +1774,7 @@ class RasterDataSet(Serializable):
         # We don't set the elem type because it is built into the underlying
         # impl object. Either it is built into the gdal.Dataset object or the
         # numpy array
-        if serial_data_ignore_value:
+        if "data_ignore_value" in metadata:
             self._data_ignore_value = serial_data_ignore_value
         if serial_bad_bands:
             self._bad_bands = serial_bad_bands

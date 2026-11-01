@@ -183,6 +183,33 @@ class TestDataSerialization(unittest.TestCase):
         assert reconstructed_dataset.get_spatial_ref().IsSame(ds.get_spatial_ref()) == 1
         assert reconstructed_dataset.get_spatial_ref().IsSame(spatial_ref) == 1
 
+    def _round_trip_data_ignore_header_dataset(self, ignore_value):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "caltech_425_6_6_data_ignore.hdr",
+            )
+        )
+        ds = self.test_model.load_dataset(target_path)
+        assert ds.get_data_ignore_value() == -9999
+        ds.set_data_ignore_value(ignore_value)
+        serialized_ds_form = ds.get_serialized_form()
+        return serialized_ds_form.get_serializable_class().deserialize_into_class(
+            serializedForm=serialized_ds_form,
+        )
+
+    def test_file_backed_dataset_serialization_preserves_zero_ignore_value(self):
+        reconstructed_dataset = self._round_trip_data_ignore_header_dataset(0)
+        assert reconstructed_dataset.get_data_ignore_value() == 0
+
+    def test_file_backed_dataset_serialization_preserves_cleared_ignore_value(self):
+        reconstructed_dataset = self._round_trip_data_ignore_header_dataset(None)
+        assert reconstructed_dataset.get_data_ignore_value() is None
+
     def test_raster_data_band(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         target_path = os.path.normpath(
