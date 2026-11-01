@@ -91,9 +91,10 @@ def dataset_to_pyrep(
         # plain path; store the base file and the descriptor so load re-opens the
         # SAME subdataset instead of re-running the auto-pick heuristic (or dropping
         # the dataset because os.path.isfile rejects the descriptor).
+        base = dataset.get_source_path()
         entry["storage"] = STORAGE_REFERENCE
-        entry["path"] = os.path.abspath(_subdataset_base_path(subdataset_name))
-        entry["subdataset_name"] = _absolute_subdataset(subdataset_name)
+        entry["path"] = os.path.abspath(base)
+        entry["subdataset_name"] = _absolute_subdataset(subdataset_name, base)
         _record_format(entry, dataset)
     elif not embed and filepaths:
         entry["storage"] = STORAGE_REFERENCE
@@ -361,26 +362,12 @@ def _apply_source_metadata(dataset: "RasterDataSet", entry: Dict[str, Any]) -> N
         dataset.set_description(entry.get("description"))
 
 
-def _subdataset_base_path(descriptor: str) -> str:
-    """Extract the base file path from a GDAL subdataset descriptor.
-
-    ``NETCDF:"/abs/file.nc":var`` -> ``/abs/file.nc``.  Returns the descriptor
-    unchanged if it is not in the expected quoted form.
-    """
-    if '"' in descriptor:
-        return descriptor.split('"')[1]
-    return descriptor
-
-
-def _absolute_subdataset(descriptor: str) -> str:
-    """Rewrite a subdataset descriptor so its base file path is absolute.
+def _absolute_subdataset(descriptor: str, base: str) -> str:
+    """Rewrite a subdataset descriptor so its base file path ``base`` is absolute.
 
     The descriptor is reopened verbatim on load, so it carries the same relative-path
     hazard as a plain reference and is normalized the same way.
     """
-    base = _subdataset_base_path(descriptor)
-    if base == descriptor:  # not the quoted form; nothing to rewrite
-        return descriptor
     return descriptor.replace(f'"{base}"', f'"{os.path.abspath(base)}"', 1)
 
 
