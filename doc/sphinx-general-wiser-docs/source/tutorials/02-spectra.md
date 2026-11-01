@@ -24,8 +24,8 @@ one you clicked.
 
 1. Choose **File ▸ Open...** and select `caltech_425_7_7_nm.hdr`.
 2. If the **Spectrum Plot** and **Zoom** panes are not showing, click their
-   pane toggles on the Main Toolbar. Then click **Zoom to fit**. At 7 × 7 pixels the scene fills
-   the window and each pixel becomes a large block.
+   pane toggles on the Main Toolbar. Then click **Zoom to fit**. At 7 × 7
+   pixels the scene fills the window and each pixel becomes a large block.
 3. Click any pixel in the main window.
 
 A red crosshair marks the pixel you clicked, and its spectrum is drawn in the
@@ -180,12 +180,14 @@ Right-click a spectrum's name in the list below the plot and choose:
 - **Continuum Removal: Collected Spectra** — everything you have collected
 
 WISER fits the upper convex hull (a line of straight segments stretched across
-the tops of the spectrum) and divides by it. It adds two new collected spectra:
-`<name> Continuum Removed`, and the hull itself as `Convex Hull <name>`. Overall brightness and slope disappear; the depth and shape of each
-absorption band remain. That is what makes a shadowed and a sunlit pixel of the
-same material comparable, and it is the step
-{doc}`Spectral Feature Fitting <../user-content/data-analysis-tools/spectral-feature-fitting>`
-performs internally.
+the tops of the spectrum) and divides by it. For each spectrum it processes,
+WISER adds two collected spectra: `<name> Continuum Removed` and the hull,
+`Convex Hull <name>`. Overall brightness and slope disappear; the depth and
+shape of each absorption band remain. That is what makes a shadowed and a
+sunlit pixel of the same material comparable, and it is the step
+{doc}`Spectral Feature Fitting
+<../user-content/data-analysis-tools/spectral-feature-fitting>` performs
+internally.
 
 The same operation runs on a whole cube: right-click the image and choose
 **Continuum Removal: Image**.

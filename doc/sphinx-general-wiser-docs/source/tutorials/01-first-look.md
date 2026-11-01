@@ -38,9 +38,9 @@ number. Tutorials 3–6 work on this same scene.
 ## Step 1 — Open the image
 
 1. From the **Main Menu** at the top of the window, go to **File** and select
-   **Open...** from the dropdown list. The tutorials write a menu path like this
-   as **File ▸ Open...**. You can also click **Open image file**, the leftmost
-   button on the Main Toolbar.
+   **Open...** from the dropdown list. The tutorials shorten a menu path like
+   this one to **File ▸ Open...**. You can also click **Open image file**, the
+   leftmost button on the Main Toolbar.
 2. In the file dialog, navigate to `src/test_utils/test_datasets/` and select
    **`caltech_4_100_150_nm.hdr`**. Either the `.hdr` header or the data file
    beside it works — WISER finds the other.
@@ -185,9 +185,9 @@ range. Each display channel shows 256 brightness levels, and a contrast stretch
 decides which data values map to which level. This scene is reflectance, almost
 all of it between 0.01 and 0.8. When a scene opens, WISER maps each displayed
 band's minimum to level 0 and its maximum to level 255, linearly; the dialog
-calls that **Full Linear Stretch**. A percent stretch clips a share of each
-tail instead. The clipped pixels saturate at
-pure black or pure white, and the full display range is spent on the values in
+calls that **Full Linear Stretch**. A percent stretch instead clips a set
+share of the darkest and brightest values. The clipped pixels saturate at pure
+black or pure white, and the full display range is spent on the values in
 between. A stretch changes only what you see: spectra, band math and every
 analysis tool read the underlying data, never the stretched display values.
 

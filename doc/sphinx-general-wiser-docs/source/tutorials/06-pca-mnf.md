@@ -145,6 +145,9 @@ or an image with strong along-track banding. If MNF results look wrong, check
 this assumption first.
 ```
 
+On this campus scene the shift difference picks up real roof and street edges
+as well as noise, so treat its MNF result as practice on the mechanics.
+
 Use MNF's leading components as the input to K-means, unmixing, or matched
 filtering. That is exactly what {doc}`MTMF <07-detection>` does internally.
 

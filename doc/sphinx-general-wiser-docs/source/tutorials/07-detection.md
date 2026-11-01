@@ -11,9 +11,10 @@ see how flagged bands are dropped. Reference spectra from
 
 ```{note}
 This cube is for practicing the mechanics of each tool. Its 1308–1454 nm range
-straddles the 1400 nm water-vapor absorption, whose core is flagged bad, and
-contains none of the features that identify minerals, so the results below are not mineral
-identifications. Run the same steps on a full-range cube for real ones.
+straddles the 1400 nm water-vapor absorption, whose core is flagged bad. It
+contains none of the features that identify minerals, so the results below are
+not mineral identifications. Run the same steps on a full-range cube for real
+ones.
 ```
 
 **Reference:** {doc}`Spectral Angle Mapper
@@ -90,9 +91,8 @@ Choose **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**.
 
 Choosing **Spectrum** instead of **Image Cube** in the first step compares a
 single spectrum against the references and returns a ranked table, which is a
-fast way to identify a spectrum you just collected. Adding references from
-other files, choosing individual minerals, and setting a separate threshold per
-reference are covered in
+fast way to identify a spectrum you just collected. Choosing individual
+minerals and setting a separate threshold per reference are covered in
 {doc}`Spectral Angle Mapper
 <../user-content/data-analysis-tools/spectral-angle-mapper>`.
 
@@ -129,16 +129,16 @@ only the dips remain. It then inverts the result so absorptions become peaks,
 and finds by least squares the single **scale factor** that best matches their
 depths.
 
+Choose **Tools ▸ Data Analysis ▸ Spectral Feature Fitting**. The inputs mirror
+SAM's and are listed in
+{doc}`Spectral Feature Fitting
+<../user-content/data-analysis-tools/spectral-feature-fitting>`.
+
 :::{figure} ../_static/tutorials/t7_sff_dialog.png
 :width: 90%
 :align: center
 :alt: The Spectral Feature Fitting dialog
 :::
-
-Choose **Tools ▸ Data Analysis ▸ Spectral Feature Fitting**. The inputs mirror
-SAM's and are listed in
-{doc}`Spectral Feature Fitting
-<../user-content/data-analysis-tools/spectral-feature-fitting>`.
 
 1. Set the target type, dataset, wavelength range and library exactly as for
    SAM: **Image Cube**, your dataset, 1308 to 1454 nm, and the Headwall library

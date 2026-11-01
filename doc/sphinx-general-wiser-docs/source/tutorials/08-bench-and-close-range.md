@@ -80,9 +80,8 @@ a mixture of both sides.
 :::
 
 The component body is dark and almost flat. The board substrate falls
-steadily across the range. The bright pad is highest
-everywhere and turns over slightly, peaking at 0.635 µm rather than at the
-shortest band.
+steadily across the range. The bright pad is highest everywhere and turns over
+slightly, peaking at 0.635 µm rather than at the shortest band.
 
 Most of what separates these curves is brightness, but not all of it. Divided
 by its own mean, each curve has a different shape:
@@ -133,9 +132,9 @@ $$R = \frac{S - D}{W - D}$$
 
 with band math. Set **Type** to **Image Cube** for all three variables: WISER
 guesses a type from each name, and it guesses **Spectrum** for `S` and **Image
-Band** for `W` and `D`. Everything
-spectroscopic depends on this step. Raw digital numbers carry your lamp's
-spectrum and your sensor's response, and no reference library will match them.
+Band** for `W` and `D`. Everything spectroscopic depends on this calibration.
+Raw digital numbers carry your lamp's spectrum and your sensor's response, and
+no reference library will match them.
 
 **Watch the geometry.** Close-range imaging has strong, uneven illumination and
 specular highlights. A shiny solder pad can saturate at one angle and read

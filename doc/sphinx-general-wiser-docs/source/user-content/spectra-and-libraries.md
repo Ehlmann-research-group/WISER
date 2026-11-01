@@ -3,7 +3,7 @@
 The Spectrum Plot shows the spectrum of any pixel you click. Collect several
 spectra to compare them, and import a library to identify them.
 
-Show the plot with the **Spectrum Plot** display toggle on the main toolbar.
+Show the plot with the **Spectrum Plot** pane toggle on the main toolbar.
 
 :::{figure} ../_static/tutorials/t2_collected.png
 :width: 90%
@@ -40,8 +40,8 @@ together, and are saved in a {doc}`project <projects>`.
 
 From the list you can untick a spectrum to hide it, **Edit...** to rename it or
 change its color, or **Save to file...** to write it out. Rename and recolor
-spectra as you collect them, because everything is drawn in the same color by
-default.
+spectra as you collect them: WISER gives each one a random color, which says
+nothing about what it is.
 
 ### Which dataset the plot reads
 
@@ -124,9 +124,9 @@ The same operation is on the **File** menu as **Import spectra from text
 file...**.
 
 Imported libraries are **listed but not drawn**, because several hundred spectra
-at once would be unreadable. Right-click a spectrum name to show that one;
-right-click
-the library name to show or hide all of it.
+at once would be unreadable. Right-click a spectrum name and choose **Show
+spectrum** to draw that one. Right-click the library name and choose **Show all
+spectra** or **Hide all spectra** to draw or hide all of it.
 
 ### Libraries that ship with WISER
 
@@ -160,10 +160,11 @@ Right-click a spectrum's name in the list below the plot for:
 - **Continuum Removal: Single Spectrum** — that spectrum
 - **Continuum Removal: Collected Spectra** — everything collected
 
-WISER fits the upper convex hull of the spectrum, divides by it, and adds two
-collected spectra: `<name> Continuum Removed` and the hull, `Convex Hull
-<name>`. Overall brightness and slope are removed; the
-position, depth and shape of every absorption band remain.
+WISER fits the upper convex hull of the spectrum and divides by it. For each
+spectrum it processes, WISER adds two collected spectra:
+`<name> Continuum Removed` and the hull, `Convex Hull <name>`. Overall
+brightness and slope are removed; the position, depth and shape of every
+absorption band remain.
 
 That is what makes a sunlit and a shadowed pixel of the same material
 comparable, and what makes two spectra from different instruments comparable at

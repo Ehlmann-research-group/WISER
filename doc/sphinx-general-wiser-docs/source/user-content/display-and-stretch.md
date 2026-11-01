@@ -89,8 +89,8 @@ In grid view the dataset chooser, band chooser and contrast-stretch controls
 move from the main toolbar to a strip **above each panel**.
 
 The **link** button ties the panels together: pan or zoom one and the others
-follow. Linking requires every open dataset to have the **same width and
-height**.
+follow. Linking requires the displayed datasets to have the **same width and
+height**, or to overlap in map coordinates.
 
 The spectrum plot has its own control, at its top left, for choosing which
 dataset it reads from. Pin it to one dataset and clicking any linked panel

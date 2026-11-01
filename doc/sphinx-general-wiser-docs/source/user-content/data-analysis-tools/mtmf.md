@@ -43,10 +43,10 @@ target produces two float32 datasets:
 :::
 
 
-1. **Input** — leave the type as **Image Cube** and choose the dataset to
-   analyze. (Spectrum input is not currently supported.)
-2. **Noise method** (the dropdown below the input; it starts on **ROI
-   Based**) — choose how background noise is estimated:
+1. **Select Image Cube** — the dataset to analyze. Spectrum input is not
+   currently supported.
+2. **Noise method** — the dropdown below the input, which starts on **ROI
+   Based**. Choose how background noise is estimated:
    - **Image Cube Based** — estimate noise from the scene itself via the
      shift-difference method; pick a direction (Down/Up/Left/Right) in the
      row below.
@@ -54,7 +54,8 @@ target produces two float32 datasets:
      as the input) in the value box.
    - **ROI Based** — supply a region of interest (ROI) and the dataset to take
      it from.
-3. **Target** — choose the reference spectrum to detect.
+3. **Target** — choose the spectrum to detect from your collected spectra;
+   library entries are not listed.
 4. Click **OK**. The run proceeds in the background.
 
 ## See also

@@ -18,8 +18,8 @@ a classifier, an unmixing model, or a detection threshold.
 
 A region of interest (ROI) is a **named, colored collection of selections**.
 Selections may be rectangles, polygons or multi-pixel picks, and there may be
-many in one ROI, scattered anywhere in the scene. Overlapping selections are fine: each pixel is
-counted once.
+many in one ROI, scattered anywhere in the scene. Overlapping selections are
+fine: each pixel is counted once.
 
 ---
 
@@ -82,8 +82,9 @@ block, because they sample more of the illumination and species variation.
 
 1. Right-click **inside one of your selections** on the image. Near the bottom
    of the menu is a submenu named after the ROI, such as **Tree canopy**.
-2. Point to it and choose **Show ROI average spectrum**. The mean of every pixel in that region
-   is drawn in the Spectrum Plot pane as the active spectrum.
+2. Point to it and choose **Show ROI average spectrum**. The mean of every
+   pixel in that region is drawn in the Spectrum Plot pane as the active
+   spectrum.
 3. Click **Collect spectrum** on the Spectrum Plot toolbar to keep it, as in
    {doc}`Tutorial 2 <02-spectra>`.
 4. Repeat for the other two regions.
@@ -114,10 +115,10 @@ either of the others. That is the difference {doc}`Tutorial 4
 ## Step 4 — Get the data out
 
 Right-click inside the canopy selection, point to the **Tree canopy** submenu,
-and choose **Export all spectra in ROI...**. The ASCII file holds **every pixel's** spectrum, not just the mean,
-which is what you need to report a standard deviation or to check whether a
-class is bimodal and should be split. For a signature, the mean spectrum you
-already collected is usually enough.
+and choose **Export all spectra in ROI...**. The ASCII file holds **every
+pixel's** spectrum, not just the mean, which is what you need to report a
+standard deviation or to check whether a class is bimodal and should be split.
+For a signature, the mean spectrum you already collected is usually enough.
 
 The same menu turns the region into a 0/1 mask for band math, exports its
 geometry as GeoJSON, and renames or deletes it. Every ROI operation, and the

@@ -20,8 +20,8 @@ Clustering <../user-content/data-analysis-tools/kmeans>`.
    Scatter Plot**. The same tool is on the **Main Menu** at **Tools ▸ Data
    Analysis ▸ Interactive Scatter Plot**.
 3. At the bottom of the scatter plot window, **X Axis Band** and **Y Axis
-   Band** each have a **Dataset** and a **Band #** dropdown. Set them, and
-   **Render Onto**, as follows:
+   Band** each have a **Dataset** dropdown and a **Band #** box with a band
+   dropdown beside it. Set them, and **Render Onto**, as follows:
    - **X Axis Band** — `caltech_4_100_150_nm`, **Band 2: 702.42 nm**
    - **Y Axis Band** — the same dataset, **Band 3: 852.68 nm**
    - **Render Onto** — the same dataset
@@ -66,9 +66,9 @@ first.
 
 1. Click around the vegetation plume to drop vertices, and close the polygon
    by clicking the first vertex again.
-2. The selected points are outlined, the point counter (for example
-   `1,234 pts`) updates, and the
-   matching pixels are marked on the **Render Onto** image.
+2. The selected points are outlined, the point count (for example
+   `1,234 pts`) updates, and the matching pixels are marked on the
+   **Render Onto** image.
 
 :::{figure} ../_static/tutorials/t8_scatter_selection.png
 :width: 70%

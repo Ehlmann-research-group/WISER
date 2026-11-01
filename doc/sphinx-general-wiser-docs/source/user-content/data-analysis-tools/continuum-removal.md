@@ -51,13 +51,14 @@ Right-click a spectrum's name in the list below the Spectrum Plot and choose:
 - **Continuum Removal: Single Spectrum** — that spectrum
 - **Continuum Removal: Collected Spectra** — every collected spectrum
 
-Each run adds two collected spectra, `<name> Continuum Removed` and the hull
-`Convex Hull <name>`, so you keep the original.
+For each spectrum it processes, WISER adds two collected spectra,
+`<name> Continuum Removed` and the hull, `Convex Hull <name>`, so you keep the
+original.
 
 :::{figure} ../../_static/images/cont_remove_spectra.png
 :width: 30%
 :align: center
-:alt: Continuum removal options in the spectrum-plot context menu
+:alt: Continuum removal options in the right-click menu of a spectrum in the list
 :::
 
 ### On an image

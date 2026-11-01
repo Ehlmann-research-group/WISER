@@ -78,7 +78,7 @@ Assignments** (which dataset and band).
 :alt: The band math dialog with the NDVI expression and both variables bound
 :::
 
-Two things on this screen are worth knowing:
+Two other parts of the **Band Math** dialog are worth knowing:
 
 - To the right of the **Expression:** box, WISER reports the **result type and
   size** — `Result: Image Band 150x150 (87.9KB)`. Band math is not streamed for
@@ -143,8 +143,9 @@ histogram in the stretch dialog first.
 :alt: True-color image and NDVI side by side in a 1x2 grid
 :::
 
-Linked scrolling works when the displayed datasets have the same width and
-height, as these do: pan or zoom one panel and the others follow. The status bar confirms with `Linked view scrolling is ON`.
+Pan or zoom one panel and the others follow. The status bar confirms with
+`Linked view scrolling is ON`. Linked scrolling works when the displayed
+datasets have the same width and height, as these do.
 
 ```{note}
 In grid view the band chooser and contrast stretch controls move from the Main
@@ -195,5 +196,5 @@ raster in a folder. The operator list and every option are in
 
 ---
 
-**Next:** {doc}`Tutorial 5 — Classifying a Scene <05-classification>` — let the
-data find its own classes.
+**Next:** {doc}`Tutorial 5 — Classifying a Scene <05-classification>` —
+let the data find its own classes.
