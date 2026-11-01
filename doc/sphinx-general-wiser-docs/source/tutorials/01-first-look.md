@@ -31,16 +31,16 @@ The four bands in this scene are:
 
 WISER numbers bands from 0, and shows the number and the wavelength together in
 every dropdown, like `Band 2: 702.42 nm`. Every step below refers to bands by
-number. Tutorials 3–5 work on this same scene, and Tutorial 6 returns to it
-alongside a 425-band cube.
+number. Tutorials 3–6 work on this same scene.
 
 ---
 
 ## Step 1 — Open the image
 
 1. From the **Main Menu** at the top of the window, go to **File** and select
-   **Open...** from the dropdown list. You can also click **Open image file**,
-   the leftmost button on the Main Toolbar.
+   **Open...** from the dropdown list. The tutorials write a menu path like this
+   as **File ▸ Open...**. You can also click **Open image file**, the leftmost
+   button on the Main Toolbar.
 2. In the file dialog, navigate to `src/test_utils/test_datasets/` and select
    **`caltech_4_100_150_nm.hdr`**. Either the `.hdr` header or the data file
    beside it works — WISER finds the other.
@@ -85,11 +85,12 @@ buttons by these names.
 | 5 | Show/hide dataset information | 14 | Zoom to fit |
 | 6 | Select dataset to view | 15 | Zoom level |
 | 7 | Band chooser | 16 | Add new Region of Interest |
-| 8 | Stretch builder | 17 | Current ROI |
+| 8 | Stretch builder | 17 | ROI dropdown (no tooltip) |
 | 9 | Split/unsplit the main view | 18 | Add selection to current ROI |
 
-1. Buttons 2–5 toggle the four panes. Click each one until all four panes are
-   showing:
+1. Buttons 2–5 are the **pane toggles**: each one shows or hides one pane.
+   Click each one until all four panes are showing. Later tutorials call them
+   by the pane's name, for example the **Spectrum Plot** pane toggle.
 
    - **Context** — the whole scene, scaled to fit
    - **Zoom** — a magnified view around the last pixel you clicked
@@ -122,9 +123,8 @@ the dark red-brown vegetation and the status bar reads three small values —
 `R:`, `G:` and `B:` all below about 0.15. Click a white rooftop and all three
 jump to roughly 0.4–0.7. The **Geo:** field reads close to
 (34.14°N, -118.13°E) anywhere in the scene, which is the Caltech campus. WISER
-shows
-west longitudes as negative **°E** values by default; the geographic-coordinate
-settings can switch that to a positive **°W** display.
+shows west longitudes as negative **°E** values by default; the
+geographic-coordinate settings can switch that to a positive **°W** display.
 
 ---
 
@@ -135,9 +135,8 @@ three bands at once, whatever the cube holds. WISER opened this scene with the
 **default bands** named in its header: band 2 in the red channel, band 1 in
 green, band 0 in blue. That is near-true-color: each channel carries the band
 closest to the color it drives. It is only "near" because 702 nm sits at the
-start
-of vegetation's red edge rather than in the middle of the red. To change the
-bands:
+start of vegetation's red edge rather than in the middle of the red. To change
+the bands:
 
 1. Click **Band chooser** (toolbar button 7). The **Band Chooser** dialog
    opens.
@@ -150,7 +149,7 @@ bands:
 
 2. The **General** section at the top sets the display mode: **RGB** or
    **Grayscale**. The **Detail** section below has one dropdown per channel
-    (**Red Band**, **Green Band** and **Blue Band**), each listing every band in
+   (**Red Band**, **Green Band** and **Blue Band**), each listing every band in
    the scene by number and wavelength. The remaining controls, including
    applying a choice to every view at once, are described in
    {doc}`Display and Contrast Stretch <../user-content/display-and-stretch>`.
@@ -181,15 +180,13 @@ the near-true-color image is back.
 
 ## Step 4 — Make the image readable with a contrast stretch
 
-A contrast stretch is a transfer function from data values to the 256
-brightness levels each display channel can show. This scene is 32-bit
-floating-point reflectance, almost all of it between 0.01 and 0.8. When a scene
-opens, WISER maps each displayed band's minimum to level 0 and its maximum to
-level 255, linearly. The dialog calls that mapping **Full Linear Stretch**. Its
-tooltip, "No contrast stretch will be applied", means the same thing:
-nothing is applied beyond that base mapping. A few extreme pixels then claim
-most of the display range, which is why the image looks dark. A percent
-stretch clips a share of each tail instead. The clipped pixels saturate at
+The image looks dark because a few extreme pixels take up most of the display
+range. Each display channel shows 256 brightness levels, and a contrast stretch
+decides which data values map to which level. This scene is reflectance, almost
+all of it between 0.01 and 0.8. When a scene opens, WISER maps each displayed
+band's minimum to level 0 and its maximum to level 255, linearly; the dialog
+calls that **Full Linear Stretch**. A percent stretch clips a share of each
+tail instead. The clipped pixels saturate at
 pure black or pure white, and the full display range is spent on the values in
 between. A stretch changes only what you see: spectra, band math and every
 analysis tool read the underlying data, never the stretched display values.
@@ -206,8 +203,8 @@ analysis tool read the underlying data, never the stretched display values.
    type. **Conditioner** at the top right applies a transform to the data
    before the stretch. Below them is one section per displayed channel (**Red
    Channel**, **Green Channel**, **Blue Channel**), each with its own
-   histogram, **Minimum** and **Maximum** boxes, and **Stretch Low** and
-   **Stretch High** sliders.
+   histogram, **Minimum** and **Maximum** boxes, and a **Stretch Low** and
+   **Stretch High** box with a slider under each.
 
 2. In the **Stretch** section, select **Linear Stretch**, then click the
    **2.5% linear** button underneath it. WISER clips the darkest 1.25% and the
@@ -220,10 +217,12 @@ analysis tool read the underlying data, never the stretched display values.
    :alt: The stretch builder after applying a 2.5% linear stretch
    :::
 
-3. To set a channel by hand, type a value into its **Minimum** or **Maximum**
-   box and click that channel's **Apply** button, or drag its **Stretch Low**
-   and **Stretch High** sliders. **Reset** puts that channel back to the band's
-   own minimum and maximum.
+3. To set a channel's stretch by hand, type a value into its **Stretch Low**
+   or **Stretch High** box, or drag the slider under it. The **Minimum** and
+   **Maximum** boxes do something different: they leave values outside that
+   range out of the histogram, and the stretch is then computed from what
+   remains. See
+   {doc}`Display and Contrast Stretch <../user-content/display-and-stretch>`.
 4. Click **OK** to keep the stretch, or **Cancel** to discard it.
 
 :::{figure} ../_static/tutorials/t1_stretch_applied.png
@@ -306,22 +305,33 @@ Three displays of one unchanged cube:
   **View** menu) show and hide each pane. Drag a pane's title bar to re-dock
   it. WISER restores your layout on the next launch, so an odd layout stays
   until you put it back.
-- **The image went all black or all white after a manual stretch.** The typed
-  **Minimum** and **Maximum** are reversed or outside the data range. Click
-  that channel's **Reset** to return to the band's own minimum and maximum, or
-  select **Full Linear Stretch** to go back to the opening display.
+- **The image went all black or all white after a manual stretch.** The
+  **Stretch Low** and **Stretch High** values are outside the data range.
+  Select **Full Linear Stretch**, or click **2.5% linear** again, to go back to
+  a readable display. If you typed into **Minimum** or **Maximum**, click that
+  channel's **Reset** to clear them.
 - **Known bug — swapped coordinate labels**
   ([#779](https://github.com/Ehlmann-research-group/WISER/issues/779)). This
   scene reads correctly, but where a dataset's CRS resolves to a standard
   **EPSG** geographic code, as most real-world GeoTIFF and UTM products do, the
-   status bar prints the longitude with the `°N` label and the
-  latitude with `°E`. The numbers are right; the labels are swapped. Check the
+  status bar prints the longitude with the `°N` label and the latitude with
+  `°E`. The numbers are right; the labels are swapped. Check the
   values against the scene's known location before trusting the labels.
 - **Known bug — error reopening the stretch dialog**
   ([#780](https://github.com/Ehlmann-research-group/WISER/issues/780)). If you
   apply a stretch, then change the same view between **Grayscale** and
   **RGB**, reopening the stretch dialog raises an error. Reopen the dataset,
   or set your bands before stretching, until that is fixed.
+
+---
+
+## What you can now do
+
+- Open a dataset and show the four panes
+- Read pixel values and coordinates from the status bar
+- Choose display bands, in color or as one band with a colormap
+- Apply a percent stretch, and know that it changes only the display
+- Build a color-infrared composite
 
 ---
 

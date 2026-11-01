@@ -31,9 +31,9 @@ yourself before laboratory measurements mean anything.
 
 ## Step 1 — Open it, and check the units
 
-1. From the **Main Menu**, go to **File** and select **Open...**, then choose
-   `circuit_4_100_150_um.hdr`.
-2. Click the four pane toggles on the Main Toolbar, then **Zoom to fit**.
+1. Choose **File ▸ Open...** and select `circuit_4_100_150_um.hdr`.
+2. If any of the four panes is not showing, click its pane toggle on the Main
+   Toolbar. Then click **Zoom to fit**.
 3. Click **Stretch builder**, select **Linear Stretch**, click **2.5% linear**,
    and click **OK**.
 
@@ -79,13 +79,13 @@ a mixture of both sides.
 :alt: Three spectra from the circuit board, well separated in brightness, with the component body nearly flat and the substrate falling steeply into the near infrared
 :::
 
-The component body is dark and almost flat. The
-board substrate falls steadily across the range. The bright pad is highest
+The component body is dark and almost flat. The board substrate falls
+steadily across the range. The bright pad is highest
 everywhere and turns over slightly, peaking at 0.635 µm rather than at the
 shortest band.
 
-Most of what separates these curves is brightness, but not all of it. Divide
-each by its own mean and the shapes differ too:
+Most of what separates these curves is brightness, but not all of it. Divided
+by its own mean, each curve has a different shape:
 
 | | 0.525 | 0.635 | 0.740 | 1.200 µm |
 |---|---|---|---|---|

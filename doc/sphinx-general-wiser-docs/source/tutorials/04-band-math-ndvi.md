@@ -42,8 +42,7 @@ conventionally called.
 ## Step 1 — Write the expression
 
 1. Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`.
-2. From the **Main Menu** at the top of the window, go to **Tools** and select
-   **Band math...** from the dropdown list. The **Band Math** dialog opens.
+2. Choose **Tools ▸ Band math...**. The **Band Math** dialog opens.
 3. In the **Expression:** box at the top, type:
 
    ```text
@@ -70,6 +69,8 @@ Assignments** (which dataset and band).
 4. In the `red` row, set the same dataset and **Band 2: 702.42 nm**.
 5. Type `NDVI` into **Result name (optional):** near the bottom. Without a name
    the result is harder to find in the dataset list later.
+6. Click **OK**. After a moment the result is added as a new dataset named
+   **NDVI**.
 
 :::{figure} ../_static/tutorials/t4_bandmath_dialog.png
 :width: 90%
@@ -77,7 +78,7 @@ Assignments** (which dataset and band).
 :alt: The band math dialog with the NDVI expression and both variables bound
 :::
 
-Note two things on this screen:
+Two things on this screen are worth knowing:
 
 - To the right of the **Expression:** box, WISER reports the **result type and
   size** — `Result: Image Band, 150x150 (87.9KB)`. Band math is not streamed for
@@ -85,15 +86,13 @@ Note two things on this screen:
 - **Toggle Help** opens the operator reference in a panel on the right. Read it,
   because the built-in function set is deliberately small.
 
-6. Click **OK**. After a moment the result is added as a new dataset named
-   **NDVI**.
-
 ---
 
 ## Step 3 — Display it meaningfully
 
-A vegetation index has a meaningful zero, and a grayscale display does not show
-it.
+A diverging colormap such as **RdYlGn** shows low values in red, middle values
+in yellow and high values in green, which makes vegetation stand out far more
+than gray levels do.
 
 1. Use the **Select dataset to view** dropdown on the Main Toolbar to switch the
    main window to the new **NDVI** dataset. It is drawn in grayscale, and the
@@ -135,6 +134,7 @@ histogram in the stretch dialog first.
    and choose **1 row x 2 columns** from its menu. The main window splits in two.
 2. Use the **Select dataset to view** dropdown above the left panel to show
    `caltech_4_100_150_nm`, and the one above the right panel to show `NDVI`.
+3. Click **Link view scrolling** on the Main Toolbar.
 
 :::{figure} ../_static/tutorials/t4_ndvi_vs_rgb.png
 :width: 90%
@@ -142,13 +142,12 @@ histogram in the stretch dialog first.
 :alt: True-color image and NDVI side by side in a 1x2 grid
 :::
 
-When every open dataset has the same width and height, **Link view scrolling**
-on the Main Toolbar ties the panels together: pan or zoom one and the others
-follow. The status bar confirms with `Linked view scrolling is ON`.
+Linked scrolling works when every open dataset has the same width and height:
+pan or zoom one panel and the others follow. The status bar confirms with `Linked view scrolling is ON`.
 
 ```{note}
-In grid view the band chooser and contrast stretch controls move from the main
-toolbar to a strip above **each** panel, so you can set them per panel.
+In grid view the band chooser and contrast stretch controls move from the Main
+Toolbar to a strip above **each** panel, so you can set them per panel.
 ```
 
 ---
@@ -166,29 +165,21 @@ Open **Tools ▸ Band math...** again, type the expression, and bind `ndvi` as a
 return 1 where the test passes and 0 where it fails, so the result is a binary
 canopy mask you can count, export, or use to restrict another analysis.
 
-Pick the threshold from your own data rather than from a paper: collect an ROI
-over known canopy and another over known pavement
-({doc}`Tutorial 3 <03-regions-of-interest>`), look at where their NDVI values
-separate, and cut there.
+Pick the threshold from your own data rather than from a paper. With the NDVI
+dataset on screen, click a few pixels you know are canopy and a few you know
+are pavement, and read each one's **Val:** in the status bar. Cut between the
+two groups.
 
 ---
 
 ## What band math can and cannot do
 
-**Operators:** `+` `-` `*` `/`, `**` (power, so `x ** 0.5` is a square root),
-unary `-`, and the comparisons `==` `!=` `<` `>` `<=` `>=`.
-
-**Built-in functions:** `sin`, `cos`, `tan`, `arcsin`, `arccos`, `arctan`,
-`arctan2`, `dotprod`. That is the whole list: there is no built-in `sqrt`,
-`log` or `exp`. Use `** 0.5` for a square root; for anything else a
+The built-in function set is small: there is no `sqrt`, `log` or `exp`. Use
+`** 0.5` for a square root; for anything else a
 {doc}`band-math plugin <../extending-wiser/bandmath_plugins>` adds functions
-without rebuilding WISER.
-
-**Variables** bind to a whole **image cube**, a single **image band**, or a
-**spectrum**, and names are case-insensitive.
-
-Expressions can be saved and reloaded, and **Enable Batch Processing** applies
-one expression across every raster in a folder. Full reference:
+without rebuilding WISER. Variables can also bind to a whole image cube or to a
+spectrum, and **Enable Batch Processing** applies one expression across every
+raster in a folder. The operator list and every option are in
 {doc}`Band Math <../user-content/band-math>`.
 
 ---
@@ -197,7 +188,7 @@ one expression across every raster in a folder. Full reference:
 
 - Write and bind a band-math expression
 - Choose bands on physical grounds and say what that choice costs
-- Display an index with a colormap and stretch that reflect its zero point
+- Display an index with a diverging colormap and a percent stretch
 - Compare two datasets in a linked grid
 - Threshold a continuous index into a mask
 

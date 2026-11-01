@@ -11,22 +11,23 @@ and export the pixel spectra for use outside WISER.
 
 ## Why regions instead of pixels
 
-A single pixel's spectrum carries sensor noise, and on a 4-band scene it may
+A single pixel's spectrum carries sensor noise, and a pixel on a boundary may
 straddle two materials. Averaging over a **Region of Interest** (tens or
 hundreds of pixels of one cover type) gives a signature stable enough to feed
 a classifier, an unmixing model, or a detection threshold.
 
-A region of interest (ROI) is a **named, colored collection of selections**. Selections may be
-rectangles, polygons or multi-pixel picks, and there may be many in one ROI,
-scattered anywhere in the scene. Overlapping selections are fine: each pixel is
+A region of interest (ROI) is a **named, colored collection of selections**.
+Selections may be rectangles, polygons or multi-pixel picks, and there may be
+many in one ROI, scattered anywhere in the scene. Overlapping selections are fine: each pixel is
 counted once.
 
 ---
 
 ## Step 1 — Create the ROIs
 
-Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`, and click the
-**Spectrum Plot** toggle on the Main Toolbar. Then, for each class:
+Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`. If the
+**Spectrum Plot** pane is not showing, click its pane toggle on the Main
+Toolbar. Then, for each class:
 
 1. Click **Add new Region of Interest** on the Main Toolbar, the location-pin
    button near the right-hand end. The **Region of Interest - Information**

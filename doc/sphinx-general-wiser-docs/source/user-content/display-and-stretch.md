@@ -189,8 +189,7 @@ than on the clouds.
 Use it when a dataset has no data ignore value, or when a computed result has a
 huge theoretical range but a narrow interesting one. An example is an NDVI over
 a full-size flight line, where the scene edges drag the minimum far below the
-real
-range and flatten the whole scene to one color.
+real range and flatten the whole scene to one color.
 
 **Link sliders across all channels** and **Apply minimum/maximum values across
 all channels** make the same change to every channel at once.

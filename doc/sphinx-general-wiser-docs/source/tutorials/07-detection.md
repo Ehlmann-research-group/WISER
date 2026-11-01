@@ -5,10 +5,16 @@ substance?" using WISER's four matching and unmixing tools, and know which one
 to reach for.
 
 **Data:** `caltech_15_20_22_bb.hdr` — a 20 × 22 pixel, 15-band short-wave
-infrared (SWIR) subset
-(1308–1454 nm) carrying a **bad-band list**, so you can see how flagged bands
-are dropped. Reference spectra from
+infrared (SWIR) subset (1308–1454 nm) carrying a **bad-band list**, so you can
+see how flagged bands are dropped. Reference spectra from
 `src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr`.
+
+```{note}
+This cube is for practicing the mechanics of each tool. Its 1308–1454 nm range
+sits mostly inside the 1400 nm water-vapor absorption and contains none of the
+features that identify minerals, so the results below are not mineral
+identifications. Run the same steps on a full-range cube for real ones.
+```
 
 **Reference:** {doc}`Spectral Angle Mapper
 <../user-content/data-analysis-tools/spectral-angle-mapper>`, {doc}`Spectral
@@ -34,15 +40,17 @@ least; unmixing asks the most and, in exchange, gives you abundances.
 
 ## Step 1 — Load the scene and a library
 
-1. From the **Main Menu**, go to **File** and select **Open...**, then choose
-   `caltech_15_20_22_bb.hdr`.
-2. Click the **Dataset Info** toggle on the Main Toolbar and expand the dataset
-   in the pane. Its header carries
+1. Choose **File ▸ Open...** and select `caltech_15_20_22_bb.hdr`.
+2. If the **Dataset Info** pane is not showing, click its pane toggle on the
+   Main Toolbar. Expand the dataset in the pane. Its header carries
    `bbl = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1 }`, meaning bands 8 and
    9 are flagged bad. Every tool below drops them automatically.
-3. Click the **Spectrum Plot** toggle to show that pane, then on its toolbar
-   click **Load or import spectra** and choose **Load spectral library...**.
-   Select `usgs_resampHeadwallSWIR.hdr`.
+3. If the **Spectrum Plot** pane is not showing, click its pane toggle. On the
+   Spectrum Plot toolbar, click **Load or import spectra** and choose **Load
+   spectral library...**. Select `usgs_resampHeadwallSWIR.hdr`.
+4. Click three pixels that look different from each other, and click **Collect
+   spectrum** after each, as in {doc}`Tutorial 2 <02-spectra>`. Steps 4 and 5
+   use these as the MTMF target and as unmixing endmembers.
 
 ---
 
@@ -58,8 +66,7 @@ sunlit and a shadowed patch of the same mineral give the same small angle,
 which is why it is the usual choice for scenes with topography or uneven
 illumination. A smaller angle means a better match.
 
-From the **Main Menu**, go to **Tools**, then **Data Analysis**, then select
-**Spectral Angle Mapper**. The dialog opens on its **Settings** tab.
+Choose **Tools ▸ Data Analysis ▸ Spectral Angle Mapper**. The dialog opens on its **Settings** tab.
 
 :::{figure} ../_static/tutorials/t7_sam_dialog.png
 :width: 90%
@@ -91,8 +98,10 @@ Two datasets come back, one band per reference:
 - **`SAM Angle, Img: <source>`** — the angle in degrees at every pixel
 - **`SAM CLS, Img: <source>`** — a boolean map of `angle < threshold`
 
-Switch to the angle image with **Select dataset to view**, give it a colormap
-in the **Band chooser**, and set a stretch before trusting the classification.
+Each band is named after its reference, such as `Spec: Kaolinite CM9`. Switch
+to the angle image with **Select dataset to view**, open the **Band chooser**,
+select **Grayscale**, pick one mineral's band from **Grayscale Band**, and tick
+**Use a colormap**. Set a stretch before trusting the classification.
 
 ```{admonition} Interpretation
 :class: note
@@ -122,11 +131,16 @@ depths.
 :alt: The Spectral Feature Fitting dialog
 :::
 
-Open it from the same **Tools ▸ Data Analysis** menu. The inputs mirror SAM's
-and are listed in
+Choose **Tools ▸ Data Analysis ▸ Spectral Feature Fitting**. The inputs mirror
+SAM's and are listed in
 {doc}`Spectral Feature Fitting
-<../user-content/data-analysis-tools/spectral-feature-fitting>`,
-with one difference:
+<../user-content/data-analysis-tools/spectral-feature-fitting>`.
+
+1. Set the target to your dataset and tick the USGS library, as for SAM.
+2. Set **Min/Max Wavelength** to 1308 and 1454, with **Units** in nanometers.
+   Unlike SAM, SFF continuum-removes over exactly this window, so set it
+   deliberately rather than leaving it at `0.0`.
+3. Click **Run SFF**.
 
 ```{note}
 **Set the wavelength range to bracket the feature you care about.** SFF over a
@@ -134,9 +148,8 @@ full spectral range averages your diagnostic band in with everything else. Over
 a window around a known absorption it is far more specific than SAM. On a
 full-range cube the usual targets are kaolinite 2160/2200 nm, alunite 2170 nm,
 calcite 2340 nm, gypsum 1750 nm and chlorophyll 670 nm, all of which sit beyond
-this tutorial's 1308–1454 nm subset. On this cube, set **Min/Max Wavelength**
-to 1308 and 1454 with **Units** in nanometers and read the run as practice on
-the mechanics; the bracketing pays off on a cube that reaches the features.
+this tutorial's 1308–1454 nm subset, so here the window simply covers the whole
+cube.
 ```
 
 Three outputs, one band per reference:
@@ -164,7 +177,8 @@ background, the usual situation in target detection.
 1. **Select Image Cube**: the dataset to search.
 2. **Noise method**: leave it on **Image Cube Based**, which estimates noise
    from the scene itself by shift difference.
-3. **Target**: the reference spectrum to detect.
+3. **Target**: the spectrum to detect. The list holds the spectra you
+   collected in Step 1, not library entries; choose one of them.
 4. Click **OK**.
 
 If you have a dark frame, or a region you know is background, the other two
@@ -204,8 +218,8 @@ spectra and solves for the weights.
 :::
 
 1. **Input Dataset**: the cube.
-2. Build the **Endmembers** list (at least two) with **Add Collected
-   Spectrum**, from signatures you collected in the Spectrum Plot.
+2. Click **Add Collected Spectrum** and pick at least two of the spectra you
+   collected in Step 1. They make up the **Endmembers** list.
 3. Optionally tick **Sum to Unity**. This softly forces each pixel's
    abundances to add to 1, which is right when you believe your endmembers
    cover everything in the scene and wrong when they do not.

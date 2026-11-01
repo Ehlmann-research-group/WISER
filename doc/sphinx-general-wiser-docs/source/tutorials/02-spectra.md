@@ -22,10 +22,9 @@ one you clicked.
 
 ## Step 1 — Click a pixel, get a spectrum
 
-1. From the **Main Menu**, go to **File** and select **Open...**, then choose
-   `caltech_425_7_7_nm.hdr`.
-2. On the Main Toolbar, click the **Spectrum Plot** and **Zoom** pane toggles to
-   show both panes, then click **Zoom to fit**. At 7 × 7 pixels the scene fills
+1. Choose **File ▸ Open...** and select `caltech_425_7_7_nm.hdr`.
+2. If the **Spectrum Plot** and **Zoom** panes are not showing, click their
+   pane toggles on the Main Toolbar. Then click **Zoom to fit**. At 7 × 7 pixels the scene fills
    the window and each pixel becomes a large block.
 3. Click any pixel in the main window.
 
@@ -63,22 +62,8 @@ pane's own toolbar. The spectrum is added to the list below the plot and stays
 there when you click a new pixel.
 
 Collect three pixels: a bright one, a dark one, and one in between. Each is
-drawn in the same default color, so give each its own color with **Edit...**
-from the list below the plot.
-
-Then keep clicking. Work across the scene pixel by pixel and watch the active
-spectrum redraw each time.
-
-```{admonition} Interpretation
-:class: note
-This 7 × 7 fixture holds 49 pixels, and every one of them carries 425 numbers.
-Each click reads a different measurement out of a different patch of ground.
-
-Two pixels that look almost identical on screen can have visibly different
-spectra, because the display is showing you three of the 425 bands and the plot
-is showing you all of them. That gap between what the image shows and what the
-data holds is the reason for the rest of these tutorials.
-```
+drawn in the same default color, so give each its own color: right-click its
+name in the list below the plot, choose **Edit...**, and set **Plot color:**.
 
 :::{figure} ../_static/tutorials/t2_collected.png
 :width: 90%
@@ -97,6 +82,20 @@ From the list below the plot:
 - **Right-click a spectrum ▸ Save to file...** writes it out as text.
 - **Right-click ▸ Discard...** removes one spectrum; **Discard all...** clears
   the list.
+
+Then keep clicking. Work across the scene pixel by pixel and watch the active
+spectrum redraw each time.
+
+```{admonition} Interpretation
+:class: note
+This 7 × 7 fixture holds 49 pixels, and every one of them carries 425 numbers.
+Each click reads a different measurement out of a different patch of ground.
+
+Two pixels that look almost identical on screen can have visibly different
+spectra, because the display is showing you three of the 425 bands and the plot
+is showing you all of them. That gap between what the image shows and what the
+data holds is the reason for the rest of these tutorials.
+```
 
 ---
 
@@ -148,8 +147,8 @@ src/test_utils/test_spectra/usgs_resampHeadwallSWIR.hdr
 ```
 
 That is **481 USGS mineral spectra**, including alunite, jarosite, kaolinite and
-calcite, resampled to a 285-band Headwall short-wave infrared (SWIR) sensor. It
-is the reference set used for mineral mapping.
+calcite, resampled to a 285-band Headwall short-wave infrared (SWIR) sensor.
+{doc}`Tutorial 7 <07-detection>` uses it.
 
 :::{figure} ../_static/tutorials/t2_library.png
 :width: 90%
@@ -158,9 +157,9 @@ is the reference set used for mineral mapping.
 :::
 
 Imported libraries are listed but **not drawn**, because a few hundred lines at
-once would be unreadable. Right-click a spectrum name to show just that one;
-right-click
-the library name to show or hide all of it.
+once would be unreadable. Right-click a spectrum name and choose **Show
+spectrum** to draw just that one. Right-click the library name and choose
+**Show all spectra** or **Hide all spectra** to draw or hide all of it.
 
 ```{note}
 A library resampled to one sensor's bands will not line up with another's. The
@@ -179,7 +178,8 @@ Right-click in the Spectrum Plot and choose:
 - **Continuum Removal: Single Spectrum** — the active spectrum
 - **Continuum Removal: Collected Spectra** — everything you have collected
 
-WISER fits the upper convex hull, divides by it, and adds the result as a new
+WISER fits the upper convex hull (a line of straight segments stretched across
+the tops of the spectrum), divides by it, and adds the result as a new
 spectrum. Overall brightness and slope disappear; the depth and shape of each
 absorption band remain. That is what makes a shadowed and a sunlit pixel of the
 same material comparable, and it is the step

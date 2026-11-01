@@ -4,7 +4,10 @@
 keeping, and know when to reach for the Minimum Noise Fraction (MNF) instead of
 Principal Component Analysis (PCA).
 
-**Data:** `caltech_425_7_7_nm.hdr` and `caltech_4_100_150_nm.hdr`.
+**Data:** `caltech_4_100_150_nm.hdr` (from {doc}`Tutorial 1 <01-first-look>`).
+With four bands, PCA and MNF return at most four components, which is enough to
+see how each transform behaves. The scree-plot discussion in Step 3 describes
+what you will see on a full-size cube with hundreds of bands.
 
 **Reference:** {doc}`Principal Component Analysis
 <../user-content/data-analysis-tools/pca>`, {doc}`Minimum Noise Fraction
@@ -17,8 +20,8 @@ Principal Component Analysis (PCA).
 A 425-band cube is mostly redundant: neighboring bands measure nearly the same
 thing, so the information lives in far fewer dimensions than the band count
 suggests. Reducing them first makes every later step cheaper and less noisy.
-Classifiers and unmixing models chase sensor noise
-when handed 400 correlated channels.
+Classifiers and unmixing models chase sensor noise when handed 400 correlated
+channels.
 
 The two transforms order their components differently:
 
@@ -36,10 +39,10 @@ signal, and its trailing components hold the noise.
 
 ## Step 1 — Run PCA
 
-1. Open a dataset.
+1. Open the campus scene as in {doc}`Tutorial 1 <01-first-look>`.
 2. Right-click the image and choose **Data Analysis ▸ Principal Component
-   Analysis**, or use the **Main Menu** at **Tools ▸ Data Analysis ▸ Principal
-   Component Analysis**. The **PCA Dialog** opens.
+   Analysis**, or choose **Tools ▸ Data Analysis ▸ Principal Component
+   Analysis**. The **PCA Dialog** opens.
 
 :::{figure} ../_static/tutorials/t6_pca_dialog.png
 :width: 45%
@@ -84,8 +87,8 @@ that look alike in true color.
 
 ```{note}
 **Principal components have no physical units.** A PCA band is a projection onto
-an eigenvector, so its values are not reflectance and its sign is arbitrary, so
-an inverted-looking component is not a bug. Interpret them by what they
+an eigenvector, so its values are not reflectance. Its sign is arbitrary too,
+and an inverted-looking component is not a bug. Interpret them by what they
 separate, and go back to the original cube whenever you need real spectra.
 ```
 
@@ -98,7 +101,8 @@ component index, on a log scale. It answers "how many components should I
 keep?".
 
 Look for the **elbow**, where the curve flattens. Components before it hold
-structure; after it, noise. On a full-size airborne scene the eigenvalues can
+structure; after it, noise. On this four-band scene the plot has only four
+points. On a full-size airborne scene the eigenvalues can
 fall four orders of magnitude by component 50, with the elbow around component
 10–15: roughly the first dozen carry the scene.
 
@@ -118,8 +122,9 @@ MNF is at **Tools ▸ Data Analysis ▸ Minimum Noise Fraction**.
 :alt: The MNF dialog with dataset and component count
 :::
 
-1. Pick the **Dataset**. The dropdown starts on *(no data)*, so choose it
-   explicitly.
+1. Set **Dataset** to `caltech_4_100_150_nm`. The dropdown starts on
+   *(no data)*, so choose it explicitly. The figure shows a different dataset;
+   the dialog is the same.
 2. Leave **Num Components** at its default, the maximum for that dataset.
 3. Click **OK**. The result is **`MNF, Img: <source>`**.
 

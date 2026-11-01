@@ -31,7 +31,8 @@ Clustering <../user-content/data-analysis-tools/kmeans>`.
 :alt: The interactive scatter plot before plotting, showing the band selectors
 :::
 
-All three datasets must share the same width and height, since points are
+Here all three dropdowns name the same dataset. They can name different
+datasets, as long as those share the same width and height, since points are
 matched to pixels by position.
 
 ### Step 2 — Read the cloud
@@ -53,22 +54,18 @@ The cloud has two parts:
   roads and bare ground lie along it, dark ones at the bottom, bright at the
   top.
 - **The plume rising above the diagonal** at low 702 nm values is
-  **vegetation**: high near-infrared, suppressed red edge. NDVI is, in effect,
-  a measure of how far a point sits above that line.
+  **vegetation**: high near-infrared reflectance and low red reflectance. NDVI
+  is high in the plume and near zero along the line.
 
 ### Step 3 — Link the plot back to the image
 
-The polygon selector is always live.
+You can draw a selection on the plot at any time; there is no tool to turn on
+first.
 
 1. Click around the vegetation plume to drop vertices; finish with a
    **double-click** or **Enter**.
 2. The selected points are outlined, the **N pts** counter updates, and the
    matching pixels are marked on the **Render Onto** image.
-
-The plot's other controls (colormap, axis limits, highlight color) are
-described in
-{doc}`Interactive Scatter Plot
-<../user-content/data-analysis-tools/interactive-scatter-plot>`.
 
 :::{figure} ../_static/tutorials/t8_scatter_selection.png
 :width: 70%
@@ -89,7 +86,10 @@ in advance what either was.
 Click **Create ROI from Selection** to turn that into a Region of Interest, and
 everything in {doc}`Tutorial 3 <03-regions-of-interest>` becomes available.
 
-**Escape** or **Clear selection** starts over.
+**Escape** or **Clear selection** starts over. The plot's other controls
+(colormap, axis limits, highlight color) are described in
+{doc}`Interactive Scatter Plot
+<../user-content/data-analysis-tools/interactive-scatter-plot>`.
 
 ---
 
@@ -101,8 +101,7 @@ Where the scatter plot compares two bands, K-means uses **all** of them: each
 pixel is a point in *n*-band space, and the algorithm partitions those points
 into **K** clusters, iterating until the centers stop moving.
 
-1. From the **Main Menu**, go to **Tools**, then **Data Analysis**, then select
-   **K-means**. The **K-means Dialog** opens.
+1. Choose **Tools ▸ Data Analysis ▸ K-means**. The **K-means Dialog** opens.
 2. Set **Input Dataset** to `caltech_4_100_150_nm`.
 3. Set **K clusters** to `5`.
 
@@ -123,8 +122,7 @@ into **K** clusters, iterating until the centers stop moving.
 
    K-means starts from randomly chosen centers, so two unseeded runs on
    identical data give different clusters, numbered differently. Fix the seed
-   and your figure is
-   reproducible.
+   and your figure is reproducible.
 
 5. Click **OK**. The run proceeds in the background, so WISER stays usable. To
    watch its progress, click **Show activity monitor** at the bottom right of
@@ -180,7 +178,7 @@ together in a new window.
 ```{admonition} Interpretation
 :class: note
 Four of the five mean spectra rise gently and stay roughly parallel, separated
-mostly by overall brightness. Those are the roof, road and pavement classes,
+mostly by overall brightness. Those are the roof, pavement and shadow classes,
 which differ in how much they reflect more than in shape.
 
 The fifth is the one to look at. It starts lowest of all and then climbs steeply
@@ -205,8 +203,8 @@ There is no correct K. Ways to decide:
 
 Run K-means on a raw full-size 425-band cube and the result is visibly speckled,
 because the method partitions *total* variance, and on a high-resolution scene
-most of that is
-within-surface variation rather than between-material difference.
+most of that is within-surface variation rather than between-material
+difference.
 
 One Advanced Option changes what K-means is: **Initialization Method** set to
 `manual` lets you pick the starting spectra, for example ROI means from

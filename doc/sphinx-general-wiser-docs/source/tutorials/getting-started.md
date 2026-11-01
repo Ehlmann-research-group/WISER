@@ -1,16 +1,17 @@
 # Tutorials
 
-There are eight short tutorials, a little over two hours end to end. They run on
-data that ships with the WISER source, so there is nothing to download. Work
-through them in order and you
-will have used every major tool in the application on a real scene.
+There are eight short tutorials, a little over two hours end to end. They run
+on data that ships with the WISER source, so there is nothing to download. Work
+through them in order and you will have used every major tool in the
+application on a real scene. If WISER is not installed yet, start with
+{doc}`Installation <../installation>`.
 
 ```{admonition} What you are working with
 :class: note
 A GIS layer stores one value per pixel, or three if it is a color image. The
-scenes here store hundreds. Every pixel holds a full spectrum: a measurement of
-how much light that patch of ground reflected at each of 4, 285 or 425
-wavelengths. WISER is built to read those spectra.
+scenes here store up to several hundred. Every pixel holds a spectrum: a
+measurement of how much light that patch of ground reflected at each of 4, 15
+or 425 wavelengths. WISER is built to read those spectra.
 
 So instead of arranging layers to make a picture, you read a measurement out of
 any pixel you click ({doc}`Tutorial 2 <02-spectra>`), average it over an area to
@@ -54,7 +55,7 @@ believable is visible there and nowhere else.
 * - 6
   - {doc}`PCA and MNF <06-pca-mnf>`
   - Reduce dimensions, read a scree plot, choose between variance and SNR ordering
-  - `caltech_425_7_7_nm`
+  - `caltech_4_100_150_nm`
 * - 7
   - {doc}`Finding a Known Material <07-detection>`
   - SAM, SFF, MTMF and linear unmixing, and which to reach for
@@ -76,8 +77,8 @@ src/test_utils/test_spectra/      spectral libraries
 
 These are the project's unit-test fixtures, so they are small on purpose — a
 150 × 150 pixel campus scene, a 7 × 7 pixel 425-band cube, a 20 × 22 pixel
-short-wave infrared subset with a bad-band list. They are real data, and they are enough to
-exercise every tool.
+short-wave infrared subset with a bad-band list. They are real data, and they
+are enough to exercise every tool.
 
 If you installed WISER from a release rather than from source, get them by
 cloning the repository:
@@ -85,6 +86,9 @@ cloning the repository:
 ```bash
 git clone https://github.com/Ehlmann-research-group/WISER.git
 ```
+
+Without git, open the repository page on GitHub and choose **Code ▸ Download
+ZIP**.
 
 ---
 
