@@ -141,14 +141,18 @@ class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
         )
 
     def finish(self):
+        # The edits act on the selection's own pixel set, so a restore also changes
+        # the ROI and must be signalled for the other panes to repaint.
         if self._cancelled:
             self._points.clear()
             self._points.update(self._original_points)
+            self._rasterpane.roi_selection_changed.emit(self._roi, self._mp_sel)
             self._app_state.show_status_text("Multi-pixel edits cancelled.", 5)
             return
 
         if len(self._points) == 0:
             self._points.update(self._original_points)
+            self._rasterpane.roi_selection_changed.emit(self._roi, self._mp_sel)
             self._app_state.show_status_text("No pixels selected; selection left unchanged.", 5)
             return
 
