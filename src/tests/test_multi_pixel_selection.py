@@ -142,7 +142,7 @@ class TestMultiPixelSelection(unittest.TestCase):
         self._key(Qt.Key_Escape)
         self.assertIsNone(self.pane._task_delegate)
         self.assertEqual(sel.get_all_pixels(), {(1, 1), (5, 5)})
-        self.assertEqual(self.changed, [])
+        self.assertEqual(self.changed, [sel])
 
     def test_editor_enter_commits(self):
         sel = MultiPixelSelection([QPoint(1, 1), QPoint(5, 5)])
@@ -163,7 +163,7 @@ class TestMultiPixelSelection(unittest.TestCase):
         self._key(Qt.Key_Return)
         self.assertIsNone(self.pane._task_delegate)
         self.assertEqual(sel.get_all_pixels(), {(1, 1), (5, 5)})
-        self.assertEqual(self.changed, [])
+        self.assertEqual(self.changed, [sel])
 
     def _context_menu_roi_titles(self, raster_xy):
         self._right_click_menu(raster_xy)
