@@ -236,7 +236,7 @@ class ContextPane(RasterPane):
             # rasterviews did, but in that case, there is no viewport_highlight
             # to set so this function would never be called.
             if not visible.contains(viewports[0]):
-                center = viewports[0].center()
+                center = QRectF(viewports[0]).center()
                 # TODO (Joshua G-K): Make this compatible with geographic linking
                 rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterviews[0])
 

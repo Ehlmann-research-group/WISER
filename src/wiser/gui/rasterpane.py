@@ -1306,7 +1306,7 @@ class RasterPane(QWidget):
             if do_recenter:
                 # Scroll the raster-view such that the pixel is in the middle of the
                 # raster-view's visible area.
-                rasterview.make_point_visible(target_coord.x(), target_coord.y())
+                rasterview.make_point_visible(target_coord.x() + 0.5, target_coord.y() + 0.5)
 
             # Repaint raster-view
             rasterview.update()

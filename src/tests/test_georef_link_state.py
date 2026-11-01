@@ -370,3 +370,48 @@ def test_linked_click_clears_spectrum_from_a_dataset_it_cannot_link(model, tmp_p
     model.click_raster_coord_main_view_rv((0, 0), (100, 90))
 
     assert model.app_state.get_active_spectrum() is None
+
+
+def _scrolled_center(rv):
+    """The raster point at the middle of ``rv``'s viewport, from its scroll position."""
+    scroll_area, scale = rv._scroll_area, rv.get_scale()
+    return (
+        (scroll_area.horizontalScrollBar().value() + scroll_area.viewport().width() / 2) / scale,
+        (scroll_area.verticalScrollBar().value() + scroll_area.viewport().height() / 2) / scale,
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("scale", [4, 5.5, 7.3])
+def test_make_point_visible_centers_the_point(model, tmp_path, scale):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    _show(model, [a])
+    rv = model.get_main_view_rv((0, 0))
+    rv.scale_image(scale)
+
+    for point in [(80.5, 70.5), (83.25, 66.75), (90, 72)]:
+        rv.make_point_visible(*point)
+
+        # A scroll position is a whole screen pixel, so the center is within half of one.
+        assert _scrolled_center(rv) == pytest.approx(point, abs=0.5 / scale + 1e-9)
+        assert rv.get_visible_region_center() == pytest.approx(_scrolled_center(rv))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("shift", [(0, 0), (60, 40)])
+def test_linked_scroll_centers_follower_on_the_same_ground(model, tmp_path, shift):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    b = model.load_dataset(str(_shifted_copy(tmp_path, "b.tif", *shift)))
+    _show(model, [a, b])
+    assert model.click_link_button()
+    assert model.main_view._link_view_state == GeographicLinkState.SPATIAL
+    leader, follower = model.get_main_view_rv((0, 0)), model.get_main_view_rv((0, 1))
+    leader.make_point_visible(100, 90)
+
+    for dx, dy in [(7, 5), (13, 3), (5, 11)]:
+        model.scroll_main_view_rv((0, 0), dx, dy)
+
+        x, y = _scrolled_center(leader)
+        assert _scrolled_center(follower) == pytest.approx(
+            (x - shift[0], y - shift[1]), abs=0.5 / follower.get_scale() + 1e-9
+        )
