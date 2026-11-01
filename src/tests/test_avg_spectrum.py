@@ -89,6 +89,8 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             avg_value = np.arange(1, N + 1)
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
+            # Quitting closes the window, and nothing would answer its unsaved-datasets prompt.
+            dataset.set_dirty(False)
 
             raster_width = dataset.get_width()
             raster_height = dataset.get_height()
@@ -170,6 +172,8 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             avg_value = np.mean(np_impl) + 10
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
+            # Quitting closes the window, and nothing would answer its unsaved-datasets prompt.
+            dataset.set_dirty(False)
 
             raster_width = dataset.get_width()
             raster_height = dataset.get_height()

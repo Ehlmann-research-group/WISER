@@ -243,6 +243,9 @@ class RasterDataLoader:
         three dimensions; they are interpreted as
         [spectral][spatial_y][spatial_x].
 
+        The dataset starts modified, since its pixels exist only in memory until a
+        save captures them.
+
         Raises a ValueError if the input array doesn't have 3 dimensions.
         """
 
@@ -250,7 +253,9 @@ class RasterDataLoader:
             raise ValueError("NumPy array must have 3 dimensions")
 
         impl = NumPyRasterDataImpl(arr)
-        return RasterDataSet(impl, cache)
+        dataset = RasterDataSet(impl, cache)
+        dataset.set_dirty()
+        return dataset
 
     def dataset_from_gdal_dataset(self, dataset: gdal.Dataset, cache: "DataCache") -> RasterDataSet:
         impl = ENVI_GDALRasterDataImpl(dataset)

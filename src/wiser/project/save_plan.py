@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 from wiser.raster.spectrum import ROIAverageSpectrum
 
+from .persisters.datasets import is_copied_into_bundle
 from .persisters.spectra import spectrum_dependencies
 from .resolver import Dependency, DependencyResolver, cascade_report
 
@@ -37,13 +38,15 @@ def savable_dataset_roots(app_state: "ApplicationState") -> Tuple[List[Any], Lis
     """Split the datasets into ``(ram_backed, file_backed)``.
 
     Only the RAM-backed datasets are decision points: they are written into the
-    bundle, so the user chooses whether to include them.  File-backed datasets are
-    referenced by path and always included for free.
+    bundle, so the user chooses whether to include them.  A dataset in a temporary
+    file WISER deletes counts as RAM-backed, since its pixels are written into the
+    bundle too.  File-backed datasets are referenced by path and always included for
+    free.
     """
     ram_backed: List[Any] = []
     file_backed: List[Any] = []
     for dataset in app_state.get_datasets():
-        (file_backed if dataset.get_filepaths() else ram_backed).append(dataset)
+        (ram_backed if is_copied_into_bundle(dataset) else file_backed).append(dataset)
     return ram_backed, file_backed
 
 
@@ -117,6 +120,14 @@ def _dependent_spectra(app_state: "ApplicationState") -> List[Any]:
     return spectra
 
 
+def _dataset_backing(dataset: Any) -> str:
+    """``"file"`` for a dataset referenced by path, ``"temp"`` for one whose temporary
+    file is copied into the bundle, and ``"ram"`` for an in-memory one."""
+    if not is_copied_into_bundle(dataset):
+        return "file"
+    return "temp" if dataset.get_filepaths() else "ram"
+
+
 def _spectrum_label(spectrum: Any) -> str:
     # Fall back to the id so multiple unnamed spectra get distinguishable rows in
     # the consequences table rather than all reading "spectrum".
@@ -147,7 +158,7 @@ def save_inventory(app_state: "ApplicationState", resolver: DependencyResolver) 
                 "kind": "dataset",
                 "id": ds_id,
                 "label": dataset.get_name() or f"dataset {ds_id}",
-                "backing": "file" if dataset.get_filepaths() else "ram",
+                "backing": _dataset_backing(dataset),
                 "children": _dataset_children(app_state, resolver, ds_id, spectra),
             }
         )
@@ -186,7 +197,7 @@ def save_tree(app_state: "ApplicationState", resolver: DependencyResolver) -> Li
             "kind": "dataset",
             "id": dataset.get_id(),
             "label": dataset.get_name() or f"dataset {dataset.get_id()}",
-            "backing": "file" if dataset.get_filepaths() else "ram",
+            "backing": _dataset_backing(dataset),
             "children": _dataset_children(app_state, resolver, dataset.get_id(), spectra, include_runs=False),
         }
         for dataset in app_state.get_datasets()

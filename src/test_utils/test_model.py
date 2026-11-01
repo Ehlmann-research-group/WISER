@@ -233,6 +233,9 @@ class WiserTestModel:
 
         Arguments:
         - dataset_info. Can either be a string for a file path or a nump array
+
+        A numpy array stands in for a file opened from disk, so it starts with
+        nothing unsaved.
         """
         dataset = None
         if isinstance(dataset_info, str):
@@ -242,6 +245,7 @@ class WiserTestModel:
             dataset_arr = dataset_info
             dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)
             dataset.set_name(f"NumpyArray{self.app_state._next_id}")
+            dataset.set_dirty(False)
         else:
             raise ValueError(
                 "Dataset_info should either be a numpy array or string, " + f"not {type(dataset)}!"
