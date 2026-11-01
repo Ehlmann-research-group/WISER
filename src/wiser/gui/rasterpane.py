@@ -1,3 +1,4 @@
+import math
 import os
 from enum import Enum
 from typing import List, Optional, Tuple, Dict, Union
@@ -788,6 +789,11 @@ class RasterPane(QWidget):
 
     def _onRasterContextMenu(self, rasterview, context_menu_event, testing=False):
         # print(f'ContextMenuEvent at {context_menu_event.pos()}')
+        if self._has_delegate_for_rasterview(rasterview) and self._task_delegate.consumes_context_menu:
+            done = self._task_delegate.on_context_menu(context_menu_event)
+            self._update_delegate(done)
+            return
+
         self._menu = QMenu(self)
 
         self._build_context_menu(self._menu, rasterview, context_menu_event)
@@ -861,9 +867,16 @@ class RasterPane(QWidget):
         # selections.  So, this variable is a list of 2-tuples, where each pair
         # is (the picked ROI, a list of the indexes of selections picked in the
         # ROI).  Clear as mud.
+        # The raster pixels drawn within the clicked screen pixel.
+        scale = rasterview.get_scale()
+        pos = context_menu_event.pos()
+        pick_block = QRect(
+            QPoint(math.floor(pos.x() / scale), math.floor(pos.y() / scale)),
+            QPoint(math.ceil((pos.x() + 1) / scale) - 1, math.ceil((pos.y() + 1) / scale) - 1),
+        )
         picked_rois = []
         for roi in self._app_state.get_rois():
-            picked_sels = get_picked_roi_selections(roi, ds_coord)
+            picked_sels = get_picked_roi_selections(roi, ds_coord, pick_block)
             if len(picked_sels) > 0:
                 picked_rois.append((roi, picked_sels))
 
