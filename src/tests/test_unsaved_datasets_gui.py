@@ -30,11 +30,13 @@ from test_utils.test_model import WiserTestModel
 from wiser.bandmath import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 from wiser.bandmath.evaluator import create_output_dataset
+from wiser.bandmath.utils import load_image_from_bandmath_result
 from wiser.gui.generic_spectral_tool import SpectralComputationInputs
 from wiser.gui.progress_task import run_with_progress
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.project.orchestrate import load_project, save_project
+from wiser.raster.dataset_impl import SaveState
 from wiser.raster.spectrum import NumPyArraySpectrum
 
 pytestmark = [pytest.mark.integration]
@@ -340,28 +342,94 @@ def test_closing_again_while_saving_neither_asks_nor_closes(test_model, unsaved,
     question.assert_called_once()
 
 
-def test_unsaved_band_math_result_referenced_by_a_saved_project_is_asked_about(test_model, flow, tmp_path):
-    # A large band-math result lives in a temporary file that a referenced project
-    # only points at, so saving the project has not saved it.
+_BAND_MATH_PIXELS = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+
+
+def _band_math_temp_result(test_model, temp_dir):
+    """A large band-math result as Band Math adds it: an ENVI file in a temporary
+    folder, with the save state that has WISER delete the file."""
     variables = {"image": (VariableType.IMAGE_CUBE, np.ones((2, 3, 4), dtype=np.float32))}
-    result, result_gdal, *_ = create_output_dataset(
-        expr_info=get_bandmath_expr_info("image + 1", variables, {}),
+    expr_info = get_bandmath_expr_info("image + 1", variables, {})
+    output, output_gdal, *_ = create_output_dataset(
+        expr_info=expr_info,
         gdal_type=gdal.GDT_Float32,
         result_name="result",
         cache=test_model.app_state.get_cache(),
-        temp_folder_path=str(tmp_path / "temp_output"),
+        temp_folder_path=str(temp_dir),
     )
-    result_gdal.FlushCache()
+    for band, data in enumerate(_BAND_MATH_PIXELS, start=1):
+        output_gdal.GetRasterBand(band).WriteArray(data)
+    output_gdal.FlushCache()
+    result = load_image_from_bandmath_result(
+        VariableType.IMAGE_CUBE_DATASET,
+        output.get_serialized_form(),
+        "result",
+        "image + 1",
+        expr_info,
+        loader=test_model.app_state.get_loader(),
+        app_state=test_model.app_state,
+    )
     result.set_name("band math result")
-    test_model.app_state.add_dataset(result)
+    assert result.get_save_state() == SaveState.IN_DISK_NOT_SAVED
+    return result
+
+
+def _restored_band_math_result(app_state):
+    (restored,) = [ds for ds in app_state.get_datasets() if ds.get_name() == "band math result"]
+    return np.asarray(restored.get_image_data(filter_data_ignore_value=False))
+
+
+def test_band_math_result_saved_into_a_project_is_not_asked_about(test_model, flow, tmp_path):
+    # A large band-math result lives in a temporary file WISER deletes, so a project
+    # save copies its pixels into the project, which then holds it.
+    _band_math_temp_result(test_model, tmp_path / "temp_output")
     save_project(test_model.app_state, tmp_path / "session.wiserproj")
 
-    with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.Cancel) as question:
+    with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.Yes) as question:
         flow.start()
 
-    question.assert_called_once()
-    assert "band math result" in question.call_args.args[2]
-    assert not flow.proceeded()
+    assert flow.proceeded()
+    for call in question.call_args_list:
+        assert "unsaved changes" not in call.args[2]
+
+
+def test_band_math_result_survives_reopening_its_project_in_the_same_session(test_model, tmp_path):
+    # Opening a project clears the session first, which deletes the temporary file.
+    temp_dir = tmp_path / "temp_output"
+    _band_math_temp_result(test_model, temp_dir)
+    project = tmp_path / "session.wiserproj"
+    save_project(test_model.app_state, project)
+
+    report = load_project(project, test_model.app_state, extract_dir=tmp_path / "unpacked")
+
+    assert report["datasets"] == []
+    assert not any(name.endswith(".hdr") for name in os.listdir(temp_dir))
+    np.testing.assert_array_equal(_restored_band_math_result(test_model.app_state), _BAND_MATH_PIXELS)
+
+
+def test_band_math_result_survives_quitting_and_reopening_its_project(test_model, tmp_path):
+    temp_dir = tmp_path / "temp_output"
+    _band_math_temp_result(test_model, temp_dir)
+    project = tmp_path / "session.wiserproj"
+    save_project(test_model.app_state, project)
+
+    with (
+        mock.patch("wiser.gui.app.TEMP_FOLDER_PATH", str(temp_dir)),
+        mock.patch.object(QApplication, "exit") as app_exit,
+        mock.patch.object(QMessageBox, "question") as question,
+    ):
+        test_model.main_window.quit_app()
+    question.assert_not_called()
+    assert app_exit.called
+    assert os.listdir(temp_dir) == []
+
+    reopened = WiserTestModel()
+    try:
+        report = load_project(project, reopened.app_state, extract_dir=tmp_path / "unpacked")
+        assert report["datasets"] == []
+        np.testing.assert_array_equal(_restored_band_math_result(reopened.app_state), _BAND_MATH_PIXELS)
+    finally:
+        reopened.close_app()
 
 
 def _run_spectral_tool(test_model, tool_cls):

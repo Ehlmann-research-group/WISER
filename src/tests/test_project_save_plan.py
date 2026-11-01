@@ -16,6 +16,7 @@ from wiser.project.save_plan import (
     save_tree,
     savable_dataset_roots,
 )
+from wiser.raster.dataset_impl import SaveState
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.spectral_library import ListSpectralLibrary
@@ -24,15 +25,19 @@ from wiser.raster.stretch import StretchLinear
 
 
 class _FakeDataset:
-    def __init__(self, ds_id, filepaths):
+    def __init__(self, ds_id, filepaths, save_state=SaveState.UNKNOWN):
         self._id = ds_id
         self._filepaths = filepaths
+        self._save_state = save_state
 
     def get_id(self):
         return self._id
 
     def get_filepaths(self):
         return self._filepaths
+
+    def get_save_state(self):
+        return self._save_state
 
     def get_name(self):
         return None
@@ -160,9 +165,11 @@ def test_savable_dataset_roots_splits_ram_and_file():
     app = _FakeAppState()
     ram = _ram_dataset(app)  # in-memory -> falsy get_filepaths()
     app.register(_FakeDataset(99, ["/data/dem.tif"]))  # file-backed
+    # A large band-math result: a temporary file WISER deletes, so it is copied.
+    app.register(_FakeDataset(98, ["/temp_output/result"], SaveState.IN_DISK_NOT_SAVED))
 
     ram_backed, file_backed = savable_dataset_roots(app)
-    assert [d.get_id() for d in ram_backed] == [ram.get_id()]
+    assert [d.get_id() for d in ram_backed] == [ram.get_id(), 98]
     assert [d.get_id() for d in file_backed] == [99]
 
 
@@ -237,6 +244,17 @@ def test_save_inventory_includes_file_backed_dataset():
     inv = save_inventory(app, resolver_for_selection(app, excluded_dataset_ids=[]))
     assert [node["id"] for node in inv] == [99]
     assert inv[0]["backing"] == "file"
+
+
+def test_a_band_math_temp_result_is_shown_as_copied_into_the_project():
+    # Its file is deleted when WISER quits, so the save writes its pixels in.
+    app = _FakeAppState()
+    app.register(_FakeDataset(98, ["/temp_output/result"], SaveState.IN_DISK_NOT_SAVED))
+    resolver = resolver_for_selection(app, excluded_dataset_ids=[])
+
+    assert [node["backing"] for node in save_inventory(app, resolver)] == ["temp"]
+    datasets_group = save_tree(app, resolver)[0]
+    assert [node["backing"] for node in datasets_group["children"]] == ["temp"]
 
 
 def test_save_inventory_lists_roi_average_under_roi_not_dataset():

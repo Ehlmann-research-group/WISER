@@ -380,6 +380,8 @@ def test_subdataset_recorded_as_base_path_and_descriptor():
     # A subdataset is stored as base path + subdataset_name so the same subdataset
     # re-opens.  (The full NetCDF reopen needs a live NetCDF file + GDAL driver;
     # here we lock the manifest shape.)
+    from wiser.raster.dataset_impl import SaveState
+
     base_path = _abs("data", "scene.nc")
     descriptor = f'NETCDF:"{base_path}":reflectance'
 
@@ -398,6 +400,9 @@ def test_subdataset_recorded_as_base_path_and_descriptor():
 
         def get_filepaths(self):
             return [descriptor]
+
+        def get_save_state(self):
+            return SaveState.UNKNOWN
 
         def get_data_ignore_value(self):
             return None

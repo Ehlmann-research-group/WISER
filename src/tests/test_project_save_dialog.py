@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication
 
 from wiser.gui.save_project_dialog import SaveProjectDialog
 from wiser.project.resolver import Dependency
+from wiser.raster.dataset_impl import SaveState
 from wiser.raster.stretch import StretchLinear
 
 
@@ -23,16 +24,20 @@ def _qapp():
 
 
 class _FakeDataset:
-    def __init__(self, ds_id, filepaths, name):
+    def __init__(self, ds_id, filepaths, name, save_state=SaveState.UNKNOWN):
         self._id = ds_id
         self._filepaths = filepaths
         self._name = name
+        self._save_state = save_state
 
     def get_id(self):
         return self._id
 
     def get_filepaths(self):
         return self._filepaths
+
+    def get_save_state(self):
+        return self._save_state
 
     def get_name(self):
         return self._name
@@ -124,6 +129,21 @@ def test_group_headers_are_translatable_literals():
         "Datasets",
         "ROIs",
         "Analysis outputs",
+    ]
+
+
+def test_dataset_labels_name_their_backing():
+    _qapp()
+    datasets = [
+        _FakeDataset(1, ["/data/dem.tif"], "dem"),
+        _FakeDataset(2, ["/temp_output/result"], "result", SaveState.IN_DISK_NOT_SAVED),
+        _FakeDataset(3, [], "cube"),
+    ]
+    group = _groups(SaveProjectDialog(_FakeAppState(datasets), None))["datasets"]
+    assert [group.child(i).text(0) for i in range(group.childCount())] == [
+        "dem (file)",
+        "result (temporary file)",
+        "cube (in-memory)",
     ]
 
 
