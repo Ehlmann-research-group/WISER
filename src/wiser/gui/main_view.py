@@ -672,17 +672,18 @@ class MainViewWidget(RasterPane):
         if not self._link_view_scrolling:
             for rv in self._rasterviews.values():
                 if rv.get_raster_data() is reference_ds:
-                    rv.make_point_visible(x, y)
+                    rv.make_point_visible(x + 0.5, y + 0.5)
             return
 
         for rv in self._rasterviews.values():
             target = reference_pixel_to_target_pixel_ds((x, y), reference_ds, rv.get_raster_data())
             if target is not None:
-                rv.make_point_visible(*target)
+                center = (target[0] + 0.5, target[1] + 0.5)
+                rv.make_point_visible(*center)
                 for other in self._rasterviews.values():
                     if other is not rv:
                         other.update()
-                        other.make_point_visible(*target, reference_rasterview=rv)
+                        other.make_point_visible(*center, reference_rasterview=rv)
                 return
 
     def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
@@ -712,7 +713,7 @@ class MainViewWidget(RasterPane):
                     continue
 
                 if not visible.contains(viewport):
-                    center = viewport.center()
+                    center = QRectF(viewport).center()
                     rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
                 # Repaint raster-view
@@ -735,7 +736,7 @@ class MainViewWidget(RasterPane):
                 # We only want to change a rasterview if it has the same underlying dataset
                 if rv_dataset == dataset:
                     if not visible.contains(viewport):
-                        center = viewport.center()
+                        center = QRectF(viewport).center()
                         rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
                 # Repaint raster-view. We always repaint to account

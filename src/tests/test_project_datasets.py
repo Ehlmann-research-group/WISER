@@ -16,7 +16,7 @@ from astropy import units as u
 
 import tests.context  # noqa: F401
 
-from osgeo import osr
+from osgeo import gdal, osr
 
 from wiser.project import ProjectBundle, unzip_bundle, zip_bundle
 from wiser.project.persisters.datasets import (
@@ -366,14 +366,42 @@ def test_manifest_naming_a_removed_format_falls_back_to_detection(tmp_path):
     assert len(dst.get_datasets()) == 1
 
 
-def test_subdataset_base_path_parses_descriptor():
-    from wiser.project.persisters.datasets import _subdataset_base_path
+def test_source_path_of_a_netcdf_subdataset_is_the_plain_file(tmp_path):
+    nc_path = _netcdf_with_subdatasets(tmp_path)
+    descriptor = f'NETCDF:"{nc_path}":temperature'
+    dataset = RasterDataLoader().load_from_file(
+        nc_path, data_cache=None, interactive=False, subdataset_name=descriptor
+    )[0]
 
-    scene = _abs("data", "scene.nc")
-    plain = _abs("plain", "path.tif")
+    assert dataset.get_filepaths() == [descriptor]
+    assert dataset.get_source_path() == nc_path
 
-    assert _subdataset_base_path(f'NETCDF:"{scene}":reflectance') == scene
-    assert _subdataset_base_path(plain) == plain
+
+def test_source_path_of_a_gdal_file_is_its_primary_file(tmp_path):
+    path = str(tmp_path / "plain.tif")
+    gdal_ds = gdal.GetDriverByName("GTiff").Create(path, 6, 5, 4, gdal.GDT_Float32)
+    gdal_ds.WriteRaster(0, 0, 6, 5, _sample_array().tobytes())
+    gdal_ds = None
+    dataset = RasterDataLoader().load_from_file(path, data_cache=None, interactive=False)[0]
+
+    assert dataset.get_source_path() == dataset.get_filepaths()[0] == path
+
+
+def test_source_path_of_an_in_memory_dataset_is_none():
+    dataset = RasterDataLoader().dataset_from_numpy_array(_sample_array(), None)
+
+    assert dataset.get_source_path() is None
+
+
+def test_source_path_rejects_a_malformed_subdataset_descriptor(tmp_path):
+    nc_path = _netcdf_with_subdatasets(tmp_path)
+    dataset = RasterDataLoader().load_from_file(
+        nc_path, data_cache=None, interactive=False, subdataset_name=f'NETCDF:"{nc_path}":reflectance'
+    )[0]
+    dataset.get_impl()._subdataset_name = f"NETCDF:{nc_path}:reflectance"
+
+    with pytest.raises(ValueError, match="is not of the form"):
+        dataset.get_source_path()
 
 
 def test_subdataset_recorded_as_base_path_and_descriptor():
@@ -398,6 +426,9 @@ def test_subdataset_recorded_as_base_path_and_descriptor():
 
         def get_filepaths(self):
             return [descriptor]
+
+        def get_source_path(self):
+            return base_path
 
         def get_data_ignore_value(self):
             return None
