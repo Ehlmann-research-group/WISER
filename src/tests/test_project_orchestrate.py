@@ -795,6 +795,17 @@ def test_a_referenced_band_math_temp_result_stays_unsaved(tmp_path):
     assert result.is_dirty()
 
 
+def test_an_in_memory_result_is_unsaved_until_a_project_save_copies_it(tmp_path):
+    app = _FakeAppState()
+    result = app.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    app.add_dataset(result)
+    assert result.is_dirty()
+
+    save_project(app, tmp_path / "session.wiserproj")
+
+    assert not result.is_dirty()
+
+
 def test_restored_datasets_have_nothing_unsaved(tmp_path):
     # Restoring re-applies each dataset's metadata through setters that mark it
     # modified, but what was restored is exactly what the project holds.

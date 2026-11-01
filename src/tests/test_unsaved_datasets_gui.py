@@ -24,12 +24,18 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
+from astropy import units as u
+
 from test_utils.test_model import WiserTestModel
 from wiser.bandmath import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 from wiser.bandmath.evaluator import create_output_dataset
+from wiser.gui.generic_spectral_tool import SpectralComputationInputs
 from wiser.gui.progress_task import run_with_progress
+from wiser.gui.spectral_angle_mapper_tool import SAMTool
+from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.project.orchestrate import load_project, save_project
+from wiser.raster.spectrum import NumPyArraySpectrum
 
 pytestmark = [pytest.mark.integration]
 
@@ -356,6 +362,61 @@ def test_unsaved_band_math_result_referenced_by_a_saved_project_is_asked_about(t
     question.assert_called_once()
     assert "band math result" in question.call_args.args[2]
     assert not flow.proceeded()
+
+
+def _run_spectral_tool(test_model, tool_cls):
+    """Run ``tool_cls`` in image mode on a file-backed cube, adding its results."""
+    scene = test_model.load_dataset(os.path.join(TEST_DATASETS, "caltech_4_100_150_nm"))
+    reference = NumPyArraySpectrum(
+        np.array([0.1, 0.2, 0.15, 0.3]),
+        name="reference",
+        wavelengths=[472.02 * u.nm, 532.13 * u.nm, 702.42 * u.nm, 852.68 * u.nm],
+    )
+    inputs = SpectralComputationInputs(
+        target=scene,
+        mode="Image Cube",
+        refs=[reference],
+        thresholds=[np.float32(0.5)],
+        global_thr=None,
+        min_wvl=400 * u.nm,
+        max_wvl=900 * u.nm,
+        lib_name_by_spec_id=None,
+    )
+    before = len(test_model.app_state.get_datasets())
+    tool_cls(app_state=test_model.app_state).find_matches(spectral_inputs=inputs, test_mode=True).result(
+        timeout=180
+    )
+    test_model.app.processEvents()
+    results = test_model.app_state.get_datasets()[before:]
+    assert results
+    return results
+
+
+def test_quitting_asks_about_sam_results(test_model):
+    results = _run_spectral_tool(test_model, SAMTool)
+
+    with (
+        mock.patch.object(QApplication, "exit") as app_exit,
+        mock.patch.object(QMessageBox, "question", return_value=QMessageBox.Cancel) as question,
+    ):
+        test_model.main_window.quit_app()
+
+    question.assert_called_once()
+    for result in results:
+        assert result.get_name() in question.call_args.args[2]
+    assert not app_exit.called
+    assert test_model.main_window.isVisible()
+
+
+def test_closing_an_sff_result_asks_to_save_it(test_model):
+    results = _run_spectral_tool(test_model, SFFTool)
+    result_id = results[0].get_id()
+
+    with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.Cancel) as question:
+        test_model.close_dataset(result_id)
+
+    question.assert_called_once()
+    assert test_model.app_state.has_dataset(result_id)
 
 
 def test_datasets_restored_from_a_project_are_not_asked_about(test_model, flow, tmp_path):
