@@ -188,6 +188,10 @@ def create_translated_dataset(
     ``CreateCopy`` (progress driven by GDAL's own callback); other backings fall back
     to a RAM-bounded per-band copy that reports per chunk and honors cancellation.
     The translated geotransform is computed on the GUI thread and passed in.
+
+    Raises:
+        ValueError: if the dataset has masked pixels and no data-ignore value.  The
+            partly written output at ``save_path`` is deleted before it is raised.
     """
     progress = progress or ProgressReporter()
     driver: gdal.Driver = gdal.GetDriverByName("GTiff")
@@ -230,6 +234,7 @@ def create_translated_dataset(
             num_bands_per = int(ratio * num_bands)
             if num_bands_per <= 0:
                 num_bands_per = 1
+            data_ignore = dataset.get_data_ignore_value()
             for band_index in range(0, num_bands, num_bands_per):
                 # Cooperative cancellation checkpoint before each chunk of work.
                 progress.raise_if_cancelled()
@@ -237,6 +242,14 @@ def create_translated_dataset(
                     band for band in range(band_index, band_index + num_bands_per) if band < num_bands
                 ]
                 band_arr = dataset.get_multiple_band_data(band_list_index)
+                if np.ma.is_masked(band_arr):
+                    if data_ignore is None:
+                        new_dataset = None
+                        driver.Delete(save_path)
+                        raise ValueError(
+                            "Dataset has masked pixels but no data-ignore value to write them as"
+                        )
+                    band_arr = band_arr.filled(data_ignore)
                 write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
                 progress.report(min(band_index + num_bands_per, num_bands), num_bands, "Translating")
             copy_metadata_to_gdal_dataset(new_dataset, dataset)
