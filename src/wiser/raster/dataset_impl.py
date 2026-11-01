@@ -2,6 +2,7 @@ import abc
 import logging
 import os
 import pprint
+import re
 import pdr
 
 # import cv2
@@ -44,6 +45,9 @@ logger = logging.getLogger(__name__)
 Number = Union[int, float]
 
 CHUNK_WRITE_SIZE = 250000000
+
+# A GDAL NetCDF subdataset descriptor, NETCDF:"<path>":<variable>; group 1 is the path.
+NETCDF_SUBDATASET_DESCRIPTOR = re.compile(r'NETCDF:"(.+)":[^"]+')
 
 
 class SaveState(Enum):
@@ -1506,8 +1510,18 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         Returns:
             str: The full subdataset name in GDAL format, e.g.:
                 NETCDF:"/path/to/file.nc":radiance
+
+        Raises:
+            ValueError: If ``subdataset_name`` starts with ``NETCDF:`` but is not of
+                the ``NETCDF:"<path>":<variable>`` form, or if it is a short name and
+                ``dataset`` does not describe an existing file.
         """
         if subdataset_name.startswith("NETCDF:"):
+            if NETCDF_SUBDATASET_DESCRIPTOR.fullmatch(subdataset_name) is None:
+                raise ValueError(
+                    f"NetCDF subdataset descriptor {subdataset_name!r} is not of the "
+                    f'form NETCDF:"<path>":<variable>'
+                )
             return subdataset_name
         else:
             # Get the filename from the dataset

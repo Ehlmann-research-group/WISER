@@ -17,7 +17,7 @@ from .mtmf import MTMFDialog
 from .permanent_plugins.pca_plugin import PCAPlugin
 from .plugin_utils import add_plugin_context_menu_items
 from .rasterpane import RasterPane
-from .rasterview import RasterView
+from .rasterview import RasterView, reference_point_to_target_point_rasterview
 from .sav_golay import SavGolayDialog
 from .scatter_plot_2D import ScatterPlot2DDialog
 from .smooth_filter import SmoothingFilterDialog, SmoothingFilterKind
@@ -661,11 +661,12 @@ class MainViewWidget(RasterPane):
 
         With linked scrolling off, only raster-views showing that same dataset
         move.  With it on, the first raster-view whose dataset can be mapped
-        from the reference dataset is centered on the corresponding pixel, and
-        every other raster-view is centered on that pixel mapped into its own
-        dataset.  Each raster-view is centered on the point itself rather than
-        on the first raster-view's visible centre, which differs from the point
-        when that view is scrolled against an edge.  If no raster-view can be
+        from the reference dataset is centered on the centre of pixel (x, y)
+        mapped into its dataset without rounding, and every other raster-view
+        is centered on that point mapped into its own dataset.  Each
+        raster-view is centered on the point itself rather than on the first
+        raster-view's visible centre, which differs from the point when that
+        view is scrolled against an edge.  If no raster-view can be
         mapped from the reference dataset, nothing moves.
         """
         reference_ds = reference_rasterview.get_raster_data()
@@ -676,14 +677,13 @@ class MainViewWidget(RasterPane):
             return
 
         for rv in self._rasterviews.values():
-            target = reference_pixel_to_target_pixel_ds((x, y), reference_ds, rv.get_raster_data())
+            target = reference_point_to_target_point_rasterview((x + 0.5, y + 0.5), reference_rasterview, rv)
             if target is not None:
-                center = (target[0] + 0.5, target[1] + 0.5)
-                rv.make_point_visible(*center)
+                rv.make_point_visible(*target)
                 for other in self._rasterviews.values():
                     if other is not rv:
                         other.update()
-                        other.make_point_visible(*center, reference_rasterview=rv)
+                        other.make_point_visible(*target, reference_rasterview=rv)
                 return
 
     def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):

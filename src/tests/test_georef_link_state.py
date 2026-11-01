@@ -58,6 +58,15 @@ def _shifted_copy(tmp_path: Path, name: str, dx: int, dy: int) -> Path:
     return path
 
 
+def _coarse_copy(tmp_path: Path) -> Path:
+    """Copy of the EPSG:4087 fixture resampled to twice its pixel size on the same origin."""
+    src = gdal.Open(str(_EPSG4087))
+    gt = src.GetGeoTransform()
+    path = tmp_path / "coarse.tif"
+    gdal.Translate(str(path), src, xRes=2 * gt[1], yRes=-2 * gt[5])
+    return path
+
+
 def _reprojected_same_size(tmp_path: Path, epsg: int) -> Path:
     """The EPSG:4087 fixture warped to ``epsg`` with its own width and height."""
     src = gdal.Open(str(_EPSG4087))
@@ -415,3 +424,25 @@ def test_linked_scroll_centers_follower_on_the_same_ground(model, tmp_path, shif
         assert _scrolled_center(follower) == pytest.approx(
             (x - shift[0], y - shift[1]), abs=0.5 / follower.get_scale() + 1e-9
         )
+
+
+@pytest.mark.integration
+def test_context_click_centers_coarser_linked_tile_on_the_pixel_center(model, tmp_path):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    b = model.load_dataset(str(_coarse_copy(tmp_path)))
+    gt_a, gt_b = a.get_geo_transform(), b.get_geo_transform()
+    assert gt_b == pytest.approx((gt_a[0], 2 * gt_a[1], 0, gt_a[3], 0, 2 * gt_a[5]))
+    model.set_main_view_layout((1, 2))
+    for col, ds in enumerate([b, a]):
+        model.set_main_view_rv((0, col), ds.get_id())
+        model.get_main_view_rv((0, col)).scale_image(8)
+    model.set_context_pane_dataset_chooser_id(a.get_id())
+    assert model.click_link_button()
+    assert model.main_view._link_view_state == GeographicLinkState.SPATIAL
+
+    model.main_view.make_reference_point_visible(85, 71, model.get_context_pane_rasterview())
+
+    # The centre of A(85, 71) is (42.75, 35.75) in B and (85.5, 71.5) in A.
+    for col, expected in [(0, (42.75, 35.75)), (1, (85.5, 71.5))]:
+        rv = model.get_main_view_rv((0, col))
+        assert _scrolled_center(rv) == pytest.approx(expected, abs=0.5 / rv.get_scale() + 1e-9)

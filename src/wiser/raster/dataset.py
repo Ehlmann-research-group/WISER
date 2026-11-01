@@ -1,7 +1,6 @@
 import copy
 import enum
 import math
-import re
 from abc import ABC
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING, Iterable
 
@@ -21,6 +20,7 @@ from .dataset_impl import (
     ENVI_GDALRasterDataImpl,
     NetCDF_GDALRasterDataImpl,
     JP2_GDAL_PDR_RasterDataImpl,
+    NETCDF_SUBDATASET_DESCRIPTOR,
 )
 from .utils import (
     RED_WAVELENGTH,
@@ -757,7 +757,7 @@ class RasterDataSet(Serializable):
         """
         subdataset_name = self.get_subdataset_name()
         if subdataset_name:
-            match = re.fullmatch(r'NETCDF:"(.+)":[^"]+', subdataset_name)
+            match = NETCDF_SUBDATASET_DESCRIPTOR.fullmatch(subdataset_name)
             if match is None:
                 raise ValueError(
                     f"NetCDF subdataset descriptor {subdataset_name!r} is not of the "

@@ -540,17 +540,6 @@ class ImageScrollArea(QScrollArea):
         self._rasterpane = rasterpane
         self.propagate_scroll = True  # External objects control whether signals should be propagated or not
 
-    def ensureVisible(self, x: int, y: int, xmargin: int, ymargin: int):
-        # We don't want to propagate scroll, because if this ensureVisible call is based
-        # on geo-linking, then it will cause infinite recursion
-        self.propagate_scroll = False
-        super().ensureVisible(x, y, xmargin, ymargin)
-        # We still want to have propagate scroll be true for when the user actually scrolls
-        # and images are linked. We want this scroll to have the other images scroll, so
-        # usually we will want to set propagate scroll back to true after doing an operation
-        # that we don't want to propagate
-        self.propagate_scroll = True
-
     def _update_scrollbar_no_propagation(self, scrollbar, value):
         """
         Updates a scrollbar that belongs to this scroll area. This function should only

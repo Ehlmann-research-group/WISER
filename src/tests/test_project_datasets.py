@@ -404,6 +404,15 @@ def test_source_path_rejects_a_malformed_subdataset_descriptor(tmp_path):
         dataset.get_source_path()
 
 
+def test_open_rejects_an_unquoted_subdataset_descriptor(tmp_path):
+    nc_path = _netcdf_with_subdatasets(tmp_path)
+
+    with pytest.raises(ValueError, match="is not of the form"):
+        RasterDataLoader().load_from_file(
+            nc_path, data_cache=None, interactive=False, subdataset_name=f"NETCDF:{nc_path}:reflectance"
+        )
+
+
 def test_subdataset_recorded_as_base_path_and_descriptor():
     # A subdataset is stored as base path + subdataset_name so the same subdataset
     # re-opens.  (The full NetCDF reopen needs a live NetCDF file + GDAL driver;
