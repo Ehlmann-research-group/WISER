@@ -176,8 +176,12 @@ class MultiPixelSelection(Selection):
 
         return QRect(x_min, y_min, x_max - x_min + 1, y_max - y_min + 1)
 
-    def is_picked_by(self, coord):
-        return self.get_bounding_box().contains(coord)
+    def is_picked_by(self, coord: QPoint) -> bool:
+        """
+        Returns True if coord is one of the selection's pixels.  coord must be
+        a QPoint; a QPointF raises TypeError because it is not hashable.
+        """
+        return coord in self._pixels
 
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
         return set([p.toTuple() for p in self._pixels])

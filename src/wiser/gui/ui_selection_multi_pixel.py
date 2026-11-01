@@ -8,10 +8,6 @@ from wiser.raster.selection import MultiPixelSelection
 from .util import scale_qpoint_by_float
 
 
-# This is the offset for how the bounding rectangle is drawn around the pixels
-# in a multi-pixel selection.
-MULTIPIXEL_BOUNDS_OFFSET = 2
-
 # This is the offset for how individual pixels are drawn in a multi-pixel
 # selection.
 MULTIPIXEL_PIXEL_OFFSET = 1
@@ -41,42 +37,28 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
         else:
             painter.drawRect(p.x(), p.y(), scale, scale)
 
-    if len(points_scaled) > 1:
-        # Compute the rectangle that bounds the points, and draw it.
-        xs = [p.x() for p in points_scaled]
-        ys = [p.y() for p in points_scaled]
-
-        x_min = min(xs)
-        x_max = max(xs)
-        y_min = min(ys)
-        y_max = max(ys)
-
-        if not active:
-            pen.setStyle(Qt.DashLine)
-            painter.setPen(pen)
-
-        rect_scaled = QRect(
-            x_min - MULTIPIXEL_BOUNDS_OFFSET,
-            y_min - MULTIPIXEL_BOUNDS_OFFSET,
-            (x_max - x_min + scale) + 2 * MULTIPIXEL_BOUNDS_OFFSET,
-            (y_max - y_min + scale) + 2 * MULTIPIXEL_BOUNDS_OFFSET,
-        )
-
-        painter.drawRect(rect_scaled)
-
 
 class MultiPixelSelectionManipulator(TaskDelegate):
     """
     Since both creation and editing of multi-pixel selections is so similar,
     this base class implements the common functionality of both, and then
     subclasses customize it as needed.
+
+    Left-click toggles a pixel.  Enter or right-click finishes the operation,
+    and Esc cancels it; subclasses check self._cancelled in finish().
     """
+
+    consumes_context_menu = True
 
     def __init__(self, point_set, rasterpane, rasterview=None):
         super().__init__(rasterpane, rasterview)
         self._points = point_set
+        self._cancelled = False
 
     def on_mouse_release(self, mouse_event):
+        if mouse_event.button() != Qt.LeftButton:
+            return False
+
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         # Toggle the point's inclusion in the set of pixels.
@@ -88,11 +70,14 @@ class MultiPixelSelectionManipulator(TaskDelegate):
         return False
 
     def on_key_release(self, key_event):
-        """
-        In the multi-pixel selection manipulator, the Esc key ends the
-        operation.
-        """
-        return key_event.key() == Qt.Key_Escape
+        if key_event.key() == Qt.Key_Escape:
+            self._cancelled = True
+            return True
+
+        return key_event.key() in (Qt.Key_Return, Qt.Key_Enter)
+
+    def on_context_menu(self, context_menu_event):
+        return True
 
     def draw_state(self, painter):
         if len(self._points) == 0:
@@ -121,11 +106,15 @@ class MultiPixelSelectionCreator(MultiPixelSelectionManipulator):
     def __init__(self, rasterpane, rasterview=None):
         super().__init__(set(), rasterpane, rasterview)
         self._app_state.show_status_text(
-            "Left-click on pixels to toggle their inclusion in the selection."
-            + "  Press Esc key to finish entry."
+            "Left-click on pixels to add or remove them.  Press Enter or right-click"
+            + " to finish, or Esc to cancel."
         )
 
     def finish(self):
+        if self._cancelled:
+            self._app_state.show_status_text("Multi-pixel selection cancelled.", 5)
+            return
+
         if len(self._points) == 0:
             self._app_state.show_status_text("No pixels selected; not creating ROI.", 5)
             return
@@ -145,16 +134,23 @@ class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
         super().__init__(mp_sel.get_pixels(), rasterpane, rasterview)
         self._roi = roi
         self._mp_sel = mp_sel
+        self._original_points = set(self._points)
         self._app_state.show_status_text(
-            "Left-click on pixels to toggle their inclusion in the selection."
-            + "  Press Esc key to finish edits."
+            "Left-click on pixels to add or remove them.  Press Enter or right-click"
+            + " to finish edits, or Esc to cancel."
         )
 
     def finish(self):
+        if self._cancelled:
+            self._points.clear()
+            self._points.update(self._original_points)
+            self._app_state.show_status_text("Multi-pixel edits cancelled.", 5)
+            return
+
         if len(self._points) == 0:
-            # TODO(donnie):  In this case, we are ending up with an empty
-            #     multi-pixel selection, which is no good!
-            pass
+            self._points.update(self._original_points)
+            self._app_state.show_status_text("No pixels selected; selection left unchanged.", 5)
+            return
 
         # Signal that the ROI changed, so that everyone can be notified.
         self._rasterpane.roi_selection_changed.emit(self._roi, self._mp_sel)

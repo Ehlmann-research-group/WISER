@@ -23,7 +23,13 @@ class TaskDelegate:
     Once the task is completed, the raster pane will call the delegate's
     finish() implementation, in order to perform any final operations associated
     with the task.
+
+    Right-clicks normally open the raster pane's context menu.  A delegate that
+    sets consumes_context_menu to True receives them through on_context_menu()
+    instead, and the context menu is not shown while that delegate is active.
     """
+
+    consumes_context_menu: bool = False
 
     def __init__(self, rasterpane: "RasterPane", rasterview: Optional[RasterView] = None):
         """
@@ -65,6 +71,9 @@ class TaskDelegate:
         return False
 
     def on_key_release(self, key_event) -> bool:
+        return False
+
+    def on_context_menu(self, context_menu_event) -> bool:
         return False
 
     def draw_state(self, painter) -> bool:
