@@ -49,6 +49,7 @@ from wiser.raster.dataset import (
     RasterDataBatchBand,
     RasterDataDynamicBand,
     RasterBand,
+    SaveState,
 )
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.serializable import BasicValueSerialized
@@ -1391,6 +1392,9 @@ def eval_singular_bandmath_expr_async(
     out_dtype = np.dtype(gdal_array.GDALTypeCodeToNumericTypeCode(gdal_type))
 
     # Evaluate
+    out_dataset = None
+    out_dataset_gdal = None
+    futures = []
     try:
         evaluator = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
         out_dataset, out_dataset_gdal, bands, lines, samples = create_output_dataset(
@@ -1407,10 +1411,13 @@ def eval_singular_bandmath_expr_async(
             max_chunking_bytes, expr_info, number_of_intermediates, lines, samples
         )
 
-        futures = []
         # The ignore value is chosen at the first chunk with masked pixels, from the
         # candidates no earlier chunk holds as valid data, and no later chunk may hold it.
-        candidates = bandmath_ignore_candidates(out_dtype, expr_info)
+        # A complex dtype has no candidates, so only a complex chunk with masked pixels
+        # raises (in fill_masked_bandmath_result).
+        candidates = None
+        if np.issubdtype(out_dtype, np.integer) or np.issubdtype(out_dtype, np.floating):
+            candidates = bandmath_ignore_candidates(out_dtype, expr_info)
         data_ignore_value = None
         for current_bands, next_bands in iter_band_windows(bands, num_bands):
             # print(f"Min: {min(current_bands)} | Max: {max(current_bands)}")
@@ -1428,7 +1435,8 @@ def eval_singular_bandmath_expr_async(
             elif np.ma.is_masked(arr):
                 arr, data_ignore_value = fill_masked_bandmath_result(arr, expr_info, candidates)
             else:
-                candidates = remaining_ignore_candidates(arr, candidates)
+                if candidates is not None:
+                    candidates = remaining_ignore_candidates(arr, candidates)
                 arr = np.ma.getdata(arr)
 
             future = submit_raster_write(evaluator, out_dataset_gdal, current_bands, arr, gdal_type)
@@ -1442,6 +1450,13 @@ def eval_singular_bandmath_expr_async(
     except BaseException as e:
         if evaluator is not None:
             evaluator.stop()
+        # No dataset is returned, so nothing would delete the partial temporary file:
+        # its save state is UNKNOWN, which the dataset's destructor leaves on disk.
+        concurrent.futures.wait(futures)
+        if out_dataset is not None:
+            out_dataset_gdal = None
+            out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+            out_dataset.delete_underlying_dataset()
         raise e
     finally:
         evaluator.stop()

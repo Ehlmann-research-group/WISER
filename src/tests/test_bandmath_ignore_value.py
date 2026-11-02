@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 
 import lark
 import numpy as np
@@ -143,6 +144,17 @@ class TestFillMaskedBandmathResult(unittest.TestCase):
     def test_raises_for_non_numeric_dtype(self):
         result = np.ma.array(np.array([True, False]), mask=[True, False])
         with self.assertRaisesRegex(ValueError, "dtype"):
+            fill_masked_bandmath_result(result, _expr_info())
+
+    def test_unmasked_complex_result_has_no_ignore_value(self):
+        data = np.array([1 + 2j, -9999 + 0j], dtype=np.complex64)
+        filled, ignore = fill_masked_bandmath_result(np.ma.array(data), _expr_info(-9999.0))
+        self.assertIsNone(ignore)
+        np.testing.assert_array_equal(filled, data)
+
+    def test_masked_complex_result_raises(self):
+        result = np.ma.array(np.array([1 + 2j, 3 + 0j], dtype=np.complex64), mask=[True, False])
+        with self.assertRaisesRegex(ValueError, "complex64"):
             fill_masked_bandmath_result(result, _expr_info())
 
 
@@ -318,21 +330,30 @@ class TestChunkedBandmathAcrossChunks(unittest.TestCase):
         self.loader = RasterDataLoader()
         self.cache = DataCache()
 
-    def _cube(self, bands, ignore_value):
-        data = np.array(bands, dtype=np.float32)
+    def _cube(self, bands, ignore_value, dtype=np.float32):
+        data = np.array(bands, dtype=dtype)
         folder = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
         path = os.path.join(folder, "source.tif")
         gdal_ds = gdal.GetDriverByName("GTiff").Create(
-            path, data.shape[2], data.shape[1], data.shape[0], gdal.GDT_Float32
+            path, data.shape[2], data.shape[1], data.shape[0], evaluator.np_dtype_to_gdal(data.dtype)
         )
         for i in range(data.shape[0]):
             gdal_ds.GetRasterBand(i + 1).WriteArray(data[i])
-            gdal_ds.GetRasterBand(i + 1).SetNoDataValue(ignore_value)
+            if ignore_value is not None:
+                gdal_ds.GetRasterBand(i + 1).SetNoDataValue(ignore_value)
         gdal_ds = None
         ds = self.loader.load_from_file(path, interactive=False)[0]
         self.assertEqual(ds.get_data_ignore_value(), ignore_value)
         return ds
+
+    def _temp_output_folder(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        patcher = mock.patch.object(evaluator, "TEMP_FOLDER_PATH", folder)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return folder
 
     def _evaluate(self, expr, dataset):
         variables = {"d": (VariableType.IMAGE_CUBE, dataset)}
@@ -394,8 +415,28 @@ class TestChunkedBandmathAcrossChunks(unittest.TestCase):
 
     def test_chosen_value_held_by_later_chunk_raises(self):
         ds = self._cube([[[-9999.0, 0.5], [0.5, 0.5]], [[-10000.0, 0.5], [0.5, 0.5]]], -9999.0)
+        temp_output = self._temp_output_folder()
         with self.assertRaisesRegex(ValueError, "-9999.0, the data-ignore value its earlier chunks"):
             self._evaluate("d + 1", ds)
+        gc.collect()
+        self.assertEqual(os.listdir(temp_output), [])
+
+    def test_unmasked_complex_result_is_written(self):
+        ds = self._cube([[[1 + 2j, 3], [0, 1]], [[4, 5 - 1j], [1, 0]]], None, dtype=np.complex64)
+        ignore, nodata, values = self._evaluate("d + 1", ds)
+        self.assertIsNone(ignore)
+        self.assertEqual(nodata, [None, None])
+        np.testing.assert_array_equal(
+            values, np.array([[[2 + 2j, 4], [1, 2]], [[5, 6 - 1j], [2, 1]]], dtype=np.complex64)
+        )
+
+    def test_masked_complex_result_raises(self):
+        ds = self._cube([[[1 + 2j, 3], [0, 1]], [[-9999, 5 - 1j], [1, 0]]], -9999.0, dtype=np.complex64)
+        temp_output = self._temp_output_folder()
+        with self.assertRaisesRegex(ValueError, "Cannot assign a data-ignore value .* complex64"):
+            self._evaluate("d + 1", ds)
+        gc.collect()
+        self.assertEqual(os.listdir(temp_output), [])
 
     def test_unmasked_result_declares_no_ignore_value(self):
         ds = self._cube([[[0.01, 0.9], [0.9, 0.9]], [[0.9, 0.01], [0.01, 0.01]]], -9999.0)
