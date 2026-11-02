@@ -826,6 +826,37 @@ def test_a_band_math_temp_result_is_copied_into_a_referenced_save(tmp_path, dest
     assert not restored.is_dirty()
 
 
+def test_cancelling_during_a_temp_result_copy_stops_at_the_next_band(tmp_path):
+    # Copying a large band-math result is the slow step of a save, so the copy itself
+    # reports per band and observes cancellation, rather than running to completion.
+    app = _FakeAppState()
+    result = _band_math_temp_result(app, tmp_path / "temp_output")
+    read_bands = []
+    get_band_data = result.get_band_data
+
+    def counting_get_band_data(index, *args, **kwargs):
+        read_bands.append(index)
+        return get_band_data(index, *args, **kwargs)
+
+    result.get_band_data = counting_get_band_data
+    messages = []
+    cancelled = []
+
+    def sink(_fraction, message):
+        messages.append(message)
+        if message.startswith("Saving band 1 "):
+            cancelled.append(True)
+
+    progress = ProgressReporter(sink, is_cancelled=lambda: bool(cancelled))
+    with pytest.raises(ProgressCancelled):
+        save_project(app, tmp_path / "session.wiserproj", progress=progress)
+
+    assert read_bands == [0]
+    assert "Saving band 1 of 4" in messages
+    assert result.is_dirty()
+    assert not (tmp_path / "session.wiserproj").exists()
+
+
 def test_an_in_memory_result_is_unsaved_until_a_project_save_copies_it(tmp_path):
     app = _FakeAppState()
     result = app.get_loader().dataset_from_numpy_array(_sample_array(), None)
