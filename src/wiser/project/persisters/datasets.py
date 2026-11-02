@@ -57,7 +57,11 @@ class ProjectDatasetGridError(ProjectFormatError):
 
 
 def dataset_to_pyrep(
-    dataset: "RasterDataSet", bundle: ProjectBundle, loader: "RasterDataLoader", embed: bool = False
+    dataset: "RasterDataSet",
+    bundle: ProjectBundle,
+    loader: "RasterDataLoader",
+    embed: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> Dict[str, Any]:
     """Serialize one dataset, writing an ENVI sidecar for in-memory datasets (and,
     when ``embed`` is set, for file-backed ones too).
@@ -71,6 +75,10 @@ def dataset_to_pyrep(
     ``embed`` is set -- a self-contained save -- a file-backed or NetCDF-subdataset
     dataset is re-saved to a sidecar too so the bundle is portable; its metadata
     snapshot (band names, wavelengths, CRS) carries what the ENVI header omits.
+
+    ``progress`` is handed to the sidecar writer, which reports per band and raises
+    :class:`~wiser.utils.progress.ProgressCancelled` at a band boundary once
+    cancellation is requested.
     """
     ds_id = dataset.get_id()
     # The manifest carries the user-editable SOURCE identity (name, description)
@@ -116,7 +124,7 @@ def dataset_to_pyrep(
         # A subdataset flattens to a plain cube (ENVI has no subdataset concept); its
         # selected data is kept.
         sidecar = bundle.raster_sidecar_path(f"ds_{ds_id}.img")
-        loader.save_dataset_as(dataset, str(sidecar), format="ENVI", config=None)
+        loader.save_dataset_as(dataset, str(sidecar), format="ENVI", config=None, progress=progress)
         entry["storage"] = STORAGE_SIDECAR
         entry["path"] = f"{ProjectBundle.DATASETS_DIR}/{sidecar.name}"
 
@@ -207,18 +215,20 @@ def save_datasets(
     are copied into the bundle as ENVI sidecars rather than referenced by path, so
     the project is portable.
 
-    Writing a dataset's pixels is the one slow step of a save, so ``progress`` reports
-    per dataset and cancellation is checked before each one.
+    Writing a dataset's pixels is the one slow step of a save, so ``progress`` is
+    split into one slice per dataset, and a sidecar copy reports and checks
+    cancellation at each band.
     """
     loader = app_state.get_loader()
     if progress is None:
         progress = ProgressReporter()
     datasets = [ds for ds in app_state.get_datasets() if ds.get_id() not in excluded_ids]
     entries = []
-    for index, dataset in enumerate(datasets):
-        progress.raise_if_cancelled()
-        progress.report(index, len(datasets), dataset.get_name() or "")
-        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed_file_backed))
+    children = progress.split_weights([(1.0, ds.get_name() or "") for ds in datasets])
+    for dataset, child in zip(datasets, children):
+        child.raise_if_cancelled()
+        child.report_fraction(0.0)
+        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed_file_backed, progress=child))
     progress.report_fraction(1.0)
     manifest["datasets"] = entries
 
