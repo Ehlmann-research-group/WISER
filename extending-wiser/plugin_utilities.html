@@ -515,11 +515,10 @@ Here is an example of its use:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><cite>create_form</cite> returns <code class="docutils literal notranslate"><span class="pre">None</span></code> if the user cancels the dialog, and an empty
-dict is possible if none of the fields resolve. Always guard against a
-missing key with <code class="xref py py-meth docutils literal notranslate"><span class="pre">dict.get()</span></code> and check for <code class="docutils literal notranslate"><span class="pre">None</span></code> before using a
-value, converting it to the type your plugin expects:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">return_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<p><cite>create_form</cite> returns an empty dict if the user cancels the dialog. Always
+guard against a missing key with <code class="xref py py-meth docutils literal notranslate"><span class="pre">dict.get()</span></code> and check for <code class="docutils literal notranslate"><span class="pre">None</span></code>
+before using a value, converting it to the type your plugin expects:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="ow">not</span> <span class="n">return_dict</span><span class="p">:</span>
     <span class="k">return</span>  <span class="c1"># user cancelled the dialog</span>
 
 <span class="n">wvl</span> <span class="o">=</span> <span class="n">return_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"wvl"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
