@@ -631,6 +631,7 @@ class SpectrumPlotGeneric(QWidget):
         # Events from the spectral library widget
 
         self._spectra_tree.currentItemChanged.connect(self._on_tree_selection_changed)
+        self._spectra_tree.itemChanged.connect(self._on_tree_item_changed)
         self._spectra_tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self._spectra_tree.customContextMenuRequested.connect(self._on_tree_context_menu)
 
@@ -872,6 +873,8 @@ class SpectrumPlotGeneric(QWidget):
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
+        if treeitem is not self._treeitem_active:
+            treeitem.setCheckState(0, Qt.Checked)
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False
         if spectrum.has_wavelengths():
@@ -959,6 +962,8 @@ class SpectrumPlotGeneric(QWidget):
             return
 
         del self._spectrum_display_info[id]
+        if treeitem is not self._treeitem_active:
+            treeitem.setCheckState(0, Qt.Unchecked)
 
         # Figure out whether we should use wavelengths or not in the plot.
         if spectrum.has_wavelengths():
@@ -1324,6 +1329,21 @@ class SpectrumPlotGeneric(QWidget):
             self._remove_spectrum_from_plot(spectrum, treeitem)
 
         self._draw_spectra()
+
+    def _on_tree_item_changed(self, treeitem, column):
+        """
+        This function handles the user toggling the visibility checkbox of a
+        spectrum in the collected spectra or a spectral library.  Items without
+        a checkbox, and changes that leave the checkbox matching the plot, are
+        ignored.
+        """
+        if treeitem.data(0, Qt.CheckStateRole) is None:
+            return
+
+        spectrum = treeitem.data(0, Qt.UserRole)
+        shown = spectrum.get_id() in self._spectrum_display_info
+        if (treeitem.checkState(0) == Qt.Checked) != shown:
+            self._on_toggle_spectrum_visible(treeitem)
 
     def _on_edit_spectrum(self, treeitem):
         """
@@ -1857,6 +1877,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             spectrum = spectral_library.get_spectrum(i)
             treeitem_spectrum = QTreeWidgetItem([spectrum.get_name()])
             treeitem_spectrum.setData(0, Qt.UserRole, spectrum)
+            treeitem_spectrum.setCheckState(0, Qt.Unchecked)
 
             treeitem_library.addChild(treeitem_spectrum)
 

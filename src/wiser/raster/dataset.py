@@ -20,6 +20,7 @@ from .dataset_impl import (
     ENVI_GDALRasterDataImpl,
     NetCDF_GDALRasterDataImpl,
     JP2_GDAL_PDR_RasterDataImpl,
+    NETCDF_SUBDATASET_DESCRIPTOR,
 )
 from .utils import (
     RED_WAVELENGTH,
@@ -737,6 +738,34 @@ class RasterDataSet(Serializable):
         in-memory only, e.g. because it wasn't yet saved.
         """
         return self._impl.get_filepaths()
+
+    def get_source_path(self) -> Optional[str]:
+        """
+        Returns the plain on-disk path of the file this dataset was read from, for
+        handing the dataset to an external tool.  The path is as it was given when
+        the dataset was opened, so it may be relative.
+
+        This differs from :meth:`get_filepaths` only for a NetCDF subdataset, where
+        ``get_filepaths()`` returns the GDAL descriptor
+        (``NETCDF:"/path/file.nc":variable``) and this returns ``/path/file.nc``;
+        :meth:`get_subdataset_name` gives the full descriptor.  For every other
+        file-backed dataset it is ``get_filepaths()[0]``, the primary data file.
+        Returns ``None`` for a dataset that exists only in memory.
+
+        Raises ``ValueError`` if a NetCDF subdataset's descriptor is not of the
+        ``NETCDF:"<path>":<variable>`` form.
+        """
+        subdataset_name = self.get_subdataset_name()
+        if subdataset_name:
+            match = NETCDF_SUBDATASET_DESCRIPTOR.fullmatch(subdataset_name)
+            if match is None:
+                raise ValueError(
+                    f"NetCDF subdataset descriptor {subdataset_name!r} is not of the "
+                    f'form NETCDF:"<path>":<variable>'
+                )
+            return match.group(1)
+        filepaths = self.get_filepaths()
+        return filepaths[0] if filepaths else None
 
     def get_width(self):
         """Returns the number of pixels per row in the raster data."""

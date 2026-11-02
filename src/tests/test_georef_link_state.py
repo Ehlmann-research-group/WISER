@@ -58,6 +58,15 @@ def _shifted_copy(tmp_path: Path, name: str, dx: int, dy: int) -> Path:
     return path
 
 
+def _coarse_copy(tmp_path: Path) -> Path:
+    """Copy of the EPSG:4087 fixture resampled to twice its pixel size on the same origin."""
+    src = gdal.Open(str(_EPSG4087))
+    gt = src.GetGeoTransform()
+    path = tmp_path / "coarse.tif"
+    gdal.Translate(str(path), src, xRes=2 * gt[1], yRes=-2 * gt[5])
+    return path
+
+
 def _reprojected_same_size(tmp_path: Path, epsg: int) -> Path:
     """The EPSG:4087 fixture warped to ``epsg`` with its own width and height."""
     src = gdal.Open(str(_EPSG4087))
@@ -370,3 +379,70 @@ def test_linked_click_clears_spectrum_from_a_dataset_it_cannot_link(model, tmp_p
     model.click_raster_coord_main_view_rv((0, 0), (100, 90))
 
     assert model.app_state.get_active_spectrum() is None
+
+
+def _scrolled_center(rv):
+    """The raster point at the middle of ``rv``'s viewport, from its scroll position."""
+    scroll_area, scale = rv._scroll_area, rv.get_scale()
+    return (
+        (scroll_area.horizontalScrollBar().value() + scroll_area.viewport().width() / 2) / scale,
+        (scroll_area.verticalScrollBar().value() + scroll_area.viewport().height() / 2) / scale,
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("scale", [4, 5.5, 7.3])
+def test_make_point_visible_centers_the_point(model, tmp_path, scale):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    _show(model, [a])
+    rv = model.get_main_view_rv((0, 0))
+    rv.scale_image(scale)
+
+    for point in [(80.5, 70.5), (83.25, 66.75), (90, 72)]:
+        rv.make_point_visible(*point)
+
+        # A scroll position is a whole screen pixel, so the center is within half of one.
+        assert _scrolled_center(rv) == pytest.approx(point, abs=0.5 / scale + 1e-9)
+        assert rv.get_visible_region_center() == pytest.approx(_scrolled_center(rv))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("shift", [(0, 0), (60, 40)])
+def test_linked_scroll_centers_follower_on_the_same_ground(model, tmp_path, shift):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    b = model.load_dataset(str(_shifted_copy(tmp_path, "b.tif", *shift)))
+    _show(model, [a, b])
+    assert model.click_link_button()
+    assert model.main_view._link_view_state == GeographicLinkState.SPATIAL
+    leader, follower = model.get_main_view_rv((0, 0)), model.get_main_view_rv((0, 1))
+    leader.make_point_visible(100, 90)
+
+    for dx, dy in [(7, 5), (13, 3), (5, 11)]:
+        model.scroll_main_view_rv((0, 0), dx, dy)
+
+        x, y = _scrolled_center(leader)
+        assert _scrolled_center(follower) == pytest.approx(
+            (x - shift[0], y - shift[1]), abs=0.5 / follower.get_scale() + 1e-9
+        )
+
+
+@pytest.mark.integration
+def test_context_click_centers_coarser_linked_tile_on_the_pixel_center(model, tmp_path):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    b = model.load_dataset(str(_coarse_copy(tmp_path)))
+    gt_a, gt_b = a.get_geo_transform(), b.get_geo_transform()
+    assert gt_b == pytest.approx((gt_a[0], 2 * gt_a[1], 0, gt_a[3], 0, 2 * gt_a[5]))
+    model.set_main_view_layout((1, 2))
+    for col, ds in enumerate([b, a]):
+        model.set_main_view_rv((0, col), ds.get_id())
+        model.get_main_view_rv((0, col)).scale_image(8)
+    model.set_context_pane_dataset_chooser_id(a.get_id())
+    assert model.click_link_button()
+    assert model.main_view._link_view_state == GeographicLinkState.SPATIAL
+
+    model.main_view.make_reference_point_visible(85, 71, model.get_context_pane_rasterview())
+
+    # The centre of A(85, 71) is (42.75, 35.75) in B and (85.5, 71.5) in A.
+    for col, expected in [(0, (42.75, 35.75)), (1, (85.5, 71.5))]:
+        rv = model.get_main_view_rv((0, col))
+        assert _scrolled_center(rv) == pytest.approx(expected, abs=0.5 / rv.get_scale() + 1e-9)

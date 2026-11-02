@@ -236,6 +236,10 @@ in the toolbar.
 > Tip:  The status bar at the bottom of the UI provides instructions about how
 > to create each kind of selection.
 
+For a point-set (multi-pixel) selection, left-click pixels to add or remove
+them, then press Enter or right-click to finish.  Press Esc to cancel without
+adding anything to the ROI.
+
 Here is the UI state after two Regions of Interest have been created - one named
 "grass" and the other named "solar panels". Note that the "solar panels" ROI
 is comprised of multiple overlapping rectangle selections (this could also be

@@ -18,6 +18,7 @@ from wiser.raster.dataset import (
     RasterDataSet,
     GeographicLinkState,
     reference_pixel_to_target_pixel_ds,
+    transform_geo_coord,
 )
 from wiser.raster.stretch import StretchBase
 
@@ -305,22 +306,37 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     return rgb_data
 
 
-def reference_pixel_to_target_pixel_rasterview(
-    reference_pixel: Tuple[int, int],
+def reference_point_to_target_point_rasterview(
+    reference_point: Tuple[float, float],
     reference_rasterview: "RasterView",
     target_rasterview: "RasterView",
-) -> Optional[Tuple[int, int]]:
-    if reference_rasterview is not None:
-        # We must change x and y such that they are in the correct coordinates
-        reference_dataset = reference_rasterview.get_raster_data()
-        if reference_dataset is None:
-            return
+) -> Optional[Tuple[float, float]]:
+    """
+    Maps a point in the raster coordinates of ``reference_rasterview``'s dataset
+    to the raster coordinates of ``target_rasterview``'s dataset, where pixel
+    ``(c, r)`` covers ``[c, c + 1) x [r, r + 1)``.  Unlike
+    :func:`reference_pixel_to_target_pixel_ds`, a spatial link is not rounded to
+    a whole pixel, so a point between pixel corners maps to the same ground.
+    Returns ``None`` if either view has no dataset or the datasets cannot be
+    linked.
+    """
+    reference_dataset = reference_rasterview.get_raster_data()
+    target_dataset = target_rasterview.get_raster_data()
+    if reference_dataset is None or target_dataset is None:
+        return None
 
-        target_dataset = target_rasterview._raster_data
-        if target_dataset is None:
-            return
+    link_state = target_dataset.determine_link_state(reference_dataset)
+    if link_state != GeographicLinkState.SPATIAL:
+        return reference_pixel_to_target_pixel_ds(
+            reference_point, reference_dataset, target_dataset, link_state
+        )
 
-    return reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset, target_dataset)
+    geo_coord = transform_geo_coord(
+        reference_dataset.to_geographic_coords(reference_point),
+        reference_dataset.get_spatial_ref(),
+        target_dataset.get_spatial_ref(),
+    )
+    return target_dataset.geo_to_pixel_coords_exact(geo_coord)
 
 
 class ImageColors(enum.IntFlag):
@@ -523,17 +539,6 @@ class ImageScrollArea(QScrollArea):
         self._forward = forward
         self._rasterpane = rasterpane
         self.propagate_scroll = True  # External objects control whether signals should be propagated or not
-
-    def ensureVisible(self, x: int, y: int, xmargin: int, ymargin: int):
-        # We don't want to propagate scroll, because if this ensureVisible call is based
-        # on geo-linking, then it will cause infinite recursion
-        self.propagate_scroll = False
-        super().ensureVisible(x, y, xmargin, ymargin)
-        # We still want to have propagate scroll be true for when the user actually scrolls
-        # and images are linked. We want this scroll to have the other images scroll, so
-        # usually we will want to set propagate scroll back to true after doing an operation
-        # that we don't want to propagate
-        self.propagate_scroll = True
 
     def _update_scrollbar_no_propagation(self, scrollbar, value):
         """
@@ -1356,13 +1361,22 @@ class RasterView(QWidget):
 
         return visible_region
 
-    def get_visible_region_center(self) -> Optional[Tuple[int, int]]:
+    def get_visible_region_center(self) -> Optional[Tuple[float, float]]:
+        """
+        Returns the center of the visible region in raster coordinates, where
+        pixel ``(c, r)`` covers ``[c, c + 1) x [r, r + 1)``.  Unlike
+        :meth:`get_visible_region`, the position is not truncated to whole
+        pixels.  If the raster-view has no data set then None is returned.
+        """
         if self._raster_data is None:
             return None
-        visible_region = self.get_visible_region()
+
+        scroll_area, scale = self._scroll_area, self._scale_factor
+        h_size = min(scroll_area.viewport().width() / scale, self._raster_data.get_width())
+        v_size = min(scroll_area.viewport().height() / scale, self._raster_data.get_height())
         return (
-            visible_region.x() + visible_region.width() / 2,
-            visible_region.y() + visible_region.height() / 2,
+            scroll_area.horizontalScrollBar().value() / scale + h_size / 2,
+            scroll_area.verticalScrollBar().value() / scale + v_size / 2,
         )
 
     def check_in_visible_region(self, point: Tuple[int, int]):
@@ -1387,7 +1401,11 @@ class RasterView(QWidget):
     def make_point_visible(self, x, y, margin=0.5, reference_rasterview: "RasterView" = None):
         """
         Make the specified (x, y) coordinate of the raster dataset visible in
-        the view.
+        the view.  The coordinate is a point in raster coordinates, where pixel
+        ``(c, r)`` covers ``[c, c + 1) x [r, r + 1)``; to center pixel
+        ``(c, r)``, pass its center ``(c + 0.5, r + 0.5)``.  If
+        ``reference_rasterview`` is given, the point is in that view's dataset
+        and is mapped into this view's dataset first.
 
         The optional margin argument controls where the pixel will appear in the
         view after the operation, and may range between 0 and 0.5.  The default
@@ -1409,22 +1427,26 @@ class RasterView(QWidget):
             raise ValueError(f"margin must be in the range [0, 0.5], got {margin}")
 
         if reference_rasterview is not None:
-            target_pixel = reference_pixel_to_target_pixel_rasterview((x, y), reference_rasterview, self)
-            if target_pixel is None:
+            target_point = reference_point_to_target_point_rasterview((x, y), reference_rasterview, self)
+            if target_point is None:
                 return
-            x, y = target_pixel
+            x, y = target_point
 
-        # Scroll the scroll-area to make the specified point visible.  The point
-        # also needs scaled based on the current scale factor.  Finally, specify
-        # a margin that's half the viewing area, so that the point will be in
-        # the center of the area, if possible.
-        self._scroll_area.propagate_scroll = False
-        self._scroll_area.ensureVisible(
-            x * self._scale_factor,
-            y * self._scale_factor,
-            self._scroll_area.viewport().width() * margin,
-            self._scroll_area.viewport().height() * margin,
-        )
+        # Scroll the scroll-area to make the specified point visible, with a
+        # margin of the given fraction of the viewing area around it.  This is
+        # QScrollArea.ensureVisible's rule, computed in fractional screen pixels so
+        # the point is not truncated to whole screen pixels before it is placed.
+        scroll_area = self._scroll_area
+        viewport = scroll_area.viewport()
+        for scrollbar, point, size in (
+            (scroll_area.horizontalScrollBar(), x * self._scale_factor, viewport.width()),
+            (scroll_area.verticalScrollBar(), y * self._scale_factor, viewport.height()),
+        ):
+            size_margin = size * margin
+            if point - size_margin < scrollbar.value():
+                scroll_area._update_scrollbar_no_propagation(scrollbar, round(point - size_margin))
+            elif point > scrollbar.value() + size - size_margin:
+                scroll_area._update_scrollbar_no_propagation(scrollbar, round(point - size + size_margin))
 
     # @Slot()
     # def choose_colors(self, evt):
