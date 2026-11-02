@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QAbstractItemView,
+    QScrollArea,
 )
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -132,7 +133,7 @@ class DynamicInputDialog(QDialog):
 
     def create_input_dialog(
         self, inputs: List[Tuple[str, str, DynamicInputType, Optional[List[Any]]]]
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Create and execute a dynamic input dialog.
 
@@ -151,8 +152,8 @@ class DynamicInputDialog(QDialog):
                 ``DynamicInputType`` values need this element.
 
         Returns:
-            Optional[Dict]: ``{"<return_key>": value, ...}`` on Accept, or
-            ``None`` on Cancel/Reject.
+            Dict: ``{"<return_key>": value, ...}`` on Accept, or an empty
+            dict on Cancel/Reject.
         """
 
         self._return_dict = {}
@@ -160,7 +161,12 @@ class DynamicInputDialog(QDialog):
         if self._dialog_title:
             self.setWindowTitle(self._dialog_title)
 
-        layout = QGridLayout(self)
+        # Input rows go in a scroll area that opens at the form's full height,
+        # up to 3/4 of the screen, so a long form cannot push the description
+        # and OK/Cancel buttons off the screen.
+        outer_layout = QVBoxLayout(self)
+        form = QWidget(self)
+        layout = QGridLayout(form)
         row = 0
 
         # Build user input rows
@@ -279,16 +285,24 @@ class DynamicInputDialog(QDialog):
 
             row += 1
 
+        scroll = QScrollArea(self)
+        scroll.setWidget(form)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setMinimumWidth(form.sizeHint().width() + scroll.verticalScrollBar().sizeHint().width())
+        max_height = self.screen().availableGeometry().height() * 3 // 4
+        scroll.setMinimumHeight(min(form.sizeHint().height() + 2 * scroll.frameWidth(), max_height))
+        outer_layout.addWidget(scroll)
+
         if self._description:
             desc_label = QLabel(self._description, self)
             desc_label.setWordWrap(True)
-            layout.addWidget(desc_label, row, 0, 1, 2)
-            row += 1
+            outer_layout.addWidget(desc_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons, row, 0, 1, 2)
+        outer_layout.addWidget(buttons)
 
         # Execute dialog
         result = self.exec()
