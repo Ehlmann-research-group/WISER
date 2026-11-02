@@ -1249,6 +1249,8 @@ and qualify it with the sub-dataset name when there is one.</p>
 that uses the array for its raster data.  The input ndarray must have
 three dimensions; they are interpreted as
 [spectral][spatial_y][spatial_x].</p>
+<p>The dataset starts modified, since its pixels exist only in memory until a
+save captures them.</p>
 <p>Raises a ValueError if the input array doesn’t have 3 dimensions.</p>
 </dd></dl>
 

@@ -577,6 +577,8 @@ class ChannelStretchWidget(QWidget):
 
         if not update_lines_only:
             self._histogram_axes.clear()
+            self._low_line = None
+            self._high_line = None
             self._histogram_figure.patch.set_visible(False)
             self._histogram_axes.set_axis_off()
             self._histogram_axes.set_frame_on(False)
@@ -1316,6 +1318,19 @@ class StretchBuilderDialog(QDialog):
             self._load_stretch(stretch, part_of_composite=False)
 
     def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
+        """
+        Show the dialog for ``display_bands`` of ``dataset``, loading ``stretches``,
+        one per display band.
+
+        Raises:
+            ValueError: if ``stretches`` does not hold one entry per display band, or
+                ``display_bands`` holds neither 1 nor 3 bands.
+        """
+        if len(stretches) != len(display_bands):
+            raise ValueError(
+                f"stretches must have one entry per display band; got {len(stretches)} for {display_bands}"
+            )
+
         self._enable_stretch_changed_events = False
 
         self._dataset = dataset
