@@ -54,7 +54,8 @@ nothing about what it is.
 The control at the plot's top left chooses which dataset spectra are pulled
 from. Left alone, the plot follows whichever image you click. Pinned to one
 dataset, a click anywhere, including on a different linked image in grid view,
-gives you that dataset's spectrum at that pixel.
+gives you that dataset's spectrum at the corresponding pixel (the same ground
+location when both images are georeferenced).
 
 ---
 

@@ -89,12 +89,15 @@ In grid view the dataset chooser, band chooser and contrast-stretch controls
 move from the main toolbar to a strip **above each panel**.
 
 The **link** button ties the panels together: pan or zoom one and the others
-follow. Linking requires the displayed datasets to have the **same width and
-height**, or to overlap in map coordinates.
+follow. Every pair of displayed datasets must be linkable. Two georeferenced
+datasets (each with a geotransform and a spatial reference system) are linked
+by ground location, so they must overlap on the ground. Otherwise two datasets
+are linked pixel for pixel, which requires the **same width and height**.
 
 The spectrum plot has its own control, at its top left, for choosing which
 dataset it reads from. Pin it to one dataset and clicking any linked panel
-gives you that dataset's spectrum at the clicked pixel. This is how you compare an
+gives you that dataset's spectrum at the corresponding pixel (the same ground
+location when both are georeferenced). This is how you compare an
 original cube against a smoothed or transformed version at the same location.
 
 ---

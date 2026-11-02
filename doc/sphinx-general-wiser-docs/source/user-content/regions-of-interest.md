@@ -15,7 +15,8 @@ One ROI holds any number of **selections**, each one of:
 
 - **Rectangle selection** — drag a box
 - **Polygon selection** — click vertices, close the shape
-- **Multi-pixel selection** — click individual pixels
+- **Multi-pixel selection** — click pixels to add or remove them, then press
+  Enter or right-click to finish; Esc cancels
 
 Selections may be scattered anywhere in the scene and may overlap. **Overlap is
 not a problem**: every operation counts each pixel once.

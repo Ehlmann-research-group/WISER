@@ -145,7 +145,8 @@ histogram in the stretch dialog first.
 
 Pan or zoom one panel and the others follow. The status bar confirms with
 `Linked view scrolling is ON`. Linked scrolling works when the displayed
-datasets have the same width and height, as these do.
+datasets overlap on the ground, or have the same width and height, as these
+two do.
 
 ```{note}
 In grid view the band chooser and contrast stretch controls move from the Main

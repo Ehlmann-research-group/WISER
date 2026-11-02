@@ -55,8 +55,9 @@ Create three:
 2. Click **Add selection to current ROI**, the button immediately right of the
    dropdown, and choose **Rectangle selection**, **Polygon selection** or
    **Multi-pixel selection** from its menu.
-3. Draw on the image: drag a box for a rectangle, click each corner for a
-   polygon, or click individual pixels for a multi-pixel pick.
+3. Draw on the image: drag a box for a rectangle, or click each corner for a
+   polygon. For a multi-pixel pick, click pixels to add or remove them, then
+   press **Enter** or right-click to finish; **Esc** cancels.
 
 The **status bar** along the bottom spells out the interaction for whichever
 selection type is active. Read it if a shape is not behaving as you expect.
