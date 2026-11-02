@@ -480,6 +480,7 @@
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_impl"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_impl()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_format"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_format()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_source_path"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_source_path()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_width"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_width()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_height"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_height()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.num_bands"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.num_bands()</span></code></a></li>
@@ -549,6 +550,7 @@
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#making-a-data-set-from-a-numpy-array">Making a Data Set from a NumPy Array</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-a-data-set-s-files-on-disk">Finding a Data Set’s Files on Disk</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-data-bands">Raster Data Bands</a><ul class="pst-show_toc_level nav section-nav flex-column">
@@ -788,6 +790,22 @@ used to load the dataset.</p>
 <dd><p>Returns the paths and filenames of all files associated with this raster
 dataset.  This will be an empty list (not <code class="docutils literal notranslate"><span class="pre">None</span></code>) if the data is
 in-memory only, e.g. because it wasn’t yet saved.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_source_path">
+<span class="sig-name descname"><span class="pre">get_source_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_source_path" title="Link to this definition">#</a></dt>
+<dd><p>Returns the plain on-disk path of the file this dataset was read from, for
+handing the dataset to an external tool.  The path is as it was given when
+the dataset was opened, so it may be relative.</p>
+<p>This differs from <a class="reference internal" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths" title="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_filepaths()</span></code></a> only for a NetCDF subdataset, where
+<code class="docutils literal notranslate"><span class="pre">get_filepaths()</span></code> returns the GDAL descriptor
+(<code class="docutils literal notranslate"><span class="pre">NETCDF:&quot;/path/file.nc&quot;:variable</span></code>) and this returns <code class="docutils literal notranslate"><span class="pre">/path/file.nc</span></code>;
+<a class="reference internal" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_subdataset_name" title="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_subdataset_name"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_subdataset_name()</span></code></a> gives the full descriptor.  For every other
+file-backed dataset it is <code class="docutils literal notranslate"><span class="pre">get_filepaths()[0]</span></code>, the primary data file.
+Returns <code class="docutils literal notranslate"><span class="pre">None</span></code> for a dataset that exists only in memory.</p>
+<p>Raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if a NetCDF subdataset’s descriptor is not of the
+<code class="docutils literal notranslate"><span class="pre">NETCDF:&quot;&lt;path&gt;&quot;:&lt;variable&gt;</span></code> form.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1370,6 +1388,47 @@ an reference to the same object.</p>
 <h3>Making a Data Set from a NumPy Array<a class="headerlink" href="#making-a-data-set-from-a-numpy-array" title="Link to this heading">#</a></h3>
 <p>A data-set may be constructed from a NumPy array using the WISER data loader.
 See the section <a class="reference internal" href="wiser_state.html#loading-raster-data-into-wiser"><span class="std std-ref">Loading Raster Data into WISER</span></a> for more details.</p>
+</section>
+<section id="finding-a-data-set-s-files-on-disk">
+<h3>Finding a Data Set’s Files on Disk<a class="headerlink" href="#finding-a-data-set-s-files-on-disk" title="Link to this heading">#</a></h3>
+<p>A plugin that hands a data set to an external tool needs the file it was read
+from rather than its arrays.  Use <code class="docutils literal notranslate"><span class="pre">RasterDataSet.get_source_path()</span></code>: it
+returns the plain path of the file on disk, or <code class="docutils literal notranslate"><span class="pre">None</span></code> for a data set that
+exists only in memory.  The path is as it was given when the data set was
+opened, so call <code class="docutils literal notranslate"><span class="pre">os.path.abspath()</span></code> on it if the tool runs in another
+directory.</p>
+<p><code class="docutils literal notranslate"><span class="pre">RasterDataSet.get_filepaths()</span></code> returns every file associated with the data
+set, and what it contains depends on how the data set was loaded:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Data set</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">get_filepaths()</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>File formats read through GDAL (ENVI, GeoTIFF, JPEG 2000, FITS, PDS3,
+PDS4, ASCII grid, and any other format GDAL opens)</p></td>
+<td><p>All files GDAL associates with the data set, primary data file first;
+an ENVI data set lists both its data file and its <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> header.</p></td>
+</tr>
+<tr class="row-odd"><td><p>NetCDF subdataset (EMIT, PACE, and other NetCDF products)</p></td>
+<td><p>A single-element list holding the GDAL subdataset descriptor, such as
+<code class="docutils literal notranslate"><span class="pre">NETCDF:&quot;/data/EMIT_L2A_RFL.nc&quot;:reflectance</span></code>, which is not a path.
+<code class="docutils literal notranslate"><span class="pre">get_source_path()</span></code> returns <code class="docutils literal notranslate"><span class="pre">/data/EMIT_L2A_RFL.nc</span></code> and
+<code class="docutils literal notranslate"><span class="pre">get_subdataset_name()</span></code> returns the full descriptor.</p></td>
+</tr>
+<tr class="row-even"><td><p>In memory (built from a NumPy array, or a result not yet saved)</p></td>
+<td><p>An empty list.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">get_source_path()</span></code> raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if a NetCDF subdataset’s
+descriptor is not of the <code class="docutils literal notranslate"><span class="pre">NETCDF:&quot;&lt;path&gt;&quot;:&lt;variable&gt;</span></code> form.</p>
 </section>
 </section>
 <section id="raster-data-bands">
@@ -2028,6 +2087,7 @@ can optionally set the window title and provide a description.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_impl"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_impl()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_format"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_format()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_filepaths()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_source_path"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_source_path()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_width"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_width()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.get_height"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.get_height()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.num_bands"><code class="docutils literal notranslate"><span class="pre">wiser.raster.dataset.RasterDataSet.RasterDataSet.num_bands()</span></code></a></li>
@@ -2097,6 +2157,7 @@ can optionally set the window title and provide a description.</p>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#making-a-data-set-from-a-numpy-array">Making a Data Set from a NumPy Array</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-a-data-set-s-files-on-disk">Finding a Data Set’s Files on Disk</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-data-bands">Raster Data Bands</a><ul class="pst-show_toc_level nav section-nav flex-column">
