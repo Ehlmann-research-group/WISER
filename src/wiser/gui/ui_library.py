@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QAbstractItemView,
+    QScrollArea,
 )
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -160,7 +161,11 @@ class DynamicInputDialog(QDialog):
         if self._dialog_title:
             self.setWindowTitle(self._dialog_title)
 
-        layout = QGridLayout(self)
+        # Input rows go in a scroll area so a long form cannot push the
+        # description and OK/Cancel buttons off the screen.
+        outer_layout = QVBoxLayout(self)
+        form = QWidget(self)
+        layout = QGridLayout(form)
         row = 0
 
         # Build user input rows
@@ -279,16 +284,22 @@ class DynamicInputDialog(QDialog):
 
             row += 1
 
+        scroll = QScrollArea(self)
+        scroll.setWidget(form)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setMinimumWidth(form.sizeHint().width() + scroll.verticalScrollBar().sizeHint().width())
+        outer_layout.addWidget(scroll)
+
         if self._description:
             desc_label = QLabel(self._description, self)
             desc_label.setWordWrap(True)
-            layout.addWidget(desc_label, row, 0, 1, 2)
-            row += 1
+            outer_layout.addWidget(desc_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons, row, 0, 1, 2)
+        outer_layout.addWidget(buttons)
 
         # Execute dialog
         result = self.exec()

@@ -1,6 +1,7 @@
 """
 Tests to make sure the UI library works as intended
 """
+
 import unittest
 
 from matplotlib import use
@@ -213,6 +214,23 @@ class TestUILibrary(unittest.TestCase):
         self.assertEqual(len(checkboxes), 2)
         checkboxes[0].setChecked(False)
         self.assertFalse(result["enabled"])
+
+    def test_dynamic_input_dialog_scrolls_long_form(self):
+        """Input rows scroll; the description and buttons stay outside the scroll area."""
+        dialog = DynamicInputDialog(dialog_title="Long Form", description="Pick products.")
+        inputs = [(f"Param {i}", f"p{i}", DynamicInputType.CHECK_BOX) for i in range(60)]
+
+        with patch.object(DynamicInputDialog, "exec", return_value=QDialog.Accepted):
+            result = dialog.create_input_dialog(inputs)
+
+        self.assertEqual(len(result), 60)
+
+        scroll = dialog.findChild(QScrollArea)
+        self.assertIsNotNone(scroll)
+        form = scroll.widget()
+        self.assertEqual(len(form.findChildren(QCheckBox)), 60)
+        self.assertEqual(form.findChildren(QDialogButtonBox), [])
+        self.assertLess(dialog.sizeHint().height(), form.sizeHint().height())
 
     def test_spectrum_plot_generic(self):
         test_spectrum_y = np.array(

@@ -56,14 +56,13 @@ Here is an example of its use:
         description="In the above text enter the parameters needed to perform the algorithm.",
     )
 
-`create_form` returns ``None`` if the user cancels the dialog, and an empty
-dict is possible if none of the fields resolve. Always guard against a
-missing key with :meth:`dict.get` and check for ``None`` before using a
-value, converting it to the type your plugin expects:
+`create_form` returns an empty dict if the user cancels the dialog. Always
+guard against a missing key with :meth:`dict.get` and check for ``None``
+before using a value, converting it to the type your plugin expects:
 
 .. code-block:: python
 
-    if return_dict is None:
+    if not return_dict:
         return  # user cancelled the dialog
 
     wvl = return_dict.get("wvl", None)
