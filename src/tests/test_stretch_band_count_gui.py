@@ -14,6 +14,8 @@ import tests.context  # noqa: F401
 
 from PySide6.QtWidgets import QApplication
 
+from wiser.raster.stretch import StretchLinear
+
 from test_utils.test_model import WiserTestModel
 
 
@@ -80,6 +82,45 @@ class TestStretchBandCountChange(unittest.TestCase):
 
         self.assertIs(channel._low_line.axes, channel._histogram_axes)
         self.assertIs(channel._high_line.axes, channel._histogram_axes)
+
+
+class TestStretchChangeWithSameBands(unittest.TestCase):
+    """A stretch change passed through ``set_display_bands`` with unchanged bands."""
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+        cube = np.arange(3 * 6 * 5, dtype=np.float32).reshape(3, 6, 5)
+        self.ds = self.test_model.load_dataset(cube)
+        QApplication.processEvents()
+        self.rv = self.test_model.get_main_view_rv()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def _fresh_render(self, bands, stretches):
+        self.ds.get_cache().get_render_cache().clear_cache()
+        self.rv._display_data = [None, None, None]
+        self.rv.set_display_bands(bands, stretches=stretches)
+        return np.array(self.rv._img_data)
+
+    def _assert_stretch_change_rerenders(self, bands):
+        stretched = [StretchLinear(0.25, 0.75)] * len(bands)
+        expected = self._fresh_render(bands, stretched)
+        unstretched = self._fresh_render(bands, None)
+        self.assertFalse(np.array_equal(expected, unstretched))
+
+        # Without the render cache, the image comes from the view's channel buffers.
+        self.ds.get_cache().get_render_cache().clear_cache()
+        self.rv.set_display_bands(bands, stretches=stretched)
+
+        np.testing.assert_array_equal(self.rv._img_data, expected)
+
+    def test_rgb_stretch_change_rerenders_unchanged_bands(self):
+        self._assert_stretch_change_rerenders((0, 1, 2))
+
+    def test_grayscale_stretch_change_rerenders_unchanged_band(self):
+        self._assert_stretch_change_rerenders((1,))
 
 
 if __name__ == "__main__":

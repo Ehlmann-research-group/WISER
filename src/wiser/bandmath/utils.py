@@ -152,10 +152,13 @@ def fill_masked_bandmath_result(
     result: np.ma.MaskedArray,
     expr_info: "BandMathExprInfo",
     candidates: Optional[List[Number]] = None,
-) -> Tuple[np.ndarray, Number]:
+) -> Tuple[np.ndarray, Optional[Number]]:
     """
     Fill the masked elements of a band-math result with a data-ignore value that no
-    unmasked element holds, and return the filled array and that value.
+    unmasked element holds, and return the filled array and that value.  A result
+    whose dtype is neither integer nor floating point (such as complex) has no
+    candidate values, so when nothing in it is masked it is returned unfilled with
+    ``None``.
 
     The values under a result's mask are whatever the expression computed from the
     inputs' no-data pixels, so they are not a usable ignore value (a comparison makes
@@ -165,10 +168,13 @@ def fill_masked_bandmath_result(
     chunks passes the candidates its earlier chunks left.
 
     Raises:
-        ValueError: if the result's dtype is neither integer nor floating point, if
-            ``candidates`` is empty, or if every candidate collides with an unmasked
-            element.
+        ValueError: if the result's dtype is neither integer nor floating point and
+            any element is masked, if ``candidates`` is empty, or if every candidate
+            collides with an unmasked element.
     """
+    is_real = np.issubdtype(result.dtype, np.integer) or np.issubdtype(result.dtype, np.floating)
+    if not is_real and not np.ma.getmaskarray(result).any():
+        return np.ma.getdata(result), None
     if candidates is None:
         candidates = bandmath_ignore_candidates(result.dtype, expr_info)
     if not candidates:
