@@ -101,6 +101,97 @@ def bandmath_error_callback(
     activity_monitor.set_task_cancelled(activity_id=activity_id)
 
 
+def bandmath_ignore_candidates(dtype: np.dtype, expr_info: "BandMathExprInfo") -> List[Number]:
+    """
+    Return, in order of preference, the data-ignore values a band-math result of
+    ``dtype`` may use:  the spectral-metadata source's ignore value,
+    ``DEFAULT_IGNORE_VALUE``, the dtype's minimum, then its maximum, keeping those the
+    dtype can represent.  NaN is never a candidate, since reads mask the ignore value
+    with ``np.ma.masked_values``, which does not match NaN.
+
+    Raises:
+        ValueError: if ``dtype`` is neither integer nor floating point.
+    """
+    if np.issubdtype(dtype, np.integer):
+        info = np.iinfo(dtype)
+    elif np.issubdtype(dtype, np.floating):
+        info = np.finfo(dtype)
+    else:
+        raise ValueError(f"Cannot assign a data-ignore value to a band-math result of dtype {dtype}")
+
+    values = [DEFAULT_IGNORE_VALUE, info.min, info.max]
+    source = expr_info.spectral_metadata_source
+    source_ignore_value = source.get_data_ignore_value() if source is not None else None
+    if source_ignore_value is not None:
+        values.insert(0, source_ignore_value)
+
+    candidates = []
+    for value in values:
+        if np.isnan(value) or not info.min <= value <= info.max:
+            continue
+        if np.issubdtype(dtype, np.integer) and not float(value).is_integer():
+            continue
+        candidates.append(dtype.type(value).item())
+    return candidates
+
+
+def remaining_ignore_candidates(result: np.ma.MaskedArray, candidates: List[Number]) -> List[Number]:
+    """
+    Return the ``candidates`` that would not mask any unmasked element of ``result``
+    when read back.
+    """
+    valid = np.ma.getdata(result)[~np.ma.getmaskarray(result)]
+    return [
+        candidate
+        for candidate in candidates
+        if not np.ma.getmaskarray(np.ma.masked_values(valid, candidate, shrink=False)).any()
+    ]
+
+
+def fill_masked_bandmath_result(
+    result: np.ma.MaskedArray,
+    expr_info: "BandMathExprInfo",
+    candidates: Optional[List[Number]] = None,
+) -> Tuple[np.ndarray, Optional[Number]]:
+    """
+    Fill the masked elements of a band-math result with a data-ignore value that no
+    unmasked element holds, and return the filled array and that value.  A result
+    whose dtype is neither integer nor floating point (such as complex) has no
+    candidate values, so when nothing in it is masked it is returned unfilled with
+    ``None``.
+
+    The values under a result's mask are whatever the expression computed from the
+    inputs' no-data pixels, so they are not a usable ignore value (a comparison makes
+    them 0 or 1).  The ignore value is the first of ``candidates`` that would not mask
+    an unmasked element when read back; ``candidates`` defaults to
+    ``bandmath_ignore_candidates(result.dtype, expr_info)``.  A result written in
+    chunks passes the candidates its earlier chunks left.
+
+    Raises:
+        ValueError: if the result's dtype is neither integer nor floating point and
+            any element is masked, if ``candidates`` is empty, or if every candidate
+            collides with an unmasked element.
+    """
+    is_real = np.issubdtype(result.dtype, np.integer) or np.issubdtype(result.dtype, np.floating)
+    if not is_real and not np.ma.getmaskarray(result).any():
+        return np.ma.getdata(result), None
+    if candidates is None:
+        candidates = bandmath_ignore_candidates(result.dtype, expr_info)
+    if not candidates:
+        raise ValueError(
+            f"Band-math result of dtype {result.dtype} has no candidate data-ignore value left, "
+            "since its earlier chunks hold every one as valid data, so its no-data pixels "
+            "cannot be labeled"
+        )
+    remaining = remaining_ignore_candidates(result, candidates)
+    if not remaining:
+        raise ValueError(
+            f"Band-math result of dtype {result.dtype} holds unmasked values equal to every "
+            f"candidate data-ignore value {candidates}, so its no-data pixels cannot be labeled"
+        )
+    return result.filled(remaining[0]), remaining[0]
+
+
 def load_image_from_bandmath_result(
     result_type: Union[VariableType, RasterDataSet],
     result: SerializedForm,
@@ -118,17 +209,20 @@ def load_image_from_bandmath_result(
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
         ds = RasterDataSet.deserialize_into_class(result)
+        ignore_value = ds.get_data_ignore_value()
         if expression:
             ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         if expr_info.spatial_metadata_source:
             ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
         if expr_info.spectral_metadata_source:
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        ds.set_data_ignore_value(ignore_value)
         if app_state:
             ds.set_name(app_state.unique_dataset_name(metadata.get("name", "Computed")))
             app_state.add_dataset(ds, view_dataset=False)
         return ds
     elif result_type == VariableType.IMAGE_CUBE:
+        ignore_value = None
         # In the case where the user just enters a variable (ex: "a"), then
         # we will get a serializedForm object back. We then make result be
         # the array of the value.
@@ -137,6 +231,8 @@ def load_image_from_bandmath_result(
         elif isinstance(result, np.ndarray):
             if not loader:
                 raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
+            if isinstance(result, np.ma.MaskedArray):
+                result, ignore_value = fill_masked_bandmath_result(result, expr_info)
             cache = app_state.get_cache() if app_state else None
             ds = loader.dataset_from_numpy_array(result, cache)
         else:
@@ -148,6 +244,8 @@ def load_image_from_bandmath_result(
             ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
         if expr_info.spectral_metadata_source:
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if ignore_value is not None:
+            ds.set_data_ignore_value(ignore_value)
         if app_state:
             ds.set_name(app_state.unique_dataset_name(name))
             app_state.add_dataset(ds, view_dataset=False)
@@ -177,12 +275,14 @@ def save_image_from_bandmath_result(
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
         ds = RasterDataSet.deserialize_into_class(result)
+        ignore_value = ds.get_data_ignore_value()
         if expression:
             ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         if expr_info.spatial_metadata_source:
             ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
         if expr_info.spectral_metadata_source:
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        ds.set_data_ignore_value(ignore_value)
         if loader:
             loader.save_dataset_as(ds, save_path, format="ENVI")
 
@@ -192,6 +292,9 @@ def save_image_from_bandmath_result(
             raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
         cache = app_state.get_cache() if app_state else None
         name = result_name if result_name else "Computed"
+        ignore_value = None
+        if isinstance(result, np.ma.MaskedArray):
+            result, ignore_value = fill_masked_bandmath_result(result, expr_info)
         ds = loader.dataset_from_numpy_array(result, cache)
         ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         ds.set_name(name)
@@ -199,6 +302,8 @@ def save_image_from_bandmath_result(
             ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
         if expr_info.spectral_metadata_source:
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if ignore_value is not None:
+            ds.set_data_ignore_value(ignore_value)
         if loader:
             loader.save_dataset_as(ds, save_path, format="ENVI", config=None)
 
@@ -233,8 +338,13 @@ def load_band_from_bandmath_result(
     elif isinstance(result, np.ndarray):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
+        ignore_value = None
+        if isinstance(result, np.ma.MaskedArray):
+            result, ignore_value = fill_masked_bandmath_result(result, expr_info)
         cache = app_state.get_cache() if app_state else None
         new_dataset = loader.dataset_from_numpy_array(result, cache)
+        if ignore_value is not None:
+            new_dataset.set_data_ignore_value(ignore_value)
     else:
         raise RuntimeError(
             f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}"
@@ -289,8 +399,13 @@ def save_band_from_bandmath_result(
     elif isinstance(result, (np.ndarray, np.ma.MaskedArray)):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
+        ignore_value = None
+        if isinstance(result, np.ma.MaskedArray):
+            result, ignore_value = fill_masked_bandmath_result(result, expr_info)
         cache = app_state.get_cache() if app_state else None
         new_dataset = loader.dataset_from_numpy_array(result, cache)
+        if ignore_value is not None:
+            new_dataset.set_data_ignore_value(ignore_value)
     else:
         raise RuntimeError(
             f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}"

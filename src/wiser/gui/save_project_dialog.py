@@ -248,7 +248,11 @@ class SaveProjectDialog(QDialog):
     def _item_label(self, node: Dict[str, Any]) -> str:
         kind = node["kind"]
         if kind == "dataset":
-            backing = self.tr("file") if node.get("backing") == "file" else self.tr("in-memory")
+            backing = {
+                "file": self.tr("file"),
+                "temp": self.tr("temporary file"),
+                "ram": self.tr("in-memory"),
+            }[node["backing"]]
             return self.tr("{0} ({1})").format(node["label"], backing)
         if kind == "library":
             return self.tr("Library: {0}").format(node["label"])

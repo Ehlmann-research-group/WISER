@@ -29,7 +29,10 @@ from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprI
 from .functions import BandMathFunction, get_builtin_functions
 from .utils import (
     TEMP_FOLDER_PATH,
+    bandmath_ignore_candidates,
+    fill_masked_bandmath_result,
     get_unused_file_path_in_folder,
+    remaining_ignore_candidates,
     np_dtype_to_gdal,
     write_raster_to_dataset,
     max_bytes_to_chunk,
@@ -46,6 +49,7 @@ from wiser.raster.dataset import (
     RasterDataBatchBand,
     RasterDataDynamicBand,
     RasterBand,
+    SaveState,
 )
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.serializable import BasicValueSerialized
@@ -53,7 +57,7 @@ from wiser.raster.spectrum import Spectrum
 
 from wiser.gui.subprocessing_manager import ProcessManager
 
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
 
@@ -71,7 +75,6 @@ from .builtins import (
 from .builtins.constants import (
     SCALAR_BYTES,
     NUM_WRITERS,
-    DEFAULT_IGNORE_VALUE,
     NUM_READERS,
     LHS_KEY,
     RHS_KEY,
@@ -1368,7 +1371,11 @@ def eval_singular_bandmath_expr_async(
             - and the BandMathExprInfo describing the result.
 
     Raises:
-        Exception: Propagates any exception raised during evaluation or I/O.
+        ValueError: If the result's on-disk dtype is neither integer nor floating
+            point, or if no data-ignore value can label its masked pixels without
+            colliding with an unmasked value (see ``fill_masked_bandmath_result``).
+        Exception: Propagates any exception raised during evaluation or I/O,
+            including a raster write on the write thread pool.
     """
     expr_info = single_bandmath_job.expr_info
     number_of_intermediates = single_bandmath_job.number_of_intermediates
@@ -1381,10 +1388,13 @@ def eval_singular_bandmath_expr_async(
     if subdataset_name:
         result_name = f"{subdataset_name}_{result_name}"
 
-    # Get metadata
-    gdal_type, data_ignore_value = extract_expression_metadata(expr_info)
+    gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
+    out_dtype = np.dtype(gdal_array.GDALTypeCodeToNumericTypeCode(gdal_type))
 
     # Evaluate
+    out_dataset = None
+    out_dataset_gdal = None
+    futures = []
     try:
         evaluator = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
         out_dataset, out_dataset_gdal, bands, lines, samples = create_output_dataset(
@@ -1401,20 +1411,52 @@ def eval_singular_bandmath_expr_async(
             max_chunking_bytes, expr_info, number_of_intermediates, lines, samples
         )
 
-        futures = []
+        # The ignore value is chosen at the first chunk with masked pixels, from the
+        # candidates no earlier chunk holds as valid data, and no later chunk may hold it.
+        # A complex dtype has no candidates, so only a complex chunk with masked pixels
+        # raises (in fill_masked_bandmath_result).
+        candidates = None
+        if np.issubdtype(out_dtype, np.integer) or np.issubdtype(out_dtype, np.floating):
+            candidates = bandmath_ignore_candidates(out_dtype, expr_info)
+        data_ignore_value = None
         for current_bands, next_bands in iter_band_windows(bands, num_bands):
             # print(f"Min: {min(current_bands)} | Max: {max(current_bands)}")
 
             arr = evaluate_band_window(evaluator, tree, current_bands, next_bands)
+            arr = np.ma.asarray(arr).astype(out_dtype)
+            if data_ignore_value is not None:
+                if not remaining_ignore_candidates(arr, [data_ignore_value]):
+                    raise ValueError(
+                        f"Band-math result holds unmasked values equal to {data_ignore_value}, the "
+                        "data-ignore value its earlier chunks were written with, so its no-data "
+                        "pixels cannot be labeled"
+                    )
+                arr = arr.filled(data_ignore_value)
+            elif np.ma.is_masked(arr):
+                arr, data_ignore_value = fill_masked_bandmath_result(arr, expr_info, candidates)
+            else:
+                if candidates is not None:
+                    candidates = remaining_ignore_candidates(arr, candidates)
+                arr = np.ma.getdata(arr)
 
-            future = submit_raster_write(
-                evaluator, out_dataset_gdal, current_bands, arr, gdal_type, data_ignore_value
-            )
+            future = submit_raster_write(evaluator, out_dataset_gdal, current_bands, arr, gdal_type)
             futures.append(future)
         wait_for_all_futures(futures)
+        if data_ignore_value is not None:
+            for band_index in range(1, bands + 1):
+                out_dataset_gdal.GetRasterBand(band_index).SetNoDataValue(data_ignore_value)
+            out_dataset_gdal.FlushCache()
+        out_dataset.set_data_ignore_value(data_ignore_value)
     except BaseException as e:
         if evaluator is not None:
             evaluator.stop()
+        # No dataset is returned, so nothing would delete the partial temporary file:
+        # its save state is UNKNOWN, which the dataset's destructor leaves on disk.
+        concurrent.futures.wait(futures)
+        if out_dataset is not None:
+            out_dataset_gdal = None
+            out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+            out_dataset.delete_underlying_dataset()
         raise e
     finally:
         evaluator.stop()
@@ -1641,37 +1683,11 @@ def serialize_bandmath_results(
 # Misc helpers
 
 
-def extract_expression_metadata(expr_info: "BandMathExprInfo") -> Tuple[int, Union[float, int]]:
-    """
-    Extract output metadata required for band-math evaluation.
-
-    This function determines the GDAL data type for the expression result and
-    resolves the data ignore value, preferring the value defined in the
-    expression's spectral metadata when available.
-
-    Args:
-        expr_info: BandMathExprInfo describing the result element type and
-            associated spectral metadata.
-
-    Returns:
-        A tuple of (gdal_type, spectral_metadata, data_ignore_value), where:
-            - gdal_type is the GDAL data type corresponding to the expression
-              element type.
-            - data_ignore_value is the value used to fill masked or invalid data.
-    """
-    gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
-
-    spectral_metadata = expr_info.spectral_metadata_source
-    data_ignore_value = DEFAULT_IGNORE_VALUE
-    if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
-        data_ignore_value = spectral_metadata.get_data_ignore_value()
-
-    return gdal_type, data_ignore_value
-
-
 def wait_for_all_futures(futures: "Future"):
-    """Block until all futures have completed."""
+    """Block until all futures have completed, then re-raise the first one's exception."""
     concurrent.futures.wait(futures)
+    for future in futures:
+        future.result()
 
 
 def submit_raster_write(
@@ -1680,7 +1696,6 @@ def submit_raster_write(
     current_bands: List[int],
     arr: np.ndarray,
     gdal_type: int,
-    data_ignore: Union[float, int] = DEFAULT_IGNORE_VALUE,
 ) -> "Future":
     """
     Submit an asynchronous write of evaluated band data to a GDAL dataset.
@@ -1689,20 +1704,24 @@ def submit_raster_write(
         evaluator: Asynchronous band-math evaluator providing the write thread pool.
         gdal_dataset: GDAL dataset to write the raster data into.
         current_bands: List of band indices corresponding to the data in `arr`.
-        arr: NumPy array containing evaluated band data for the current window.
+        arr: NumPy array containing evaluated band data for the current window, with
+            its no-data pixels already filled (see ``fill_masked_bandmath_result``).
         gdal_type: GDAL data type for writing the raster values.
-        data_ignore: Value used to fill masked elements before writing.
 
     Returns:
         A Future representing the asynchronous write operation.
+
+    Raises:
+        TypeError: if ``arr`` is a masked array.
     """
+    if isinstance(arr, np.ma.MaskedArray):
+        raise TypeError("Band-math chunks must be filled before they are written")
     return evaluator._write_thread_pool.submit(
         write_raster_to_dataset,
         gdal_dataset,
         current_bands,
         arr,
         gdal_type,
-        default_ignore_value=data_ignore,
     )
 
 

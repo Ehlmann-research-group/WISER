@@ -760,7 +760,18 @@ class RasterView(QWidget):
             if self._display_bands[2] != display_bands[2]:
                 changed |= ImageColors.BLUE
 
+        # A channel whose band is unchanged is still regenerated when its stretch changes.
+        new_stretches = stretches if stretches is not None else [None] * len(display_bands)
+        if len(self._stretches) != len(new_stretches):
+            changed = ImageColors.RGB
+        else:
+            channels = (ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE)
+            for color, old, new in zip(channels, self._stretches, new_stretches):
+                if old != new:
+                    changed |= color
+
         self._display_bands = display_bands
+        self._stretches = new_stretches
         self._colormap = colormap
         # Display-band selection feeds the joint stretch input; invalidate.
         self._joint_render_cache = None

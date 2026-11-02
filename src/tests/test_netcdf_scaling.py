@@ -232,13 +232,7 @@ class TestNetCDFScalingConsumers(_PackedNetCDFFixture, unittest.TestCase):
         self.assertEqual(gdal.GetDataTypeName(band.DataType), "Float32")
         self.assertAlmostEqual(band.GetNoDataValue(), ds.get_data_ignore_value(), places=9)
 
-        # The fill pixel is excluded:  the shared writer fills masked entries
-        # with its own DEFAULT_IGNORE_VALUE rather than the dataset's, so it
-        # disagrees with the nodata asserted above on every dataset that takes
-        # this path, packed or not.
-        real = np.ones((ROWS, COLS), dtype=bool)
-        real[ROWS - 1, 0] = False
-        np.testing.assert_allclose(band.ReadAsArray()[real], self._expected(0)[real], rtol=1e-6)
+        np.testing.assert_allclose(band.ReadAsArray(), self._expected(0), rtol=1e-6)
         written = None
 
     def test_warp_writes_physical_values(self):

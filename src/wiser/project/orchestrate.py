@@ -59,10 +59,10 @@ def save_project(
     Returns the path written.
 
     Once ``dest`` is in place, each dataset written into the bundle as a copy (an
-    in-memory dataset, or any dataset under a self-contained save) is marked clean:
-    the project now holds its pixels.  A dataset the project only references, or
-    leaves out, keeps its unsaved state: a reference is only as lasting as the file it
-    names, which for a large band-math result is a temporary file deleted on exit.
+    in-memory dataset, a large band-math result held in a temporary file WISER
+    deletes, or any dataset under a self-contained save) is marked clean: the project
+    now holds its pixels.  A dataset the project only references, or leaves out,
+    keeps its unsaved state: a reference is only as lasting as the file it names.
 
     ``progress`` (a :class:`~wiser.utils.progress.ProgressReporter`) reports the save
     and is checked for cancellation at each dataset and each file added to the

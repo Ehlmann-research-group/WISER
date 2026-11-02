@@ -769,30 +769,103 @@ def test_a_cancelled_save_leaves_datasets_unsaved(tmp_path, dest_name):
     assert scene.is_dirty()
 
 
-def test_a_referenced_band_math_temp_result_stays_unsaved(tmp_path):
-    # A large band-math result is written to a temporary file, so a referenced save
-    # only points at a file WISER deletes on exit: the result is still unsaved.
+def _band_math_temp_result(app, temp_dir):
+    """A large band-math result as Band Math adds it: an ENVI file in a temporary
+    folder, with the save state that has WISER delete the file."""
     from osgeo import gdal
 
     from wiser.bandmath import VariableType
     from wiser.bandmath.analyzer import get_bandmath_expr_info
     from wiser.bandmath.evaluator import create_output_dataset
+    from wiser.bandmath.utils import load_image_from_bandmath_result
+    from wiser.raster.dataset_impl import SaveState
 
     variables = {"image": (VariableType.IMAGE_CUBE, _sample_array())}
-    result, result_gdal, *_ = create_output_dataset(
-        expr_info=get_bandmath_expr_info("image + 1", variables, {}),
+    expr_info = get_bandmath_expr_info("image + 1", variables, {})
+    output, output_gdal, *_ = create_output_dataset(
+        expr_info=expr_info,
         gdal_type=gdal.GDT_Float32,
         result_name="result",
         cache=None,
-        temp_folder_path=str(tmp_path / "temp_output"),
+        temp_folder_path=str(temp_dir),
     )
-    result_gdal.FlushCache()
-    app = _FakeAppState()
+    for band, data in enumerate(_sample_array() + 1, start=1):
+        output_gdal.GetRasterBand(band).WriteArray(data)
+    output_gdal.FlushCache()
+    result = load_image_from_bandmath_result(
+        VariableType.IMAGE_CUBE_DATASET, output.get_serialized_form(), "result", "image + 1", expr_info
+    )
+    assert result.get_save_state() == SaveState.IN_DISK_NOT_SAVED
+    assert result.is_dirty()
     app.add_dataset(result)
+    return result
+
+
+@pytest.mark.parametrize("dest_name", ["session.wiserproj", "session_dir"])
+def test_a_band_math_temp_result_is_copied_into_a_referenced_save(tmp_path, dest_name):
+    # The temporary file is deleted when WISER quits, so the project holds the pixels
+    # rather than a reference to it, and the result has nothing unsaved.
+    from wiser.gui.util import delete_all_files_in_folder
+
+    app = _FakeAppState()
+    temp_dir = tmp_path / "temp_output"
+    result = _band_math_temp_result(app, temp_dir)
+
+    save_project(app, tmp_path / dest_name)
+    assert not result.is_dirty()
+
+    delete_all_files_in_folder(str(temp_dir))
+    assert os.listdir(temp_dir) == []
+    dst = _FakeAppState()
+    report = load_project(tmp_path / dest_name, dst, extract_dir=tmp_path / "unpacked")
+
+    assert report["datasets"] == []
+    (restored,) = dst.get_datasets()
+    assert restored.get_id() == result.get_id()
+    np.testing.assert_array_equal(_data(restored), _sample_array() + 1)
+    assert not restored.is_dirty()
+
+
+def test_cancelling_during_a_temp_result_copy_stops_at_the_next_band(tmp_path):
+    # Copying a large band-math result is the slow step of a save, so the copy itself
+    # reports per band and observes cancellation, rather than running to completion.
+    app = _FakeAppState()
+    result = _band_math_temp_result(app, tmp_path / "temp_output")
+    read_bands = []
+    get_band_data = result.get_band_data
+
+    def counting_get_band_data(index, *args, **kwargs):
+        read_bands.append(index)
+        return get_band_data(index, *args, **kwargs)
+
+    result.get_band_data = counting_get_band_data
+    messages = []
+    cancelled = []
+
+    def sink(_fraction, message):
+        messages.append(message)
+        if message.startswith("Saving band 1 "):
+            cancelled.append(True)
+
+    progress = ProgressReporter(sink, is_cancelled=lambda: bool(cancelled))
+    with pytest.raises(ProgressCancelled):
+        save_project(app, tmp_path / "session.wiserproj", progress=progress)
+
+    assert read_bands == [0]
+    assert "Saving band 1 of 4" in messages
+    assert result.is_dirty()
+    assert not (tmp_path / "session.wiserproj").exists()
+
+
+def test_an_in_memory_result_is_unsaved_until_a_project_save_copies_it(tmp_path):
+    app = _FakeAppState()
+    result = app.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    app.add_dataset(result)
+    assert result.is_dirty()
 
     save_project(app, tmp_path / "session.wiserproj")
 
-    assert result.is_dirty()
+    assert not result.is_dirty()
 
 
 def test_restored_datasets_have_nothing_unsaved(tmp_path):

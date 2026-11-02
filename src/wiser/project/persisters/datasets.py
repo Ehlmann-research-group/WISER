@@ -12,7 +12,9 @@ Each dataset is captured one of two ways:
   subdataset also records its ``subdataset_name`` so the *same* subdataset re-opens.
 * **As a sidecar** -- an in-memory dataset (a NumPy-backed ``RasterDataSet``
   with no file, e.g. a band-math result) is snapshotted to a native ENVI raster
-  under the bundle's ``datasets/`` directory.
+  under the bundle's ``datasets/`` directory.  So is a dataset backed by a
+  temporary file WISER deletes (a large band-math result), since a reference to
+  it would not outlive the session.
 
 Either way the manifest also carries a JSON snapshot of the runtime-editable
 metadata (data-ignore, bad bands, wavelengths, band names, display bands,
@@ -47,7 +49,7 @@ DATASET_PYREP_TYPE = "RasterDataSet"
 
 # Storage kinds recorded in a dataset's manifest entry.
 STORAGE_REFERENCE = "reference"  # file-backed: re-opened from its original path
-STORAGE_SIDECAR = "sidecar"  # in-memory: snapshotted to datasets/ as ENVI
+STORAGE_SIDECAR = "sidecar"  # copied: snapshotted to datasets/ as ENVI
 
 
 class ProjectDatasetGridError(ProjectFormatError):
@@ -55,17 +57,28 @@ class ProjectDatasetGridError(ProjectFormatError):
 
 
 def dataset_to_pyrep(
-    dataset: "RasterDataSet", bundle: ProjectBundle, loader: "RasterDataLoader", embed: bool = False
+    dataset: "RasterDataSet",
+    bundle: ProjectBundle,
+    loader: "RasterDataLoader",
+    embed: bool = False,
+    progress: Optional[ProgressReporter] = None,
 ) -> Dict[str, Any]:
     """Serialize one dataset, writing an ENVI sidecar for in-memory datasets (and,
     when ``embed`` is set, for file-backed ones too).
 
     By default a file-backed dataset records only its path (referenced, not copied)
     and an in-memory dataset is written to ``datasets/ds_<id>.img`` (plus its
-    ``.hdr``) inside ``bundle``.  When ``embed`` is set -- a self-contained save --
-    a file-backed or NetCDF-subdataset dataset is re-saved to a sidecar too so the
-    bundle is portable; its metadata snapshot (band names, wavelengths, CRS) carries
-    what the ENVI header omits.
+    ``.hdr``) inside ``bundle``.  A dataset whose file WISER deletes when the dataset
+    is removed or WISER quits (save state ``IN_DISK_NOT_SAVED``: a large band-math
+    result in ``temp_output``) is written to a sidecar like an in-memory one, since
+    a reference to that file would not survive reopening the project.  When
+    ``embed`` is set -- a self-contained save -- a file-backed or NetCDF-subdataset
+    dataset is re-saved to a sidecar too so the bundle is portable; its metadata
+    snapshot (band names, wavelengths, CRS) carries what the ENVI header omits.
+
+    ``progress`` is handed to the sidecar writer, which reports per band and raises
+    :class:`~wiser.utils.progress.ProgressCancelled` at a band boundary once
+    cancellation is requested.
     """
     ds_id = dataset.get_id()
     # The manifest carries the user-editable SOURCE identity (name, description)
@@ -86,6 +99,7 @@ def dataset_to_pyrep(
 
     subdataset_name = dataset.get_subdataset_name()
     filepaths = dataset.get_filepaths()
+    embed = embed or is_copied_into_bundle(dataset)
     if not embed and subdataset_name:
         # A NetCDF subdataset's get_filepaths() returns the GDAL descriptor, not a
         # plain path; store the base file and the descriptor so load re-opens the
@@ -105,15 +119,29 @@ def dataset_to_pyrep(
         entry["path"] = os.path.abspath(filepaths[0])
         _record_format(entry, dataset)
     else:
-        # In-memory always, and every dataset under a self-contained save: re-save
-        # the pixels to an ENVI sidecar in the bundle.  A subdataset flattens to a
-        # plain cube (ENVI has no subdataset concept); its selected data is kept.
+        # In-memory and temporary-file datasets always, and every dataset under a
+        # self-contained save: re-save the pixels to an ENVI sidecar in the bundle.
+        # A subdataset flattens to a plain cube (ENVI has no subdataset concept); its
+        # selected data is kept.
         sidecar = bundle.raster_sidecar_path(f"ds_{ds_id}.img")
-        loader.save_dataset_as(dataset, str(sidecar), format="ENVI", config=None)
+        loader.save_dataset_as(dataset, str(sidecar), format="ENVI", config=None, progress=progress)
         entry["storage"] = STORAGE_SIDECAR
         entry["path"] = f"{ProjectBundle.DATASETS_DIR}/{sidecar.name}"
 
     return entry
+
+
+def is_copied_into_bundle(dataset: "RasterDataSet") -> bool:
+    """Whether every project save writes ``dataset``'s pixels into the bundle.
+
+    True for an in-memory dataset, which has no file to reference, and for one whose
+    file WISER deletes when the dataset is removed or WISER quits (save state
+    ``IN_DISK_NOT_SAVED``: a large band-math result in ``temp_output``).  Any other
+    file-backed dataset is referenced by path unless the save is self-contained.
+    """
+    from wiser.raster.dataset_impl import SaveState
+
+    return not dataset.get_filepaths() or dataset.get_save_state() == SaveState.IN_DISK_NOT_SAVED
 
 
 def _record_format(entry: Dict[str, Any], dataset: "RasterDataSet") -> None:
@@ -187,18 +215,20 @@ def save_datasets(
     are copied into the bundle as ENVI sidecars rather than referenced by path, so
     the project is portable.
 
-    Writing a dataset's pixels is the one slow step of a save, so ``progress`` reports
-    per dataset and cancellation is checked before each one.
+    Writing a dataset's pixels is the one slow step of a save, so ``progress`` is
+    split into one slice per dataset, and a sidecar copy reports and checks
+    cancellation at each band.
     """
     loader = app_state.get_loader()
     if progress is None:
         progress = ProgressReporter()
     datasets = [ds for ds in app_state.get_datasets() if ds.get_id() not in excluded_ids]
     entries = []
-    for index, dataset in enumerate(datasets):
-        progress.raise_if_cancelled()
-        progress.report(index, len(datasets), dataset.get_name() or "")
-        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed_file_backed))
+    children = progress.split_weights([(1.0, ds.get_name() or "") for ds in datasets])
+    for dataset, child in zip(datasets, children):
+        child.raise_if_cancelled()
+        child.report_fraction(0.0)
+        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed_file_backed, progress=child))
     progress.report_fraction(1.0)
     manifest["datasets"] = entries
 
