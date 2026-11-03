@@ -1,0 +1,796 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>4. Band Math: Mapping Vegetation &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/04-band-math-ndvi';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="5. Classifying a Scene" href="05-classification.html" />
+    <link rel="prev" title="3. Regions of Interest" href="03-regions-of-interest.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Tutorials</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/opening-data-files.html">Opening Data Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/filters.html">Filters and Smoothing</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/saving-and-exporting.html">Saving and Exporting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/projects.html">Saving and Opening Projects</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/tutorials/04-band-math-ndvi.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/tutorials/04-band-math-ndvi.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>4. Band Math: Mapping Vegetation</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-idea">The idea</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-write-the-expression">Step 1 — Write the expression</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-bind-the-variables">Step 2 — Bind the variables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-display-it-meaningfully">Step 3 — Display it meaningfully</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-compare-side-by-side">Step 4 — Compare side by side</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-threshold-it">Step 5 — Threshold it</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-band-math-can-and-cannot-do">What band math can and cannot do</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="band-math-mapping-vegetation">
+<h1>4. Band Math: Mapping Vegetation<a class="headerlink" href="#band-math-mapping-vegetation" title="Link to this heading">#</a></h1>
+<p><strong>Goal:</strong> compute a vegetation index over the campus scene, display it, and
+read the result as a canopy map.</p>
+<p><strong>Data:</strong> <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm.hdr</span></code> (from <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>).</p>
+<p><strong>Reference:</strong> <a class="reference internal" href="../user-content/band-math.html"><span class="doc">Band Math</span></a>, <a class="reference internal" href="../user-content/display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a>.</p>
+<hr class="docutils" />
+<section id="the-idea">
+<h2>The idea<a class="headerlink" href="#the-idea" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="03-regions-of-interest.html"><span class="doc">Tutorial 3</span></a> showed the canopy spectrum dropping
+at 702 nm and climbing at 852 nm while roofs and asphalt stayed flat. A
+<strong>normalized difference</strong> turns that contrast into one number per pixel:</p>
+<div class="math notranslate nohighlight">
+\[\text{NDVI} = \frac{\rho_{\text{NIR}} - \rho_{\text{red}}}{\rho_{\text{NIR}} + \rho_{\text{red}}}\]</div>
+<p>Dividing by the sum normalizes out brightness, so a shadowed leaf and a sunlit
+leaf score alike. Values run −1 to +1: dense green vegetation high, bare soil
+and pavement near zero, water below zero.</p>
+<div class="note admonition">
+<p class="admonition-title">A note on which “red” you have</p>
+<p>Standard NDVI uses a red band near <strong>670 nm</strong>, at the bottom of the chlorophyll
+absorption. The reddest band in this cube is <strong>702 nm</strong>, on the shoulder of the
+red edge where a leaf is already brightening. Substituting it gives a <strong>red-edge
+NDVI</strong>: absolute values come out lower than a 670 nm NDVI would, and it
+saturates differently over dense canopy. It separates vegetation from everything
+else just as cleanly, which is what you want here. Do not compare these numbers
+against published 670 nm NDVI values, though.</p>
+<p>Choose bands by what they physically measure, not by what an index is
+conventionally called.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-1-write-the-expression">
+<h2>Step 1 — Write the expression<a class="headerlink" href="#step-1-write-the-expression" title="Link to this heading">#</a></h2>
+<ol class="arabic">
+<li><p>Open the campus scene as in <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>.</p></li>
+<li><p>Choose <strong>Tools ▸ Band math…</strong>. The <strong>Band Math</strong> dialog opens.</p></li>
+<li><p>In the <strong>Expression:</strong> box at the top, type:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>(nir - red) / (nir + red)
+</pre></div>
+</div>
+</li>
+<li><p>Press <strong>Enter</strong> on your keyboard, or click elsewhere in the dialog. WISER
+parses what you typed and adds a row under <strong>Variable bindings:</strong> for every
+name it does not recognize as a function — here, <code class="docutils literal notranslate"><span class="pre">nir</span></code> and <code class="docutils literal notranslate"><span class="pre">red</span></code>.</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="step-2-bind-the-variables">
+<h2>Step 2 — Bind the variables<a class="headerlink" href="#step-2-bind-the-variables" title="Link to this heading">#</a></h2>
+<p>The <strong>Variable bindings:</strong> table has three columns: <strong>Variable</strong> (the name from
+your expression), <strong>Type</strong> (what kind of thing it binds to), and <strong>Variable
+Assignments</strong> (which dataset and band).</p>
+<ol class="arabic simple">
+<li><p>Check that <strong>Type</strong> reads <strong>Image Band</strong> for both rows. That is the default.</p></li>
+<li><p>Scroll right in the table to reach the <strong>Variable Assignments</strong> column, which
+holds two dropdowns per row: the dataset, then the band within it.</p></li>
+<li><p>In the <code class="docutils literal notranslate"><span class="pre">nir</span></code> row, set the dataset to <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm</span></code> and the band to
+<strong>Band 3: 852.68 nm</strong>.</p></li>
+<li><p>In the <code class="docutils literal notranslate"><span class="pre">red</span></code> row, set the same dataset and <strong>Band 2: 702.42 nm</strong>.</p></li>
+<li><p>Type <code class="docutils literal notranslate"><span class="pre">NDVI</span></code> into <strong>Result name (optional):</strong> near the bottom. Without a name
+the result is harder to find in the dataset list later.</p></li>
+<li><p>Click <strong>OK</strong>. After a moment the result is added as a new dataset named
+<strong>NDVI</strong>.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t4_bandmath_dialog.png"><img alt="The band math dialog with the NDVI expression and both variables bound" src="../_images/t4_bandmath_dialog.png" style="width: 90%;" />
+</a>
+</figure>
+<p>Two other parts of the <strong>Band Math</strong> dialog are worth knowing:</p>
+<ul class="simple">
+<li><p>To the right of the <strong>Expression:</strong> box, WISER reports the <strong>result type and
+size</strong> — <code class="docutils literal notranslate"><span class="pre">Result:</span> <span class="pre">Image</span> <span class="pre">Band</span> <span class="pre">150x150</span> <span class="pre">(87.9KB)</span></code>. Band math is not streamed for
+every case, so check this before running an expression on a full flight line.</p></li>
+<li><p><strong>Toggle Help</strong> opens the operator reference in a panel on the right. Read it,
+because the built-in function set is deliberately small.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="step-3-display-it-meaningfully">
+<h2>Step 3 — Display it meaningfully<a class="headerlink" href="#step-3-display-it-meaningfully" title="Link to this heading">#</a></h2>
+<p>A diverging colormap such as <strong>RdYlGn</strong> shows low values in red, middle values
+in yellow and high values in green, which makes vegetation stand out far more
+than gray levels do.</p>
+<ol class="arabic simple">
+<li><p>Use the <strong>Select dataset to view</strong> dropdown on the Main Toolbar to switch the
+main window to the new <strong>NDVI</strong> dataset. It is drawn in grayscale, and the
+Spectrum Plot will no longer plot a spectrum for the pixels you click,
+because NDVI has only one band.</p></li>
+<li><p>Click <strong>Band chooser</strong> on the Main Toolbar. Select <strong>Grayscale</strong> in the
+<strong>General</strong> section, set <strong>Grayscale Band</strong> to band 0, tick <strong>Use a
+colormap</strong>, choose <strong>RdYlGn</strong> from the dropdown, and click <strong>OK</strong>.</p></li>
+<li><p>Click <strong>Stretch builder</strong>, select <strong>Linear Stretch</strong>, click <strong>2.5% linear</strong>,
+and click <strong>OK</strong>.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t4_ndvi.png"><img alt="The NDVI result with a red-yellow-green diverging colormap" src="../_images/t4_ndvi.png" style="width: 90%;" />
+</a>
+</figure>
+<div class="note admonition">
+<p class="admonition-title">Interpretation</p>
+<p>Every street tree resolves as an individual green crown, the hedgerows show as
+continuous green lines, and the lawn in the south-east as a solid block. Roofs,
+roads and parking areas render red to orange; only vegetation reaches
+yellow-green and green. The index has separated the
+vegetation from everything else using two bands, where the true-color image
+needed you to recognize shapes.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Set the stretch on any computed product before you read it.</strong> Index values
+have no reason to fill the display range sensibly, and a single extreme pixel
+at a scene edge can flatten everything else into one color. Check the
+histogram in the stretch dialog first.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-4-compare-side-by-side">
+<h2>Step 4 — Compare side by side<a class="headerlink" href="#step-4-compare-side-by-side" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Click <strong>Split/unsplit the main view</strong> on the Main Toolbar, the grid button,
+and choose <strong>1 row x 2 columns</strong> from its menu. The main window splits in two.</p></li>
+<li><p>Use the <strong>Select dataset to view</strong> dropdown above the left panel to show
+<code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm</span></code>, and the one above the right panel to show <code class="docutils literal notranslate"><span class="pre">NDVI</span></code>.</p></li>
+<li><p>Click <strong>Link view scrolling</strong> on the Main Toolbar.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t4_ndvi_vs_rgb.png"><img alt="True-color image and NDVI side by side in a 1x2 grid" src="../_images/t4_ndvi_vs_rgb.png" style="width: 90%;" />
+</a>
+</figure>
+<p>Pan or zoom one panel and the others follow. The status bar confirms with
+<code class="docutils literal notranslate"><span class="pre">Linked</span> <span class="pre">view</span> <span class="pre">scrolling</span> <span class="pre">is</span> <span class="pre">ON</span></code>. Linked scrolling works when the displayed
+datasets overlap on the ground, or have the same width and height, as these
+two do.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In grid view the band chooser and contrast stretch controls move from the Main
+Toolbar to a strip above <strong>each</strong> panel, so you can set them per panel.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-5-threshold-it">
+<h2>Step 5 — Threshold it<a class="headerlink" href="#step-5-threshold-it" title="Link to this heading">#</a></h2>
+<p>To go from a continuous index to a canopy mask, run one more expression:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>ndvi &gt; 0.35
+</pre></div>
+</div>
+<p>Open <strong>Tools ▸ Band math…</strong> again, type the expression, and bind <code class="docutils literal notranslate"><span class="pre">ndvi</span></code> as an
+<strong>Image Band</strong> pointing at band 0 of the NDVI dataset. Comparison operators
+return 1 where the test passes and 0 where it fails, so the result is a binary
+canopy mask you can count, export, or use to restrict another analysis.</p>
+<p>Pick the threshold from your own data rather than from a paper. With the NDVI
+dataset on screen, click a few pixels you know are canopy and a few you know
+are pavement, and read each one’s <strong>Val:</strong> in the status bar. Cut between the
+two groups.</p>
+</section>
+<hr class="docutils" />
+<section id="what-band-math-can-and-cannot-do">
+<h2>What band math can and cannot do<a class="headerlink" href="#what-band-math-can-and-cannot-do" title="Link to this heading">#</a></h2>
+<p>The built-in function set is small: there is no <code class="docutils literal notranslate"><span class="pre">sqrt</span></code>, <code class="docutils literal notranslate"><span class="pre">log</span></code> or <code class="docutils literal notranslate"><span class="pre">exp</span></code>. Use
+<code class="docutils literal notranslate"><span class="pre">**</span> <span class="pre">0.5</span></code> for a square root; for anything else a
+<a class="reference internal" href="../extending-wiser/bandmath_plugins.html"><span class="doc">band-math plugin</span></a> adds functions
+without rebuilding WISER. Variables can also bind to a whole image cube or to a
+spectrum, and <strong>Enable Batch Processing</strong> applies one expression across every
+raster in a folder. The operator list and every option are in
+<a class="reference internal" href="../user-content/band-math.html"><span class="doc">Band Math</span></a>.</p>
+</section>
+<hr class="docutils" />
+<section id="what-you-can-now-do">
+<h2>What you can now do<a class="headerlink" href="#what-you-can-now-do" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Write and bind a band-math expression</p></li>
+<li><p>Choose bands on physical grounds and say what that choice costs</p></li>
+<li><p>Display an index with a diverging colormap and a percent stretch</p></li>
+<li><p>Compare two datasets in a linked grid</p></li>
+<li><p>Threshold a continuous index into a mask</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Next:</strong> <a class="reference internal" href="05-classification.html"><span class="doc">Tutorial 5 — Classifying a Scene</span></a> —
+let the data find its own classes.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="03-regions-of-interest.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">3. Regions of Interest</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="05-classification.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">5. Classifying a Scene</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-idea">The idea</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-write-the-expression">Step 1 — Write the expression</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-bind-the-variables">Step 2 — Bind the variables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-display-it-meaningfully">Step 3 — Display it meaningfully</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-compare-side-by-side">Step 4 — Compare side by side</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-threshold-it">Step 5 — Threshold it</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-band-math-can-and-cannot-do">What band math can and cannot do</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

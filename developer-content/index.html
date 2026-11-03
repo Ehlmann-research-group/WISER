@@ -1,0 +1,795 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Developer Guide &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/index';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Environment Setup" href="environment-setup.html" />
+    <link rel="prev" title="Examples &amp; Community" href="../extending-wiser/examples.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/opening-data-files.html">Opening Data Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/filters.html">Filters and Smoothing</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/saving-and-exporting.html">Saving and Exporting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/projects.html">Saving and Opening Projects</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Developer Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design-documents.html">Design Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="code-documentation.html">Code Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="raster-format-dispatch.html">Raster Format Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="save-to-project.html">Save to Project File</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/developer-content/index.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/index.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Developer Guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-here">Start here</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subsystem-internals">Subsystem internals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regenerating-the-tutorial-screenshots">Regenerating the tutorial screenshots</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-documentation">Building the documentation</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="developer-guide">
+<h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading">#</a></h1>
+<p>Everything needed to build, test, extend and understand WISER.</p>
+<p>If you want to add functionality <strong>without</strong> modifying WISER, you probably want
+<a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a> instead — the plugin API adds
+Tools-menu actions, context-menu operations and band-math functions with no
+rebuild.</p>
+<hr class="docutils" />
+<section id="start-here">
+<h2>Start here<a class="headerlink" href="#start-here" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 34.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Page</p></th>
+<th class="head"><p>Covers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="environment-setup.html"><span class="doc">Environment Setup</span></a></p></td>
+<td><p>Conda lockfiles, per-platform environments, dependency management, building installers</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="contributing-and-quality.html"><span class="doc">Contributing and Code Quality</span></a></p></td>
+<td><p>Branching, commits, the DCO, review expectations, style and linting</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="testing-and-qa.html"><span class="doc">Testing and QA</span></a></p></td>
+<td><p>Test layout, pytest markers, the GUI test harness, what to write for a change</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ci-cd-and-releases.html"><span class="doc">CI/CD and Releases</span></a></p></td>
+<td><p>The pipeline, artifacts, versioning, release procedure</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="design-documents.html"><span class="doc">Design Documents</span></a></p></td>
+<td><p>How and when to write one before a large change</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Code signing is platform-specific: <a class="reference internal" href="codesign-mac.html"><span class="doc">macOS</span></a> ·
+<a class="reference internal" href="codesign-win.html"><span class="doc">Windows</span></a>.</p>
+</section>
+<hr class="docutils" />
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h2>
+<p>Read these before changing anything that crosses subsystem boundaries.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 34.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Page</p></th>
+<th class="head"><p>Covers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="system-design.html"><span class="doc">System Design</span></a></p></td>
+<td><p>The overall shape of the application: processes, threads, the task system, storage</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="app-state.html"><span class="doc">Application State</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> — datasets, ROIs, spectra, stretches, and the signals that tie them together</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="data-caching.html"><span class="doc">Data Caching</span></a></p></td>
+<td><p>How raster data is held in memory and on disk</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="plugin-system.html"><span class="doc">Plugin System</span></a></p></td>
+<td><p>How plugins are discovered, loaded and dispatched</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="plugin-dependencies.html"><span class="doc">Plugin Dependencies</span></a></p></td>
+<td><p>How a plugin’s third-party dependencies are resolved at runtime</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="subsystem-internals">
+<h2>Subsystem internals<a class="headerlink" href="#subsystem-internals" title="Link to this heading">#</a></h2>
+<p>One page per subsystem: the classes involved, the signals they exchange, and
+which component owns what.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 34.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Page</p></th>
+<th class="head"><p>Covers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="viewport-system.html"><span class="doc">Viewport System</span></a></p></td>
+<td><p>Panes, scroll and zoom state, how the views stay in step</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="rendering-pipeline.html"><span class="doc">Rendering Pipeline</span></a></p></td>
+<td><p>Band data to pixels: normalization, conditioners, stretches, colormaps</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stretch-builder.html"><span class="doc">Stretch Builder</span></a></p></td>
+<td><p>The contrast-stretch dialog and the stretch classes behind it</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="band-chooser.html"><span class="doc">Band Chooser</span></a></p></td>
+<td><p>Band selection and colormap handling</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="spectrum-plot.html"><span class="doc">Spectrum Plot</span></a></p></td>
+<td><p>The plot widget, spectrum sources, collection and display</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="bandmath-internals.html"><span class="doc">Band Math Internals</span></a></p></td>
+<td><p>Grammar, parser, analyzer, evaluator, chunking and batch jobs</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="raster-format-dispatch.html"><span class="doc">Raster Format Dispatch</span></a></p></td>
+<td><p>How a file is matched to a loader, and how new formats are added</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="georeferencer-internals.html"><span class="doc">Georeferencer Internals</span></a></p></td>
+<td><p>GCPs, transform fitting, residuals, warping</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="crs-creator-internals.html"><span class="doc">CRS Creator Internals</span></a></p></td>
+<td><p>Building and validating custom coordinate reference systems</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="mosaic-internals.html"><span class="doc">Mosaic Internals</span></a></p></td>
+<td><p>Ingestion, tiling, compositing, materialisation, export</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="save-to-project.html"><span class="doc">Save to Project</span></a></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code> format, the save plan, and self-contained bundles</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><a class="reference internal" href="code-documentation.html"><span class="doc">Code Documentation</span></a> describes the conventions these
+pages follow.</p>
+</section>
+<hr class="docutils" />
+<section id="regenerating-the-tutorial-screenshots">
+<h2>Regenerating the tutorial screenshots<a class="headerlink" href="#regenerating-the-tutorial-screenshots" title="Link to this heading">#</a></h2>
+<p>Every figure in the <a class="reference internal" href="../tutorials/index.html"><span class="doc">tutorials</span></a> is produced by a
+script that drives the real application, so the images cannot drift away from
+the UI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># make sure the generated Qt modules exist</span>
+make<span class="w"> </span>-C<span class="w"> </span>src/wiser/gui<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>-C<span class="w"> </span>src<span class="w"> </span>generated
+
+<span class="c1"># list the scenes</span>
+python<span class="w"> </span>doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py<span class="w"> </span>--list
+
+<span class="c1"># re-shoot one, or all of them</span>
+python<span class="w"> </span>doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py<span class="w"> </span>--only<span class="w"> </span>first_look
+python<span class="w"> </span>doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py
+
+<span class="c1"># headless Linux</span>
+xvfb-run<span class="w"> </span>-a<span class="w"> </span>python<span class="w"> </span>doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py
+</pre></div>
+</div>
+<p>Each figure comes from a <strong>scene</strong> — a function that opens the same data the
+tutorial uses, drives the same dialogs, and grabs the widget it is describing.
+When you change a dialog, re-run its scene and commit the new PNG with the code
+change. Adding a figure means adding or extending a scene, not hand-capturing a
+screenshot.</p>
+<div class="note admonition">
+<p class="admonition-title">Two traps the harness works around</p>
+<p><code class="docutils literal notranslate"><span class="pre">WiserTestModel.run()</span></code> ends in <code class="docutils literal notranslate"><span class="pre">QApplication.quit()</span></code>, which in Qt 6 closes
+every top-level window — including result windows a task has just opened, such
+as the PCA scree plot, and modeless dialogs created with <code class="docutils literal notranslate"><span class="pre">WA_DeleteOnClose</span></code>.
+The harness provides <code class="docutils literal notranslate"><span class="pre">soft_pump()</span></code> for use while such a window is on screen,
+and swaps in a plain <code class="docutils literal notranslate"><span class="pre">QMainWindow.closeEvent</span></code> so <code class="docutils literal notranslate"><span class="pre">AppServices</span></code> survives the
+loop.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MainView</span></code> opens the Savitzky–Golay and smoothing dialogs with <code class="docutils literal notranslate"><span class="pre">exec_()</span></code>, which
+blocks a script; the filters scene builds the same dialogs directly instead.</p>
+<p>Offscreen, a scroll area never gets the resize event that would refresh its
+scrollbar ranges after the image is rescaled, so <code class="docutils literal notranslate"><span class="pre">frame_region()</span></code> sets the
+range from the pixmap itself before scrolling. It also runs from inside
+<code class="docutils literal notranslate"><span class="pre">shot(...,</span> <span class="pre">frame=BOX)</span></code>, after a throwaway <code class="docutils literal notranslate"><span class="pre">grab()</span></code>: the first grab of a scene
+is what makes the dock panes claim their space, and framing before that measures
+the wrong viewport.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="building-the-documentation">
+<h2>Building the documentation<a class="headerlink" href="#building-the-documentation" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>doc/sphinx-general-wiser-docs
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+make<span class="w"> </span>html<span class="w">          </span><span class="c1"># output in build/html</span>
+</pre></div>
+</div>
+<p>The build should be warning-free apart from <code class="docutils literal notranslate"><span class="pre">autodoc2.dup_item</span></code> notices. Treat
+a new warning as a broken link.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../extending-wiser/examples.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Examples &amp; Community</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="environment-setup.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Environment Setup</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-here">Start here</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subsystem-internals">Subsystem internals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#regenerating-the-tutorial-screenshots">Regenerating the tutorial screenshots</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-the-documentation">Building the documentation</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

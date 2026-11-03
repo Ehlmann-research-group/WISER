@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="_static/documentation_options.js?v=f79a348d"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -49,7 +49,7 @@
     <link rel="icon" href="_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Raster Format Dispatch" href="developer-content/raster-format-dispatch.html" />
+    <link rel="prev" title="Save to Project File" href="developer-content/save-to-project.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -204,10 +204,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -215,12 +231,14 @@
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -235,33 +253,31 @@
 <li class="toctree-l2"><a class="reference internal" href="extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Contributing to WISER</a></li>
@@ -468,6 +484,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-a-bug">Reporting a Bug</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requesting-a-feature">Requesting a Feature</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-code">Contributing Code</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-documentation">Contributing Documentation</a></li>
 </ul>
             </nav>
         </div>
@@ -479,7 +496,7 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="contributing-to-wiser">
+  <section class="tex2jax_ignore mathjax_ignore" id="contributing-to-wiser">
 <h1>Contributing to WISER<a class="headerlink" href="#contributing-to-wiser" title="Link to this heading">#</a></h1>
 <p>Questions, bugs, and feature requests can be submitted as
 <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues">GitHub Issues</a>,
@@ -551,9 +568,30 @@ expectations, commit message format, and style conventions are documented in
 <a class="reference internal" href="developer-content/contributing-and-quality.html"><span class="doc std std-doc">Contributing &amp; Code Quality</span></a>.</p></li>
 <li><p><strong>Write tests</strong> — new features and bug fixes should include tests. See the
 <a class="reference internal" href="developer-content/testing-and-qa.html"><span class="doc std std-doc">Testing &amp; QA</span></a> guide.</p></li>
+<li><p><strong>Update the documentation</strong> — if your change alters what a user sees, update
+the relevant page under <code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/source/user-content/</span></code>
+and re-shoot any affected tutorial screenshots. See the
+<a class="reference internal" href="developer-content/index.html"><span class="doc std std-doc">Developer Guide</span></a> for both.</p></li>
 <li><p><strong>Open a pull request</strong> — link it to your issue. The PR description is the
 merge commit body, so write it clearly.</p></li>
 </ol>
+</section>
+<section id="contributing-documentation">
+<h2>Contributing Documentation<a class="headerlink" href="#contributing-documentation" title="Link to this heading">#</a></h2>
+<p>Documentation changes are as welcome as code changes, and make a good first
+contribution.</p>
+<ul class="simple">
+<li><p><strong>User-facing pages</strong> live in <code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/source/user-content/</span></code>.</p></li>
+<li><p><strong>Tutorials</strong> live in <code class="docutils literal notranslate"><span class="pre">.../source/tutorials/</span></code>.</p></li>
+<li><p><strong>Developer pages</strong> live in <code class="docutils literal notranslate"><span class="pre">.../source/developer-content/</span></code>.</p></li>
+</ul>
+<p>Build with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">html</span></code> from <code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs</span></code>, and treat a new
+Sphinx warning as a broken link.</p>
+<p><strong>Screenshots are generated, not captured by hand.</strong> Every tutorial figure comes
+from a scene in <code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py</span></code>,
+which drives the real application. To add or update a figure, add or edit a
+scene there and re-run it — see the
+<a class="reference internal" href="developer-content/index.html"><span class="doc std std-doc">Developer Guide</span></a>.</p>
 </section>
 </section>
 
@@ -569,12 +607,12 @@ merge commit body, so write it clearly.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="developer-content/raster-format-dispatch.html"
+       href="developer-content/save-to-project.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Raster Format Dispatch</p>
+        <p class="prev-next-title">Save to Project File</p>
       </div>
     </a>
 </div>
@@ -599,6 +637,7 @@ merge commit body, so write it clearly.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting-a-bug">Reporting a Bug</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requesting-a-feature">Requesting a Feature</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-code">Contributing Code</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-documentation">Contributing Documentation</a></li>
 </ul>
   </nav></div>
 

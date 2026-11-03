@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="_static/documentation_options.js?v=f79a348d"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -49,7 +49,7 @@
     <link rel="icon" href="_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="User Manual" href="user-content/user-manual.html" />
+    <link rel="next" title="Installation" href="installation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -206,10 +206,26 @@
             </li>
         </ul>
         <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="user-content/interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-content/working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -217,12 +233,14 @@
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-content/saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-content/projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -237,33 +255,31 @@
 <li class="toctree-l2"><a class="reference internal" href="extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to WISER</a></li>
@@ -466,18 +482,12 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sample-datasets">Sample Datasets</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subscribe-to-email-updates">Subscribe to Email Updates</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-wiser">Download WISER</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-from-source">Running from Source</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-platforms">Supported Platforms</a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#system-requirements">System Requirements</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-wiser-does">What WISER does</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#system-requirements">System Requirements</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to Go Next</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#formats-wiser-reads">Formats WISER reads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-to-try">Data to try</a></li>
 </ul>
             </nav>
         </div>
@@ -491,99 +501,84 @@
                   
   <section id="wiser-documentation">
 <h1>WISER Documentation<a class="headerlink" href="#wiser-documentation" title="Link to this heading">#</a></h1>
-<p><strong>WISER</strong> (Workbench for Imaging Spectroscopy Exploration and Research) is an
-open-source, cross-platform GUI for visualizing and analyzing hyperspectral
-imagery. Built in Python on Qt/PySide, it runs on <strong>macOS, Windows, and
-Linux</strong> with no commercial license required.</p>
-<p>Developed and maintained by the <a class="reference external" href="https://github.com/Ehlmann-research-group">Ehlmann Research Group</a>
-at Caltech &amp; CU Boulder. For any questions, contact wiser_AT_lists.lasp.colorado.edu.</p>
-<p><strong>Key capabilities:</strong></p>
-<ul class="simple">
-<li><p>Load, display, and navigate hyperspectral and multispectral raster data</p></li>
-<li><p>Click any pixel to view and collect its spectrum in a live spectral plot</p></li>
-<li><p>Regions of Interest (ROIs) for area-averaged spectra and pixel exports</p></li>
-<li><p>Contrast stretch and color mapping for display control</p></li>
-<li><p>Band math with custom expressions and plugin-defined functions</p></li>
-<li><p>Analysis tools: PCA, Spectral Angle Mapper, Continuum Removal, Scatter Plot, Minimum Noise Fraction, K-means, and more</p></li>
-<li><p>Georeferencing and coordinate system management</p></li>
-<li><p>Extensible plugin system (Tools Menu, Context Menu, Band Math)</p></li>
-</ul>
-<hr class="docutils" />
-<section id="sample-datasets">
-<h2>Sample Datasets<a class="headerlink" href="#sample-datasets" title="Link to this heading">#</a></h2>
-<p>WISER natively opens several hyperspectral and spectral-library formats, and
-can fall back to any format supported by GDAL for additional coverage.</p>
-<p><strong>Natively supported formats</strong></p>
-<ul class="simple">
-<li><p><strong>ENVI raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>, <code class="docutils literal notranslate"><span class="pre">*.dat</span></code>, or no extension)</p></li>
-<li><p><strong>TIFF / GeoTIFF</strong> (<code class="docutils literal notranslate"><span class="pre">*.tiff</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tif</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tfw</span></code>)</p></li>
-<li><p><strong>NetCDF</strong> (<code class="docutils literal notranslate"><span class="pre">*.nc</span></code>)</p></li>
-<li><p><strong>JPEG 2000</strong> (<code class="docutils literal notranslate"><span class="pre">*.JP2</span></code>)</p></li>
-<li><p><strong>PDS3 raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.PDS</span></code>, <code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.lbl</span></code>)</p></li>
-<li><p><strong>PDS4 raster</strong> (<code class="docutils literal notranslate"><span class="pre">*.xml</span></code>)</p></li>
-<li><p><strong>FITS</strong> (<code class="docutils literal notranslate"><span class="pre">*.fits</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fit</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fts</span></code>)</p></li>
-<li><p><strong>ASCII Grid</strong> (<code class="docutils literal notranslate"><span class="pre">*.asc</span></code>)</p></li>
-<li><p><strong>ENVI spectral libraries</strong> (<code class="docutils literal notranslate"><span class="pre">*.sli</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>)</p></li>
-<li><p><strong>GDAL-readable formats</strong> — any format that GDAL can open (e.g. HDF4/5,
-GRIdded Binary, COG, and more)</p></li>
-</ul>
-<p><strong>Example datasets to try</strong></p>
-<p>The following publicly available datasets are good starting points for
-exploring WISER:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil">Sample AVIRIS-NG image of Caltech</a>
-(also download the matching
-<a class="reference external" href="https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr">header file</a>)</p></li>
-<li><p><a class="reference external" href="https://aviris.jpl.nasa.gov/dataportal/">AVIRIS Data Portal</a> — archive of airborne imaging-spectrometer scenes</p></li>
-<li><p><a class="reference external" href="https://pds-geosciences.wustl.edu/">PDS Geosciences Node</a> — planetary hyperspectral datasets (CRISM, OMEGA, and more)</p></li>
-<li><p><a class="reference external" href="https://lasp.colorado.edu/ehlmann-lab/datasets/">Ehlmann Lab datasets</a> — laboratory and field imaging-spectroscopy data</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="subscribe-to-email-updates">
-<h2>Subscribe to Email Updates<a class="headerlink" href="#subscribe-to-email-updates" title="Link to this heading">#</a></h2>
-<p>To receive notifications about new WISER releases, send an email to
-<code class="docutils literal notranslate"><span class="pre">sympa&#64;lists.lasp.colorado.edu</span></code> with the subject line <strong>subscribe wiser-announcements</strong>
-and a blank message.</p>
-</section>
-<section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
-<section id="download-wiser">
-<h3>Download WISER<a class="headerlink" href="#download-wiser" title="Link to this heading">#</a></h3>
-<p>Pre-built installers for macOS, Windows, and Linux are available at:
-<a class="reference external" href="https://lasp.colorado.edu/ehlmann-lab/wiser/">lasp.colorado.edu/ehlmann-lab/wiser/</a></p>
-<p>Download the installer for your platform and follow the on-screen instructions.
-Users can also download and install WISER from
-<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">GitHub Releases</a>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The download location will change in a future release as WISER transitions
-to CU Boulder. Links on this page will be updated when that happens.</p>
+<p><strong>WISER</strong> — the Workbench for Imaging Spectroscopy Exploration and Research —
+is an open-source, cross-platform application for visualizing and analyzing
+hyperspectral imagery. It is written in Python on Qt/PySide, runs on
+<strong>macOS, Windows and Linux</strong>, and needs no commercial license.</p>
+<p>Developed and maintained by the
+<a class="reference external" href="https://github.com/Ehlmann-research-group">Ehlmann Research Group</a> at Caltech
+and CU Boulder. Questions: wiser_AT_lists.lasp.colorado.edu.</p>
+<p class="rubric">Start here</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="installation.html"><span class="doc">Install WISER</span></a></p></td>
+<td><p>Download an installer, or run from source</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tutorials/index.html"><span class="doc">Tutorials and Example Workflows</span></a></p></td>
+<td><p>Eight short walkthroughs on data that ships with WISER</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="user-content/user-manual.html"><span class="doc">User Manual</span></a></p></td>
+<td><p>The reference for every pane, dialog and option</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="extending-wiser/index.html"><span class="doc">Extend WISER</span></a></p></td>
+<td><p>Add tools, context-menu actions and band-math functions as plugins</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="developer-content/index.html"><span class="doc">Developer Guide</span></a></p></td>
+<td><p>Build it, test it, and understand how it works inside</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-</section>
-<section id="running-from-source">
-<h3>Running from Source<a class="headerlink" href="#running-from-source" title="Link to this heading">#</a></h3>
-<p>If you want to run WISER from source or contribute to development, see the
-<a class="reference internal" href="developer-content/environment-setup.html"><span class="doc">Developer Environment Setup</span></a> guide.</p>
-<p>In brief:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>etc
-make<span class="w"> </span>install-dev-env<span class="w">          </span><span class="c1"># macOS/Linux</span>
-conda<span class="w"> </span>activate<span class="w"> </span>wiser-dev
-<span class="nb">cd</span><span class="w"> </span>../src
-python<span class="w"> </span>-m<span class="w"> </span>wiser
-</pre></div>
-</div>
-</section>
-<section id="supported-platforms">
-<h3>Supported Platforms<a class="headerlink" href="#supported-platforms" title="Link to this heading">#</a></h3>
-<p>WISER builds currently target:</p>
+<hr class="docutils" />
+<section id="what-wiser-does">
+<h2>What WISER does<a class="headerlink" href="#what-wiser-does" title="Link to this heading">#</a></h2>
+<p><strong>Look at data</strong></p>
 <ul class="simple">
-<li><p><strong>macOS 15</strong> — ARM (Apple Silicon) and Intel</p></li>
-<li><p><strong>Windows 10/11</strong></p></li>
-<li><p><strong>Linux</strong> — Ubuntu 20.04+, Debian 12+, Fedora 39+ (amd64 and aarch64)</p></li>
+<li><p>Load, display and navigate hyperspectral and multispectral rasters</p></li>
+<li><p>Context, main and zoom panes that stay in step, plus a grid view for
+comparing datasets side by side</p></li>
+<li><p>Contrast stretches, conditioners, colormaps and a decorrelation stretch</p></li>
+</ul>
+<p><strong>Read spectra</strong></p>
+<ul class="simple">
+<li><p>Click any pixel for its spectrum; collect, color, average and export them</p></li>
+<li><p>Import ENVI spectral libraries and ASCII spectra</p></li>
+<li><p>Continuum removal on a spectrum, a collection, or a whole cube</p></li>
+</ul>
+<p><strong>Compute</strong></p>
+<ul class="simple">
+<li><p>Band math with a full expression language, saved expressions and batch
+processing over a folder</p></li>
+<li><p>Regions of Interest for class signatures, masks and pixel exports</p></li>
+<li><p>Savitzky–Golay, mean, median and Gaussian filters</p></li>
+</ul>
+<p><strong>Analyze</strong></p>
+<ul class="simple">
+<li><p><strong>Transforms</strong> — Principal Component Analysis, Minimum Noise Fraction</p></li>
+<li><p><strong>Classification</strong> — K-means clustering</p></li>
+<li><p><strong>Detection</strong> — Spectral Angle Mapper, Spectral Feature Fitting,
+Mixture-Tuned Matched Filter</p></li>
+<li><p><strong>Unmixing</strong> — Linear Unmixing with per-pixel residuals</p></li>
+<li><p><strong>Visualization</strong> — Interactive Scatter Plot linked back to the image</p></li>
+</ul>
+<p><strong>Handle geometry</strong></p>
+<ul class="simple">
+<li><p>Georeferencing from ground control points, custom coordinate reference
+systems, similarity transforms</p></li>
+<li><p>Mosaicking overlapping scenes onto one output grid</p></li>
+</ul>
+<p><strong>Keep and share your work</strong></p>
+<ul class="simple">
+<li><p>Projects that save the whole session to a single file, referenced or
+self-contained</p></li>
+<li><p>A plugin API for adding your own analyses without rebuilding</p></li>
 </ul>
 <section id="system-requirements">
-<h4>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">#</a></h4>
+<h3>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">#</a></h3>
 <p>The minimum and recommended specifications for running WISER are:</p>
 <p><strong>Operating system</strong></p>
 <ul class="simple">
@@ -602,32 +597,102 @@ python<span class="w"> </span>-m<span class="w"> </span>wiser
 <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues">open a GitHub Issue</a>.</p>
 </section>
 </section>
+<hr class="docutils" />
+<section id="formats-wiser-reads">
+<h2>Formats WISER reads<a class="headerlink" href="#formats-wiser-reads" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Typical files</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ENVI raster</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code>, <code class="docutils literal notranslate"><span class="pre">*.dat</span></code>, or no extension</p></td>
+</tr>
+<tr class="row-odd"><td><p>TIFF / GeoTIFF</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.tif</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tiff</span></code>, <code class="docutils literal notranslate"><span class="pre">*.tfw</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>NetCDF</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.nc</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>JPEG 2000</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.JP2</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>PDS3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.PDS</span></code>, <code class="docutils literal notranslate"><span class="pre">*.img</span></code>, <code class="docutils literal notranslate"><span class="pre">*.lbl</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>PDS4</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.xml</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>FITS</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.fits</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fit</span></code>, <code class="docutils literal notranslate"><span class="pre">*.fts</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>ASCII Grid</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.asc</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>ENVI spectral library</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*.sli</span></code>, <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Anything else GDAL reads</p></td>
+<td><p>HDF4/5, GRIB, COG and many more</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>See <a class="reference internal" href="user-content/opening-data-files.html"><span class="doc">Opening Data Files</span></a> for
+multi-file datasets, sub-datasets and troubleshooting.</p>
 </section>
 <hr class="docutils" />
-<section id="where-to-go-next">
-<h2>Where to Go Next<a class="headerlink" href="#where-to-go-next" title="Link to this heading">#</a></h2>
-<p class="rubric">User Manual</p>
-<p><a class="reference internal" href="user-content/interface-overview.html"><span class="doc">Interface Overview</span></a> ·
-<a class="reference internal" href="user-content/working-with-data.html"><span class="doc">Working with Data</span></a> ·
-<a class="reference internal" href="user-content/spatial-tools.html"><span class="doc">Spatial Tools</span></a></p>
-<p class="rubric">Extend WISER</p>
-<p><a class="reference internal" href="extending-wiser/index.html"><span class="doc">Build plugins</span></a> to add custom workflows,
-context-menu operations, and band-math functions — no rebuild required.</p>
-<p class="rubric">Developer Guide</p>
-<p><a class="reference internal" href="developer-content/environment-setup.html"><span class="doc">Environment Setup</span></a> ·
-<a class="reference internal" href="developer-content/contributing-and-quality.html"><span class="doc">Contributing &amp; Code Quality</span></a> ·
-<a class="reference internal" href="developer-content/testing-and-qa.html"><span class="doc">Testing &amp; QA</span></a></p>
-<hr class="docutils" />
-<p class="rubric">Get Help</p>
+<section id="data-to-try">
+<h2>Data to try<a class="headerlink" href="#data-to-try" title="Link to this heading">#</a></h2>
+<p>The <a class="reference internal" href="tutorials/index.html"><span class="doc">Tutorials</span></a> run on fixtures in the
+WISER source tree, so there is nothing to download. For full scenes, try
+these public datasets:</p>
 <ul class="simple">
-<li><p><strong>Questions, bugs, feature requests:</strong> <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues">Open a GitHub Issue</a></p></li>
-<li><p><strong>Community plugins:</strong> <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER-Plugin-Repository">WISER Plugin Repository</a></p></li>
+<li><p><a class="reference external" href="https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil">AVIRIS-NG Caltech subset</a>
+(plus its <a class="reference external" href="https://avng.jpl.nasa.gov/pub/DThompson/istutor/ang20171108t184227_corr_v2p13_subset_bil.hdr">header</a>)
+— 425 bands over Pasadena</p></li>
+<li><p><a class="reference external" href="https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl">AVIRIS-Classic reflectance over Cuprite, Nevada</a>
+(plus its <a class="reference external" href="https://popo.jpl.nasa.gov/pub/RKokaly/f230918t01p00r11_rfl.hdr">header</a>)
+— 224 bands</p></li>
+<li><p><a class="reference external" href="https://aviris.jpl.nasa.gov/dataportal/">AVIRIS Data Portal</a> and
+<a class="reference external" href="https://aviris.jpl.nasa.gov/data/free_data.html">AVIRIS free data</a> —
+more airborne scenes</p></li>
+<li><p><a class="reference external" href="https://www.earthdata.nasa.gov/data/catalog/lpcloud-emitl2arfl-001">EMIT L2A Reflectance</a> —
+spaceborne imaging spectroscopy of arid land surfaces</p></li>
+<li><p><a class="reference external" href="https://pace.oceansciences.org/access_pace_data.htm">PACE/OCI</a> —
+hyperspectral ocean color</p></li>
+<li><p><a class="reference external" href="https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2007/2007_029/hrl000040ff/">CRISM MTRDR over Jezero Crater</a>
+— 489 bands</p></li>
+<li><p><a class="reference external" href="https://pds-geosciences.wustl.edu/">PDS Geosciences Node</a> and the
+<a class="reference external" href="https://ode.rsl.wustl.edu/mars/">Mars Orbital Data Explorer</a> —
+CRISM, OMEGA, M3 and more</p></li>
+<li><p><a class="reference external" href="https://lasp.colorado.edu/ehlmann-lab/datasets/">Ehlmann Lab datasets</a> —
+laboratory and field imaging spectroscopy</p></li>
+<li><p><a class="reference external" href="https://dx.doi.org/10.5066/F7RR1WDJ">USGS Spectral Library Version 7</a> and
+the <a class="reference external" href="https://speclib.jpl.nasa.gov/">ECOSTRESS Spectral Library</a> —
+reference spectra</p></li>
+</ul>
+<hr class="docutils" />
+<p class="rubric">Get help</p>
+<ul class="simple">
+<li><p><strong>Questions, bugs, feature requests:</strong>
+<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues/new/choose">open a GitHub Issue</a></p></li>
+<li><p><strong>Community plugins:</strong>
+<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER-Plugin-Repository">WISER Plugin Repository</a></p></li>
+<li><p><strong>Release announcements:</strong> email <code class="docutils literal notranslate"><span class="pre">sympa&#64;lists.lasp.colorado.edu</span></code> with the
+subject <strong>subscribe wiser-announcements</strong></p></li>
 </ul>
 <p class="rubric">License</p>
 <p>Copyright 2019–2026, California Institute of Technology (Caltech) and
 Regents of the University of Colorado. All rights reserved.
-See the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/blob/main/LICENSE">LICENSE</a> for the full text.</p>
-<hr class="docutils" />
+See the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/blob/main/LICENSE">LICENSE</a>
+for the full text.</p>
 <div class="toctree-wrapper compound">
 </div>
 </section>
@@ -645,11 +710,11 @@ See the <a class="reference external" href="https://github.com/Ehlmann-research-
                   
 <div class="prev-next-area">
     <a class="right-next"
-       href="user-content/user-manual.html"
+       href="installation.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">User Manual</p>
+        <p class="prev-next-title">Installation</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -671,18 +736,12 @@ See the <a class="reference external" href="https://github.com/Ehlmann-research-
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sample-datasets">Sample Datasets</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subscribe-to-email-updates">Subscribe to Email Updates</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#download-wiser">Download WISER</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-from-source">Running from Source</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-platforms">Supported Platforms</a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#system-requirements">System Requirements</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-wiser-does">What WISER does</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#system-requirements">System Requirements</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to Go Next</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#formats-wiser-reads">Formats WISER reads</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-to-try">Data to try</a></li>
 </ul>
   </nav></div>
 

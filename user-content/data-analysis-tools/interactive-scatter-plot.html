@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../../_static/documentation_options.js?v=f79a348d"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -205,10 +205,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="data-analysis-tools.html">Data Analysis Tools</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -216,12 +232,14 @@
 <li class="toctree-l3"><a class="reference internal" href="mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="../spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -236,33 +254,31 @@
 <li class="toctree-l2"><a class="reference internal" href="../../extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing to WISER</a></li>
@@ -470,6 +486,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-the-plot">Reading the plot</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-points">Selecting points</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#controls-reference">Controls reference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -481,14 +498,13 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="interactive-scatter-plot">
+  <section class="tex2jax_ignore mathjax_ignore" id="interactive-scatter-plot">
 <h1>Interactive Scatter Plot<a class="headerlink" href="#interactive-scatter-plot" title="Link to this heading">#</a></h1>
-<p>The Interactive Scatter Plot plots two bands against each other — every pixel
+<p>The Interactive Scatter Plot plots two bands against each other. Every pixel
 becomes one point, positioned by its value in the <strong>X band</strong> (horizontal) and
-<strong>Y band</strong> (vertical). Its real power is the two-way link to the image: draw a
-shape around a cluster of points and the matching pixels light up in the image,
-so you can discover structure in <em>feature space</em> and instantly see <em>where</em> it
-lives in the scene.</p>
+<strong>Y band</strong> (vertical). The plot has a two-way link to the image: draw a shape
+around a cluster of points and the matching pixels light up in the image, so you
+can find structure in <em>feature space</em> and see <em>where</em> it lies in the scene.</p>
 <p>Open it from a raster view’s <strong>Data Analysis ▸ Interactive Scatter Plot</strong> menu.</p>
 <section id="the-core-idea">
 <h2>The core idea<a class="headerlink" href="#the-core-idea" title="Link to this heading">#</a></h2>
@@ -514,6 +530,10 @@ pixels of your selection.</p></li>
 height</strong>, since points are matched to pixels by position; mismatched dimensions
 raise an error. The plot is computed in the background (a loading spinner shows
 meanwhile), and pixels with NaN values are dropped.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/t8_scatter_plot.png"><img alt="A density scatter plot of two bands showing the soil line and a vegetation plume" src="../../_images/t8_scatter_plot.png" style="width: 70%;" />
+</a>
+</figure>
 </section>
 <section id="reading-the-plot">
 <h2>Reading the plot<a class="headerlink" href="#reading-the-plot" title="Link to this heading">#</a></h2>
@@ -521,26 +541,34 @@ meanwhile), and pixels with NaN values are dropped.</p>
 overlapping dots, color encodes how many pixels fall on each spot, with a
 colorbar labeled <em>Number of points per spectral value</em>. Bright/dense regions
 are common pixel values. Use <strong>To Scatter</strong> to switch to a plain dot plot, and
-<strong>To Density</strong> to switch back. <strong>To Scatter</strong> is useful for areas that do not
-have a dense enough pixel population to show up when <strong>To Density</strong> is selected.</p>
+<strong>To Density</strong> to switch back. Use <strong>To Scatter</strong> for areas too sparse to show
+up in the density plot.</p>
 </section>
 <section id="selecting-points">
 <h2>Selecting points<a class="headerlink" href="#selecting-points" title="Link to this heading">#</a></h2>
 <p>The plot always has a <strong>polygon selector</strong> active:</p>
 <ul class="simple">
-<li><p>Click to drop vertices around a cluster; finish with a <strong>double-click</strong> or
-<strong>Enter</strong>.</p></li>
+<li><p>Click to drop vertices around a cluster; close the polygon by clicking the
+first vertex again.</p></li>
 <li><p>Selected points are outlined on the plot, the <strong>point count</strong> updates, and
 the corresponding pixels are drawn on the <strong>Render Onto</strong> image in your
 highlight color.</p></li>
 <li><p>Press <strong>Escape</strong> or <strong>Clear selection</strong> to start over.</p></li>
 </ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/t8_scatter_selection.png"><img alt="A polygon selection around a cluster, with the selected points outlined" src="../../_images/t8_scatter_selection.png" style="width: 70%;" />
+</a>
+</figure>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/t8_scatter_highlight.png"><img alt="The selected feature-space pixels highlighted back on the image" src="../../_images/t8_scatter_highlight.png" style="width: 85%;" />
+</a>
+</figure>
 </section>
 <section id="controls-reference">
 <h2>Controls reference<a class="headerlink" href="#controls-reference" title="Link to this heading">#</a></h2>
 <p>The strip just below the toolbar:</p>
 <ul class="simple">
-<li><p><strong>N pts</strong> — live count of selected points.</p></li>
+<li><p><strong>Point count</strong> (for example <code class="docutils literal notranslate"><span class="pre">1,234</span> <span class="pre">pts</span></code>) — live count of selected points.</p></li>
 <li><p><strong>Clear selection</strong> — remove the polygon and all highlights.</p></li>
 <li><p><strong>Create ROI from Selection</strong> — save the selected pixels as a Region of
 Interest (named <em>Scatter Plot Selection</em>) for use in other tools.</p></li>
@@ -554,6 +582,13 @@ mark them on the image.</p></li>
 </ul>
 <p>The standard Matplotlib navigation toolbar (pan, zoom, save image) sits above
 the strip.</p>
+</section>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../tutorials/05-classification.html"><span class="doc">Tutorial 5 — Classifying a Scene</span></a></p></li>
+<li><p><a class="reference internal" href="../regions-of-interest.html"><span class="doc">Regions of Interest</span></a></p></li>
+</ul>
 </section>
 </section>
 
@@ -609,6 +644,7 @@ the strip.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-the-plot">Reading the plot</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-points">Selecting points</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#controls-reference">Controls reference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

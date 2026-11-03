@@ -1,0 +1,985 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>1. Your First Scene &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/01-first-look';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="2. Reading Spectra" href="02-spectra.html" />
+    <link rel="prev" title="Tutorials" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Tutorials</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/opening-data-files.html">Opening Data Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/filters.html">Filters and Smoothing</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/saving-and-exporting.html">Saving and Exporting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/projects.html">Saving and Opening Projects</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/tutorials/01-first-look.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/tutorials/01-first-look.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>1. Your First Scene</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-open-the-image">Step 1 — Open the image</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-turn-on-the-rest-of-the-workspace">Step 2 — Turn on the rest of the workspace</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-choose-the-bands-you-display">Step 3 — Choose the bands you display</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-make-the-image-readable-with-a-contrast-stretch">Step 4 — Make the image readable with a contrast stretch</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-make-a-color-infrared-composite">Step 5 — Make a color-infrared composite</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interpretation">Interpretation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="your-first-scene">
+<h1>1. Your First Scene<a class="headerlink" href="#your-first-scene" title="Link to this heading">#</a></h1>
+<p><strong>Goal:</strong> open an image, move around it, choose which bands you look at, and
+make the picture readable.</p>
+<p><strong>Data:</strong> <code class="docutils literal notranslate"><span class="pre">src/test_utils/test_datasets/caltech_4_100_150_nm.hdr</span></code> — a 150 × 150
+pixel, 4-band AVIRIS subset over the Caltech campus. It ships with the WISER
+source; nothing to download.</p>
+<p><strong>Reference:</strong> <a class="reference internal" href="../user-content/interface-overview.html"><span class="doc">Interface Overview</span></a>,
+<a class="reference internal" href="../user-content/opening-data-files.html"><span class="doc">Opening Data Files</span></a>, <a class="reference internal" href="../user-content/display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a>.</p>
+<p><strong>Start state:</strong> a fresh WISER launch. The window opens empty, with
+<strong>(no data)</strong> in both display panes.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_empty.png"><img alt="The WISER main window at startup with no data loaded" src="../_images/t1_empty.png" style="width: 90%;" />
+</a>
+</figure>
+<p>The four bands in this scene are:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Band</p></th>
+<th class="head"><p>Wavelength</p></th>
+<th class="head"><p>What it sees</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>472 nm</p></td>
+<td><p>Blue</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>532 nm</p></td>
+<td><p>Green</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>702 nm</p></td>
+<td><p>Red / start of the red edge</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>853 nm</p></td>
+<td><p>Near-infrared</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>WISER numbers bands from 0, and shows the number and the wavelength together in
+every dropdown, like <code class="docutils literal notranslate"><span class="pre">Band</span> <span class="pre">2:</span> <span class="pre">702.42</span> <span class="pre">nm</span></code>. Every step below refers to bands by
+number. Tutorials 3–6 work on this same scene.</p>
+<hr class="docutils" />
+<section id="step-1-open-the-image">
+<h2>Step 1 — Open the image<a class="headerlink" href="#step-1-open-the-image" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>From the <strong>Main Menu</strong> at the top of the window, go to <strong>File</strong> and select
+<strong>Open…</strong> from the dropdown list. The tutorials shorten a menu path like
+this one to <strong>File ▸ Open…</strong>. You can also click <strong>Open image file</strong>, the
+leftmost button on the Main Toolbar.</p></li>
+<li><p>In the file dialog, navigate to <code class="docutils literal notranslate"><span class="pre">src/test_utils/test_datasets/</span></code> and select
+<strong><code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm.hdr</span></code></strong>. Either the <code class="docutils literal notranslate"><span class="pre">.hdr</span></code> header or the data file
+beside it works — WISER finds the other.</p></li>
+<li><p>Leave the file-type dropdown at the bottom of the dialog on <strong>All supported
+files</strong>, and click <strong>Open</strong>.</p></li>
+</ol>
+<p>The scene loads and appears in the main window. WISER picks the bands to show
+from the header, so you get a color image straight away.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_loaded.png"><img alt="The Caltech scene loaded, shown in the context pane and the main window" src="../_images/t1_loaded.png" style="width: 90%;" />
+</a>
+</figure>
+<p><strong>Check:</strong> you should now see the same color image in the main window and in
+the <strong>Context</strong> pane on the left — two columns of buildings with white and
+gray roofs, dark streets between them, and dark red-brown vegetation scattered
+through the scene. The image looks dark and low-contrast; Step 4 fixes that.</p>
+</section>
+<hr class="docutils" />
+<section id="step-2-turn-on-the-rest-of-the-workspace">
+<h2>Step 2 — Turn on the rest of the workspace<a class="headerlink" href="#step-2-turn-on-the-rest-of-the-workspace" title="Link to this heading">#</a></h2>
+<p>Everything in this tutorial lives on the toolbar row at the top of the window.
+The figure below numbers every button; the table names each one by its tooltip,
+which you can also read by hovering the button in the app. Later steps refer to
+buttons by these names.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_toolbar_annotated.png"><img alt="The WISER toolbar with each button numbered, named in the table below" src="../_images/t1_toolbar_annotated.png" style="width: 100%;" />
+</a>
+</figure>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>#</p></th>
+<th class="head"><p>Button</p></th>
+<th class="head"><p>#</p></th>
+<th class="head"><p>Button</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Open image file</p></td>
+<td><p>10</p></td>
+<td><p>Link view scrolling</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Show/hide the context pane</p></td>
+<td><p>11</p></td>
+<td><p>Zoom in</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Show/hide the zoom pane</p></td>
+<td><p>12</p></td>
+<td><p>Zoom out</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>Show/hide the spectrum pane</p></td>
+<td><p>13</p></td>
+<td><p>Zoom to actual size</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>Show/hide dataset information</p></td>
+<td><p>14</p></td>
+<td><p>Zoom to fit</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>Select dataset to view</p></td>
+<td><p>15</p></td>
+<td><p>Zoom level (no tooltip)</p></td>
+</tr>
+<tr class="row-even"><td><p>7</p></td>
+<td><p>Band chooser</p></td>
+<td><p>16</p></td>
+<td><p>Add new Region of Interest</p></td>
+</tr>
+<tr class="row-odd"><td><p>8</p></td>
+<td><p>Stretch builder</p></td>
+<td><p>17</p></td>
+<td><p>ROI dropdown (no tooltip)</p></td>
+</tr>
+<tr class="row-even"><td><p>9</p></td>
+<td><p>Split/unsplit the main view</p></td>
+<td><p>18</p></td>
+<td><p>Add selection to current ROI</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<ol class="arabic">
+<li><p>Buttons 2–5 are the <strong>pane toggles</strong>: each one shows or hides one pane.
+Click each one until all four panes are showing. Later tutorials call them
+by the pane’s name, for example the <strong>Spectrum Plot</strong> pane toggle.</p>
+<ul class="simple">
+<li><p><strong>Context</strong> — the whole scene, scaled to fit</p></li>
+<li><p><strong>Zoom</strong> — a magnified view around the last pixel you clicked</p></li>
+<li><p><strong>Spectrum Plot</strong> — the spectrum of whatever pixel you click</p></li>
+<li><p><strong>Dataset Info</strong> — header metadata for every loaded dataset</p></li>
+</ul>
+</li>
+<li><p>Click <strong>Zoom to fit</strong> (button 14). The whole scene scales to fill the main
+window, and the zoom percentage beside it updates to match.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_all_panes.png"><img alt="All four WISER panes around the Caltech scene" src="../_images/t1_all_panes.png" style="width: 90%;" />
+</a>
+</figure>
+</li>
+<li><p>Click a few pixels in the main window and watch what moves:</p>
+<ul class="simple">
+<li><p>The <strong>yellow box</strong> in the Context pane marks what the main window is
+showing.</p></li>
+<li><p>The <strong>Zoom</strong> pane re-centers on the pixel you clicked.</p></li>
+<li><p>The <strong>status bar</strong> along the bottom reports that pixel’s data values for
+the displayed bands, its <strong>Pixel:</strong> <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code> position, and, because this
+scene is georeferenced, its <strong>Geo:</strong> coordinates.</p></li>
+</ul>
+</li>
+</ol>
+<p>Every pane is dockable. Drag a pane’s title bar to move it, or drag it out of
+the window to float it on a second monitor.</p>
+<p><strong>Check:</strong> you should now see all four panes around the image. Click a pixel in
+the dark red-brown vegetation and the status bar reads three small values —
+<code class="docutils literal notranslate"><span class="pre">R:</span></code>, <code class="docutils literal notranslate"><span class="pre">G:</span></code> and <code class="docutils literal notranslate"><span class="pre">B:</span></code> all below about 0.15. Click a white rooftop and all three
+jump to roughly 0.4–0.7. The <strong>Geo:</strong> field reads close to
+(34.14°N, -118.13°E) anywhere in the scene, which is the Caltech campus. WISER
+shows west longitudes as negative <strong>°E</strong> values by default; the
+geographic-coordinate settings can switch that to a positive <strong>°W</strong> display.</p>
+</section>
+<hr class="docutils" />
+<section id="step-3-choose-the-bands-you-display">
+<h2>Step 3 — Choose the bands you display<a class="headerlink" href="#step-3-choose-the-bands-you-display" title="Link to this heading">#</a></h2>
+<p>A display has three channels — red, green and blue — so it can show at most
+three bands at once, whatever the cube holds. WISER opened this scene with the
+<strong>default bands</strong> named in its header: band 2 in the red channel, band 1 in
+green, band 0 in blue. That is near-true-color: each channel carries the band
+closest to the color it drives. It is only “near” because 702 nm sits at the
+start of vegetation’s red edge rather than in the middle of the red. To change
+the bands:</p>
+<ol class="arabic">
+<li><p>Click <strong>Band chooser</strong> (toolbar button 7). The <strong>Band Chooser</strong> dialog
+opens.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_band_chooser.png"><img alt="The band chooser dialog set to RGB with bands 2, 1 and 0" src="../_images/t1_band_chooser.png" style="width: 45%;" />
+</a>
+</figure>
+</li>
+<li><p>The <strong>General</strong> section at the top sets the display mode: <strong>RGB</strong> or
+<strong>Grayscale</strong>. The <strong>Detail</strong> section below has one dropdown per channel
+(<strong>Red Band</strong>, <strong>Green Band</strong> and <strong>Blue Band</strong>), each listing every band in
+the scene by number and wavelength. The remaining controls, including
+applying a choice to every view at once, are described in
+<a class="reference internal" href="../user-content/display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a>.</p></li>
+<li><p>Now switch to a single band. Select <strong>Grayscale</strong> in the <strong>General</strong>
+section. The three channel dropdowns collapse into one, labeled
+<strong>Grayscale Band</strong>.</p></li>
+<li><p>Set <strong>Grayscale Band</strong> to <strong>Band 3: 852.68 nm</strong>, tick <strong>Use a colormap</strong> and
+pick <strong>viridis</strong> from the dropdown beside it, then click <strong>OK</strong>.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_colormap_nir.png"><img alt="The scene as a single near-infrared band with the viridis colormap" src="../_images/t1_colormap_nir.png" style="width: 90%;" />
+</a>
+</figure>
+</li>
+<li><p>Return to the color image: reopen the <strong>Band Chooser</strong>, select <strong>RGB</strong>,
+click <strong>Choose Default Bands</strong>, and click <strong>OK</strong>.</p></li>
+</ol>
+<p><strong>Check:</strong> in the near-infrared view you should now see the vegetation render
+in the colormap’s middle greens, visibly brighter than the asphalt around it —
+the reverse of the color image, where it was among the darkest surfaces. The
+white rooftops stay the brightest patches at this wavelength too, in the
+colormap’s yellows. Click a tree: the status bar reads a single <code class="docutils literal notranslate"><span class="pre">Val:</span></code> around
+0.1–0.3, two to three times what the same canopy shows at 702 nm. After item 5,
+the near-true-color image is back.</p>
+</section>
+<hr class="docutils" />
+<section id="step-4-make-the-image-readable-with-a-contrast-stretch">
+<h2>Step 4 — Make the image readable with a contrast stretch<a class="headerlink" href="#step-4-make-the-image-readable-with-a-contrast-stretch" title="Link to this heading">#</a></h2>
+<p>The image looks dark because a few extreme pixels take up most of the display
+range. Each display channel shows 256 brightness levels, and a contrast stretch
+decides which data values map to which level. This scene is reflectance, almost
+all of it between 0.01 and 0.8. When a scene opens, WISER maps each displayed
+band’s minimum to level 0 and its maximum to level 255, linearly; the dialog
+calls that <strong>Full Linear Stretch</strong>. A percent stretch instead clips a set
+share of the darkest and brightest values. The clipped pixels saturate at pure
+black or pure white, and the full display range is spent on the values in
+between. A stretch changes only what you see: spectra, band math and every
+analysis tool read the underlying data, never the stretched display values.</p>
+<ol class="arabic">
+<li><p>Click <strong>Stretch builder</strong> (toolbar button 8). The stretch dialog opens.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_stretch_default.png"><img alt="The stretch builder showing one histogram per color channel" src="../_images/t1_stretch_default.png" style="width: 55%;" />
+</a>
+</figure>
+<p>The dialog has four parts. <strong>Stretch</strong> at the top left sets the stretch
+type. <strong>Conditioner</strong> at the top right applies a transform to the data
+before the stretch. Below them is one section per displayed channel (<strong>Red
+Channel</strong>, <strong>Green Channel</strong>, <strong>Blue Channel</strong>), each with its own
+histogram, <strong>Minimum</strong> and <strong>Maximum</strong> boxes, and a <strong>Stretch Low</strong> and
+<strong>Stretch High</strong> box with a slider under each.</p>
+</li>
+<li><p>In the <strong>Stretch</strong> section, select <strong>Linear Stretch</strong>, then click the
+<strong>2.5% linear</strong> button underneath it. WISER clips the darkest 1.25% and the
+brightest 1.25% of each channel and stretches what remains across the full
+display range.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_stretch_2p5.png"><img alt="The stretch builder after applying a 2.5% linear stretch" src="../_images/t1_stretch_2p5.png" style="width: 55%;" />
+</a>
+</figure>
+</li>
+<li><p>To set a channel’s stretch by hand, type a value into its <strong>Stretch Low</strong>
+or <strong>Stretch High</strong> box, or drag the slider under it. The <strong>Minimum</strong> and
+<strong>Maximum</strong> boxes do something different: they leave values outside that
+range out of the histogram, and the stretch is then computed from what
+remains. See
+<a class="reference internal" href="../user-content/display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a>.</p></li>
+<li><p>Click <strong>OK</strong> to keep the stretch, or <strong>Cancel</strong> to discard it.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_stretch_applied.png"><img alt="The Caltech scene after a 2.5% linear stretch" src="../_images/t1_stretch_applied.png" style="width: 90%;" />
+</a>
+</figure>
+<p><a class="reference internal" href="../user-content/display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a>
+describes every other stretch type and conditioner: <strong>Equalize Stretch</strong>, the
+<strong>Decorrelation Stretch</strong> (offered only for three-band RGB display), and the
+square-root and logarithmic conditioners.</p>
+<p><strong>Check:</strong> you should now see the image brighten sharply as soon as you click
+<strong>2.5% linear</strong>, with the dialog still open. Streets and vegetation become
+legible, and the brightest rooftops saturate to pure white. Each channel’s
+<strong>Stretch Low</strong> and <strong>Stretch High</strong> boxes update to the clip values:
+<strong>Stretch High</strong> lands near 0.63 for red, 0.54 for green and 0.47 for blue.</p>
+</section>
+<hr class="docutils" />
+<section id="step-5-make-a-color-infrared-composite">
+<h2>Step 5 — Make a color-infrared composite<a class="headerlink" href="#step-5-make-a-color-infrared-composite" title="Link to this heading">#</a></h2>
+<p>Nothing restricts a channel to the band nearest its own color. The standard
+<strong>color-infrared</strong> composite shifts each band up one channel — near-infrared
+into red, red into green, green into blue — so vegetation’s strong
+near-infrared reflectance lands in the channel your eye reads as red.</p>
+<ol class="arabic simple">
+<li><p>Open the <strong>Band chooser</strong> again, with the display mode on <strong>RGB</strong>.</p></li>
+<li><p>Set <strong>Red Band</strong> to <strong>Band 3: 852.68 nm</strong>, <strong>Green Band</strong> to
+<strong>Band 2: 702.42 nm</strong>, and <strong>Blue Band</strong> to <strong>Band 1: 532.13 nm</strong>, then
+click <strong>OK</strong>.</p></li>
+<li><p>The stretch from Step 4 was computed for the previous bands, so refresh it:
+open <strong>Stretch builder</strong>, click <strong>2.5% linear</strong>, and click <strong>OK</strong>.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t1_cir_composite.png"><img alt="The color-infrared composite, with vegetation rendered bright red" src="../_images/t1_cir_composite.png" style="width: 90%;" />
+</a>
+</figure>
+<p><strong>Check:</strong> you should now see the vegetation render bright red. The rows of
+street trees between the buildings become red dots and the planted areas along
+the scene edges turn solid red, while roofs stay white-to-gray and asphalt a
+dark neutral gray.</p>
+</section>
+<hr class="docutils" />
+<section id="interpretation">
+<h2>Interpretation<a class="headerlink" href="#interpretation" title="Link to this heading">#</a></h2>
+<p>Three displays of one unchanged cube:</p>
+<ul class="simple">
+<li><p><strong>Near-true-color (2/1/0), stretched.</strong> Colors are roughly what a photo
+would show, and after the stretch the mid-range is readable. But everything
+beyond the clip points is saturated: two rooftops that both render pure
+white can differ substantially in the data. Read precise values from the
+status bar or the Spectrum Plot, not from screen brightness.</p></li>
+<li><p><strong>Single-band near-infrared.</strong> Shows where the scene is bright at 853 nm
+alone. Vegetation is far brighter here than in red, because chlorophyll
+absorbs red light while leaf interiors scatter the near-infrared. That
+contrast is the whole reason for looking at a band outside the visible range.
+Surfaces like white roofs are bright at every wavelength, so a single band
+cannot separate “bright in the infrared” from “bright everywhere”.</p></li>
+<li><p><strong>Color-infrared (3/2/1).</strong> Puts that comparison into hue, which the eye
+reads more easily than brightness: red means high near-infrared relative to
+the visible bands (vegetation), while materials that are bright or dark
+across all bands come out near-neutral. <a class="reference internal" href="04-band-math-ndvi.html"><span class="doc">Tutorial 4</span></a> turns the same contrast into a number.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>The file will not open, or the wrong scene appeared.</strong> Select either the
+<code class="docutils literal notranslate"><span class="pre">.hdr</span></code> file or the data file next to it, but make sure it is
+<code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm</span></code> — the folder holds several similarly named fixtures.
+If a file still will not open, see <a class="reference internal" href="../user-content/opening-data-files.html"><span class="doc">Opening Data Files</span></a>.</p></li>
+<li><p><strong>A pane is missing, or docked somewhere odd.</strong> Toolbar buttons 2–5 (or the
+<strong>View</strong> menu) show and hide each pane. Drag a pane’s title bar to re-dock
+it. WISER restores your layout on the next launch, so an odd layout stays
+until you put it back.</p></li>
+<li><p><strong>The image went all black or all white after a manual stretch.</strong> The
+<strong>Stretch Low</strong> and <strong>Stretch High</strong> values are outside the data range.
+Select <strong>Full Linear Stretch</strong>, or click <strong>2.5% linear</strong> again, to go back to
+a readable display. If you typed into <strong>Minimum</strong> or <strong>Maximum</strong>, click that
+channel’s <strong>Reset</strong> to clear them.</p></li>
+<li><p><strong>Known bug — swapped coordinate labels</strong>
+(<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues/779">#779</a>). This
+scene reads correctly, but where a dataset’s CRS resolves to a standard
+<strong>EPSG</strong> geographic code, as most real-world GeoTIFF and UTM products do, the
+status bar prints the longitude with the <code class="docutils literal notranslate"><span class="pre">°N</span></code> label and the latitude with
+<code class="docutils literal notranslate"><span class="pre">°E</span></code>. The numbers are right; the labels are swapped. Check the
+values against the scene’s known location before trusting the labels.</p></li>
+<li><p><strong>Known bug — error reopening the stretch dialog</strong>
+(<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/issues/780">#780</a>). If you
+apply a stretch, then change the same view between <strong>Grayscale</strong> and
+<strong>RGB</strong>, reopening the stretch dialog raises an error. Reopen the dataset,
+or set your bands before stretching, until that is fixed.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="what-you-can-now-do">
+<h2>What you can now do<a class="headerlink" href="#what-you-can-now-do" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Open a dataset and show the four panes</p></li>
+<li><p>Read pixel values and coordinates from the status bar</p></li>
+<li><p>Choose display bands, in color or as one band with a colormap</p></li>
+<li><p>Apply a percent stretch, and know that it changes only the display</p></li>
+<li><p>Build a color-infrared composite</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Next:</strong> <a class="reference internal" href="02-spectra.html"><span class="doc">Tutorial 2 — Reading Spectra</span></a> — every pixel is a
+spectrum, and Tutorial 2 reads them.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Tutorials</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="02-spectra.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">2. Reading Spectra</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-open-the-image">Step 1 — Open the image</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-turn-on-the-rest-of-the-workspace">Step 2 — Turn on the rest of the workspace</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-choose-the-bands-you-display">Step 3 — Choose the bands you display</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-make-the-image-readable-with-a-contrast-stretch">Step 4 — Make the image readable with a contrast stretch</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-make-a-color-infrared-composite">Step 5 — Make a color-infrared composite</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interpretation">Interpretation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

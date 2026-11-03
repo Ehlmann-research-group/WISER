@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -50,7 +50,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Interface Overview" href="interface-overview.html" />
-    <link rel="prev" title="WISER Documentation" href="../index.html" />
+    <link rel="prev" title="8. Bench and Close-Range Data" href="../tutorials/08-bench-and-close-range.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -205,10 +205,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -216,12 +232,14 @@
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -236,33 +254,31 @@
 <li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -465,8 +481,8 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tutorial-exercises">Tutorial Exercises</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-s-in-this-manual">What’s in This Manual</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#getting-around">Getting around</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-tasks">Common tasks</a></li>
 </ul>
             </nav>
         </div>
@@ -480,38 +496,126 @@
                   
   <section id="user-manual">
 <h1>User Manual<a class="headerlink" href="#user-manual" title="Link to this heading">#</a></h1>
-<p>This manual covers the WISER graphical interface: how to load and display
-data, explore spectra, work with Regions of Interest (ROIs), run analysis
-tools, and manage spatial reference systems.</p>
-<p>Start with <strong>Interface Overview</strong> to orient yourself, then work through
-<strong>Working with Data</strong> for the core data exploration workflow.</p>
-<section id="tutorial-exercises">
-<h2>Tutorial Exercises<a class="headerlink" href="#tutorial-exercises" title="Link to this heading">#</a></h2>
-<p>The following step-by-step tutorials are a great way to get
-up and running quickly:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://docs.google.com/document/d/1zpt8SN0JPNjl6a4J7YPVryXnP7G3RwBrQygbRDBNB_k/edit?tab=t.0#heading=h.pocxgs69lvz8">Beginner Tutorial</a> —
-A guided walkthrough of loading data and exploring WISER’s core features.</p></li>
-<li><p><a class="reference external" href="https://docs.google.com/document/d/1UITFb5CtNxJWagINsDQE0fsk5CLoFAM-XXjO-qbucAU/edit?tab=t.0#heading=h.mevnsaseyohz">Advanced Tutorial</a> —
-Covers plugins, spectral analysis workflows, and advanced tooling.</p></li>
-</ul>
+<p>The reference for WISER’s interface: every pane, dialog and option, and what
+each one is for.</p>
+<p>If you are new to WISER, start with the <a class="reference internal" href="../tutorials/index.html"><span class="doc">Tutorials</span></a>
+instead. They walk through the same tools in the order you would use them, on
+data that ships with the source. Come back here for the detail on a particular
+control.</p>
+<section id="getting-around">
+<h2>Getting around<a class="headerlink" href="#getting-around" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 32.0%" />
+<col style="width: 68.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Page</p></th>
+<th class="head"><p>Covers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="interface-overview.html"><span class="doc">Interface Overview</span></a></p></td>
+<td><p>The main window, the panes, the toolbars, the status bar, the Activity
+Monitor, and WISER’s preferences</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="opening-data-files.html"><span class="doc">Opening Data Files</span></a></p></td>
+<td><p>Supported formats, multi-file datasets, sub-datasets, and what to do
+when a file will not open</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a></p></td>
+<td><p>Band selection, colormaps, grid view and linking, and every contrast
+stretch and conditioner</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="spectra-and-libraries.html"><span class="doc">Spectra and Spectral Libraries</span></a></p></td>
+<td><p>The spectrum plot, collecting and averaging spectra, importing
+libraries, continuum removal</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="regions-of-interest.html"><span class="doc">Regions of Interest</span></a></p></td>
+<td><p>Defining regions, extracting class signatures, masks, exporting
+geometry and pixel spectra</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="band-math.html"><span class="doc">Band Math</span></a></p></td>
+<td><p>The expression language, variable binding, saved expressions, batch
+processing</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="filters.html"><span class="doc">Filters and Smoothing</span></a></p></td>
+<td><p>Savitzky–Golay, mean, median and Gaussian filters</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html"><span class="doc">Data Analysis Tools</span></a></p></td>
+<td><p>PCA, MNF, K-means, SAM, SFF, MTMF, linear unmixing, continuum removal,
+interactive scatter plot</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="spatial-tools.html"><span class="doc">Spatial Tools</span></a></p></td>
+<td><p>Georeferencing, coordinate reference systems, the Reference System
+Creator, similarity transforms</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="mosaic.html"><span class="doc">Mosaic</span></a></p></td>
+<td><p>Combining overlapping georeferenced scenes and exporting the result</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="saving-and-exporting.html"><span class="doc">Saving and Exporting</span></a></p></td>
+<td><p>Which “save” does what: datasets, images, spectra, ROIs</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="projects.html"><span class="doc">Saving and Opening Projects</span></a></p></td>
+<td><p>Saving a whole session to a <code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code>, choosing what it holds,
+sharing it</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
-<section id="what-s-in-this-manual">
-<h2>What’s in This Manual<a class="headerlink" href="#what-s-in-this-manual" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p><a class="reference internal" href="interface-overview.html"><span class="doc">Interface Overview</span></a> — tour of the main window,
-toolbars, spectral plot, and display controls</p></li>
-<li><p><a class="reference internal" href="working-with-data.html"><span class="doc">Working with Data</span></a> — loading files, navigating
-bands, ROIs, analysis tools, and exporting results</p></li>
-<li><p><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html"><span class="doc">Data Analysis Tools</span></a> —
-transforming, classifying, detecting, unmixing, and visualizing imagery</p></li>
-<li><p><a class="reference internal" href="spatial-tools.html"><span class="doc">Spatial Tools</span></a> — georeferencing and coordinate system
-management</p></li>
-<li><p><a class="reference internal" href="mosaic.html"><span class="doc">Mosaic</span></a> — combining overlapping georeferenced scenes into a
-single image and exporting the result</p></li>
-<li><p><a class="reference internal" href="projects.html"><span class="doc">Saving and Opening Projects</span></a> — saving a whole session to a
-<code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code> file, choosing what it holds, and sharing it</p></li>
-</ul>
+<section id="common-tasks">
+<h2>Common tasks<a class="headerlink" href="#common-tasks" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 45.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>I want to…</p></th>
+<th class="head"><p>Go to</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Open a file that will not load</p></td>
+<td><p><a class="reference internal" href="opening-data-files.html"><span class="doc">Opening Data Files</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Make a dark image readable</p></td>
+<td><p><a class="reference internal" href="display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Fix a computed index that displays as one flat color</p></td>
+<td><p><a class="reference internal" href="display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Get numbers out of a region</p></td>
+<td><p><a class="reference internal" href="regions-of-interest.html"><span class="doc">Regions of Interest</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Compute an index such as NDVI</p></td>
+<td><p><a class="reference internal" href="band-math.html"><span class="doc">Band Math</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Find out what a mineral is</p></td>
+<td><p><a class="reference internal" href="data-analysis-tools/spectral-angle-mapper.html"><span class="doc">Spectral Angle Mapper</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Reduce a 400-band cube to something manageable</p></td>
+<td><p><a class="reference internal" href="data-analysis-tools/pca.html"><span class="doc">PCA</span></a> or <a class="reference internal" href="data-analysis-tools/mnf.html"><span class="doc">MNF</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Classify a scene without training data</p></td>
+<td><p><a class="reference internal" href="data-analysis-tools/kmeans.html"><span class="doc">K-Means</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Smooth a noisy spectrum without wrecking its bands</p></td>
+<td><p><a class="reference internal" href="filters.html"><span class="doc">Filters and Smoothing</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Stitch flight lines together</p></td>
+<td><p><a class="reference internal" href="mosaic.html"><span class="doc">Mosaic</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Send a colleague my whole session</p></td>
+<td><p><a class="reference internal" href="projects.html"><span class="doc">Saving and Opening Projects</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Add my own algorithm</p></td>
+<td><p><a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="toctree-wrapper compound">
 </div>
 </section>
@@ -529,12 +633,12 @@ single image and exporting the result</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../index.html"
+       href="../tutorials/08-bench-and-close-range.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">WISER Documentation</p>
+        <p class="prev-next-title">8. Bench and Close-Range Data</p>
       </div>
     </a>
     <a class="right-next"
@@ -564,8 +668,8 @@ single image and exporting the result</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tutorial-exercises">Tutorial Exercises</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-s-in-this-manual">What’s in This Manual</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#getting-around">Getting around</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-tasks">Common tasks</a></li>
 </ul>
   </nav></div>
 

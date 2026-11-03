@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../../_static/documentation_options.js?v=f79a348d"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -205,10 +205,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="data-analysis-tools.html">Data Analysis Tools</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -216,12 +232,14 @@
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="../spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -236,33 +254,31 @@
 <li class="toctree-l2"><a class="reference internal" href="../../extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing to WISER</a></li>
@@ -467,6 +483,7 @@
                 <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works">How it works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-the-tool">Using the tool</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
             </nav>
         </div>
@@ -478,7 +495,7 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="mixture-tuned-matched-filter-mtmf">
+  <section class="tex2jax_ignore mathjax_ignore" id="mixture-tuned-matched-filter-mtmf">
 <h1>Mixture-Tuned Matched Filter (MTMF)<a class="headerlink" href="#mixture-tuned-matched-filter-mtmf" title="Link to this heading">#</a></h1>
 <p>MTMF is a <strong>target-detection</strong> tool: given a reference spectrum for a material
 of interest, it scores every pixel for how strongly that material is present,
@@ -493,40 +510,58 @@ scene.</p>
 directions. The matched filter is far more reliable in this whitened space.
 The target spectrum is projected into the same MNF space.</p></li>
 <li><p><strong>Matched filter.</strong> For each pixel, MTMF computes a score measuring how far
-the pixel lies along the direction of the target, relative to the background/noise
-distribution (Note that because this is done in MNF, the background distribution is
-the identity matrix). The score behaves like an <strong>abundance estimate</strong>: near 0 for
-background/noise, near 1 for a pure target pixel. This score map is the tool’s
-output.</p></li>
-<li><p><strong>Mixture tuning (infeasibility).</strong> Internally MTMF also measures each
-pixel’s <em>infeasibility</em> — how much its spectrum deviates from a physically
+the pixel lies along the direction of the target, relative to the
+background/noise distribution. Because this is done in MNF space, the noise
+covariance is the identity and the background covariance is diagonal (the MNF
+eigenvalues). The score behaves like an <strong>abundance estimate</strong>: near 0 for
+background/noise, near 1 for a pure target pixel. This score map is the
+tool’s first output.</p></li>
+<li><p><strong>Mixture tuning (infeasibility).</strong> MTMF also measures each
+pixel’s <em>infeasibility</em>: how much its spectrum deviates from a physically
 plausible mixture of background and target. A high matched-filter score is
 only a true detection when its infeasibility is low; this step is what
 suppresses the false positives that a plain matched filter produces.</p></li>
 </ol>
 <p>Bad bands are excluded automatically, and nodata pixels become <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Each
-target produces one float32 score image named <code class="docutils literal notranslate"><span class="pre">MTMF</span> <span class="pre">[target]:</span> <span class="pre">&lt;source&gt;</span></code>; higher
-values indicate a stronger match.</p>
+target produces two float32 datasets:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">MTMF</span> <span class="pre">[target]:</span> <span class="pre">&lt;source&gt;</span></code> — the matched-filter score; higher values indicate
+a stronger match.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IF</span> <span class="pre">[target]:</span> <span class="pre">&lt;source&gt;</span></code> — the infeasibility. Trust a high score only where
+the same pixel’s infeasibility is low.</p></li>
+</ul>
 </section>
 <section id="using-the-tool">
 <h2>Using the tool<a class="headerlink" href="#using-the-tool" title="Link to this heading">#</a></h2>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/t7_mtmf_dialog.png"><img alt="The MTMF dialog" src="../../_images/t7_mtmf_dialog.png" style="width: 75%;" />
+</a>
+</figure>
 <ol class="arabic simple">
-<li><p><strong>Input</strong> — leave the type as <strong>Image Cube</strong> and choose the dataset to
-analyze. (Spectrum input is not currently supported.)</p></li>
-<li><p><strong>Noise method</strong> — choose how background noise is estimated:</p>
+<li><p><strong>Select Image Cube</strong> — the dataset to analyze. Spectrum input is not
+currently supported.</p></li>
+<li><p><strong>Noise method</strong> — the dropdown below the input, which starts on <strong>ROI
+Based</strong>. Choose how background noise is estimated:</p>
 <ul class="simple">
 <li><p><strong>Image Cube Based</strong> — estimate noise from the scene itself via the
 shift-difference method; pick a direction (Down/Up/Left/Right) in the
 row below.</p></li>
 <li><p><strong>Dark Image Based</strong> — supply a separate dark/noise dataset (same bands
 as the input) in the value box.</p></li>
-<li><p><strong>ROI Based</strong> — supply a region of interest (ROI) and a dataset where
-the ROI will be pulled from</p></li>
+<li><p><strong>ROI Based</strong> — supply a region of interest (ROI) and the dataset to take
+it from.</p></li>
 </ul>
 </li>
-<li><p><strong>Target</strong> — choose the reference spectrum to detect.</p></li>
+<li><p><strong>Target</strong> — choose the spectrum to detect from your collected spectra;
+library entries are not listed.</p></li>
 <li><p>Click <strong>OK</strong>. The run proceeds in the background.</p></li>
 </ol>
+</section>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../tutorials/07-detection.html"><span class="doc">Tutorial 7 — Finding a Known Material</span></a></p></li>
+</ul>
 </section>
 </section>
 
@@ -579,6 +614,7 @@ the ROI will be pulled from</p></li>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works">How it works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-the-tool">Using the tool</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See also</a></li>
 </ul>
   </nav></div>
 

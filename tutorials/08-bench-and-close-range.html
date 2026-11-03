@@ -1,0 +1,842 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>8. Bench and Close-Range Data &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/08-bench-and-close-range';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="User Manual" href="../user-content/user-manual.html" />
+    <link rel="prev" title="7. Finding a Known Material" href="07-detection.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Tutorials</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/opening-data-files.html">Opening Data Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/filters.html">Filters and Smoothing</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/saving-and-exporting.html">Saving and Exporting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/projects.html">Saving and Opening Projects</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/tutorials/08-bench-and-close-range.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/tutorials/08-bench-and-close-range.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>8. Bench and Close-Range Data</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a-cube-is-a-cube">A cube is a cube</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-open-it-and-check-the-units">Step 1 — Open it, and check the units</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-collect-a-spectrum-per-material">Step 2 — Collect a spectrum per material</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-four-bands-cannot-do">What four bands cannot do</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#taking-this-to-your-own-instrument">Taking this to your own instrument</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#questions-to-think-about">Questions to think about</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-this-is-used">Where this is used</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="bench-and-close-range-data">
+<h1>8. Bench and Close-Range Data<a class="headerlink" href="#bench-and-close-range-data" title="Link to this heading">#</a></h1>
+<p><strong>Goal:</strong> see that WISER treats a laboratory cube exactly like an airborne one,
+and learn what a bench instrument needs from you that an airborne product has
+already had done to it.</p>
+<p><strong>Data:</strong> <code class="docutils literal notranslate"><span class="pre">src/test_utils/test_datasets/circuit_4_100_150_um.hdr</span></code> — a 150 × 150
+pixel, 4-band close-range scene of a printed circuit board at 0.525, 0.635,
+0.740 and 1.200 µm. Note the units: micrometers, not nanometers.</p>
+<p><strong>Reference:</strong> <a class="reference internal" href="../user-content/opening-data-files.html"><span class="doc">Opening Data Files</span></a>,
+<a class="reference internal" href="../user-content/spectra-and-libraries.html"><span class="doc">Spectra and Spectral Libraries</span></a>,
+<a class="reference internal" href="../user-content/filters.html"><span class="doc">Filters and Smoothing</span></a>.</p>
+<hr class="docutils" />
+<section id="a-cube-is-a-cube">
+<h2>A cube is a cube<a class="headerlink" href="#a-cube-is-a-cube" title="Link to this heading">#</a></h2>
+<p>Nothing in WISER assumes an aircraft or a satellite. A cube is <em>x</em>, <em>y</em> and
+wavelength, and every tool in the previous seven tutorials works the same way on
+one measured 30 cm from a bench as on one measured from orbit. Bench-scale
+imaging spectrometers sort plastics for recycling, verify pharmaceutical
+tablets, detect bruising in fruit, authenticate pigments in paintings, and
+inspect electronics.</p>
+<p>This tutorial opens a close-range scene, reads spectra off it, and then spends
+most of its length on the part that actually differs: what you have to do
+yourself before laboratory measurements mean anything.</p>
+</section>
+<hr class="docutils" />
+<section id="step-1-open-it-and-check-the-units">
+<h2>Step 1 — Open it, and check the units<a class="headerlink" href="#step-1-open-it-and-check-the-units" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Choose <strong>File ▸ Open…</strong> and select <code class="docutils literal notranslate"><span class="pre">circuit_4_100_150_um.hdr</span></code>.</p></li>
+<li><p>If any of the four panes is not showing, click its pane toggle on the Main
+Toolbar. Then click <strong>Zoom to fit</strong>.</p></li>
+<li><p>Click <strong>Stretch builder</strong>, select <strong>Linear Stretch</strong>, click <strong>2.5% linear</strong>,
+and click <strong>OK</strong>.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t8_board_rgb.png"><img alt="The circuit-board scene open in WISER with all four panes visible, zoomed to 535 percent" src="../_images/t8_board_rgb.png" style="width: 90%;" />
+</a>
+</figure>
+<p>At 150 × 150 pixels over a few centimeters of board, individual pixels are
+large on screen. The dark rectangles are component bodies, the pale field is
+board substrate, and the small bright spots are pads and plated through-holes.</p>
+<p>Look at the <strong>Dataset Info</strong> pane and find the wavelengths. They read 0.525 to
+1.200 in micrometers, because that is what the ENVI header declares, and WISER
+labels the spectrum-plot axis to match rather than assuming nanometers.</p>
+<div class="note admonition">
+<p class="admonition-title">Interpretation</p>
+<p>Confirm the wavelength units on any instrument you have not used before. A cube
+whose axis is off by a factor of a thousand will still plot, and will still be
+wrong against every library you compare it against. Nothing in the software can
+catch this for you, because both are valid units.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="step-2-collect-a-spectrum-per-material">
+<h2>Step 2 — Collect a spectrum per material<a class="headerlink" href="#step-2-collect-a-spectrum-per-material" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Click one pixel on a dark component body. Click <strong>Collect spectrum</strong> on the
+Spectrum Plot toolbar.</p></li>
+<li><p>Right-click the new spectrum in the list below the plot, choose <strong>Edit…</strong>,
+and set <strong>Spectrum name:</strong> and <strong>Plot color:</strong> in the <strong>Spectrum
+Information</strong> dialog.</p></li>
+<li><p>Repeat for a pixel on the pale board substrate and one on a bright pad.</p></li>
+</ol>
+<p>Pick pixels in the middle of a uniform area. At this pixel size an edge pixel is
+a mixture of both sides.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t8_board_spectra.png"><img alt="Three spectra from the circuit board, well separated in brightness, with the component body nearly flat and the substrate falling steeply into the near infrared" src="../_images/t8_board_spectra.png" style="width: 100%;" />
+</a>
+</figure>
+<p>The component body is dark and almost flat. The board substrate falls
+steadily across the range. The bright pad is highest everywhere and turns over
+slightly, peaking at 0.635 µm rather than at the shortest band.</p>
+<p>Most of what separates these curves is brightness, but not all of it. Divided
+by its own mean, each curve has a different shape:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p>0.525</p></th>
+<th class="head"><p>0.635</p></th>
+<th class="head"><p>0.740</p></th>
+<th class="head"><p>1.200 µm</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Component body</p></td>
+<td><p>1.14</p></td>
+<td><p>0.94</p></td>
+<td><p>0.96</p></td>
+<td><p><strong>0.96</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>Board substrate</p></td>
+<td><p>1.18</p></td>
+<td><p>1.08</p></td>
+<td><p>0.99</p></td>
+<td><p><strong>0.75</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>Bright pad</p></td>
+<td><p>1.04</p></td>
+<td><p>1.09</p></td>
+<td><p>1.01</p></td>
+<td><p><strong>0.86</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The last column is the one that carries information a grayscale photograph
+would not: the substrate loses a quarter of its relative reflectance by
+1.200 µm while the component body holds nearly flat. That difference, not the
+brightness, is what a classifier should key on.</p>
+</section>
+<hr class="docutils" />
+<section id="what-four-bands-cannot-do">
+<h2>What four bands cannot do<a class="headerlink" href="#what-four-bands-cannot-do" title="Link to this heading">#</a></h2>
+<p>Be honest about the limits of this scene before drawing conclusions from it.
+The four bands are strongly correlated (the three visible ones at 0.986 to
+0.995), and a principal-component transform puts <strong>97% of the variance in the
+first component</strong>, with all four loadings the same sign. A first component like
+that is brightness. Run K-means on this cube and the clusters come back sorted
+by brightness, which is what a threshold on a single band would have given you.</p>
+<p>So this fixture is the right size to practice the mechanics on and the wrong
+size to identify a material with. Naming the three curves above took looking at
+the image, not looking at the spectra. Identification needs narrow, diagnostic
+absorptions, and those need tens to hundreds of bands: the C–H overtones that
+separate plastics sit near 1700 and 2300 nm, and nothing in this cube reaches
+past 1200 nm.</p>
+<p>That is the argument for a real instrument rather than a four-filter camera,
+and the rest of this page is about using one.</p>
+</section>
+<hr class="docutils" />
+<section id="taking-this-to-your-own-instrument">
+<h2>Taking this to your own instrument<a class="headerlink" href="#taking-this-to-your-own-instrument" title="Link to this heading">#</a></h2>
+<p>Your own bench system will give you hundreds of bands. What to get right:</p>
+<p><strong>Calibrate to reflectance.</strong> Image a white reference panel (Spectralon or
+similar) and a dark frame under the same illumination and exposure, then
+compute</p>
+<div class="math notranslate nohighlight">
+\[R = \frac{S - D}{W - D}\]</div>
+<p>with band math. Set <strong>Type</strong> to <strong>Image Cube</strong> for all three variables: WISER
+guesses a type from each name, and it guesses <strong>Spectrum</strong> for <code class="docutils literal notranslate"><span class="pre">S</span></code> and <strong>Image
+Band</strong> for <code class="docutils literal notranslate"><span class="pre">W</span></code> and <code class="docutils literal notranslate"><span class="pre">D</span></code>. Everything spectroscopic depends on this calibration.
+Raw digital numbers carry your lamp’s spectrum and your sensor’s response, and
+no reference library will match them.</p>
+<p><strong>Watch the geometry.</strong> Close-range imaging has strong, uneven illumination and
+specular highlights. A shiny solder pad can saturate at one angle and read
+near-zero at another. Use diffuse illumination, and prefer
+<a class="reference internal" href="07-detection.html"><span class="doc">SAM</span></a> and continuum removal, both of which discount
+brightness, over methods that depend on absolute level.</p>
+<p><strong>Save your own library.</strong> Image known reference materials, collect their
+spectra, and export them as an ENVI spectral library. Then SAM and SFF work
+against <em>your</em> materials under <em>your</em> optics, which is often better than a
+published library for the specific question you are asking.</p>
+<p><strong>Smooth before differentiating.</strong> Bench spectra of dark materials are noisy.
+Right-click the image and choose <strong>Filters ▸ Savitzky-Golay Filter…</strong>. The
+dialog asks for a <strong>Window Length (odd)</strong> and a <strong>Polynomial Order</strong>. It smooths
+along the spectral axis while preserving band shape and depth better than a
+moving average does. The same menu offers <strong>Mean</strong>, <strong>Median</strong> and <strong>Gaussian
+Smoothing Filter…</strong>, which can smooth spatially or spectrally. See
+<a class="reference internal" href="../user-content/filters.html"><span class="doc">Filters</span></a>.</p>
+</section>
+<hr class="docutils" />
+<section id="questions-to-think-about">
+<h2>Questions to think about<a class="headerlink" href="#questions-to-think-about" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Why must a bench cube be converted to reflectance before you compare it with
+a spectral library?</p></li>
+<li><p>A specular highlight saturates a copper pad in three bands. What does that
+do to a SAM result for that pixel, and to a linear-unmixing result?</p></li>
+<li><p>You want to distinguish two visually identical black plastics. What would
+you need from your instrument that a four-band system cannot give you?</p></li>
+<li><p>Why is a library you measured yourself often better than a published one for
+an inspection task?</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="where-this-is-used">
+<h2>Where this is used<a class="headerlink" href="#where-this-is-used" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Scene</p></th>
+<th class="head"><p>What to look for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Recycling</strong></p></td>
+<td><p>Mixed plastic flakes</p></td>
+<td><p>C–H overtones, 1600–1800 nm and 2200–2400 nm; separates PET / HDPE / PP / PS</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Food quality</strong></p></td>
+<td><p>Fruit surface</p></td>
+<td><p>Water at 970 nm and 1450 nm; bruising shows before it is visible</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Pharmaceutical</strong></p></td>
+<td><p>Tablets</p></td>
+<td><p>API and excipient distribution; blend uniformity</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Cultural heritage</strong></p></td>
+<td><p>Painting or manuscript</p></td>
+<td><p>Pigment identification; underdrawing in the NIR; retouching</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Forensics</strong></p></td>
+<td><p>Documents, fibers</p></td>
+<td><p>Ink discrimination where inks are visually identical</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Soil science</strong></p></td>
+<td><p>Core or sample tray</p></td>
+<td><p>Organic carbon, clay mineralogy, moisture</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="what-you-can-now-do">
+<h2>What you can now do<a class="headerlink" href="#what-you-can-now-do" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Open a close-range cube and confirm its wavelength units before trusting them</p></li>
+<li><p>Read spectra off materials that are not landscape</p></li>
+<li><p>Tell brightness differences from shape differences, and say which your data
+can support</p></li>
+<li><p>Calibrate a bench cube to reflectance, and build a library for your own optics</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Next:</strong> back to the <a class="reference internal" href="index.html"><span class="doc">tutorials index</span></a>, or on to the
+<a class="reference internal" href="../user-content/user-manual.html"><span class="doc">User Manual</span></a> for the full reference.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="07-detection.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">7. Finding a Known Material</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../user-content/user-manual.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">User Manual</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#a-cube-is-a-cube">A cube is a cube</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-open-it-and-check-the-units">Step 1 — Open it, and check the units</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-collect-a-spectrum-per-material">Step 2 — Collect a spectrum per material</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-four-bands-cannot-do">What four bands cannot do</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#taking-this-to-your-own-instrument">Taking this to your own instrument</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#questions-to-think-about">Questions to think about</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-this-is-used">Where this is used</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

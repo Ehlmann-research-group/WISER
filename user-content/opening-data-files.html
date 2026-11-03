@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -49,7 +49,7 @@
     <link rel="icon" href="../_static/icon_128x128.png"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Working with Data" href="working-with-data.html" />
+    <link rel="next" title="Display and Contrast Stretch" href="display-and-stretch.html" />
     <link rel="prev" title="Interface Overview" href="interface-overview.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -205,10 +205,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -216,12 +232,14 @@
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -236,33 +254,31 @@
 <li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -490,23 +506,23 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="opening-data-files">
+  <section class="tex2jax_ignore mathjax_ignore" id="opening-data-files">
 <h1>Opening Data Files<a class="headerlink" href="#opening-data-files" title="Link to this heading">#</a></h1>
 <p>WISER reads several raster formats natively and can fall back to any format GDAL
 supports. Most of the time you can pick a file and WISER works out the rest.</p>
-<p>This page covers the cases where it is worth being deliberate — because <strong>the
-file type you choose in the Open dialog matters</strong>, and so does <em>which</em> file you
+<p>This page covers the cases where you need to choose with care: <strong>the file type
+you choose in the Open dialog matters</strong>, and so does <em>which</em> file you
 pick when a dataset is spread across more than one.</p>
 <hr class="docutils" />
 <section id="the-file-type-you-choose-matters">
 <h2>The file type you choose matters<a class="headerlink" href="#the-file-type-you-choose-matters" title="Link to this heading">#</a></h2>
-<p>The <strong>file type</strong> dropdown at the bottom of the Open dialog is not only a way of
-hiding files you are not interested in. It also tells WISER <strong>what the file is</strong>.</p>
+<p>The <strong>file type</strong> dropdown at the bottom of the Open dialog hides files you are
+not interested in, and it also tells WISER <strong>what the file is</strong>.</p>
 <ul class="simple">
 <li><p>Leaving it on <strong>All supported files</strong> asks WISER to work the format out for
 itself. This is the right choice almost always.</p></li>
-<li><p>Choosing a <strong>specific type</strong> — “ENVI raster files”, “NetCDF raster files”,
-“PDS3 raster files”, and so on — tells WISER to open the file <em>as that format</em>
+<li><p>Choosing a <strong>specific type</strong>, such as “ENVI raster files”, “NetCDF raster
+files” or “PDS3 raster files”, tells WISER to open the file <em>as that format</em>
 and nothing else.</p></li>
 </ul>
 <section id="why-this-matters">
@@ -515,13 +531,12 @@ and nothing else.</p></li>
 raster or a PDS3 product; an <code class="docutils literal notranslate"><span class="pre">.xml</span></code> file might be a PDS4 label or something else
 entirely. WISER inspects the contents rather than trusting the extension, and it
 is right the overwhelming majority of the time.</p>
-<p>But when a file is genuinely ambiguous — or when it is unusual enough that
-automatic detection picks a format that reads it, just not the way you want —
-picking the type explicitly settles it.</p>
+<p>When a file is ambiguous, or when automatic detection picks a format that reads
+it but not the way you want, picking the type explicitly settles it.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If a file opens but the data looks wrong — wrong number of bands, missing
-wavelengths, unexpected scaling — try opening it again with the file type set
+<p>If a file opens but the data looks wrong (wrong number of bands, missing
+wavelengths, unexpected scaling) try opening it again with the file type set
 explicitly. Automatic detection may have chosen a format that <em>can</em> read the
 file but does not understand all of its metadata.</p>
 </div>
@@ -555,7 +570,7 @@ WISER cannot open the header on its own.</p>
 <p class="admonition-title">Note</p>
 <p>If you have an ENVI header whose data file is missing or has been renamed to
 something unexpected, WISER reports which filenames it looked for. Renaming the
-data file to match the header — same name, one of the extensions above — is
+data file to match the header (same name, one of the extensions above) is
 usually enough to fix it.</p>
 </div>
 </section>
@@ -618,8 +633,8 @@ PDS4 products use an <code class="docutils literal notranslate"><span class="pre
 <p>If your file is not in this list, try <strong>Try luck with GDAL</strong> in the file-type
 dropdown. GDAL supports a great many formats beyond those WISER handles
 specially, and this option asks it to open the file with whatever driver fits.
-Data loaded this way may carry less metadata — wavelengths and band names in
-particular — than a natively supported format.</p>
+Data loaded this way may carry less metadata than a natively supported format,
+wavelengths and band names in particular.</p>
 </section>
 <hr class="docutils" />
 <section id="files-containing-several-datasets">
@@ -676,11 +691,11 @@ is interpreted.</p>
       </div>
     </a>
     <a class="right-next"
-       href="working-with-data.html"
+       href="display-and-stretch.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Working with Data</p>
+        <p class="prev-next-title">Display and Contrast Stretch</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

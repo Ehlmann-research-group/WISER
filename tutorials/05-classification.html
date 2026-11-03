@@ -1,0 +1,829 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>5. Classifying a Scene &#8212; WISER Documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=aa29f439" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/05-classification';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/icon_128x128.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="6. PCA and MNF" href="06-pca-mnf.html" />
+    <link rel="prev" title="4. Band Math: Mapping Vegetation" href="04-band-math-ndvi.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Documentation - Home"/>
+    <img src="../_static/icon_128x128.png" class="logo__image only-dark pst-js-only" alt="WISER Documentation - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../index.html">
+                    WISER Documentation
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Tutorials</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-content/user-manual.html">User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/interface-overview.html">Interface Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/opening-data-files.html">Opening Data Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/filters.html">Filters and Smoothing</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../user-content/data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html">K-Means Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/spatial-tools.html">Spatial Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/saving-and-exporting.html">Saving and Exporting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/projects.html">Saving and Opening Projects</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../extending-wiser/index.html">Extending WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/toolsmenu_plugins.html">Tools-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ctxmenu_plugins.html">Context-Menu Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/bandmath_plugins.html">Band-Math Plugins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/ui_plugins.html">GUI Plugins in WISER</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/wiser_state.html">Accessing and Modifying WISER State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/supporting_types.html">Supporting Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/plugin_utilities.html">Plugin Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/Ehlmann-research-group/WISER/edit/main/doc/sphinx-general-wiser-docs/source/tutorials/05-classification.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/tutorials/05-classification.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>5. Classifying a Scene</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#part-a-feature-space">Part A — Feature space</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-plot-two-bands-against-each-other">Step 1 — Plot two bands against each other</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-read-the-cloud">Step 2 — Read the cloud</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-link-the-plot-back-to-the-image">Step 3 — Link the plot back to the image</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#part-b-k-means">Part B — K-means</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-run-it">Step 4 — Run it</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-read-the-labels">Step 5 — Read the labels</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-6-choosing-k">Step 6 — Choosing K</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="classifying-a-scene">
+<h1>5. Classifying a Scene<a class="headerlink" href="#classifying-a-scene" title="Link to this heading">#</a></h1>
+<p><strong>Goal:</strong> find structure in feature space with the interactive scatter plot,
+then let K-means partition the scene without being told what to look for.</p>
+<p><strong>Data:</strong> <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm.hdr</span></code> (from <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>).</p>
+<p><strong>Reference:</strong> <a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html"><span class="doc">Interactive Scatter Plot</span></a>, <a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html"><span class="doc">K-Means Clustering</span></a>.</p>
+<hr class="docutils" />
+<section id="part-a-feature-space">
+<h2>Part A — Feature space<a class="headerlink" href="#part-a-feature-space" title="Link to this heading">#</a></h2>
+<section id="step-1-plot-two-bands-against-each-other">
+<h3>Step 1 — Plot two bands against each other<a class="headerlink" href="#step-1-plot-two-bands-against-each-other" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p>Open the campus scene as in <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>.</p></li>
+<li><p>Right-click anywhere on the image and choose <strong>Data Analysis ▸ Interactive
+Scatter Plot</strong>. The same tool is on the <strong>Main Menu</strong> at <strong>Tools ▸ Data
+Analysis ▸ Interactive Scatter Plot</strong>.</p></li>
+<li><p>At the bottom of the scatter plot window, <strong>X Axis Band</strong> and <strong>Y Axis
+Band</strong> each have a <strong>Dataset</strong> dropdown and a <strong>Band #</strong> box with a band
+dropdown beside it. Set them, and <strong>Render Onto</strong>, as follows:</p>
+<ul class="simple">
+<li><p><strong>X Axis Band</strong> — <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm</span></code>, <strong>Band 2: 702.42 nm</strong></p></li>
+<li><p><strong>Y Axis Band</strong> — the same dataset, <strong>Band 3: 852.68 nm</strong></p></li>
+<li><p><strong>Render Onto</strong> — the same dataset</p></li>
+</ul>
+</li>
+<li><p>Click <strong>Create Plot</strong>.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t8_scatter_empty.png"><img alt="The interactive scatter plot before plotting, showing the band selectors" src="../_images/t8_scatter_empty.png" style="width: 70%;" />
+</a>
+</figure>
+<p>Here all three dropdowns name the same dataset. They can name different
+datasets, as long as those share the same width and height, since points are
+matched to pixels by position.</p>
+</section>
+<section id="step-2-read-the-cloud">
+<h3>Step 2 — Read the cloud<a class="headerlink" href="#step-2-read-the-cloud" title="Link to this heading">#</a></h3>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t8_scatter_plot.png"><img alt="Density scatter plot of the 702 nm band against the 852 nm band" src="../_images/t8_scatter_plot.png" style="width: 70%;" />
+</a>
+</figure>
+<p>Every pixel is one point, colored by how many pixels share that spot (the
+default is a <strong>density</strong> plot; <strong>To Scatter</strong> switches to plain dots, easier to
+read where the population is sparse).</p>
+<p>The cloud has two parts:</p>
+<ul class="simple">
+<li><p><strong>The diagonal ridge</strong> from the origin to the upper right is the <strong>soil
+line</strong> — surfaces whose 702 nm and 852 nm reflectances rise together. Roofs,
+roads and bare ground lie along it, dark ones at the bottom, bright at the
+top.</p></li>
+<li><p><strong>The plume rising above the diagonal</strong> at low 702 nm values is
+<strong>vegetation</strong>: high near-infrared reflectance and low red reflectance. NDVI
+is high in the plume and near zero along the line.</p></li>
+</ul>
+</section>
+<section id="step-3-link-the-plot-back-to-the-image">
+<h3>Step 3 — Link the plot back to the image<a class="headerlink" href="#step-3-link-the-plot-back-to-the-image" title="Link to this heading">#</a></h3>
+<p>You can draw a selection on the plot at any time; there is no tool to turn on
+first.</p>
+<ol class="arabic simple">
+<li><p>Click around the vegetation plume to drop vertices, and close the polygon
+by clicking the first vertex again.</p></li>
+<li><p>The selected points are outlined, the point count (for example
+<code class="docutils literal notranslate"><span class="pre">1,234</span> <span class="pre">pts</span></code>) updates, and the matching pixels are marked on the
+<strong>Render Onto</strong> image.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t8_scatter_selection.png"><img alt="A polygon selection around the vegetation plume" src="../_images/t8_scatter_selection.png" style="width: 70%;" />
+</a>
+</figure>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t8_scatter_highlight.png"><img alt="The selected feature-space pixels highlighted in red across the image" src="../_images/t8_scatter_highlight.png" style="width: 90%;" />
+</a>
+</figure>
+<p>The highlighted pixels land exactly on the tree crowns, hedges and lawns. You
+went from <em>a shape in feature space</em> to <em>a place on the ground</em> without knowing
+in advance what either was.</p>
+<p>Click <strong>Create ROI from Selection</strong> to turn that into a Region of Interest, and
+everything in <a class="reference internal" href="03-regions-of-interest.html"><span class="doc">Tutorial 3</span></a> becomes available.</p>
+<p><strong>Escape</strong> or <strong>Clear selection</strong> starts over. The plot’s other controls
+(colormap, axis limits, highlight color) are described in
+<a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html"><span class="doc">Interactive Scatter Plot</span></a>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="part-b-k-means">
+<h2>Part B — K-means<a class="headerlink" href="#part-b-k-means" title="Link to this heading">#</a></h2>
+<section id="step-4-run-it">
+<h3>Step 4 — Run it<a class="headerlink" href="#step-4-run-it" title="Link to this heading">#</a></h3>
+<p>Where the scatter plot compares two bands, K-means uses <strong>all</strong> of them: each
+pixel is a point in <em>n</em>-band space, and the algorithm partitions those points
+into <strong>K</strong> clusters, iterating until the centers stop moving.</p>
+<ol class="arabic">
+<li><p>Choose <strong>Tools ▸ Data Analysis ▸ K-means</strong>. The <strong>K-means Dialog</strong> opens.</p></li>
+<li><p>Set <strong>Input Dataset</strong> to <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm</span></code>.</p></li>
+<li><p>Set <strong>K clusters</strong> to <code class="docutils literal notranslate"><span class="pre">5</span></code>.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t5_kmeans_dialog.png"><img alt="The K-means dialog with five clusters requested" src="../_images/t5_kmeans_dialog.png" style="width: 45%;" />
+</a>
+</figure>
+</li>
+<li><p>Expand <strong>Advanced Options</strong>, set <strong>Random Seed</strong> to <code class="docutils literal notranslate"><span class="pre">42</span></code>, and leave the
+other options at their defaults.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t5_kmeans_advanced.png"><img alt="K-means advanced options: init method, iterations, tolerance, seed, algorithm" src="../_images/t5_kmeans_advanced.png" style="width: 45%;" />
+</a>
+</figure>
+<p>K-means starts from randomly chosen centers, so two unseeded runs on
+identical data give different clusters, numbered differently. Fix the seed
+and your figure is reproducible.</p>
+</li>
+<li><p>Click <strong>OK</strong>. The run proceeds in the background, so WISER stays usable. To
+watch its progress, click <strong>Show activity monitor</strong> at the bottom right of
+the main window.</p></li>
+</ol>
+</section>
+<section id="step-5-read-the-labels">
+<h3>Step 5 — Read the labels<a class="headerlink" href="#step-5-read-the-labels" title="Link to this heading">#</a></h3>
+<p>The result is a single-band <strong>label image</strong> named <code class="docutils literal notranslate"><span class="pre">K-Means</span> <span class="pre">Labels</span> <span class="pre">(k=5):</span> <span class="pre">...</span></code>,
+whose pixel values are cluster indices 0 to 4.</p>
+<ol class="arabic simple">
+<li><p>Switch to it with the <strong>Select dataset to view</strong> dropdown on the Main
+Toolbar.</p></li>
+<li><p>Click <strong>Band chooser</strong>, select <strong>Grayscale</strong>, tick <strong>Use a colormap</strong>, and
+choose a categorical colormap such as <strong>tab10</strong>. Click <strong>OK</strong>.</p></li>
+</ol>
+<p>A categorical colormap matters here: the pixel values are cluster <em>names</em>, not
+amounts, so a continuous colormap would imply that cluster 3 sits between 2 and
+4 when the numbering is arbitrary.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t5_kmeans_labels.png"><img alt="The five-cluster K-means label image over the Caltech scene" src="../_images/t5_kmeans_labels.png" style="width: 90%;" />
+</a>
+</figure>
+<div class="note admonition">
+<p class="admonition-title">Interpretation</p>
+<p>The clusters recover the scene’s structure without being told what to look for:
+bright roofs, darker roofs, road and parking surfaces, canopy, and shadow.
+Shadow comes out as its own cluster rather than being grouped with the surface
+that is shadowed, because K-means is working on brightness and color together,
+and a shadowed roof is much darker than a sunlit one.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Cluster colors and numbers mean nothing on their own.</strong> K-means is
+unsupervised: it finds groups, it does not name them. Cluster 3 is not
+“vegetation” until you check.</p>
+</div>
+<p>To check, reopen the <strong>K-means Dialog</strong> and click <strong>View Centroids</strong>. That does
+not plot anything by itself. It opens <strong>K-Means — Past Runs</strong>, a table of every
+run in the session with its <code class="docutils literal notranslate"><span class="pre">k</span></code>, initialization method and seed. Click <strong>View</strong>
+on the row for your run, and the mean spectrum of each cluster is plotted
+together in a new window.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/t5_kmeans_centroids.png"><img alt="Five K-means centroid spectra plotted together, one per cluster" src="../_images/t5_kmeans_centroids.png" style="width: 80%;" />
+</a>
+</figure>
+<div class="note admonition">
+<p class="admonition-title">Interpretation</p>
+<p>Four of the five mean spectra rise gently and stay roughly parallel, separated
+mostly by overall brightness. Those are the roof, pavement and shadow classes,
+which differ in how much they reflect more than in shape.</p>
+<p>The fifth is the one to look at. It starts lowest of all and then climbs steeply
+across the last interval, crossing two of the others. That is the red edge from
+<a class="reference internal" href="03-regions-of-interest.html"><span class="doc">Tutorial 3</span></a>, and it is how you know which numbered
+cluster is your canopy class. Nothing in the label image could have told you
+that.</p>
+</div>
+</section>
+<section id="step-6-choosing-k">
+<h3>Step 6 — Choosing K<a class="headerlink" href="#step-6-choosing-k" title="Link to this heading">#</a></h3>
+<p>There is no correct K. Ways to decide:</p>
+<ul class="simple">
+<li><p><strong>Run several.</strong> Try K = 3, 5 and 8 and see which boundaries persist.</p></li>
+<li><p><strong>Look at the centroids.</strong> If two clusters have near-identical spectra, K is
+too high.</p></li>
+<li><p><strong>Count your classes.</strong> If you know the scene holds four materials, start at
+four and add one for shadow.</p></li>
+<li><p><strong>Reduce dimensions first.</strong> On a cube with hundreds of bands, run
+<a class="reference internal" href="06-pca-mnf.html"><span class="doc">PCA or MNF</span></a> and cluster the leading components: faster,
+and far less prone to chasing noise.</p></li>
+</ul>
+<p>Run K-means on a raw full-size 425-band cube and the result is visibly speckled,
+because the method partitions <em>total</em> variance, and on a high-resolution scene
+most of that is within-surface variation rather than between-material
+difference.</p>
+<p>One Advanced Option changes what K-means is: <strong>Initialization Method</strong> set to
+<code class="docutils literal notranslate"><span class="pre">manual</span></code> lets you pick the starting spectra, for example ROI means from
+<a class="reference internal" href="03-regions-of-interest.html"><span class="doc">Tutorial 3</span></a>, which turns it into a
+semi-supervised classifier. The remaining options are described in
+<a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html"><span class="doc">K-Means Clustering</span></a>.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="what-you-can-now-do">
+<h2>What you can now do<a class="headerlink" href="#what-you-can-now-do" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Read a two-band feature space and recognize the soil line</p></li>
+<li><p>Move between feature space and image space in both directions</p></li>
+<li><p>Run a reproducible unsupervised classification</p></li>
+<li><p>Identify what a cluster actually is, rather than assuming</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Next:</strong> <a class="reference internal" href="06-pca-mnf.html"><span class="doc">Tutorial 6 — PCA and MNF</span></a> — compress hundreds of
+bands into the few that carry the information.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="04-band-math-ndvi.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">4. Band Math: Mapping Vegetation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="06-pca-mnf.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">6. PCA and MNF</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#part-a-feature-space">Part A — Feature space</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-plot-two-bands-against-each-other">Step 1 — Plot two bands against each other</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-read-the-cloud">Step 2 — Read the cloud</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-link-the-plot-back-to-the-image">Step 3 — Link the plot back to the image</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#part-b-k-means">Part B — K-means</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-run-it">Step 4 — Run it</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-read-the-labels">Step 5 — Read the labels</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-6-choosing-k">Step 6 — Choosing K</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-you-can-now-do">What you can now do</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Ehlmann Research Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2019-2026, California Institute of Technology.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

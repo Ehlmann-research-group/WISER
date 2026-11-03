@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -205,10 +205,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -216,12 +232,14 @@
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2"><a class="reference internal" href="projects.html">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -236,33 +254,31 @@
 <li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -465,7 +481,7 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-overview">WISER Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-main-window">The main window</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-configuration">WISER Configuration</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#appearance-and-color-scheme">Appearance and Color Scheme</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-crash-and-error-reporting">WISER Crash and Error Reporting</a></li>
@@ -473,10 +489,12 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-an-image">Viewing an Image</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-tools">Dataset Tools</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-chooser">Dataset Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-chooser">Band Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#grid-view-and-image-linking">Grid View and Image Linking</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#toolbars">Toolbars</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-status-bar">The status bar</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-activity-monitor">The Activity Monitor</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-dataset-info-pane">The Dataset Info pane</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#editing-a-dataset">Editing a dataset</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to go next</a></li>
 </ul>
             </nav>
         </div>
@@ -488,53 +506,53 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="interface-overview">
+  <section class="tex2jax_ignore mathjax_ignore" id="interface-overview">
 <h1>Interface Overview<a class="headerlink" href="#interface-overview" title="Link to this heading">#</a></h1>
-<section id="wiser-overview">
-<h2>WISER Overview<a class="headerlink" href="#wiser-overview" title="Link to this heading">#</a></h2>
-<p>The goal of WISER is to provide an intuitive and configurable user interface
-that supports many different workflows and styles of interaction. When WISER
-is started, the UI looks like this:</p>
+<p>A tour of the main window and the settings that apply across every tool.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>To <em>use</em> these controls rather than read about them, start with <a class="reference internal" href="../tutorials/01-first-look.html"><span class="doc">Tutorial 1 — Your First Scene</span></a>, which uses the panes, band
+chooser and contrast stretch on real data.</p>
+</div>
+<section id="the-main-window">
+<h2>The main window<a class="headerlink" href="#the-main-window" title="Link to this heading">#</a></h2>
+<p>When WISER starts, no data is loaded and both display areas read <strong>(no data)</strong>:</p>
 <figure class="align-center">
-<a class="reference internal image-reference" href="../_images/wiser_start.png"><img alt="WISER at startup with no data loaded" src="../_images/wiser_start.png" style="width: 80%;" />
+<a class="reference internal image-reference" href="../_images/t1_empty.png"><img alt="WISER at startup with no data loaded" src="../_images/t1_empty.png" style="width: 80%;" />
 </a>
 </figure>
-<p>The WISER interface provides multiple panes for displaying raster data at
-varying levels of magnification. The Context Pane starts out on the left side
-of the UI, and shows the raster data “scaled out,” so that either one or both
-dimensions are fully visible within the pane. The primary viewing area is
-called the Main Window, providing more detailed interactions with raster data,
-possibly scaled up to as much as 1600%. In the above screenshot, no raster
-data is loaded yet, so these areas display “(no data)”.</p>
-<p>Across the top of the Main Window is the Main Toolbar, which provides various
-tools to work with raster data:</p>
+<p>WISER shows raster data in several panes at different magnifications. The
+Context Pane starts on the left side of the window and shows the raster data
+“scaled out,” so that one or both dimensions fit within the pane. The Main
+Window is the primary viewing area, for more detailed work with the raster data,
+and can zoom up to 1600%.</p>
+<p>Across the top of the Main Window is the Main Toolbar, which holds the tools for
+working with raster data:</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../_images/main_toolbar.png"><img alt="The WISER main toolbar" src="../_images/main_toolbar.png" style="width: 70%;" />
 </a>
 </figure>
-<p>The buttons marked “Display Toggles” will show and hide specific tools for
-interacting with spectral data. These buttons are as follows:</p>
+<p>The buttons marked “Display Toggles” show and hide the tools for working with
+spectral data:</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../_images/display_toggles.png"><img alt="Display toggle buttons in the main toolbar" src="../_images/display_toggles.png" style="width: 40%;" />
 </a>
 </figure>
-<p>These tools are described in subsequent sections.</p>
-<p><strong>NOTE:</strong> WISER can also be extended with custom functionality through its
-plugin API — see the <a class="reference internal" href="../extending-wiser/index.html"><span class="doc std std-doc">Extending WISER</span></a> section of
-this documentation.</p>
+<p>The sections below describe each one.</p>
+<p><strong>NOTE:</strong> You can add your own tools to WISER through its plugin API. See
+<a class="reference internal" href="../extending-wiser/index.html"><span class="doc std std-doc">Extending WISER</span></a>.</p>
 </section>
 <section id="wiser-configuration">
 <h2>WISER Configuration<a class="headerlink" href="#wiser-configuration" title="Link to this heading">#</a></h2>
-<p>WISER provides a configuration panel for specifying common configuration across
-the various tools. You can access these properties through the WISER menubar.
-For example, on macOS you can access “WISER” -&gt; “Preferences” to show this
-dialog:</p>
+<p>Settings shared by all tools are in the configuration dialog, opened from the
+menu bar. On macOS, choose “WISER” -&gt; “Preferences”. On Windows, choose <strong>File ▸
+Settings…</strong>.</p>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../_images/wiser_config.png"><img alt="WISER preferences dialog" src="../_images/wiser_config.png" style="width: 45%;" />
 </a>
 </figure>
-<p>These settings are saved on disk so that they don’t need to be specified every
-time. Some additional details are given in the following sections.</p>
+<p>WISER saves these settings to disk, so you set them once. The sections below
+describe some of them.</p>
 <section id="appearance-and-color-scheme">
 <h3>Appearance and Color Scheme<a class="headerlink" href="#appearance-and-color-scheme" title="Link to this heading">#</a></h3>
 <p>WISER can be shown in a light or a dark color scheme. The <strong>Color scheme</strong>
@@ -566,115 +584,144 @@ WISER loads follows the same setting. The change is applied when you click
 </section>
 <section id="wiser-crash-and-error-reporting">
 <h3>WISER Crash and Error Reporting<a class="headerlink" href="#wiser-crash-and-error-reporting" title="Link to this heading">#</a></h3>
-<p>WISER is capable of sending crash reports to an online service called
-<a class="reference external" href="https://www.bugsnag.com">BugSnag</a>. This option is <strong>off</strong> by default, but
-it is very helpful if you turn this feature on so that application errors and
-crashes can be identified and addressed automatically. No personally
-identifying information is sent to BugSnag, but some users may still not want
-to leave such a feature on.</p>
+<p>WISER can send crash reports to an online service called
+<a class="reference external" href="https://www.bugsnag.com">BugSnag</a>. This option, <strong>Send WISER exceptions and
+crashes to BugSnag</strong>, is <strong>off</strong> by default. Turning it on sends errors and
+crashes to the developers automatically, so they can find and fix them. No
+personally identifying information is sent to BugSnag.</p>
 </section>
 <section id="wavelengths-for-red-green-blue-colors">
 <h3>Wavelengths for Red/Green/Blue Colors<a class="headerlink" href="#wavelengths-for-red-green-blue-colors" title="Link to this heading">#</a></h3>
-<p>For spectral data sets that include visible-light frequencies, WISER is able to
-automatically choose “true-color” bands that are close to the frequencies of
-red, green and blue light. However, different data sets and instruments may
-require tweaking of what is considered “red”, “green” or “blue”. Thus, WISER
-allows the user to configure these values.</p>
+<p>For datasets that cover visible wavelengths, WISER can choose “true-color” bands
+close to the wavelengths of red, green and blue light. Different datasets and
+instruments may need different values for “red”, “green” and “blue”, so you can
+set these wavelengths yourself.</p>
 </section>
 </section>
 <hr class="docutils" />
 <section id="viewing-an-image">
 <h2>Viewing an Image<a class="headerlink" href="#viewing-an-image" title="Link to this heading">#</a></h2>
-<p>Here is a screenshot of WISER after loading AVIRIS data of the Caltech campus
-and the surrounding Pasadena area.</p>
+<p>Here is WISER after loading AVIRIS data over the Caltech campus, with every
+pane shown:</p>
 <figure class="align-center">
-<a class="reference internal image-reference" href="../_images/wiser_caltech_annotated.png"><img alt="WISER displaying AVIRIS Caltech data with all panes visible and annotated" src="../_images/wiser_caltech_annotated.png" style="width: 80%;" />
+<a class="reference internal image-reference" href="../_images/t1_all_panes.png"><img alt="WISER displaying AVIRIS Caltech data with all panes visible and annotated" src="../_images/t1_all_panes.png" style="width: 80%;" />
 </a>
 </figure>
-<p>In this image, all of the different tools have been shown using the display
-toggle buttons in the main toolbar:  the context pane, the main window and the
-zoom pane, as well as the spectral plot window and the dataset information
-window.
-All of these components are dockable, and can be moved or resized within the
-WISER user interface. They can also be undocked from the UI, so that they
-appear as separate windows. Arrange WISER’s user interface however you like it
-best!
-As the snapshot indicates, the area visible in the zoom pane is indicated in the
-main window. Correspondingly, the area visible in the main window is indicated
-in the context window.  <em>(Tip:  The color of this viewport highlight can be
-changed in the WISER configuration dialog.)</em>  Mouse-clicks or scrolling within
-the various display windows will update the other windows.
-Mouse clicks within the main or zoom windows will update the spectrum plot window
-with the pixel’s spectrum.</p>
+<p>In this image, the display toggle buttons on the main toolbar have turned on
+every pane: the Context pane, the main window, the Zoom pane, the Spectrum Plot
+and the Dataset Info pane.</p>
+<p>Every pane is dockable. You can move or resize it within the WISER window, or
+undock it so it appears as a separate window.</p>
+<p>The main window marks the area shown in the Zoom pane, and the Context pane
+marks the area shown in the main window. <em>(Tip: you can change the color of this
+viewport highlight in the WISER configuration dialog.)</em> Clicking or scrolling in
+any display pane updates the others. Clicking in the main window or the Zoom
+pane plots that pixel’s spectrum in the Spectrum Plot.</p>
 </section>
 <hr class="docutils" />
-<section id="dataset-tools">
-<h2>Dataset Tools<a class="headerlink" href="#dataset-tools" title="Link to this heading">#</a></h2>
-<p>The dataset toolbar buttons provide useful operations to switch between
-datasets, change what bands are being displayed, and to adjust the contrast
-stretch of the bands being displayed. Note that all raster display windows
-have one or more of these buttons, allowing for control of how raster data
-is displayed.</p>
+<section id="toolbars">
+<h2>Toolbars<a class="headerlink" href="#toolbars" title="Link to this heading">#</a></h2>
+<p>Every raster display area has its own toolbar. The main toolbar carries all of
+these; the context and zoom panes carry the subset that applies to them.</p>
 <figure class="align-center">
-<a class="reference internal image-reference" href="../_images/main_display_buttons.png"><img alt="Dataset toolbar buttons" src="../_images/main_display_buttons.png" style="width: 30%;" />
+<a class="reference internal image-reference" href="../_images/main_display_buttons.png"><img alt="The dataset toolbar buttons" src="../_images/main_display_buttons.png" style="width: 30%;" />
 </a>
 </figure>
-</section>
-<section id="dataset-chooser">
-<h2>Dataset Chooser<a class="headerlink" href="#dataset-chooser" title="Link to this heading">#</a></h2>
-<p>The <em>dataset chooser</em> simply allows the user to change what data set is being
-displayed in a given pane. When clicked, the dataset chooser will show a
-pop-up menu listing all data sets currently loaded, and selecting a different
-data set will switch the display to that data set.</p>
-</section>
-<section id="band-chooser">
-<h2>Band Chooser<a class="headerlink" href="#band-chooser" title="Link to this heading">#</a></h2>
-<p>The <em>band chooser</em> shows a dialog that gives the user significant control over
-what bands are being displayed, and whether the image is to be shown in RGB
-mode (three bands) or grayscale mode (one band only).</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/band_chooser.png"><img alt="The band chooser dialog" src="../_images/band_chooser.png" style="width: 40%;" />
-</a>
-</figure>
-<p>When the grayscale or single band option is selected in the Band Chooser, WISER
-can display with a color bar or gradient.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/colormap.png"><img alt="Colormap selection for single-band display" src="../_images/colormap.png" style="width: 40%;" />
-</a>
-</figure>
-<p>Besides letting the user select any combination of bands, the band chooser also
-exposes the ability to select the dataset’s default bands, if any were
-indicated in the original data file. Finally, if the dataset specifies
-wavelengths or frequencies for each band, and if these wavelengths are near the
-red/green/blue frequencies specified in WISER’s global configuration, the band
-chooser can automatically choose the bands closest to these frequencies.</p>
-<p>Note that if a data set does not have default display bands, or if the data
-set doesn’t have visible-light frequencies, the corresponding button in the
-dialog will be disabled.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Control</p></th>
+<th class="head"><p>Does</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Select dataset to view</strong></p></td>
+<td><p>Switches which loaded dataset the pane shows</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Band chooser</strong></p></td>
+<td><p>RGB or grayscale, which bands, and the colormap — see <a class="reference internal" href="display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Stretch builder</strong></p></td>
+<td><p>Opens the stretch builder for the displayed bands</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Split/unsplit the main view</strong></p></td>
+<td><p>Splits the main window into panels; the dataset, band and stretch controls then move above each panel</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Link view scrolling</strong></p></td>
+<td><p>Ties panning and zooming across panels. Displayed datasets must overlap on the ground, or have the same width and height if not georeferenced</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Zoom in</strong>, <strong>Zoom out</strong>, <strong>Zoom to fit</strong>, <strong>Zoom to actual size</strong></p></td>
+<td><p>Navigation. The percentage box takes a value directly</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Add new Region of Interest</strong> and <strong>Add selection to current ROI</strong></p></td>
+<td><p>See <a class="reference internal" href="regions-of-interest.html"><span class="doc">Regions of Interest</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>ROI dropdown</strong></p></td>
+<td><p>Chooses which ROI a new selection is added to</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 <hr class="docutils" />
-<section id="grid-view-and-image-linking">
-<h2>Grid View and Image Linking<a class="headerlink" href="#grid-view-and-image-linking" title="Link to this heading">#</a></h2>
-<p>WISER allows simultaneous viewing of multiple images in the main window through
-the grid view, and the images can be linked. Any grid dimensions
-can be input. Click the grid icon to split or unsplit the main view.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/grid_options.png"><img alt="Grid view dimension options" src="../_images/grid_options.png" style="width: 40%;" />
-</a>
-</figure>
-<p>Note that, once images are displayed in a grid, the band selector and contrast
-stretch options are available above each image and not in the main WISER
-toolbar.</p>
-<figure class="align-center">
-<a class="reference internal image-reference" href="../_images/grid_view.png"><img alt="WISER grid view showing multiple images side by side" src="../_images/grid_view.png" style="width: 80%;" />
-</a>
-</figure>
-<p>Images in the grid can be linked when every pair of displayed images can be
-linked. Two georeferenced images (each with a geotransform and a spatial
-reference system) are linked by geographic location, so they must overlap on
-the ground and have spatial reference systems that can be transformed between.
-Otherwise, two images are linked pixel for pixel, which requires the same
-spatial dimensions.</p>
+<section id="the-status-bar">
+<h2>The status bar<a class="headerlink" href="#the-status-bar" title="Link to this heading">#</a></h2>
+<p>The bar along the bottom reports, left to right:</p>
+<ul class="simple">
+<li><p>A <strong>message area</strong>, with status messages and the instructions for
+whichever selection tool is active. Read it when a shape is not behaving.</p></li>
+<li><p>The <strong>display values</strong> for each color channel at the pixel under the cursor</p></li>
+<li><p>The <strong>pixel coordinate</strong>, as <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code></p></li>
+<li><p>The <strong>ground coordinate</strong>, when the dataset is georeferenced</p></li>
+</ul>
+<p>The two buttons at the far right open the <strong>Dataset Info</strong> pane and the
+<strong>Activity Monitor</strong>.</p>
+</section>
+<hr class="docutils" />
+<section id="the-activity-monitor">
+<h2>The Activity Monitor<a class="headerlink" href="#the-activity-monitor" title="Link to this heading">#</a></h2>
+<p>Analyses, filters and band-math jobs run in the background so the interface
+stays usable. The <strong>Activity Monitor</strong> is where you watch them.</p>
+<p>It lists <strong>Active Tasks</strong> with a progress bar and a <strong>cancel</strong> button each, and
+keeps a collapsible <strong>Finished Tasks</strong> list below. Each row names the task and
+the parameters it was given (the dataset, the component count, the expression)
+which makes it a usable record of what produced which output.</p>
+<p>Failed tasks stay in the list with their error message, so a run that produced
+no dataset can be diagnosed rather than guessed at.</p>
+<p>Open it from the button at the right of the status bar.</p>
+</section>
+<hr class="docutils" />
+<section id="the-dataset-info-pane">
+<h2>The Dataset Info pane<a class="headerlink" href="#the-dataset-info-pane" title="Link to this heading">#</a></h2>
+<p>The <strong>Dataset Info</strong> display toggle shows the header metadata of every loaded
+dataset: dimensions, band count, data type, wavelengths, bad-band list, data
+ignore value, coordinate reference system and description.</p>
+<p>Check it whenever a tool behaves unexpectedly. Most surprises are visible here:
+a missing wavelength axis, an unset data ignore value, or bands you did not know
+were flagged.</p>
+</section>
+<hr class="docutils" />
+<section id="editing-a-dataset">
+<h2>Editing a dataset<a class="headerlink" href="#editing-a-dataset" title="Link to this heading">#</a></h2>
+<p>Right-click an image and choose <strong>Edit dataset…</strong> to change a dataset’s
+metadata <strong>in place</strong>, without writing a new file: its name, description, data
+ignore value, wavelengths, bad-band list and default display bands.</p>
+<p>This is the fix for a file whose header is wrong or incomplete — a cube with no
+wavelengths, or one whose nodata value was never declared, so WISER treats
+<code class="docutils literal notranslate"><span class="pre">-9999</span></code> as a real measurement.</p>
+<p>To write the change to disk, use <strong>Save as…</strong> (see <a class="reference internal" href="saving-and-exporting.html"><span class="doc">Saving and Exporting</span></a>).</p>
+</section>
+<hr class="docutils" />
+<section id="where-to-go-next">
+<h2>Where to go next<a class="headerlink" href="#where-to-go-next" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../tutorials/01-first-look.html"><span class="doc">Tutorial 1 — Your First Scene</span></a> — these
+controls used on real data</p></li>
+<li><p><a class="reference internal" href="opening-data-files.html"><span class="doc">Opening Data Files</span></a> — formats and troubleshooting</p></li>
+<li><p><a class="reference internal" href="display-and-stretch.html"><span class="doc">Display and Contrast Stretch</span></a> — bands, colormaps,
+grid view, stretches</p></li>
+<li><p><a class="reference internal" href="../extending-wiser/index.html"><span class="doc">Extending WISER</span></a> — add your own tools to
+these menus</p></li>
+</ul>
 </section>
 </section>
 
@@ -725,7 +772,7 @@ spatial dimensions.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-overview">WISER Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-main-window">The main window</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-configuration">WISER Configuration</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#appearance-and-color-scheme">Appearance and Color Scheme</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-crash-and-error-reporting">WISER Crash and Error Reporting</a></li>
@@ -733,10 +780,12 @@ spatial dimensions.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-an-image">Viewing an Image</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-tools">Dataset Tools</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-chooser">Dataset Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-chooser">Band Chooser</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#grid-view-and-image-linking">Grid View and Image Linking</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#toolbars">Toolbars</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-status-bar">The status bar</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-activity-monitor">The Activity Monitor</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-dataset-info-pane">The Dataset Info pane</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#editing-a-dataset">Editing a dataset</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-go-next">Where to go next</a></li>
 </ul>
   </nav></div>
 

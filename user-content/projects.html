@@ -40,7 +40,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
-    <script src="../_static/documentation_options.js?v=caa2ce05"></script>
+    <script src="../_static/documentation_options.js?v=f79a348d"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
@@ -50,7 +50,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Extending WISER" href="../extending-wiser/index.html" />
-    <link rel="prev" title="Mosaic" href="mosaic.html" />
+    <link rel="prev" title="Saving and Exporting" href="saving-and-exporting.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -205,10 +205,26 @@
             </li>
         </ul>
         <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/01-first-look.html">1. Your First Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/02-spectra.html">2. Reading Spectra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/03-regions-of-interest.html">3. Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/04-band-math-ndvi.html">4. Band Math: Mapping Vegetation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/05-classification.html">5. Classifying a Scene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/06-pca-mnf.html">6. PCA and MNF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/07-detection.html">7. Finding a Known Material</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/08-bench-and-close-range.html">8. Bench and Close-Range Data</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="user-manual.html">User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="interface-overview.html">Interface Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="opening-data-files.html">Opening Data Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="working-with-data.html">Working with Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="display-and-stretch.html">Display and Contrast Stretch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spectra-and-libraries.html">Spectra and Spectral Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="regions-of-interest.html">Regions of Interest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="band-math.html">Band Math</a></li>
+<li class="toctree-l2"><a class="reference internal" href="filters.html">Filters and Smoothing</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="data-analysis-tools/data-analysis-tools.html">Data Analysis Tools</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/pca.html">Principal Component Analysis (PCA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mnf.html">Minimum Noise Fraction (MNF)</a></li>
@@ -216,12 +232,14 @@
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/mtmf.html">Mixture-Tuned Matched Filter (MTMF)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-angle-mapper.html">Spectral Angle Mapper (SAM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/spectral-feature-fitting.html">Spectral Feature Fitting (SFF)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/continuum-removal.html">Continuum Removal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/linear-unmixing.html">Linear Unmixing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data-analysis-tools/interactive-scatter-plot.html">Interactive Scatter Plot</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="spatial-tools.html">Spatial Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mosaic.html">Mosaic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saving-and-exporting.html">Saving and Exporting</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Saving and Opening Projects</a></li>
 </ul>
 </details></li>
@@ -236,33 +254,31 @@
 <li class="toctree-l2"><a class="reference internal" href="../extending-wiser/examples.html">Examples &amp; Community</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/environment-setup.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/contributing-and-quality.html">Contributing and Code Quality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-and-qa.html">Testing &amp; QA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/ci-cd-and-releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-win.html">Code-signing WISER on Windows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/system-design.html">System Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-dependencies.html">Plugin Dependencies Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/design-documents.html">Design Documents</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/code-documentation.html">Code Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/viewport-system.html">Viewport System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/rendering-pipeline.html">Rendering Pipeline</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/stretch-builder.html">Stretch Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/data-caching.html">Data Caching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/band-chooser.html">Band Chooser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/spectrum-plot.html">Spectrum Plot System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/bandmath-internals.html">Band Math Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/app-state.html">Application State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/georeferencer-internals.html">Georeferencer Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/crs-creator-internals.html">CRS Creator Internals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/plugin-system.html">Plugin System Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/mosaic-internals.html">Seamless Mosaic Internals</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../developer-content/save-to-project.html">Save to Project File</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../developer-content/raster-format-dispatch.html">Raster Format Dispatch</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing to WISER</a></li>
@@ -486,7 +502,7 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="saving-and-opening-projects">
+  <section class="tex2jax_ignore mathjax_ignore" id="saving-and-opening-projects">
 <h1>Saving and Opening Projects<a class="headerlink" href="#saving-and-opening-projects" title="Link to this heading">#</a></h1>
 <p>A <strong>project</strong> saves your WISER session to a single <code class="docutils literal notranslate"><span class="pre">.wiserproj</span></code> file, so you can
 close WISER and pick up where you left off — with the same datasets open, the same
@@ -529,7 +545,7 @@ systems, and saved band math expressions</p></li>
 </ul>
 <p>Checking or unchecking a group toggles everything in it; if you then uncheck a few
 individual items, the group shows a partial check. <strong>Include All</strong> and <strong>Exclude
-All</strong> reset the whole tree. A group with nothing in it is greyed out.</p>
+All</strong> reset the whole tree. A group with nothing in it is grayed out.</p>
 <section id="products-follow-the-dataset-or-roi-they-came-from">
 <h3>Products follow the dataset or ROI they came from<a class="headerlink" href="#products-follow-the-dataset-or-roi-they-came-from" title="Link to this heading">#</a></h3>
 <p>The items <em>indented beneath</em> a dataset or an ROI are the things derived from it — a
@@ -589,8 +605,9 @@ project:</p>
 small, and it reopens against the files already on your disk. Check it when you want
 the project to stand on its own: to archive it, move it to another machine, or share
 it with a colleague.</p>
-<p>Datasets that only exist inside WISER — a band math result, a PCA output — have no
-file on disk to point at, so they are always stored inside the project either way.</p>
+<p>Datasets that exist only inside WISER, such as a band math result or a PCA
+output, have no file on disk to point at, so they are always stored inside the
+project either way.</p>
 </section>
 <section id="while-the-project-is-being-written">
 <h3>While the project is being written<a class="headerlink" href="#while-the-project-is-being-written" title="Link to this heading">#</a></h3>
@@ -599,9 +616,10 @@ copies and compresses every image into the project file, which can take a while 
 large scene. WISER shows a progress dialog while it works and leaves the main window
 disabled until it finishes, so the save cannot be disturbed halfway through. Progress
 is also mirrored in the Activity Monitor.</p>
-<p>You can <strong>cancel</strong> from that dialog. Cancelling means nothing happened: WISER builds
+<p>You can <strong>cancel</strong> from that dialog. Canceling means nothing happened: WISER
+builds
 the new project alongside the destination and only puts it in place once it is
-complete, so a cancelled save — like one interrupted by a crash or a full disk —
+complete, so a canceled save, like one interrupted by a crash or a full disk,
 leaves any project already saved at that location exactly as it was.</p>
 </section>
 </section>
@@ -615,21 +633,23 @@ a second project file.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Because Save Project As lets you deselect anything, you can explore freely in one
-session and then split the results into several focused projects — one holding the
-NDVI work, another holding a classification — each saved from the same session with
+session and then split the results into several focused projects (one holding
+the NDVI work, another holding a classification), each saved from the same
+session with
 a different selection.</p>
 </div>
 </section>
 <hr class="docutils" />
 <section id="opening-a-project">
 <h2>Opening a project<a class="headerlink" href="#opening-a-project" title="Link to this heading">#</a></h2>
-<p>Choose <strong>File ▸ Open Project…</strong>. Opening a project replaces your current session,
-so WISER asks you to confirm first — save your work beforehand if you need it.</p>
-<p>A self-contained project has to be unpacked before it can be opened, which takes a
-moment for a large one, so WISER shows the same progress dialog it shows when
-saving. You can cancel it: your current session is only replaced once the project has
-been unpacked successfully, so cancelling an open leaves the session you already had
-exactly as it was, rather than half-replaced.</p>
+<p>Choose <strong>File ▸ Open Project…</strong>. Opening a project replaces your current
+session, so WISER asks you to confirm first. Save your work beforehand if you
+need it.</p>
+<p>A self-contained project has to be unpacked before it can be opened, which takes
+a moment for a large one, so WISER shows the same progress dialog it shows when
+saving. You can cancel it: your current session is only replaced once the
+project has been unpacked successfully, so canceling an open leaves the session
+you already had exactly as it was, rather than half-replaced.</p>
 <p>If anything in the project cannot be restored, WISER still opens it and tells you
 what was left out. The usual cause is a <strong>referenced</strong> data file that has since been
 moved, renamed, or deleted; a self-contained project is immune to this, since it
@@ -640,8 +660,9 @@ holds, in the same mode it was saved in.</p>
 <hr class="docutils" />
 <section id="version-compatibility">
 <h2>Version compatibility<a class="headerlink" href="#version-compatibility" title="Link to this heading">#</a></h2>
-<p>A project written by any released version of WISER can be opened by every later
-version. The reverse is not true: if you try to open a project created by a <em>newer</em>
+<p>WISER is designed so that a project written by any released version can be
+opened by every later version. The reverse is not true: if you try to open a
+project created by a <em>newer</em>
 version of WISER than the one you are running, WISER tells you to upgrade rather
 than opening it and misreading it.</p>
 </section>
@@ -659,12 +680,12 @@ than opening it and misreading it.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="mosaic.html"
+       href="saving-and-exporting.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Mosaic</p>
+        <p class="prev-next-title">Saving and Exporting</p>
       </div>
     </a>
     <a class="right-next"
