@@ -1,6 +1,7 @@
 """
 Tests to make sure the UI library works as intended
 """
+
 import unittest
 
 from matplotlib import use
@@ -213,6 +214,47 @@ class TestUILibrary(unittest.TestCase):
         self.assertEqual(len(checkboxes), 2)
         checkboxes[0].setChecked(False)
         self.assertFalse(result["enabled"])
+
+    def test_dynamic_input_dialog_scrolls_long_form(self):
+        """Input rows scroll; the description and buttons stay outside the scroll area."""
+        dialog = DynamicInputDialog(dialog_title="Long Form", description="Pick products.")
+        inputs = [(f"Param {i}", f"p{i}", DynamicInputType.CHECK_BOX) for i in range(60)]
+
+        with patch.object(DynamicInputDialog, "exec", return_value=QDialog.Accepted):
+            result = dialog.create_input_dialog(inputs)
+
+        self.assertEqual(len(result), 60)
+
+        scroll = dialog.findChild(QScrollArea)
+        self.assertIsNotNone(scroll)
+        form = scroll.widget()
+        self.assertEqual(len(form.findChildren(QCheckBox)), 60)
+        self.assertEqual(form.findChildren(QDialogButtonBox), [])
+        self.assertLess(dialog.sizeHint().height(), form.sizeHint().height())
+        screen_height = dialog.screen().availableGeometry().height()
+        self.assertLessEqual(dialog.sizeHint().height(), screen_height)
+
+        dialog.show()
+        QApplication.processEvents()
+        self.assertTrue(scroll.verticalScrollBar().isVisible())
+        self.assertGreaterEqual(scroll.height(), screen_height * 3 // 4)
+        dialog.close()
+
+    def test_dynamic_input_dialog_short_form_does_not_scroll(self):
+        """A form that fits on screen opens at full height with no scrollbar."""
+        dialog = DynamicInputDialog(dialog_title="Short Form", description="Pick products.")
+        inputs = [(f"Param {i}", f"p{i}", DynamicInputType.CHECK_BOX) for i in range(5)]
+
+        with patch.object(DynamicInputDialog, "exec", return_value=QDialog.Accepted):
+            dialog.create_input_dialog(inputs)
+
+        dialog.show()
+        QApplication.processEvents()
+
+        scroll = dialog.findChild(QScrollArea)
+        self.assertFalse(scroll.verticalScrollBar().isVisible())
+        self.assertGreaterEqual(scroll.viewport().height(), scroll.widget().sizeHint().height())
+        dialog.close()
 
     def test_spectrum_plot_generic(self):
         test_spectrum_y = np.array(
