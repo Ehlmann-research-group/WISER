@@ -1,11 +1,10 @@
 # Interactive Scatter Plot
 
-The Interactive Scatter Plot plots two bands against each other — every pixel
+The Interactive Scatter Plot plots two bands against each other. Every pixel
 becomes one point, positioned by its value in the **X band** (horizontal) and
-**Y band** (vertical). Its real power is the two-way link to the image: draw a
-shape around a cluster of points and the matching pixels light up in the image,
-so you can discover structure in *feature space* and instantly see *where* it
-lives in the scene.
+**Y band** (vertical). The plot has a two-way link to the image: draw a shape
+around a cluster of points and the matching pixels light up in the image, so you
+can find structure in *feature space* and see *where* it lies in the scene.
 
 Open it from a raster view's **Data Analysis ▸ Interactive Scatter Plot** menu.
 
@@ -34,31 +33,49 @@ height**, since points are matched to pixels by position; mismatched dimensions
 raise an error. The plot is computed in the background (a loading spinner shows
 meanwhile), and pixels with NaN values are dropped.
 
+:::{figure} ../../_static/tutorials/t8_scatter_plot.png
+:width: 70%
+:align: center
+:alt: A density scatter plot of two bands showing the soil line and a vegetation plume
+:::
+
 ## Reading the plot
 
 By default you get a **density scatter plot**: instead of drawing millions of
 overlapping dots, color encodes how many pixels fall on each spot, with a
 colorbar labeled *Number of points per spectral value*. Bright/dense regions
 are common pixel values. Use **To Scatter** to switch to a plain dot plot, and
-**To Density** to switch back. **To Scatter** is useful for areas that do not
-have a dense enough pixel population to show up when **To Density** is selected.
+**To Density** to switch back. Use **To Scatter** for areas too sparse to show
+up in the density plot.
 
 ## Selecting points
 
 The plot always has a **polygon selector** active:
 
-- Click to drop vertices around a cluster; finish with a **double-click** or
-  **Enter**.
+- Click to drop vertices around a cluster; close the polygon by clicking the
+  first vertex again.
 - Selected points are outlined on the plot, the **point count** updates, and
   the corresponding pixels are drawn on the **Render Onto** image in your
   highlight color.
 - Press **Escape** or **Clear selection** to start over.
 
+:::{figure} ../../_static/tutorials/t8_scatter_selection.png
+:width: 70%
+:align: center
+:alt: A polygon selection around a cluster, with the selected points outlined
+:::
+
+:::{figure} ../../_static/tutorials/t8_scatter_highlight.png
+:width: 85%
+:align: center
+:alt: The selected feature-space pixels highlighted back on the image
+:::
+
 ## Controls reference
 
 The strip just below the toolbar:
 
-- **N pts** — live count of selected points.
+- **Point count** (for example `1,234 pts`) — live count of selected points.
 - **Clear selection** — remove the polygon and all highlights.
 - **Create ROI from Selection** — save the selected pixels as a Region of
   Interest (named *Scatter Plot Selection*) for use in other tools.
@@ -72,3 +89,8 @@ The strip just below the toolbar:
 
 The standard Matplotlib navigation toolbar (pan, zoom, save image) sits above
 the strip.
+
+## See also
+
+- {doc}`Tutorial 5 — Classifying a Scene <../../tutorials/05-classification>`
+- {doc}`Regions of Interest <../regions-of-interest>`

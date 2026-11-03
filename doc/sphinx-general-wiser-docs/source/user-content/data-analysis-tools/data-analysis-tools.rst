@@ -1,10 +1,10 @@
 Data Analysis Tools
 ===================
 
-This section helps you understand how to use WISER's data analysis tools — the
-algorithms for transforming, classifying, detecting, unmixing, and visualizing
-hyperspectral imagery. Each page explains what the tool does, how it works, and
-how to run it from the interface.
+These pages cover WISER's data analysis tools: the algorithms for transforming,
+classifying, detecting, unmixing, and visualizing hyperspectral imagery. Each
+page explains what the tool does, how it works, and how to run it from the
+interface.
 
 Transforms & Dimensionality Reduction
 --------------------------------------
@@ -30,6 +30,12 @@ Target Detection & Spectral Matching
 - :doc:`Spectral Feature Fitting (SFF) <spectral-feature-fitting>` — match
   pixels to reference spectra by their absorption features.
 
+Feature Isolation
+-----------------
+
+- :doc:`Continuum Removal <continuum-removal>` --- divide out a spectrum's
+  smooth envelope so only its absorption features remain.
+
 Unmixing
 --------
 
@@ -51,5 +57,6 @@ Visualization
    mtmf
    spectral-angle-mapper
    spectral-feature-fitting
+   continuum-removal
    linear-unmixing
    interactive-scatter-plot

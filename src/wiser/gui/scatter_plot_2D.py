@@ -898,7 +898,7 @@ class ScatterPlot2DDialog(QDialog):
         """
         Callback for PolygonSelector: updates selected indices, overlays a small
         scatter for visual feedback, and updates the live count.
-        Finish the polygon with a double click or the 'enter' key.
+        The polygon closes when the first vertex is clicked again.
         """
         if self._xy is None:
             return
