@@ -1,4 +1,4 @@
-# Tutorial 5 — Classifying a Scene
+# 5. Classifying a Scene
 
 **Goal:** find structure in feature space with the interactive scatter plot,
 then let K-means partition the scene without being told what to look for.

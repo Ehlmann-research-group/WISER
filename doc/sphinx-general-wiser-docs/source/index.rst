@@ -133,7 +133,7 @@ multi-file datasets, sub-datasets and troubleshooting.
 Data to try
 -----------
 
-The :doc:`Tutorials <tutorials/getting-started>` run on fixtures in the
+The :doc:`Tutorials <tutorials/index>` run on fixtures in the
 WISER source tree, so there is nothing to download. For full scenes, try
 these public datasets:
 

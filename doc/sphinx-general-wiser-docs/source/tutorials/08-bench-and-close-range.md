@@ -1,4 +1,4 @@
-# Tutorial 8 — Bench and Close-Range Data
+# 8. Bench and Close-Range Data
 
 **Goal:** see that WISER treats a laboratory cube exactly like an airborne one,
 and learn what a bench instrument needs from you that an airborne product has

@@ -506,16 +506,16 @@ def toolbar():
     scale = 2
     strip = strip.resize((strip.width * scale, strip.height * scale), Image.NEAREST)
 
-    radius = 13
+    radius = 22
     band_height = 2 * (2 * radius + 10) + 8
     canvas = Image.new("RGB", (strip.width, strip.height + band_height), "#ffffff")
     canvas.paste(strip, (0, 0))
     draw = ImageDraw.Draw(canvas)
 
     font = None
-    for name in ("Helvetica.ttc", "Arial.ttf", "DejaVuSans.ttf"):
+    for name in ("Arial Bold.ttf", "DejaVuSans-Bold.ttf", "Arial.ttf"):
         try:
-            font = ImageFont.truetype(name, 16)
+            font = ImageFont.truetype(name, 28)
             break
         except OSError:
             continue
@@ -525,22 +525,23 @@ def toolbar():
     # Alternate between two rows whenever adjacent markers would collide.
     k = ratio * scale
     prev_x, prev_row = -1e9, 1
+    bottom = strip.height
     for i, (cx, _) in enumerate(entries, start=1):
         x = cx * k
         row = 0 if x - prev_x >= 2 * radius + 6 else 1 - prev_row
         prev_x, prev_row = x, row
         cy = strip.height + 6 + radius + row * (2 * radius + 10)
-        draw.line([(x, strip.height - 2), (x, cy - radius)], fill="#999999", width=1)
+        bottom = max(bottom, cy + radius + 6)
+        draw.line([(x, strip.height - 2), (x, cy - radius)], fill="#555555", width=2)
         draw.ellipse(
             [x - radius, cy - radius, x + radius, cy + radius],
             fill="#1f3a93",
             outline="#1f3a93",
         )
-        text = str(i)
-        tw = draw.textlength(text, font=font)
-        draw.text((x - tw / 2, cy - 9), text, fill="#ffffff", font=font)
+        draw.text((x, cy), str(i), fill="#ffffff", font=font, anchor="mm")
 
     path = OUT / "t1_toolbar_annotated.png"
+    canvas = canvas.crop((0, 0, canvas.width, bottom))
     canvas.save(path, "PNG", optimize=True)
     raw.unlink()
     _shrink(path)

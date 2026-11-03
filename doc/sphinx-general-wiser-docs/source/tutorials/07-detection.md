@@ -1,4 +1,4 @@
-# Tutorial 7 — Finding a Known Material
+# 7. Finding a Known Material
 
 **Goal:** go from "what is in this scene?" to "where is this specific
 substance?" using WISER's four matching and unmixing tools, and know which one

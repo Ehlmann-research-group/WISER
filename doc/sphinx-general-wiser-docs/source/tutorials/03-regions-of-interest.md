@@ -1,4 +1,4 @@
-# Tutorial 3 — Regions of Interest
+# 3. Regions of Interest
 
 **Goal:** define three land-cover classes, extract a mean spectrum for each,
 and export the pixel spectra for use outside WISER.

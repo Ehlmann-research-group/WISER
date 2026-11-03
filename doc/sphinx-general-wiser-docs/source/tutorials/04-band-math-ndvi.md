@@ -1,4 +1,4 @@
-# Tutorial 4 — Band Math: Mapping Vegetation
+# 4. Band Math: Mapping Vegetation
 
 **Goal:** compute a vegetation index over the campus scene, display it, and
 read the result as a canopy map.

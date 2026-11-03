@@ -1,4 +1,4 @@
-# Tutorial 6 — PCA and MNF
+# 6. PCA and MNF
 
 **Goal:** compress a cube into a handful of bands, judge how many are worth
 keeping, and know when to reach for the Minimum Noise Fraction (MNF) instead of

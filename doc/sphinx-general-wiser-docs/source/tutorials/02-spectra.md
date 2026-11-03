@@ -1,4 +1,4 @@
-# Tutorial 2 — Reading Spectra
+# 2. Reading Spectra
 
 **Goal:** get a spectrum out of an image, collect several, compare them, and
 bring in reference spectra from a library.

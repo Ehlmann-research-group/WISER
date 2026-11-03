@@ -1,4 +1,4 @@
-# Tutorial 1 — Your First Scene
+# 1. Your First Scene
 
 **Goal:** open an image, move around it, choose which bands you look at, and
 make the picture readable.
