@@ -92,10 +92,36 @@ jobs:
         timeout-minutes: 40
 
       - name: Smoke test (macOS)
+        id: smoke-mac
         if: runner.os == 'macOS'
         shell: bash -leo pipefail {0}
         run: |
           ./dist/WISER/WISER_Bin --smoke
+        timeout-minutes: 5
+
+      # A native crash (e.g. SIGTRAP) leaves no Python traceback. Rerun the smoke under lldb
+      # for the native backtrace, and collect the system crash report from the failed run
+      # above plus WISER's own log. This step only gathers evidence; the job stays failed.
+      - name: Diagnose smoke crash (macOS)
+        if: failure() && steps.smoke-mac.outcome == 'failure'
+        shell: bash -leo pipefail {0}
+        run: |
+          mkdir -p smoke-diagnostics
+          QT_DEBUG_PLUGINS=1 lldb --batch -o run -k "bt all" -k "image list" -k quit \
+            -- ./dist/WISER/WISER_Bin --smoke 2>&1 | tee smoke-diagnostics/lldb.txt || true
+          shopt -s nullglob
+          cp ~/Library/Logs/DiagnosticReports/WISER_Bin*.ips smoke-diagnostics/
+          cp ~/Library/WISER-*/wiser.log* smoke-diagnostics/
+          sw_vers > smoke-diagnostics/sw_vers.txt
+        timeout-minutes: 10
+
+      - name: Upload smoke diagnostics (macOS)
+        if: failure() && steps.smoke-mac.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-diagnostics-${{ runner.os }}-${{ runner.arch }}
+          path: smoke-diagnostics/
+          if-no-files-found: warn
         timeout-minutes: 5
 
       - name: Pack macOS .app (preserve symlinks & modes)
