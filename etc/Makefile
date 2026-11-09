@@ -3,8 +3,8 @@
 # Tools (override if needed, e.g., `make PY=py`)
 PY ?= python
 
-# Platforms to include in the lockfiles
-LOCK_PLATFORMS := \
+# Platforms and virtual packages the lockfiles are solved for
+LOCK_PLATFORMS := --virtual-package-spec virtual-packages.yml \
   -p linux-64 \
   -p linux-aarch64 \
   -p osx-64 \

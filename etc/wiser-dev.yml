@@ -27,9 +27,9 @@ dependencies:
 - pillow
 - proj
 - pyproj
-- pyside6=6.11.*
+- pyside6>=6.11.2,<6.12
 - pytest
-- qt6-main=6.11.*
+- qt6-main>=6.11.2,<6.12
 - scipy
 - scikit-learn
 - setuptools

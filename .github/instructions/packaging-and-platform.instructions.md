@@ -61,8 +61,9 @@ The bundle is not a source tree, and these differences bite repeatedly:
 - **Apple Silicon versus Intel.** Both are shipped. Flag anything that assumes x86 —
   architecture-specific binaries, AVX intrinsics, a wheel with no `osx-arm64` build.
   `check_arch.sh` exists because mixed-architecture bundles have shipped before.
-- `MACOSX_DEPLOYMENT_TARGET=11.0` sets the oldest supported macOS. A dependency or API
-  requiring newer raises the floor for every user; call it out.
+- `MACOSX_DEPLOYMENT_TARGET=14.0` (Makefile) and `__osx` in `etc/virtual-packages.yml` set the
+  oldest supported macOS and must match. A dependency or API requiring newer raises the
+  floor for every user; call it out.
 - Qt itself differs across platforms in DPI handling, default fonts, menu placement
   (macOS moves items into the application menu), and native dialogs. A layout tuned to
   one platform's metrics is worth a comment.
