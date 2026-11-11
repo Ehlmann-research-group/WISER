@@ -322,6 +322,13 @@ class TestChunkedBandmathIgnoreValue(unittest.TestCase):
         self.assertTrue(np.ma.getmaskarray(band)[0, 0])
         np.testing.assert_allclose(np.ma.getdata(band)[0, 1:], [0.02, 1.8], rtol=1e-6)
 
+    def test_subprocess_writes_to_the_parents_temp_folder(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        with mock.patch.object(evaluator, "TEMP_FOLDER_PATH", folder):
+            result_ds = self._evaluate_chunked("d * 2", self._cube(-9999.0))
+        self.assertTrue(result_ds.get_filepaths()[0].startswith(folder))
+
 
 class TestChunkedBandmathAcrossChunks(unittest.TestCase):
     """The chunked path in-process, with one band per chunk."""
@@ -371,6 +378,7 @@ class TestChunkedBandmathAcrossChunks(unittest.TestCase):
             number_of_intermediates=1,
             tree=tree,
             use_synchronous_method=False,
+            temp_folder_path=evaluator.TEMP_FOLDER_PATH,
         )
         _, out_dataset, _, _ = evaluator.eval_singular_bandmath_expr_async(job, max_chunking_bytes=1)
         ignore = out_dataset.get_data_ignore_value()
