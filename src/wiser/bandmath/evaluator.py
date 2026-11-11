@@ -958,6 +958,7 @@ class SingleBandMathJob:
     number_of_intermediates: int
     tree: lark.ParseTree
     use_synchronous_method: bool
+    temp_folder_path: str  # folder that receives on-disk results; read from TEMP_FOLDER_PATH in the parent
     subdataset_name: str = ""
     filepath: Optional[str] = None  # for debugging / traceability
 
@@ -1013,6 +1014,7 @@ class BandMathJob:
     number_of_intermediates: int
     tree: lark.ParseTree
     use_synchronous_method: bool
+    temp_folder_path: str  # folder that receives on-disk results; read from TEMP_FOLDER_PATH in the parent
     subdataset_name: str = ""
 
     # Internal / derived
@@ -1105,6 +1107,7 @@ class BandMathJob:
                 number_of_intermediates=self.number_of_intermediates,
                 tree=self.tree,
                 use_synchronous_method=self.use_synchronous_method,
+                temp_folder_path=self.temp_folder_path,
                 subdataset_name=self.subdataset_name,
                 filepath=filepath,
             )
@@ -1202,6 +1205,7 @@ def start_bandmath_evaluation(
         number_of_intermediates=number_of_intermediates,
         tree=tree,
         use_synchronous_method=use_synchronous_method,
+        temp_folder_path=TEMP_FOLDER_PATH,
         subdataset_name=subdataset_name,
     )
 
@@ -1402,7 +1406,7 @@ def eval_singular_bandmath_expr_async(
             gdal_type=gdal_type,
             result_name=result_name,
             cache=cache,
-            temp_folder_path=TEMP_FOLDER_PATH,
+            temp_folder_path=single_bandmath_job.temp_folder_path,
         )
 
         # Based on memory limits (currently set in constants, but we could make it more adjustable)
