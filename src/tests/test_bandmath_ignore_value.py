@@ -18,7 +18,7 @@ from unittest import mock
 import lark
 import numpy as np
 import pytest
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 
 import tests.context  # noqa: F401
 
@@ -336,7 +336,11 @@ class TestChunkedBandmathAcrossChunks(unittest.TestCase):
         self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
         path = os.path.join(folder, "source.tif")
         gdal_ds = gdal.GetDriverByName("GTiff").Create(
-            path, data.shape[2], data.shape[1], data.shape[0], evaluator.np_dtype_to_gdal(data.dtype)
+            path,
+            data.shape[2],
+            data.shape[1],
+            data.shape[0],
+            gdal_array.NumericTypeCodeToGDALTypeCode(data.dtype),
         )
         for i in range(data.shape[0]):
             gdal_ds.GetRasterBand(i + 1).WriteArray(data[i])
@@ -437,6 +441,15 @@ class TestChunkedBandmathAcrossChunks(unittest.TestCase):
             self._evaluate("d + 1", ds)
         gc.collect()
         self.assertEqual(os.listdir(temp_output), [])
+
+    def test_negative_int8_result_is_written_as_int16(self):
+        ds = self._cube([[[-1, 5], [-100, -128]], [[0, -3], [127, 1]]], -128, dtype=np.int8)
+        self.assertEqual(ds.get_elem_type(), np.dtype(np.int8))
+        ignore, nodata, values = self._evaluate("d - 1", ds)
+        self.assertEqual(ignore, -128)
+        self.assertEqual(nodata, [-128.0, -128.0])
+        self.assertEqual(values.dtype, np.dtype(np.int16))
+        np.testing.assert_array_equal(values, [[[-2, 4], [-101, -128]], [[-1, -4], [126, 0]]])
 
     def test_unmasked_result_declares_no_ignore_value(self):
         ds = self._cube([[[0.01, 0.9], [0.9, 0.9]], [[0.9, 0.01], [0.01, 0.01]]], -9999.0)

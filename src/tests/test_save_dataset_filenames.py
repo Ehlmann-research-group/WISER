@@ -201,3 +201,51 @@ def test_bandmath_output_folder_accepts_dotted_result_name(test_model, tmp_path,
     reopened = RasterDataLoader().load_from_file(str(tmp_path / f"{name}.hdr"), interactive=False)[0]
     np.testing.assert_array_equal(reopened.get_image_data(), expected)
     reopened = None
+
+
+INT8_CUBE = np.array([[[-1, 0], [1, -128]], [[127, -5], [0, 1]]], dtype=np.int8)
+
+
+def test_save_widens_int8_to_int16(tmp_path):
+    # ENVI has no signed 8-bit type.
+    dataset = RasterDataLoader().dataset_from_numpy_array(INT8_CUBE)
+    dataset.set_data_ignore_value(-128)
+
+    RasterDataLoader().save_dataset_as(dataset, str(tmp_path / "mask.img"), "ENVI", None)
+
+    reopened = RasterDataLoader().load_from_file(str(tmp_path / "mask.hdr"), interactive=False)[0]
+    assert reopened.get_elem_type() == np.dtype(np.int16)
+    assert reopened.get_data_ignore_value() == -128
+    data = reopened.get_image_data()
+    np.testing.assert_array_equal(np.ma.getdata(data), INT8_CUBE)
+    np.testing.assert_array_equal(np.ma.getmaskarray(data), INT8_CUBE == -128)
+    reopened = None
+
+
+@pytest.mark.parametrize("save_fn", [save_band_from_bandmath_result, save_image_from_bandmath_result])
+def test_bandmath_output_folder_saves_masked_comparison_result(test_model, tmp_path, save_fn):
+    # A comparison such as "d > 0.05" yields int8; its no-data pixels are masked.
+    band = np.ma.array(np.array([[1, 0], [0, 1]], dtype=np.int8), mask=[[True, False], [False, False]])
+    if save_fn is save_band_from_bandmath_result:
+        kwargs = {"result": band, "app_state": test_model.app_state}
+        expected = band[np.newaxis]
+    else:
+        expected = np.ma.stack([band, band])
+        kwargs = {"result_type": VariableType.IMAGE_CUBE, "result": expected, "app_state": None}
+
+    save_fn(
+        **kwargs,
+        result_name="mask",
+        expression="d > 0.05",
+        expr_info=BandMathExprInfo(),
+        output_folder=str(tmp_path),
+        loader=RasterDataLoader(),
+    )
+
+    reopened = RasterDataLoader().load_from_file(str(tmp_path / "mask.hdr"), interactive=False)[0]
+    assert reopened.get_elem_type() == np.dtype(np.int16)
+    assert reopened.get_data_ignore_value() not in (0, 1)
+    data = reopened.get_image_data()
+    np.testing.assert_array_equal(np.ma.getmaskarray(data), np.ma.getmaskarray(expected))
+    np.testing.assert_array_equal(data.compressed(), expected.compressed())
+    reopened = None
