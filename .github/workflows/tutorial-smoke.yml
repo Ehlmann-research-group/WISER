@@ -1,0 +1,53 @@
+name: Tutorial scene smoke test
+
+# Drives the real application offscreen through every scene of the tutorial
+# figure generator (doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py):
+# each supported fixture format and each analysis dialog the tutorials walk
+# through. The generator exits nonzero if any scene raises, which fails the job.
+# Scenes use only the fixtures committed under src/test_utils/, so nothing is
+# downloaded. Figures go to a scratch directory and are uploaded as a run
+# artifact; nothing is written back to the repository.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"     # weekly, Monday 08:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tutorial-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scenes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore (or create on miss) linux-cached-dev
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: etc/dev-conda-lock.yml
+          environment-name: linux-cached-dev
+          cache-environment: true
+          cache-environment-key: linux-cached-dev-${{ hashFiles('etc/dev-conda-lock.yml') }}
+          cache-downloads: true
+          init-shell: bash
+
+      - name: Run every tutorial scene under xvfb-run
+        shell: micromamba-shell {0}
+        run: |
+          xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
+          bash -lc 'make generated && python -u doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py --out "${{ runner.temp }}/tutorial-figures"'
+        timeout-minutes: 30
+
+      - name: Upload rendered figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutorial-figures
+          path: ${{ runner.temp }}/tutorial-figures
+          if-no-files-found: warn
