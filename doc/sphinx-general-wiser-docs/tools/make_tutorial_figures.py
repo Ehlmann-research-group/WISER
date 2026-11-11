@@ -15,7 +15,13 @@ Usage
     # on a headless Linux box
     xvfb-run -a python doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py
 
-Figures are written to ``source/_static/tutorials/``.
+Figures are written to ``source/_static/tutorials/``, or to ``--out DIR`` (an
+absolute path). The scheduled CI smoke run (``.github/workflows/tutorial-smoke.yml``)
+uses ``--out`` so it never touches the committed figures.
+
+The script exits 1 if any scene raises. A scene raises when a dialog it drives
+has changed shape, a background task does not finish within its timeout, or a
+widget it expects is missing.
 
 Data
 ----
@@ -152,21 +158,22 @@ class Shoot:
             QApplication.processEvents()
             time.sleep(0.01)
 
-    def wait_for_datasets(self, target: int, timeout_s: float = 240.0) -> bool:
+    def wait_for_datasets(self, target: int, timeout_s: float = 240.0) -> None:
         """Wait until *target* datasets exist, so a background task can land.
 
         Uses ``soft_pump`` only: ``pump`` ends in ``QApplication.quit()``, which
         closes every top-level window -- including result windows the task just
         opened, such as the PCA scree plot.
+
+        Raises ``TimeoutError`` if the task has not landed within *timeout_s*.
         """
         deadline = time.time() + timeout_s
         while time.time() < deadline:
             if len(self.state.get_datasets()) >= target:
                 self.soft_pump()
-                return True
+                return
             self.soft_pump(10)
-        print(f"  !! timed out waiting for {target} datasets (have {len(self.state.get_datasets())})")
-        return False
+        raise TimeoutError(f"timed out waiting for {target} datasets (have {len(self.state.get_datasets())})")
 
     def close(self):
         self._shooting = False
@@ -225,13 +232,13 @@ class Shoot:
 
         Dialogs opened by the app often carry ``WA_DeleteOnClose``; clear it on
         the way out so a later event-loop spin cannot delete the widget we are
-        about to photograph.
+        about to photograph. Raises ``LookupError`` if no such dialog exists.
         """
         candidates = QApplication.topLevelWidgets() + self.win.findChildren(QDialog)
         found = [w for w in candidates if type(w).__name__ == class_name]
         found.sort(key=lambda w: not w.isVisible())
         if not found:
-            return None
+            raise LookupError(f"no {class_name} dialog is open")
         widget = found[0]
         widget.setAttribute(Qt.WA_DeleteOnClose, False)
         return widget
@@ -362,20 +369,14 @@ class Shoot:
         Reopening the dialog after the view's band count has changed raises
         ``IndexError`` inside ``StretchBuilderDialog.show()``, which indexes
         ``stretches[0..2]`` unconditionally in its RGB branch. Order scenes so
-        that does not happen; report rather than hide it if it does.
+        that does not happen; the error propagates and fails the scene if it does.
         """
-        try:
-            self.main_pane()._on_stretch_builder(rasterview_pos=(0, 0))
-            self.pump()
-            self.tm.click_stretch_linear_2_5()
-            self.pump()
-            self.tm.close_stretch_builder()
-            self.pump()
-        except IndexError:
-            print(
-                "  !! stretch builder raised IndexError (band count changed on "
-                "this view since the last stretch) -- figure left unstretched"
-            )
+        self.main_pane()._on_stretch_builder(rasterview_pos=(0, 0))
+        self.pump()
+        self.tm.click_stretch_linear_2_5()
+        self.pump()
+        self.tm.close_stretch_builder()
+        self.pump()
 
     def stretch_decorrelation(self):
         """Apply a decorrelation stretch, the RGB-only option in the same dialog.
@@ -689,21 +690,21 @@ def bandmath():
             load_into_wiser=True,
         ),
     )
-    if s.wait_for_datasets(before + 1, timeout_s=300):
-        ndvi = s.state.get_datasets()[-1]
-        s.display(ndvi, bands=(0,), colormap="RdYlGn")
-        s.stretch_2_5()
-        s.shot("t4_ndvi")
+    s.wait_for_datasets(before + 1, timeout_s=300)
+    ndvi = s.state.get_datasets()[-1]
+    s.display(ndvi, bands=(0,), colormap="RdYlGn")
+    s.stretch_2_5()
+    s.shot("t4_ndvi")
 
-        s.tm.set_main_view_layout((1, 2))
-        s.pump()
-        s.main_pane().show_dataset(ds, rasterview_pos=(0, 0))
-        s.main_pane().show_dataset(ndvi, rasterview_pos=(0, 1))
-        s.pump()
-        s.main_pane().set_display_bands(ndvi.get_id(), (0,), colormap="RdYlGn")
-        s.pump()
-        s.fit()
-        s.shot("t4_ndvi_vs_rgb")
+    s.tm.set_main_view_layout((1, 2))
+    s.pump()
+    s.main_pane().show_dataset(ds, rasterview_pos=(0, 0))
+    s.main_pane().show_dataset(ndvi, rasterview_pos=(0, 1))
+    s.pump()
+    s.main_pane().set_display_bands(ndvi.get_id(), (0,), colormap="RdYlGn")
+    s.pump()
+    s.fit()
+    s.shot("t4_ndvi_vs_rgb")
 
     s.close()
 
@@ -729,33 +730,27 @@ def kmeans():
 
     before = len(s.state.get_datasets())
     dlg.perform_kmeans()
-    if s.wait_for_datasets(before + 1, timeout_s=600):
-        # Two clicks, not one:  View Centroids opens a run-history table, and
-        # the View button on a row is what plots the centroid spectra.  The
-        # plot is registered in _generic_spectrum_plots rather than in
-        # _matplotlib_display_widgets.
-        dlg._on_view_centroids()
-        s.soft_pump()
-        history = dlg._centroids_dialog
-        if history is not None:
-            records = history._history.get_records()
-            if records:
-                history._on_view_clicked(records[-1].run_id)
-                s.soft_pump()
-                plots = list(getattr(s.state, "_generic_spectrum_plots", []))
-                if plots:
-                    plot = plots[-1]
-                    plot.resize(900, 620)
-                    s.soft_pump()
-                    s.shot("t5_kmeans_centroids", plot)
-            history.close()
-        dlg.close()
+    s.wait_for_datasets(before + 1, timeout_s=600)
+    # Two clicks, not one:  View Centroids opens a run-history table, and
+    # the View button on a row is what plots the centroid spectra.  The
+    # plot is registered in _generic_spectrum_plots rather than in
+    # _matplotlib_display_widgets.
+    dlg._on_view_centroids()
+    s.soft_pump()
+    history = dlg._centroids_dialog
+    records = history._history.get_records()
+    history._on_view_clicked(records[-1].run_id)
+    s.soft_pump()
+    (plot,) = s.state._generic_spectrum_plots
+    plot.resize(900, 620)
+    s.soft_pump()
+    s.shot("t5_kmeans_centroids", plot)
+    history.close()
+    dlg.close()
 
-        labels = s.state.get_datasets()[-1]
-        s.display(labels, bands=(0,), colormap="tab10")
-        s.shot("t5_kmeans_labels")
-    else:
-        dlg.close()
+    labels = s.state.get_datasets()[-1]
+    s.display(labels, bands=(0,), colormap="tab10")
+    s.shot("t5_kmeans_labels")
 
     s.close()
 
@@ -783,20 +778,17 @@ def scatter():
     s.soft_pump()
     s.tm.click_create_scatter_plot()
     deadline = time.time() + 180
-    while dlg.get_xy() is None and time.time() < deadline:
+    while dlg.get_xy() is None:
+        if time.time() > deadline:
+            raise TimeoutError("scatter plot produced no points within 180 s")
         s.soft_pump(10)
     s.soft_pump(40)
     s.shot("t8_scatter_plot", dlg)
 
-    try:
-        s.tm.create_polygon_in_interactive_scatter_plot(
-            [(0.02, 0.22), (0.14, 0.55), (0.22, 0.55), (0.10, 0.20)]
-        )
-        s.soft_pump(40)
-        s.shot("t8_scatter_selection", dlg)
-        s.shot("t8_scatter_highlight")
-    except Exception:
-        traceback.print_exc()
+    s.tm.create_polygon_in_interactive_scatter_plot([(0.02, 0.22), (0.14, 0.55), (0.22, 0.55), (0.10, 0.20)])
+    s.soft_pump(40)
+    s.shot("t8_scatter_selection", dlg)
+    s.shot("t8_scatter_highlight")
     dlg.close()
     s.close()
 
@@ -811,12 +803,11 @@ def mnf():
     s.win.show_mnf_dialog()
     s.soft_pump()
     dlg = s.find_dialog("MinimumNoiseFractionDialog")
-    if dlg is not None:
-        combo = dlg._ui.comboBox
-        combo.setCurrentIndex(combo.findText(CAMPUS.stem))
-        s.soft_pump()
-        s.shot("t6_mnf_dialog", dlg)
-        dlg.close()
+    combo = dlg._ui.comboBox
+    combo.setCurrentIndex(combo.findText(CAMPUS.stem))
+    s.soft_pump()
+    s.shot("t6_mnf_dialog", dlg)
+    dlg.close()
     s.close()
 
 
@@ -879,20 +870,18 @@ def detection():
     s.win.show_spectral_angle_mapper_dialog()
     s.soft_pump()
     dlg = s.find_dialog("SAMTool")
-    if dlg is not None:
-        dlg.resize(1000, 720)
-        configure_spectral_tool(s, dlg, ds)
-        s.shot("t7_sam_dialog", dlg)
-        dlg.close()
+    dlg.resize(1000, 720)
+    configure_spectral_tool(s, dlg, ds)
+    s.shot("t7_sam_dialog", dlg)
+    dlg.close()
 
     s.win.show_spectral_feature_fitting_dialog()
     s.soft_pump()
     dlg = s.find_dialog("SFFTool")
-    if dlg is not None:
-        dlg.resize(1000, 720)
-        configure_spectral_tool(s, dlg, ds)
-        s.shot("t7_sff_dialog", dlg)
-        dlg.close()
+    dlg.resize(1000, 720)
+    configure_spectral_tool(s, dlg, ds)
+    s.shot("t7_sff_dialog", dlg)
+    dlg.close()
 
     s.win.show_mtmf_dialog()
     s.soft_pump()
@@ -978,10 +967,23 @@ def board():
 
 
 def main():
+    global OUT
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--only", action="append", help="scene name (repeatable)")
     ap.add_argument("--list", action="store_true", help="list scene names and exit")
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=OUT,
+        help="absolute directory to write figures to (default: source/_static/tutorials/)",
+    )
     args = ap.parse_args()
+
+    # The module chdirs into src/ on import, so a relative path would not mean
+    # what the caller typed.
+    if not args.out.is_absolute():
+        ap.error("--out must be an absolute path")
+    OUT = args.out
 
     if args.list:
         for name in SCENES:
