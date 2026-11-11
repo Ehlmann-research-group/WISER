@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 import time
 import unittest
 from concurrent.futures import BrokenExecutor, Future
@@ -1287,6 +1288,76 @@ class TestRestartableExecutor(unittest.TestCase):
         )
         with self.assertRaises(BrokenExecutor):
             pool.submit(lambda: "never runs")
+
+    def test_submit_after_shutdown_raises_without_restarting(self) -> None:
+        created: list[_FakeBreakingExecutor] = []
+
+        def factory() -> _FakeBreakingExecutor:
+            executor = _FakeBreakingExecutor(breaks_on_first_submit=True)
+            created.append(executor)
+            return executor
+
+        pool = _RestartableExecutor("FakePool", factory)
+        pool.shutdown(wait=True)
+
+        with self.assertRaisesRegex(RuntimeError, "FakePool after shutdown"):
+            pool.submit(lambda: "never runs")
+        self.assertEqual(len(created), 1, "a shut-down pool must not build a replacement executor")
+        self.assertEqual(created[0].submit_count, 0)
+
+
+class TestWorkSchedulerShutdown(unittest.TestCase):
+    def test_shutdown_while_a_stage_completes_aborts_the_plan_instead_of_deadlocking(self) -> None:
+        """A unit that finishes during shutdown must not block on the pool lock (#865).
+
+        The unit's done-callback runs on the executor's own worker thread and tries
+        to submit the next stage while `shutdown(wait=True)` is joining that thread.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = StorageService(root_dir=tmp_dir)
+            scheduler = WorkScheduler(SchedulerConfig(_process_budget=3, _thread_budget=3), service)
+            release = threading.Event()
+            try:
+                first = _make_work_unit(
+                    unit_id="s1_u1",
+                    stage_id="s00",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=partial(release.wait, 30),
+                )
+                second = _make_work_unit(
+                    unit_id="s2_u1",
+                    stage_id="s01",
+                    priority=PriorityClass.INTERACTIVE,
+                    executor_kind="thread",
+                    fn=_ok_thread_a,
+                )
+                plan = TaskPlan(
+                    plan_id="plan-shutdown-mid-run",
+                    semantic_task_id="semantic-shutdown-mid-run",
+                    work_units={first.unit_id: first, second.unit_id: second},
+                    stage_work_units={"s00": [first.unit_id], "s01": [second.unit_id]},
+                )
+                completion = scheduler.run_task_plan(plan)
+
+                thread_executor = scheduler._thread_pool.executor
+                original_shutdown = thread_executor.shutdown
+
+                def release_then_shutdown(wait: bool = True, **kwargs) -> None:
+                    release.set()
+                    original_shutdown(wait=wait, **kwargs)
+
+                with patch.object(thread_executor, "shutdown", side_effect=release_then_shutdown):
+                    shutdown_thread = threading.Thread(target=scheduler.shutdown, daemon=True)
+                    shutdown_thread.start()
+                    shutdown_thread.join(timeout=30)
+
+                self.assertFalse(shutdown_thread.is_alive(), "WorkScheduler.shutdown deadlocked")
+                with self.assertRaisesRegex(RuntimeError, "ThreadPoolExecutor after shutdown"):
+                    completion.result(timeout=5)
+            finally:
+                release.set()
+                service.close()
 
 
 class TestWorkSchedulerBrokenPoolRecovery(unittest.TestCase):
