@@ -811,7 +811,7 @@ class SimilarityTransformDialog(QDialog):
             QMessageBox.warning(
                 self,
                 self.tr("Translation Dataset Not Selected"),
-                self.tr("You have no translation dataset selected.\nPlease select a translation dataset."),
+                self.tr("You have no translation dataset selected.\n" "Please select a translation dataset."),
             )
             return
         # Computed on the GUI thread: its asserts read the UL coordinate line-edits.
