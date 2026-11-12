@@ -11,6 +11,7 @@ from wiser.gui.app_state import ApplicationState
 
 from wiser.raster.dataset import RasterDataSet, pixel_coord_to_geo_coord
 from wiser.raster.dataset_impl import GDALRasterDataImpl
+from wiser.raster.mosaic_ingestion import is_dataset_georeferenced
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
@@ -182,7 +183,7 @@ def create_rotated_scaled_dataset(
                 new_dataset.GetRasterBand(i).SetNoDataValue(data_ignore)
         new_dataset.FlushCache()
         # Copies geographic data separately
-        if dataset.has_geographic_info():
+        if is_dataset_georeferenced(dataset):
             new_dataset.SetSpatialRef(dataset.get_spatial_ref())
             gt = dataset.get_geo_transform()
             width = dataset.get_width()
