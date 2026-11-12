@@ -106,8 +106,9 @@ def bandmath_ignore_candidates(dtype: np.dtype, expr_info: "BandMathExprInfo") -
     Return, in order of preference, the data-ignore values a band-math result of
     ``dtype`` may use:  the spectral-metadata source's ignore value,
     ``DEFAULT_IGNORE_VALUE``, the dtype's minimum, then its maximum, keeping those the
-    dtype can represent.  NaN is never a candidate, since reads mask the ignore value
-    with ``np.ma.masked_values``, which does not match NaN.
+    dtype can represent.  NaN is never a candidate:  a result can hold NaN as a
+    computed value (e.g. 0/0), which a NaN ignore value would mask on read, and
+    ``remaining_ignore_candidates`` cannot detect that collision.
 
     Raises:
         ValueError: if ``dtype`` is neither integer nor floating point.

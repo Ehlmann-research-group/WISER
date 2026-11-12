@@ -390,7 +390,11 @@ class GDALRasterDataImpl(RasterDataImpl):
             data_ignore = band.GetNoDataValue()
             if self.data_ignore is None:
                 self.data_ignore = data_ignore
-            elif data_ignore is not None and self.data_ignore != data_ignore:
+            elif (
+                data_ignore is not None
+                and self.data_ignore != data_ignore
+                and not (np.isnan(self.data_ignore) and np.isnan(data_ignore))
+            ):
                 raise ValueError(
                     "Cannot handle raster data with bands that "
                     + "have different data-ignore values per band."
