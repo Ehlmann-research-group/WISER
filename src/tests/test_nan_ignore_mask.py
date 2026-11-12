@@ -146,9 +146,7 @@ def test_rotated_float_output_reopens_with_nan_fill_masked(tmp_path):
     out_path = str(tmp_path / "rotated.tif")
     ds = _dataset((np.arange(2 * 6 * 8).reshape(2, 6, 8) + 1).astype(np.float32), None)
     rotation = 30.0
-    cos, sin = abs(math.cos(math.radians(rotation))), abs(math.sin(math.radians(rotation)))
-    out_width, out_height = int(6 * sin + 8 * cos), int(6 * cos + 8 * sin)
-    create_rotated_scaled_dataset(ds, rotation, 1.0, cv2.INTER_NEAREST, out_width, out_height, out_path)
+    create_rotated_scaled_dataset(ds, rotation, 1.0, cv2.INTER_NEAREST, out_path)
 
     reopened = RasterDataLoader().load_from_file(out_path, interactive=False)[0]
     assert math.isnan(reopened.get_data_ignore_value())

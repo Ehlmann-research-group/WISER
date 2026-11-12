@@ -5,7 +5,6 @@ must treat it as ungeoreferenced, and nothing derived from it may be written wit
 its CRS paired to an identity (or identity-derived) transform.
 """
 
-import math
 from unittest import mock
 
 import cv2
@@ -48,10 +47,7 @@ def _save_envi(dataset, tmp_path):
 
 def _rotate(dataset, tmp_path):
     path = str(tmp_path / "rotated.tif")
-    h, w = dataset.get_height(), dataset.get_width()
-    cos, sin = abs(math.cos(math.radians(30.0))), abs(math.sin(math.radians(30.0)))
-    out_width, out_height = int(h * sin + w * cos), int(h * cos + w * sin)
-    create_rotated_scaled_dataset(dataset, 30.0, 1.0, cv2.INTER_NEAREST, out_width, out_height, path)
+    create_rotated_scaled_dataset(dataset, 30.0, 1.0, cv2.INTER_NEAREST, path)
     written = gdal.Open(path)
     projection = written.GetProjection()
     written = None
