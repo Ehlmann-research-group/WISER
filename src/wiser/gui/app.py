@@ -855,6 +855,7 @@ class DataVisualizerApp(QMainWindow):
             path,
             resolver,
             self_contained,
+            opened_root=self._project_extract_dir,
             on_success=on_saved,
             on_error=on_failed,
             description=self.tr("Writing project file…"),
@@ -958,9 +959,9 @@ class DataVisualizerApp(QMainWindow):
         # The session now *is* the project, so a re-save writes all of it; the exclusions
         # that produced the file were applied when it was written.
         self._current_excluded = set()
-        # Re-saving must keep the opened project's own storage mode: its datasets may
-        # live in the bundle (for a zip, in the temp extract dir), and a referenced
-        # re-save would point the manifest at storage that dies with the session.
+        # Re-saving keeps the opened project's own storage mode: a project whose
+        # datasets all restored from its bundle was saved self-contained.  Results a
+        # referenced project copied in are copied again on every save regardless.
         self._current_self_contained = project_embeds_datasets(
             self._app_state, self._project_extract_dir or path
         )

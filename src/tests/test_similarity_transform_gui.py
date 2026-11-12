@@ -122,8 +122,18 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         # compare with a tolerance instead of requiring an exact match -- a real
         # transform regression (wrong angle/scale/interpolation) would differ by
         # orders of magnitude more.
+        # The ground truth holds 0 for the pixels outside the rotated footprint;
+        # the output must hold the declared nodata there instead (issue #860).
+        fill = test_arr == test_ds.get_data_ignore_value()
+        self.assertEqual(test_ds.get_data_ignore_value(), -9999)
+        self.assertTrue(fill[:, 0, 0].all())
+        self.assertFalse((test_arr == 0).any())
+        # Fill must cover the ground truth's outside-footprint region and add at
+        # most the masked edge band (~0.7% of pixels for this transform).
+        self.assertTrue(fill[gt_arr == 0].all())
+        self.assertLess(np.count_nonzero(fill & (gt_arr != 0)), 0.01 * fill.size)
         self.assertTrue(
-            np.allclose(gt_arr, test_arr, atol=0.05),
+            np.allclose(gt_arr[~fill], test_arr[~fill], atol=0.05),
             "Rotated and scaled array doesn't match ground truth",
         )
         self.assertTrue(

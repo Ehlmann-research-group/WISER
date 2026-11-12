@@ -250,6 +250,66 @@ class TestProjectSaveGui(unittest.TestCase):
         entry = self._manifest(referenced)["datasets"][0]
         self.assertEqual(entry["storage"], STORAGE_REFERENCE)
 
+    def _save_referenced_project_with_a_copied_result(self):
+        """Save As a referenced project holding a scene and an in-memory result."""
+        src_dir, scene = self._file_backed_dataset("sources")
+        result = self.test_model.load_dataset(np.ones((3, 7, 7), dtype=np.float32))
+        result.set_name("result")
+        project = os.path.join(self.tmp_path, "referenced.wiserproj")
+        self._save_as(project, self_contained=False)
+        return project, scene.get_filepaths()[0]
+
+    def _assert_scene_referenced_and_result_copied(self, project, scene_path):
+        entries = {entry["name"]: entry for entry in self._manifest(project)["datasets"]}
+        self.assertEqual(entries["result"]["storage"], STORAGE_SIDECAR)
+        scene = next(entry for name, entry in entries.items() if name != "result")
+        self.assertEqual(scene["storage"], STORAGE_REFERENCE)
+        self.assertEqual(scene["path"], os.path.abspath(scene_path))
+
+    def test_reopening_a_referenced_project_with_a_copied_result_keeps_the_scene_referenced(self):
+        # The result is restored from a sidecar in the temp extract dir, but that must not
+        # turn the whole project self-contained: Save would copy every scene into it.
+        project, scene_path = self._save_referenced_project_with_a_copied_result()
+
+        self._open(project)
+        self.assertFalse(self.main_window._current_self_contained)
+        self._save()
+        self._assert_scene_referenced_and_result_copied(project, scene_path)
+
+        # The result's pixels are in the new bundle, not only in the extract dir that
+        # the next open deletes.
+        self._open(project)
+        self._save()
+        self._assert_scene_referenced_and_result_copied(project, scene_path)
+        result = next(ds for ds in self.app_state.get_datasets() if ds.get_name() == "result")
+        np.testing.assert_array_equal(
+            np.asarray(result.get_image_data(filter_data_ignore_value=False)),
+            np.ones((3, 7, 7), dtype=np.float32),
+        )
+
+    def test_a_referenced_project_reopened_after_quitting_keeps_the_scene_referenced(self):
+        project, scene_path = self._save_referenced_project_with_a_copied_result()
+
+        self.test_model.close_app()
+        self.test_model = WiserTestModel()
+        self.app_state = self.test_model.app_state
+        self.main_window = self.test_model.main_window
+
+        self._open(project)
+        self.assertFalse(self.main_window._current_self_contained)
+        self._save()
+        self._assert_scene_referenced_and_result_copied(project, scene_path)
+
+    def test_saving_a_reopened_project_elsewhere_copies_its_results(self):
+        # Save As to a new file reads the result from the extract dir of the project it
+        # was opened from; a reference to that dir would die with the session.
+        project, scene_path = self._save_referenced_project_with_a_copied_result()
+        self._open(project)
+
+        copy = os.path.join(self.tmp_path, "copy.wiserproj")
+        self._save_as(copy, self_contained=False)
+        self._assert_scene_referenced_and_result_copied(copy, scene_path)
+
     # -- a dataset that reopens on a different pixel grid -------------------
 
     def test_a_project_on_a_changed_pixel_grid_is_refused_and_forgotten(self):

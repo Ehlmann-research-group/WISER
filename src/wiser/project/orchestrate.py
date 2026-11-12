@@ -38,6 +38,7 @@ from .resolver import Dependency, DependencyResolver, resolver_for_all_datasets
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
+    from wiser.raster.dataset import RasterDataSet
 
 PathLike = Union[str, Path]
 
@@ -48,6 +49,7 @@ def save_project(
     resolver: Optional[DependencyResolver] = None,
     self_contained: bool = False,
     progress: Optional[ProgressReporter] = None,
+    opened_root: Optional[PathLike] = None,
 ) -> Path:
     """Save the current session to ``dest``.
 
@@ -56,7 +58,11 @@ def save_project(
     dataset is treated as saved (the #626 dialog supplies a user-driven one).
     When ``self_contained`` is set, file-backed datasets are copied into the bundle
     (rather than referenced by path) so the project is portable/shareable.
-    Returns the path written.
+    ``opened_root`` is the directory the session's project was opened from (for a
+    zip, the temporary directory it was extracted into), or ``None`` when no project
+    was opened; a dataset restored from a sidecar under it is copied into the bundle
+    on every save, since that storage does not outlive the session.  Returns the
+    path written.
 
     Once ``dest`` is in place, each dataset written into the bundle as a copy (an
     in-memory dataset, a large band-math result held in a temporary file WISER
@@ -83,10 +89,10 @@ def save_project(
         collect, package = progress.split((0.7, "Collecting project data"), (0.3, "Writing project file"))
         with tempfile.TemporaryDirectory(prefix="wiserproj-save-") as work:
             bundle = ProjectBundle.create(work)
-            copied_ids = _write_bundle(app_state, bundle, resolver, self_contained, collect)
+            copied_ids = _write_bundle(app_state, bundle, resolver, self_contained, collect, opened_root)
             zip_bundle(bundle, dest, package)
     else:
-        copied_ids = _write_bundle_directory(app_state, dest, resolver, self_contained, progress)
+        copied_ids = _write_bundle_directory(app_state, dest, resolver, self_contained, progress, opened_root)
     for ds_id in copied_ids:
         if app_state.has_dataset(ds_id):
             app_state.get_dataset(ds_id).set_dirty(False)
@@ -99,6 +105,7 @@ def _write_bundle_directory(
     resolver: DependencyResolver,
     self_contained: bool,
     progress: ProgressReporter,
+    opened_root: Optional[PathLike],
 ) -> "frozenset[int]":
     """Write a bundle *directory*, swapping it into place only once it is complete.
 
@@ -116,7 +123,7 @@ def _write_bundle_directory(
     remove_path(staging)
     try:
         copied_ids = _write_bundle(
-            app_state, ProjectBundle.create(staging), resolver, self_contained, progress
+            app_state, ProjectBundle.create(staging), resolver, self_contained, progress, opened_root
         )
     except BaseException:
         remove_path(staging)
@@ -207,27 +214,34 @@ def load_project(
 
 
 def project_embeds_datasets(app_state: "ApplicationState", bundle_root: PathLike) -> bool:
-    """Whether the session's datasets are backed by files inside ``bundle_root``.
+    """Whether every dataset in the session is backed by a file inside ``bundle_root``.
 
-    A project saved self-contained restores its datasets from the ENVI sidecars in
-    its own bundle -- for a zip, from the temporary directory it was extracted into.
-    Re-saving such a session by reference would write absolute paths into storage
-    that does not outlive it, so a caller re-saving an opened project uses this to
-    keep it self-contained.
+    A project saved self-contained restores all its datasets from the ENVI sidecars
+    in its own bundle -- for a zip, from the temporary directory it was extracted
+    into -- so a caller re-saving an opened project uses this to keep it
+    self-contained.  A referenced project restores only its copied-in results from
+    sidecars, and re-saving it self-contained would copy every scene it references
+    into the bundle, so one dataset outside ``bundle_root`` makes this False.  So
+    does an empty session.
     """
-    root = Path(bundle_root).resolve()
-    for dataset in app_state.get_datasets():
-        for filepath in dataset.get_filepaths() or []:
-            if not filepath:
-                continue
-            try:
-                # A subdataset descriptor (NETCDF:"/path":var) is not a path and
-                # never names a sidecar, so a failure to place it under the bundle
-                # is the correct answer, not an error.
-                Path(filepath).resolve().relative_to(root)
-            except ValueError:
-                continue
-            return True
+    datasets = app_state.get_datasets()
+    return bool(datasets) and all(_restored_from_bundle(ds, Path(bundle_root)) for ds in datasets)
+
+
+def _restored_from_bundle(dataset: "RasterDataSet", bundle_root: Path) -> bool:
+    """Whether a file backing ``dataset`` lies inside ``bundle_root``."""
+    root = bundle_root.resolve()
+    for filepath in dataset.get_filepaths() or []:
+        if not filepath:
+            continue
+        try:
+            # A subdataset descriptor (NETCDF:"/path":var) is not a path and
+            # never names a sidecar, so a failure to place it under the bundle
+            # is the correct answer, not an error.
+            Path(filepath).resolve().relative_to(root)
+        except ValueError:
+            continue
+        return True
     return False
 
 
@@ -237,6 +251,7 @@ def _write_bundle(
     resolver: DependencyResolver,
     self_contained: bool = False,
     progress: Optional[ProgressReporter] = None,
+    opened_root: Optional[PathLike] = None,
 ) -> "frozenset[int]":
     """Write the session into ``bundle``; returns the ids of the datasets copied into it."""
     # Clear any prior contents so re-saving over an existing bundle directory does
@@ -259,6 +274,11 @@ def _write_bundle(
         for ds in app_state.get_datasets()
         if not resolver.is_saved(Dependency("dataset", ds.get_id()))
     )
+    sidecar_ids = frozenset(
+        ds.get_id()
+        for ds in app_state.get_datasets()
+        if opened_root is not None and _restored_from_bundle(ds, Path(opened_root))
+    )
     save_datasets(
         app_state,
         manifest,
@@ -266,6 +286,7 @@ def _write_bundle(
         excluded_ids,
         embed_file_backed=self_contained,
         progress=datasets_progress,
+        embed_ids=sidecar_ids,
     )
     session_progress.raise_if_cancelled()
     save_user_crs(app_state, manifest, resolver)

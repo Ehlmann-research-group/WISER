@@ -2528,6 +2528,9 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         elem_type = src_dataset.get_elem_type()
         gdal_elem_type, band_write_dtype = numpy_dtype_to_gdal_export_types(elem_type)
+        if band_write_dtype == np.dtype(np.int8):
+            # ENVI has no signed 8-bit type; int16 holds every int8 value and ignore value.
+            gdal_elem_type, band_write_dtype = gdal.GDT_Int16, np.dtype(np.int16)
 
         # logger.debug('Destination raster image values:\n' +
         #     f'width={dst_width}, height={dst_height}\n' +
