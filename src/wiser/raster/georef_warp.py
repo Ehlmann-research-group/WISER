@@ -225,9 +225,29 @@ def warp_dataset_to_path(
     ``ref_srs`` supplies the destination projection attached to the GCPs. The caller is
     responsible for validating inputs (save path, GCP count, target selected) before
     calling.
+
+    Output pixels outside the warped source footprint, and source pixels equal to the
+    dataset's data-ignore value, are written as that data-ignore value, which is declared
+    as the GeoTIFF's nodata. A floating-point dataset with no data-ignore value is written
+    with NaN for those pixels and NaN declared as nodata.
+
+    Raises:
+        ValueError: if the dataset is an integer type with no data-ignore value. Raised
+            before anything is written to ``save_path``.
     """
     if progress is None:
         progress = ProgressReporter()
+
+    dst_nodata = target_dataset.get_data_ignore_value()
+    if dst_nodata is None:
+        if not np.issubdtype(target_dataset.get_elem_type(), np.floating):
+            raise ValueError(
+                "Georeferencing produces fill pixels, but the integer dataset has no "
+                "data-ignore value to write them as. Set a data-ignore value on the "
+                "dataset and run again."
+            )
+        dst_nodata = np.nan
+    warp_kwargs = {**warp_kwargs, "dstNodata": dst_nodata}
 
     gdal.UseExceptions()
 
@@ -376,6 +396,8 @@ def warp_dataset_to_path(
         raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
 
     copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
+    for i in range(1, output_dataset.RasterCount + 1):
+        output_dataset.GetRasterBand(i).SetNoDataValue(dst_nodata)
     gt = output_dataset.GetGeoTransform()
     if gt is None:
         raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")

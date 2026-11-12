@@ -151,6 +151,41 @@ class TestGeoReferencerGUI(unittest.TestCase):
         warped_transform = ds_warp.get_geo_transform()
         self.assertTrue(np.allclose(warped_transform, ground_truth_geo_transform))
 
+    def test_integer_target_without_ignore_value_reports_error(self):
+        """An integer target with no data-ignore value fails in the dialog's error
+        callback and leaves no output file."""
+        arr = np.arange(3 * 40 * 50, dtype=np.uint16).reshape(3, 40, 50)
+        ds = self.test_model.load_dataset(arr)
+        self.assertIsNone(ds.get_data_ignore_value())
+
+        self.test_model.open_geo_referencer()
+        self.test_model.set_geo_ref_target_dataset(ds.get_id())
+        self.test_model.set_geo_ref_output_crs(AuthorityCodeCRS("EPSG", 32611))
+        self.test_model.set_geo_ref_polynomial_order("1")
+        self.test_model.select_manual_authority_ref("EPSG")
+        self.test_model.enter_manual_authority_code_ref("32611")
+        self.test_model.click_find_crs_ref()
+        self.test_model.choose_manual_crs_geo_ref(AuthorityCodeCRS("EPSG", 32611))
+
+        for (col, row), (east, north) in [
+            ((5, 5), (500050.0, 3999950.0)),
+            ((45, 8), (500450.0, 3999920.0)),
+            ((10, 35), (500100.0, 3999650.0)),
+        ]:
+            self.test_model.click_target_image((col, row))
+            self.test_model.press_enter_target_image()
+            self.test_model.enter_lat_north_geo_ref(north)
+            self.test_model.press_enter_lat_north_geo_ref()
+            self.test_model.enter_lon_east_geo_ref(east)
+            self.test_model.press_enter_lon_east_geo_ref()
+
+        save_path = os.path.join(self.out_dir, "int_warp_output.tif")
+        self.test_model.set_geo_ref_file_save_path(save_path)
+
+        with self.assertRaisesRegex(RuntimeError, "data-ignore value"):
+            self.test_model.click_run_warp()
+        self.assertFalse(os.path.exists(save_path))
+
     def test_manual_entry_e2e(self):
         """Performs an end-to-end test of manually entering geocoordinates in the GeoReferencer.
 
