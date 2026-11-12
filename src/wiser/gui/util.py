@@ -917,6 +917,18 @@ def generate_unused_filename(basename: str, extension: str) -> str:
     return filename
 
 
+def rotate_scale_expand_size(width: int, height: int, angle: float, scale: float) -> Tuple[int, int]:
+    """
+    Return the ``(width, height)`` in pixels of the canvas ``cv2_rotate_scale_expand``
+    produces for a ``width`` x ``height`` image rotated ``angle`` degrees CCW and
+    scaled by ``scale``.
+    """
+    M = cv2.getRotationMatrix2D((width / 2, height / 2), angle, scale)
+    abs_cos = abs(M[0, 0])
+    abs_sin = abs(M[0, 1])
+    return int(height * abs_sin + width * abs_cos), int(height * abs_cos + width * abs_sin)
+
+
 def cv2_rotate_scale_expand(
     img: np.ndarray,
     angle: float,
@@ -950,10 +962,7 @@ def cv2_rotate_scale_expand(
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
     # 4. Compute new canvas size so nothing is clipped
-    abs_cos = abs(M[0, 0])
-    abs_sin = abs(M[0, 1])
-    new_w = int(h * abs_sin + w * abs_cos)
-    new_h = int(h * abs_cos + w * abs_sin)
+    new_w, new_h = rotate_scale_expand_size(w, h, angle, scale)
     # shift origin to centre result
     M[0, 2] += new_w / 2 - cx
     M[1, 2] += new_h / 2 - cy

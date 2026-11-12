@@ -19,6 +19,7 @@ from .rasterview import (
 from . import theme
 from .rasterpane import RasterPane, TiledRasterView, RecenterMode
 from .app_state import ApplicationState
+from wiser.raster.mosaic_ingestion import is_dataset_georeferenced
 from wiser.raster.selection import SinglePixelSelection
 from .util import pillow_rotate_scale_expand, cv2_rotate_scale_expand
 
@@ -268,7 +269,7 @@ class SimilarityTransformPane(RasterPane):
     def _on_dataset_changed(self, act):
         (rasterview_pos, ds_id) = act.data()
         dataset = self._app_state.get_dataset(ds_id)
-        if dataset.has_geographic_info() or not self._translation:
+        if is_dataset_georeferenced(dataset) or not self._translation:
             self.show_dataset(dataset, rasterview_pos)
             self.dataset_changed.emit(ds_id)
         else:

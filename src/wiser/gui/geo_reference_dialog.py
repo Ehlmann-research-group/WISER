@@ -34,6 +34,7 @@ from wiser.raster.crs_model import (
     COMMON_SRS,
 )
 from wiser.raster import gcp_io
+from wiser.raster.mosaic_ingestion import is_dataset_georeferenced
 from wiser.raster.georef_warp import (
     RESAMPLE_ALGORITHMS,
     TRANSFORM_TYPES,
@@ -1115,13 +1116,13 @@ class GeoReferencerDialog(QDialog):
                 self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                 return
 
-        # A real reference dataset must carry a spatial reference; guard against None so we
-        # do not call has_geographic_info() on the "(no data)" selection.
-        if dataset is not None and not dataset.has_geographic_info():
+        # A real reference dataset must be georeferenced (a spatial reference and a
+        # non-identity geotransform); the "(no data)" selection is None.
+        if dataset is not None and not is_dataset_georeferenced(dataset):
             QMessageBox.warning(
                 self,
                 self.tr("Unreferenced Dataset"),
-                self.tr("You must choose a dataset with a spatial reference system"),
+                self.tr("You must choose a dataset with a spatial reference system and a geotransform"),
             )
             self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
             return

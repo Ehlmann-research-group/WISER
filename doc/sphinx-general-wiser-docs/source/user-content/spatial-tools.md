@@ -226,5 +226,5 @@ Lat/North' and 'Translate Lon/East' editable fields, you will change the new
 upper left coordinate of your geotransform.
 
 Click any pixel in the raster dataset to see the new spatial coordinate it will
-have, shown under the raster image. This works only with datasets that have
-geographic information.
+have, shown under the raster image. This works only with georeferenced datasets:
+ones that have both a spatial reference system and a geotransform.

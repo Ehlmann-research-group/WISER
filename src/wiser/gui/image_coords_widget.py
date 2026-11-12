@@ -163,6 +163,14 @@ class ImageCoordsWidget(QDialog):
 
         return self._display_config[ds_id]
 
+    def forget_dataset(self, ds_id: int) -> None:
+        """Discard the display configuration held for dataset ``ds_id``.
+
+        Called when the dataset is removed, because its ID can be reused by a
+        later dataset with a different spatial reference.
+        """
+        self._display_config.pop(ds_id, None)
+
     def update_coords(self, dataset, pixel_coords):
         self._dataset = dataset
         self._pixel_coords = pixel_coords

@@ -38,6 +38,7 @@ from PySide6.QtWidgets import *
 import difflib
 
 from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
+from wiser.raster.mosaic_ingestion import is_dataset_georeferenced
 from wiser.utils.progress import ProgressCancelled, ProgressReporter
 
 logger = logging.getLogger(__name__)
@@ -390,7 +391,11 @@ class GDALRasterDataImpl(RasterDataImpl):
             data_ignore = band.GetNoDataValue()
             if self.data_ignore is None:
                 self.data_ignore = data_ignore
-            elif data_ignore is not None and self.data_ignore != data_ignore:
+            elif (
+                data_ignore is not None
+                and self.data_ignore != data_ignore
+                and not (np.isnan(self.data_ignore) and np.isnan(data_ignore))
+            ):
                 raise ValueError(
                     "Cannot handle raster data with bands that "
                     + "have different data-ignore values per band."
@@ -2564,7 +2569,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             img_path, dst_width, dst_height, dst_bands, gdal_elem_type, driver_options
         )
 
-        if src_dataset.has_geographic_info():
+        if is_dataset_georeferenced(src_dataset):
             # Set the spatial reference and geotransform on the destination dataset
             # This sets the 'map info' meta data variable when we create the envi
             # header file below
@@ -2704,7 +2709,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata["default bands"] = dst_default_display_bands
         dst_metadata["data ignore value"] = dst_data_ignore
 
-        if src_dataset.has_geographic_info():
+        if is_dataset_georeferenced(src_dataset):
             map_info = gdal_metadata["map info"]
             dst_metadata["map info"] = map_info
             dst_metadata["coordinate system string"] = "{" + src_dataset.get_spatial_ref().ExportToWkt() + "}"
