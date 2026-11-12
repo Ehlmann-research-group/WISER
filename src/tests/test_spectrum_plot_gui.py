@@ -401,10 +401,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(np.array_equal(active_spectrum_arr, np.array([0.0, 0.0, 0.0])))
 
     def test_switch_clicked_dataset_out_of_bounds(self):
-        """Tests behavior when clicking outside dataset bounds.
+        """Tests behavior when clicking a dataset the spectrum dataset cannot link to.
 
-        Verifies that requesting a spectrum from an out-of-bounds pixel does not crash and
-        returns a spectrum of NaNs.
+        Verifies that a click on a dataset of a different size, neither georeferenced,
+        clears the active spectrum rather than reading the spectrum dataset at the
+        clicked pixel index.
         """
         np_impl = np.array(
             [
@@ -469,11 +470,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
         # This pixel is out of bounds for ds1
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)
 
-        active_spectrum_arr = self.test_model.get_active_spectrum().get_spectrum()
-
-        self.assertTrue(
-            np.array_equal(active_spectrum_arr, np.array([np.nan, np.nan, np.nan]), equal_nan=True)
-        )
+        self.assertIsNone(self.test_model.get_active_spectrum())
 
 
 """
