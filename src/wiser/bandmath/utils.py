@@ -1042,6 +1042,27 @@ def write_raster_to_dataset(
     gdal_elem_type: int,
     default_ignore_value: Number = DEFAULT_IGNORE_VALUE,
 ):
+    """
+    Write ``result`` over the full extent of the bands ``band_index_list`` (0-based)
+    of ``out_dataset_gdal``.
+
+    ``result`` is ``(y, x)`` for one band or ``(bands, y, x)``, with ``y`` and ``x``
+    equal to the dataset's ``RasterYSize`` and ``RasterXSize``.
+
+    Raises:
+        ValueError: if ``result``'s shape does not match the dataset's size and
+            ``band_index_list``.
+        RuntimeError: if GDAL fails to write, whether or not GDAL exceptions are
+            enabled.
+    """
+    shape = np.shape(result)
+    expected_size = (out_dataset_gdal.RasterYSize, out_dataset_gdal.RasterXSize)
+    if shape[-2:] != expected_size or int(np.prod(shape[:-2])) != len(band_index_list):
+        raise ValueError(
+            f"Array of shape {shape} does not match {len(band_index_list)} band(s) "
+            f"of size {expected_size} (y, x)"
+        )
+
     if isinstance(result, np.ma.MaskedArray):
         result = np.ma.filled(result, default_ignore_value)
 
@@ -1061,7 +1082,7 @@ def write_raster_to_dataset(
 
     gdal_band_list_current = [band + 1 for band in band_index_list]
 
-    out_dataset_gdal.WriteRaster(
+    err = out_dataset_gdal.WriteRaster(
         0,
         0,
         out_dataset_gdal.RasterXSize,
@@ -1072,6 +1093,8 @@ def write_raster_to_dataset(
         buf_type=gdal_elem_type,
         band_list=gdal_band_list_current,
     )
+    if err != gdal.CE_None:
+        raise RuntimeError(f"GDAL failed to write bands {gdal_band_list_current}: {gdal.GetLastErrorMsg()}")
     out_dataset_gdal.FlushCache()
 
 

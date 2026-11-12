@@ -7,19 +7,24 @@ user interactions and verify geotransform metadata and image content against gro
 Note:
     File selection and filtering logic are not tested here.
 """
+
 import unittest
 
 import os
 import shutil
 import tempfile
+from unittest import mock
 
 import tests.context
 # import context
 
 from test_utils.test_model import WiserTestModel
 
+from wiser.gui.util import cv2_rotate_scale_expand
 
+import cv2
 import numpy as np
+from osgeo import gdal
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -31,6 +36,10 @@ pytestmark = [
     pytest.mark.functional,
     pytest.mark.smoke,
 ]
+
+CALTECH_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
+)
 
 
 class TestSimliarityTransformGUI(unittest.TestCase):
@@ -137,6 +146,56 @@ class TestSimliarityTransformGUI(unittest.TestCase):
             gt_geo_transform == test_geo_transform,
             "Rotated and scaled geo transform doesn't match ground truth",
         )
+
+    def _run_rotate_scale_with_params_set_first(self, save_path):
+        """Set rotation and scale, then select the dataset, then run.
+
+        Selecting the dataset redraws the preview unrotated and unscaled, so the
+        preview pixmap no longer has the transformed image's size.
+        """
+        ds = self.test_model.load_dataset(CALTECH_PATH)
+        self.test_model.open_similarity_transform_dialog()
+        self.test_model.switch_sim_tab(to_translate=False)
+        self.test_model.set_rotation_slider(35)
+        self.test_model.set_scale_rs(0.5)
+        self.test_model.select_dataset_rs(ds)
+        self.test_model.choose_interpolation_rs(0)
+        self.test_model.set_save_path_rs(save_path)
+        with mock.patch.object(QMessageBox, "critical") as critical:
+            self.test_model.run_rotate_scale()
+            msg = self.test_model.wait_for_sim_transform_finished(translate=False)
+        return ds, msg, critical
+
+    def test_rotate_scale_size_is_independent_of_preview(self):
+        save_path = os.path.join(self.out_dir, "rot_35_scale_0_5.tif")
+        ds, msg, critical = self._run_rotate_scale_with_params_set_first(save_path)
+        self.assertTrue(msg.startswith("Finished"), f"Rotate/scale did not finish: {msg}")
+        critical.assert_not_called()
+
+        source = ds.get_image_data()
+        expected = cv2_rotate_scale_expand(
+            np.transpose(source, (1, 2, 0)), 35.0, 0.5, interp=cv2.INTER_NEAREST
+        )
+        expected = np.ma.getdata(np.transpose(expected, (2, 0, 1)))
+
+        written = gdal.Open(save_path)
+        values = written.ReadAsArray()
+        written = None
+        self.assertEqual(values.shape, expected.shape)
+        fill = values == ds.get_data_ignore_value()
+        self.assertTrue(fill[:, 0, 0].all())
+        np.testing.assert_array_equal(values[~fill], expected[~fill])
+
+    def test_rotate_scale_write_failure_shows_error_and_removes_output(self):
+        save_path = os.path.join(self.out_dir, "failed_write.tif")
+        with mock.patch(
+            "wiser.gui.similarity_transform_dialog.write_raster_to_dataset",
+            side_effect=RuntimeError("write failed"),
+        ):
+            _, msg, critical = self._run_rotate_scale_with_params_set_first(save_path)
+        self.assertTrue(msg.startswith("Error"), f"Rotate/scale did not fail: {msg}")
+        critical.assert_called_once()
+        self.assertFalse(os.path.exists(save_path))
 
     def test_translate(self):
         """
