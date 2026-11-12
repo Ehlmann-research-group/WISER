@@ -5,7 +5,6 @@ written as the output's declared nodata so that reopening the file tells them
 apart from valid data, never as a value that reads back as a real measurement.
 """
 
-import math
 import os
 import shutil
 import tempfile
@@ -39,12 +38,7 @@ class TestRotatedScaledDatasetFill(unittest.TestCase):
         return ds, data
 
     def _rotate(self, ds, rotation):
-        h, w = ds.get_height(), ds.get_width()
-        cos, sin = abs(math.cos(math.radians(rotation))), abs(math.sin(math.radians(rotation)))
-        out_width, out_height = int(h * sin + w * cos), int(h * cos + w * sin)
-        create_rotated_scaled_dataset(
-            ds, rotation, 1.0, cv2.INTER_NEAREST, out_width, out_height, self.out_path
-        )
+        create_rotated_scaled_dataset(ds, rotation, 1.0, cv2.INTER_NEAREST, self.out_path)
 
     def _read(self):
         written = gdal.Open(self.out_path)
