@@ -1,12 +1,8 @@
 name: Tutorial scene smoke test
 
-# Drives the real application offscreen through every scene of the tutorial
-# figure generator (doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py):
-# each supported fixture format and each analysis dialog the tutorials walk
-# through. The generator exits nonzero if any scene raises, which fails the job.
-# Scenes use only the fixtures committed under src/test_utils/, so nothing is
-# downloaded. Figures go to a scratch directory and are uploaded as a run
-# artifact; nothing is written back to the repository.
+# Runs every scene of doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py
+# offscreen; the generator exits nonzero if any scene fails. Scenes use only the
+# fixtures under src/test_utils/, and figures go to the run artifact, not the repo.
 
 on:
   schedule:
