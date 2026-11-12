@@ -567,6 +567,7 @@ class DataVisualizerApp(QMainWindow):
 
     def _on_dataset_removed(self, ds_id: int):
         self._update_dataset_menus()
+        self._image_coords.forget_dataset(ds_id)
         self._image_coords.update_coords(None, None)
         self._pixel_value_widget.clear()
 
