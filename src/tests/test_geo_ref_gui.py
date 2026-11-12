@@ -15,6 +15,8 @@ What's not covered:
 import unittest
 
 import os
+import shutil
+import tempfile
 
 import tests.context
 # import context
@@ -57,6 +59,8 @@ class TestGeoReferencerGUI(unittest.TestCase):
     def setUp(self):
         """Initializes the test model before each test by launching the WISER app."""
         self.test_model = WiserTestModel()
+        self.out_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.out_dir, ignore_errors=True)
 
     def tearDown(self):
         """Cleans up after each test by closing the WISER application."""
@@ -119,14 +123,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
 
         self.test_model.set_geo_ref_polynomial_order("2")
 
-        rel_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "test_utils",
-            "test_datasets",
-            "artifacts",
-            "test_warp_output.tif",
-        )
+        rel_path = os.path.join(self.out_dir, "test_warp_output.tif")
         self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (
@@ -222,14 +219,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
             self.test_model.enter_lon_east_geo_ref(lon_east)
             self.test_model.press_enter_lon_east_geo_ref()
 
-        rel_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "test_utils",
-            "test_datasets",
-            "artifacts",
-            "test_warp_output.tif",
-        )
+        rel_path = os.path.join(self.out_dir, "test_warp_output.tif")
         self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (

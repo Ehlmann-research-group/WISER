@@ -10,6 +10,8 @@ Note:
 import unittest
 
 import os
+import shutil
+import tempfile
 
 import tests.context
 # import context
@@ -43,6 +45,8 @@ class TestSimliarityTransformGUI(unittest.TestCase):
 
     def setUp(self):
         self.test_model = WiserTestModel()
+        self.out_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.out_dir, ignore_errors=True)
 
     def tearDown(self):
         self.test_model.close_app()
@@ -74,14 +78,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
             "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif",
         )
 
-        temp_save_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "test_utils",
-            "test_datasets",
-            "artifacts",
-            "caltech_4_100_150_nm_rot_35_scale_2_linear.tif",
-        )
+        temp_save_path = os.path.join(self.out_dir, "caltech_4_100_150_nm_rot_35_scale_2_linear.tif")
         ds = self.test_model.load_dataset(load_path)
 
         self.test_model.open_similarity_transform_dialog()
@@ -158,14 +155,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
             "test_datasets",
             "caltech_4_100_150_nm",
         )
-        temp_save_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "test_utils",
-            "test_datasets",
-            "artifacts",
-            "caltech_4_100_150_nm_translate.tif",
-        )
+        temp_save_path = os.path.join(self.out_dir, "caltech_4_100_150_nm_translate.tif")
         ds = self.test_model.load_dataset(load_path)
 
         self.test_model.open_similarity_transform_dialog()

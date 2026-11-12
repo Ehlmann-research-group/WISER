@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -29,6 +30,8 @@ ID_SET_2 = 42
 class TestSaveDataset(unittest.TestCase):
     def setUp(self):
         self.test_model = WiserTestModel()
+        self.out_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.out_dir, ignore_errors=True)
 
     def tearDown(self):
         self.test_model.close_app()
@@ -176,14 +179,7 @@ class TestSaveDataset(unittest.TestCase):
         dataset = loader.load_from_file(str(fixture_path), interactive=False)[0]
         self.assertIsInstance(dataset, RasterDataSet)
 
-        save_path = (
-            Path(__file__).resolve().parent
-            / ".."
-            / "test_utils"
-            / "test_datasets"
-            / "artifacts"
-            / "caltech_425_6_6_data_ignore_saved.img"
-        ).resolve()
+        save_path = Path(self.out_dir) / "caltech_425_6_6_data_ignore_saved.img"
         self._run_save_roundtrip_test(dataset, save_path)
 
     def test_save_dataset_helper_preserves_bool_numpy_dataset(self):
@@ -212,15 +208,7 @@ class TestSaveDataset(unittest.TestCase):
         dataset.set_id(ID_SET_1)
         self.assertEqual(dataset.get_elem_type(), np.dtype(np.bool_))
 
-        save_path = (
-            Path(__file__).resolve().parent
-            / ".."
-            / "test_utils"
-            / "test_datasets"
-            / "artifacts"
-            / "bool_classification_saved.img"
-        ).resolve()
-        save_path.parent.mkdir(parents=True, exist_ok=True)
+        save_path = Path(self.out_dir) / "bool_classification_saved.img"
         # Reopened ENVI band descriptions often differ from NumPy placeholder names.
         self._run_save_roundtrip_test(dataset, save_path, skip_band_info_equal=True)
 
@@ -233,14 +221,7 @@ class TestSaveDataset(unittest.TestCase):
         )[0]
         dataset = RasterDataSet(netcdf_impl)
 
-        save_path = (
-            Path(__file__).resolve().parent
-            / ".."
-            / "test_utils"
-            / "test_datasets"
-            / "artifacts"
-            / "netcdf_reflectance_saved.img"
-        ).resolve()
+        save_path = Path(self.out_dir) / "netcdf_reflectance_saved.img"
         self._run_save_roundtrip_test(dataset, save_path)
 
     def _make_small_float_dataset(self, num_bands: int = 4) -> RasterDataSet:
