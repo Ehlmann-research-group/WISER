@@ -87,6 +87,15 @@ def test_netcdf_non_string_long_name_raises(tmp_path):
         _open_netcdf(path)
 
 
+def test_netcdf_absent_variable_raises():
+    impl = NetCDF_GDALRasterDataImpl.try_load_file(
+        PLAIN_NETCDF, subdataset_name="reflectance", interactive=False
+    )[0]
+    impl._subdataset_name = impl._subdataset_name.rsplit(":", 1)[0] + ":absent_variable"
+    with pytest.raises(ValueError, match="no variable"):
+        impl.read_data_quantity()
+
+
 def test_envi_z_plot_titles_give_quantity(tmp_path):
     path = _envi_copy(tmp_path, ["z plot titles = {Wavelength, Reflectance (x10000)}"])
     assert _load(path).get_data_quantity() == "Reflectance (x10000)"
