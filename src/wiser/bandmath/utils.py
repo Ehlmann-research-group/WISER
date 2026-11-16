@@ -282,7 +282,7 @@ def load_image_from_bandmath_result(
             if _is_band_math_temp_file(result.get_serialize_value()):
                 ds = _copy_band_math_temp_result(result, result_name if result_name else "Computed")
             else:
-                ds: RasterDataSet = result.get_serializable_class().deserialize_into_class(result)
+                ds = result.get_serializable_class().deserialize_into_class(result)
         elif isinstance(result, np.ndarray):
             if not loader:
                 raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
