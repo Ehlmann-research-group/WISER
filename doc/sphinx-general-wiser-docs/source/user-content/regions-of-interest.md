@@ -18,6 +18,12 @@ One ROI holds any number of **selections**, each one of:
 - **Multi-pixel selection** — click pixels to add or remove them, then press
   Enter or right-click to finish; Esc cancels
 
+Starting another selection tool while one is still in progress cancels the one
+in progress: a shape you were drawing is discarded, and a selection you were
+editing (with **Edit selection *n* geometry**) goes back to its shape before the
+edit. Esc while editing works differently by shape: it cancels a multi-pixel
+edit, but keeps the edits to a rectangle or polygon.
+
 Selections may be scattered anywhere in the scene and may overlap. **Overlap is
 not a problem**: every operation counts each pixel once.
 
