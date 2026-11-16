@@ -172,6 +172,26 @@ class TestMosaicExportGui(unittest.TestCase):
         save_dialog.assert_called_once()  # accepting proceeded to the file picker
         self.test_model.close_seamless_mosaic_dialog()
 
+    def test_export_with_unsupported_name_shows_error_and_writes_nothing(self):
+        _dlg, pane, _controller = self._open_with_two_scenes()
+        out_dir = os.path.join(self._tmp.name, "out")
+        os.mkdir(out_dir)
+        out_path = os.path.join(out_dir, "mosaic.tif")
+
+        with mock.patch.object(
+            QFileDialog, "getSaveFileName", return_value=(out_path, "")
+        ), mock.patch.object(QMessageBox, "critical") as critical, mock.patch.object(
+            QMessageBox, "information"
+        ) as info:
+            pane._export_button.click()
+            self.assertTrue(self._wait_for(lambda: critical.called), "no error dialog was shown")
+
+        critical.assert_called_once()
+        self.assertIn("mosaic.tif", critical.call_args.args[2])
+        info.assert_not_called()
+        self.assertEqual(os.listdir(out_dir), [])
+        self.test_model.close_seamless_mosaic_dialog()
+
     def test_export_with_no_scenes_informs_and_writes_nothing(self):
         dlg = self.test_model.open_seamless_mosaic_dialog()
         pane = dlg.get_mosaic_pane()
