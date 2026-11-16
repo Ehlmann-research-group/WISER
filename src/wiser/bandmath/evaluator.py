@@ -1836,7 +1836,6 @@ def compute_bands_per_chunk(max_bytes, expr_info, num_intermediates, lines, samp
 
 
 _ARRAY_VARIABLE_TYPES = (VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, VariableType.SPECTRUM)
-_OPERATOR_RULES = ("comparison", "add_expr", "mul_expr", "power_expr", "unary_negate_expr")
 _SCALAR_RULES = ("number", "string", "true", "false")
 
 
@@ -1864,7 +1863,10 @@ def select_bandmath_chunking(single_bandmath_job: SingleBandMathJob) -> Tuple[bo
         return True, max_chunking_bytes
     if is_cube:
         available = psutil.virtual_memory().available
-        if _estimate_peak_bytes(single_bandmath_job, False, 0) > MAX_FRACTION_OF_AVAILABLE_MEMORY * available:
+        if (
+            _estimate_peak_bytes(single_bandmath_job, False, None)
+            > MAX_FRACTION_OF_AVAILABLE_MEMORY * available
+        ):
             return True, available * RATIO_OF_MEM_TO_USE
     return False, max_chunking_bytes
 
@@ -1914,11 +1916,11 @@ def estimate_bandmath_peak_bytes(single_bandmath_job: SingleBandMathJob) -> int:
 
 
 def _estimate_peak_bytes(
-    single_bandmath_job: SingleBandMathJob, chunked: bool, max_chunking_bytes: float
+    single_bandmath_job: SingleBandMathJob, chunked: bool, max_chunking_bytes: Optional[float]
 ) -> int:
     """
     ``estimate_bandmath_peak_bytes`` for the given path.  ``max_chunking_bytes`` is the
-    band-window budget and is unused when ``chunked`` is False.
+    band-window budget when ``chunked`` is True and None otherwise.
     """
     expr_info = single_bandmath_job.expr_info
     variables = single_bandmath_job.lower_variables
@@ -1958,14 +1960,15 @@ def _estimate_peak_bytes(
         """Return (peak bytes, held result bytes, band-window operand reads) for a node."""
         if node.data in _SCALAR_RULES:
             return 0, 0, 0
+        if node.data == "variable":
+            # Only a bare-variable expression reaches here:  its read and masked copy.
+            return (2 * full if str(node.children[0]).lower() in array_values else 0), 0, 0
         if node.data == "function":
             size = full
             args = [unwrap(c) for c in node.children[1:]]
-        elif node.data in _OPERATOR_RULES:
+        else:
             size = window
             args = [unwrap(c) for c in node.children if isinstance(c, Tree)]
-        else:
-            raise ValueError(f"Unexpected band-math parse-tree node {node.data}")
 
         reads = 0
         prefetches = 0
@@ -1994,12 +1997,7 @@ def _estimate_peak_bytes(
         own = sum(held) + reads * size + transient + size
         return max(children_peak, own), size, prefetches
 
-    root = unwrap(single_bandmath_job.tree)
-    if root.data == "variable":
-        tree_peak = 2 * full if str(root.children[0]).lower() in array_values else 0
-        prefetches = 0
-    else:
-        tree_peak, _, prefetches = walk(root)
+    tree_peak, _, prefetches = walk(single_bandmath_job.tree)
 
     resident = sum(v.value.nbytes for v in array_values.values() if isinstance(v.value, np.ndarray))
     if chunked:

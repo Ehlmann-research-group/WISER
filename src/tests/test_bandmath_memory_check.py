@@ -22,7 +22,7 @@ from osgeo import gdal
 from PySide6.QtWidgets import QDialog
 
 from test_utils.test_model import WiserTestModel
-from wiser.bandmath import VariableType, BandMathMemoryError
+from wiser.bandmath import VariableType, BandMathEvalError, BandMathMemoryError
 from wiser.bandmath import evaluator
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 from wiser.bandmath.functions import get_builtin_functions
@@ -172,12 +172,17 @@ def test_bandmath_dialog_shows_refusal_and_creates_no_dataset(test_model):
     dialog.load_results_into_wiser.return_value = True
     test_model.main_window._bandmath_dialog = dialog
     num_datasets = len(test_model.app_state.get_datasets())
+    activity_monitor = test_model.main_window._activity_monitor
+    assert activity_monitor.get_active_task_count() == 0
 
     with patch_available(100), mock.patch("wiser.gui.app.QMessageBox.critical") as critical:
         test_model.main_window.show_bandmath_dialog()
 
     critical.assert_called_once()
+    assert critical.call_args[0][1] == "Not Enough Memory for Band Math"
     message = critical.call_args[0][2]
+    assert activity_monitor.get_active_task_count() == 0
+    assert activity_monitor._ui.tbl_wdgt_finished_tasks.rowCount() == 0
     assert "0.0 GB" in message and "spatial subset" in message
     assert test_model.app_state.get_running_processes() == {}
     assert len(test_model.app_state.get_datasets()) == num_datasets
@@ -271,3 +276,68 @@ class TestPathSelection:
             assert evaluator.estimate_bandmath_peak_bytes(job) == 7 * 2_000_000_000
             with pytest.raises(BandMathMemoryError):
                 evaluator.check_bandmath_memory(job)
+
+
+@pytest.mark.parametrize("variables", [{}, {"a": (VariableType.IMAGE_CUBE, None)}])
+def test_estimate_raises_for_unspecified_variable(variables):
+    job = make_job("a + 1", {"a": cube()})
+    job.lower_variables.clear()
+    job.lower_variables.update(variables)
+    with patch_available(10**12), pytest.raises(BandMathEvalError, match='Variable "a" is unspecified'):
+        evaluator._estimate_peak_bytes(job, False, None)
+
+
+def test_bare_variable_expression_costs_its_read_and_masked_copy():
+    job = make_job("a", {"a": cube()})
+    with patch_available(10**12):
+        # Read and masked copy (240) are under the three result copies (360).
+        assert evaluator.estimate_bandmath_peak_bytes(job) == 360 + 96
+        # Chunked: one pending write (120) and the full read with its copy (240).
+        assert evaluator._estimate_peak_bytes(job, True, 10**12) == 120 + 240 + 96
+
+
+@pytest.mark.parametrize("available, chunked", [(50, True), (10**12, False)])
+def test_eval_singular_dispatches_on_selected_path(available, chunked):
+    job = make_job("a + b", {"a": cube(), "b": cube()})
+    with (
+        patch_available(available),
+        mock.patch.object(evaluator, "eval_singular_bandmath_expr_async") as run_async,
+        mock.patch.object(evaluator, "eval_singular_bandmath_expr_sync") as run_sync,
+    ):
+        assert evaluator.select_bandmath_chunking(job)[0] == chunked
+        evaluator.eval_singular_bandmath_expr(job)
+    if chunked:
+        run_async.assert_called_once_with(single_bandmath_job=job, max_chunking_bytes=available * 0.25)
+        run_sync.assert_not_called()
+    else:
+        run_sync.assert_called_once_with(single_bandmath_job=job)
+        run_async.assert_not_called()
+
+
+def test_batch_dialog_job_without_folder_variable_shows_refusal(test_model):
+    dataset = test_model.load_dataset(np.zeros((2, 3, 4), dtype=np.float32))
+    variables = {"a": (VariableType.IMAGE_CUBE, dataset)}
+    job = BandmathBatchJob(
+        job_id=0,
+        expression="a + 1",
+        expr_info=get_bandmath_expr_info("a + 1", variables, {}),
+        variables=variables,
+        input_folder="",
+        output_folder="",
+        load_into_wiser=True,
+        result_suffix="_result",
+    )
+    dialog = BandMathDialog(test_model.app_state, parent=test_model.main_window)
+    dialog._add_batch_job_to_table(job)
+
+    with (
+        patch_available(100),
+        mock.patch.object(evaluator, "ProcessManager") as process_manager,
+        mock.patch("wiser.gui.bandmath_dialog.QMessageBox.critical") as critical,
+    ):
+        dialog._run_batch_job(job)
+
+    critical.assert_called_once()
+    assert "spatial subset" in critical.call_args[0][2]
+    process_manager.assert_not_called()
+    assert job.get_process_manager() is None
