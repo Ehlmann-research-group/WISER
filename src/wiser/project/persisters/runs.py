@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import numpy as np
+from astropy import units as u
 
 from ..resolver import Dependency, DependencyResolver, resolver_for_all_datasets
 from .spectra import spectrum_from_pyrep, spectrum_to_pyrep
@@ -157,6 +158,9 @@ def _kmeans_to_pyrep(record: Any) -> Dict[str, Any]:
     stack = [centroids.get_centroid(i) for i in range(centroids.num_centroids())]
     entry["centroids"] = np.asarray(stack, dtype=float).tolist()
     entry["params"] = _kmeans_params_to_pyrep(record.params)
+    if record.wavelengths is not None:
+        entry["wavelengths"] = [float(w.value) for w in record.wavelengths]
+        entry["wavelength_units"] = str(record.wavelengths[0].unit)
     return entry
 
 
@@ -258,4 +262,10 @@ def _kmeans_from_pyrep(entry: Dict[str, Any], app_state: "ApplicationState") -> 
     kwargs["params"] = params
     kwargs["centroids"] = centroids
     kwargs["effective_seed"] = entry.get("effective_seed")
+    # Records saved without a "wavelengths" field restore as band-index runs.
+    if "wavelengths" in entry:
+        unit = u.Unit(entry["wavelength_units"])
+        kwargs["wavelengths"] = tuple(float(w) * unit for w in entry["wavelengths"])
+    else:
+        kwargs["wavelengths"] = None
     return KMeansRunRecord(**kwargs)
