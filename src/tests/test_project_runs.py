@@ -10,6 +10,7 @@ run_id assigned on load, and malformed entries dropping rather than aborting.
 import datetime
 
 import numpy as np
+import pytest
 from astropy import units as u
 
 import tests.context  # noqa: F401
@@ -118,7 +119,10 @@ def _unmix_record():
     )
 
 
-def _kmeans_record():
+_KMEANS_WAVELENGTHS = (400.0 * u.nm, 500.0 * u.nm, 600.0 * u.nm)
+
+
+def _kmeans_record(wavelengths=None):
     params = KMeansParameters(
         dataset_id=1,
         k=2,
@@ -142,6 +146,7 @@ def _kmeans_record():
         params=params,
         centroids=centroids,
         effective_seed=42,
+        wavelengths=wavelengths,
     )
 
 
@@ -208,6 +213,54 @@ def test_kmeans_round_trip():
     assert len(manual) == 2
     np.testing.assert_array_almost_equal(manual[0], [0.1, 0.2, 0.3])
     np.testing.assert_array_almost_equal(manual[1], [0.4, 0.5, 0.6])
+
+
+def test_kmeans_round_trip_keeps_wavelengths():
+    src = _FakeAppState()
+    src.get_kmeans_history().add_record(_kmeans_record(wavelengths=_KMEANS_WAVELENGTHS))
+
+    manifest = {}
+    save_runs(src, manifest)
+
+    dst = _FakeAppState()
+    assert load_runs(manifest, dst) == []
+    (rec,) = dst.get_kmeans_history().get_records()
+    assert [w.unit for w in rec.wavelengths] == [u.nm] * 3
+    np.testing.assert_array_almost_equal([w.value for w in rec.wavelengths], [400.0, 500.0, 600.0])
+
+
+def test_kmeans_round_trip_without_wavelengths():
+    src = _FakeAppState()
+    src.get_kmeans_history().add_record(_kmeans_record(wavelengths=None))
+
+    manifest = {}
+    save_runs(src, manifest)
+
+    dst = _FakeAppState()
+    assert load_runs(manifest, dst) == []
+    (rec,) = dst.get_kmeans_history().get_records()
+    assert rec.wavelengths is None
+
+
+def test_kmeans_record_saved_without_wavelengths_field_loads_as_band_index():
+    src = _FakeAppState()
+    src.get_kmeans_history().add_record(_kmeans_record(wavelengths=_KMEANS_WAVELENGTHS))
+    manifest = {}
+    save_runs(src, manifest)
+    (entry,) = manifest["runs"]["kmeans"]
+    entry.pop("wavelengths")
+    entry.pop("wavelength_units")
+
+    dst = _FakeAppState()
+    assert load_runs(manifest, dst) == []
+    (rec,) = dst.get_kmeans_history().get_records()
+    assert rec.wavelengths is None
+    assert rec.centroids.num_centroids() == 2
+
+
+def test_kmeans_record_rejects_wavelength_count_mismatch():
+    with pytest.raises(ValueError, match="wavelength"):
+        _kmeans_record(wavelengths=(400.0 * u.nm, 500.0 * u.nm))
 
 
 def test_record_saved_even_when_dataset_not_saved():
