@@ -868,6 +868,105 @@ def test_a_band_math_temp_result_is_copied_into_a_referenced_save(tmp_path, dest
     assert not restored.is_dirty()
 
 
+def _band_math_alias(app, source):
+    """The result of the band-math expression ``a`` with ``a`` bound to ``source``, as
+    Band Math adds it: the variables and result cross the evaluation process boundary
+    in serialized form."""
+    import lark
+
+    from wiser.bandmath import VariableType, evaluator
+    from wiser.bandmath.analyzer import get_bandmath_expr_info
+    from wiser.bandmath.functions import get_builtin_functions
+    from wiser.bandmath.utils import load_image_from_bandmath_result
+
+    variables = evaluator.deserialize_bandmath_variables(
+        evaluator.serialize_bandmath_variables({"a": (VariableType.IMAGE_CUBE, source)})
+    )
+    tree = lark.Lark.open(
+        "bandmath.lark", rel_to=evaluator.__file__, start="expression", propagate_positions=True
+    ).parse("a")
+    evaluator.UniqueIDAssigner().visit(tree)
+    expr_info = get_bandmath_expr_info("a", variables, {})
+    job = evaluator.SingleBandMathJob(
+        bandmath_expr="a",
+        expr_info=expr_info,
+        result_name="alias",
+        cache=None,
+        lower_variables=variables,
+        lower_functions=get_builtin_functions(),
+        number_of_intermediates=0,
+        tree=tree,
+        use_synchronous_method=True,
+        temp_folder_path=evaluator.TEMP_FOLDER_PATH,
+    )
+    ((result_type, serialized, result_name, expr_info),) = evaluator.serialize_bandmath_results(
+        [evaluator.eval_singular_bandmath_expr_sync(job)]
+    )
+    alias = load_image_from_bandmath_result(result_type, serialized, result_name, "a", expr_info)
+    app.add_dataset(alias)
+    return alias
+
+
+def test_a_band_math_alias_of_a_temp_result_is_copied_into_a_referenced_save(tmp_path, monkeypatch):
+    # The expression "a" over a temporary-file result gives a result in its own
+    # temporary file, which a project save copies into the bundle.
+    from wiser.bandmath import utils as bandmath_utils
+    from wiser.gui.util import delete_all_files_in_folder
+    from wiser.raster.dataset_impl import SaveState
+
+    app = _FakeAppState()
+    temp_dir = tmp_path / "temp_output"
+    monkeypatch.setattr(bandmath_utils, "TEMP_FOLDER_PATH", str(temp_dir))
+    result = _band_math_temp_result(app, temp_dir)
+    alias = _band_math_alias(app, result)
+    assert not set(alias.get_filepaths()) & set(result.get_filepaths())
+    assert os.path.dirname(alias.get_filepaths()[0]) == str(temp_dir)
+    assert alias.get_save_state() == SaveState.IN_DISK_NOT_SAVED
+
+    save_project(app, tmp_path / "session.wiserproj")
+    assert not alias.is_dirty()
+
+    delete_all_files_in_folder(str(temp_dir))
+    dst = _FakeAppState()
+    report = load_project(tmp_path / "session.wiserproj", dst, extract_dir=tmp_path / "unpacked")
+
+    assert report["datasets"] == []
+    restored = dst.get_dataset(alias.get_id())
+    np.testing.assert_array_equal(_data(restored), _sample_array() + 1)
+    assert not restored.is_dirty()
+
+
+def test_removing_a_band_math_alias_or_its_source_leaves_the_other_readable(tmp_path, monkeypatch):
+    # Removing a dataset deletes its temporary file, so a result and its alias each
+    # own a separate file.
+    from wiser.bandmath import utils as bandmath_utils
+
+    app = _FakeAppState()
+    temp_dir = tmp_path / "temp_output"
+    monkeypatch.setattr(bandmath_utils, "TEMP_FOLDER_PATH", str(temp_dir))
+    result = _band_math_temp_result(app, temp_dir)
+
+    alias = _band_math_alias(app, result)
+    alias_files = alias.get_filepaths()
+    assert alias.delete_underlying_dataset()
+    assert not any(os.path.exists(path) for path in alias_files)
+    assert all(os.path.exists(path) for path in result.get_filepaths())
+    np.testing.assert_array_equal(_data(result), _sample_array() + 1)
+
+    alias = _band_math_alias(app, result)
+    result_files = result.get_filepaths()
+    result_form = result.get_serialized_form()
+    assert result.delete_underlying_dataset()
+    assert not any(os.path.exists(path) for path in result_files)
+    np.testing.assert_array_equal(_data(alias), _sample_array() + 1)
+
+    from wiser.bandmath import VariableType
+    from wiser.bandmath.utils import load_image_from_bandmath_result
+
+    with pytest.raises(RuntimeError):
+        load_image_from_bandmath_result(VariableType.IMAGE_CUBE, result_form, "alias", "a", None)
+
+
 def test_cancelling_during_a_temp_result_copy_stops_at_the_next_band(tmp_path):
     # Copying a large band-math result is the slow step of a save, so the copy itself
     # reports per band and observes cancellation, rather than running to completion.

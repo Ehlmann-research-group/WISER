@@ -193,6 +193,44 @@ def fill_masked_bandmath_result(
     return result.filled(remaining[0]), remaining[0]
 
 
+def _is_band_math_temp_file(serialize_value: Any) -> bool:
+    """True when ``serialize_value`` is a path to a file in ``TEMP_FOLDER_PATH``, where
+    the band-math evaluator writes its on-disk results."""
+    if not isinstance(serialize_value, str):
+        return False
+    temp_folder = os.path.realpath(TEMP_FOLDER_PATH)
+    return os.path.dirname(os.path.realpath(serialize_value)) == temp_folder
+
+
+def _copy_band_math_temp_result(result: SerializedForm, result_name: str) -> RasterDataSet:
+    """
+    Copy the band-math temporary file ``result`` refers to into a new file in
+    ``TEMP_FOLDER_PATH`` and open the copy with ``result``'s metadata.
+
+    The copy has save state ``IN_DISK_NOT_SAVED``, so it owns its file:  removing it
+    deletes only the copy, and removing the source leaves the copy readable.
+
+    Raises:
+        RuntimeError: if GDAL cannot open the source file or write the copy.
+    """
+    source_path = result.get_serialize_value()
+    source = gdal.Open(source_path, gdal.GA_ReadOnly)
+    if source is None:
+        raise RuntimeError(f"Cannot open band-math temporary file {source_path}")
+    copy_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
+    copy = source.GetDriver().CreateCopy(copy_path, source)
+    if copy is None:
+        raise RuntimeError(f"Cannot copy band-math temporary file {source_path} to {copy_path}")
+    copy.FlushCache()
+    copy = None
+    source = None
+    ds = RasterDataSet.deserialize_into_class(
+        SerializedForm(result.get_serializable_class(), copy_path, dict(result.get_metadata()))
+    )
+    ds.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+    return ds
+
+
 def load_image_from_bandmath_result(
     result_type: Union[VariableType, RasterDataSet],
     result: SerializedForm,
@@ -228,7 +266,10 @@ def load_image_from_bandmath_result(
         # we will get a serializedForm object back. We then make result be
         # the array of the value.
         if isinstance(result, SerializedForm):
-            ds: RasterDataSet = result.get_serializable_class().deserialize_into_class(result)
+            if _is_band_math_temp_file(result.get_serialize_value()):
+                ds = _copy_band_math_temp_result(result, result_name if result_name else "Computed")
+            else:
+                ds: RasterDataSet = result.get_serializable_class().deserialize_into_class(result)
         elif isinstance(result, np.ndarray):
             if not loader:
                 raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
