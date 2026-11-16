@@ -39,7 +39,7 @@ from astropy import units as u
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Iterable, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from wiser.raster import RasterDataSet
@@ -81,6 +81,24 @@ SINGLE_POINT_MARKERSIZE = 8
 SINGLE_POINT_VALUE_FONTSIZE = 7
 
 NO_DATA_NOTE = "No data at this pixel"
+
+Y_LABEL_NO_QUANTITY = "Value"
+Y_LABEL_MIXED_QUANTITIES = "Data value (mixed units)"
+
+
+def y_axis_label(quantities: Iterable[Optional[str]]) -> str:
+    """
+    Returns the spectrum-plot y-axis label for the data quantities of the
+    displayed spectra (see ``Spectrum.get_data_quantity()``):  the quantity when
+    every spectrum declares the same one, ``"Value"`` when none declares one or
+    nothing is displayed, and ``"Data value (mixed units)"`` otherwise.  A
+    spectrum declaring no quantity disagrees with one that declares a quantity.
+    """
+    distinct = set(quantities)
+    if len(distinct) > 1:
+        return Y_LABEL_MIXED_QUANTITIES
+    quantity = distinct.pop() if distinct else None
+    return quantity if quantity is not None else Y_LABEL_NO_QUANTITY
 
 
 def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
@@ -578,6 +596,10 @@ class SpectrumPlotGeneric(QWidget):
         self._plot_mouse_down: bool = False
         self._click: Optional[SpectrumPointDisplayInfo] = None
 
+        # User-set y-axis label; None means the label is derived from the
+        # displayed spectra's data quantities
+        self._y_label_override: Optional[str] = None
+
         # Note shown on the plot when a displayed spectrum has no data
         self._no_data_text: Optional[matplotlib.text.Text] = None
 
@@ -815,7 +837,7 @@ class SpectrumPlotGeneric(QWidget):
             # Regenerate all the text to switch it to the new font.
             self.set_title(self.get_title())
             self.set_x_label(self.get_x_label())
-            self.set_y_label(self.get_y_label())
+            self._update_y_label()
             self.set_legend(self.get_legend())
 
     def get_font_size(self, item: str) -> float:
@@ -846,7 +868,7 @@ class SpectrumPlotGeneric(QWidget):
 
         elif item == "axes":
             self.set_x_label(self.get_x_label())
-            self.set_y_label(self.get_y_label())
+            self._update_y_label()
 
         elif item == "legend":
             self.set_legend(self.get_legend())
@@ -869,8 +891,22 @@ class SpectrumPlotGeneric(QWidget):
         return self._axes.get_ylabel()
 
     def set_y_label(self, label: Optional[str]) -> None:
+        """
+        Sets a y-axis label that takes precedence over the one derived from the
+        displayed spectra's data quantities (see ``y_axis_label()``).  ``None``
+        or an empty string returns to the derived label.
+        """
+        self._y_label_override = label or None
+        self._update_y_label()
+
+    def _update_y_label(self) -> None:
+        label = self._y_label_override
+        if label is None:
+            label = y_axis_label(
+                info.get_spectrum().get_data_quantity() for info in self._spectrum_display_info.values()
+            )
         axes_font = get_font_properties(self._font_name, self._font_size["axes"])
-        self._axes.set_ylabel(label, fontproperties=axes_font)
+        self._axes.set_ylabel(label, labelpad=0, fontproperties=axes_font)
 
     def get_legend(self) -> LegendPlacement:
         """
@@ -963,10 +999,8 @@ class SpectrumPlotGeneric(QWidget):
                     labelpad=0,
                     fontproperties=axes_font,
                 )
-                self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
             else:
                 self._axes.set_xlabel("Band Index", labelpad=0, fontproperties=axes_font)
-                self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
                 other_info.generate_plot(
@@ -977,6 +1011,8 @@ class SpectrumPlotGeneric(QWidget):
                 )
 
             self._plot_uses_wavelengths = use_wavelengths
+
+        self._update_y_label()
 
     def recount_spectra_wavelengths(self):
         count = 0
