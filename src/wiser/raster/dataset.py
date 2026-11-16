@@ -632,6 +632,9 @@ class RasterDataSet(Serializable):
 
         self._band_info: List[Dict[str, Any]] = impl.read_band_info()
 
+        # The quantity the values represent, as the file declares it
+        self._data_quantity: Optional[str] = impl.read_data_quantity()
+
         self._bad_bands: Optional[List[int]] = impl.read_bad_bands()
 
         # Optional default display bands for the raster data
@@ -815,6 +818,15 @@ class RasterDataSet(Serializable):
         if self._band_info[0].get("wavelength") is None:
             return None
         return self._band_info[0]["wavelength"].unit
+
+    def get_data_quantity(self) -> Optional[str]:
+        """
+        Returns the quantity the dataset's values represent, with its units
+        where the file states them (e.g. ``"Surface Reflectance (unitless)"``),
+        as read by the implementation's ``read_data_quantity()``.  ``None``
+        means the file declares no quantity.
+        """
+        return self._data_quantity
 
     def band_list(self) -> List[Dict[str, Any]]:
         """
