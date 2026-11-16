@@ -163,21 +163,41 @@ In short: `App` stores the stretches in `ApplicationState` (keyed per
 `(ds_id, band_index)`) and re-emits a state-level `stretch_changed`, which
 `RasterPane` turns into `RasterView.set_stretches()` calls.
 
+The panes re-render under one cancellable progress dialog. If the user cancels
+it, `ApplicationState.set_stretches()` restores the previous stretches and emits
+
+```python
+stretch_change_cancelled = Signal(int, tuple)   # (dataset_id, display_bands)
+```
+
+When the dialog is showing that dataset and those bands, it reloads its controls
+from the restored stretches (`_on_stretch_change_cancelled`) with
+`_enable_stretch_changed_events` off and its signals blocked, so the reload emits
+no `stretch_changed`.
+
 ---
 
 ## Applying Stretches During Rendering
 
 ### Per-band path
 
-For each dirty channel, `RasterView`'s `update_display_image()` calls:
+For each dirty channel, `RasterView._render_channel()` stretches the band in
+row strips into one preallocated `uint8` array:
 
 ```python
-stretches = self._stretches[i].get_stretches()   # [conditioner, main]
-new_data = make_channel_image(band_data, stretches[0], stretches[1])
+stretches = stretch.get_stretches()   # [conditioner, main]
+new_data = make_channel_image_strips(band_data, stretches[0], stretches[1], rows, step)
 ```
 
-`make_channel_image()` applies the two stretches in order, clips to `[0, 1]`,
-and returns `uint8`.
+`make_channel_image_strips()` runs `make_channel_image`'s Python or numba
+kernel on `rows` rows at a time, calling `step()` after each strip to report
+progress and check for a cancel. Each strip applies the two stretches in order,
+clips to `[0, 1]`, and scales to `uint8`.
+
+For uniform histogram edges (every histogram of unconditioned data), the
+equalize stretch finds each value's bin by index arithmetic rather than a search,
+with output identical to `np.interp`; edges reshaped by a conditioner use
+`np.interp`.
 
 ### Joint path (decorrelation)
 
@@ -231,6 +251,8 @@ classes each have a pure-Python implementation and a numba-compiled variant. The
 numba version is used only when an array exceeds `ARRAY_NUMBA_THRESHOLD`
 (`src/wiser/raster/utils.py`); below that, JIT warm-up costs
 outweigh the benefit and the Python path is used. The numba wrappers also
-convert `float64` inputs to `float32` for speed and memory. `StretchDecorrelation`
+convert `float64` inputs to `float32` for speed and memory. The jitclasses do
+not inherit from `StretchBase`, so each defines `requires_all_bands()` itself
+and returns `False`, as its Python class does. `StretchDecorrelation`
 has no jitclass variant (a jitclass cannot hold the Python references it needs);
 its numba acceleration lives inside `decor_numba` instead.

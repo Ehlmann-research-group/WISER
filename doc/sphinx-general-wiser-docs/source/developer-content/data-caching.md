@@ -150,9 +150,12 @@ flowchart LR
 
 Independently of `DataCache`, each `RasterDataSet` keeps a per-band
 `BandStats` (min/max) cache in `_cached_band_stats`
-(`src/wiser/raster/dataset.py`). It is populated the first time a
-band is read and is what lets normalization reuse min/max without rescanning the
-array.
+(`src/wiser/raster/dataset.py`), keyed by `(band_index, data_ignore_value)`:
+the data ignore value decides which pixels count, so changing it makes the
+stats be computed again. It is populated the first time a band is read, and
+`get_band_data_normalized()`, `get_band_stats()` and `cache_band_stats()` all
+read and write it under that key, which lets normalization reuse min/max
+without rescanning the array.
 
 ---
 
