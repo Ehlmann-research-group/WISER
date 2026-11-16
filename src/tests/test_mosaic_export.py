@@ -344,3 +344,54 @@ def test_unresolved_grid_raises(tmp_path: Path) -> None:
             scene_a.snapshot,
             tmp_path / "x.img",
         )
+
+
+EXPORT_ACCEPTED = [
+    ("mosaic", "mosaic", "mosaic.hdr"),
+    ("mosaic.img", "mosaic.img", "mosaic.hdr"),
+    ("mosaic.hdr", "mosaic.img", "mosaic.hdr"),
+    ("MOSAIC.IMG", "MOSAIC.img", "MOSAIC.hdr"),
+    ("my.mosaic.img", "my.mosaic.img", "my.mosaic.hdr"),
+]
+
+EXPORT_REJECTED = ["mosaic.tif", "mosaic.bsq", "my.mosaic.result", "mosaic.", ".hidden"]
+
+
+def _export_two_scenes(tmp_path: Path, out: Path) -> Path:
+    band_source = make_numpy_scene(origin=ORIGIN_A, wavelengths=[450.0, 550.0, 650.0], bad_bands=[1, 0, 1])
+    scene_a = _materialized_scene(band_source, tmp_path, "a")
+    scene_b = _materialized_scene(make_numpy_scene(origin=ORIGIN_B, base_value=1000.0), tmp_path, "b")
+    return export_mosaic(
+        [scene_a, scene_b],
+        _union_grid(),
+        wkt_for_epsg(EPSG),
+        gdal.GRA_NearestNeighbour,
+        NODATA,
+        scene_a.snapshot,
+        out,
+    )
+
+
+@pytest.mark.parametrize("name, img_name, hdr_name", EXPORT_ACCEPTED)
+def test_export_writes_exactly_the_save_filenames(tmp_path: Path, name, img_name, hdr_name) -> None:
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    written = _export_two_scenes(tmp_path, out_dir / name)
+
+    assert sorted(p.name for p in out_dir.iterdir()) == sorted([img_name, hdr_name])
+    assert written == out_dir / img_name
+    reloaded = RasterDataLoader().load_from_file(path=str(written), data_cache=None)[0]
+    assert reloaded.get_bad_bands() == [1, 0, 1]
+    assert [b.get("wavelength_str") for b in reloaded.band_list()] == ["450.0", "550.0", "650.0"]
+
+
+@pytest.mark.parametrize("name", EXPORT_REJECTED)
+def test_export_rejects_unsupported_name_before_writing(tmp_path: Path, name) -> None:
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    with pytest.raises(ValueError, match="ENVI"):
+        _export_two_scenes(tmp_path, out_dir / name)
+
+    assert list(out_dir.iterdir()) == []

@@ -46,6 +46,7 @@ from typing import List, Optional, Sequence, TYPE_CHECKING
 
 from osgeo import gdal
 
+from wiser.raster.dataset_impl import ENVI_GDALRasterDataImpl
 from wiser.raster.loaders import envi
 from wiser.raster.mosaic_materialize import materialize_full_band_from_snapshot
 from wiser.utils.progress import ProgressReporter, gdal_progress_callback
@@ -70,7 +71,12 @@ def export_mosaic(
 ) -> Path:
     """
     Composite ``scenes`` onto ``grid`` and write the full-resolution mosaic to
-    ``out_path`` as an ENVI raster. Returns ``out_path``.
+    ``out_path`` as an ENVI raster. Returns the path of the written data file.
+
+    ``out_path`` follows the ENVI save-filename rule of
+    :meth:`ENVI_GDALRasterDataImpl.get_save_filenames`, and exactly the data file
+    and header that rule names are written (the data file always with a lowercase
+    ``.img`` when the name ends in ``.img`` or ``.hdr``).
 
     ``scenes`` must be the visible scenes in **bottom-to-top** z-order (the order
     :meth:`MosaicController.get_scenes` returns, filtered to visible), each carrying
@@ -89,16 +95,20 @@ def export_mosaic(
     stamped onto the output header.
 
     Nothing is loaded back into the running application; the caller owns the file.
+
+    Raises ``ValueError`` if ``out_path`` is not a valid ENVI save filename (e.g.
+    ``mosaic.tif``), and :class:`MosaicExportError` for empty or unusable inputs;
+    both are raised before any file is written.
     """
     progress = progress or ProgressReporter()
     gdal.UseExceptions()
+
+    img_path, hdr_path = ENVI_GDALRasterDataImpl.get_save_filenames(str(out_path))
 
     if not scenes:
         raise MosaicExportError("No visible scenes to export.")
     if grid is None or grid.extent is None or not grid.width or not grid.height:
         raise MosaicExportError("The common grid is not resolved; cannot export.")
-
-    out_path = Path(out_path)
 
     # Materializing each scene's full band cube is the heavy per-scene phase; the
     # streamed ENVI compose is the heavy shared phase. Split the bar roughly evenly.
@@ -137,14 +147,14 @@ def export_mosaic(
             raise MosaicExportError("No scenes overlap the output grid; nothing to export.")
 
         progress.raise_if_cancelled()
-        _run_raster_mosaic(vrt_paths, out_path, output_nodata, compose)
+        _run_raster_mosaic(vrt_paths, img_path, output_nodata, compose)
 
     # The pixels are fully written; patch the text header with canonical band
     # metadata so the file re-opens in WISER with the right spectral labels.
     progress.raise_if_cancelled()
-    _patch_envi_band_metadata(out_path, band_metadata_snapshot, output_nodata)
+    _patch_envi_band_metadata(hdr_path, band_metadata_snapshot, output_nodata)
 
-    return out_path
+    return Path(img_path)
 
 
 def _warp_scene_to_grid_vrt(
@@ -194,13 +204,14 @@ def _warp_scene_to_grid_vrt(
 
 def _run_raster_mosaic(
     vrt_paths: Sequence[str],
-    out_path: Path,
+    img_path: str,
     output_nodata: Optional[float],
     progress: ProgressReporter,
 ) -> None:
     """
-    Composite the warped VRTs (already in bottom-to-top order) into ``out_path`` as
-    a streamed ENVI raster via ``gdal.Run("raster", "mosaic", ...)``.
+    Composite the warped VRTs (already in bottom-to-top order) into ``img_path`` as
+    a streamed ENVI raster via ``gdal.Run("raster", "mosaic", ...)``. GDAL's
+    ``.aux.xml`` sidecar is disabled, so only the data file and its header are written.
 
     ``raster mosaic`` composites by input order + per-source nodata (last valid
     source wins) and streams the output block-by-block, so no full-image buffer is
@@ -208,23 +219,24 @@ def _run_raster_mosaic(
     """
     run_kwargs = dict(
         input=list(vrt_paths),
-        output=str(out_path),
+        output=img_path,
         output_format="ENVI",
         overwrite=True,
     )
     if output_nodata is not None:
         run_kwargs["dst_nodata"] = [float(output_nodata)]
 
-    gdal.Run("raster", "mosaic", progress=gdal_progress_callback(progress), **run_kwargs)
+    with gdal.config_option("GDAL_PAM_ENABLED", "NO"):
+        gdal.Run("raster", "mosaic", progress=gdal_progress_callback(progress), **run_kwargs)
 
 
 def _patch_envi_band_metadata(
-    out_path: Path,
+    hdr_path: str,
     band_metadata_snapshot: Optional["SceneMetadataSnapshot"],
     output_nodata: Optional[float],
 ) -> None:
     """
-    Rewrite the GDAL-written ENVI header for ``out_path`` in place, stamping the
+    Rewrite the GDAL-written ENVI header at ``hdr_path`` in place, stamping the
     canonical band metadata (wavelengths / units / band names / bad-band list /
     default display bands) from the frozen ``band_metadata_snapshot`` (#677) and the
     output nodata.
@@ -235,15 +247,14 @@ def _patch_envi_band_metadata(
     ``default bands`` fields :meth:`ENVI_GDALRasterDataImpl.save_dataset_as` writes),
     keeping the exported file self-describing for a later manual open in WISER.
     """
-    hdr_filename, _img_filename = envi.find_envi_filenames(str(out_path))
-    metadata = envi.load_envi_header(hdr_filename)
+    metadata = envi.load_envi_header(hdr_path)
 
     _apply_band_metadata(metadata, band_metadata_snapshot)
 
     if output_nodata is not None:
         metadata["data ignore value"] = output_nodata
 
-    envi.write_envi_header(hdr_filename, metadata)
+    envi.write_envi_header(hdr_path, metadata)
 
 
 def _resolve_default_bands(band_metadata_snapshot: Optional["SceneMetadataSnapshot"]) -> Optional[list]:
