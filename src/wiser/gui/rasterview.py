@@ -253,12 +253,12 @@ def make_channel_image_strips(
     stretch1,
     stretch2,
     rows: int,
-    on_strip: Callable[[int, int], None],
+    on_strip: Callable[[], None],
 ) -> np.ndarray:
     """
     Compute ``make_channel_image(normalized_band, stretch1, stretch2)`` ``rows``
     rows at a time into one preallocated ``uint8`` array, calling
-    ``on_strip(rows_done, rows_total)`` after each strip.  The numba or Python
+    ``on_strip()`` after each strip.  The numba or Python
     implementation is chosen by the whole band's size, as
     ``make_channel_image`` does, so the result is identical.  An exception
     raised by ``on_strip`` stops the computation and propagates.
@@ -274,7 +274,7 @@ def make_channel_image_strips(
     for r0 in range(0, height, rows):
         r1 = min(height, r0 + rows)
         out[r0:r1] = make(normalized_band[r0:r1], stretch1, stretch2)
-        on_strip(r1, height)
+        on_strip()
     return out
 
 
@@ -283,13 +283,13 @@ def make_rgb_image_strips(
     ch2: np.ndarray,
     ch3: np.ndarray,
     rows: int,
-    on_strip: Callable[[int, int], None],
+    on_strip: Callable[[], None],
 ) -> np.ndarray:
     """
     Compute ``make_rgb_image(ch1, ch2, ch3)`` ``rows`` rows at a time into one
-    preallocated ``uint32`` array, calling ``on_strip(rows_done, rows_total)``
-    after each strip.  Raises as ``make_rgb_image`` does; an exception raised by
-    ``on_strip`` stops the computation and propagates.
+    preallocated ``uint32`` array, calling ``on_strip()`` after each strip.
+    Raises as ``make_rgb_image`` does; an exception raised by ``on_strip``
+    stops the computation and propagates.
     """
     if ch1.nbytes < ARRAY_NUMBA_THRESHOLD:
         make = make_rgb_image_python
@@ -302,7 +302,7 @@ def make_rgb_image_strips(
     for r0 in range(0, height, rows):
         r1 = min(height, r0 + rows)
         out[r0:r1] = make(ch1[r0:r1], ch2[r0:r1], ch3[r0:r1])
-        on_strip(r1, height)
+        on_strip()
     return out
 
 
@@ -1008,9 +1008,7 @@ class RasterView(QWidget):
         stretches = [None, None]
         if stretch:
             stretches = stretch.get_stretches()
-        new_data = make_channel_image_strips(
-            band_data, stretches[0], stretches[1], rows, lambda done, total: step()
-        )
+        new_data = make_channel_image_strips(band_data, stretches[0], stretches[1], rows, step)
 
         if isinstance(arr, np.ma.masked_array):
             new_data = np.ma.masked_array(new_data, mask=band_mask)
@@ -1145,12 +1143,10 @@ class RasterView(QWidget):
             time_2 = time.perf_counter()
 
             if isinstance(display_data[0], np.ma.masked_array):
-                img_data = make_rgb_image_strips(
-                    *(np.ma.getdata(d) for d in display_data), rows, lambda done, total: step()
-                )
+                img_data = make_rgb_image_strips(*(np.ma.getdata(d) for d in display_data), rows, step)
                 img_data = np.ma.masked_array(img_data, np.zeros(img_data.shape, dtype=bool))
             else:
-                img_data = make_rgb_image_strips(*display_data, rows, lambda done, total: step())
+                img_data = make_rgb_image_strips(*display_data, rows, step)
 
         else:
             # This is a grayscale image.

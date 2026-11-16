@@ -95,16 +95,8 @@ class RenderProgress:
         self._dialog.setValue(min(self._done, self._total))
         self.check()
 
-    def cancel(self) -> None:
-        """Cancel the render, as the dialog's Cancel button does."""
-        self._dialog.cancel()
-
     def was_cancelled(self) -> bool:
         return self._cancelled or (self._cancellable and self._dialog.wasCanceled())
-
-    def was_shown(self) -> bool:
-        """Whether the dialog has become visible."""
-        return self._dialog.isVisible()
 
     def _finish(self) -> None:
         if self.was_cancelled():

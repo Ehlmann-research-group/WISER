@@ -69,24 +69,23 @@ def test_channel_strips_match_whole_band(monkeypatch, kind, numba):
     band = _band()
     s1, s2 = _stretch_pair(kind, numba)
     whole = rvmod.make_channel_image(band, s1, s2)
-    strips = rvmod.make_channel_image_strips(band, s1, s2, 5, lambda done, total: None)
+    strips = rvmod.make_channel_image_strips(band, s1, s2, 5, lambda: None)
     assert strips.dtype == np.uint8
     assert np.array_equal(strips, whole)
 
 
 @pytest.mark.parametrize("numba", [False, True])
-def test_strip_progress_is_monotonic_to_completion(monkeypatch, numba):
+def test_strip_callback_runs_once_per_strip(monkeypatch, numba):
     if numba:
         monkeypatch.setattr(rvmod, "ARRAY_NUMBA_THRESHOLD", 0)
     band = _band()
     calls = []
-    channel = rvmod.make_channel_image_strips(band, None, None, 5, lambda d, t: calls.append((d, t)))
-    assert [d for d, _ in calls] == [5, 10, 15, 20, 25, 30, 35, 37]
-    assert {t for _, t in calls} == {37}
+    channel = rvmod.make_channel_image_strips(band, None, None, 5, lambda: calls.append(1))
+    assert len(calls) == 8  # ceil(37 / 5)
 
     calls.clear()
-    rgb = rvmod.make_rgb_image_strips(channel, channel, channel, 8, lambda d, t: calls.append((d, t)))
-    assert [d for d, _ in calls] == [8, 16, 24, 32, 37]
+    rgb = rvmod.make_rgb_image_strips(channel, channel, channel, 8, lambda: calls.append(1))
+    assert len(calls) == 5  # ceil(37 / 8)
     assert np.array_equal(rgb, rvmod.make_rgb_image(channel, channel, channel))
 
 
@@ -209,9 +208,9 @@ def test_cancel_keeps_every_pane_and_the_stretch_state(model, monkeypatch, when,
         seen["steps"] += 1
         seen["progress"] = self
         if when == "during_first_pane" and seen["steps"] == 3:
-            self.cancel()
+            self._dialog.cancel()
         if when == "after_first_pane" and seen["renders"] == 1:
-            self.cancel()
+            self._dialog.cancel()
         original(self)
 
     original_render = rvmod.RasterView._render_display_image
@@ -252,7 +251,7 @@ def test_cancelled_stretch_change_can_be_applied_again(model, monkeypatch):
     original = RenderProgress.step
 
     def cancel_step(self):
-        self.cancel()
+        self._dialog.cancel()
         original(self)
 
     monkeypatch.setattr(RenderProgress, "step", cancel_step)
@@ -271,7 +270,7 @@ def _record_shown(monkeypatch):
     original = RenderProgress._finish
 
     def finish(self):
-        shown.append(self.was_shown())
+        shown.append(self._dialog.isVisible())
         original(self)
 
     monkeypatch.setattr(RenderProgress, "_finish", finish)
@@ -326,7 +325,7 @@ def test_cancel_reloads_stretch_builder_without_emitting(model, monkeypatch):
     original = RenderProgress.step
 
     def cancel_step(self):
-        self.cancel()
+        self._dialog.cancel()
         original(self)
 
     monkeypatch.setattr(RenderProgress, "step", cancel_step)
