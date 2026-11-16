@@ -18,7 +18,9 @@ runs" rather than being deleted.  The persistence design exploits this:
   special-case code here.
 * **Embedded spectra are snapshotted.**  Linear-unmixing endmembers are
   ``NumPyArraySpectrum`` objects, reused through the #620 spectrum snapshot;
-  K-Means seed spectra and centroids are raw numpy arrays inlined directly.
+  K-Means seed spectra and centroids are raw numpy arrays inlined directly,
+  with the input's wavelength list inlined as ``wavelengths`` (values) and
+  ``wavelength_units`` (unit string) when the input had wavelengths.
 
 ``run_id`` is not persisted: nothing references a run by id across a save/load,
 so each restored record is given a fresh id from the application's id counter,
