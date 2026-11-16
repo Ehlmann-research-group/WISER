@@ -34,6 +34,7 @@ from .utils import (
     can_transform_between_srs,
     have_spatial_overlap,
     build_band_info_from_wavelengths,
+    mask_data_ignore_value,
     srs_from_wkt,
 )
 from .mosaic_ingestion import is_dataset_georeferenced
@@ -1040,7 +1041,7 @@ class RasterDataSet(Serializable):
             if arr.ndim == 2:
                 arr = arr[np.newaxis, :, :]
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
+                arr = mask_data_ignore_value(arr, self._data_ignore_value)
             if self._data_cache:
                 # TODO (Joshua G-K): Add filter data ignore to cache key
                 cache.add_cache_item(key, arr)
@@ -1077,7 +1078,7 @@ class RasterDataSet(Serializable):
             if arr.ndim == 2:
                 arr = arr[np.newaxis, :, :]
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
+                arr = mask_data_ignore_value(arr, self._data_ignore_value)
         return arr
 
     def get_band_data(
@@ -1103,7 +1104,7 @@ class RasterDataSet(Serializable):
         if arr is None:
             arr = self._impl.get_band_data(band_index)
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
+                arr = mask_data_ignore_value(arr, self._data_ignore_value)
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
@@ -1139,7 +1140,7 @@ class RasterDataSet(Serializable):
             arr = self._impl.get_band_data(band_index)
 
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
+                arr = mask_data_ignore_value(arr, self._data_ignore_value)
 
             # Must get min after making it a masked array
             if band_index in self._cached_band_stats:
@@ -1190,7 +1191,7 @@ class RasterDataSet(Serializable):
         arr: Union[np.ndarray, np.ma.masked_array] = self._impl.sample_band_data(band_index, sample_factor)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
+            arr = mask_data_ignore_value(arr, self._data_ignore_value)
 
         return arr
 
@@ -1208,7 +1209,7 @@ class RasterDataSet(Serializable):
         arr = self._impl.get_multiple_band_data(band_list)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
+            arr = mask_data_ignore_value(arr, self._data_ignore_value)
 
         return arr
 
@@ -1356,7 +1357,7 @@ class RasterDataSet(Serializable):
         """
         if self._data_ignore_value is None:
             return arr
-        return np.ma.masked_values(arr, self._data_ignore_value)
+        return mask_data_ignore_value(arr, self._data_ignore_value)
 
     def cache_band_stats(self, index, arr: np.ndarray):
         """

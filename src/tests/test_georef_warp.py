@@ -14,12 +14,13 @@ import threading
 
 import numpy as np
 import pytest
-from osgeo import gdal, osr
+from osgeo import gdal, gdal_array, osr
 
 import tests.context  # noqa: F401  (sets up sys.path for `wiser` imports)
 
 from tests.mosaic_fixtures import make_numpy_scene
 from wiser.raster import georef_warp
+from wiser.raster.loader import RasterDataLoader
 from wiser.raster.georef_warp import (
     TRANSFORM_TYPES,
     build_warp_kwargs,
@@ -232,3 +233,104 @@ def test_incremental_warp_clamps_batch_to_at_least_one_band(tmp_path, monkeypatc
     assert incremental.GetGeoTransform() == whole.GetGeoTransform()
     np.testing.assert_array_equal(incremental.ReadAsArray(), whole.ReadAsArray())
     whole = incremental = None
+
+
+def _rotated_gcps(width: int, height: int, degrees: float = 30.0):
+    """GCPs for an exact rotation, so the output's bounding box has corners outside the footprint."""
+    theta = np.deg2rad(degrees)
+    corners = [(0.0, 0.0), (float(width), 0.0), (0.0, float(height)), (float(width), float(height))]
+    return [
+        gdal.GCP(
+            X0 + RES * (col * np.cos(theta) - row * np.sin(theta)),
+            Y0 - RES * (col * np.sin(theta) + row * np.cos(theta)),
+            0,
+            col,
+            row,
+        )
+        for col, row in corners
+    ]
+
+
+def _identity_gcps(width: int, height: int):
+    corners = [(0.0, 0.0), (float(width), 0.0), (0.0, float(height)), (float(width), float(height))]
+    return [gdal.GCP(X0 + col * RES, Y0 - row * RES, 0, col, row) for col, row in corners]
+
+
+# The three output paths: a GDAL-backed source, an in-RAM array warped whole, and the
+# incremental band-batched path forced by a one-byte RAM budget.
+WARP_PATHS = pytest.mark.parametrize("warp_path", ["gdal", "whole", "incremental"])
+
+
+def _scene(tmp_path, warp_path, *, dtype=np.float32, nodata, ignore_pixel=None, num_bands=2):
+    dataset = make_numpy_scene(
+        width=8, height=6, num_bands=num_bands, dtype=dtype, nodata=nodata, base_value=100.0
+    )
+    if ignore_pixel is not None:
+        dataset.get_impl()._arr[(0,) + ignore_pixel] = nodata
+    if warp_path != "gdal":
+        return dataset
+    src_path = str(tmp_path / "src.tif")
+    arr = dataset.get_image_data()
+    gdal_type = gdal_array.NumericTypeCodeToGDALTypeCode(arr.dtype)
+    src = gdal.GetDriverByName("GTiff").Create(src_path, 8, 6, num_bands, gdal_type)
+    for b in range(num_bands):
+        band = src.GetRasterBand(b + 1)
+        band.WriteArray(np.asarray(arr[b]))
+        if nodata is not None:
+            band.SetNoDataValue(nodata)
+    src = None
+    (loaded,) = RasterDataLoader().load_from_file(src_path, interactive=False)
+    return loaded
+
+
+def _warp(dataset, gcps, save_path, monkeypatch, warp_path):
+    if warp_path == "incremental":
+        monkeypatch.setattr(georef_warp, "MAX_RAM_BYTES", 1)
+    warp_kwargs, _ = build_warp_kwargs(gdal.GRA_NearestNeighbour, TRANSFORM_TYPES.POLY_1, _srs())
+    warp_dataset_to_path(dataset, gcps, warp_kwargs, _srs(), save_path)
+    written = gdal.Open(save_path)
+    arr = written.ReadAsArray()
+    nodata = [written.GetRasterBand(i).GetNoDataValue() for i in range(1, written.RasterCount + 1)]
+    written = None
+    return arr, nodata
+
+
+@WARP_PATHS
+def test_warp_fills_outside_footprint_with_source_ignore_value(tmp_path, monkeypatch, warp_path):
+    dataset = _scene(tmp_path, warp_path, nodata=-9999.0)
+    arr, nodata = _warp(dataset, _rotated_gcps(8, 6), str(tmp_path / "w.tif"), monkeypatch, warp_path)
+
+    assert nodata == [-9999.0, -9999.0]
+    assert not np.any(arr == 0)
+    assert arr[:, 0, 0].tolist() == [-9999.0, -9999.0]
+
+
+@WARP_PATHS
+def test_warp_fills_float_without_ignore_value_with_nan(tmp_path, monkeypatch, warp_path):
+    dataset = _scene(tmp_path, warp_path, nodata=None)
+    arr, nodata = _warp(dataset, _rotated_gcps(8, 6), str(tmp_path / "w.tif"), monkeypatch, warp_path)
+
+    assert all(v is not None and np.isnan(v) for v in nodata)
+    assert not np.any(arr == 0)
+    assert np.all(np.isnan(arr[:, 0, 0]))
+    assert np.any(~np.isnan(arr))
+
+
+@WARP_PATHS
+def test_warp_integer_without_ignore_value_raises_and_writes_nothing(tmp_path, monkeypatch, warp_path):
+    dataset = _scene(tmp_path, warp_path, dtype=np.uint16, nodata=None)
+    save_path = tmp_path / "w.tif"
+
+    with pytest.raises(ValueError, match="data-ignore value"):
+        _warp(dataset, _rotated_gcps(8, 6), str(save_path), monkeypatch, warp_path)
+    assert not save_path.exists()
+
+
+@WARP_PATHS
+def test_warp_keeps_source_ignore_pixels_masked(tmp_path, monkeypatch, warp_path):
+    dataset = _scene(tmp_path, warp_path, nodata=-9999.0, ignore_pixel=(2, 3), num_bands=1)
+    arr, nodata = _warp(dataset, _identity_gcps(8, 6), str(tmp_path / "w.tif"), monkeypatch, warp_path)
+
+    assert nodata == [-9999.0]
+    assert arr[2, 3] == -9999.0
+    assert np.count_nonzero(arr == -9999.0) == 1

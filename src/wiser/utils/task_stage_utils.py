@@ -42,6 +42,7 @@ from wiser.utils.worker_runtime import get_process_storage_client
 from wiser.raster.utils import (
     compute_PCA_on_image,
     finite_unmasked_row_mask,
+    mask_data_ignore_value,
 )
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
@@ -690,7 +691,7 @@ def _prepare_continuum_removal_inputs(
     image_data, region_meta = client.read_region(input_ref, subset_region, filter_data=False)
     image_data = np.ma.array(image_data, copy=False)
     if region_meta.nodata is not None:
-        image_data = np.ma.masked_values(image_data, region_meta.nodata)
+        image_data = mask_data_ignore_value(image_data, region_meta.nodata)
 
     (image_data,) = convert_to_float32_if_needed(image_data)
     image_data = np.asarray(image_data)

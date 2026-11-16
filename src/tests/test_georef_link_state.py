@@ -381,6 +381,83 @@ def test_linked_click_clears_spectrum_from_a_dataset_it_cannot_link(model, tmp_p
     assert model.app_state.get_active_spectrum() is None
 
 
+def _click_unlinked(model, pane, point):
+    """Click ``point`` in the main view's single tile or in the zoom pane, with linking off."""
+    assert not model.is_main_view_linked()
+    if pane == "main":
+        model.click_raster_coord_main_view_rv((0, 0), point)
+    else:
+        model.zoom_pane.click_pixel.emit((0, 0), QPoint(*point))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("pane", ["main", "zoom"])
+@pytest.mark.parametrize("click, expected", [((100, 90), (40, 50)), ((10, 10), None)])
+def test_unlinked_click_reads_spectrum_dataset_at_linked_pixel(model, tmp_path, pane, click, expected):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    b = model.load_dataset(str(_shifted_copy(tmp_path, "b.tif", 60, 40)))
+    _show(model, [a])
+    model.set_zoom_pane_dataset(a.get_id())
+    model.set_spectrum_plot_dataset(b.get_id())
+
+    _click_unlinked(model, pane, click)
+
+    spectrum = model.app_state.get_active_spectrum()
+    if expected is None:
+        assert spectrum is None
+    else:
+        assert spectrum.get_dataset() is b
+        assert tuple(spectrum.get_point()) == expected
+
+
+@pytest.mark.integration
+def test_unlinked_click_reads_spectrum_dataset_on_another_grid_at_linked_pixel(model):
+    a = model.load_dataset(str(_DATASETS / "caltech_4_100_150_nm"))
+    b = model.load_dataset(str(_EPSG4087))
+    _show(model, [a])
+    model.set_spectrum_plot_dataset(b.get_id())
+    click = (50, 50)
+    expected = reference_pixel_to_target_pixel_ds(click, a, b)
+    assert expected is not None and tuple(expected) != click
+
+    _click_unlinked(model, "main", click)
+
+    spectrum = model.app_state.get_active_spectrum()
+    assert spectrum.get_dataset() is b
+    assert tuple(spectrum.get_point()) == tuple(expected)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("pane", ["main", "zoom"])
+def test_unlinked_click_clears_spectrum_from_a_dataset_it_cannot_link(model, tmp_path, pane):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    unlinkable = model.load_dataset(np.zeros((1, 30, 20), dtype=np.float32))
+    _show(model, [a])
+    model.set_zoom_pane_dataset(a.get_id())
+    model.set_spectrum_plot_dataset(unlinkable.get_id())
+
+    _click_unlinked(model, pane, (10, 10))
+
+    assert model.app_state.get_active_spectrum() is None
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("pane", ["main", "zoom"])
+@pytest.mark.parametrize("lock", [True, False])
+def test_unlinked_click_reads_clicked_dataset_at_clicked_pixel(model, tmp_path, pane, lock):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    _show(model, [a])
+    model.set_zoom_pane_dataset(a.get_id())
+    if lock:
+        model.set_spectrum_plot_dataset(a.get_id())
+
+    _click_unlinked(model, pane, (100, 90))
+
+    spectrum = model.app_state.get_active_spectrum()
+    assert spectrum.get_dataset() is a
+    assert tuple(spectrum.get_point()) == (100, 90)
+
+
 def _scrolled_center(rv):
     """The raster point at the middle of ``rv``'s viewport, from its scroll position."""
     scroll_area, scale = rv._scroll_area, rv.get_scale()

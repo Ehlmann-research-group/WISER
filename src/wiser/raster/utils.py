@@ -47,6 +47,22 @@ def numpy_dtype_to_gdal_export_types(elem_type: Union[np.dtype, type]) -> Tuple[
     return gdal_elem_type, et
 
 
+def mask_data_ignore_value(
+    arr: Union[np.ndarray, np.ma.MaskedArray], ignore_value: Number
+) -> np.ma.MaskedArray:
+    """
+    Return ``arr`` as a masked array with the elements equal to ``ignore_value``
+    masked, keeping any mask ``arr`` already carries.
+
+    A NaN ``ignore_value`` masks exactly the NaN elements.  A finite
+    ``ignore_value`` masks the elements ``np.ma.masked_values`` matches (within
+    its default tolerance) and leaves NaN elements unmasked.
+    """
+    if np.isnan(ignore_value):
+        return np.ma.masked_where(np.isnan(np.ma.getdata(arr)), arr)
+    return np.ma.masked_values(arr, ignore_value)
+
+
 # ============================================================================
 # OPERATIONS INVOLVING TYPED SPECTRAL VALUES
 
@@ -314,7 +330,7 @@ def compute_PCA_on_image(
 
     return_arr = np.full((nrows, ncols, num_components), data_ignore, dtype=np.float32)
     return_arr[coords[:, 0], coords[:, 1], :] = oper_result
-    masked_return_arr = np.ma.masked_values(return_arr, data_ignore)
+    masked_return_arr = mask_data_ignore_value(return_arr, data_ignore)
 
     return masked_return_arr, pca
 

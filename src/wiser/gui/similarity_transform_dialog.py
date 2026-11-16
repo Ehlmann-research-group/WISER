@@ -11,6 +11,7 @@ from wiser.gui.app_state import ApplicationState
 
 from wiser.raster.dataset import RasterDataSet, pixel_coord_to_geo_coord
 from wiser.raster.dataset_impl import GDALRasterDataImpl
+from wiser.raster.mosaic_ingestion import is_dataset_georeferenced
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
@@ -19,6 +20,7 @@ from .progress_task import run_with_progress
 from .util import (
     pillow_rotate_scale_expand,
     cv2_rotate_scale_expand,
+    rotate_scale_expand_size,
     rotate_scale_geotransform,
     make_into_help_button,
 )
@@ -56,8 +58,6 @@ def create_rotated_scaled_dataset(
     rotation: float,
     scale: float,
     interp: int,
-    out_width: int,
-    out_height: int,
     save_path: str,
     progress: Optional[ProgressReporter] = None,
 ) -> None:
@@ -65,8 +65,8 @@ def create_rotated_scaled_dataset(
     Rotate + scale ``dataset`` and write the result to a GeoTIFF at ``save_path``.
 
     Qt-free worker: runs on a scheduler thread (no Qt widgets, no ``self``). The
-    output raster size (``out_width`` / ``out_height``) and interpolation mode are
-    computed on the GUI thread and passed in. Bands are processed in RAM-bounded
+    output raster size is the extent of the rotated and scaled image, from
+    ``rotate_scale_expand_size``. Bands are processed in RAM-bounded
     chunks; ``progress`` reports per-chunk completion and is polled for cancellation
     at each chunk boundary. Errors propagate to the caller (``run_with_progress``
     routes them to ``on_error``).
@@ -78,15 +78,19 @@ def create_rotated_scaled_dataset(
 
     Raises:
         ValueError: if the output has fill or masked pixels and the dataset is an
-            integer type with no data-ignore value.  The partly written output at
-            ``save_path`` is deleted before it is raised.
+            integer type with no data-ignore value.
+        RuntimeError: if GDAL fails to create or write the output.
+
+    On any exception, including cancellation, the partly written output at
+    ``save_path`` is deleted before the exception propagates.
     """
     progress = progress or ProgressReporter()
     driver: gdal.Driver = gdal.GetDriverByName("GTiff")
     new_dataset = None
     try:
-        pixmap_width = out_width
-        pixmap_height = out_height
+        pixmap_width, pixmap_height = rotate_scale_expand_size(
+            dataset.get_width(), dataset.get_height(), rotation, scale
+        )
         num_bands = dataset.num_bands()
         np_dtype = dataset.get_elem_type()  # Returns a numpy dtype
         gdal_data_type, _ = numpy_dtype_to_gdal_export_types(np_dtype)
@@ -159,8 +163,6 @@ def create_rotated_scaled_dataset(
                 )
             if np.ma.is_masked(rotated_scaled_band_arr):
                 if data_ignore is None:
-                    new_dataset = None
-                    driver.Delete(save_path)
                     raise ValueError(
                         "Rotating and scaling produces fill pixels, but the integer dataset "
                         "has no data-ignore value to write them as. Set a data-ignore value "
@@ -182,7 +184,7 @@ def create_rotated_scaled_dataset(
                 new_dataset.GetRasterBand(i).SetNoDataValue(data_ignore)
         new_dataset.FlushCache()
         # Copies geographic data separately
-        if dataset.has_geographic_info():
+        if is_dataset_georeferenced(dataset):
             new_dataset.SetSpatialRef(dataset.get_spatial_ref())
             gt = dataset.get_geo_transform()
             width = dataset.get_width()
@@ -199,6 +201,12 @@ def create_rotated_scaled_dataset(
             new_dataset.SetGeoTransform(rotated_scaled_gt)
         new_dataset = None
         progress.report_fraction(1.0, "Done")
+    except BaseException:
+        # Close() releases the file even while the traceback still references the dataset.
+        if new_dataset is not None:
+            new_dataset.Close()
+            driver.Delete(save_path)
+        raise
     finally:
         new_dataset = None
 
@@ -752,12 +760,8 @@ class SimilarityTransformDialog(QDialog):
             )
             return
 
-        # Gather Qt-dependent parameters on the GUI thread; the worker is Qt-free. The
-        # output raster size is the size of the (already rotated/scaled) preview pixmap.
+        # Gather Qt-dependent parameters on the GUI thread; the worker is Qt-free.
         dataset = self._rotate_scale_dataset
-        pixmap = self._rotate_scale_pane.get_rasterview().get_unscaled_pixmap()
-        out_width = pixmap.width()
-        out_height = pixmap.height()
         rotation = self._image_rotation
         scale = self._image_scale
         interp = self._get_interpolation_type()
@@ -768,9 +772,7 @@ class SimilarityTransformDialog(QDialog):
         # No scheduler available (e.g. dialog built without AppServices): run inline.
         if self._app_services is None:
             try:
-                create_rotated_scaled_dataset(
-                    dataset, rotation, scale, interp, out_width, out_height, save_path
-                )
+                create_rotated_scaled_dataset(dataset, rotation, scale, interp, save_path)
             except BaseException as e:
                 self._on_rotate_scale_failed(str(e))
                 return
@@ -786,8 +788,6 @@ class SimilarityTransformDialog(QDialog):
             rotation,
             scale,
             interp,
-            out_width,
-            out_height,
             save_path,
             on_success=self._on_rotate_scale_finished,
             on_error=self._on_rotate_scale_failed,
