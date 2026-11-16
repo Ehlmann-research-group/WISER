@@ -75,8 +75,12 @@ SHOW_LIBRARY_SPECTRA_THRESHOLD = 20
 # Linewidth for SpectrumPointDisplayInfo dotted crosshair (axvline / axhline)
 CROSSHAIR_WIDTH = 0.5
 
-# Single-point spectra use Line2D markers; ~matches SpectrumPointDisplayInfo scatter (s=3).
-SINGLE_POINT_MARKERSIZE = 3
+# Single-point spectra use Line2D markers, sized to stand out on an otherwise empty plot,
+# with their value written beside the marker.
+SINGLE_POINT_MARKERSIZE = 8
+SINGLE_POINT_VALUE_FONTSIZE = 7
+
+NO_DATA_NOTE = "No data at this pixel"
 
 
 def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
@@ -166,6 +170,7 @@ class SpectrumDisplayInfo:
         self._icon: Optional[QIcon] = None
         # Matplotlib artist for this spectrum (normally Line2D from plot; either works with .remove())
         self._line2d = None
+        self._value_text: Optional[matplotlib.text.Annotation] = None
         self._values = None
 
     def reset(self) -> None:
@@ -180,6 +185,27 @@ class SpectrumDisplayInfo:
 
     def get_spectrum(self) -> "Spectrum":
         return self._spectrum
+
+    def has_data(self) -> bool:
+        """
+        Returns whether the plotted values hold at least one value that is
+        neither NaN nor masked.  Raises ``RuntimeError`` if called before
+        ``generate_plot()``.
+        """
+        if self._values is None:
+            raise RuntimeError("has_data() requires generate_plot() to have run")
+        return np.ma.masked_invalid(np.ma.asarray(self._values, dtype=float)).count() > 0
+
+    def _annotate_single_value(self, axes, x: float, y: float, color) -> None:
+        self._value_text = axes.annotate(
+            f"{y:.4g}",
+            xy=(x, y),
+            xytext=(6, 6),
+            textcoords="offset points",
+            color=color,
+            fontsize=SINGLE_POINT_VALUE_FONTSIZE,
+            in_layout=False,
+        )
 
     def generate_plot(
         self,
@@ -197,7 +223,7 @@ class SpectrumDisplayInfo:
             self._values = self._spectrum.get_spectrum()
 
         vals = np.asarray(self._values).ravel()
-        draw_as_single_marker = vals.size == 1 and single_point_marker is not None
+        draw_as_single_marker = vals.size == 1 and single_point_marker is not None and self.has_data()
 
         color = self._spectrum.get_color()
         linewidth = 0.5
@@ -232,6 +258,7 @@ class SpectrumDisplayInfo:
                 )
                 assert len(lines) == 1
                 self._line2d = lines[0]
+                self._annotate_single_value(axes, float(wx[0]), float(vals[0]), color)
             else:
                 lines = axes.plot(
                     wavelengths,
@@ -261,6 +288,7 @@ class SpectrumDisplayInfo:
                 )
                 assert len(lines) == 1
                 self._line2d = lines[0]
+                self._annotate_single_value(axes, 0.0, float(vals[0]), color)
             else:
                 lines = axes.plot(
                     self._values,
@@ -275,6 +303,10 @@ class SpectrumDisplayInfo:
         if self._line2d is not None:
             self._line2d.remove()
             self._line2d = None
+
+        if self._value_text is not None:
+            self._value_text.remove()
+            self._value_text = None
 
 
 class SpectrumPointDisplayInfo:
@@ -545,6 +577,9 @@ class SpectrumPlotGeneric(QWidget):
         # Display information for mouse clicks
         self._plot_mouse_down: bool = False
         self._click: Optional[SpectrumPointDisplayInfo] = None
+
+        # Note shown on the plot when a displayed spectrum has no data
+        self._no_data_text: Optional[matplotlib.text.Text] = None
 
         self._selection_marker: str = "s"
         self._selection_crosshair: bool = True
@@ -1562,8 +1597,16 @@ class SpectrumPlotGeneric(QWidget):
 
         self._axes.relim(visible_only=True)
 
+        # All plotted points at one x value (single-band spectra) autoscale to
+        # a span of a fraction of a unit; center that x in a span of +/- 1 and
+        # give it the only major tick.
+        data_x0, data_x1 = self._axes.dataLim.intervalx
+        single_x = data_x0 if data_x0 == data_x1 and np.isfinite(data_x0) else None
+
         if self._x_autorange:
             self._axes.autoscale(axis="x")
+            if single_x is not None:
+                self._axes.set_xlim(single_x - 1.0, single_x + 1.0)
             self._x_range = self._axes.get_xlim()
             # print(f'X autorange on:  range is {self._x_range}')
         else:
@@ -1582,7 +1625,10 @@ class SpectrumPlotGeneric(QWidget):
 
         if self._x_autoticks:
             # Automatically generate X-ticks
-            self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
+            if single_x is not None:
+                self._axes.xaxis.set_major_locator(matplotlib.ticker.FixedLocator([single_x]))
+            else:
+                self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
             self._axes.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
 
         else:
@@ -1686,6 +1732,32 @@ class SpectrumPlotGeneric(QWidget):
             args = MATPLOTLIB_LEGEND_ARGS[self._legend_location]
             legend_font = get_font_properties(self._font_name, self._font_size["legend"])
             self._axes.legend(**args, prop=legend_font)
+
+        # Note for displayed spectra with no value that is neither NaN nor masked
+
+        if self._no_data_text is not None:
+            self._no_data_text.remove()
+            self._no_data_text = None
+
+        no_data_names = [
+            info.get_spectrum().get_name()
+            for info in self._spectrum_display_info.values()
+            if not info.has_data()
+        ]
+        if no_data_names:
+            note = NO_DATA_NOTE
+            if len(no_data_names) < len(self._spectrum_display_info):
+                note += ":  " + ", ".join(no_data_names)
+            self._no_data_text = self._axes.text(
+                0.5,
+                0.5,
+                note,
+                fontproperties=get_font_properties(self._font_name, self._font_size["selection"]),
+                horizontalalignment="center",
+                verticalalignment="center",
+                in_layout=False,
+                transform=self._axes.transAxes,
+            )
 
         # All done!
         self._figure_canvas.draw()
