@@ -706,6 +706,12 @@ class _RestartableExecutor:
 
     Thread-safe on its own: submit and restart are serialized by an internal
     lock, so callers do not need to hold any external lock.
+
+    `shutdown` does not hold that lock while it waits. Done-callbacks run on the
+    executor's own threads and may call `submit`; if the wait held the lock, such
+    a callback would block on it while `shutdown` waits for that same thread.
+    After `shutdown`, `submit` raises `RuntimeError` and never builds a
+    replacement executor.
     """
 
     def __init__(self, name: str, factory: Callable[[], Executor]) -> None:
@@ -713,6 +719,7 @@ class _RestartableExecutor:
         self._factory = factory
         self._lock = Lock()
         self._executor = factory()
+        self._is_shut_down = False
 
     @property
     def executor(self) -> Executor:
@@ -721,6 +728,8 @@ class _RestartableExecutor:
 
     def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
         with self._lock:
+            if self._is_shut_down:
+                raise RuntimeError(f"cannot submit to {self._name} after shutdown")
             try:
                 return self._executor.submit(fn, *args, **kwargs)
             except BrokenExecutor:
@@ -729,7 +738,9 @@ class _RestartableExecutor:
 
     def shutdown(self, wait: bool = True) -> None:
         with self._lock:
-            self._executor.shutdown(wait=wait)
+            self._is_shut_down = True
+            executor = self._executor
+        executor.shutdown(wait=wait)
 
     def _restart_locked(self) -> None:
         """Swap in a fresh executor and tear down the broken one. Caller holds `_lock`.

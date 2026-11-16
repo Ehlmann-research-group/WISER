@@ -28,8 +28,22 @@ before heavy libraries load.
 # NOTE: keep this in sync with the same block at the top of src/wiser/__main__.py.
 import os
 
+import pytest
+
 _cpu_count = os.cpu_count() or 1
 _worker_budget = min(6, _cpu_count)  # mirrors SCHEDULER_PROCESS_BUDGET
 _blas_threads = str(max(1, _cpu_count // _worker_budget))
 for _blas_thread_var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS"):
     os.environ.setdefault(_blas_thread_var, _blas_threads)
+
+
+@pytest.fixture(autouse=True)
+def _bandmath_temp_folder(tmp_path, monkeypatch):
+    """Send band-math results to a per-test folder.
+
+    The default, ``src/wiser/bandmath/temp_output``, is shared by every test and is
+    emptied whenever any test's app window closes, including a window garbage-collected
+    while a later test is running.  The parent's value travels to the band-math
+    subprocess in the job, so patching it here redirects both.
+    """
+    monkeypatch.setattr("wiser.bandmath.evaluator.TEMP_FOLDER_PATH", str(tmp_path / "bandmath_temp_output"))

@@ -68,6 +68,7 @@ def _evaluate_chunked(expr, dataset):
         number_of_intermediates=1,
         tree=tree,
         use_synchronous_method=False,
+        temp_folder_path=evaluator.TEMP_FOLDER_PATH,
     )
     result_type, out_dataset, result_name, expr_info = evaluator.eval_singular_bandmath_expr_async(
         job, max_chunking_bytes=1

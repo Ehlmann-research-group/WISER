@@ -91,3 +91,12 @@ jobs:
             xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
             bash -lc 'make generated && cd src/tests && pytest -s .'
         shell: micromamba-shell {0}
+
+      - name: Fail if the tests changed or left files in the working tree
+        run: |
+          dirty="$(git status --porcelain)"
+          if [ -n "$dirty" ]; then
+            echo "::error::The test suite modified or created files in the working tree:"
+            echo "$dirty"
+            exit 1
+          fi

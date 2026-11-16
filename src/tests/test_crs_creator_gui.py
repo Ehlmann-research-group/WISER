@@ -12,6 +12,8 @@ Note:
 """
 
 import os
+import shutil
+import tempfile
 
 import unittest
 
@@ -20,7 +22,6 @@ import tests.context
 # `python <test-file-name>.py`
 # import context
 
-from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -66,6 +67,8 @@ class TestCRSCreator(unittest.TestCase):
         Creates an instance of `WiserTestModel` to simulate user interaction.
         """
         self.test_model = WiserTestModel()
+        self.out_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.out_dir, ignore_errors=True)
 
     def tearDown(self):
         """
@@ -252,19 +255,7 @@ class TestCRSCreator(unittest.TestCase):
 
         self.test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
         self.test_model.set_geo_ref_polynomial_order("2")
-        save_path = str(
-            Path(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "test_utils",
-                    "test_datasets",
-                    "caltech_4_100_150_nm_test_crs.tif",
-                )
-            ).resolve()
-        )
-        if os.path.exists(save_path):
-            os.remove(save_path)
+        save_path = os.path.join(self.out_dir, "caltech_4_100_150_nm_test_crs.tif")
         self.test_model.set_geo_ref_file_save_path(save_path)
 
         gcp_list = [

@@ -158,6 +158,34 @@ bundled distribution:
 ./WISER_Bin --test_mode
 ```
 
+### Tutorial scene smoke test
+
+`.github/workflows/tutorial-smoke.yml` runs every scene of the tutorial figure
+generator, `doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py`, once a
+week (Monday 08:00 UTC) and on manual dispatch. Each scene drives the real
+application offscreen through a tutorial's steps: opening each bundled fixture,
+the band chooser and stretch builder, band math, K-means, the scatter plot, PCA,
+MNF, SAM, SFF, MTMF, linear unmixing and the filter dialogs. All scenes use the
+fixtures in `src/test_utils/`, so nothing is downloaded.
+
+The job fails if any scene raises: a dialog attribute the scene sets has been
+renamed or removed, a background task does not finish within its timeout, or a
+dialog the scene expects never opens. The log prints `[scene_name]` before each
+scene and `FAILED: <names>` at the end. The figures from the run are uploaded as
+the `tutorial-figures` artifact, so a failure can be compared against the
+committed figures in `source/_static/tutorials/`; CI never commits them.
+
+To reproduce locally, after `make generated`:
+
+```bash
+QT_QPA_PLATFORM=offscreen python doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py \
+    --out "$PWD/tutorial-figures"            # all scenes, ~4 minutes
+QT_QPA_PLATFORM=offscreen python doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py \
+    --out "$PWD/tutorial-figures" --only kmeans
+```
+
+Without `--out` the script overwrites the committed tutorial figures.
+
 ## Test Guidelines
 
 | Principle                  | Description                                                                           |
