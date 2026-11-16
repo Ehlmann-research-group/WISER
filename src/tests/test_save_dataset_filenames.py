@@ -20,8 +20,13 @@ from PySide6.QtWidgets import QMessageBox
 
 from test_utils.test_model import WiserTestModel
 from wiser.bandmath import BandMathExprInfo, VariableType
-from wiser.bandmath.utils import save_band_from_bandmath_result, save_image_from_bandmath_result
+from wiser.bandmath.utils import (
+    load_band_from_bandmath_result,
+    save_band_from_bandmath_result,
+    save_image_from_bandmath_result,
+)
 from wiser.gui.save_dataset import SaveDatasetDialog
+from wiser.raster.dataset import RasterDataBand
 from wiser.raster.dataset_impl import ENVI_GDALRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
 
@@ -249,3 +254,75 @@ def test_bandmath_output_folder_saves_masked_comparison_result(test_model, tmp_p
     np.testing.assert_array_equal(np.ma.getmaskarray(data), np.ma.getmaskarray(expected))
     np.testing.assert_array_equal(data.compressed(), expected.compressed())
     reopened = None
+
+
+def _save_cube(app_state, result, name, folder):
+    return save_image_from_bandmath_result(
+        result_type=VariableType.IMAGE_CUBE,
+        result=result,
+        result_name=name,
+        expression="a",
+        expr_info=BandMathExprInfo(),
+        output_folder=folder,
+        loader=RasterDataLoader(),
+        app_state=app_state,
+    )
+
+
+def _save_band(app_state, result, name, folder):
+    return save_band_from_bandmath_result(
+        result=result,
+        result_name=name,
+        expression="a",
+        expr_info=BandMathExprInfo(),
+        output_folder=folder,
+        loader=RasterDataLoader(),
+        app_state=app_state,
+    )
+
+
+def _reopened_data(folder, name):
+    reopened = RasterDataLoader().load_from_file(os.path.join(folder, f"{name}.hdr"), interactive=False)[0]
+    return reopened.get_image_data()
+
+
+def test_bandmath_output_folder_saves_in_memory_cube_with_app_cache(test_model, tmp_path):
+    cube = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+    assert test_model.app_state.get_cache() is not None
+
+    _save_cube(test_model.app_state, cube, "cube", str(tmp_path))
+
+    np.testing.assert_array_equal(_reopened_data(str(tmp_path), "cube"), cube)
+
+
+def test_bandmath_output_folder_saves_serialized_cube(test_model, dataset, tmp_path):
+    _save_cube(test_model.app_state, dataset.get_serialized_form(), "cube", str(tmp_path))
+
+    np.testing.assert_array_equal(_reopened_data(str(tmp_path), "cube"), dataset.get_image_data())
+
+
+def test_bandmath_output_folder_saves_serialized_band(test_model, dataset, tmp_path):
+    band = RasterDataBand(dataset, 1)
+
+    _save_band(test_model.app_state, band.get_serialized_form(), "band", str(tmp_path))
+
+    np.testing.assert_array_equal(_reopened_data(str(tmp_path), "band"), band.get_data()[np.newaxis])
+
+
+@pytest.mark.parametrize("save_fn", [save_band_from_bandmath_result, load_band_from_bandmath_result])
+def test_bandmath_serialized_band_rejects_non_2d_data(test_model, dataset, tmp_path, save_fn):
+    serialized = RasterDataBand(dataset, 1).get_serialized_form()
+    kwargs = {"output_folder": str(tmp_path)} if save_fn is save_band_from_bandmath_result else {}
+
+    with mock.patch.object(RasterDataBand, "get_data", return_value=np.zeros((2, 3, 4), np.float32)):
+        with pytest.raises(ValueError, match="2 dimensions"):
+            save_fn(
+                result=serialized,
+                result_name="band",
+                expression="a",
+                expr_info=BandMathExprInfo(),
+                loader=RasterDataLoader(),
+                app_state=test_model.app_state,
+                **kwargs,
+            )
+    assert os.listdir(tmp_path) == []
