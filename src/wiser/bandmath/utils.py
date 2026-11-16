@@ -337,6 +337,14 @@ def load_band_from_bandmath_result(
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
+    """
+    Load an image-band band-math result as a 1-band dataset.
+
+    ``result`` is a ``SerializedForm`` of a band or a 2-D ndarray.
+
+    Raises AttributeError if ``loader`` is missing, ValueError if a serialized band's
+    data is not 2-D, and RuntimeError for any other result type.
+    """
     if not loader:
         raise AttributeError("Must pass loader into function")
     # Compute a timestamp to put in the description
