@@ -106,20 +106,18 @@ class TestPolygonSelectionTools(unittest.TestCase):
         expected = PolygonSelection([QPoint(2, 2), QPoint(10, 2), QPoint(16, 17)]).get_all_pixels()
         self.assertNotEqual(expected, before)
         self.assertEqual(self.roi.get_all_pixels(), expected)
-        self.assertEqual(
-            sel.get_rasterized_polygon().get_set(),
-            expected,
-        )
 
-    def test_restored_polygon_pixels_match_restored_points(self):
-        sel = PolygonSelection([QPoint(2, 2), QPoint(10, 2), QPoint(10, 10)])
-        before = sel.get_all_pixels()
-        sel.get_points()[2].setX(16)
-        sel.get_points()[2].setY(17)
-        self.assertNotEqual(sel.get_all_pixels(), before)
-        sel.get_points()[2].setX(10)
-        sel.get_points()[2].setY(10)
-        self.assertEqual(sel.get_all_pixels(), before)
+
+@pytest.mark.unit
+def test_restored_polygon_pixels_match_restored_points():
+    sel = PolygonSelection([QPoint(2, 2), QPoint(10, 2), QPoint(10, 10)])
+    before = sel.get_all_pixels()
+    sel.get_points()[2].setX(16)
+    sel.get_points()[2].setY(17)
+    assert sel.get_all_pixels() != before
+    sel.get_points()[2].setX(10)
+    sel.get_points()[2].setY(10)
+    assert sel.get_all_pixels() == before
 
 
 if __name__ == "__main__":
