@@ -82,7 +82,7 @@ def _evaluate_chunked(expr, dataset):
 @pytest.mark.parametrize(
     "expr, dtype, ignore_value",
     [
-        ("d > 0.05", np.uint8, np.iinfo(np.uint8).max),
+        ("d > 0.05", np.int16, NODATA),
         ("d * 2", np.float32, NODATA),
     ],
 )
@@ -120,3 +120,25 @@ def test_chunked_masked_result_reopens_with_ignore_value_and_mask(
     assert not restored.get_filepaths()[0].startswith(str(temp_dir))
     assert restored.get_data_ignore_value() == ignore_value
     np.testing.assert_array_equal(np.ma.getmaskarray(restored.get_image_data()), expected_mask)
+
+
+def test_in_memory_comparison_mask_survives_project_round_trip(tmp_path):
+    # A comparison result such as "d > 0.05" is int8, which ENVI cannot store.
+    data = np.array([[[1, 0], [0, -128]]], dtype=np.int8)
+    app = _FakeAppState()
+    mask = app.get_loader().dataset_from_numpy_array(data)
+    mask.set_data_ignore_value(-128)
+    app.add_dataset(mask)
+    mask_id = mask.get_id()
+
+    save_project(app, tmp_path / "session.wiserproj")
+
+    restored_app = _FakeAppState()
+    report = load_project(tmp_path / "session.wiserproj", restored_app, extract_dir=tmp_path / "unpacked")
+    assert report["datasets"] == []
+    restored = restored_app.get_dataset(mask_id)
+    assert restored.get_elem_type() == np.dtype(np.int16)
+    assert restored.get_data_ignore_value() == -128
+    restored_data = restored.get_image_data()
+    np.testing.assert_array_equal(np.ma.getdata(restored_data), data)
+    np.testing.assert_array_equal(np.ma.getmaskarray(restored_data), data == -128)

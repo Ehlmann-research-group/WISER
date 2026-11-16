@@ -70,6 +70,16 @@ def create_rotated_scaled_dataset(
     chunks; ``progress`` reports per-chunk completion and is polled for cancellation
     at each chunk boundary. Errors propagate to the caller (``run_with_progress``
     routes them to ``on_error``).
+
+    Output pixels outside the rotated footprint, and pixels masked in the source,
+    are written as the dataset's data-ignore value, which is declared as the
+    GeoTIFF's nodata.  A floating-point dataset with no data-ignore value is
+    written with NaN for those pixels and NaN declared as nodata.
+
+    Raises:
+        ValueError: if the output has fill or masked pixels and the dataset is an
+            integer type with no data-ignore value.  The partly written output at
+            ``save_path`` is deleted before it is raised.
     """
     progress = progress or ProgressReporter()
     driver: gdal.Driver = gdal.GetDriverByName("GTiff")
@@ -105,7 +115,12 @@ def create_rotated_scaled_dataset(
             num_bands_per = 1
         num_bands_per = min(num_bands_per, OPENCV_MAX_WARP_CHANNELS)
         ds_data_ignore = dataset.get_data_ignore_value()
-        data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
+        if ds_data_ignore is not None:
+            data_ignore = ds_data_ignore
+        elif np.issubdtype(np_dtype, np.floating):
+            data_ignore = np.nan
+        else:
+            data_ignore = None
         # Rotate and scale bands at the appropriate interval
         for band_index in range(0, num_bands, num_bands_per):
             # Cooperative cancellation checkpoint before each chunk of work.
@@ -114,6 +129,8 @@ def create_rotated_scaled_dataset(
                 band for band in range(band_index, band_index + num_bands_per) if band < num_bands
             ]
             band_arr = dataset.get_multiple_band_data(band_list_index)
+            # A full mask makes the warp mask the pixels outside the rotated footprint.
+            band_arr = np.ma.MaskedArray(band_arr, mask=np.ma.getmaskarray(band_arr))
             # We have to transpose because opencv expects the columns in a certain order
             if len(band_arr.shape) == 2:
                 np_corrected_band_arr = band_arr
@@ -140,9 +157,17 @@ def create_rotated_scaled_dataset(
                     f"The rotated and scaled array dimension is neither 2 or 3, "
                     f"its {len(rotated_scaled_band_arr.shape)}"
                 )
-            # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
-            if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
+            if np.ma.is_masked(rotated_scaled_band_arr):
+                if data_ignore is None:
+                    new_dataset = None
+                    driver.Delete(save_path)
+                    raise ValueError(
+                        "Rotating and scaling produces fill pixels, but the integer dataset "
+                        "has no data-ignore value to write them as. Set a data-ignore value "
+                        "on the dataset and run again."
+                    )
                 rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
+            rotated_scaled_band_arr = np.ma.getdata(rotated_scaled_band_arr)
             write_raster_to_dataset(
                 new_dataset,
                 band_list_index,
@@ -152,6 +177,9 @@ def create_rotated_scaled_dataset(
             progress.report(min(band_index + num_bands_per, num_bands), num_bands, "Rotating & scaling")
         # Copies numeric metadata like wavelenghs, bad bands, data ignore, and default bands
         copy_metadata_to_gdal_dataset(new_dataset, dataset)
+        if ds_data_ignore is None and data_ignore is not None:
+            for i in range(1, num_bands + 1):
+                new_dataset.GetRasterBand(i).SetNoDataValue(data_ignore)
         new_dataset.FlushCache()
         # Copies geographic data separately
         if dataset.has_geographic_info():

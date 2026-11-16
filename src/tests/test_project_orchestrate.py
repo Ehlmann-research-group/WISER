@@ -532,6 +532,48 @@ def test_an_opened_referenced_project_is_not_detected_as_embedding(tmp_path):
     assert not project_embeds_datasets(dst, unpacked)
 
 
+def _reopened_referenced_project_with_a_copied_result(tmp_path):
+    """Save a scene by reference plus an in-memory result, and reopen it from a zip."""
+    src = _FakeAppState()
+    scene = _file_backed_dataset(src, tmp_path / "sources", "scene")
+    result = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    result.set_name("result")
+    src.add_dataset(result)
+    proj = tmp_path / "referenced.wiserproj"
+    save_project(src, proj)
+
+    dst = _FakeAppState()
+    unpacked = tmp_path / "unpacked"
+    load_project(proj, dst, extract_dir=unpacked)
+    return dst, unpacked, scene.get_filepaths()[0]
+
+
+def test_an_opened_referenced_project_with_a_copied_result_is_not_detected_as_embedding(tmp_path):
+    # The result restores from a sidecar in the extract dir, but the scene is still
+    # referenced; treating the project as self-contained would copy the scene in.
+    dst, unpacked, _ = _reopened_referenced_project_with_a_copied_result(tmp_path)
+    assert not project_embeds_datasets(dst, unpacked)
+
+
+def test_an_empty_session_is_not_detected_as_embedding(tmp_path):
+    assert not project_embeds_datasets(_FakeAppState(), tmp_path)
+
+
+def test_a_result_restored_from_the_opened_bundle_is_copied_on_a_referenced_save(tmp_path):
+    dst, unpacked, scene_path = _reopened_referenced_project_with_a_copied_result(tmp_path)
+
+    resaved = tmp_path / "resaved.wiserproj"
+    save_project(dst, resaved, opened_root=unpacked)
+    shutil.rmtree(unpacked)  # the extract dir dies with the session
+
+    again = _FakeAppState()
+    report = load_project(resaved, again, extract_dir=tmp_path / "unpacked-again")
+    assert report["datasets"] == []
+    by_name = {ds.get_name(): ds for ds in again.get_datasets()}
+    assert by_name["scene"].get_filepaths()[0] == os.path.abspath(scene_path)
+    np.testing.assert_array_equal(_data(by_name["result"]), _sample_array())
+
+
 def test_a_referenced_project_reopens_after_the_project_file_moves(tmp_path):
     # A reference records where the *data* lives, not a location relative to the project
     # file, so the .wiserproj can be saved or moved anywhere the data is not.

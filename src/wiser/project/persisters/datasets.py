@@ -203,6 +203,7 @@ def save_datasets(
     excluded_ids: "frozenset[int]" = frozenset(),
     embed_file_backed: bool = False,
     progress: Optional[ProgressReporter] = None,
+    embed_ids: "frozenset[int]" = frozenset(),
 ) -> None:
     """Write every dataset in ``app_state`` into ``manifest['datasets']``.
 
@@ -213,7 +214,8 @@ def save_datasets(
 
     When ``embed_file_backed`` is set (a self-contained save) file-backed datasets
     are copied into the bundle as ENVI sidecars rather than referenced by path, so
-    the project is portable.
+    the project is portable.  A file-backed dataset whose id is in ``embed_ids``
+    is copied in whatever ``embed_file_backed`` says.
 
     Writing a dataset's pixels is the one slow step of a save, so ``progress`` is
     split into one slice per dataset, and a sidecar copy reports and checks
@@ -228,7 +230,8 @@ def save_datasets(
     for dataset, child in zip(datasets, children):
         child.raise_if_cancelled()
         child.report_fraction(0.0)
-        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed_file_backed, progress=child))
+        embed = embed_file_backed or dataset.get_id() in embed_ids
+        entries.append(dataset_to_pyrep(dataset, bundle, loader, embed=embed, progress=child))
     progress.report_fraction(1.0)
     manifest["datasets"] = entries
 
