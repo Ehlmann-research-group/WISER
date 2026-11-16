@@ -1,5 +1,5 @@
 """
-Tests for the polygon selection creator, driven through the raster
+Tests for the polygon selection creator and editor, driven through the raster
 view's mouse and key handlers at the default zoom.
 """
 
@@ -9,13 +9,13 @@ import tests.context  # noqa: F401
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QKeyEvent, QMouseEvent
 
 from test_utils.test_model import WiserTestModel
-from wiser.gui.ui_selection_polygon import PolygonSelectionCreator
+from wiser.gui.ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
 from wiser.raster.roi import RegionOfInterest
-from wiser.raster.selection import SelectionType
+from wiser.raster.selection import PolygonSelection, SelectionType
 
 
 class _Action:
@@ -59,6 +59,15 @@ class TestPolygonSelectionTools(unittest.TestCase):
         self._mouse(QEvent.MouseButtonPress, raster_xy)
         self._mouse(QEvent.MouseButtonRelease, raster_xy)
 
+    def _drag(self, start_xy, end_xy):
+        self._mouse(QEvent.MouseButtonPress, start_xy)
+        self._mouse(QEvent.MouseMove, end_xy)
+        self._mouse(QEvent.MouseButtonRelease, end_xy)
+
+    def _press_escape(self):
+        event = QKeyEvent(QEvent.KeyRelease, Qt.Key_Escape, Qt.NoModifier)
+        self.rv._image_widget.keyReleaseEvent(event)
+
     def _start_polygon(self):
         self.pane._on_add_selection_to_roi(_Action(SelectionType.POLYGON))
 
@@ -83,6 +92,34 @@ class TestPolygonSelectionTools(unittest.TestCase):
         self.assertEqual(len(sels), 1)
         self.assertEqual([p.toTuple() for p in sels[0].get_points()], [(5, 5), (15, 5), (15, 15)])
         self.assertEqual(self.changed, sels)
+
+    def test_edited_polygon_pixels_match_edited_points(self):
+        sel = PolygonSelection([QPoint(2, 2), QPoint(10, 2), QPoint(10, 10)])
+        self.roi.add_selection(sel)
+        before = self.roi.get_all_pixels()
+        self.pane._on_edit_roi_selection_geometry(self.roi, 0, self.rv)
+        self.assertIsInstance(self.pane._task_delegate, PolygonSelectionEditor)
+        self._drag((10, 10), (16, 17))
+        self._press_escape()
+        self.assertIsNone(self.pane._task_delegate)
+        self.assertEqual([p.toTuple() for p in sel.get_points()], [(2, 2), (10, 2), (16, 17)])
+        expected = PolygonSelection([QPoint(2, 2), QPoint(10, 2), QPoint(16, 17)]).get_all_pixels()
+        self.assertNotEqual(expected, before)
+        self.assertEqual(self.roi.get_all_pixels(), expected)
+        self.assertEqual(
+            sel.get_rasterized_polygon().get_set(),
+            expected,
+        )
+
+    def test_restored_polygon_pixels_match_restored_points(self):
+        sel = PolygonSelection([QPoint(2, 2), QPoint(10, 2), QPoint(10, 10)])
+        before = sel.get_all_pixels()
+        sel.get_points()[2].setX(16)
+        sel.get_points()[2].setY(17)
+        self.assertNotEqual(sel.get_all_pixels(), before)
+        sel.get_points()[2].setX(10)
+        sel.get_points()[2].setY(10)
+        self.assertEqual(sel.get_all_pixels(), before)
 
 
 if __name__ == "__main__":
