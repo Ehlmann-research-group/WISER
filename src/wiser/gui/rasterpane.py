@@ -1394,12 +1394,16 @@ class RasterPane(QWidget):
         """
         This function handles "dataset removed" events from the application
         state.  It cleans up the locally-recorded display band info for the
-        dataset.  Also, if any rasterviews are showing the dataset, the function
+        dataset and clears the pixel highlight if it references the dataset.
+        Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         """
         if ds_id in self._display_bands:
             del self._display_bands[ds_id]
         self._colormaps.pop(ds_id, None)
+
+        if self._pixel_highlight is not None and self._pixel_highlight.get_dataset().get_id() == ds_id:
+            self.set_pixel_highlight(None)
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 

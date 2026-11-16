@@ -1,10 +1,11 @@
 """
 Integration tests for synchronization between Main View and Zoom Pane in WISER.
 
-This module verifies that clicks, zooming, scrolling, and highlight behavior are 
-correctly synchronized between the main raster view(s) and the zoom pane. It also 
+This module verifies that clicks, zooming, scrolling, and highlight behavior are
+correctly synchronized between the main raster view(s) and the zoom pane. It also
 tests both linked and unlinked states between views.
 """
+
 import os
 
 import unittest
@@ -373,6 +374,46 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(are_qrects_close(zp_region, rv_00_region))
         self.assertTrue(rv_00_region == rv_01_region)
         self.assertTrue(rv_00_region == rv_10_region)
+
+    def _highlight_on_first_of_two_linked_datasets(self):
+        """
+        Loads two datasets into a linked 1x2 main view and clicks a pixel in the
+        tile showing the first. Returns the two datasets.
+        """
+        np_impl = np.random.rand(3, 50, 50).astype(np.float32)
+        self.test_model.set_main_view_layout((1, 2))
+        ds_a = self.test_model.load_dataset(np_impl)
+        ds_b = self.test_model.load_dataset(np_impl.copy())
+        self.test_model.set_main_view_rv((0, 0), ds_a.get_id())
+        self.test_model.set_main_view_rv((0, 1), ds_b.get_id())
+        self.assertTrue(self.test_model.click_link_button())
+
+        self.test_model.click_raster_coord_main_view_rv((0, 0), (10, 20))
+        for pane in self._raster_panes():
+            if pane._pixel_highlight is not None:
+                self.assertIs(pane._pixel_highlight.get_dataset(), ds_a)
+        self.assertIsNotNone(self.test_model.main_view._pixel_highlight)
+        self.assertIsNotNone(self.test_model.zoom_pane._pixel_highlight)
+        return ds_a, ds_b
+
+    def _raster_panes(self):
+        return [self.test_model.main_view, self.test_model.zoom_pane, self.test_model.context_pane]
+
+    def test_removing_highlighted_dataset_clears_highlight_in_every_pane(self):
+        ds_a, _ = self._highlight_on_first_of_two_linked_datasets()
+
+        self.test_model.close_dataset(ds_a.get_id())
+
+        for pane in self._raster_panes():
+            self.assertIsNone(pane._pixel_highlight, type(pane).__name__)
+
+    def test_removing_other_dataset_keeps_highlight(self):
+        ds_a, ds_b = self._highlight_on_first_of_two_linked_datasets()
+
+        self.test_model.close_dataset(ds_b.get_id())
+
+        self.assertIs(self.test_model.main_view._pixel_highlight.get_dataset(), ds_a)
+        self.assertIs(self.test_model.zoom_pane._pixel_highlight.get_dataset(), ds_a)
 
 
 """
