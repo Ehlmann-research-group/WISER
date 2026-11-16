@@ -497,6 +497,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ci-cd">CI/CD</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tutorial-scene-smoke-test">Tutorial scene smoke test</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-guidelines">Test Guidelines</a></li>
@@ -681,6 +682,30 @@ bundled distribution:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./WISER_Bin<span class="w"> </span>--test_mode
 </pre></div>
 </div>
+</section>
+<section id="tutorial-scene-smoke-test">
+<h3>Tutorial scene smoke test<a class="headerlink" href="#tutorial-scene-smoke-test" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">.github/workflows/tutorial-smoke.yml</span></code> runs every scene of the tutorial figure
+generator, <code class="docutils literal notranslate"><span class="pre">doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py</span></code>, once a
+week (Monday 08:00 UTC) and on manual dispatch. Each scene drives the real
+application offscreen through a tutorial’s steps: opening each bundled fixture,
+the band chooser and stretch builder, band math, K-means, the scatter plot, PCA,
+MNF, SAM, SFF, MTMF, linear unmixing and the filter dialogs. All scenes use the
+fixtures in <code class="docutils literal notranslate"><span class="pre">src/test_utils/</span></code>, so nothing is downloaded.</p>
+<p>The job fails if any scene raises: a dialog attribute the scene sets has been
+renamed or removed, a background task does not finish within its timeout, or a
+dialog the scene expects never opens. The log prints <code class="docutils literal notranslate"><span class="pre">[scene_name]</span></code> before each
+scene and <code class="docutils literal notranslate"><span class="pre">FAILED:</span> <span class="pre">&lt;names&gt;</span></code> at the end. The figures from the run are uploaded as
+the <code class="docutils literal notranslate"><span class="pre">tutorial-figures</span></code> artifact, so a failure can be compared against the
+committed figures in <code class="docutils literal notranslate"><span class="pre">source/_static/tutorials/</span></code>; CI never commits them.</p>
+<p>To reproduce locally, after <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">generated</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">QT_QPA_PLATFORM</span><span class="o">=</span>offscreen<span class="w"> </span>python<span class="w"> </span>doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--out<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/tutorial-figures"</span><span class="w">            </span><span class="c1"># all scenes, ~4 minutes</span>
+<span class="nv">QT_QPA_PLATFORM</span><span class="o">=</span>offscreen<span class="w"> </span>python<span class="w"> </span>doc/sphinx-general-wiser-docs/tools/make_tutorial_figures.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--out<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/tutorial-figures"</span><span class="w"> </span>--only<span class="w"> </span>kmeans
+</pre></div>
+</div>
+<p>Without <code class="docutils literal notranslate"><span class="pre">--out</span></code> the script overwrites the committed tutorial figures.</p>
 </section>
 </section>
 <section id="test-guidelines">
@@ -975,6 +1000,7 @@ to individual values.</p></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ci-cd">CI/CD</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tutorial-scene-smoke-test">Tutorial scene smoke test</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-guidelines">Test Guidelines</a></li>
