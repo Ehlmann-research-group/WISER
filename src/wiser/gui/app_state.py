@@ -29,6 +29,7 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
+from wiser.gui.render_progress import render_progress
 from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
 from wiser.gui.ui_library import (
     DatasetChooserDialog,
@@ -398,6 +399,8 @@ class ApplicationState(QObject):
         past it so later allocations do not collide.
 
         The method will fire a signal indicating that the dataset was added.
+        The views that display the new dataset render under one progress
+        dialog, which cannot be cancelled.
         """
         if not isinstance(dataset, RasterDataSet):
             raise TypeError("dataset must be a RasterDataSet")
@@ -412,7 +415,8 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        self.dataset_added.emit(ds_id, view_dataset)
+        with render_progress(self.tr("Displaying dataset..."), cancellable=False):
+            self.dataset_added.emit(ds_id, view_dataset)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
     def has_dataset(self, ds_id: int) -> bool:
@@ -543,17 +547,33 @@ class ApplicationState(QObject):
         return make_unique_name(candidate, roi_names)
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
+        """
+        Record ``stretches`` for ``bands`` of dataset ``ds_id`` and fire
+        ``stretch_changed``.  The views re-render under one cancellable progress
+        dialog; if the user cancels it, every view keeps its previous image and
+        the previous stretches for these bands are restored here.
+
+        Raises:
+            ValueError: if ``bands`` and ``stretches`` differ in length.
+        """
         if len(bands) != len(stretches):
             raise ValueError(
                 "bands and stretches must both be the same "
                 + f"length (got {len(bands)} bands, {len(stretches)} stretches)"
             )
-        for i in range(len(bands)):
-            key = (ds_id, bands[i])
-            stretch = stretches[i]
+        keys = [(ds_id, band) for band in bands]
+        previous = {key: self._stretches[key] for key in keys if key in self._stretches}
+        for key, stretch in zip(keys, stretches):
             self._stretches[key] = stretch
 
-        self.stretch_changed.emit(ds_id, bands)
+        with render_progress(self.tr("Applying contrast stretch..."), cancellable=True) as progress:
+            self.stretch_changed.emit(ds_id, bands)
+        if progress.was_cancelled():
+            for key in keys:
+                if key in previous:
+                    self._stretches[key] = previous[key]
+                else:
+                    self._stretches.pop(key, None)
 
     def get_stretches(self, ds_id: int, bands: Tuple):
         # TODO(donnie):  This comment is not a docstring so it will be excluded
