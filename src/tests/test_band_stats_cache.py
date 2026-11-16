@@ -92,3 +92,22 @@ def test_changing_ignore_value_recomputes_stats(counting_np):
     assert np.isclose(stats_after.get_min(), remaining.min())
     assert np.isclose(stats_after.get_max(), remaining.max())
     assert np.isclose(normalized.compressed().min(), 0.0)
+
+
+def test_cache_band_stats_writes_under_band_and_ignore_value(counting_np):
+    ds = _load()
+    raw = np.asarray(ds._impl.get_band_data(_BAND))
+    ds.cache_band_stats(_BAND, raw)
+    assert set(ds._cached_band_stats) == {(_BAND, -9999.0)}
+    assert counting_np.nanmin_calls == 1
+
+    # get_band_stats reads what cache_band_stats wrote.
+    stats = ds.get_band_stats(_BAND)
+    assert counting_np.nanmin_calls == 1
+    assert stats.get_min() == raw[raw != -9999.0].min()
+
+    # Under another ignore value the entry does not apply.
+    ds.set_data_ignore_value(float(stats.get_min()))
+    ds.cache_band_stats(_BAND, raw)
+    assert set(ds._cached_band_stats) == {(_BAND, -9999.0), (_BAND, float(stats.get_min()))}
+    assert counting_np.nanmin_calls == 2

@@ -14,7 +14,7 @@ import tests.context  # noqa: F401 -- adds src/ to sys.path
 
 from wiser.gui.rasterview import make_channel_image_numba, make_channel_image_python
 from wiser.gui.stretch_builder import create_histogram_numba, create_histogram_python
-from wiser.raster.stretch import StretchHistEqualize, StretchHistEqualizeUsingNumba
+from wiser.raster.stretch import UNIFORM_EDGE_TOLERANCE, StretchHistEqualize, StretchHistEqualizeUsingNumba
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 pytestmark = [pytest.mark.smoke]
@@ -54,8 +54,18 @@ def _histogram(make_histogram, conditioner):
         # point and the edge, and its one-bin correction is exercised.
         edges = np.linspace(0.05, 0.95, 301)
         step = edges[1] - edges[0]
-        edges[1:-2] += np.random.default_rng(7).choice([-5e-4, 5e-4], size=298) * step
+        edges[1:-2] += np.random.default_rng(7).choice([-0.5, 0.5], size=298) * UNIFORM_EDGE_TOLERANCE * step
         return np.histogram(data, bins=edges)
+    if conditioner == "past_tolerance":
+        # Edges moved twice UNIFORM_EDGE_TOLERANCE off the grid count as non-uniform.
+        edges = np.linspace(0.05, 0.95, 301)
+        step = edges[1] - edges[0]
+        edges[1:-2] += np.random.default_rng(7).choice([-2.0, 2.0], size=298) * UNIFORM_EDGE_TOLERANCE * step
+        return np.histogram(data, bins=edges)
+    if conditioner == "single_bin":
+        return np.histogram(data, bins=1, range=(0.0, 1.0))
+    if conditioner == "two_bins":
+        return np.histogram(data, bins=2, range=(0.0, 1.0))
     bins, edges = make_histogram(data, 0.0, 1.0)
     if conditioner == "sqrt":
         edges = np.sqrt(edges)
@@ -64,7 +74,9 @@ def _histogram(make_histogram, conditioner):
     return bins, edges
 
 
-@pytest.mark.parametrize("conditioner", ["none", "uniform_jittered", "sqrt", "log"])
+@pytest.mark.parametrize(
+    "conditioner", ["none", "uniform_jittered", "past_tolerance", "single_bin", "two_bins", "sqrt", "log"]
+)
 @pytest.mark.parametrize(
     "stretch_cls, make_histogram, reference, make_channel",
     [
@@ -75,8 +87,9 @@ def _histogram(make_histogram, conditioner):
 def test_equalize_matches_interp(stretch_cls, make_histogram, reference, make_channel, conditioner):
     bins, edges = _histogram(make_histogram, conditioner)
     stretch = stretch_cls(bins, edges)
-    # Uniform edges take the index-arithmetic path; conditioned edges are not uniform.
-    assert (stretch._step > 0.0) == (conditioner in ("none", "uniform_jittered"))
+    # Uniform edges take the index-arithmetic path; conditioned edges, edges off
+    # the grid by more than the tolerance and a single bin (one left edge) do not.
+    assert (stretch._step > 0.0) == (conditioner in ("none", "uniform_jittered", "two_bins"))
 
     band = _band(edges)
     expected = band.copy()
