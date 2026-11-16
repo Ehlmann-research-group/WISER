@@ -19,13 +19,20 @@ import lark
 from lark import Visitor, Tree, Token, v_args, ParseTree
 from lark.exceptions import VisitError, GrammarError
 import numpy as np
+import psutil
 
 import queue
 import asyncio
 import threading
 import concurrent.futures
 
-from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
+from .types import (
+    VariableType,
+    BandMathValue,
+    BandMathEvalError,
+    BandMathExprInfo,
+    BandMathMemoryError,
+)
 from .functions import BandMathFunction, get_builtin_functions
 from .utils import (
     TEMP_FOLDER_PATH,
@@ -74,6 +81,7 @@ from .builtins import (
 
 from .builtins.constants import (
     SCALAR_BYTES,
+    MAX_FRACTION_OF_AVAILABLE_MEMORY,
     NUM_WRITERS,
     NUM_READERS,
     LHS_KEY,
@@ -1160,6 +1168,11 @@ def start_bandmath_evaluation(
 
     The function returns the ProcessManager object that is managing the underlying
     QThread and subprocess.
+
+    Raises:
+        BandMathMemoryError: if any evaluation target's estimated peak memory exceeds the
+            usable share of available memory (see ``check_bandmath_memory``).  A batch job
+            loads each target file to size it; nothing is started for any target.
     """
 
     # Just to be defensive against potentially bad inputs, make sure all names
@@ -1208,6 +1221,9 @@ def start_bandmath_evaluation(
         temp_folder_path=TEMP_FOLDER_PATH,
         subdataset_name=subdataset_name,
     )
+
+    for single_bandmath_job in bandmath_job_data:
+        check_bandmath_memory(single_bandmath_job)
 
     kwargs = {"bandmath_job_data": bandmath_job_data}
 
@@ -1330,11 +1346,11 @@ def eval_singular_bandmath_expr(
     if subdataset_name:
         result_name = f"{subdataset_name}_{result_name}"
 
-    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size() * number_of_intermediates)
+    chunked, max_chunking_bytes = select_bandmath_chunking(
+        expr_info, number_of_intermediates, use_synchronous_method
+    )
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-    # Either we explicitly say we don't want to use the synchronous method or we decide to chunk based
-    # on how big the image cube is.
-    if not use_synchronous_method or (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
+    if chunked:
         return eval_singular_bandmath_expr_async(
             single_bandmath_job=single_bandmath_job,
             max_chunking_bytes=max_chunking_bytes,
@@ -1820,6 +1836,180 @@ def compute_bands_per_chunk(max_bytes, expr_info, num_intermediates, lines, samp
     num_bands = int(np.floor(max_bytes_per_intermediate / (lines * samples)))
     num_bands = 1 if num_bands < 1 else num_bands
     return num_bands
+
+
+def select_bandmath_chunking(
+    expr_info: BandMathExprInfo, number_of_intermediates: int, use_synchronous_method: bool
+) -> Tuple[bool, float]:
+    """
+    Choose the evaluation path for one band-math job from the current available memory.
+
+    Returns:
+        ``(chunked, max_chunking_bytes)``: whether the job runs on the band-chunked path
+        (``eval_singular_bandmath_expr_async``) rather than the whole-array path, and the
+        byte budget ``compute_bands_per_chunk`` sizes the chunked path's band windows from.
+    """
+    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size() * number_of_intermediates)
+    chunked = not use_synchronous_method or (
+        expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
+    )
+    return chunked, max_chunking_bytes
+
+
+_ARRAY_VARIABLE_TYPES = (VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, VariableType.SPECTRUM)
+_OPERATOR_RULES = ("comparison", "add_expr", "mul_expr", "power_expr", "unary_negate_expr")
+_SCALAR_RULES = ("number", "string", "true", "false")
+
+
+def estimate_bandmath_peak_bytes(single_bandmath_job: SingleBandMathJob) -> int:
+    """
+    Estimate an upper bound, in bytes, on the memory one band-math evaluation holds at
+    its peak, for the path ``select_bandmath_chunking`` will choose for it.
+
+    Every array is costed at ``E * b`` bytes:
+
+    - ``b`` is the evaluation itemsize plus one mask byte per element.  The itemsize is
+      the largest of the result's and the array operands' itemsizes, raised to 8 when an
+      array operand is integer or boolean (NumPy promotes those to float64 against a
+      Python float or under true division).
+    - ``E`` is the operand element count.  On the whole-array path, and for every
+      function call on either path (functions read whole operands), it is the largest
+      element count among the result and the array operands.  On the band-chunked path it
+      is one band window, ``n * lines * samples`` with ``n`` from
+      ``compute_bands_per_chunk`` and at least one band.
+
+    The parse tree is walked bottom-up.  An operator or function node needs its held
+    child results, one array per array-variable operand it reads, one more for the copy
+    taken while masking the data-ignore value, and one for its result.  A plugin or
+    builtin function's internal allocation is unknown, so a function is costed as an
+    operator whose result is one full-size array.  Children run in order on the
+    whole-array path, so an earlier sibling's result is held while a later one reaches its
+    peak; on the band-chunked path they run concurrently, so their peaks add.
+
+    The tree peak ``T`` gives the evaluation peak:
+
+    - whole-array path: ``R + max(T, 3 * S)``, where ``S`` is the result's size and the
+      three copies are the result, its pickled form and the parent process's copy;
+    - band-chunked path: ``R + P * W + W + max(T, 2 * W)``, where ``W`` is one band-window
+      array, ``P`` the number of band-window operand reads (each prefetches the next
+      window), ``W`` one result window awaiting its write, and the ``2 * W`` the result
+      window and its cast copy.  One pending write is assumed; a writer that falls further
+      behind the evaluation holds more windows than this.
+
+    ``R`` is the bytes of the NumPy-array variables, held for the whole evaluation.
+
+    Raises:
+        BandMathEvalError: if the expression names a variable with no value.
+    """
+    expr_info = single_bandmath_job.expr_info
+    variables = single_bandmath_job.lower_variables
+
+    array_values: Dict[str, BandMathValue] = {}
+    for node in single_bandmath_job.tree.find_data("variable"):
+        name = str(node.children[0]).lower()
+        if name not in variables or variables[name][1] is None:
+            raise BandMathEvalError(f'Variable "{name}" is unspecified')
+        var_type, value = variables[name]
+        if var_type in _ARRAY_VARIABLE_TYPES:
+            array_values[name] = BandMathValue(var_type, value, computed=False)
+
+    result_elements = int(np.prod(expr_info.shape)) if expr_info.shape is not None else 1
+    elements = max([result_elements] + [int(np.prod(v.get_shape())) for v in array_values.values()])
+    dtypes = [np.dtype(v.get_elem_type()) for v in array_values.values()]
+    itemsize = max([d.itemsize for d in dtypes] + [np.dtype(expr_info.elem_type).itemsize])
+    if any(d.kind in "biu" for d in dtypes):
+        itemsize = max(itemsize, 8)
+    bytes_per_element = itemsize + 1
+    full = elements * bytes_per_element
+
+    chunked, max_chunking_bytes = select_bandmath_chunking(
+        expr_info, single_bandmath_job.number_of_intermediates, single_bandmath_job.use_synchronous_method
+    )
+    window = full
+    if chunked:
+        bands, lines, samples = (1, *expr_info.shape) if len(expr_info.shape) == 2 else expr_info.shape
+        num_bands = compute_bands_per_chunk(
+            max_chunking_bytes, expr_info, single_bandmath_job.number_of_intermediates, lines, samples
+        )
+        window = min(num_bands, bands) * lines * samples * bytes_per_element
+
+    def unwrap(node: Tree) -> Tree:
+        while node.data == "named_expression":
+            node = node.children[-1]
+        return node
+
+    def walk(node: Tree) -> Tuple[int, int, int]:
+        """Return (peak bytes, held result bytes, band-window operand reads) for a node."""
+        if node.data in _SCALAR_RULES:
+            return 0, 0, 0
+        if node.data == "function":
+            size = full
+            args = [unwrap(c) for c in node.children[1:]]
+        elif node.data in _OPERATOR_RULES:
+            size = window
+            args = [unwrap(c) for c in node.children if isinstance(c, Tree)]
+        else:
+            raise ValueError(f"Unexpected band-math parse-tree node {node.data}")
+
+        reads = 0
+        prefetches = 0
+        child_peaks = []
+        held = []
+        for arg in args:
+            if arg.data == "variable":
+                if str(arg.children[0]).lower() in array_values:
+                    reads += 1
+                continue
+            peak, result, child_prefetches = walk(arg)
+            child_peaks.append(peak)
+            held.append(result)
+            prefetches += child_prefetches
+
+        if node.data != "function" and reads == 0 and sum(held) == 0:
+            return 0, 0, prefetches
+        if chunked and node.data != "function":
+            prefetches += reads
+
+        if chunked:
+            children_peak = sum(child_peaks)
+        else:
+            children_peak = max([sum(held[:i]) + p for i, p in enumerate(child_peaks)], default=0)
+        transient = size if reads else 0
+        own = sum(held) + reads * size + transient + size
+        return max(children_peak, own), size, prefetches
+
+    root = unwrap(single_bandmath_job.tree)
+    if root.data == "variable":
+        tree_peak = 2 * full if str(root.children[0]).lower() in array_values else 0
+        prefetches = 0
+    else:
+        tree_peak, _, prefetches = walk(root)
+
+    resident = sum(v.value.nbytes for v in array_values.values() if isinstance(v.value, np.ndarray))
+    if chunked:
+        return resident + prefetches * window + window + max(tree_peak, 2 * window)
+    return resident + max(tree_peak, 3 * result_elements * bytes_per_element)
+
+
+def check_bandmath_memory(single_bandmath_job: SingleBandMathJob) -> None:
+    """
+    Refuse a band-math evaluation that would not fit in memory.
+
+    Raises:
+        BandMathMemoryError: if ``estimate_bandmath_peak_bytes`` exceeds
+            ``MAX_FRACTION_OF_AVAILABLE_MEMORY`` of ``psutil.virtual_memory().available``.
+            The message gives both sizes in GB (1e9 bytes) and suggests a spatial subset.
+    """
+    required = estimate_bandmath_peak_bytes(single_bandmath_job)
+    available = psutil.virtual_memory().available
+    if required > MAX_FRACTION_OF_AVAILABLE_MEMORY * available:
+        target = f" for {single_bandmath_job.filepath}" if single_bandmath_job.filepath else ""
+        raise BandMathMemoryError(
+            f"Band math{target} needs an estimated {required / 1e9:.1f} GB of memory, but only "
+            f"{available / 1e9:.1f} GB is available and band math uses at most "
+            f"{MAX_FRACTION_OF_AVAILABLE_MEMORY:.0%} of it.  Run the expression on a spatial "
+            "subset of the data."
+        )
 
 
 def get_batch_filepaths(
