@@ -9,6 +9,7 @@ destination's prior state first.
 
 import datetime
 import os
+import re
 import shutil
 
 import numpy as np
@@ -963,8 +964,47 @@ def test_removing_a_band_math_alias_or_its_source_leaves_the_other_readable(tmp_
     from wiser.bandmath import VariableType
     from wiser.bandmath.utils import load_image_from_bandmath_result
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match=re.escape(result_form.get_serialize_value())):
         load_image_from_bandmath_result(VariableType.IMAGE_CUBE, result_form, "alias", "a", None)
+
+
+def test_a_band_math_alias_copy_that_gdal_cannot_write_raises_and_adds_no_dataset(tmp_path, monkeypatch):
+    from osgeo import gdal
+
+    from wiser.bandmath import VariableType
+    from wiser.bandmath import utils as bandmath_utils
+    from wiser.bandmath.utils import load_image_from_bandmath_result
+
+    app = _FakeAppState()
+    temp_dir = tmp_path / "temp_output"
+    monkeypatch.setattr(bandmath_utils, "TEMP_FOLDER_PATH", str(temp_dir))
+    result = _band_math_temp_result(app, temp_dir)
+    result_form = result.get_serialized_form()
+
+    class _NoCopyDriver:
+        def CreateCopy(self, path, source):
+            return None
+
+    real_open = gdal.Open
+
+    class _Source:
+        def __init__(self, path, mode):
+            self._ds = real_open(path, mode)
+
+        def GetDriver(self):
+            return _NoCopyDriver()
+
+    monkeypatch.setattr(bandmath_utils.gdal, "Open", lambda path, mode: _Source(path, mode))
+    files_before = sorted(os.listdir(temp_dir))
+
+    with pytest.raises(RuntimeError, match="Cannot copy band-math temporary file"):
+        load_image_from_bandmath_result(VariableType.IMAGE_CUBE, result_form, "alias", "a", None)
+    assert sorted(os.listdir(temp_dir)) == files_before
+
+    monkeypatch.setattr(bandmath_utils.gdal, "Open", lambda path, mode: None)
+    with pytest.raises(RuntimeError, match="Cannot open band-math temporary file"):
+        load_image_from_bandmath_result(VariableType.IMAGE_CUBE, result_form, "alias", "a", None)
+    assert sorted(os.listdir(temp_dir)) == files_before
 
 
 def test_cancelling_during_a_temp_result_copy_stops_at_the_next_band(tmp_path):

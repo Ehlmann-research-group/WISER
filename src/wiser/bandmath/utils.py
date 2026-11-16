@@ -240,6 +240,19 @@ def load_image_from_bandmath_result(
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
+    """
+    Load an image-cube band-math result as a dataset.
+
+    An ``IMAGE_CUBE_DATASET`` result is a result written to disk.  An ``IMAGE_CUBE``
+    result is a 3-D ndarray, or the ``SerializedForm`` of a dataset when the expression
+    is a single variable.  When that dataset's file is a band-math temporary file, the
+    result is a copy of the file with save state ``IN_DISK_NOT_SAVED``, so the result
+    and its source each own one file.
+
+    Raises AttributeError if ``loader`` is missing for an ndarray result, TypeError for
+    any other ``IMAGE_CUBE`` result type, and RuntimeError if a temporary file cannot be
+    opened or copied.
+    """
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     # Below result type occurs if the dataset was so big it need to be saved to disk
