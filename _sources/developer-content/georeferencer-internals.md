@@ -481,6 +481,12 @@ flowchart TD
 | `polynomialOrder` / `tps` | `1`/`2`/`3` or `True` | Set per transform type |
 | `transformerOptions` | `["METHOD=…", "MAX_GCP_ORDER=…"]` | Mirrors the transform type |
 
+`warp_dataset_to_path` adds `dstNodata` to a copy of these kwargs. Pixels outside the
+warped footprint are written as the dataset's data-ignore value, and that value is declared
+as nodata on every output band. A float dataset with no ignore value is filled with NaN and
+declares NaN. An integer dataset with no ignore value raises `ValueError` before any file is
+written, and the dialog shows the message.
+
 The available resampling algorithms are discovered dynamically (in
 `wiser.raster.georef_warp`):
 `RESAMPLE_ALGORITHMS = {name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")}`

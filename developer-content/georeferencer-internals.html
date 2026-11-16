@@ -1461,6 +1461,11 @@ chunks.</p>
 </tbody>
 </table>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code> adds <code class="docutils literal notranslate"><span class="pre">dstNodata</span></code> to a copy of these kwargs. Pixels outside the
+warped footprint are written as the dataset’s data-ignore value, and that value is declared
+as nodata on every output band. A float dataset with no ignore value is filled with NaN and
+declares NaN. An integer dataset with no ignore value raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> before any file is
+written, and the dialog shows the message.</p>
 <p>The available resampling algorithms are discovered dynamically (in
 <code class="docutils literal notranslate"><span class="pre">wiser.raster.georef_warp</span></code>):
 <code class="docutils literal notranslate"><span class="pre">RESAMPLE_ALGORITHMS</span> <span class="pre">=</span> <span class="pre">{name:</span> <span class="pre">getattr(gdal,</span> <span class="pre">name)</span> <span class="pre">for</span> <span class="pre">name</span> <span class="pre">in</span> <span class="pre">dir(gdal)</span> <span class="pre">if</span> <span class="pre">name.startswith(&quot;GRA_&quot;)}</span></code>
