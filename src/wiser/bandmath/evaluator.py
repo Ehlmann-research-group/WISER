@@ -82,6 +82,7 @@ from .builtins import (
 from .builtins.constants import (
     SCALAR_BYTES,
     MAX_FRACTION_OF_AVAILABLE_MEMORY,
+    RATIO_OF_MEM_TO_USE,
     NUM_WRITERS,
     NUM_READERS,
     LHS_KEY,
@@ -1170,9 +1171,10 @@ def start_bandmath_evaluation(
     QThread and subprocess.
 
     Raises:
-        BandMathMemoryError: if any evaluation target's estimated peak memory exceeds the
-            usable share of available memory (see ``check_bandmath_memory``).  A batch job
-            loads each target file to size it; nothing is started for any target.
+        BandMathMemoryError: for a single (non-batch) job, if its estimated peak memory
+            exceeds the usable share of available memory (see ``check_bandmath_memory``);
+            nothing is started.  A batch job checks each file just before evaluating it, and
+            reports an oversized file through its per-file errors.
     """
 
     # Just to be defensive against potentially bad inputs, make sure all names
@@ -1222,8 +1224,8 @@ def start_bandmath_evaluation(
         subdataset_name=subdataset_name,
     )
 
-    for single_bandmath_job in bandmath_job_data:
-        check_bandmath_memory(single_bandmath_job)
+    if not bandmath_job_data.is_batch:
+        check_bandmath_memory(bandmath_job_data.get_single_bandmath_job())
 
     kwargs = {"bandmath_job_data": bandmath_job_data}
 
@@ -1294,7 +1296,7 @@ def eval_bandmath_batch(
             update_progress_child_conn(
                 child_conn=child_conn, numerator=count, denominator=total, status="Running"
             )
-            # Then we calculate the result and serialize it
+            check_bandmath_memory(single_bandmath_job)
             result = eval_singular_bandmath_expr(
                 single_bandmath_job,
             )
@@ -1338,17 +1340,12 @@ def eval_singular_bandmath_expr(
         is the expr_info for that dataset.
     """
     # Extract variables from current bandmath job
-    expr_info = single_bandmath_job.expr_info
-    number_of_intermediates = single_bandmath_job.number_of_intermediates
     subdataset_name = single_bandmath_job.subdataset_name
-    use_synchronous_method = single_bandmath_job.use_synchronous_method
     result_name = single_bandmath_job.result_name
     if subdataset_name:
         result_name = f"{subdataset_name}_{result_name}"
 
-    chunked, max_chunking_bytes = select_bandmath_chunking(
-        expr_info, number_of_intermediates, use_synchronous_method
-    )
+    chunked, max_chunking_bytes = select_bandmath_chunking(single_bandmath_job)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
     if chunked:
         return eval_singular_bandmath_expr_async(
@@ -1838,33 +1835,44 @@ def compute_bands_per_chunk(max_bytes, expr_info, num_intermediates, lines, samp
     return num_bands
 
 
-def select_bandmath_chunking(
-    expr_info: BandMathExprInfo, number_of_intermediates: int, use_synchronous_method: bool
-) -> Tuple[bool, float]:
+_ARRAY_VARIABLE_TYPES = (VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, VariableType.SPECTRUM)
+_OPERATOR_RULES = ("comparison", "add_expr", "mul_expr", "power_expr", "unary_negate_expr")
+_SCALAR_RULES = ("number", "string", "true", "false")
+
+
+def select_bandmath_chunking(single_bandmath_job: SingleBandMathJob) -> Tuple[bool, float]:
     """
     Choose the evaluation path for one band-math job from the current available memory.
+
+    The band-chunked path runs when the job asks for it (``use_synchronous_method`` is
+    False), when an image-cube result times the job's intermediates exceeds available
+    memory, or when an image-cube result's whole-array estimate
+    (see ``estimate_bandmath_peak_bytes``) exceeds ``MAX_FRACTION_OF_AVAILABLE_MEMORY`` of
+    available memory.  Every other job runs on the whole-array path.
 
     Returns:
         ``(chunked, max_chunking_bytes)``: whether the job runs on the band-chunked path
         (``eval_singular_bandmath_expr_async``) rather than the whole-array path, and the
         byte budget ``compute_bands_per_chunk`` sizes the chunked path's band windows from.
     """
-    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size() * number_of_intermediates)
-    chunked = not use_synchronous_method or (
-        expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
+    expr_info = single_bandmath_job.expr_info
+    max_chunking_bytes, should_chunk = max_bytes_to_chunk(
+        expr_info.result_size() * single_bandmath_job.number_of_intermediates
     )
-    return chunked, max_chunking_bytes
-
-
-_ARRAY_VARIABLE_TYPES = (VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, VariableType.SPECTRUM)
-_OPERATOR_RULES = ("comparison", "add_expr", "mul_expr", "power_expr", "unary_negate_expr")
-_SCALAR_RULES = ("number", "string", "true", "false")
+    is_cube = expr_info.result_type == VariableType.IMAGE_CUBE
+    if not single_bandmath_job.use_synchronous_method or (is_cube and should_chunk):
+        return True, max_chunking_bytes
+    if is_cube:
+        available = psutil.virtual_memory().available
+        if _estimate_peak_bytes(single_bandmath_job, False, 0) > MAX_FRACTION_OF_AVAILABLE_MEMORY * available:
+            return True, available * RATIO_OF_MEM_TO_USE
+    return False, max_chunking_bytes
 
 
 def estimate_bandmath_peak_bytes(single_bandmath_job: SingleBandMathJob) -> int:
     """
     Estimate an upper bound, in bytes, on the memory one band-math evaluation holds at
-    its peak, for the path ``select_bandmath_chunking`` will choose for it.
+    its peak, for the path ``select_bandmath_chunking`` chooses for it.
 
     Every array is costed at ``E * b`` bytes:
 
@@ -1901,6 +1909,17 @@ def estimate_bandmath_peak_bytes(single_bandmath_job: SingleBandMathJob) -> int:
     Raises:
         BandMathEvalError: if the expression names a variable with no value.
     """
+    chunked, max_chunking_bytes = select_bandmath_chunking(single_bandmath_job)
+    return _estimate_peak_bytes(single_bandmath_job, chunked, max_chunking_bytes)
+
+
+def _estimate_peak_bytes(
+    single_bandmath_job: SingleBandMathJob, chunked: bool, max_chunking_bytes: float
+) -> int:
+    """
+    ``estimate_bandmath_peak_bytes`` for the given path.  ``max_chunking_bytes`` is the
+    band-window budget and is unused when ``chunked`` is False.
+    """
     expr_info = single_bandmath_job.expr_info
     variables = single_bandmath_job.lower_variables
 
@@ -1922,9 +1941,6 @@ def estimate_bandmath_peak_bytes(single_bandmath_job: SingleBandMathJob) -> int:
     bytes_per_element = itemsize + 1
     full = elements * bytes_per_element
 
-    chunked, max_chunking_bytes = select_bandmath_chunking(
-        expr_info, single_bandmath_job.number_of_intermediates, single_bandmath_job.use_synchronous_method
-    )
     window = full
     if chunked:
         bands, lines, samples = (1, *expr_info.shape) if len(expr_info.shape) == 2 else expr_info.shape

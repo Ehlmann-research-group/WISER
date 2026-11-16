@@ -8,6 +8,7 @@ are all the estimator reads.
 """
 
 import os
+import queue
 from types import SimpleNamespace
 from unittest import mock
 
@@ -17,6 +18,7 @@ import pytest
 
 import tests.context  # noqa: F401
 
+from osgeo import gdal
 from PySide6.QtWidgets import QDialog
 
 from test_utils.test_model import WiserTestModel
@@ -25,16 +27,7 @@ from wiser.bandmath import evaluator
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 from wiser.bandmath.functions import get_builtin_functions
 from wiser.gui.bandmath_dialog import BandMathDialog, BandmathBatchJob
-
-BATCH_FOLDER = os.path.normpath(
-    os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..",
-        "test_utils",
-        "test_datasets",
-        "bandmath_batch_test_input_folder",
-    )
-)
+from wiser.raster.dataset import RasterDataSet
 
 
 def patch_available(available_bytes):
@@ -129,8 +122,10 @@ class TestCheck:
 
     def test_passes_just_under_the_threshold(self):
         job = make_job("a + 1", {"a": big_cube()})
-        with patch_available(int(2.0e9)):
+        with patch_available(10**12):
             estimate = evaluator.estimate_bandmath_peak_bytes(job)
+        # Just under the threshold the whole-array path runs; just over it the
+        # band-chunked fallback is chosen, whose estimate also exceeds it.
         available = int(np.ceil(estimate / 0.8)) + 8
         with patch_available(available):
             assert evaluator.estimate_bandmath_peak_bytes(job) == estimate
@@ -188,25 +183,91 @@ def test_bandmath_dialog_shows_refusal_and_creates_no_dataset(test_model):
     assert len(test_model.app_state.get_datasets()) == num_datasets
 
 
-def test_batch_job_shows_refusal_and_starts_nothing(test_model):
-    variables = {"a": (VariableType.IMAGE_CUBE_BATCH, BATCH_FOLDER)}
+def write_envi(folder, name, shape):
+    path = os.path.join(folder, name)
+    ds = gdal.GetDriverByName("ENVI").Create(path, shape[2], shape[1], shape[0], gdal.GDT_Float32)
+    for band in range(shape[0]):
+        ds.GetRasterBand(band + 1).WriteArray(np.ones(shape[1:], dtype=np.float32))
+    ds = None
+    return path
+
+
+def test_batch_reports_oversized_file_and_runs_the_others(test_model, tmp_path):
+    folder = str(tmp_path)
+    write_envi(folder, "small", (1, 10, 10))
+    write_envi(folder, "large", (1, 1000, 1000))
+    variables = {"a": (VariableType.IMAGE_CUBE_BATCH, folder)}
     job = BandmathBatchJob(
         job_id=0,
         expression="a + 1",
         expr_info=get_bandmath_expr_info("a + 1", variables, {}),
         variables=variables,
-        input_folder=BATCH_FOLDER,
+        input_folder=folder,
         output_folder="",
         load_into_wiser=True,
         result_suffix="_result",
     )
     dialog = BandMathDialog(test_model.app_state, parent=test_model.main_window)
+    dialog._add_batch_job_to_table(job)
 
-    with patch_available(100), mock.patch("wiser.gui.bandmath_dialog.QMessageBox.critical") as critical:
+    # The subprocess does not see patched memory, so the job it would run is
+    # evaluated in this process instead.
+    with (
+        patch_available(100_000),
+        mock.patch.object(evaluator, "ProcessManager") as process_manager,
+        mock.patch("wiser.gui.bandmath_dialog.QMessageBox.critical") as critical,
+    ):
         dialog._run_batch_job(job)
+        critical.assert_not_called()
+        bandmath_job_data = process_manager.call_args[0][1]["bandmath_job_data"]
+        child_conn = mock.MagicMock()
+        return_queue = queue.Queue()
+        evaluator.eval_bandmath_expressions(bandmath_job_data, child_conn, return_queue)
 
-    critical.assert_called_once()
-    message = critical.call_args[0][2]
-    assert "GB" in message and "spatial subset" in message
-    assert job.get_process_manager() is None
-    assert test_model.app_state.get_running_processes() == {}
+    messages = [c[0][0] for c in child_conn.send.call_args_list]
+    for message in messages:
+        dialog.on_bandmath_job_status(job, message)
+    errors = {name: text for name, text, _ in job.get_errors()}
+    assert list(errors) == ["large_result"]
+    assert "spatial subset" in errors["large_result"]
+    assert job.get_btn_view_errors().isEnabled()
+
+    results = return_queue.get_nowait()
+    completed = [r for r in results if r[0] is not None]
+    assert [r[2] for r in completed] == ["small_result"]
+    np.testing.assert_array_equal(np.asarray(completed[0][1]), np.full((1, 10, 10), 2, dtype=np.float32))
+
+
+def mock_dataset(shape):
+    dataset = mock.MagicMock(spec=RasterDataSet)
+    dataset.get_shape.return_value = shape
+    dataset.get_elem_type.return_value = np.dtype(np.float32)
+    return (VariableType.IMAGE_CUBE, dataset)
+
+
+class TestPathSelection:
+    def test_whole_array_estimate_over_threshold_selects_chunked_path(self):
+        # Two 1 GB float32 cubes: the whole-array estimate (5 GB) exceeds 80% of 6 GB
+        # although the result times its intermediates (3 GB) fits.
+        shape = (250, 1000, 1000)
+        job = make_job(
+            "a / b", {"a": mock_dataset(shape), "b": mock_dataset(shape)}, number_of_intermediates=3
+        )
+        with patch_available(int(6e9)):
+            assert evaluator._estimate_peak_bytes(job, False, 0) == 4 * 250_000_000 * 5
+            chunked, max_chunking_bytes = evaluator.select_bandmath_chunking(job)
+            assert chunked
+            assert max_chunking_bytes == 6e9 * 0.25
+            evaluator.check_bandmath_memory(job)
+
+    def test_refused_when_one_band_window_exceeds_threshold(self):
+        shape = (2, 20000, 20000)
+        job = make_job(
+            "a / b", {"a": mock_dataset(shape), "b": mock_dataset(shape)}, number_of_intermediates=3
+        )
+        with patch_available(int(6e9)):
+            assert evaluator.select_bandmath_chunking(job)[0]
+            # One 20000 x 20000 band at 5 bytes per element is 2 GB.
+            assert evaluator.estimate_bandmath_peak_bytes(job) == 7 * 2_000_000_000
+            with pytest.raises(BandMathMemoryError):
+                evaluator.check_bandmath_memory(job)
