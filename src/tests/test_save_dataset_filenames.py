@@ -290,9 +290,16 @@ def test_bandmath_output_folder_saves_in_memory_cube_with_app_cache(test_model, 
     cube = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
     assert test_model.app_state.get_cache() is not None
 
-    _save_cube(test_model.app_state, cube, "cube", str(tmp_path))
+    saved = _save_cube(test_model.app_state, cube, "cube", str(tmp_path))
 
+    assert saved.get_id() is not None
     np.testing.assert_array_equal(_reopened_data(str(tmp_path), "cube"), cube)
+
+
+def test_bandmath_output_folder_rejects_an_unsupported_cube_result(test_model, tmp_path):
+    with pytest.raises(TypeError, match="neither a np.ndarray or SerializedForm"):
+        _save_cube(test_model.app_state, [[[1.0]]], "cube", str(tmp_path))
+    assert os.listdir(tmp_path) == []
 
 
 def test_bandmath_output_folder_saves_serialized_cube(test_model, dataset, tmp_path):
