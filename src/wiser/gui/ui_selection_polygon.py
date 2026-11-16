@@ -195,6 +195,7 @@ class PolygonSelectionEditor(TaskDelegate):
 
         # Initialize the control-points for adjusting the polygon selection.
         self._control_points = list(self._poly_sel.get_points())
+        self._original_points = [cp.toTuple() for cp in self._control_points]
 
         # Give the user some directions.
         self._app_state.show_status_text(
@@ -292,6 +293,15 @@ class PolygonSelectionEditor(TaskDelegate):
         self._rasterpane.roi_selection_changed.emit(self._roi, self._poly_sel)
 
         self._app_state.clear_status_text()
+
+    def cancel(self):
+        # The control points are the selection's own points, so the restore also
+        # changes the ROI and must be signalled.
+        for cp, (x, y) in zip(self._control_points, self._original_points):
+            cp.setX(x)
+            cp.setY(y)
+        self._rasterpane.roi_selection_changed.emit(self._roi, self._poly_sel)
+        self._app_state.show_status_text("Polygon edits cancelled.", 5)
 
     def get_selection(self):
         return PolygonSelection(self._control_points)

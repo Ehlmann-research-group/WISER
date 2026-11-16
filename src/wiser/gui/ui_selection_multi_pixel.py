@@ -79,6 +79,10 @@ class MultiPixelSelectionManipulator(TaskDelegate):
     def on_context_menu(self, context_menu_event):
         return True
 
+    def cancel(self):
+        self._cancelled = True
+        self.finish()
+
     def draw_state(self, painter):
         if len(self._points) == 0:
             return
