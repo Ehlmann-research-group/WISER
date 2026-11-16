@@ -1039,7 +1039,7 @@ the render cache itself is keyed by bands+stretches, so a new combination
 naturally maps to a different entry.</p></li>
 </ol>
 <section id="bandstats-a-separate-smaller-cache">
-<h3><code class="docutils literal notranslate"><span class="pre">BandStats</span></code> — a separate, smaller cache<a class="headerlink" href="#bandstats-a-separate-smaller-cache" title="Link to this heading">#</a></h3>
+<span id="bandstats--a-separate-smaller-cache"></span><h3><code class="docutils literal notranslate"><span class="pre">BandStats</span></code> — a separate, smaller cache<a class="headerlink" href="#bandstats-a-separate-smaller-cache" title="Link to this heading">#</a></h3>
 <p>Independently of <code class="docutils literal notranslate"><span class="pre">DataCache</span></code>, each <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> keeps a per-band
 <code class="docutils literal notranslate"><span class="pre">BandStats</span></code> (min/max) cache in <code class="docutils literal notranslate"><span class="pre">_cached_band_stats</span></code>
 (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>). It is populated the first time a
@@ -1059,7 +1059,7 @@ compound operations are not atomic.</p>
 </section>
 <hr class="docutils" />
 <section id="lookup-miss-store-flow">
-<h2>Lookup / Miss / Store Flow<a class="headerlink" href="#lookup-miss-store-flow" title="Link to this heading">#</a></h2>
+<span id="lookup--miss--store-flow"></span><h2>Lookup / Miss / Store Flow<a class="headerlink" href="#lookup-miss-store-flow" title="Link to this heading">#</a></h2>
 <pre  class="mermaid">
         flowchart TD
     REQ[&quot;caller needs value&lt;br/&gt;(image / band / histogram)&quot;]
@@ -1076,7 +1076,7 @@ compound operations are not atomic.</p>
     </pre></section>
 <hr class="docutils" />
 <section id="known-issue-cache-add-cache-item-guard">
-<h2>Known Issue: <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code> Guard<a class="headerlink" href="#known-issue-cache-add-cache-item-guard" title="Link to this heading">#</a></h2>
+<span id="known-issue-cacheadd_cache_item-guard"></span><h2>Known Issue: <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code> Guard<a class="headerlink" href="#known-issue-cache-add-cache-item-guard" title="Link to this heading">#</a></h2>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>The base <code class="docutils literal notranslate"><span class="pre">Cache.add_cache_item</span></code>

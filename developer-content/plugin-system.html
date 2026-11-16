@@ -1014,7 +1014,7 @@ is being built and therefore which keys to expect in the <code class="docutils l
 <p><code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code> runs once during application startup and is the entry point
 for everything below. It performs three steps in order.</p>
 <section id="step-1-register-plugin-paths">
-<h3>Step 1 — Register plugin paths<a class="headerlink" href="#step-1-register-plugin-paths" title="Link to this heading">#</a></h3>
+<span id="step-1--register-plugin-paths"></span><h3>Step 1 — Register plugin paths<a class="headerlink" href="#step-1-register-plugin-paths" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plugin_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_state</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">"plugin_paths"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plugin_paths</span><span class="p">:</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
@@ -1029,7 +1029,7 @@ insert) is what makes WISER’s own dependencies take precedence — see
 <a class="reference internal" href="#dependency-handling">Dependency handling</a>.</p>
 </section>
 <section id="step-2-instantiate-permanent-plugins">
-<h3>Step 2 — Instantiate permanent plugins<a class="headerlink" href="#step-2-instantiate-permanent-plugins" title="Link to this heading">#</a></h3>
+<span id="step-2--instantiate-permanent-plugins"></span><h3>Step 2 — Instantiate permanent plugins<a class="headerlink" href="#step-2-instantiate-permanent-plugins" title="Link to this heading">#</a></h3>
 <p>A small set of built-in plugins is instantiated directly (not via config), kept
 as plugins partly to serve as living examples of the API:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">permanent_plugins</span> <span class="o">=</span> <span class="p">[</span>
@@ -1040,7 +1040,7 @@ as plugins partly to serve as living examples of the API:</p>
 </div>
 </section>
 <section id="step-3-instantiate-user-plugins">
-<h3>Step 3 — Instantiate user plugins<a class="headerlink" href="#step-3-instantiate-user-plugins" title="Link to this heading">#</a></h3>
+<span id="step-3--instantiate-user-plugins"></span><h3>Step 3 — Instantiate user plugins<a class="headerlink" href="#step-3-instantiate-user-plugins" title="Link to this heading">#</a></h3>
 <p>Every fully-qualified class name (FQCN) in the <code class="docutils literal notranslate"><span class="pre">plugins</span></code> config list is
 instantiated through <code class="docutils literal notranslate"><span class="pre">plugins.utils.instantiate()</span></code>:</p>
 <p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/plugins/utils.py</span></code></p>
@@ -1080,7 +1080,7 @@ below iterates over <code class="docutils literal notranslate"><span class="pre"
 </section>
 <hr class="docutils" />
 <section id="discovery-settings-plugins">
-<h2>Discovery (Settings → Plugins)<a class="headerlink" href="#discovery-settings-plugins" title="Link to this heading">#</a></h2>
+<span id="discovery-settings--plugins"></span><h2>Discovery (Settings → Plugins)<a class="headerlink" href="#discovery-settings-plugins" title="Link to this heading">#</a></h2>
 <p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/app_config_dialog.py</span></code></p>
 <p>The configuration that <code class="docutils literal notranslate"><span class="pre">_init_plugins()</span></code> consumes is produced by the
 <strong>Settings → Plugins</strong> dialog. There is <strong>no manifest file</strong> — discovery is

@@ -1276,7 +1276,7 @@ the user to press ENTER or ESC first.</p>
 </section>
 <hr class="docutils" />
 <section id="click-gcp-table-data-flow">
-<h2>Click → GCP → Table Data Flow<a class="headerlink" href="#click-gcp-table-data-flow" title="Link to this heading">#</a></h2>
+<span id="click--gcp--table-data-flow"></span><h2>Click → GCP → Table Data Flow<a class="headerlink" href="#click-gcp-table-data-flow" title="Link to this heading">#</a></h2>
 <p>The pane forwards raw Qt events to the delegate; the delegate emits <code class="docutils literal notranslate"><span class="pre">gcp_pair_added</span></code>
 once a pair is complete; the dialog reacts by adding a table row and recomputing
 residuals.</p>
@@ -1358,7 +1358,7 @@ never drift apart.</p>
 <hr class="docutils" />
 </section>
 <section id="residual-computation-schedule-residual-recompute">
-<span id="id1"></span><h2>Residual Computation (<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute</span></code>)<a class="headerlink" href="#residual-computation-schedule-residual-recompute" title="Link to this heading">#</a></h2>
+<span id="id1"></span><span id="residual-computation-_schedule_residual_recompute"></span><h2>Residual Computation (<code class="docutils literal notranslate"><span class="pre">_schedule_residual_recompute</span></code>)<a class="headerlink" href="#residual-computation-schedule-residual-recompute" title="Link to this heading">#</a></h2>
 <p>Residuals are recomputed after every change to give the user immediate feedback on how
 well each GCP fits the chosen transform. The math itself
 (<code class="docutils literal notranslate"><span class="pre">georef_warp.compute_residuals</span></code>) does <strong>not</strong> warp the real image — it builds a 1×1
@@ -1404,7 +1404,7 @@ dividing by the warped geotransform’s pixel width/height (<code class="docutil
 <hr class="docutils" />
 </section>
 <section id="warp-output-pipeline-warp-dataset-to-path">
-<span id="id2"></span><h2>Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code>)<a class="headerlink" href="#warp-output-pipeline-warp-dataset-to-path" title="Link to this heading">#</a></h2>
+<span id="id2"></span><span id="warp--output-pipeline-warp_dataset_to_path"></span><h2>Warp / Output Pipeline (<code class="docutils literal notranslate"><span class="pre">warp_dataset_to_path</span></code>)<a class="headerlink" href="#warp-output-pipeline-warp-dataset-to-path" title="Link to this heading">#</a></h2>
 <p>The <strong>Run Warp</strong> button (<code class="docutils literal notranslate"><span class="pre">_on_warp_button_clicked</span></code> → <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code>) produces
 the georeferenced GeoTIFF. <code class="docutils literal notranslate"><span class="pre">_create_warped_output()</span></code> only <em>validates and launches</em>: it
 gathers the GCPs, resolves the SRSs, builds the warp kwargs, and hands
@@ -1506,7 +1506,7 @@ reconcile a loaded file’s CRS against the current reference CRS.</p>
 <hr class="docutils" />
 </section>
 <section id="programmatic-configuration-locking">
-<span id="id3"></span><h2>Programmatic Configuration &amp; Locking<a class="headerlink" href="#programmatic-configuration-locking" title="Link to this heading">#</a></h2>
+<span id="id3"></span><span id="programmatic-configuration--locking"></span><h2>Programmatic Configuration &amp; Locking<a class="headerlink" href="#programmatic-configuration-locking" title="Link to this heading">#</a></h2>
 <p>The dialog can be driven entirely through code — not just its own combo boxes — via a
 <code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/geo_reference_config.py</span></code>). This is what lets another
 feature reuse the dialog with a fixed target, a caller-owned save path, and a custom accept

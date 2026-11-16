@@ -965,7 +965,7 @@ below).</p></li>
 <p>Two module-level helpers in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code> decide
 sensible defaults so the user rarely has to choose bands manually.</p>
 <section id="find-truecolor-bands-dataset-red-green-blue">
-<h3><code class="docutils literal notranslate"><span class="pre">find_truecolor_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code><a class="headerlink" href="#find-truecolor-bands-dataset-red-green-blue" title="Link to this heading">#</a></h3>
+<span id="find_truecolor_bandsdataset-red-green-blue"></span><h3><code class="docutils literal notranslate"><span class="pre">find_truecolor_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code><a class="headerlink" href="#find-truecolor-bands-dataset-red-green-blue" title="Link to this heading">#</a></h3>
 <p>Returns a <code class="docutils literal notranslate"><span class="pre">(red_index,</span> <span class="pre">green_index,</span> <span class="pre">blue_index)</span></code> triple of the bands closest to
 the given visible-light wavelengths, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if the dataset has no wavelength
 metadata or a match cannot be found for any channel. The Band Chooser calls this
@@ -973,7 +973,7 @@ via <code class="docutils literal notranslate"><span class="pre">_get_truecolor_
 from app config (<code class="docutils literal notranslate"><span class="pre">general.red_wavelength_nm</span></code>, etc.).</p>
 </section>
 <section id="find-display-bands-dataset-red-green-blue">
-<h3><code class="docutils literal notranslate"><span class="pre">find_display_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code><a class="headerlink" href="#find-display-bands-dataset-red-green-blue" title="Link to this heading">#</a></h3>
+<span id="find_display_bandsdataset-red-green-blue"></span><h3><code class="docutils literal notranslate"><span class="pre">find_display_bands(dataset,</span> <span class="pre">red,</span> <span class="pre">green,</span> <span class="pre">blue)</span></code><a class="headerlink" href="#find-display-bands-dataset-red-green-blue" title="Link to this heading">#</a></h3>
 <p>Picks the bands to display when a dataset is first shown, in priority order:</p>
 <ol class="arabic simple">
 <li><p>The dataset’s own <code class="docutils literal notranslate"><span class="pre">default_display_bands()</span></code> (may be a 3-tuple or 1-tuple).</p></li>
@@ -1067,7 +1067,7 @@ instance held by <code class="docutils literal notranslate"><span class="pre">Ap
 </section>
 <hr class="docutils" />
 <section id="rasterview-set-display-bands">
-<h2><code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands()</span></code><a class="headerlink" href="#rasterview-set-display-bands" title="Link to this heading">#</a></h2>
+<span id="rasterviewset_display_bands"></span><h2><code class="docutils literal notranslate"><span class="pre">RasterView.set_display_bands()</span></code><a class="headerlink" href="#rasterview-set-display-bands" title="Link to this heading">#</a></h2>
 <p><strong>File:</strong> <code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterview.py</span></code></p>
 <p>This is the method that connects the Band Chooser to an actual render. As traced
 above, the <code class="docutils literal notranslate"><span class="pre">display_bands</span></code> argument it receives is exactly the tuple the user

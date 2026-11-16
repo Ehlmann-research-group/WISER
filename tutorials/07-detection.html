@@ -503,7 +503,7 @@
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="finding-a-known-material">
-<h1>7. Finding a Known Material<a class="headerlink" href="#finding-a-known-material" title="Link to this heading">#</a></h1>
+<span id="7-finding-a-known-material"></span><h1>7. Finding a Known Material<a class="headerlink" href="#finding-a-known-material" title="Link to this heading">#</a></h1>
 <p><strong>Goal:</strong> go from “what is in this scene?” to “where is this specific
 substance?” using WISER’s four matching and unmixing tools, and know which one
 to reach for.</p>
@@ -557,7 +557,7 @@ least; unmixing asks the most and, in exchange, gives you abundances.</p>
 </section>
 <hr class="docutils" />
 <section id="step-1-load-the-scene-and-collect-spectra">
-<h2>Step 1 — Load the scene and collect spectra<a class="headerlink" href="#step-1-load-the-scene-and-collect-spectra" title="Link to this heading">#</a></h2>
+<span id="step-1--load-the-scene-and-collect-spectra"></span><h2>Step 1 — Load the scene and collect spectra<a class="headerlink" href="#step-1-load-the-scene-and-collect-spectra" title="Link to this heading">#</a></h2>
 <ol class="arabic simple">
 <li><p>Choose <strong>File ▸ Open…</strong> and select <code class="docutils literal notranslate"><span class="pre">caltech_15_20_22_bb.hdr</span></code>.</p></li>
 <li><p>If the <strong>Dataset Info</strong> pane is not showing, click its pane toggle on the
@@ -572,7 +572,7 @@ use these as the MTMF target and as unmixing endmembers.</p></li>
 </section>
 <hr class="docutils" />
 <section id="step-2-spectral-angle-mapper">
-<h2>Step 2 — Spectral Angle Mapper<a class="headerlink" href="#step-2-spectral-angle-mapper" title="Link to this heading">#</a></h2>
+<span id="step-2--spectral-angle-mapper"></span><h2>Step 2 — Spectral Angle Mapper<a class="headerlink" href="#step-2-spectral-angle-mapper" title="Link to this heading">#</a></h2>
 <p>SAM treats each spectrum as a vector in <em>n</em>-band space and measures the
 angle between pixel and reference:</p>
 <div class="math notranslate nohighlight">
@@ -629,7 +629,7 @@ comparison, so a library resampled to a different sensor still works.</p>
 </section>
 <hr class="docutils" />
 <section id="step-3-spectral-feature-fitting">
-<h2>Step 3 — Spectral Feature Fitting<a class="headerlink" href="#step-3-spectral-feature-fitting" title="Link to this heading">#</a></h2>
+<span id="step-3--spectral-feature-fitting"></span><h2>Step 3 — Spectral Feature Fitting<a class="headerlink" href="#step-3-spectral-feature-fitting" title="Link to this heading">#</a></h2>
 <p>SFF asks a narrower question: forget the overall spectrum, do the absorption
 features line up?</p>
 <p>It continuum-removes both spectra, dividing out the smooth upper envelope so
@@ -673,7 +673,7 @@ a feature that is not there.</p>
 </section>
 <hr class="docutils" />
 <section id="step-4-mixture-tuned-matched-filter">
-<h2>Step 4 — Mixture-Tuned Matched Filter<a class="headerlink" href="#step-4-mixture-tuned-matched-filter" title="Link to this heading">#</a></h2>
+<span id="step-4--mixture-tuned-matched-filter"></span><h2>Step 4 — Mixture-Tuned Matched Filter<a class="headerlink" href="#step-4-mixture-tuned-matched-filter" title="Link to this heading">#</a></h2>
 <p>MTMF is for the case where you know your target but nothing about the
 background, the usual situation in target detection.</p>
 <figure class="align-center">
@@ -714,7 +714,7 @@ score is only believable where the same pixel in <code class="docutils literal n
 </section>
 <hr class="docutils" />
 <section id="step-5-linear-unmixing">
-<h2>Step 5 — Linear Unmixing<a class="headerlink" href="#step-5-linear-unmixing" title="Link to this heading">#</a></h2>
+<span id="step-5--linear-unmixing"></span><h2>Step 5 — Linear Unmixing<a class="headerlink" href="#step-5-linear-unmixing" title="Link to this heading">#</a></h2>
 <p>Unmixing assumes each pixel is a weighted sum of a few pure <strong>endmember</strong>
 spectra and solves for the weights.</p>
 <figure class="align-center">

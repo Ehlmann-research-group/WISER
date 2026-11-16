@@ -531,11 +531,11 @@
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="testing-qa">
-<h1>Testing &amp; QA<a class="headerlink" href="#testing-qa" title="Link to this heading">#</a></h1>
+<span id="testing--qa"></span><h1>Testing &amp; QA<a class="headerlink" href="#testing-qa" title="Link to this heading">#</a></h1>
 <p>This page documents testing standards, quality assurance practices, and
 release checklists for WISER development.</p>
 <section id="purpose-scope">
-<h2>Purpose &amp; Scope<a class="headerlink" href="#purpose-scope" title="Link to this heading">#</a></h2>
+<span id="purpose--scope"></span><h2>Purpose &amp; Scope<a class="headerlink" href="#purpose-scope" title="Link to this heading">#</a></h2>
 <p>Reliable testing is essential to maintaining a stable and trustworthy codebase.
 Tests protect against regressions when code changes, enable confident
 refactoring, and increase trust in the correctness of new features. Tests
@@ -576,7 +576,7 @@ generally result in good functional coverage naturally.</p>
 <p>Tests live at <code class="docutils literal notranslate"><span class="pre">src/tests/</span></code>. Tests are not yet organized by type (unit,
 integration, etc.), but this may be introduced as the test suite grows.</p>
 <section id="naming-structure-pytest">
-<h3>Naming &amp; Structure (pytest)<a class="headerlink" href="#naming-structure-pytest" title="Link to this heading">#</a></h3>
+<span id="naming--structure-pytest"></span><h3>Naming &amp; Structure (pytest)<a class="headerlink" href="#naming-structure-pytest" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Test filenames must start with <code class="docutils literal notranslate"><span class="pre">test_*.py</span></code></p></li>
 <li><p>Suffix conventions:</p>
@@ -673,7 +673,7 @@ pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">"(devic
 </div>
 </section>
 <section id="ci-cd">
-<h3>CI/CD<a class="headerlink" href="#ci-cd" title="Link to this heading">#</a></h3>
+<span id="cicd"></span><h3>CI/CD<a class="headerlink" href="#ci-cd" title="Link to this heading">#</a></h3>
 <p>CI runs <code class="docutils literal notranslate"><span class="pre">pytest</span> <span class="pre">.</span></code> from <code class="docutils literal notranslate"><span class="pre">src/tests</span></code> on Linux GitHub runners on every PR and
 push to <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p>
 <p>CD runs WISER in <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code>, which re-runs the test suite against the
@@ -715,7 +715,7 @@ bundled distribution:</p>
 </div>
 </section>
 <section id="test-maintenance-flakiness">
-<h2>Test Maintenance &amp; Flakiness<a class="headerlink" href="#test-maintenance-flakiness" title="Link to this heading">#</a></h2>
+<span id="test-maintenance--flakiness"></span><h2>Test Maintenance &amp; Flakiness<a class="headerlink" href="#test-maintenance-flakiness" title="Link to this heading">#</a></h2>
 <section id="handling-flaky-tests">
 <h3>Handling Flaky Tests<a class="headerlink" href="#handling-flaky-tests" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">

@@ -892,7 +892,7 @@ conventions - this is acceptable when overriding or subclassing Qt components.</
 </div>
 </section>
 <section id="private-and-public-attributes-methods">
-<h3>Private and public attributes/methods<a class="headerlink" href="#private-and-public-attributes-methods" title="Link to this heading">#</a></h3>
+<span id="private-and-public-attributesmethods"></span><h3>Private and public attributes/methods<a class="headerlink" href="#private-and-public-attributes-methods" title="Link to this heading">#</a></h3>
 <p>In a class, a private attribute (variable) should have an underscore in front of it. If it does not
 have an underscore in front of it, then it’s assumed to be public. Example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="bp">self</span><span class="o">.</span><span class="n">_update_table</span>  <span class="c1"># Private</span>
@@ -964,7 +964,7 @@ future.</p>
 </div>
 </section>
 <section id="purpose-scope">
-<h2>Purpose &amp; Scope<a class="headerlink" href="#purpose-scope" title="Link to this heading">#</a></h2>
+<span id="purpose--scope"></span><h2>Purpose &amp; Scope<a class="headerlink" href="#purpose-scope" title="Link to this heading">#</a></h2>
 <p>Reliable testing is essential to maintaining a stable and trustworthy codebase. Our tests protect against regressions
 when code changes, enable confident refactoring, and increase trust in the correctness of new features. Tests should be
 treated as production-grade code: readable, maintainable, and updated as the software evolves.</p>
@@ -975,7 +975,7 @@ correctness, and contributors are expected to write tests appropriate to the typ
 implementing new features, and maintainers reviewing contributions.</p>
 </section>
 <section id="testing-philosophy-principles">
-<h2>Testing Philosophy / Principles<a class="headerlink" href="#testing-philosophy-principles" title="Link to this heading">#</a></h2>
+<span id="testing-philosophy--principles"></span><h2>Testing Philosophy / Principles<a class="headerlink" href="#testing-philosophy-principles" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><strong>Fast and deterministic:</strong> Tests should run quickly and produce the same result every time.</p></li>
 <li><p><strong>Isolated:</strong> Tests should not depend on global state, shared data, or hidden side effects.</p></li>
@@ -1002,7 +1002,7 @@ the feature you are implementing, which will generally result in good functional
 <p>As of <strong>11/05/2025</strong>, we do not yet organize tests by type (unit, integration, etc.), but this may be introduced later
 as the test suite grows.</p>
 <section id="naming-structure-pytest">
-<h3>Naming &amp; Structure (pytest)<a class="headerlink" href="#naming-structure-pytest" title="Link to this heading">#</a></h3>
+<span id="naming--structure-pytest"></span><h3>Naming &amp; Structure (pytest)<a class="headerlink" href="#naming-structure-pytest" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Test filenames must start with:<br />
 <code class="docutils literal notranslate"><span class="pre">test_*.py</span></code></p></li>
@@ -1040,7 +1040,7 @@ clear what is being tested and any specifics about what is being tested.</p></li
 </ol>
 </section>
 <section id="running-tests-ci-cd-integration">
-<h2>Running Tests &amp; CI/CD Integration<a class="headerlink" href="#running-tests-ci-cd-integration" title="Link to this heading">#</a></h2>
+<span id="running-tests--cicd-integration"></span><h2>Running Tests &amp; CI/CD Integration<a class="headerlink" href="#running-tests-ci-cd-integration" title="Link to this heading">#</a></h2>
 <section id="local">
 <h3>Local<a class="headerlink" href="#local" title="Link to this heading">#</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>src/tests
@@ -1105,7 +1105,7 @@ pytest<span class="w"> </span>.
 </div>
 </section>
 <section id="test-maintenance-flakiness">
-<h2>Test Maintenance &amp; Flakiness<a class="headerlink" href="#test-maintenance-flakiness" title="Link to this heading">#</a></h2>
+<span id="test-maintenance--flakiness"></span><h2>Test Maintenance &amp; Flakiness<a class="headerlink" href="#test-maintenance-flakiness" title="Link to this heading">#</a></h2>
 <section id="handling-flaky-tests">
 <h3>Handling Flaky Tests<a class="headerlink" href="#handling-flaky-tests" title="Link to this heading">#</a></h3>
 <p>If a test behaves inconsistently:</p>

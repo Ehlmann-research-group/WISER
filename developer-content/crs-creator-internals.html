@@ -919,7 +919,7 @@ WISER can build it and, if so, letting the user name and store it.</p></li>
 </section>
 <hr class="docutils" />
 <section id="class-state">
-<h2>Class &amp; State<a class="headerlink" href="#class-state" title="Link to this heading">#</a></h2>
+<span id="class--state"></span><h2>Class &amp; State<a class="headerlink" href="#class-state" title="Link to this heading">#</a></h2>
 <pre  class="mermaid">
         classDiagram
     class QDialog[&quot;QDialog (Qt)&quot;]
@@ -985,7 +985,7 @@ parameter fields — see <a class="reference internal" href="#validating-a-paste
 </section>
 <hr class="docutils" />
 <section id="ui-workflow">
-<h2>UI / Workflow<a class="headerlink" href="#ui-workflow" title="Link to this heading">#</a></h2>
+<span id="ui--workflow"></span><h2>UI / Workflow<a class="headerlink" href="#ui-workflow" title="Link to this heading">#</a></h2>
 <p>The dialog is a <code class="docutils literal notranslate"><span class="pre">QTabWidget</span></code> (<code class="docutils literal notranslate"><span class="pre">tabWidget</span></code>) with two pages, and a single shared
 OK/Cancel <code class="docutils literal notranslate"><span class="pre">QDialogButtonBox</span></code> beneath the tabs. Which builder the <strong>OK</strong> button runs
 depends on the active tab: <code class="docutils literal notranslate"><span class="pre">accept()</span></code> calls <code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code> for the parameter tab and
@@ -1044,7 +1044,7 @@ driving the parameter widgets it switches to the string tab, repopulates
 </section>
 <hr class="docutils" />
 <section id="crs-construction-create-crs">
-<h2>CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)<a class="headerlink" href="#crs-construction-create-crs" title="Link to this heading">#</a></h2>
+<span id="crs-construction-_create_crs"></span><h2>CRS Construction (<code class="docutils literal notranslate"><span class="pre">_create_crs</span></code>)<a class="headerlink" href="#crs-construction-create-crs" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">_create_crs()</span></code> validates the fields, builds a PROJ4 string, and converts it to an OSR
 spatial reference.</p>
 <p>The PROJ4 fragments assembled per choice:</p>

@@ -506,16 +506,16 @@
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="classifying-a-scene">
-<h1>5. Classifying a Scene<a class="headerlink" href="#classifying-a-scene" title="Link to this heading">#</a></h1>
+<span id="5-classifying-a-scene"></span><h1>5. Classifying a Scene<a class="headerlink" href="#classifying-a-scene" title="Link to this heading">#</a></h1>
 <p><strong>Goal:</strong> find structure in feature space with the interactive scatter plot,
 then let K-means partition the scene without being told what to look for.</p>
 <p><strong>Data:</strong> <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm.hdr</span></code> (from <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>).</p>
 <p><strong>Reference:</strong> <a class="reference internal" href="../user-content/data-analysis-tools/interactive-scatter-plot.html"><span class="doc">Interactive Scatter Plot</span></a>, <a class="reference internal" href="../user-content/data-analysis-tools/kmeans.html"><span class="doc">K-Means Clustering</span></a>.</p>
 <hr class="docutils" />
 <section id="part-a-feature-space">
-<h2>Part A — Feature space<a class="headerlink" href="#part-a-feature-space" title="Link to this heading">#</a></h2>
+<span id="part-a--feature-space"></span><h2>Part A — Feature space<a class="headerlink" href="#part-a-feature-space" title="Link to this heading">#</a></h2>
 <section id="step-1-plot-two-bands-against-each-other">
-<h3>Step 1 — Plot two bands against each other<a class="headerlink" href="#step-1-plot-two-bands-against-each-other" title="Link to this heading">#</a></h3>
+<span id="step-1--plot-two-bands-against-each-other"></span><h3>Step 1 — Plot two bands against each other<a class="headerlink" href="#step-1-plot-two-bands-against-each-other" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Open the campus scene as in <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>.</p></li>
 <li><p>Right-click anywhere on the image and choose <strong>Data Analysis ▸ Interactive
@@ -541,7 +541,7 @@ datasets, as long as those share the same width and height, since points are
 matched to pixels by position.</p>
 </section>
 <section id="step-2-read-the-cloud">
-<h3>Step 2 — Read the cloud<a class="headerlink" href="#step-2-read-the-cloud" title="Link to this heading">#</a></h3>
+<span id="step-2--read-the-cloud"></span><h3>Step 2 — Read the cloud<a class="headerlink" href="#step-2-read-the-cloud" title="Link to this heading">#</a></h3>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../_images/t8_scatter_plot.png"><img alt="Density scatter plot of the 702 nm band against the 852 nm band" src="../_images/t8_scatter_plot.png" style="width: 70%;" />
 </a>
@@ -561,7 +561,7 @@ is high in the plume and near zero along the line.</p></li>
 </ul>
 </section>
 <section id="step-3-link-the-plot-back-to-the-image">
-<h3>Step 3 — Link the plot back to the image<a class="headerlink" href="#step-3-link-the-plot-back-to-the-image" title="Link to this heading">#</a></h3>
+<span id="step-3--link-the-plot-back-to-the-image"></span><h3>Step 3 — Link the plot back to the image<a class="headerlink" href="#step-3-link-the-plot-back-to-the-image" title="Link to this heading">#</a></h3>
 <p>You can draw a selection on the plot at any time; there is no tool to turn on
 first.</p>
 <ol class="arabic simple">
@@ -591,9 +591,9 @@ everything in <a class="reference internal" href="03-regions-of-interest.html"><
 </section>
 <hr class="docutils" />
 <section id="part-b-k-means">
-<h2>Part B — K-means<a class="headerlink" href="#part-b-k-means" title="Link to this heading">#</a></h2>
+<span id="part-b--k-means"></span><h2>Part B — K-means<a class="headerlink" href="#part-b-k-means" title="Link to this heading">#</a></h2>
 <section id="step-4-run-it">
-<h3>Step 4 — Run it<a class="headerlink" href="#step-4-run-it" title="Link to this heading">#</a></h3>
+<span id="step-4--run-it"></span><h3>Step 4 — Run it<a class="headerlink" href="#step-4-run-it" title="Link to this heading">#</a></h3>
 <p>Where the scatter plot compares two bands, K-means uses <strong>all</strong> of them: each
 pixel is a point in <em>n</em>-band space, and the algorithm partitions those points
 into <strong>K</strong> clusters, iterating until the centers stop moving.</p>
@@ -622,7 +622,7 @@ the main window.</p></li>
 </ol>
 </section>
 <section id="step-5-read-the-labels">
-<h3>Step 5 — Read the labels<a class="headerlink" href="#step-5-read-the-labels" title="Link to this heading">#</a></h3>
+<span id="step-5--read-the-labels"></span><h3>Step 5 — Read the labels<a class="headerlink" href="#step-5-read-the-labels" title="Link to this heading">#</a></h3>
 <p>The result is a single-band <strong>label image</strong> named <code class="docutils literal notranslate"><span class="pre">K-Means</span> <span class="pre">Labels</span> <span class="pre">(k=5):</span> <span class="pre">...</span></code>,
 whose pixel values are cluster indices 0 to 4.</p>
 <ol class="arabic simple">
@@ -674,7 +674,7 @@ that.</p>
 </div>
 </section>
 <section id="step-6-choosing-k">
-<h3>Step 6 — Choosing K<a class="headerlink" href="#step-6-choosing-k" title="Link to this heading">#</a></h3>
+<span id="step-6--choosing-k"></span><h3>Step 6 — Choosing K<a class="headerlink" href="#step-6-choosing-k" title="Link to this heading">#</a></h3>
 <p>There is no correct K. Ways to decide:</p>
 <ul class="simple">
 <li><p><strong>Run several.</strong> Try K = 3, 5 and 8 and see which boundaries persist.</p></li>

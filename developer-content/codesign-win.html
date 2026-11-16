@@ -488,8 +488,8 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing">Building and Signing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-signtool-path">Configuring the Signtool Path</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-your-certificate-thumbprint">Finding Your Certificate Thumbprint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-signtool">Configuring the Signtool Path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-thumbprint">Finding Your Certificate Thumbprint</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-install-script-works">How the Install Script Works</a></li>
 </ul>
             </nav>
@@ -618,8 +618,8 @@ last argument, and is the script described in
 <em>without</em> first rebuilding with PyInstaller. It is handy when <code class="docutils literal notranslate"><span class="pre">dist/WISER</span></code> is
 already built and you only want to (re)build and sign the installer.</p>
 </section>
-<section id="configuring-the-signtool-path">
-<span id="configuring-signtool"></span><h2>Configuring the Signtool Path<a class="headerlink" href="#configuring-the-signtool-path" title="Link to this heading">#</a></h2>
+<section id="configuring-signtool">
+<span id="configuring-the-signtool-path"></span><h2>Configuring the Signtool Path<a class="headerlink" href="#configuring-signtool" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">win-install.nsi</span></code> script needs to know where <code class="docutils literal notranslate"><span class="pre">signtool.exe</span></code> lives on your
 machine. This is set near the top of the script with a single define:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>!define SIGN_TOOL "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool"
@@ -643,8 +643,8 @@ define.</p></li>
 </div>
 <p>Use the path to the <code class="docutils literal notranslate"><span class="pre">x64</span></code> build for 64-bit Windows.</p>
 </section>
-<section id="finding-your-certificate-thumbprint">
-<span id="finding-thumbprint"></span><h2>Finding Your Certificate Thumbprint<a class="headerlink" href="#finding-your-certificate-thumbprint" title="Link to this heading">#</a></h2>
+<section id="finding-thumbprint">
+<span id="finding-your-certificate-thumbprint"></span><h2>Finding Your Certificate Thumbprint<a class="headerlink" href="#finding-thumbprint" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">SHA1_THUMBPRINT</span></code> value comes from your code-signing certificate. With the
 USB token plugged in and its middleware installed, list the certificates in
 your personal store from PowerShell:</p>
@@ -757,8 +757,8 @@ to point the whole script at your <code class="docutils literal notranslate"><sp
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-and-signing">Building and Signing</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-signtool-path">Configuring the Signtool Path</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-your-certificate-thumbprint">Finding Your Certificate Thumbprint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-signtool">Configuring the Signtool Path</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finding-thumbprint">Finding Your Certificate Thumbprint</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-the-install-script-works">How the Install Script Works</a></li>
 </ul>
   </nav></div>

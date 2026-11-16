@@ -503,7 +503,7 @@
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="band-math-mapping-vegetation">
-<h1>4. Band Math: Mapping Vegetation<a class="headerlink" href="#band-math-mapping-vegetation" title="Link to this heading">#</a></h1>
+<span id="4-band-math-mapping-vegetation"></span><h1>4. Band Math: Mapping Vegetation<a class="headerlink" href="#band-math-mapping-vegetation" title="Link to this heading">#</a></h1>
 <p><strong>Goal:</strong> compute a vegetation index over the campus scene, display it, and
 read the result as a canopy map.</p>
 <p><strong>Data:</strong> <code class="docutils literal notranslate"><span class="pre">caltech_4_100_150_nm.hdr</span></code> (from <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>).</p>
@@ -534,7 +534,7 @@ conventionally called.</p>
 </section>
 <hr class="docutils" />
 <section id="step-1-write-the-expression">
-<h2>Step 1 — Write the expression<a class="headerlink" href="#step-1-write-the-expression" title="Link to this heading">#</a></h2>
+<span id="step-1--write-the-expression"></span><h2>Step 1 — Write the expression<a class="headerlink" href="#step-1-write-the-expression" title="Link to this heading">#</a></h2>
 <ol class="arabic">
 <li><p>Open the campus scene as in <a class="reference internal" href="01-first-look.html"><span class="doc">Tutorial 1</span></a>.</p></li>
 <li><p>Choose <strong>Tools ▸ Band math…</strong>. The <strong>Band Math</strong> dialog opens.</p></li>
@@ -550,7 +550,7 @@ name it does not recognize as a function — here, <code class="docutils literal
 </section>
 <hr class="docutils" />
 <section id="step-2-bind-the-variables">
-<h2>Step 2 — Bind the variables<a class="headerlink" href="#step-2-bind-the-variables" title="Link to this heading">#</a></h2>
+<span id="step-2--bind-the-variables"></span><h2>Step 2 — Bind the variables<a class="headerlink" href="#step-2-bind-the-variables" title="Link to this heading">#</a></h2>
 <p>The <strong>Variable bindings:</strong> table has three columns: <strong>Variable</strong> (the name from
 your expression), <strong>Type</strong> (what kind of thing it binds to), and <strong>Variable
 Assignments</strong> (which dataset and band).</p>
@@ -581,7 +581,7 @@ because the built-in function set is deliberately small.</p></li>
 </section>
 <hr class="docutils" />
 <section id="step-3-display-it-meaningfully">
-<h2>Step 3 — Display it meaningfully<a class="headerlink" href="#step-3-display-it-meaningfully" title="Link to this heading">#</a></h2>
+<span id="step-3--display-it-meaningfully"></span><h2>Step 3 — Display it meaningfully<a class="headerlink" href="#step-3-display-it-meaningfully" title="Link to this heading">#</a></h2>
 <p>A diverging colormap such as <strong>RdYlGn</strong> shows low values in red, middle values
 in yellow and high values in green, which makes vegetation stand out far more
 than gray levels do.</p>
@@ -619,7 +619,7 @@ histogram in the stretch dialog first.</p>
 </section>
 <hr class="docutils" />
 <section id="step-4-compare-side-by-side">
-<h2>Step 4 — Compare side by side<a class="headerlink" href="#step-4-compare-side-by-side" title="Link to this heading">#</a></h2>
+<span id="step-4--compare-side-by-side"></span><h2>Step 4 — Compare side by side<a class="headerlink" href="#step-4-compare-side-by-side" title="Link to this heading">#</a></h2>
 <ol class="arabic simple">
 <li><p>Click <strong>Split/unsplit the main view</strong> on the Main Toolbar, the grid button,
 and choose <strong>1 row x 2 columns</strong> from its menu. The main window splits in two.</p></li>
@@ -643,7 +643,7 @@ Toolbar to a strip above <strong>each</strong> panel, so you can set them per pa
 </section>
 <hr class="docutils" />
 <section id="step-5-threshold-it">
-<h2>Step 5 — Threshold it<a class="headerlink" href="#step-5-threshold-it" title="Link to this heading">#</a></h2>
+<span id="step-5--threshold-it"></span><h2>Step 5 — Threshold it<a class="headerlink" href="#step-5-threshold-it" title="Link to this heading">#</a></h2>
 <p>To go from a continuous index to a canopy mask, run one more expression:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>ndvi &gt; 0.35
 </pre></div>

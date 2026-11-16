@@ -1107,7 +1107,7 @@ therefore which of two equally confident formats is asked first.</p>
 </section>
 <hr class="docutils" />
 <section id="sidecar-files-data-extensions-and-sidecar-extensions">
-<h2>Sidecar files: <code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">SIDECAR_EXTENSIONS</span></code><a class="headerlink" href="#sidecar-files-data-extensions-and-sidecar-extensions" title="Link to this heading">#</a></h2>
+<span id="sidecar-files-data_extensions-and-sidecar_extensions"></span><h2>Sidecar files: <code class="docutils literal notranslate"><span class="pre">DATA_EXTENSIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">SIDECAR_EXTENSIONS</span></code><a class="headerlink" href="#sidecar-files-data-extensions-and-sidecar-extensions" title="Link to this heading">#</a></h2>
 <p>Some formats are a header file plus a separately-named data file, and the user
 may legitimately select either one. The file-open dialog offers <code class="docutils literal notranslate"><span class="pre">*.hdr</span></code> and
 <code class="docutils literal notranslate"><span class="pre">*.tfw</span></code> filters, so this is a normal thing to happen, not an edge case.</p>
@@ -1138,7 +1138,7 @@ and NetCDF both do this.</p>
 <span id="id1"></span><h2>Adding a new format<a class="headerlink" href="#adding-a-new-format" title="Link to this heading">#</a></h2>
 <p>Adding support for a new file type is normally two steps.</p>
 <section id="write-the-implementation">
-<h3>1. Write the implementation<a class="headerlink" href="#write-the-implementation" title="Link to this heading">#</a></h3>
+<span id="1-write-the-implementation"></span><h3>1. Write the implementation<a class="headerlink" href="#write-the-implementation" title="Link to this heading">#</a></h3>
 <p>Subclass <code class="docutils literal notranslate"><span class="pre">GDALRasterDataImpl</span></code> in <code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset_impl.py</span></code> and declare
 which GDAL drivers it uses:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyFormat_GDALRasterDataImpl</span><span class="p">(</span><span class="n">GDALRasterDataImpl</span><span class="p">):</span>
@@ -1170,7 +1170,7 @@ varies by GDAL build), override <code class="docutils literal notranslate"><span
 <code class="docutils literal notranslate"><span class="pre">GDAL_DRIVERS</span></code>.</p>
 </section>
 <section id="register-it">
-<h3>2. Register it<a class="headerlink" href="#register-it" title="Link to this heading">#</a></h3>
+<span id="2-register-it"></span><h3>2. Register it<a class="headerlink" href="#register-it" title="Link to this heading">#</a></h3>
 <p>Add one <code class="docutils literal notranslate"><span class="pre">FormatSpec</span></code> to <code class="docutils literal notranslate"><span class="pre">RASTER_FORMATS</span></code> in <code class="docutils literal notranslate"><span class="pre">format_registry.py</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">FormatSpec</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"MyFormat"</span><span class="p">,</span>

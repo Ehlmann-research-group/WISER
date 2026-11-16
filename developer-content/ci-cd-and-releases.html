@@ -541,7 +541,7 @@
                 <article class="bd-article">
                   
   <section class="tex2jax_ignore mathjax_ignore" id="ci-cd-and-releases">
-<h1>CI/CD and Releases<a class="headerlink" href="#ci-cd-and-releases" title="Link to this heading">#</a></h1>
+<span id="cicd-and-releases"></span><h1>CI/CD and Releases<a class="headerlink" href="#ci-cd-and-releases" title="Link to this heading">#</a></h1>
 <p>CI/CD stands for continuous integration/continuous
 development. It is a practice that is meant to allow
 code to be release as frequently as possible. The
@@ -561,7 +561,7 @@ linting/formatting and development tests. We use ruff to do our linting
 and formatting because it is fast. For testing, we use pytest. Read on
 for more information on how the these are set up.</p>
 <section id="linting-formatting">
-<h3>Linting / Formatting<a class="headerlink" href="#linting-formatting" title="Link to this heading">#</a></h3>
+<span id="linting--formatting"></span><h3>Linting / Formatting<a class="headerlink" href="#linting-formatting" title="Link to this heading">#</a></h3>
 <p>As previously said, we use ruff to do linting and formatting. We control
 the rules for this in <em>pyproject.toml</em>. You will see that there are a
 few rules that we ignore for linting. Read the comments
@@ -962,7 +962,7 @@ always be traced back to its source revision.</p>
 <p>Creating the conda environment on each CI run is the main performance
 bottleneck. Approaches ranked slowest to fastest:</p>
 <section id="create-from-scratch-every-run-7-5-min">
-<h3>1. Create from scratch every run (~7.5 min)<a class="headerlink" href="#create-from-scratch-every-run-7-5-min" title="Link to this heading">#</a></h3>
+<span id="1-create-from-scratch-every-run-75-min"></span><h3>1. Create from scratch every run (~7.5 min)<a class="headerlink" href="#create-from-scratch-every-run-7-5-min" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">conda-incubator/setup-miniconda@v3</span>
 <span class="w">  </span><span class="nt">with</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">auto-update-conda</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -974,7 +974,7 @@ bottleneck. Approaches ranked slowest to fastest:</p>
 </div>
 </section>
 <section id="cache-conda-packages-then-create-env-4-5-min">
-<h3>2. Cache conda packages, then create env (~4.5 min)<a class="headerlink" href="#cache-conda-packages-then-create-env-4-5-min" title="Link to this heading">#</a></h3>
+<span id="2-cache-conda-packages-then-create-env-45-min"></span><h3>2. Cache conda packages, then create env (~4.5 min)<a class="headerlink" href="#cache-conda-packages-then-create-env-4-5-min" title="Link to this heading">#</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Setup Cached Conda Environment</span>
 <span class="w">  </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/cache@v4</span>
 <span class="w">  </span><span class="nt">env</span><span class="p">:</span>
@@ -1002,7 +1002,7 @@ bottleneck. Approaches ranked slowest to fastest:</p>
 </div>
 </section>
 <section id="preloaded-docker-image-fast-harder-to-maintain">
-<h3>3. Preloaded Docker image (fast, harder to maintain)<a class="headerlink" href="#preloaded-docker-image-fast-harder-to-maintain" title="Link to this heading">#</a></h3>
+<span id="3-preloaded-docker-image-fast-harder-to-maintain"></span><h3>3. Preloaded Docker image (fast, harder to maintain)<a class="headerlink" href="#preloaded-docker-image-fast-harder-to-maintain" title="Link to this heading">#</a></h3>
 <p>Run tests inside a Docker image that already has the conda environment
 installed. The tradeoff is that the Docker image must be rebuilt and pushed
 whenever dependencies change.</p>
@@ -1037,7 +1037,7 @@ also: <a class="reference external" href="https://stackoverflow.com/questions/65
 See <a class="reference external" href="https://pytest-qt.readthedocs.io/en/latest/intro.html">pytest-qt docs</a>.</p>
 </section>
 <section id="known-docker-ci-issues">
-<h3>Known Docker / CI Issues<a class="headerlink" href="#known-docker-ci-issues" title="Link to this heading">#</a></h3>
+<span id="known-docker--ci-issues"></span><h3>Known Docker / CI Issues<a class="headerlink" href="#known-docker-ci-issues" title="Link to this heading">#</a></h3>
 <p><strong>NetCDF segfault on Linux:</strong> Opening a <code class="docutils literal notranslate"><span class="pre">.nc</span></code> file inside a Linux Docker
 container (tested with GDAL 3.10.1 and 3.9.3) causes a fatal segmentation
 fault during <code class="docutils literal notranslate"><span class="pre">get_band_data_normalized</span></code>. The stack trace originates in

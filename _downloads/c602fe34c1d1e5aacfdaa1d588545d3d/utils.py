@@ -1075,7 +1075,15 @@ def write_raster_to_dataset(
 
 
 def np_dtype_to_gdal(np_dtype):
-    """Converts a NumPy dtype to the corresponding GDAL GDT type."""
+    """
+    Converts a NumPy dtype to the GDAL GDT type band math writes it to disk as.
+
+    The on-disk result is ENVI, which has no signed 8-bit type, so int8 maps to
+    ``GDT_Int16``, which holds every int8 value.
+
+    Raises:
+        ValueError: if ``np_dtype`` has no corresponding GDAL type.
+    """
 
     np_dtype = np.dtype(np_dtype)
     if np.issubdtype(np_dtype, np.bool_) or np_dtype == np.dtype(bool):
@@ -1083,7 +1091,7 @@ def np_dtype_to_gdal(np_dtype):
 
     # Create a mapping between NumPy dtypes and GDAL GDT types
     dtype_mapping = {
-        np.dtype("int8"): gdal.GDT_Byte,
+        np.dtype("int8"): gdal.GDT_Int16,
         np.dtype("uint8"): gdal.GDT_Byte,
         np.dtype("int16"): gdal.GDT_Int16,
         np.dtype("uint16"): gdal.GDT_UInt16,

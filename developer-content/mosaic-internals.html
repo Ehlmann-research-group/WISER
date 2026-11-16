@@ -1224,7 +1224,7 @@ add-time); only the display-only materialization, overviews, and footprint run o
 background thread. See <a class="reference internal" href="#display-only-preview-and-frozen-metadata">Display-Only Preview and Frozen
 Metadata</a>.</p>
 <section id="validation-validate-scene-mosaic-ingestion-py">
-<h3>Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#validation-validate-scene-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<span id="validation-validate_scene-mosaic_ingestionpy"></span><h3>Validation (<code class="docutils literal notranslate"><span class="pre">validate_scene</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#validation-validate-scene-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Runs synchronously on the <strong>main thread</strong> before any background work starts, so
 rejection is immediate (no spinner churn). The pane calls <strong><code class="docutils literal notranslate"><span class="pre">validate_scene_addable</span></code></strong>,
 which enforces only the two gates that make a scene <em>fundamentally un-addable</em>
@@ -1253,7 +1253,7 @@ it is kept as the canonical full check and for its unit tests.</p>
 </div>
 </section>
 <section id="materialization-scenematerializer-gdal-source-mosaic-materialize-py">
-<h3>Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)<a class="headerlink" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py" title="Link to this heading">#</a></h3>
+<span id="materialization-scenematerializergdal_source-mosaic_materializepy"></span><h3>Materialization (<code class="docutils literal notranslate"><span class="pre">SceneMaterializer.gdal_source</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_materialize.py</span></code>)<a class="headerlink" href="#materialization-scenematerializer-gdal-source-mosaic-materialize-py" title="Link to this heading">#</a></h3>
 <p>At ingest each scene — GDAL-backed or not — is materialized to a <strong>display-only</strong>
 disk-backed, tiled GeoTIFF (<code class="docutils literal notranslate"><span class="pre">TILED=YES</span></code>, 256×256 blocks) under a per-session temp
 directory (<code class="docutils literal notranslate"><span class="pre">wiser.utils.primitives.temp_dir()</span></code>), <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">/vsimem</span></code> (RAM-backed), so
@@ -1271,7 +1271,7 @@ The user’s original dataset is <strong>never modified</strong>; the materializ
 WISER-owned temp artifacts.</p>
 </section>
 <section id="overviews-build-overviews-mosaic-ingestion-py">
-<h3>Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#overviews-build-overviews-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<span id="overviews-build_overviews-mosaic_ingestionpy"></span><h3>Overviews (<code class="docutils literal notranslate"><span class="pre">build_overviews</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#overviews-build-overviews-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Builds internal pyramid overviews (<code class="docutils literal notranslate"><span class="pre">NEAREST</span></code>, levels <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">4,</span> <span class="pre">8,</span> <span class="pre">16]</span></code>) directly inside
 the materialized <strong>display-only</strong> temp GeoTIFF (<code class="docutils literal notranslate"><span class="pre">GA_Update</span></code> + <code class="docutils literal notranslate"><span class="pre">BuildOverviews</span></code>), so
 preview rendering has no first-paint stutter. Because materialization already produces
@@ -1280,7 +1280,7 @@ a WISER-owned temp copy, overviews can be written internally rather than as exte
 cost.</p>
 </section>
 <section id="stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py">
-<h3>Stretch bounds (<code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<span id="stretch-bounds-compute_stretch_bounds-mosaic_ingestionpy"></span><h3>Stretch bounds (<code class="docutils literal notranslate"><span class="pre">compute_stretch_bounds</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#stretch-bounds-compute-stretch-bounds-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Computes stable, extent-independent 2-98 percentile contrast-stretch bounds per
 display band (issue #675), stored on <code class="docutils literal notranslate"><span class="pre">MosaicScene.stretch_bounds</span></code> (source band index
 → <code class="docutils literal notranslate"><span class="pre">(lo,</span> <span class="pre">hi)</span></code>). Runs right after overviews, since it samples one: reads the
@@ -1297,7 +1297,7 @@ how the compositor consumes these bounds instead of recomputing a stretch from
 whatever happens to be in the current viewport.</p>
 </section>
 <section id="footprint-compute-footprint-wkt-mosaic-ingestion-py">
-<h3>Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
+<span id="footprint-compute_footprint_wkt-mosaic_ingestionpy"></span><h3>Footprint (<code class="docutils literal notranslate"><span class="pre">compute_footprint_wkt</span></code>, <code class="docutils literal notranslate"><span class="pre">mosaic_ingestion.py</span></code>)<a class="headerlink" href="#footprint-compute-footprint-wkt-mosaic-ingestion-py" title="Link to this heading">#</a></h3>
 <p>Derives the valid-pixel outline via <code class="docutils literal notranslate"><span class="pre">gdal.Footprint(...,</span> <span class="pre">format=&quot;WKT&quot;)</span></code> on the
 display-only artifact, in the scene’s <strong>own</strong> CRS (no reprojection here — that happens
 later, in the grid builder). The nodata is preserved on the display-only file, so with
@@ -1599,7 +1599,7 @@ live scenes, so a pending scene draws nothing.</p></li>
 stays unlocked until the first live scene resolves it.</p>
 </section>
 <section id="add-path-mosaicpane-on-add-scene-clicked">
-<h3>Add path (<code class="docutils literal notranslate"><span class="pre">MosaicPane._on_add_scene_clicked</span></code>)<a class="headerlink" href="#add-path-mosaicpane-on-add-scene-clicked" title="Link to this heading">#</a></h3>
+<span id="add-path-mosaicpane_on_add_scene_clicked"></span><h3>Add path (<code class="docutils literal notranslate"><span class="pre">MosaicPane._on_add_scene_clicked</span></code>)<a class="headerlink" href="#add-path-mosaicpane-on-add-scene-clicked" title="Link to this heading">#</a></h3>
 <p>Add-Scene calls <code class="docutils literal notranslate"><span class="pre">validate_scene_addable</span></code> (duplicate + band-count only) and then branches on
 <code class="docutils literal notranslate"><span class="pre">is_dataset_georeferenced</span></code>:</p>
 <pre  class="mermaid">
@@ -1621,7 +1621,7 @@ compatibility check reads), and may end up live or <code class="docutils literal
 the locked target.</p>
 </section>
 <section id="list-decoration-refresh-scene-list">
-<h3>List decoration (<code class="docutils literal notranslate"><span class="pre">_refresh_scene_list</span></code>)<a class="headerlink" href="#list-decoration-refresh-scene-list" title="Link to this heading">#</a></h3>
+<span id="list-decoration-_refresh_scene_list"></span><h3>List decoration (<code class="docutils literal notranslate"><span class="pre">_refresh_scene_list</span></code>)<a class="headerlink" href="#list-decoration-refresh-scene-list" title="Link to this heading">#</a></h3>
 <p>For each pending scene the list item gets a warning icon (<code class="docutils literal notranslate"><span class="pre">SP_MessageBoxWarning</span></code>), a grayed
 foreground, and a hover tooltip explaining <em>why</em> it is disabled (no georeferencing vs.
 incompatible CRS) and how to fix it. The visibility checkbox is deliberately left
@@ -1670,7 +1670,7 @@ z-order so lower scenes show through upper scenes’ nodata holes. The tiling an
 (#674) live in <code class="docutils literal notranslate"><span class="pre">mosaic_view.py</span></code>; the renderer below is unchanged — it just receives a
 tile’s world rectangle rather than the whole viewport.</p>
 <section id="the-per-scene-renderer-render-scene-argb-qt-free">
-<h3>The per-scene renderer (<code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, Qt-free)<a class="headerlink" href="#the-per-scene-renderer-render-scene-argb-qt-free" title="Link to this heading">#</a></h3>
+<span id="the-per-scene-renderer-render_scene_argb-qt-free"></span><h3>The per-scene renderer (<code class="docutils literal notranslate"><span class="pre">render_scene_argb</span></code>, Qt-free)<a class="headerlink" href="#the-per-scene-renderer-render-scene-argb-qt-free" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">mosaic_compositor.render_scene_argb(scene,</span> <span class="pre">target_wkt,</span> <span class="pre">world_extent,</span> <span class="pre">w,</span> <span class="pre">h)</span></code> warps one
 scene onto the requested <code class="docutils literal notranslate"><span class="pre">world_extent</span></code> at output size <code class="docutils literal notranslate"><span class="pre">w×h</span></code> via
 <code class="docutils literal notranslate"><span class="pre">gdal.Warp(...,</span> <span class="pre">dstSRS=target_wkt,</span> <span class="pre">outputBounds=world_extent,</span> <span class="pre">dstAlpha=True)</span></code> and returns
@@ -2027,7 +2027,7 @@ longer suppresses the entire menu, so a live scene on a materializer-less pane s
 “Zoom to Scene”. If no action qualifies the menu is simply not shown (<code class="docutils literal notranslate"><span class="pre">menu.isEmpty()</span></code>).</p>
 </section>
 <section id="opening-the-dialog-locked-target-locked-save-path">
-<h3>Opening the dialog (locked target + locked save path)<a class="headerlink" href="#opening-the-dialog-locked-target-locked-save-path" title="Link to this heading">#</a></h3>
+<span id="opening-the-dialog-locked-target--locked-save-path"></span><h3>Opening the dialog (locked target + locked save path)<a class="headerlink" href="#opening-the-dialog-locked-target-locked-save-path" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">_on_georeference_scene(index)</span></code> builds a <code class="docutils literal notranslate"><span class="pre">GeoReferencerConfig</span></code> that locks the two things
 the mosaic owns and leaves the reference user-chosen:</p>
 <ul class="simple">
@@ -2196,7 +2196,7 @@ and streams the result block-by-block so a mosaic larger than RAM is never buffe
 It consumes the same <code class="docutils literal notranslate"><span class="pre">MosaicController</span></code> state as everything above — no new ingestion or
 CRS logic.</p>
 <section id="the-compositor-export-mosaic-qt-free">
-<h3>The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)<a class="headerlink" href="#the-compositor-export-mosaic-qt-free" title="Link to this heading">#</a></h3>
+<span id="the-compositor-export_mosaic-qt-free"></span><h3>The compositor (<code class="docutils literal notranslate"><span class="pre">export_mosaic</span></code>, Qt-free)<a class="headerlink" href="#the-compositor-export-mosaic-qt-free" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">export_mosaic(scenes,</span> <span class="pre">grid,</span> <span class="pre">target_wkt,</span> <span class="pre">resample_alg,</span> <span class="pre">output_nodata,</span> <span class="pre">band_metadata_snapshot,</span> <span class="pre">out_path,</span> <span class="pre">progress)</span></code> is now three lazy stages per scene, all
 lazy until the final streamed write:</p>
 <ol class="arabic simple" start="0">
