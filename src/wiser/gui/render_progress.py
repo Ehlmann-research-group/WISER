@@ -13,13 +13,14 @@ so small images never flash it.  Once shown, the dialog processes events at each
 step, which keeps the application repainting and lets the Cancel button work.
 
 Cancelling is all-or-nothing: every ``RasterView`` that a render under the
-progress touched is restored to its state from before the change, and the code
+progress touched is restored to its state from before the change, the
+render-cache entries those renders added are removed, and the code
 that opened the progress (for example ``ApplicationState.set_stretches``) undoes
 its own state change, so no pane shows a partial or mismatched image.
 """
 
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QProgressDialog
@@ -48,6 +49,8 @@ class RenderProgress:
         self._done = 0
         # id(view) -> (view, state captured before this render changed it)
         self._snapshots: Dict[int, Any] = {}
+        # (cache, key) of each render-cache entry a render under this progress added
+        self._cache_items: List[Tuple[Any, int]] = []
 
         cancel_text = QApplication.translate("RenderProgress", "Cancel") if cancellable else None
         self._dialog = QProgressDialog(label, cancel_text, 0, 0, QApplication.activeWindow())
@@ -72,6 +75,10 @@ class RenderProgress:
         """
         if id(view) not in self._snapshots:
             self._snapshots[id(view)] = (view, view._get_render_state())
+
+    def track_cache_item(self, cache, key: int) -> None:
+        """Record a render-cache entry this render added, so a cancel can remove it."""
+        self._cache_items.append((cache, key))
 
     def add_steps(self, count: int) -> None:
         """Add ``count`` steps to the total work."""
@@ -103,6 +110,8 @@ class RenderProgress:
             self._cancelled = True
             for view, state in reversed(list(self._snapshots.values())):
                 view._restore_render_state(state)
+            for cache, key in self._cache_items:
+                cache.remove_cache_item(key)
         self._dialog.reset()
         self._dialog.hide()
         self._dialog.deleteLater()

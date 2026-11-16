@@ -1052,8 +1052,9 @@ class RasterView(QWidget):
 
         Under an active :class:`RenderProgress` the work is reported as steps
         (each band read, each strip, each joint-stretch stage, the pixmap), and
-        a cancel stops the render at the next step, leaving this view's image,
-        display data and render cache entry unchanged.
+        a cancel stops the render at the next step, leaving this view's image
+        and display data unchanged; the progress removes any render-cache entry
+        a finished render added.
         """
         if self._raster_data is None:
             # No raster data to display
@@ -1078,7 +1079,9 @@ class RasterView(QWidget):
         self._image = image
         self._image_pixmap = image_pixmap
         if cache_key is not None:
-            self._raster_data.get_cache().get_render_cache().add_cache_item(cache_key, img_data)
+            render_cache = self._raster_data.get_cache().get_render_cache()
+            if render_cache.add_cache_item(cache_key, img_data) and progress is not None:
+                progress.track_cache_item(render_cache, cache_key)
 
         self._update_scaled_image()
 
