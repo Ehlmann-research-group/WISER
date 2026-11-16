@@ -95,6 +95,11 @@ class ApplicationState(QObject):
     #          second argument is a tuple of bands.
     stretch_changed = Signal(int, tuple)
 
+    # Signal:  a stretch change was cancelled while the views re-rendered, and
+    #          the previous stretches were restored.  The arguments are the
+    #          dataset ID and the tuple of bands, as for stretch_changed.
+    stretch_change_cancelled = Signal(int, tuple)
+
     # Signal:  the active spectrum changed
     active_spectrum_changed = Signal()
 
@@ -400,7 +405,8 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was added.
         The views that display the new dataset render under one progress
-        dialog, which cannot be cancelled.
+        dialog that shows progress only and has no Cancel: opening a dataset
+        always displays it.
         """
         if not isinstance(dataset, RasterDataSet):
             raise TypeError("dataset must be a RasterDataSet")
@@ -550,8 +556,9 @@ class ApplicationState(QObject):
         """
         Record ``stretches`` for ``bands`` of dataset ``ds_id`` and fire
         ``stretch_changed``.  The views re-render under one cancellable progress
-        dialog; if the user cancels it, every view keeps its previous image and
-        the previous stretches for these bands are restored here.
+        dialog; if the user cancels it, every view keeps its previous image,
+        the previous stretches for these bands are restored here, and
+        ``stretch_change_cancelled`` fires with ``ds_id`` and ``bands``.
 
         Raises:
             ValueError: if ``bands`` and ``stretches`` differ in length.
@@ -574,6 +581,7 @@ class ApplicationState(QObject):
                     self._stretches[key] = previous[key]
                 else:
                     self._stretches.pop(key, None)
+            self.stretch_change_cancelled.emit(ds_id, bands)
 
     def get_stretches(self, ds_id: int, bands: Tuple):
         # TODO(donnie):  This comment is not a docstring so it will be excluded

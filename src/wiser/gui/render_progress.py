@@ -121,7 +121,9 @@ def render_progress(label: str, cancellable: bool) -> Iterator[RenderProgress]:
     """
     Run the body as one render with one progress dialog.  When a render progress
     is already open, the body joins it and ``label`` and ``cancellable`` are
-    ignored.  On leaving, a cancelled render restores every view it tracked;
+    ignored.  With ``cancellable`` False the dialog has no Cancel button and the
+    render always runs to completion.  On leaving, a cancelled render restores
+    every view it tracked;
     check :meth:`RenderProgress.was_cancelled` to undo other state the body
     changed.
     """

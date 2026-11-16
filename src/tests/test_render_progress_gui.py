@@ -29,6 +29,7 @@ from wiser.raster.stretch import (
     StretchLog2UsingNumba,
     StretchSquareRoot,
     StretchSquareRootUsingNumba,
+    StretchType,
 )
 from test_utils.test_model import WiserTestModel
 
@@ -311,3 +312,31 @@ def test_numba_path_renders_in_strips(model, monkeypatch):
     for name, rv in _panes(model).items():
         assert isinstance(rv.get_stretches()[0].get_stretches()[0], StretchHistEqualizeUsingNumba)
         assert np.array_equal(rv.get_image_data(), _whole_band_image(rv)), name
+
+
+def test_cancel_reloads_stretch_builder_without_emitting(model, monkeypatch):
+    ds = model.load_dataset(_cube())
+    model.click_stretch_linear_2_5()
+    builder = model.get_stretch_builder()
+    bands = model.get_main_view_rv((0, 0)).get_display_bands()
+    restored = model.app_state.get_stretches(ds.get_id(), bands)
+
+    emitted = []
+    builder.stretch_changed.connect(lambda *args: emitted.append(args))
+    original = RenderProgress.step
+
+    def cancel_step(self):
+        self.cancel()
+        original(self)
+
+    monkeypatch.setattr(RenderProgress, "step", cancel_step)
+    model.click_stretch_hist_equalize()
+
+    # Only the equalize request itself; the reload after the cancel emits nothing.
+    assert len(emitted) == 1
+    assert model.app_state.get_stretches(ds.get_id(), bands) == restored
+    assert builder._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH
+    for built, expected in zip(builder.get_stretches(), restored):
+        assert isinstance(built, StretchLinear)
+        assert np.isclose(built.lower(), expected.lower(), atol=1e-6)
+        assert np.isclose(built.upper(), expected.upper(), atol=1e-6)
