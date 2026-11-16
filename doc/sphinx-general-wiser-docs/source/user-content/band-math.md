@@ -141,9 +141,12 @@ reference.
 ```{admonition} Band math is not streamed for every case
 :class: note
 Band math loads its operands into memory. WISER shows the expected result size
-before you run and chunks large image-cube expressions where it can, but a
-full-size flight line with several intermediates can still exhaust available
-RAM. Check the reported size, subset spatially before you start
+before you run and processes large image-cube expressions a few bands at a time
+where it can. Before running, it estimates the memory the expression needs and
+refuses one that would need more than 80% of the memory available: the message
+gives the required and available memory in GB and suggests a spatial subset. In
+batch mode a file that would need too much is skipped and reported as an error
+for that file; the other files still run. Subset spatially before you start
 (**Save as...**, Dimensions tab), and prefer **Image Band** operands to whole
 **Image** operands when the expression only needs a few bands.
 ```
