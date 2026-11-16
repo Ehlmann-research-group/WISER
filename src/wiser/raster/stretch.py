@@ -8,6 +8,12 @@ from wiser.utils.numba_wrapper import numba_jitclass_wrapper
 # An epsilon value for checking stretch ranges.
 EPSILON = 1e-6
 
+# Largest deviation of a histogram edge from an exactly uniform grid, as a
+# fraction of the bin width, for which the equalize stretch locates a value's bin
+# by index arithmetic.  Below one half, the arithmetic estimate is off by at most
+# one bin, which a single comparison against the real edges corrects.
+UNIFORM_EDGE_TOLERANCE = 1e-3
+
 
 class DataDistributionError(Exception):
     """
@@ -176,6 +182,10 @@ class StretchBaseUsingNumba:
         Apply this class' stretch operation to the input numpy array, in-place.
         """
         pass
+
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
 
     def get_stretches(self):
         return [None, None]
@@ -365,6 +375,10 @@ class StretchLinearUsingNumba:
                 elif a[i, j] > 1.0:
                     a[i, j] = 1.0
 
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
+
     def get_stretches(self):
         return [self, None]
 
@@ -426,9 +440,53 @@ class StretchHistEqualize(StretchBase):
         self._cdf = density_bins.cumsum()
         self._cdf /= self._cdf[-1]
 
+        # Interpolation nodes, as np.interp uses them: the left bin edges paired
+        # with the CDF, in float64.  The slopes are np.interp's own formula.
+        self._xp = np.asarray(self._histo_edges[:-1], dtype=np.float64)
+        self._fp = np.asarray(self._cdf, dtype=np.float64)
+        self._slopes = (self._fp[1:] - self._fp[:-1]) / (self._xp[1:] - self._xp[:-1])
+        # Bin width of the nodes when they are uniform, else 0.0.
+        self._step = 0.0
+        n = self._xp.size
+        if n >= 2:
+            step = (self._xp[-1] - self._xp[0]) / (n - 1)
+            if step > 0.0:
+                grid = self._xp[0] + np.arange(n) * step
+                if np.max(np.abs(self._xp - grid)) <= UNIFORM_EDGE_TOLERANCE * step:
+                    self._step = step
+
     def apply(self, a: np.array):
-        # TODO(donnie):  I think this makes a copy
-        out = np.interp(a, self._histo_edges[:-1], self._cdf)
+        """
+        Map ``a`` through the CDF in place, with the same result as
+        ``np.interp(a, edges[:-1], cdf)``: values below the first node take the
+        first CDF value, values at or above the last node take the last, and NaN
+        stays NaN.  Uniform nodes (every histogram the stretch builder makes from
+        unconditioned data) locate each value's node by index arithmetic; other
+        nodes use np.interp's search.
+        """
+        if self._step == 0.0:
+            np.copyto(a, np.interp(a, self._xp, self._fp))
+            return
+
+        xp, fp, n = self._xp, self._fp, self._xp.size
+        x = a.astype(np.float64)
+        k = np.floor((x - xp[0]) / self._step)
+        k[np.isnan(k)] = 0
+        np.clip(k, 0, n - 2, out=k)
+        k = k.astype(np.intp)
+        k -= x < xp[k]
+        np.clip(k, 0, n - 2, out=k)
+        k += x >= xp[k + 1]
+        np.clip(k, 0, n - 2, out=k)
+
+        xk = xp[k]
+        out = self._slopes[k] * (x - xk) + fp[k]
+        on_node = x == xk
+        out[on_node] = fp[k[on_node]]
+        out[x < xp[0]] = fp[0]
+        out[x >= xp[n - 1]] = fp[n - 1]
+        nan = np.isnan(x)
+        out[nan] = x[nan]
         np.copyto(a, out)
 
     def get_stretches(self):
@@ -455,6 +513,7 @@ stretch_hist_spec = [
     ("_name", np.str_),
     ("_cdf", np.ndarray),  # Cumulative Distribution Function (CDF)
     ("_histo_edges", np.ndarray),  # Histogram edges
+    ("_step", np.float64),  # Bin width of uniform edges, else 0.0
 ]
 
 
@@ -488,15 +547,60 @@ class StretchHistEqualizeUsingNumba:
         self._cdf = np.cumsum(density_bins)
         self._cdf /= self._cdf[-1]
 
+        # Bin width of the left edges when they are uniform, else 0.0.
+        self._step = 0.0
+        xp = self._histo_edges[:-1].astype(np.float64)
+        n = xp.size
+        if n >= 2:
+            step = (xp[n - 1] - xp[0]) / (n - 1)
+            if step > 0.0:
+                deviation = 0.0
+                for k in range(n):
+                    deviation = max(deviation, abs(xp[k] - (xp[0] + k * step)))
+                if deviation <= UNIFORM_EDGE_TOLERANCE * step:
+                    self._step = step
+
     def apply(self, a):
         """
-        Apply histogram equalization to the input array `a` in place.
+        Apply histogram equalization to the 2D input array `a` in place, with the
+        same result as ``np.interp(a, edges[:-1], cdf)``: values below the first
+        edge take the first CDF value, values at or above the last left edge take
+        the last, and NaN stays NaN.  Uniform edges (every histogram the stretch
+        builder makes from unconditioned data) locate each value's bin by index
+        arithmetic; other edges use np.interp's search.
         """
-        out = np.interp(a, self._histo_edges[:-1], self._cdf)
+        if self._step == 0.0:
+            out = np.interp(a, self._histo_edges[:-1], self._cdf)
+            for i in range(out.shape[0]):
+                for j in range(out.shape[1]):
+                    a[i, j] = out[i, j]
+            return
 
-        for i in range(out.shape[0]):
-            for j in range(out.shape[1]):
-                a[i, j] = out[i, j]
+        # np.interp's float64 nodes and slopes.
+        xp = self._histo_edges[:-1].astype(np.float64)
+        fp = self._cdf.astype(np.float64)
+        slopes = (fp[1:] - fp[:-1]) / (xp[1:] - xp[:-1])
+        n = xp.size
+        x0 = xp[0]
+        for i in range(a.shape[0]):
+            for j in range(a.shape[1]):
+                x = np.float64(a[i, j])
+                if np.isnan(x):
+                    continue
+                if x < x0:
+                    a[i, j] = fp[0]
+                elif x >= xp[n - 1]:
+                    a[i, j] = fp[n - 1]
+                else:
+                    k = min(int((x - x0) / self._step), n - 2)
+                    if x < xp[k]:
+                        k -= 1
+                    elif x >= xp[k + 1]:
+                        k += 1
+                    if xp[k] == x:
+                        a[i, j] = fp[k]
+                    else:
+                        a[i, j] = slopes[k] * (x - xp[k]) + fp[k]
 
     def hash_array(self, arr):
         """
@@ -540,6 +644,10 @@ class StretchHistEqualizeUsingNumba:
 
     def __str__(self):
         return "StretchHistEqualizeUsingNumba"
+
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
 
     def get_stretches(self):
         return [self, None]
@@ -605,6 +713,10 @@ class StretchSquareRootUsingNumba:
 
     def modify_histogram(self, a: np.array) -> np.array:
         return a  # for now
+
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
 
     def get_stretches(self):
         return [self, None]
@@ -693,6 +805,10 @@ class StretchLog2UsingNumba:
 
     def modify_histogram(self, a: np.array) -> np.array:
         return a  # for now
+
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
 
     def get_stretches(self):
         return [self, None]

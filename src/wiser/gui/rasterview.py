@@ -3,7 +3,7 @@ import logging
 import sys
 import time
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -23,6 +23,7 @@ from wiser.raster.dataset import (
 from wiser.raster.stretch import StretchBase
 
 from wiser.gui.app_state import ApplicationState
+from wiser.gui.render_progress import RenderCancelled, RenderProgress
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
@@ -230,6 +231,79 @@ def make_rgb_image(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray):
     else:
         ch1, ch2, ch3 = convert_to_float32_if_needed(ch1, ch2, ch3)
         return make_rgb_image_numba(ch1, ch2, ch3)
+
+
+# Target size of one row strip's float32 working copy of a band.  The renderer
+# stretches and packs a band this many bytes at a time so it can report progress
+# and check for a cancel between strips; 8 MiB keeps each strip to tens of
+# milliseconds, and the temporaries of one strip far below a full band's.
+RENDER_STRIP_BYTES = 8 * 1024 * 1024
+
+
+def strip_rows(width: int) -> int:
+    """
+    Rows per render strip for an image ``width`` pixels wide: the most rows whose
+    float32 values fit in ``RENDER_STRIP_BYTES``, and at least one.
+    """
+    return max(1, RENDER_STRIP_BYTES // (4 * width))
+
+
+def make_channel_image_strips(
+    normalized_band: np.ndarray,
+    stretch1,
+    stretch2,
+    rows: int,
+    on_strip: Callable[[int, int], None],
+) -> np.ndarray:
+    """
+    Compute ``make_channel_image(normalized_band, stretch1, stretch2)`` ``rows``
+    rows at a time into one preallocated ``uint8`` array, calling
+    ``on_strip(rows_done, rows_total)`` after each strip.  The numba or Python
+    implementation is chosen by the whole band's size, as
+    ``make_channel_image`` does, so the result is identical.  An exception
+    raised by ``on_strip`` stops the computation and propagates.
+    """
+    if normalized_band.nbytes < ARRAY_NUMBA_THRESHOLD:
+        make = make_channel_image_python
+    else:
+        normalized_band = convert_to_float32_if_needed(normalized_band)[0]
+        make = make_channel_image_numba
+
+    height = normalized_band.shape[0]
+    out = np.empty(normalized_band.shape, dtype=np.uint8)
+    for r0 in range(0, height, rows):
+        r1 = min(height, r0 + rows)
+        out[r0:r1] = make(normalized_band[r0:r1], stretch1, stretch2)
+        on_strip(r1, height)
+    return out
+
+
+def make_rgb_image_strips(
+    ch1: np.ndarray,
+    ch2: np.ndarray,
+    ch3: np.ndarray,
+    rows: int,
+    on_strip: Callable[[int, int], None],
+) -> np.ndarray:
+    """
+    Compute ``make_rgb_image(ch1, ch2, ch3)`` ``rows`` rows at a time into one
+    preallocated ``uint32`` array, calling ``on_strip(rows_done, rows_total)``
+    after each strip.  Raises as ``make_rgb_image`` does; an exception raised by
+    ``on_strip`` stops the computation and propagates.
+    """
+    if ch1.nbytes < ARRAY_NUMBA_THRESHOLD:
+        make = make_rgb_image_python
+    else:
+        ch1, ch2, ch3 = convert_to_float32_if_needed(ch1, ch2, ch3)
+        make = make_rgb_image_numba
+
+    height = ch1.shape[0]
+    out = np.empty(ch1.shape, dtype=np.uint32)
+    for r0 in range(0, height, rows):
+        r1 = min(height, r0 + rows)
+        out[r0:r1] = make(ch1[r0:r1], ch2[r0:r1], ch3[r0:r1])
+        on_strip(r1, height)
+    return out
 
 
 def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) -> np.ndarray:
@@ -642,6 +716,7 @@ class RasterView(QWidget):
 
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
+        self._track_render()
         self._stretches = stretches
         # Conditioner or stretch identity changed; joint result is no longer valid.
         self._joint_render_cache = None
@@ -689,6 +764,7 @@ class RasterView(QWidget):
         if stretches is not None and len(display_bands) != len(stretches):
             raise ValueError("display_bands and stretches must be the same length")
 
+        self._track_render()
         self._clear_members()
 
         self._raster_data = raster_data
@@ -770,6 +846,7 @@ class RasterView(QWidget):
                 if old != new:
                     changed |= color
 
+        self._track_render()
         self._display_bands = display_bands
         self._stretches = new_stretches
         self._colormap = colormap
@@ -833,16 +910,20 @@ class RasterView(QWidget):
             return None, None
         return joint, conditioners
 
-    def _render_joint_channels(self, joint_stretch, conditioners):
+    def _render_joint_channels(self, joint_stretch, conditioners, step: Callable[[], None]) -> List:
         """
-        Render all display channels via a joint multi-band stretch.
+        Render all display channels via a joint multi-band stretch, returning
+        the new display data, one entry per display band.
 
         Phase 1 gathers each band's normalized data, applies its per-band
         conditioner (if any) in place. Phase 2 consults
         ``self._joint_render_cache``; on miss, calls
         ``joint_stretch.apply_multi`` on the stacked bands and caches the
-        result. Phase 3 clips, scales to ``uint8``, restores masks, and
-        populates ``self._display_data``.
+        result. Phase 3 clips, scales to ``uint8`` and restores masks.
+
+        The joint transform is not row-separable, so each band of phase 1 and
+        3 and the whole of phase 2 is one step; ``step()`` is called after each,
+        and an exception it raises stops the render.
         """
         n = len(self._display_bands)
         height = self._raster_data.get_height()
@@ -884,6 +965,7 @@ class RasterView(QWidget):
             if conditioners[i] is not None:
                 view = bands[..., i]
                 conditioners[i].apply(view)
+            step()
 
         # Phase 2: joint compute (cached).
         if self._joint_render_cache is not None and self._joint_render_cache[0] == cache_key:
@@ -892,30 +974,136 @@ class RasterView(QWidget):
             joint_stretch.apply_multi(bands)
             joint_result = bands
             self._joint_render_cache = (cache_key, joint_result)
+        step()
 
         # Phase 3: per-channel clip, scale, store. Do not mutate joint_result
         # in place -- it is held by the cache for subsequent renders.
+        display_data = [None] * n
         for i in range(n):
             clipped = np.clip(joint_result[..., i], 0.0, 1.0)
             scaled = (clipped * 255.0).astype(np.uint8)
             if masks[i] is not None:
                 arr_out = np.ma.masked_array(scaled, mask=masks[i])
                 arr_out.data[masks[i]] = 0
-                self._display_data[i] = arr_out
+                display_data[i] = arr_out
             else:
-                self._display_data[i] = scaled
+                display_data[i] = scaled
+            step()
+        return display_data
+
+    def _render_channel(self, band_index: int, stretch, rows: int, step: Callable[[], None]):
+        """
+        Stretch one display band into a ``uint8`` channel, ``rows`` rows at a
+        time, calling ``step()`` after the band read and after each strip.  A
+        masked band gives a masked channel with its masked pixels zeroed.
+        """
+        arr = self._raster_data.get_band_data_normalized(band_index)
+        step()
+
+        band_data = arr
+        band_mask = None
+        if isinstance(arr, np.ma.masked_array):
+            band_data = arr.data
+            band_mask = arr.mask
+        stretches = [None, None]
+        if stretch:
+            stretches = stretch.get_stretches()
+        new_data = make_channel_image_strips(
+            band_data, stretches[0], stretches[1], rows, lambda done, total: step()
+        )
+
+        if isinstance(arr, np.ma.masked_array):
+            new_data = np.ma.masked_array(new_data, mask=band_mask)
+            new_data.data[band_mask] = 0
+        return new_data
+
+    def _track_render(self) -> None:
+        """Let the active render progress, if any, record this view's state before it changes."""
+        progress = RenderProgress.active()
+        if progress is not None:
+            progress.track(self)
+
+    def _get_render_state(self) -> Dict:
+        """The members a render reads or replaces, for a cancelled render to restore."""
+        return {
+            "_raster_data": self._raster_data,
+            "_display_bands": self._display_bands,
+            "_colormap": self._colormap,
+            "_stretches": self._stretches,
+            "_display_data": list(self._display_data),
+            "_img_data": self._img_data,
+            "_joint_render_cache": self._joint_render_cache,
+            "_image": self._image,
+            "_image_pixmap": self._image_pixmap,
+        }
+
+    def _restore_render_state(self, state: Dict) -> None:
+        """Put back the state from ``_get_render_state`` and redisplay it."""
+        for name, value in state.items():
+            setattr(self, name, value)
+        if self._raster_data is None:
+            self._image_widget.set_dataset_info(None, self._scale_factor)
+        else:
+            self._update_scaled_image()
 
     def update_display_image(self, colors=ImageColors.RGB):
-        img_data = None
+        """
+        Regenerate the displayed image from the dataset, the display bands and
+        the stretches.  The per-channel stretch and the RGB packing run in row
+        strips of ``strip_rows(width)`` rows.
+
+        Under an active :class:`RenderProgress` the work is reported as steps
+        (each band read, each strip, each joint-stretch stage, the pixmap), and
+        a cancel stops the render at the next step, leaving this view's image,
+        display data and render cache entry unchanged.
+        """
         if self._raster_data is None:
             # No raster data to display
             self._image_widget.set_dataset_info(None, self._scale_factor)
             return
 
+        progress = RenderProgress.active()
+        try:
+            if progress is not None:
+                progress.check()
+            rendered = self._render_display_image(colors, progress)
+        except RenderCancelled:
+            return
+
+        (img_data, display_data, image, image_pixmap, cache_key) = rendered
+        self._display_data = display_data
+        # This is necessary because the QImage doesn't take ownership of the
+        # data we pass it, and if we drop this reference to the data then Python
+        # will reclaim the memory and Qt will start to display garbage.
+        self._img_data = img_data
+        # This is the 100% scale QImage of the data.
+        self._image = image
+        self._image_pixmap = image_pixmap
+        if cache_key is not None:
+            self._raster_data.get_cache().get_render_cache().add_cache_item(cache_key, img_data)
+
+        self._update_scaled_image()
+
+    def _render_display_image(self, colors, progress: Optional[RenderProgress]):
+        """
+        Compute the display image without changing this view, returning
+        ``(img_data, display_data, image, pixmap, cache_key)``; ``cache_key`` is
+        the render-cache key to store ``img_data`` under, or ``None`` when the
+        image came from the render cache or there is no cache.
+
+        Raises:
+            RenderCancelled: if ``progress`` is cancelled during the render.
+        """
         # Only generate (or regenerate) each color plane if we don't already
         # have data for it, and if we aren't told to explicitly regenerate it.
 
         assert len(self._display_bands) in [1, 3]
+
+        step = progress.step if progress is not None else lambda: None
+        height = self._raster_data.get_height()
+        rows = strip_rows(self._raster_data.get_width())
+        n_strips = -(-height // rows)
+        display_data = list(self._display_data)
 
         cache = self._raster_data.get_cache()
         render_cache = None
@@ -929,131 +1117,72 @@ class RasterView(QWidget):
         time_1 = time.perf_counter()
         if render_cache and key and render_cache.in_cache(key):
             img_data = render_cache.get_cache_item(key)
+            key = None
+            if progress is not None:
+                progress.add_steps(1)
             time_2 = time.perf_counter()
         elif len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+            dirty = [display_data[i] is None or color_indexes[i] in colors for i in range(3)]
             joint_stretch, joint_conditioners = self._detect_joint_stretch()
             if joint_stretch is not None:
                 # Joint path: a multi-band stretch (e.g. decorrelation) needs
                 # all bands together. The transform produces all channels at
                 # once, so if any channel is dirty we recompute the whole set.
-                any_dirty = any(
-                    self._display_data[i] is None or color_indexes[i] in colors
-                    for i in range(len(self._display_bands))
-                )
-                if any_dirty:
-                    self._render_joint_channels(joint_stretch, joint_conditioners)
+                if progress is not None:
+                    progress.add_steps((2 * 3 + 1 if any(dirty) else 0) + n_strips + 1)
+                if any(dirty):
+                    display_data = self._render_joint_channels(joint_stretch, joint_conditioners, step)
             else:
-                for i in range(len(self._display_bands)):
-                    if self._display_data[i] is None or color_indexes[i] in colors:
-                        # Compute the contents of this color channel.
-
-                        arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
-
-                        band_data = arr
-                        band_mask = None
-                        if isinstance(arr, np.ma.masked_array):
-                            band_data = arr.data
-                            band_mask = arr.mask
-                        stretches = [None, None]
-                        if i < len(self._stretches) and self._stretches[i]:
-                            stretches = self._stretches[i].get_stretches()
-                        new_data = make_channel_image(band_data, stretches[0], stretches[1])
-
-                        new_arr = new_data
-                        if isinstance(arr, np.ma.masked_array):
-                            new_arr = np.ma.masked_array(new_data, mask=band_mask)
-                            new_arr.data[band_mask] = 0
-
-                        self._display_data[i] = new_arr
+                if progress is not None:
+                    progress.add_steps(sum(dirty) * (1 + n_strips) + n_strips + 1)
+                for i in range(3):
+                    if dirty[i]:
+                        stretch = self._stretches[i] if i < len(self._stretches) else None
+                        display_data[i] = self._render_channel(self._display_bands[i], stretch, rows, step)
 
             time_2 = time.perf_counter()
 
-            use_njit = True
-            if use_njit:
-                if isinstance(self._display_data[0], np.ma.masked_array):
-                    band_masks = []
-                    for data in self._display_data:
-                        band_masks.append(data.mask)
-                    img_data = make_rgb_image(
-                        self._display_data[0].data,
-                        self._display_data[1].data,
-                        self._display_data[2].data,
-                    )
-
-                    if not img_data.flags["C_CONTIGUOUS"]:
-                        img_data = np.ascontiguousarray(img_data)
-
-                    mask = np.zeros(img_data.shape, dtype=bool)
-                    img_data = np.ma.masked_array(img_data, mask)
-                else:
-                    img_data = make_rgb_image(
-                        self._display_data[0],
-                        self._display_data[1],
-                        self._display_data[2],
-                    )
-            else:
-                img_data = make_rgb_image_python(
-                    self._display_data[0], self._display_data[1], self._display_data[2]
+            if isinstance(display_data[0], np.ma.masked_array):
+                img_data = make_rgb_image_strips(
+                    *(np.ma.getdata(d) for d in display_data), rows, lambda done, total: step()
                 )
-            if render_cache and key:
-                render_cache.add_cache_item(key, img_data)
+                img_data = np.ma.masked_array(img_data, np.zeros(img_data.shape, dtype=bool))
+            else:
+                img_data = make_rgb_image_strips(*display_data, rows, lambda done, total: step())
 
         else:
             # This is a grayscale image.
-            if colors != ImageColors.NONE or self._display_data[0] is None:
+            regenerate = colors != ImageColors.NONE or display_data[0] is None
+            if progress is not None:
+                progress.add_steps((1 + n_strips if regenerate else 0) + 1 + 1)
+            if regenerate:
                 # Regenerate the image.  Since all color bands are the same,
                 # generate the first one, then duplicate it for the other two
                 # bands.
-
-                arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
-
-                band_data = arr
-                band_mask = None
-                if isinstance(arr, np.ma.masked_array):
-                    band_data = arr.data
-                    band_mask = arr.mask
-
-                stretches = [None, None]
-                if self._stretches[0]:
-                    stretches = self._stretches[0].get_stretches()
-                new_data = make_channel_image(band_data, stretches[0], stretches[1])
-
-                new_arr = new_data
-                if isinstance(arr, np.ma.masked_array):
-                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
-                    new_arr.data[band_mask] = 0
-
-                self._display_data[0] = new_arr
-                self._display_data[1] = self._display_data[0]
-                self._display_data[2] = self._display_data[0]
+                display_data[0] = self._render_channel(self._display_bands[0], self._stretches[0], rows, step)
+                display_data[1] = display_data[0]
+                display_data[2] = display_data[0]
 
             time_2 = time.perf_counter()
 
             # Combine our individual color channel(s) into a single RGB image.
-            img_data = make_grayscale_image(self._display_data[0], self._colormap)
-            if render_cache and key:
-                render_cache.add_cache_item(key, img_data)
+            img_data = make_grayscale_image(display_data[0], self._colormap)
+            step()
 
-        # This is necessary because the QImage doesn't take ownership of the
-        # data we pass it, and if we drop this reference to the data then Python
-        # will reclaim the memory and Qt will start to display garbage.
-
-        self._img_data = img_data
-        self._img_data.flags.writeable = False
+        img_data.flags.writeable = False
 
         time_3 = time.perf_counter()
 
-        # This is the 100% scale QImage of the data.
-        self._image = QImage(
+        image = QImage(
             img_data,
             self._raster_data.get_width(),
             self._raster_data.get_height(),
             QImage.Format_RGB32,
         )
-
-        self._image_pixmap = QPixmap.fromImage(self._image)
+        image_pixmap = QPixmap.fromImage(image)
+        step()
 
         time_4 = time.perf_counter()
 
@@ -1064,7 +1193,8 @@ class RasterView(QWidget):
             + f"qt = {time_4 - time_3:0.02f}s"
         )
 
-        self._update_scaled_image()
+        cache_key = key if render_cache else None
+        return img_data, display_data, image, image_pixmap, cache_key
 
     def get_unscaled_pixmap(self) -> QPixmap:
         """
