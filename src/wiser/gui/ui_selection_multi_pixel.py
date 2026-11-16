@@ -45,7 +45,7 @@ class MultiPixelSelectionManipulator(TaskDelegate):
     subclasses customize it as needed.
 
     Left-click toggles a pixel.  Enter or right-click finishes the operation,
-    and Esc cancels it; subclasses check self._cancelled in finish().
+    and Esc or cancel() cancels it; subclasses check self._cancelled in finish().
     """
 
     consumes_context_menu = True
