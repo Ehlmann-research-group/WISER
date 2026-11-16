@@ -177,6 +177,10 @@ class StretchBaseUsingNumba:
         """
         pass
 
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
+
     def get_stretches(self):
         return [None, None]
 
@@ -365,6 +369,10 @@ class StretchLinearUsingNumba:
                 elif a[i, j] > 1.0:
                     a[i, j] = 1.0
 
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
+
     def get_stretches(self):
         return [self, None]
 
@@ -541,6 +549,10 @@ class StretchHistEqualizeUsingNumba:
     def __str__(self):
         return "StretchHistEqualizeUsingNumba"
 
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
+
     def get_stretches(self):
         return [self, None]
 
@@ -605,6 +617,10 @@ class StretchSquareRootUsingNumba:
 
     def modify_histogram(self, a: np.array) -> np.array:
         return a  # for now
+
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
 
     def get_stretches(self):
         return [self, None]
@@ -693,6 +709,10 @@ class StretchLog2UsingNumba:
 
     def modify_histogram(self, a: np.array) -> np.array:
         return a  # for now
+
+    def requires_all_bands(self):
+        """Per-band stretch, as for the non-numba class."""
+        return False
 
     def get_stretches(self):
         return [self, None]
