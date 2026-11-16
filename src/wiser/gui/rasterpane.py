@@ -1025,6 +1025,19 @@ class RasterPane(QWidget):
 
         self.update_all_rasterviews()
 
+    def _cancel_task_delegate(self) -> None:
+        """
+        Cancel and clear the active task delegate, if any, so that it commits
+        nothing.  Called before a new task delegate is constructed, so that the
+        new delegate's status text is the one left showing.
+        """
+        if self._task_delegate is None:
+            return
+
+        self._task_delegate.cancel()
+        self._task_delegate = None
+        self.update_all_rasterviews()
+
     def _emit_viewport_change(self, rasterview_pos=None):
         """A helper that emits the viewport-changed event."""
         self.viewport_change.emit(rasterview_pos)
@@ -1697,7 +1710,7 @@ class RasterPane(QWidget):
         then added to a Region of Interest.
         """
 
-        # TODO(donnie):  What to do if the task-delegate already exists?!
+        self._cancel_task_delegate()
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
@@ -1727,6 +1740,7 @@ class RasterPane(QWidget):
             )
 
     def _on_edit_roi_selection_geometry(self, roi, sel_index, rasterview) -> None:
+        self._cancel_task_delegate()
         sel = roi.get_selections()[sel_index]
         selection_type = sel.get_type()
 
