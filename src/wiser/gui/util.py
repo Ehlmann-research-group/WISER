@@ -944,10 +944,13 @@ def cv2_rotate_scale_expand(
     img    : HxW or HxWxC uint8/float32 array.
     angle  : rotation angle in degrees (positive = CCW).
     scale  : isotropic scale factor.
-    interp : one of 'nearest','linear','cubic','lanczos'. Defaults to linear (1)
+    interp : an OpenCV interpolation flag. Defaults to linear (1)
 
     Returns:
-    Transformed array with dtype matching input.
+    Transformed array with dtype matching input. A masked ``img`` returns a
+    masked array whose mask covers every output pixel whose interpolation
+    draws on the area outside the source or on a masked source pixel; those
+    pixels are masked, never recomputed from their valid neighbours.
     """
     orig_mask = None
     if isinstance(img, np.ma.masked_array):
@@ -978,17 +981,21 @@ def cv2_rotate_scale_expand(
 
     # 6. If there was a mask, warp it too and reapply
     if orig_mask is not None:
-        # invert mask (True=masked) → valid=1, invalid=0
-        valid = (~orig_mask).astype(np.uint8) * 255
+        # Warping the validity with the same interpolation gives each output
+        # pixel the sum of the kernel weights on valid source pixels. It is 1
+        # only when no weight falls on fill or masked pixels; cubic and Lanczos
+        # have negative lobes, so a deviation either side of 1, beyond float32
+        # rounding of the weights, is masked.
+        valid = (~orig_mask).astype(np.float32)
         warped_valid = cv2.warpAffine(
             valid,
             M,
             (new_w, new_h),
-            flags=cv2.INTER_NEAREST,
+            flags=interp,
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=0,
         )
-        warped_mask = ~(warped_valid.astype(bool))
+        warped_mask = np.abs(warped_valid - 1) > 1e-5
         return np.ma.MaskedArray(out, mask=warped_mask)
 
     return out

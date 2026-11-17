@@ -24,8 +24,10 @@ from wiser.gui.util import cv2_rotate_scale_expand
 from wiser.raster.stretch import StretchLinear
 
 import cv2
+import math
 import numpy as np
 from osgeo import gdal
+from scipy import ndimage
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -135,10 +137,14 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.assertEqual(test_ds.get_data_ignore_value(), -9999)
         self.assertTrue(fill[:, 0, 0].all())
         self.assertFalse((test_arr == 0).any())
-        # Fill must cover the ground truth's outside-footprint region and add at
-        # most the masked edge band (~0.7% of pixels for this transform).
+        # Fill must cover the ground truth's outside-footprint region and add only
+        # the rim whose interpolation draws on fill: within 1.5 source pixels,
+        # ceil(1.5 * scale) output pixels, of the ground truth's fill.
         self.assertTrue(fill[gt_arr == 0].all())
-        self.assertLess(np.count_nonzero(fill & (gt_arr != 0)), 0.01 * fill.size)
+        rim_width = math.ceil(1.5 * 2)
+        for band_fill, gt_band in zip(fill, gt_arr):
+            distance_to_gt_fill = ndimage.distance_transform_edt(gt_band != 0)
+            self.assertLessEqual(distance_to_gt_fill[band_fill & (gt_band != 0)].max(), rim_width)
         self.assertTrue(
             np.allclose(gt_arr[~fill], test_arr[~fill], atol=0.05),
             "Rotated and scaled array doesn't match ground truth",
