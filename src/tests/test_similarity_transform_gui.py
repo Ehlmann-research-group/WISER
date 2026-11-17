@@ -21,6 +21,7 @@ import tests.context
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.util import cv2_rotate_scale_expand
+from wiser.raster.stretch import StretchLinear
 
 import cv2
 import numpy as np
@@ -196,6 +197,24 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.assertTrue(msg.startswith("Error"), f"Rotate/scale did not fail: {msg}")
         critical.assert_called_once()
         self.assertFalse(os.path.exists(save_path))
+
+    def test_preview_keeps_rotation_and_scale_after_dataset_and_display_changes(self):
+        ds = self.test_model.load_dataset(CALTECH_PATH)
+        self.assertEqual((ds.get_width(), ds.get_height()), (150, 150))
+        dlg = self.test_model.open_similarity_transform_dialog()
+        self.test_model.switch_sim_tab(to_translate=False)
+        self.test_model.set_rotation_slider(35)
+        self.test_model.set_scale_rs(0.5)
+        self.test_model.select_dataset_rs(ds)
+        rv = dlg._rotate_scale_pane.get_rasterview()
+        expected = QSize(104, 104)
+        self.assertEqual(rv._image_pixmap.size(), expected)
+
+        rv.set_display_bands((2, 1, 0))
+        self.assertEqual(rv._image_pixmap.size(), expected)
+
+        rv.set_stretches([StretchLinear(0.1, 0.9)] * 3)
+        self.assertEqual(rv._image_pixmap.size(), expected)
 
     def test_translate(self):
         """
