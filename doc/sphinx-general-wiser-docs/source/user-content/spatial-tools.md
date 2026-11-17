@@ -218,7 +218,8 @@ value would draw on a pixel outside the source or on a masked source pixel,
 are masked and written as the dataset's data-ignore value (NaN for a
 floating-point dataset that has none). They are never recomputed from
 neighbouring valid pixels, so Linear leaves a narrow masked edge, about one
-source pixel wide, that Nearest does not. When there are such pixels, an
+source pixel wide, around the footprint and around masked source pixels, that
+Nearest does not. When there are such pixels, an
 integer dataset with no data-ignore value is refused, since it has no value to
 write them as.
 
