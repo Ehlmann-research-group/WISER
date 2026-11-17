@@ -63,7 +63,8 @@ Assignments** (which dataset and band).
 
 1. Check that **Type** reads **Image Band** for both rows. That is the default.
 2. Scroll right in the table to reach the **Variable Assignments** column, which
-   holds two dropdowns per row: the dataset, then the band within it.
+   holds three dropdowns per row: the dataset, how the band is picked (**Band**
+   or **Wavelength**), then the band within it. Leave the middle one on **Band**.
 3. In the `nir` row, set the dataset to `caltech_4_100_150_nm` and the band to
    **Band 3: 852.68 nm**.
 4. In the `red` row, set the same dataset and **Band 2: 702.42 nm**.
