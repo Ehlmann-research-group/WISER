@@ -1409,7 +1409,7 @@ class RasterDataSet(Serializable):
         py = origin_py + gx * y_rotation + gy * height
         return (int(px + 0.5), int(py + 0.5))  # +0.5 for rounding
 
-    def geo_to_pixel_coords_exact(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[int, int]]:
+    def geo_to_pixel_coords_exact(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[float, float]]:
         if self._geo_transform is None:
             return None
 
@@ -1421,7 +1421,7 @@ class RasterDataSet(Serializable):
         gx, gy = geo_coords
         px = origin_px + gx * width + gy * x_rotation
         py = origin_py + gx * y_rotation + gy * height
-        return (px, py)  # +0.5 for rounding
+        return (px, py)
 
     def is_pixel_in_image_bounds(self, pixel: Tuple[int, int]) -> bool:
         """

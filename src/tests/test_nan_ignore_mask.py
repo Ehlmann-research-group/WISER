@@ -5,6 +5,7 @@ equal to it and leaves undeclared NaN pixels as they are.
 """
 
 import math
+import warnings
 
 import cv2
 import numpy as np
@@ -17,7 +18,7 @@ from wiser.gui.similarity_transform_dialog import create_rotated_scaled_dataset
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
-from wiser.raster.spectrum import calc_rect_spectrum, calc_roi_spectrum
+from wiser.raster.spectrum import SpectrumAverageMode, calc_rect_spectrum, calc_roi_spectrum
 
 # Pixel (x=1, y=2) is NaN on every band; pixel (x=3, y=0) is NaN on band 1 only.
 _NAN_PIXELS = [(slice(None), 2, 1), (1, 0, 3)]
@@ -154,3 +155,32 @@ def test_rotated_float_output_reopens_with_nan_fill_masked(tmp_path):
     np.testing.assert_array_equal(np.ma.getmaskarray(band), np.isnan(np.ma.getdata(band)))
     assert band.mask[0, 0]
     assert not band.mask[band.shape[0] // 2, band.shape[1] // 2]
+
+
+def _averages(ds, mode):
+    roi = RegionOfInterest()
+    roi.add_selection(RectangleSelection(QPoint(0, 0), QPoint(5, 4)))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        return calc_rect_spectrum(ds, QRect(0, 0, 5, 4), mode), calc_roi_spectrum(ds, roi, mode)
+
+
+@pytest.mark.parametrize(
+    "mode, reduce", [(SpectrumAverageMode.MEAN, np.nanmean), (SpectrumAverageMode.MEDIAN, np.nanmedian)]
+)
+def test_bad_band_averages_to_nan_without_warning(mode, reduce):
+    data = _nan_cube()
+    ds = _dataset(data, np.nan)
+    ds.set_bad_bands([1, 0, 1])
+    expected = reduce(data.reshape(3, -1), axis=1)
+    expected[1] = np.nan
+    for spectrum in _averages(ds, mode):
+        np.testing.assert_allclose(spectrum, expected)
+
+
+@pytest.mark.parametrize("mode", [SpectrumAverageMode.MEAN, SpectrumAverageMode.MEDIAN])
+def test_area_with_no_valid_pixels_averages_to_all_nan_without_warning(mode):
+    ds = _dataset(np.full((3, 4, 5), np.nan, dtype=np.float32), np.nan)
+    for spectrum in _averages(ds, mode):
+        assert spectrum.shape == (3,)
+        assert np.isnan(spectrum).all()
