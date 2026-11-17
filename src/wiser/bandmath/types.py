@@ -265,6 +265,10 @@ class BandMathValue:
         value is some other type, the function raises a ``TypeError``.
         This function should really only be called on image_cubes unless its
         called through make_image_cube_compatible_by_bands
+
+        An image cube backed by a ``RasterDataSet`` is returned as a 3-D
+        ``[band][y][x]`` array, or as a 2-D ``[y][x]`` array when ``band_list``
+        holds one band, whatever the dataset's storage.
         """
 
         # If the value is already a NumPy array, we are done!
@@ -291,7 +295,10 @@ class BandMathValue:
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
-                return self.value.get_multiple_band_data(band_list)
+                arr = self.value.get_multiple_band_data(band_list)
+                if len(band_list) == 1 and arr.ndim == 3:
+                    arr = arr[0]
+                return arr
 
         elif self.type == VariableType.IMAGE_BAND:
             if isinstance(self.value, RasterBand):
