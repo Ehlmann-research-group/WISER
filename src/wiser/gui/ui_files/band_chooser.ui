@@ -26,8 +26,11 @@
    </item>
    <item row="3" column="0">
     <widget class="QCheckBox" name="chk_apply_globally">
+     <property name="toolTip">
+      <string>Checked: the Context pane, main window and Zoom pane all change. Unchecked: only the pane this dialog was opened from changes. Every panel within one pane that shows this dataset always uses the same bands.</string>
+     </property>
      <property name="text">
-      <string>&amp;Apply to all views</string>
+      <string>&amp;Apply to every pane showing this dataset</string>
      </property>
     </widget>
    </item>

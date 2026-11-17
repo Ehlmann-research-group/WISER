@@ -89,6 +89,9 @@ class BandChooserDialog(QDialog):
             self._ui.chk_apply_globally.setChecked(True)
         else:
             self._ui.chk_apply_globally.setEnabled(False)
+            self._ui.chk_apply_globally.setToolTip(
+                self.tr("Bands chosen here apply to this pane only; it is not linked to the other panes.")
+            )
 
         # Hook up event handlers
 

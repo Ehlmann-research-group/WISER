@@ -1443,7 +1443,14 @@ class RasterPane(QWidget):
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
         colormap = rasterview.get_colormap()
-        dialog = BandChooserDialog(self._app_state, dataset, display_bands, colormap=colormap, parent=self)
+        dialog = BandChooserDialog(
+            self._app_state,
+            dataset,
+            display_bands,
+            colormap=colormap,
+            can_apply_global=not singular_update,
+            parent=self,
+        )
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:

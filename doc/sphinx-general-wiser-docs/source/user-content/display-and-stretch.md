@@ -29,8 +29,16 @@ Two shortcuts fill the bands in for you:
   wavelengths configured in WISER's preferences. Disabled when the dataset has
   no wavelength information, or none in the visible range.
 
-**Apply to all views** applies your choice to every pane and panel showing
-that dataset; untick it to change one panel only.
+**Apply to every pane showing this dataset**, ticked by default, applies your
+choice to the Context pane, the main window and the Zoom pane. Untick it to
+change only the pane you opened the band chooser from.
+
+```{note}
+Bands are kept per dataset within each pane, so every panel of the main window
+that shows the same dataset always uses the same bands, whichever panel's band
+chooser you use and whether or not the box is ticked. To compare different
+band combinations side by side, display a different dataset in each panel.
+```
 
 ### Colormaps
 
@@ -75,9 +83,7 @@ color-vision deficiency. Use a perceptually uniform sequential map such as
 :::
 
 The **grid** button splits the main window into a grid of any dimensions, so
-you can view several datasets at once, such as a result next to its input, or
-several
-band combinations of the same scene.
+you can view several datasets at once, such as a result next to its input.
 
 :::{figure} ../_static/tutorials/t4_ndvi_vs_rgb.png
 :width: 90%
@@ -117,6 +123,9 @@ decides the mapping.
 You get one histogram per displayed channel, with the current endpoints marked.
 Changes apply to the image immediately. **OK** keeps the result; **Cancel**
 discards it.
+
+A stretch is kept per dataset and band, so it applies to every pane and panel
+showing that dataset with those bands.
 
 ### Stretch types
 
