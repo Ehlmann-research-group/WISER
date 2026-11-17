@@ -12,7 +12,6 @@ from wiser.raster.dataset_impl import GDALRasterDataImpl, SaveState
 
 
 def _unsaved_impl(folder):
-    gdal.UseExceptions()
     path = os.path.join(str(folder), "result")
     gdal_dataset = gdal.GetDriverByName("ENVI").Create(path, 2, 2, 1, gdal.GDT_Float32)
     impl = GDALRasterDataImpl(gdal_dataset)
@@ -43,7 +42,7 @@ def test_delete_failure_raises(tmp_path):
     impl, path = _unsaved_impl(tmp_path)
     os.chmod(tmp_path, stat.S_IRUSR | stat.S_IXUSR)
     try:
-        with pytest.raises(RuntimeError):
+        with gdal.ExceptionMgr(useExceptions=False), pytest.raises(RuntimeError):
             impl.delete_dataset()
     finally:
         os.chmod(tmp_path, stat.S_IRWXU)

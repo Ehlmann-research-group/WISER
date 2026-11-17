@@ -707,8 +707,8 @@ class GDALRasterDataImpl(RasterDataImpl):
                 driver = self.gdal_dataset.GetDriver()
                 self.gdal_dataset.FlushCache()
                 self.gdal_dataset = None
-                if os.path.exists(filepath):
-                    driver.Delete(filepath)
+                if os.path.exists(filepath) and driver.Delete(filepath) != gdal.CE_None:
+                    raise RuntimeError(f"GDAL could not delete {filepath}: {gdal.GetLastErrorMsg()}")
             else:
                 print(
                     "Dataset variable is None. Either the dataset "

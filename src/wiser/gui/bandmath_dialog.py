@@ -373,12 +373,7 @@ class DatasetBandChooserWidget(QWidget):
         """
         Switch to wavelength mode with the given wavelength, unit key (one of
         :attr:`WAVELENGTH_UNIT_KEYS`) and tolerance in nm.
-
-        Raises:
-            ValueError: if ``unit_key`` is not in :attr:`WAVELENGTH_UNIT_KEYS`.
         """
-        if unit_key not in self.WAVELENGTH_UNIT_KEYS:
-            raise ValueError(f"Unit must be one of {self.WAVELENGTH_UNIT_KEYS}, got {unit_key!r}")
         for w in (self.mode_chooser, self.cbox_wavelength_unit):
             w.blockSignals(True)
         self.mode_chooser.setCurrentIndex(
