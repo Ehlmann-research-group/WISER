@@ -10,6 +10,7 @@ import warnings
 import numpy as np
 import pytest
 from PySide6.QtCore import QPoint, QRect
+from PySide6.QtWidgets import QApplication
 
 import tests.context  # noqa: F401
 
@@ -128,3 +129,13 @@ def test_pixel_value_widget_formats_integer_values_without_exponent():
     assert PixelValueWidget._format_values(values, (0,), integer=True) == "Val: 65535"
     assert PixelValueWidget._format_values(values, (0, 1, 2), integer=True) == "R: 65535  G: nan  B: 0"
     assert PixelValueWidget._format_values(values, (0,), integer=False) == "Val: 6.554e+04"
+
+
+def test_pixel_value_widget_shows_integer_dataset_values_as_whole_numbers():
+    QApplication.instance() or QApplication([])
+    data = np.array([[[65000]], [[IGNORE]], [[0]]], dtype=np.int32)
+    ds = RasterDataLoader().dataset_from_numpy_array(data)
+    ds.set_data_ignore_value(IGNORE)
+    widget = PixelValueWidget()
+    widget.update_pixel_values(ds, (0, 0), (0, 1, 2))
+    assert widget._ui.lbl_display_values.text() == "R: 65000  G: nan  B: 0"

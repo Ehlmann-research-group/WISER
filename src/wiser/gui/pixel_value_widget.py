@@ -117,7 +117,8 @@ class PixelValueWidget(QDialog):
         integer:
             True when the dataset's element type is an integer type.  Its values
             arrive as floats (so masked bands can be NaN) and are written as
-            whole numbers.
+            whole numbers; they are whole by construction, and a non-integral
+            value would be truncated.
 
         Returns
         -------
