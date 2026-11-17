@@ -228,7 +228,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Zoom pane
 
-        self._zoom_pane = ZoomPane(self._app_state)
+        self._zoom_pane = ZoomPane(self._app_state, main_view_scale=lambda: self._main_view.get_scale())
         dockable = self._make_dockable_pane(
             self._zoom_pane,
             name="zoom_pane",
@@ -1530,7 +1530,8 @@ class DataVisualizerApp(QMainWindow):
                 main_rv = self._main_view.get_rasterview(rv_pos)
                 zoom_x, zoom_y = zoom_rv.get_visible_region_center()
                 if not main_rv.get_visible_region().contains(int(zoom_x), int(zoom_y)):
-                    zoom_rv.make_point_visible(*main_rv.get_visible_region_center())
+                    with QSignalBlocker(self._zoom_pane):
+                        zoom_rv.make_point_visible(*main_rv.get_visible_region_center())
 
         self._update_zoom_viewport_highlight(scroll_main_view=False)
 

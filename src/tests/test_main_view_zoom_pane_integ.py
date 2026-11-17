@@ -398,6 +398,50 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         zp_center = self.test_model.get_zoom_pane_rasterview().get_visible_region_center()
         self.assertTrue(mv_region.contains(int(zp_center[0]), int(zp_center[1])))
 
+    def test_zp_opens_at_4x_mv_scale(self):
+        """
+        Tests that the zoom pane first opens at 4x the main view's zoom, rounded up
+        to a whole zoom-pane level and clamped to the zoom pane's 1x-16x range.
+        """
+        for zoom_ins, expected in ((0, 4), (3, 8), (7, 16)):
+            with self.subTest(zoom_ins=zoom_ins):
+                self.test_model.close_app()
+                self.test_model = WiserTestModel()
+                self.test_model.load_dataset(np.random.rand(3, 100, 100).astype(np.float32))
+                for _ in range(zoom_ins):
+                    self.test_model.click_main_view_zoom_in()
+
+                self.test_model.click_zoom_pane_display_toggle()
+                self.test_model.run()
+
+                self.assertEqual(self.test_model.get_zoom_pane_rasterview().get_scale(), expected)
+
+    def test_open_zp_before_loading_takes_4x_mv_scale(self):
+        """
+        Tests that a zoom pane opened before any data is loaded takes 4x the main
+        view's zoom when the first dataset arrives.
+        """
+        self.test_model.click_zoom_pane_display_toggle()
+        self.test_model.load_dataset(np.random.rand(3, 100, 100).astype(np.float32))
+
+        self.assertEqual(self.test_model.get_zoom_pane_rasterview().get_scale(), 4)
+
+    def test_zp_keeps_user_zoom_level(self):
+        """
+        Tests that a zoom level the user sets in the zoom pane is kept when the
+        pane is hidden and shown again after the main view's zoom changes.
+        """
+        self.test_model.load_dataset(np.random.rand(3, 100, 100).astype(np.float32))
+        self.test_model.click_zoom_pane_display_toggle()
+        self.test_model.click_zoom_pane_zoom_in()
+        user_scale = self.test_model.get_zoom_pane_rasterview().get_scale()
+        self.test_model.click_zoom_pane_display_toggle()
+        self.test_model.click_main_view_zoom_in()
+        self.test_model.click_zoom_pane_display_toggle()
+        self.test_model.run()
+
+        self.assertEqual(self.test_model.get_zoom_pane_rasterview().get_scale(), user_scale)
+
 
 """
 Code to make sure tests work as desired

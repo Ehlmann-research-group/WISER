@@ -54,7 +54,6 @@ class MainViewWidget(RasterPane):
             embed_toolbar=False,
             max_zoom_scale=16,
             zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
-            initial_zoom=1,
         )
         self._stretch_builder = StretchBuilderDialog(parent=self, app_state=app_state)
         self._export_image = ExportImageDialog(parent=self)
