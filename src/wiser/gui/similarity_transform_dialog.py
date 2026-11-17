@@ -40,9 +40,7 @@ import cv2
 
 INTERPOLATION_TYPES = {
     "Nearest": cv2.INTER_NEAREST,
-    "Nearest Exact": cv2.INTER_NEAREST_EXACT,
     "Linear": cv2.INTER_LINEAR,
-    "Linear Exact": cv2.INTER_LINEAR_EXACT,
     "Area": cv2.INTER_AREA,
 }
 
@@ -189,14 +187,14 @@ def create_rotated_scaled_dataset(
             gt = dataset.get_geo_transform()
             width = dataset.get_width()
             height = dataset.get_height()
-            # The scale is baked into rotated_scaled_band_arr
+            # The scale is baked into the output size
             rotated_scaled_gt = rotate_scale_geotransform(
                 gt,
                 -rotation,
                 width,
                 height,
-                rotated_scaled_band_arr.shape[2],
-                rotated_scaled_band_arr.shape[1],
+                pixmap_width,
+                pixmap_height,
             )
             new_dataset.SetGeoTransform(rotated_scaled_gt)
         new_dataset = None
