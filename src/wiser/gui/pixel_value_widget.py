@@ -98,12 +98,13 @@ class PixelValueWidget(QDialog):
             self.setVisible(False)
             return
 
-        text = self._format_values(all_values, self._display_bands)
+        integer = np.issubdtype(self._dataset.get_elem_type(), np.integer)
+        text = self._format_values(all_values, self._display_bands, integer=integer)
         self._ui.lbl_display_values.setText(text)
         self.setVisible(True)
 
     @staticmethod
-    def _format_values(all_values: np.ndarray, display_bands: Tuple) -> str:
+    def _format_values(all_values: np.ndarray, display_bands: Tuple, *, integer: bool) -> str:
         """
         Format the band values for display.
 
@@ -113,6 +114,10 @@ class PixelValueWidget(QDialog):
             1-D array of all spectral values at the pixel.
         display_bands:
             1- or 3-element tuple of band indices being displayed.
+        integer:
+            True when the dataset's element type is an integer type.  Its values
+            arrive as floats (so masked bands can be NaN) and are written as
+            whole numbers.
 
         Returns
         -------
@@ -126,6 +131,8 @@ class PixelValueWidget(QDialog):
             if isinstance(v, (float, np.floating)):
                 if np.isnan(v):
                     return "nan"
+                if integer:
+                    return str(int(v))
                 # Use up to 4 significant figures, stripping trailing zeros.
                 return f"{v:.4g}"
             return str(v)
