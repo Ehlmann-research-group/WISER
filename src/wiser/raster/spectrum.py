@@ -47,6 +47,33 @@ AVG_MODE_NAMES = {
 }
 
 
+def _average_spectra(spectra: np.ndarray, mode: SpectrumAverageMode) -> np.ndarray:
+    """
+    Reduce a ``[pixel][band]`` array of spectra to one NaN-ignoring mean or
+    median per band.
+
+    A band whose values are all NaN, such as a bad band, averages to NaN.  It is
+    left out of the NaN-ignoring reduction, which would warn on an all-NaN slice.
+
+    Raises:
+        ValueError: if ``mode`` is not a ``SpectrumAverageMode``.
+    """
+    if mode == SpectrumAverageMode.MEAN:
+        reduce = np.nanmean
+    elif mode == SpectrumAverageMode.MEDIAN:
+        reduce = np.nanmedian
+    else:
+        raise ValueError(f"Unrecognized average type {mode}")
+
+    has_value = ~np.all(np.isnan(np.ma.getdata(spectra)), axis=0)
+    averaged = reduce(spectra[:, has_value], axis=0)
+    spectrum = np.full(spectra.shape[1], np.nan, dtype=averaged.dtype)
+    if isinstance(averaged, np.ma.MaskedArray):
+        spectrum = np.ma.asarray(spectrum)
+    spectrum[has_value] = averaged
+    return spectrum
+
+
 def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a region of interest from the specified dataset.
@@ -94,14 +121,7 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spect
             raise TypeError(f"Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}")
 
     if len(spectra) > 1:
-        spectra = np.asarray(spectra)
-        # Need to compute mean/median/... of the collection of spectra
-        if mode == SpectrumAverageMode.MEAN:
-            spectrum = np.nanmean(spectra, axis=0)
-        elif mode == SpectrumAverageMode.MEDIAN:
-            spectrum = np.nanmedian(spectra, axis=0)
-        else:
-            raise ValueError(f"Unrecognized average type {mode}")
+        spectrum = _average_spectra(np.asarray(spectra), mode)
 
     else:
         # Only one spectrum, don't need to compute mean/median
@@ -126,13 +146,7 @@ def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverage
     # dims so we can aggregate per band in a single call. -1 also handles the
     # case where an underlying impl returns (bands, N) for a 1-thick rectangle.
     spectra = block.reshape(block.shape[0], -1)
-
-    if mode == SpectrumAverageMode.MEAN:
-        return np.nanmean(spectra, axis=1)
-    elif mode == SpectrumAverageMode.MEDIAN:
-        return np.nanmedian(spectra, axis=1)
-    else:
-        raise ValueError(f"Unrecognized average type {mode}")
+    return _average_spectra(spectra.T, mode)
 
 
 def get_all_spectra_in_roi(
