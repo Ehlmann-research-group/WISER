@@ -26,6 +26,9 @@ its spectrum is plotted.
 - **Bad bands** flagged in the header are left out of the line, which is why a
   spectrum from an airborne cube has gaps at the atmospheric water-vapor
   regions.
+- Pixels equal to the dataset's **data-ignore value** are left out as gaps
+  too. Integer datasets behave the same way: no-data and bad bands are gaps,
+  never 0, and a real value of 0 stays 0.
 - The **status bar** reports the pixel coordinate and, for georeferenced data,
   the ground position.
 - Clicking on the plot itself shows the `(x, y)` value at that point;
