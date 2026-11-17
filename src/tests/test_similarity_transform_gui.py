@@ -20,7 +20,7 @@ import tests.context
 
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.util import cv2_rotate_scale_expand
+from wiser.gui.util import cv2_rotate_scale_expand, rotate_scale_expand_size
 from wiser.raster.stretch import StretchLinear
 
 import cv2
@@ -144,7 +144,9 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         rim_width = math.ceil(1.5 * 2)
         for band_fill, gt_band in zip(fill, gt_arr):
             distance_to_gt_fill = ndimage.distance_transform_edt(gt_band != 0)
-            self.assertLessEqual(distance_to_gt_fill[band_fill & (gt_band != 0)].max(), rim_width)
+            rim = band_fill & (gt_band != 0)
+            self.assertTrue(rim.any())
+            self.assertLessEqual(distance_to_gt_fill[rim].max(), rim_width)
         self.assertTrue(
             np.allclose(gt_arr[~fill], test_arr[~fill], atol=0.05),
             "Rotated and scaled array doesn't match ground truth",
@@ -204,21 +206,40 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         critical.assert_called_once()
         self.assertFalse(os.path.exists(save_path))
 
-    def test_preview_keeps_rotation_and_scale_after_dataset_and_display_changes(self):
+    def _open_rotate_scale_preview(self, set_params_first: bool):
+        """Open the rotate-and-scale tab on a 150 x 150 dataset, rotated 35 deg and
+        scaled 0.5, setting the parameters before or after selecting the dataset.
+
+        Returns the preview raster view and the transformed preview size.
+        """
         ds = self.test_model.load_dataset(CALTECH_PATH)
-        self.assertEqual((ds.get_width(), ds.get_height()), (150, 150))
         dlg = self.test_model.open_similarity_transform_dialog()
         self.test_model.switch_sim_tab(to_translate=False)
+        if not set_params_first:
+            self.test_model.select_dataset_rs(ds)
         self.test_model.set_rotation_slider(35)
         self.test_model.set_scale_rs(0.5)
-        self.test_model.select_dataset_rs(ds)
+        if set_params_first:
+            self.test_model.select_dataset_rs(ds)
+        expected = QSize(*rotate_scale_expand_size(ds.get_width(), ds.get_height(), 35, 0.5))
+        self.assertNotEqual(expected, QSize(ds.get_width(), ds.get_height()))
         rv = dlg._rotate_scale_pane.get_rasterview()
-        expected = QSize(104, 104)
+        return rv, expected
+
+    def test_preview_keeps_rotation_and_scale_after_dataset_change(self):
+        rv, expected = self._open_rotate_scale_preview(set_params_first=True)
         self.assertEqual(rv._image_pixmap.size(), expected)
 
-        rv.set_display_bands((2, 1, 0))
+    def test_preview_keeps_rotation_and_scale_after_band_change(self):
+        rv, expected = self._open_rotate_scale_preview(set_params_first=False)
+        self.assertEqual(rv._image_pixmap.size(), expected)
+        self.assertEqual(list(rv._display_bands), [2, 1, 0])
+        rv.set_display_bands((3, 2, 1))
         self.assertEqual(rv._image_pixmap.size(), expected)
 
+    def test_preview_keeps_rotation_and_scale_after_stretch_change(self):
+        rv, expected = self._open_rotate_scale_preview(set_params_first=False)
+        self.assertEqual(rv._image_pixmap.size(), expected)
         rv.set_stretches([StretchLinear(0.1, 0.9)] * 3)
         self.assertEqual(rv._image_pixmap.size(), expected)
 
