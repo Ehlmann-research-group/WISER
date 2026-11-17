@@ -398,9 +398,15 @@ class ApplicationState(QObject):
         past it so later allocations do not collide.
 
         The method will fire a signal indicating that the dataset was added.
+
+        Raises ``TypeError`` if ``dataset`` is not a ``RasterDataSet``, and
+        ``ValueError`` if its name is ``None``; every dataset in the session is
+        listed by name in the Save Dataset and Close Dataset menus.
         """
         if not isinstance(dataset, RasterDataSet):
             raise TypeError("dataset must be a RasterDataSet")
+        if dataset.get_name() is None:
+            raise ValueError("dataset must have a name before it is added")
 
         if ds_id is None:
             ds_id = self.take_next_id()

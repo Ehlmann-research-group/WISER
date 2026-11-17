@@ -327,6 +327,7 @@ def test_roi_average_survives_round_trip_when_ids_gap(tmp_path):
 
     src = ApplicationState(None)
     ds = src.get_loader().dataset_from_numpy_array(_sample_array(), None)
+    ds.set_name("sample")
     src.add_dataset(ds)  # id 1
     src.take_next_id()  # an id allocated between the dataset and the ROI
     roi = RegionOfInterest(name="rim", color="red")
