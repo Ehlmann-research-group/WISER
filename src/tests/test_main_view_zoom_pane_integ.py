@@ -374,6 +374,30 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(rv_00_region == rv_01_region)
         self.assertTrue(rv_00_region == rv_10_region)
 
+    def test_open_zp_keeps_mv_scroll(self):
+        """
+        Tests that opening the zoom pane leaves the scrolled main view where it is,
+        and moves the zoom pane into the main view's visible area instead.
+        """
+        self.test_model.load_dataset(np.random.rand(3, 600, 600).astype(np.float32))
+        for _ in range(3):
+            self.test_model.click_main_view_zoom_in()
+        self.test_model.scroll_main_view_rv((0, 0), 300, 500)
+
+        scroll_area = self.test_model.get_main_view_rv((0, 0))._scroll_area
+        before = (scroll_area.horizontalScrollBar().value(), scroll_area.verticalScrollBar().value())
+        self.assertGreater(before[1], 0)
+
+        self.assertFalse(self.test_model.zoom_pane.isVisible())
+        self.test_model.click_zoom_pane_display_toggle()
+        self.test_model.run()
+
+        after = (scroll_area.horizontalScrollBar().value(), scroll_area.verticalScrollBar().value())
+        self.assertEqual(after, before)
+        mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
+        zp_center = self.test_model.get_zoom_pane_rasterview().get_visible_region_center()
+        self.assertTrue(mv_region.contains(int(zp_center[0]), int(zp_center[1])))
+
 
 """
 Code to make sure tests work as desired
