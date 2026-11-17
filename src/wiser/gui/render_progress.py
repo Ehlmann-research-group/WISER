@@ -33,6 +33,18 @@ class RenderCancelled(Exception):
     """Raised at a render step after the user cancelled the active render."""
 
 
+class _ProgressDialog(QProgressDialog):
+    """A progress dialog that Escape cannot dismiss when it has no Cancel button."""
+
+    def __init__(self, label: str, cancel_text: Optional[str], parent):
+        super().__init__(label, cancel_text, 0, 0, parent)
+        self._cancellable = cancel_text is not None
+
+    def reject(self) -> None:
+        if self._cancellable:
+            super().reject()
+
+
 class RenderProgress:
     """
     The progress of one render that may span several raster views.  Create it
@@ -53,7 +65,7 @@ class RenderProgress:
         self._cache_items: List[Tuple[Any, int]] = []
 
         cancel_text = QApplication.translate("RenderProgress", "Cancel") if cancellable else None
-        self._dialog = QProgressDialog(label, cancel_text, 0, 0, QApplication.activeWindow())
+        self._dialog = _ProgressDialog(label, cancel_text, QApplication.activeWindow())
         self._dialog.setWindowModality(Qt.ApplicationModal)
         self._dialog.setMinimumDuration(MINIMUM_DURATION_MS)
         self._dialog.setAutoClose(False)

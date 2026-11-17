@@ -371,6 +371,19 @@ def test_dataset_open_cannot_be_cancelled(model, monkeypatch):
         assert np.array_equal(rv.get_image_data(), _whole_band_image(rv)), name
 
 
+def test_escape_does_not_close_a_non_cancellable_dialog(model):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    progress = RenderProgress("Opening", cancellable=False)
+    progress._dialog.show()
+    QTest.keyClick(progress._dialog, Qt.Key_Escape)
+
+    assert progress._dialog.isVisible()
+    assert not progress.was_cancelled()
+    progress._finish()
+
+
 def _record_shown(monkeypatch):
     shown = []
     original = RenderProgress._finish
