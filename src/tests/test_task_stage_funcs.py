@@ -1,6 +1,7 @@
 import unittest
 from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from pathlib import Path
+from types import SimpleNamespace
 from multiprocessing.shared_memory import SharedMemory
 from unittest.mock import patch
 
@@ -20,7 +21,6 @@ from wiser.utils.task_stage_utils import (
     ProjectOntoEigenVectorsStage,
     SavGolayFilterStage,
     SpectralMeanStage,
-    WhiteningMatrixStage,
     count_valid_dataset_pixels,
     get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
@@ -44,7 +44,6 @@ from wiser.utils.primitives import (
     AllocationRequest,
     DataBinding,
     DataMeta,
-    DataRef,
     DeletionState,
     DeletePolicy,
     NoChunkingScheme,
@@ -76,13 +75,9 @@ pytestmark = [
     pytest.mark.integration,
 ]
 
-# Hang guard for one scheduler job, not a speed budget. A fresh AppServices
-# starts its process workers on the job's first submits, and each spawned worker
-# imports the raster and storage stack (about 4 s of CPU on an idle machine)
-# before the stage runs; the stages here take well under a second. Worker
-# start-up therefore scales with machine load, so the bound sits far above it,
-# and below half the 240 s pytest timeout so that a test with two sequential
-# waits still fails on this guard's message.
+# Hang guard for one scheduler job, not a speed budget: far above worker start-up
+# under load, and below half the 240 s pytest timeout so a test with two
+# sequential waits still fails on this guard's message.
 JOB_HANG_GUARD_S = 90
 
 
@@ -95,35 +90,34 @@ def _wait_for_job(future: Future, task: SemanticTask) -> None:
     try:
         future.result(timeout=JOB_HANG_GUARD_S)
     except FutureTimeoutError as err:
+        if future.done():
+            raise
         stages = ", ".join(type(stage).__name__ for stage in task.get_algorithm().stages)
         raise AssertionError(
             f"job for task {task.id} ({stages}) did not finish within {JOB_HANG_GUARD_S} s; treated as hung"
         ) from err
 
 
+class _StubStage:
+    pass
+
+
+def _task_with_stages(*stages) -> SimpleNamespace:
+    pipeline = SimpleNamespace(stages=list(stages))
+    return SimpleNamespace(id=4242, get_algorithm=lambda: pipeline)
+
+
 def test_wait_for_job_names_stages_when_job_never_finishes() -> None:
-    descriptor_ref = DataRef(kind="json", ref_id="hang_guard_descriptor", uri="hang_guard_descriptor")
-    task = SemanticTask(
-        priority_class=PriorityClass.BACKGROUND,
-        input_ref=descriptor_ref,
-        algorithm_pipeline=AlgorithmPipeline(
-            stages=[
-                WhiteningMatrixStage(
-                    _output_ref_name="hang_guard_out",
-                    default_executor="process",
-                    input_plan_meta=SpectraListPlanMeta(
-                        num_spectra=2, spectrum_length=2, dtype=np.dtype(np.float64)
-                    ),
-                )
-            ]
-        ),
-    )
-    task.id = 4242
     with patch(f"{__name__}.JOB_HANG_GUARD_S", 0.01):
-        with pytest.raises(
-            AssertionError, match=r"task 4242 \(WhiteningMatrixStage\) did not finish within 0.01 s"
-        ):
-            _wait_for_job(Future(), task)
+        with pytest.raises(AssertionError, match=r"task 4242 \(_StubStage\) did not finish within 0.01 s"):
+            _wait_for_job(Future(), _task_with_stages(_StubStage()))
+
+
+def test_wait_for_job_reraises_timeout_raised_by_the_job() -> None:
+    future = Future()
+    future.set_exception(FutureTimeoutError("stage timed out"))
+    with pytest.raises(FutureTimeoutError, match="stage timed out"):
+        _wait_for_job(future, _task_with_stages())
 
 
 class TestTaskStageFuncs(unittest.TestCase):
