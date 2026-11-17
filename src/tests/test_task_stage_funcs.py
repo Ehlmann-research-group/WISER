@@ -1,4 +1,5 @@
 import unittest
+from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from pathlib import Path
 from multiprocessing.shared_memory import SharedMemory
 from unittest.mock import patch
@@ -19,6 +20,7 @@ from wiser.utils.task_stage_utils import (
     ProjectOntoEigenVectorsStage,
     SavGolayFilterStage,
     SpectralMeanStage,
+    WhiteningMatrixStage,
     count_valid_dataset_pixels,
     get_apply_matrices_to_dataset_stage,
     get_apply_matrix_to_dataset_stage,
@@ -42,6 +44,7 @@ from wiser.utils.primitives import (
     AllocationRequest,
     DataBinding,
     DataMeta,
+    DataRef,
     DeletionState,
     DeletePolicy,
     NoChunkingScheme,
@@ -72,6 +75,55 @@ if TYPE_CHECKING:
 pytestmark = [
     pytest.mark.integration,
 ]
+
+# Hang guard for one scheduler job, not a speed budget. A fresh AppServices
+# starts its process workers on the job's first submits, and each spawned worker
+# imports the raster and storage stack (about 4 s of CPU on an idle machine)
+# before the stage runs; the stages here take well under a second. Worker
+# start-up therefore scales with machine load, so the bound sits far above it,
+# and below half the 240 s pytest timeout so that a test with two sequential
+# waits still fails on this guard's message.
+JOB_HANG_GUARD_S = 90
+
+
+def _wait_for_job(future: Future, task: SemanticTask) -> None:
+    """Wait for the job running ``task`` and re-raise any error it raised.
+
+    Raises AssertionError naming the task's stages if the job is not done
+    within ``JOB_HANG_GUARD_S`` seconds.
+    """
+    try:
+        future.result(timeout=JOB_HANG_GUARD_S)
+    except FutureTimeoutError as err:
+        stages = ", ".join(type(stage).__name__ for stage in task.get_algorithm().stages)
+        raise AssertionError(
+            f"job for task {task.id} ({stages}) did not finish within {JOB_HANG_GUARD_S} s; treated as hung"
+        ) from err
+
+
+def test_wait_for_job_names_stages_when_job_never_finishes() -> None:
+    descriptor_ref = DataRef(kind="json", ref_id="hang_guard_descriptor", uri="hang_guard_descriptor")
+    task = SemanticTask(
+        priority_class=PriorityClass.BACKGROUND,
+        input_ref=descriptor_ref,
+        algorithm_pipeline=AlgorithmPipeline(
+            stages=[
+                WhiteningMatrixStage(
+                    _output_ref_name="hang_guard_out",
+                    default_executor="process",
+                    input_plan_meta=SpectraListPlanMeta(
+                        num_spectra=2, spectrum_length=2, dtype=np.dtype(np.float64)
+                    ),
+                )
+            ]
+        ),
+    )
+    task.id = 4242
+    with patch(f"{__name__}.JOB_HANG_GUARD_S", 0.01):
+        with pytest.raises(
+            AssertionError, match=r"task 4242 \(WhiteningMatrixStage\) did not finish within 0.01 s"
+        ):
+            _wait_for_job(Future(), task)
 
 
 class TestTaskStageFuncs(unittest.TestCase):
@@ -205,7 +257,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             task_plan = app_services.task_planner.plan_semantic_task(task)
 
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             output_ref = task_plan.bindings[output_ref_name]
 
@@ -257,7 +309,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -307,7 +359,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=15)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -370,7 +422,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -449,7 +501,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             task_plan = app_services.task_planner.plan_semantic_task(task)
 
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             output_ref = task_plan.bindings[output_ref_name]
 
@@ -516,7 +568,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             output_ref = task_plan.bindings[cov_output_ref_name]
             self.assertEqual(output_ref.shape, (2, 2, 1))
@@ -580,7 +632,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -649,7 +701,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -707,7 +759,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -806,7 +858,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -892,7 +944,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1000,7 +1052,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1085,7 +1137,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1239,7 +1291,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1389,7 +1441,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1457,7 +1509,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1540,7 +1592,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             }
 
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             for name, ref in planned_outputs.items():
                 record = app_services.storage_service.get_lease_record(ref.ref_id)
@@ -1605,7 +1657,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1658,7 +1710,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             ipca_task.id = 1008
             ipca_plan = app_services.task_planner.plan_semantic_task(ipca_task)
             ipca_future = app_services.scheduler.run_task_plan(ipca_plan)
-            ipca_future.result(timeout=10)
+            _wait_for_job(ipca_future, ipca_task)
 
             mean_output_ref_name = "ipca_vs_eig_mean"
             cov_output_ref_name = "ipca_vs_eig_covariance"
@@ -1705,7 +1757,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             eig_task.id = 1009
             eig_plan = app_services.task_planner.plan_semantic_task(eig_task)
             eig_future = app_services.scheduler.run_task_plan(eig_plan)
-            eig_future.result(timeout=10)
+            _wait_for_job(eig_future, eig_task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1778,7 +1830,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             full_task.id = 1010
             full_plan = app_services.task_planner.plan_semantic_task(full_task)
             full_future = app_services.scheduler.run_task_plan(full_plan)
-            full_future.result(timeout=20)
+            _wait_for_job(full_future, full_task)
 
             incremental_output_name = "ipca_incremental_descriptor"
             incremental_stage = get_adaptive_pca_partial_fit_stage(
@@ -1796,7 +1848,7 @@ class TestTaskStageFuncs(unittest.TestCase):
             incremental_task.id = 1011
             incremental_plan = app_services.task_planner.plan_semantic_task(incremental_task)
             incremental_future = app_services.scheduler.run_task_plan(incremental_plan)
-            incremental_future.result(timeout=20)
+            _wait_for_job(incremental_future, incremental_task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -1889,7 +1941,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=20)
+            _wait_for_job(future, task)
 
             image_arr = dataset.get_image_data(filter_data_ignore_value=True)
             nbands = image_arr.shape[0]
@@ -2006,7 +2058,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             output_ref = task_plan.bindings[corr_output_ref_name]
 
@@ -2067,7 +2119,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=10)
+            _wait_for_job(future, task)
 
             output_ref = task_plan.bindings[output_ref_name]
 
@@ -2135,7 +2187,7 @@ class TestTaskStageFuncs(unittest.TestCase):
 
             task_plan = app_services.task_planner.plan_semantic_task(task)
             future = app_services.scheduler.run_task_plan(task_plan)
-            future.result(timeout=15)
+            _wait_for_job(future, task)
 
             listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
             storage_client = StorageClient(
@@ -2248,7 +2300,6 @@ def _run_roi_spectral_mean_pipeline(
     roi: "RegionOfInterest",
     dataset: "RasterDataSet",
     task_id: int,
-    timeout: int = 30,
 ) -> Tuple[np.ndarray, "TaskPlan"]:
     """
     Register *dataset* and *roi* as external handles, build a
@@ -2305,7 +2356,7 @@ def _run_roi_spectral_mean_pipeline(
 
     task_plan = app_services.task_planner.plan_semantic_task(task)
     future = app_services.scheduler.run_task_plan(task_plan)
-    future.result(timeout=timeout)
+    _wait_for_job(future, task)
 
     listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
     storage_client = StorageClient(
@@ -2326,7 +2377,6 @@ def _run_roi_cov_pipeline(
     roi: "RegionOfInterest",
     dataset: "RasterDataSet",
     task_id: int,
-    timeout: int = 30,
 ) -> Tuple[np.ndarray, "TaskPlan"]:
     """
     Register *dataset* + *roi*, build SpectralMeanStage → CalcCovMatrixStage
@@ -2398,7 +2448,7 @@ def _run_roi_cov_pipeline(
 
     task_plan = app_services.task_planner.plan_semantic_task(task)
     future = app_services.scheduler.run_task_plan(task_plan)
-    future.result(timeout=timeout)
+    _wait_for_job(future, task)
 
     listener_address, listener_authkey = app_services.storage_service.get_connection_bootstrap()
     storage_client = StorageClient(
