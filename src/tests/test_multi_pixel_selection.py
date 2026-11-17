@@ -10,7 +10,7 @@ import tests.context  # noqa: F401
 import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QMouseEvent
+from PySide6.QtGui import QColor, QContextMenuEvent, QKeyEvent, QMouseEvent
 
 from test_utils.test_model import WiserTestModel
 from wiser.gui.ui_roi import get_picked_roi_selections
@@ -194,6 +194,24 @@ class TestMultiPixelSelection(unittest.TestCase):
         marker = int(9 * scale)
         self.assertIn("roi", self._context_menu_roi_titles_at(QPoint(marker, marker)))
         self.assertNotIn("roi", self._context_menu_roi_titles_at(QPoint(marker + 2, marker + 2)))
+
+    def test_selected_pixels_drawn_below_full_zoom(self):
+        self.roi.add_selection(MultiPixelSelection([QPoint(9, 9)]))
+        color = QColor(self.roi.get_color()).rgb()
+        for scale in (1.0, 0.5, 0.25, 1 / 2.3):
+            with self.subTest(scale=scale):
+                self.rv.scale_image(scale)
+                image = self.widget.grab().toImage()
+                marker = int(9 * scale)
+                self.assertEqual(image.pixel(marker, marker), color)
+
+    def test_pixels_being_selected_drawn_below_full_zoom(self):
+        color = QColor(self.test_model.app_state.get_config("raster.selection.edit_outline")).rgb()
+        self.rv.scale_image(0.5)
+        self._start_creator()
+        self._click((9, 9))
+        image = self.widget.grab().toImage()
+        self.assertEqual(image.pixel(4, 4), color)
 
     def test_zoomed_out_rectangle_picking_unchanged(self):
         self.roi.add_selection(RectangleSelection(QPoint(5, 5), QPoint(7, 7)))

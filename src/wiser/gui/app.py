@@ -228,7 +228,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Zoom pane
 
-        self._zoom_pane = ZoomPane(self._app_state)
+        self._zoom_pane = ZoomPane(self._app_state, main_view_scale=lambda: self._main_view.get_scale())
         dockable = self._make_dockable_pane(
             self._zoom_pane,
             name="zoom_pane",
@@ -1516,7 +1516,24 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.set_stretches(ds_id, bands, stretches)
 
     def _on_zoom_visibility_changed(self, visible):
-        self._update_zoom_viewport_highlight()
+        """
+        Showing or hiding the zoom pane never scrolls the Main View.  When the
+        zoom pane is shown and the center of its visible area lies outside the
+        visible area of the Main View raster-view showing the same dataset, the
+        zoom pane is centered on that raster-view's visible area.
+        """
+        zoom_rv = self._zoom_pane.get_rasterview()
+        dataset = zoom_rv.get_raster_data()
+        if visible and dataset is not None:
+            rv_pos = self._main_view.is_showing_dataset(dataset)
+            if rv_pos is not None:
+                main_rv = self._main_view.get_rasterview(rv_pos)
+                zoom_x, zoom_y = zoom_rv.get_visible_region_center()
+                if not main_rv.get_visible_region().contains(int(zoom_x), int(zoom_y)):
+                    with QSignalBlocker(self._zoom_pane):
+                        zoom_rv.make_point_visible(*main_rv.get_visible_region_center())
+
+        self._update_zoom_viewport_highlight(scroll_main_view=False)
 
     def _on_zoom_viewport_change(self, rasterview_position):
         """
@@ -1527,13 +1544,13 @@ class DataVisualizerApp(QMainWindow):
         # one raster-view.
         self._update_zoom_viewport_highlight()
 
-    def _update_zoom_viewport_highlight(self):
+    def _update_zoom_viewport_highlight(self, scroll_main_view: bool = True):
         visible_area = None
         rv = self._zoom_pane.get_rasterview()
         if self._zoom_pane.isVisible():
             visible_area = self._zoom_pane.get_rasterview().get_visible_region()
 
-        self._main_view.set_viewport_highlight(visible_area, rv)
+        self._main_view.set_viewport_highlight(visible_area, rv, scroll_to_viewport=scroll_main_view)
 
     def _on_zoom_raster_pixel_select(self, rasterview_position, ds_point):
         """

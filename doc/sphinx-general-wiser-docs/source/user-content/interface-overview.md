@@ -133,6 +133,9 @@ and the Dataset Info pane.
 Every pane is dockable. You can move or resize it within the WISER window, or
 undock it so it appears as a separate window.
 
+The first time the Zoom pane shows data, it zooms to four times the main
+window's zoom (between 100% and 1600%); any zoom level you set after that is kept.
+
 The main window marks the area shown in the Zoom pane, and the Context pane
 marks the area shown in the main window. _(Tip: you can change the color of this
 viewport highlight in the WISER configuration dialog.)_ Clicking or scrolling in
