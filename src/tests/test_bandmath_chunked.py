@@ -80,3 +80,15 @@ def test_numpy_backed_cube_one_band_per_chunk(temp_folder, expr, expected):
     dataset.set_id(1)
     values = _evaluate_one_band_per_chunk(_job(expr, dataset, cache))
     np.testing.assert_allclose(values, expected, rtol=1e-6)
+
+
+def test_evaluator_construction_error_propagates(temp_folder, monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("evaluator construction failed")
+
+    monkeypatch.setattr(evaluator, "BandMathEvaluatorAsync", fail)
+    cache = DataCache()
+    dataset = RasterDataLoader().dataset_from_numpy_array(CUBE.copy(), cache)
+    dataset.set_id(1)
+    with pytest.raises(RuntimeError, match="evaluator construction failed"):
+        evaluator.eval_singular_bandmath_expr_async(_job("d + 1", dataset, cache), max_chunking_bytes=1)
