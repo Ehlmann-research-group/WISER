@@ -944,13 +944,14 @@ def cv2_rotate_scale_expand(
     img    : HxW or HxWxC uint8/float32 array.
     angle  : rotation angle in degrees (positive = CCW).
     scale  : isotropic scale factor.
-    interp : an OpenCV interpolation flag. Defaults to linear (1)
+    interp : cv2.INTER_NEAREST or cv2.INTER_LINEAR, the methods the
+             rotate-and-scale dialog offers. Defaults to cv2.INTER_LINEAR.
 
     Returns:
     Transformed array with dtype matching input. A masked ``img`` returns a
-    masked array whose mask covers every output pixel whose interpolation
-    draws on the area outside the source or on a masked source pixel; those
-    pixels are masked, never recomputed from their valid neighbours.
+    masked array that masks, and never recomputes from valid neighbours, every
+    output pixel whose interpolation draws on the area outside the source or
+    on a masked source pixel.
     """
     orig_mask = None
     if isinstance(img, np.ma.masked_array):

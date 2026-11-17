@@ -41,7 +41,6 @@ import cv2
 INTERPOLATION_TYPES = {
     "Nearest": cv2.INTER_NEAREST,
     "Linear": cv2.INTER_LINEAR,
-    "Area": cv2.INTER_AREA,
 }
 
 # ``cv2.warpAffine`` treats the band axis as image channels and rejects arrays
