@@ -3,6 +3,7 @@ Tests the multi-pixel selection tool: left-click toggles pixels, Enter or
 right-click finishes, Esc cancels, and picking hits only the selected pixels.
 """
 
+import math
 import unittest
 
 import tests.context  # noqa: F401
@@ -202,8 +203,11 @@ class TestMultiPixelSelection(unittest.TestCase):
             with self.subTest(scale=scale):
                 self.rv.scale_image(scale)
                 image = self.widget.grab().toImage()
-                marker = int(9 * scale)
-                self.assertEqual(image.pixel(marker, marker), color)
+                first = math.floor(9 * scale)
+                last = max(first, math.ceil(10 * scale) - 1)
+                drawn = [image.pixel(p, p) for p in range(first, last + 1)]
+                self.assertIn(color, drawn)
+                self.assertNotEqual(image.pixel(last + 2, last + 2), color)
 
     def test_pixels_being_selected_drawn_below_full_zoom(self):
         color = QColor(self.test_model.app_state.get_config("raster.selection.edit_outline")).rgb()

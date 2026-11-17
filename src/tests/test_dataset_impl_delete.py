@@ -36,6 +36,9 @@ def test_already_removed_file_is_not_an_error(tmp_path, capsys):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="directory write permission is POSIX-only")
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="root ignores directory write permission"
+)
 def test_delete_failure_raises(tmp_path):
     impl, path = _unsaved_impl(tmp_path)
     os.chmod(tmp_path, stat.S_IRUSR | stat.S_IXUSR)

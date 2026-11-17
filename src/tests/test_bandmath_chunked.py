@@ -1,7 +1,6 @@
 """Tests for the chunked (on-disk) band-math path, evaluated in-process."""
 
 import gc
-import os
 import shutil
 import tempfile
 

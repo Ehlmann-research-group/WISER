@@ -416,6 +416,23 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
                 self.assertEqual(self.test_model.get_zoom_pane_rasterview().get_scale(), expected)
 
+    def test_zp_opens_at_4x_fractional_and_zoomed_out_mv_scale(self):
+        """
+        Tests that a fractional 4x product is rounded up to the next zoom-pane
+        level and that a zoomed-out main view still gives at least 1x.
+        """
+        for mv_scale, expected in ((1.3, 6), (0.5, 2), (0.1, 1)):
+            with self.subTest(mv_scale=mv_scale):
+                self.test_model.close_app()
+                self.test_model = WiserTestModel()
+                self.test_model.load_dataset(np.random.rand(3, 100, 100).astype(np.float32))
+                self.test_model.main_view.set_scale(mv_scale)
+
+                self.test_model.click_zoom_pane_display_toggle()
+                self.test_model.run()
+
+                self.assertEqual(self.test_model.get_zoom_pane_rasterview().get_scale(), expected)
+
     def test_open_zp_before_loading_takes_4x_mv_scale(self):
         """
         Tests that a zoom pane opened before any data is loaded takes 4x the main
