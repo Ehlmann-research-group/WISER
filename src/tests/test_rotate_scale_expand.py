@@ -8,6 +8,7 @@ import pytest
 
 import tests.context  # noqa: F401
 
+from wiser.gui.similarity_transform_dialog import INTERPOLATION_TYPES
 from wiser.gui.util import cv2_rotate_scale_expand
 
 pytestmark = [
@@ -39,6 +40,10 @@ class TestRotateScaleExpandFill(unittest.TestCase):
         valid = ~np.ma.getmaskarray(out)
         self.assertTrue(valid.any())
         np.testing.assert_allclose(out.data[valid], CONSTANT, rtol=1e-5)
+
+    def test_every_offered_interpolation_is_covered(self):
+        covered = set(BLENDING_INTERPOLATIONS.values()) | {cv2.INTER_NEAREST}
+        self.assertLessEqual(set(INTERPOLATION_TYPES.values()), covered)
 
     def test_unmasked_output_never_blends_with_the_border_fill(self):
         for name, interp in BLENDING_INTERPOLATIONS.items():

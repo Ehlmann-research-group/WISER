@@ -16,7 +16,7 @@ from osgeo import gdal
 
 import tests.context  # noqa: F401
 
-from wiser.gui.similarity_transform_dialog import create_rotated_scaled_dataset
+from wiser.gui.similarity_transform_dialog import INTERPOLATION_TYPES, create_rotated_scaled_dataset
 from wiser.raster.loader import RasterDataLoader
 
 ROTATION = 30.0
@@ -72,6 +72,16 @@ class TestRotatedScaledDatasetFill(unittest.TestCase):
         band = reopened.get_band_data(0)
         self.assertTrue(band.mask[0, 0])
         self.assertFalse(band.mask[band.shape[0] // 2, band.shape[1] // 2])
+
+    def test_every_offered_interpolation_runs(self):
+        ds, data = self._dataset(np.float32, -1.0)
+        for label, interp in INTERPOLATION_TYPES.items():
+            with self.subTest(interpolation=label):
+                create_rotated_scaled_dataset(ds, ROTATION, 1.0, interp, self.out_path)
+                _, values = self._read()
+                fill = values == -1.0
+                self.assertTrue(fill[:, 0, 0].all())
+                self.assertFalse(fill.all())
 
     def test_integer_without_ignore_value_raises(self):
         ds, _ = self._dataset(np.uint16, None)

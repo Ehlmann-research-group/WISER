@@ -40,9 +40,7 @@ import cv2
 
 INTERPOLATION_TYPES = {
     "Nearest": cv2.INTER_NEAREST,
-    "Nearest Exact": cv2.INTER_NEAREST_EXACT,
     "Linear": cv2.INTER_LINEAR,
-    "Linear Exact": cv2.INTER_LINEAR_EXACT,
     "Area": cv2.INTER_AREA,
 }
 

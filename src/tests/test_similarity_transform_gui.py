@@ -102,7 +102,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
 
         self.test_model.set_scale_rs(2)
 
-        self.test_model.choose_interpolation_rs(2)
+        self.test_model.choose_interpolation_rs(1)
 
         self.test_model.set_save_path_rs(temp_save_path)
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
 
     test_model.set_scale_rs(2)
 
-    test_model.choose_interpolation_rs(2)
+    test_model.choose_interpolation_rs(1)
 
     save_path = os.path.join(
         os.path.dirname(__file__),
