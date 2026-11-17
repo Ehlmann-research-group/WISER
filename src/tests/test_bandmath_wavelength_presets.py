@@ -21,8 +21,6 @@ from wiser.bandmath.analyzer import get_bandmath_expr_info
 from wiser.bandmath.presets import (
     DEFAULT_WAVELENGTH_TOLERANCE_NM,
     SPECTRAL_INDEX_PRESETS,
-    get_spectral_index_preset,
-    resolve_preset_bands,
 )
 from wiser.raster.data_cache import DataCache
 from wiser.raster.dataset import RasterDataDynamicBand
@@ -266,6 +264,8 @@ CUPRITE_WAVELENGTHS_NM = [
 
 loader = RasterDataLoader()
 
+PRESETS = {preset.name: preset for preset in SPECTRAL_INDEX_PRESETS}
+
 
 def _make_dataset(wavelengths, bands=None):
     num_bands = len(wavelengths) if wavelengths is not None else bands
@@ -278,6 +278,15 @@ def _make_dataset(wavelengths, bands=None):
 
 def _load(path):
     return loader.load_from_file(path=path, interactive=False)[0]
+
+
+def _resolve(dataset, wavelength):
+    return RasterDataDynamicBand(
+        dataset,
+        wavelength_value=wavelength.to_value(u.nm),
+        wavelength_units=u.nm,
+        epsilon=DEFAULT_WAVELENGTH_TOLERANCE_NM,
+    ).resolve_band_index()
 
 
 def _cuprite():
@@ -316,8 +325,8 @@ SENSOR_LOADERS = {
 def test_presets_resolve_same_physical_bands_across_sensors(sensor):
     dataset = SENSOR_LOADERS[sensor]()
     for preset_name, expected in EXPECTED_BANDS[sensor].items():
-        preset = get_spectral_index_preset(preset_name)
-        resolved = resolve_preset_bands(preset, dataset, DEFAULT_WAVELENGTH_TOLERANCE_NM)
+        preset = PRESETS[preset_name]
+        resolved = {var: _resolve(dataset, wl) for var, wl in preset.band_wavelengths.items()}
         assert resolved == expected, preset_name
         for var, band_index in resolved.items():
             actual = dataset.get_wavelengths()[band_index].to_value(u.nm)
@@ -336,7 +345,7 @@ def test_preset_catalog_documents_wavelengths_and_sources():
 
 def test_preset_reference_wavelengths():
     def nm(name):
-        return {k: v.to_value(u.nm) for k, v in get_spectral_index_preset(name).band_wavelengths.items()}
+        return {k: v.to_value(u.nm) for k, v in PRESETS[name].band_wavelengths.items()}
 
     assert nm("NDVI") == {"nir": 860.0, "red": 660.0}
     assert nm("SAVI") == {"nir": 860.0, "red": 660.0}
@@ -344,23 +353,18 @@ def test_preset_reference_wavelengths():
     assert nm("MSI") == {"r1600": 1600.0, "r820": 820.0}
 
 
-def test_unknown_preset_raises():
-    with pytest.raises(KeyError, match="EVI"):
-        get_spectral_index_preset("EVI")
-
-
 def test_preset_on_dataset_without_wavelengths_raises():
     dataset = _load(NO_WAVELENGTHS_PATH)
     assert not dataset.has_wavelengths()
     with pytest.raises(ValueError, match="has no band wavelengths"):
-        resolve_preset_bands(get_spectral_index_preset("NDVI"), dataset, DEFAULT_WAVELENGTH_TOLERANCE_NM)
+        _resolve(dataset, PRESETS["NDVI"].band_wavelengths["nir"])
 
 
 def test_preset_wavelength_beyond_sensor_range_raises():
     # A VNIR-only grid (400-1000 nm) has no band near the 1240 nm NDWI band.
     dataset = _make_dataset([w * u.nm for w in np.arange(400.0, 1000.0, 5.0)])
     with pytest.raises(ValueError, match=r"No band .* within 10(\.0)? nm of 1240(\.0)? nm"):
-        resolve_preset_bands(get_spectral_index_preset("NDWI"), dataset, DEFAULT_WAVELENGTH_TOLERANCE_NM)
+        _resolve(dataset, PRESETS["NDWI"].band_wavelengths["r1240"])
 
 
 def test_wavelength_in_gap_between_bands_raises_not_nearest():
@@ -422,7 +426,7 @@ def test_band_label_shows_wavelength_units(description, wavelength, expected):
     ],
 )
 def test_preset_expression_matches_published_formula(preset_name, formula):
-    preset = get_spectral_index_preset(preset_name)
+    preset = PRESETS[preset_name]
     rng = np.random.default_rng(827)
     arrays = {var: rng.uniform(0.05, 0.6, size=(4, 5)).astype(np.float32) for var in preset.band_wavelengths}
     variables = {var: (VariableType.IMAGE_BAND, arr) for var, arr in arrays.items()}

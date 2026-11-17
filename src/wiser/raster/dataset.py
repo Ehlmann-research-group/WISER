@@ -1020,7 +1020,7 @@ class RasterDataSet(Serializable):
 
         When the band has a wavelength and its description is empty or a bare
         number, the description is replaced by the wavelength with its unit to
-        two decimals, e.g. ``Band 52: 860.47 nm``.
+        two decimals, e.g. ``Band 53: 859.65 nm``.
         """
         info = self._band_info[band_index]
         desc = info.get("description")
@@ -2052,6 +2052,11 @@ class RasterDataDynamicBand(RasterBand, Serializable):
     This class is meant to represent one band in a RasterDataSet that is used when
     batch processing. A user can specify to use the band index in the dataset or
     go based off of wavelength. This functionality is implemented in this class
+
+    Constructed with ``band_index``, or with ``wavelength_value``,
+    ``wavelength_units`` and ``epsilon`` (tolerance in ``wavelength_units``); the
+    constructor raises ValueError when selecting by wavelength on a dataset
+    without wavelengths.  :meth:`get_data` caches the resolved band index.
     """
 
     def __init__(
@@ -2085,7 +2090,8 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         comparison is made in nm.
 
         Raises:
-            ValueError: if no band lies within ``epsilon`` of the wavelength.
+            ValueError: if no band lies within ``epsilon`` of the wavelength, or
+                if some but not all bands of the dataset have a wavelength.
         """
         if self._band_index is not None:
             return self._band_index

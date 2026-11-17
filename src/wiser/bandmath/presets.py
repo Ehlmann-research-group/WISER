@@ -4,18 +4,18 @@ Built-in spectral-index presets for band math.
 Each preset is a band-math expression whose band variables are bound by
 wavelength rather than by band number, so the same preset selects the
 physically equivalent bands on sensors with different band layouts (EMIT,
-AVIRIS-NG, AVIRIS-classic, ...).  Every reference wavelength is in nm and is the
-nominal band center used in the cited source.  A band is chosen as the nearest
-band within a tolerance of the reference wavelength; when no band lies within
-the tolerance, resolution raises instead of choosing a more distant band.
+AVIRIS-NG, AVIRIS-classic, ...).  Wavelengths are in nm.  NDWI and MSI use the
+wavelengths given in their sources; NDVI and SAVI use 660 nm (red) and 860 nm
+(NIR) as narrow-band equivalents of the broad red and NIR bands of the original
+formulation.  A band is chosen as the nearest band within a tolerance of the
+reference wavelength; when no band lies within the tolerance, resolution raises
+instead of choosing a more distant band.
 """
 
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
 from astropy import units as u
-
-from wiser.raster.dataset import RasterDataDynamicBand, RasterDataSet
 
 # Default band-selection tolerance in nm.  It is about one band spacing of the
 # common imaging spectrometers (AVIRIS-NG ~5 nm, EMIT ~7.4 nm, AVIRIS-classic
@@ -37,7 +37,8 @@ class SpectralIndexPreset:
         title: Human-readable name of the index.
         expression: Band-math expression; its variables are exactly the keys of
             ``band_wavelengths``.
-        band_wavelengths: Variable name to reference wavelength, in nm.
+        band_wavelengths: Variable name to reference wavelength (astropy length
+            Quantity, nm).
         reference: Literature source of the formula and wavelengths.
     """
 
@@ -57,7 +58,8 @@ SPECTRAL_INDEX_PRESETS: Tuple[SpectralIndexPreset, ...] = (
         reference=(
             "Rouse, J.W., Haas, R.H., Schell, J.A., Deering, D.W. (1974). Monitoring vegetation "
             "systems in the Great Plains with ERTS. Third ERTS Symposium, NASA SP-351, 309-317. "
-            "Narrow-band red 660 nm and NIR 860 nm."
+            "Original formulation uses broad MSS red (600-700 nm) and NIR (800-1100 nm) bands; "
+            "660 nm and 860 nm are the narrow-band equivalents used here."
         ),
     ),
     SpectralIndexPreset(
@@ -94,39 +96,3 @@ SPECTRAL_INDEX_PRESETS: Tuple[SpectralIndexPreset, ...] = (
         ),
     ),
 )
-
-
-def get_spectral_index_preset(name: str) -> SpectralIndexPreset:
-    """
-    Returns the built-in preset with the given name (e.g. ``"NDVI"``).
-
-    Raises:
-        KeyError: if no built-in preset has that name.
-    """
-    for preset in SPECTRAL_INDEX_PRESETS:
-        if preset.name == name:
-            return preset
-    raise KeyError(f"No spectral-index preset named {name!r}")
-
-
-def resolve_preset_bands(
-    preset: SpectralIndexPreset, dataset: RasterDataSet, tolerance_nm: float
-) -> Dict[str, int]:
-    """
-    Returns, for each band variable of ``preset``, the index of the band of
-    ``dataset`` nearest the variable's reference wavelength among the bands
-    within ``tolerance_nm`` nm of it.
-
-    Raises:
-        ValueError: if ``dataset`` has no wavelengths, or if no band lies within
-            ``tolerance_nm`` of a reference wavelength.
-    """
-    return {
-        var: RasterDataDynamicBand(
-            dataset,
-            wavelength_value=wavelength.to_value(u.nm),
-            wavelength_units=u.nm,
-            epsilon=tolerance_nm,
-        ).resolve_band_index()
-        for var, wavelength in preset.band_wavelengths.items()
-    }

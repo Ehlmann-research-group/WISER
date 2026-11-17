@@ -31,7 +31,6 @@ from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.bandmath.presets import (
     DEFAULT_WAVELENGTH_TOLERANCE_NM,
     SPECTRAL_INDEX_PRESETS,
-    get_spectral_index_preset,
 )
 from wiser.gui.util import get_plugin_fns
 from wiser.gui.subprocessing_manager import ProcessManager
@@ -374,6 +373,9 @@ class DatasetBandChooserWidget(QWidget):
         """
         Switch to wavelength mode with the given wavelength, unit key (one of
         :attr:`WAVELENGTH_UNIT_KEYS`) and tolerance in nm.
+
+        Raises:
+            ValueError: if ``unit_key`` is not in :attr:`WAVELENGTH_UNIT_KEYS`.
         """
         if unit_key not in self.WAVELENGTH_UNIT_KEYS:
             raise ValueError(f"Unit must be one of {self.WAVELENGTH_UNIT_KEYS}, got {unit_key!r}")
@@ -389,7 +391,7 @@ class DatasetBandChooserWidget(QWidget):
         self.ledit_tolerance.setText(f"{tolerance_nm:g}")
         self._on_wavelength_binding_changed()
 
-    def get_ds_band(self) -> Tuple[int, int]:
+    def get_ds_band(self) -> Tuple[int, Optional[int]]:
         """
         This method returns the currently selected dataset and band.  The
         information is reported as a 2-tuple of this form:  (dataset ID,
@@ -1253,7 +1255,7 @@ class BandMathDialog(QDialog):
 
         self._ui.cbox_index_presets.addItem(self.tr("Choose a spectral index..."), None)
         for preset in SPECTRAL_INDEX_PRESETS:
-            self._ui.cbox_index_presets.addItem(f"{preset.name} - {preset.title}", preset.name)
+            self._ui.cbox_index_presets.addItem(f"{preset.name} - {preset.title}", preset)
             self._ui.cbox_index_presets.setItemData(
                 self._ui.cbox_index_presets.count() - 1,
                 f"{preset.expression}\n\n{preset.reference}",
@@ -2200,11 +2202,10 @@ class BandMathDialog(QDialog):
         wavelength with the default tolerance.  Each variable keeps the dataset
         already chosen in its row.
         """
-        name = self._ui.cbox_index_presets.itemData(index)
-        if name is None:
+        preset = self._ui.cbox_index_presets.itemData(index)
+        if preset is None:
             return
 
-        preset = get_spectral_index_preset(name)
         self._ui.ledit_expression.setText(preset.expression)
         self._analyze_expr()
 

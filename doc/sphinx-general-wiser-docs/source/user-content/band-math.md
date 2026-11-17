@@ -97,9 +97,11 @@ Numeric literals may be used directly and need no binding.
 
 ### Picking an image band by wavelength
 
-Band numbers do not carry over between sensors: 860 nm is band 64 of an EMIT
-scene, band 97 of an AVIRIS-NG scene and band 53 of an AVIRIS-classic scene. An
-**Image Band** variable can therefore be bound by wavelength instead of by band
+Band numbers do not carry over between sensors. In WISER's band labels, which
+count from 0, the band nearest 860 nm is **Band 64: 857.45 nm** in an EMIT
+scene, **Band 97: 862.47 nm** in an AVIRIS-NG scene and **Band 53: 859.65 nm**
+in an AVIRIS-classic scene (the EMIT, AVIRIS-NG and Cuprite AVIRIS-classic
+scenes WISER is tested with). An **Image Band** variable can therefore be bound by wavelength instead of by band
 number. Its row has three controls after the dataset:
 
 - **Band / Wavelength** — how the band is picked. **Band** chooses from the
@@ -121,7 +123,7 @@ The 10 nm default is about one band spacing of common imaging spectrometers
 those grids a wavelength inside the sensor's range always resolves, while a
 wavelength the sensor does not sample is refused.
 
-Band lists show the wavelength with its unit (**Band 52: 860.47 nm**) whenever
+Band lists show the wavelength with its unit (**Band 53: 859.65 nm**) whenever
 the band has a wavelength and the file gives no other band name.
 
 Types combine as you would expect: a cube times a number is a cube; a cube
@@ -149,8 +151,8 @@ change the dataset if needed.
 
 | Preset | Expression | Reference wavelengths | Source |
 |---|---|---|---|
-| NDVI | `(nir - red) / (nir + red)` | NIR 860 nm, red 660 nm | Rouse et al. (1974), NASA SP-351 |
-| SAVI | `1.5 * (nir - red) / (nir + red + 0.5)` | NIR 860 nm, red 660 nm; L = 0.5 | Huete (1988), *Remote Sens. Environ.* 25, 295-309 |
+| NDVI | `(nir - red) / (nir + red)` | NIR 860 nm, red 660 nm | Rouse et al. (1974), NASA SP-351 (660/860 nm narrow-band equivalents) |
+| SAVI | `1.5 * (nir - red) / (nir + red + 0.5)` | NIR 860 nm, red 660 nm; L = 0.5 | Huete (1988), *Remote Sens. Environ.* 25, 295-309 (660/860 nm narrow-band equivalents) |
 | NDWI (Gao) | `(r860 - r1240) / (r860 + r1240)` | 860 nm, 1240 nm | Gao (1996), *Remote Sens. Environ.* 58, 257-266 |
 | MSI | `r1600 / r820` | 1600 nm, 820 nm | Hunt and Rock (1989), *Remote Sens. Environ.* 30, 43-54 |
 

@@ -696,8 +696,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         """
         We should only be deleting a dataset if it is on disk but the user hasn't explicitly saved it.
 
-        A file that is already gone, such as a temporary file removed at quit, is
-        left as it is.
+        A file that is already gone is left as it is.
 
         Raises:
             RuntimeError: if GDAL fails to delete a file that exists.

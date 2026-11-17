@@ -25,6 +25,7 @@ from wiser.raster.dataset import RasterDataBand
 TEST_DATASETS = os.path.join(os.path.dirname(__file__), "..", "test_utils", "test_datasets")
 EMIT_PATH = os.path.join(TEST_DATASETS, "EMIT_L2A_RFL_001_20260821T180123_2623312_016_subset_aid0000.nc")
 NO_WAVELENGTHS_PATH = os.path.join(TEST_DATASETS, "envi.hdr")
+FOUR_BAND_PATH = os.path.join(TEST_DATASETS, "caltech_4_100_150_nm.hdr")
 
 
 class TestBandMathWavelengthBinding(unittest.TestCase):
@@ -68,6 +69,16 @@ class TestBandMathWavelengthBinding(unittest.TestCase):
         widget.ledit_wavelength.setText(value)
         widget.ledit_tolerance.setText(tolerance)
         widget.ledit_wavelength.editingFinished.emit()
+
+    def _choose_preset(self, dialog, name):
+        presets = dialog._ui.cbox_index_presets
+        [index] = [
+            i
+            for i in range(presets.count())
+            if presets.itemData(i) is not None and presets.itemData(i).name == name
+        ]
+        presets.setCurrentIndex(index)
+        presets.activated.emit(index)
 
     def test_wavelength_mode_defaults(self):
         self._load(EMIT_PATH)
@@ -140,6 +151,21 @@ class TestBandMathWavelengthBinding(unittest.TestCase):
         mock_critical.assert_called_once()
         self.assertIn("No band", mock_critical.call_args.args[2])
 
+    def test_wavelength_in_gap_between_bands_reports_error_and_does_not_bind(self):
+        # caltech_4_100_150_nm has bands at ~472, 532, 662 and 853 nm; 750 nm is
+        # ~90 nm from the nearest band.
+        self._load(FOUR_BAND_PATH)
+        dialog = self._make_dialog()
+        self._set_expression(dialog, "nir + 1")
+        widget = self._band_widget(dialog, "nir")
+
+        self._enter_wavelength(widget, "750", "nm", "10")
+
+        self.assertIn("No band", widget.lbl_status.text())
+        self.assertEqual(widget.band_chooser.currentIndex(), -1)
+        with self.assertRaisesRegex(ValueError, "No band"):
+            dialog.get_variable_bindings()
+
     def test_dataset_without_wavelengths_reports_error(self):
         self._load(NO_WAVELENGTHS_PATH)
         dialog = self._make_dialog()
@@ -174,12 +200,7 @@ class TestBandMathWavelengthBinding(unittest.TestCase):
     def test_ndvi_preset_sets_expression_and_wavelength_bindings(self):
         dataset = self._load(EMIT_PATH)
         dialog = self._make_dialog()
-        presets = dialog._ui.cbox_index_presets
-        index = presets.findData("NDVI")
-        self.assertNotEqual(index, -1)
-
-        presets.setCurrentIndex(index)
-        presets.activated.emit(index)
+        self._choose_preset(dialog, "NDVI")
 
         self.assertEqual(dialog.get_expression(), "(nir - red) / (nir + red)")
         for var, wavelength, band in (("nir", "860", 64), ("red", "660", 38)):
@@ -199,10 +220,7 @@ class TestBandMathWavelengthBinding(unittest.TestCase):
     def test_msi_preset_overrides_guessed_variable_types(self):
         self._load(EMIT_PATH)
         dialog = self._make_dialog()
-        presets = dialog._ui.cbox_index_presets
-        index = presets.findData("MSI")
-        presets.setCurrentIndex(index)
-        presets.activated.emit(index)
+        self._choose_preset(dialog, "MSI")
 
         bindings = dialog.get_variable_bindings()
         self.assertEqual(bindings["r1600"][1].get_band_index(), 164)
@@ -211,10 +229,7 @@ class TestBandMathWavelengthBinding(unittest.TestCase):
     def test_presets_are_not_saved_expressions(self):
         self._load(EMIT_PATH)
         dialog = self._make_dialog()
-        presets = dialog._ui.cbox_index_presets
-        index = presets.findData("NDWI")
-        presets.setCurrentIndex(index)
-        presets.activated.emit(index)
+        self._choose_preset(dialog, "NDWI")
 
         self.assertEqual(dialog._ui.cbox_saved_exprs.count(), 0)
         self.assertEqual(self.app_state.get_bandmath_expressions(), [])
