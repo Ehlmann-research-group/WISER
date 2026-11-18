@@ -34,6 +34,9 @@ reference spectrum:
 - `SFF RMSE, Img: <source>` — the fit error at every pixel.
 - `SFF SCALE, Img: <source>` — the fitted scale (feature depth).
 
+Each result keeps the source dataset's georeferencing (map info and coordinate
+system), so a saved result opens in place in GIS software.
+
 ## Using the tool
 
 :::{figure} ../../_static/tutorials/t7_sff_dialog.png
