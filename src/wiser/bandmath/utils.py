@@ -193,6 +193,44 @@ def fill_masked_bandmath_result(
     return result.filled(remaining[0]), remaining[0]
 
 
+def _is_band_math_temp_file(serialize_value: Any) -> bool:
+    """True when ``serialize_value`` is a path to a file in ``TEMP_FOLDER_PATH``, where
+    the band-math evaluator writes its on-disk results."""
+    if not isinstance(serialize_value, str):
+        return False
+    temp_folder = os.path.realpath(TEMP_FOLDER_PATH)
+    return os.path.dirname(os.path.realpath(serialize_value)) == temp_folder
+
+
+def _copy_band_math_temp_result(result: SerializedForm, result_name: str) -> RasterDataSet:
+    """
+    Copy the band-math temporary file ``result`` refers to into a new file in
+    ``TEMP_FOLDER_PATH`` and open the copy with ``result``'s metadata.
+
+    The copy has save state ``IN_DISK_NOT_SAVED``, so it owns its file:  removing it
+    deletes only the copy, and removing the source leaves the copy readable.
+
+    Raises:
+        RuntimeError: if GDAL cannot open the source file or write the copy.
+    """
+    source_path = result.get_serialize_value()
+    source = gdal.Open(source_path, gdal.GA_ReadOnly)
+    if source is None:
+        raise RuntimeError(f"Cannot open band-math temporary file {source_path}")
+    copy_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
+    copy = source.GetDriver().CreateCopy(copy_path, source)
+    if copy is None:
+        raise RuntimeError(f"Cannot copy band-math temporary file {source_path} to {copy_path}")
+    copy.FlushCache()
+    copy = None
+    source = None
+    ds = RasterDataSet.deserialize_into_class(
+        SerializedForm(result.get_serializable_class(), copy_path, dict(result.get_metadata()))
+    )
+    ds.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+    return ds
+
+
 def load_image_from_bandmath_result(
     result_type: Union[VariableType, RasterDataSet],
     result: SerializedForm,
@@ -202,6 +240,19 @@ def load_image_from_bandmath_result(
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
+    """
+    Load an image-cube band-math result as a dataset.
+
+    An ``IMAGE_CUBE_DATASET`` result is a result written to disk.  An ``IMAGE_CUBE``
+    result is a 3-D ndarray, or the ``SerializedForm`` of a dataset when the expression
+    is a single variable.  When that dataset's file is a band-math temporary file, the
+    result is a copy of the file with save state ``IN_DISK_NOT_SAVED``, so the result
+    and its source each own one file.
+
+    Raises AttributeError if ``loader`` is missing for an ndarray result, TypeError for
+    any other ``IMAGE_CUBE`` result type, and RuntimeError if a temporary file cannot be
+    opened or copied.
+    """
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     # Below result type occurs if the dataset was so big it need to be saved to disk
@@ -228,7 +279,10 @@ def load_image_from_bandmath_result(
         # we will get a serializedForm object back. We then make result be
         # the array of the value.
         if isinstance(result, SerializedForm):
-            ds: RasterDataSet = result.get_serializable_class().deserialize_into_class(result)
+            if _is_band_math_temp_file(result.get_serialize_value()):
+                ds = _copy_band_math_temp_result(result, result_name if result_name else "Computed")
+            else:
+                ds = result.get_serializable_class().deserialize_into_class(result)
         elif isinstance(result, np.ndarray):
             if not loader:
                 raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
@@ -265,6 +319,15 @@ def save_image_from_bandmath_result(
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
+    """
+    Write an image-cube band-math result to ``<output_folder>/<result_name>.img`` as ENVI.
+
+    An ``IMAGE_CUBE`` result is a ``SerializedForm`` of a dataset or a 3-D ndarray;
+    an ndarray is wrapped in a dataset that takes an ID from ``app_state`` when given.
+
+    Raises AttributeError if ``loader`` is missing for an ``IMAGE_CUBE`` result, and
+    TypeError if that result is neither a ``SerializedForm`` nor an ndarray.
+    """
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     # The name is built from user input and input filenames, which may contain
@@ -291,12 +354,19 @@ def save_image_from_bandmath_result(
     elif result_type == VariableType.IMAGE_CUBE:
         if not loader:
             raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
-        cache = app_state.get_cache() if app_state else None
         name = result_name if result_name else "Computed"
         ignore_value = None
-        if isinstance(result, np.ma.MaskedArray):
-            result, ignore_value = fill_masked_bandmath_result(result, expr_info)
-        ds = loader.dataset_from_numpy_array(result, cache)
+        if isinstance(result, SerializedForm):
+            ds: RasterDataSet = result.get_serializable_class().deserialize_into_class(result)
+        elif isinstance(result, np.ndarray):
+            if isinstance(result, np.ma.MaskedArray):
+                result, ignore_value = fill_masked_bandmath_result(result, expr_info)
+            cache = app_state.get_cache() if app_state else None
+            ds = loader.dataset_from_numpy_array(result, cache)
+            if app_state:
+                ds.set_id(app_state.take_next_id())
+        else:
+            raise TypeError("The image result is neither a np.ndarray or SerializedForm")
         ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         ds.set_name(name)
         if expr_info.spatial_metadata_source:
@@ -321,6 +391,14 @@ def load_band_from_bandmath_result(
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
+    """
+    Load an image-band band-math result as a 1-band dataset.
+
+    ``result`` is a ``SerializedForm`` of a band or a 2-D ndarray.
+
+    Raises AttributeError if ``loader`` is missing, ValueError if a serialized band's
+    data is not 2-D, and RuntimeError for any other result type.
+    """
     if not loader:
         raise AttributeError("Must pass loader into function")
     # Compute a timestamp to put in the description
@@ -332,10 +410,10 @@ def load_band_from_bandmath_result(
         )
         assert isinstance(raster_band, (RasterDataDynamicBand, RasterDataBand))
         arr = raster_band.get_data()
-        if arr.ndim == 2:
-            arr = arr[np.newaxis, :]
-            cache = app_state.get_cache() if app_state else None
-            new_dataset = loader.dataset_from_numpy_array(arr, cache)
+        if arr.ndim != 2:
+            raise ValueError(f"Band result must have 2 dimensions, got shape {arr.shape}")
+        cache = app_state.get_cache() if app_state else None
+        new_dataset = loader.dataset_from_numpy_array(arr[np.newaxis, :], cache)
     elif isinstance(result, np.ndarray):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
@@ -377,6 +455,15 @@ def save_band_from_bandmath_result(
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
+    """
+    Write an image-band band-math result to ``<output_folder>/<result_name>.img`` as a
+    1-band ENVI cube.
+
+    ``result`` is a ``SerializedForm`` of a band or a 2-D ndarray.
+
+    Raises AttributeError if ``loader`` or ``app_state`` is missing, ValueError if a
+    serialized band's data is not 2-D, and RuntimeError for any other result type.
+    """
     if not loader:
         raise AttributeError("Must pass loader into function")
     if not app_state:
@@ -393,10 +480,10 @@ def save_band_from_bandmath_result(
         )
         assert isinstance(raster_band, (RasterDataDynamicBand, RasterDataBand))
         arr = raster_band.get_data()
-        if arr.ndim == 2:
-            arr = arr[np.newaxis, :]
-            cache = app_state.get_cache() if app_state else None
-            new_dataset = loader.dataset_from_numpy_array(result, cache)
+        if arr.ndim != 2:
+            raise ValueError(f"Band result must have 2 dimensions, got shape {arr.shape}")
+        cache = app_state.get_cache() if app_state else None
+        new_dataset = loader.dataset_from_numpy_array(arr[np.newaxis, :], cache)
     elif isinstance(result, (np.ndarray, np.ma.MaskedArray)):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]

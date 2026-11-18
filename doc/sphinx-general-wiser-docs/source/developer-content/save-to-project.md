@@ -138,7 +138,7 @@ types, and bad enum values degrade gracefully.
 | `spectra` | Collected + active spectra | Three kinds: self-contained NumPy, raster-backed (dataset + point + area), ROI-average (dataset + roi). Dataset-backed spectra go faithful when the dataset is saved, freeze to NumPy when cut. |
 | `stretches` | Per-`(dataset, band)` contrast stretches | Dataset-cascade leaf: dropped when its dataset is unsaved. Polymorphic across the stretch types. |
 | `libraries` | Spectral libraries | `ENVISpectralLibrary` by reference (reopened from its path); `ListSpectralLibrary` inline (members follow the per-member spectra rule). |
-| `runs` | PCA / MNF / unmixing / K-Means histories | Every record self-contained; datasets referenced softly by id; run ids re-minted on load. |
+| `runs` | PCA / MNF / unmixing / K-Means histories | Every record self-contained; datasets referenced softly by id; run ids re-minted on load. A K-Means record persists the input's `wavelengths` (values) and `wavelength_units` (unit string); records without them load as band-index runs. |
 | `crs` | User-created coordinate systems | WKT + creator-dialog state; rebuilt via GDAL/`osr`, bad WKT drops the entry, a bad enum degrades one field. |
 | `bandmath` | Saved band-math expressions | A plain list of expression strings on `ApplicationState`. |
 

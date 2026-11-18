@@ -39,7 +39,7 @@ from astropy import units as u
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import Iterable, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from wiser.raster import RasterDataSet
@@ -75,8 +75,30 @@ SHOW_LIBRARY_SPECTRA_THRESHOLD = 20
 # Linewidth for SpectrumPointDisplayInfo dotted crosshair (axvline / axhline)
 CROSSHAIR_WIDTH = 0.5
 
-# Single-point spectra use Line2D markers; ~matches SpectrumPointDisplayInfo scatter (s=3).
-SINGLE_POINT_MARKERSIZE = 3
+# Single-point spectra use Line2D markers, sized to stand out on an otherwise empty plot,
+# with their value written beside the marker.
+SINGLE_POINT_MARKERSIZE = 8
+SINGLE_POINT_VALUE_FONTSIZE = 7
+
+NO_DATA_NOTE = "No data at this pixel"
+
+Y_LABEL_NO_QUANTITY = "Value"
+Y_LABEL_MIXED_QUANTITIES = "Data value (mixed units)"
+
+
+def y_axis_label(quantities: Iterable[Optional[str]]) -> str:
+    """
+    Returns the spectrum-plot y-axis label for the data quantities of the
+    displayed spectra (see ``Spectrum.get_data_quantity()``):  the quantity when
+    every spectrum declares the same one, ``"Value"`` when none declares one or
+    nothing is displayed, and ``"Data value (mixed units)"`` otherwise.  A
+    spectrum declaring no quantity disagrees with one that declares a quantity.
+    """
+    distinct = set(quantities)
+    if len(distinct) > 1:
+        return Y_LABEL_MIXED_QUANTITIES
+    quantity = distinct.pop() if distinct else None
+    return quantity if quantity is not None else Y_LABEL_NO_QUANTITY
 
 
 def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
@@ -166,6 +188,7 @@ class SpectrumDisplayInfo:
         self._icon: Optional[QIcon] = None
         # Matplotlib artist for this spectrum (normally Line2D from plot; either works with .remove())
         self._line2d = None
+        self._value_text: Optional[matplotlib.text.Annotation] = None
         self._values = None
 
     def reset(self) -> None:
@@ -180,6 +203,27 @@ class SpectrumDisplayInfo:
 
     def get_spectrum(self) -> "Spectrum":
         return self._spectrum
+
+    def has_data(self) -> bool:
+        """
+        Returns whether the plotted values hold at least one value that is
+        neither NaN nor masked.  Raises ``RuntimeError`` if called before
+        ``generate_plot()``.
+        """
+        if self._values is None:
+            raise RuntimeError("has_data() requires generate_plot() to have run")
+        return np.ma.masked_invalid(np.ma.asarray(self._values, dtype=float)).count() > 0
+
+    def _annotate_single_value(self, axes, x: float, y: float, color) -> None:
+        self._value_text = axes.annotate(
+            f"{y:.4g}",
+            xy=(x, y),
+            xytext=(6, 6),
+            textcoords="offset points",
+            color=color,
+            fontsize=SINGLE_POINT_VALUE_FONTSIZE,
+            in_layout=False,
+        )
 
     def generate_plot(
         self,
@@ -197,7 +241,7 @@ class SpectrumDisplayInfo:
             self._values = self._spectrum.get_spectrum()
 
         vals = np.asarray(self._values).ravel()
-        draw_as_single_marker = vals.size == 1 and single_point_marker is not None
+        draw_as_single_marker = vals.size == 1 and single_point_marker is not None and self.has_data()
 
         color = self._spectrum.get_color()
         linewidth = 0.5
@@ -232,6 +276,7 @@ class SpectrumDisplayInfo:
                 )
                 assert len(lines) == 1
                 self._line2d = lines[0]
+                self._annotate_single_value(axes, float(wx[0]), float(vals[0]), color)
             else:
                 lines = axes.plot(
                     wavelengths,
@@ -261,6 +306,7 @@ class SpectrumDisplayInfo:
                 )
                 assert len(lines) == 1
                 self._line2d = lines[0]
+                self._annotate_single_value(axes, 0.0, float(vals[0]), color)
             else:
                 lines = axes.plot(
                     self._values,
@@ -275,6 +321,10 @@ class SpectrumDisplayInfo:
         if self._line2d is not None:
             self._line2d.remove()
             self._line2d = None
+
+        if self._value_text is not None:
+            self._value_text.remove()
+            self._value_text = None
 
 
 class SpectrumPointDisplayInfo:
@@ -546,6 +596,13 @@ class SpectrumPlotGeneric(QWidget):
         self._plot_mouse_down: bool = False
         self._click: Optional[SpectrumPointDisplayInfo] = None
 
+        # User-set y-axis label; None means the label is derived from the
+        # displayed spectra's data quantities
+        self._y_label_override: Optional[str] = None
+
+        # Note shown on the plot when a displayed spectrum has no data
+        self._no_data_text: Optional[matplotlib.text.Text] = None
+
         self._selection_marker: str = "s"
         self._selection_crosshair: bool = True
 
@@ -780,7 +837,7 @@ class SpectrumPlotGeneric(QWidget):
             # Regenerate all the text to switch it to the new font.
             self.set_title(self.get_title())
             self.set_x_label(self.get_x_label())
-            self.set_y_label(self.get_y_label())
+            self._update_y_label()
             self.set_legend(self.get_legend())
 
     def get_font_size(self, item: str) -> float:
@@ -811,7 +868,7 @@ class SpectrumPlotGeneric(QWidget):
 
         elif item == "axes":
             self.set_x_label(self.get_x_label())
-            self.set_y_label(self.get_y_label())
+            self._update_y_label()
 
         elif item == "legend":
             self.set_legend(self.get_legend())
@@ -834,8 +891,22 @@ class SpectrumPlotGeneric(QWidget):
         return self._axes.get_ylabel()
 
     def set_y_label(self, label: Optional[str]) -> None:
+        """
+        Sets a y-axis label that takes precedence over the one derived from the
+        displayed spectra's data quantities (see ``y_axis_label()``).  ``None``
+        or an empty string returns to the derived label.
+        """
+        self._y_label_override = label or None
+        self._update_y_label()
+
+    def _update_y_label(self) -> None:
+        label = self._y_label_override
+        if label is None:
+            label = y_axis_label(
+                info.get_spectrum().get_data_quantity() for info in self._spectrum_display_info.values()
+            )
         axes_font = get_font_properties(self._font_name, self._font_size["axes"])
-        self._axes.set_ylabel(label, fontproperties=axes_font)
+        self._axes.set_ylabel(label, labelpad=0, fontproperties=axes_font)
 
     def get_legend(self) -> LegendPlacement:
         """
@@ -928,10 +999,8 @@ class SpectrumPlotGeneric(QWidget):
                     labelpad=0,
                     fontproperties=axes_font,
                 )
-                self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
             else:
                 self._axes.set_xlabel("Band Index", labelpad=0, fontproperties=axes_font)
-                self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
                 other_info.generate_plot(
@@ -942,6 +1011,8 @@ class SpectrumPlotGeneric(QWidget):
                 )
 
             self._plot_uses_wavelengths = use_wavelengths
+
+        self._update_y_label()
 
     def recount_spectra_wavelengths(self):
         count = 0
@@ -1562,8 +1633,16 @@ class SpectrumPlotGeneric(QWidget):
 
         self._axes.relim(visible_only=True)
 
+        # All plotted points at one x value (single-band spectra) autoscale to
+        # a span of a fraction of a unit; center that x in a span of +/- 1 and
+        # give it the only major tick.
+        data_x0, data_x1 = self._axes.dataLim.intervalx
+        single_x = data_x0 if data_x0 == data_x1 and np.isfinite(data_x0) else None
+
         if self._x_autorange:
             self._axes.autoscale(axis="x")
+            if single_x is not None:
+                self._axes.set_xlim(single_x - 1.0, single_x + 1.0)
             self._x_range = self._axes.get_xlim()
             # print(f'X autorange on:  range is {self._x_range}')
         else:
@@ -1582,7 +1661,10 @@ class SpectrumPlotGeneric(QWidget):
 
         if self._x_autoticks:
             # Automatically generate X-ticks
-            self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
+            if single_x is not None:
+                self._axes.xaxis.set_major_locator(matplotlib.ticker.FixedLocator([single_x]))
+            else:
+                self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
             self._axes.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
 
         else:
@@ -1686,6 +1768,32 @@ class SpectrumPlotGeneric(QWidget):
             args = MATPLOTLIB_LEGEND_ARGS[self._legend_location]
             legend_font = get_font_properties(self._font_name, self._font_size["legend"])
             self._axes.legend(**args, prop=legend_font)
+
+        # Note for displayed spectra with no value that is neither NaN nor masked
+
+        if self._no_data_text is not None:
+            self._no_data_text.remove()
+            self._no_data_text = None
+
+        no_data_names = [
+            info.get_spectrum().get_name()
+            for info in self._spectrum_display_info.values()
+            if not info.has_data()
+        ]
+        if no_data_names:
+            note = NO_DATA_NOTE
+            if len(no_data_names) < len(self._spectrum_display_info):
+                note += ":  " + ", ".join(no_data_names)
+            self._no_data_text = self._axes.text(
+                0.5,
+                0.5,
+                note,
+                fontproperties=get_font_properties(self._font_name, self._font_size["selection"]),
+                horizontalalignment="center",
+                verticalalignment="center",
+                in_layout=False,
+                transform=self._axes.transAxes,
+            )
 
         # All done!
         self._figure_canvas.draw()

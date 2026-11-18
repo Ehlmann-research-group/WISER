@@ -140,6 +140,7 @@ class RectangleSelectionEditor(TaskDelegate):
         """
         top_left = self._rect_sel.get_top_left()
         bottom_right = self._rect_sel.get_bottom_right()
+        self._original_corners = (top_left.toTuple(), bottom_right.toTuple())
 
         self._control_points.append(top_left)
         self._control_points.append(bottom_right)
@@ -256,6 +257,15 @@ class RectangleSelectionEditor(TaskDelegate):
         self._rasterpane.roi_selection_changed.emit(self._roi, self._rect_sel)
 
         self._app_state.clear_status_text()
+
+    def cancel(self):
+        # The control points include the selection's own corner points, so the
+        # restore also changes the ROI and must be signalled.
+        for corner, (x, y) in zip(self._control_points[:2], self._original_corners):
+            corner.setX(x)
+            corner.setY(y)
+        self._rasterpane.roi_selection_changed.emit(self._roi, self._rect_sel)
+        self._app_state.show_status_text("Rectangle edits cancelled.", 5)
 
     def get_selection(self):
         return RectangleSelection(self._control_points[0], self._control_points[1])

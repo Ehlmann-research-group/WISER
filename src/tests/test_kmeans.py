@@ -1,6 +1,7 @@
 import datetime
 from typing import Tuple
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import numpy as np
@@ -641,6 +642,88 @@ class TestKMeansNanResistance(unittest.TestCase):
             app_services.storage_service.close()
 
 
+class TestKMeansCentroidWavelengths(unittest.TestCase):
+    """Centroid spectra shown by the past-runs viewer carry the input's wavelengths."""
+
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
+    def _run(self, dataset) -> KMeansRunRecord:
+        app_state = self.test_model.app_state
+        app_services = self.test_model.app_services
+        dataset_ref = app_services.storage_service.register_external(
+            ExternalRasterHandle(dataset_obj=dataset)
+        )
+        params = KMeansParameters(
+            dataset_id=dataset.get_id(),
+            k=3,
+            init_method=KMeansInitMethod.KMEANS_PLUS_PLUS,
+            num_inits=None,
+            max_iter=None,
+            tol=None,
+            seed=_SEED,
+            algorithm=KMeansAlgorithm.LLOYD,
+        )
+        kmeans_task = KMeansSemanticTask(
+            app_state=app_state,
+            source_dataset=dataset,
+            input_ref=dataset_ref,
+            params=params,
+        )
+        kmeans_task.run_recorded.connect(app_state.get_kmeans_history().add_record)
+        task_plan = app_services.task_planner.plan_semantic_task(kmeans_task)
+        future = app_services.task_manager.register_and_submit_task_plan(app_services.scheduler, task_plan)
+        future.result(timeout=180)
+        self.test_model.app.processEvents()
+        return app_state.get_kmeans_history().get_records()[-1]
+
+    def _view_spectra(self, record: KMeansRunRecord):
+        app_state = self.test_model.app_state
+        dialog = KMeansRunHistoryDialog(app_state)
+        with mock.patch.object(app_state, "show_spectra_in_plot") as show:
+            dialog._on_view_clicked(record.run_id)
+        show.assert_called_once()
+        return show.call_args.args[0]
+
+    def test_centroid_spectra_carry_input_wavelengths(self):
+        dataset = self.test_model.load_dataset(str(_JPL_HDR))
+        expected = dataset.get_wavelengths()
+        record = self._run(dataset)
+
+        spectra = self._view_spectra(record)
+        self.assertEqual(len(spectra), 3)
+        for spectrum in spectra:
+            self.assertTrue(spectrum.has_wavelengths())
+            self.assertEqual(list(spectrum.get_wavelengths()), list(expected))
+
+    def test_centroid_spectra_keep_wavelengths_after_input_closed(self):
+        dataset = self.test_model.load_dataset(str(_JPL_HDR))
+        expected = dataset.get_wavelengths()
+        record = self._run(dataset)
+
+        self.test_model.app_state.remove_dataset(dataset.get_id())
+        self.test_model.app.processEvents()
+
+        for spectrum in self._view_spectra(record):
+            self.assertEqual(list(spectrum.get_wavelengths()), list(expected))
+
+    def test_centroid_spectra_without_input_wavelengths_use_band_index(self):
+        app_state = self.test_model.app_state
+        arr = np.random.default_rng(0).random((6, 8, 8)).astype(np.float32)
+        dataset = app_state.get_loader().dataset_from_numpy_array(arr, app_state.get_cache())
+        app_state.add_dataset(dataset, view_dataset=False)
+        self.assertFalse(dataset.has_wavelengths())
+        record = self._run(dataset)
+
+        self.assertIsNone(record.wavelengths)
+        for spectrum in self._view_spectra(record):
+            self.assertFalse(spectrum.has_wavelengths())
+
+
 class TestKMeansRunHistoryDialog(unittest.TestCase):
     """Rendering tests for the past-runs viewer (no clustering involved).
 
@@ -680,6 +763,7 @@ class TestKMeansRunHistoryDialog(unittest.TestCase):
             params=params,
             centroids=KMeansCentroids(np.random.rand(k, 5).astype(np.float32)),
             effective_seed=effective_seed,
+            wavelengths=None,
         )
 
     def test_empty_history_renders_no_rows(self):

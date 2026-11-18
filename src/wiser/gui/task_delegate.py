@@ -24,6 +24,11 @@ class TaskDelegate:
     finish() implementation, in order to perform any final operations associated
     with the task.
 
+    If the user starts another selection tool before this task completes, the
+    raster pane calls cancel() instead of finish().  A cancelled creator adds
+    nothing to the ROI, and a cancelled editor leaves its selection as it was
+    before editing.
+
     Right-clicks normally open the raster pane's context menu.  A delegate that
     sets consumes_context_menu to True receives them through on_context_menu()
     instead, and the context menu is not shown while that delegate is active.
@@ -81,3 +86,9 @@ class TaskDelegate:
 
     def finish(self) -> None:
         pass
+
+    def cancel(self) -> None:
+        """
+        Abandon the task without committing it.  The default implementation
+        does nothing, which suits delegates that only commit in finish().
+        """

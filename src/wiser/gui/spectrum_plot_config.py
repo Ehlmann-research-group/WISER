@@ -154,6 +154,7 @@ class SpectrumPlotConfigDialog(QDialog):
         # Y-Axis tab
 
         self._ui.ledit_yaxis_label.setText(spectrum_plot.get_y_label())
+        self._ui.ledit_yaxis_label.setPlaceholderText(self.tr("Automatic, from the data's units"))
 
         self._ui.ledit_yaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
         self._ui.ledit_yaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
@@ -441,7 +442,9 @@ class SpectrumPlotConfigDialog(QDialog):
         # ==============================
         # Y-Axis tab
 
-        self._spectrum_plot.set_y_label(self._ui.ledit_yaxis_label.text().strip())
+        y_label = self._ui.ledit_yaxis_label.text().strip()
+        if y_label != self._spectrum_plot.get_y_label():
+            self._spectrum_plot.set_y_label(y_label)
 
         manual_ticks = self._ui.gbox_yaxis_ticks.isChecked()
         self._spectrum_plot.set_y_autoticks(not manual_ticks)

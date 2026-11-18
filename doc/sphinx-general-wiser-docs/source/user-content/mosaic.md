@@ -217,6 +217,11 @@ not a problem.
 
 Before you click it, note:
 
+- **The output name follows the same rule as Save As.** Name the file with no
+  extension, `.img`, or `.hdr`; WISER writes exactly two files, the data file
+  (named with a lowercase `.img` when the name ends in `.img` or `.hdr`) and
+  its `.hdr`. Any other extension, such as `.tif`, or a name that starts with
+  ".", is rejected with an error dialog, and nothing is written.
 - **Pending scenes are skipped.** If any exist, WISER asks you to confirm before
   continuing; they won't be in the output.
 - **Hidden scenes are skipped.** Unticked scenes are not exported.
