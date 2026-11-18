@@ -80,9 +80,10 @@ class PolygonSelectionCreator(TaskDelegate):
     def on_mouse_release(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
-        if len(self._points) > 0 and self._close_enough(point, self._points[0]):
-            # User clicked on the first point in the polygon (or they clicked
-            # close enough to it), closing it.  Therefore we are done.
+        if len(self._points) >= 3 and self._close_enough(point, self._points[0]):
+            # User clicked on the first point of a polygon that has at least
+            # 3 points (or they clicked close enough to it), closing it.
+            # Therefore we are done.
             self._done = True
 
         else:

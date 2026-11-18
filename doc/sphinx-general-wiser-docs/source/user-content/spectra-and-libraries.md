@@ -23,6 +23,20 @@ its spectrum is plotted.
 - The **x-axis** is wavelength when the dataset supplies wavelengths, band
   number otherwise. Units follow the header: nanometers, micrometers, or
   whatever the file declares.
+- The **y-axis** is labeled with the quantity the data declares: a netCDF
+  variable's `long_name` and `units` (EMIT reflectance reads "Surface
+  Reflectance (unitless)"), an ENVI header's `z plot titles` y title and
+  `data units`, or a GeoTIFF unit type shared by every band. When the displayed
+  spectra declare different quantities, or some declare one and others none,
+  the label is "Data value (mixed units)"; when none declares one it is
+  "Value". WISER never guesses a quantity the file does not declare.
+- A **single-band** dataset, such as an NDVI band-math result, gives a
+  one-value spectrum. It is drawn as a large marker in the selected-point
+  symbol, with its value written beside it to 4 significant figures, and the
+  x-axis is centered on it.
+- A pixel whose values are all NaN or masked has nothing to draw; the plot
+  shows **No data at this pixel** instead (followed by the spectra's names when
+  only some of the displayed spectra have no data).
 - **Bad bands** flagged in the header are left out of the line, which is why a
   spectrum from an airborne cube has gaps at the atmospheric water-vapor
   regions.
@@ -87,7 +101,7 @@ offers the same thing as **Configure plot...**:
 | **Plot** | **Font:** family; **Font Sizes** for the title, legend, axis labels, selected point and tick labels; **Plot Title:**; **Legend:** placement |
 | **Selected Point** | **Draw with symbol:** and **Draw crosshair through selected point** |
 | **X Axis** | **Manually specify X axis range** (**Minimum value:**, **Maximum value:**); **X Axis Units:**; **Manually configure X axis tick marks** (**Major tick marks every**, **Minor tick marks every**); **X Axis Label:** |
-| **Y Axis** | The same range, tick-mark and label settings as the X axis |
+| **Y Axis** | The same range, tick-mark and label settings as the X axis. A **Y Axis Label:** you enter replaces the automatic label (the data's declared quantity); clearing the field returns to the automatic label |
 | **New Spectra** | **Default area-average size** (X and Y) and **Default average mode:** (mean or median) |
 
 :::{figure} ../_static/images/plot_config.png

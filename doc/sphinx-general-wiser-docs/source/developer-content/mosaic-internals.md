@@ -431,7 +431,8 @@ so at ingest `MosaicPane._resolve_display_bands` resolves them in order:
    reach into `RasterPane` internals);
 2. otherwise `find_display_bands(dataset)` (`dataset.py`) — the defaults → human-eye
    wavelength → first 1/3 bands fallback chain (also covers "never shown in the main
-   view").
+   view"). The human-eye step uses the hardcoded 700/530/470 nm wavelengths, not the
+   `general.red/green/blue_wavelength_nm` preferences the raster panes use.
 
 ### Freezing the metadata (`SceneMetadataSnapshot`)
 

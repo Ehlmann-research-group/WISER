@@ -250,6 +250,14 @@ class Spectrum(abc.ABC, Serializable):
         """
         raise NotImplementedError("Must be implemented in subclass")
 
+    def get_data_quantity(self) -> Optional[str]:
+        """
+        Returns the quantity the spectrum's values represent, with its units
+        where known, or ``None`` when no source declares one.  Spectra not read
+        from a dataset declare none.
+        """
+        return None
+
     def get_spectrum(self) -> np.ndarray:
         """
         Return the spectrum data as a 1D NumPy array.
@@ -600,6 +608,10 @@ class RasterDataSetSpectrum(Spectrum):
         Gets the wavelength units.
         """
         return self.get_wavelengths()[0].unit
+
+    def get_data_quantity(self) -> Optional[str]:
+        """Returns the dataset's data quantity; see ``RasterDataSet.get_data_quantity()``."""
+        return self._dataset.get_data_quantity()
 
     def _calculate_spectrum(self):
         """
