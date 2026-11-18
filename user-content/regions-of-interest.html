@@ -516,6 +516,11 @@ estimate for MTMF, a mask, or an exported file.</p>
 <li><p><strong>Multi-pixel selection</strong> — click pixels to add or remove them, then press
 Enter or right-click to finish; Esc cancels</p></li>
 </ul>
+<p>Starting another selection tool while one is still in progress cancels the one
+in progress: a shape you were drawing is discarded, and a selection you were
+editing (with <strong>Edit selection <em>n</em> geometry</strong>) goes back to its shape before the
+edit. Esc while editing works differently by shape: it cancels a multi-pixel
+edit, but keeps the edits to a rectangle or polygon.</p>
 <p>Selections may be scattered anywhere in the scene and may overlap. <strong>Overlap is
 not a problem</strong>: every operation counts each pixel once.</p>
 <p>Building one ROI from several small, well-separated selections usually gives a

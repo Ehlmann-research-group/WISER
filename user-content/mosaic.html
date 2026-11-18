@@ -756,6 +756,11 @@ mosaics are streamed to disk piece by piece, so a mosaic bigger than your RAM is
 not a problem.</p>
 <p>Before you click it, note:</p>
 <ul class="simple">
+<li><p><strong>The output name follows the same rule as Save As.</strong> Name the file with no
+extension, <code class="docutils literal notranslate"><span class="pre">.img</span></code>, or <code class="docutils literal notranslate"><span class="pre">.hdr</span></code>; WISER writes exactly two files, the data file
+(named with a lowercase <code class="docutils literal notranslate"><span class="pre">.img</span></code> when the name ends in <code class="docutils literal notranslate"><span class="pre">.img</span></code> or <code class="docutils literal notranslate"><span class="pre">.hdr</span></code>) and
+its <code class="docutils literal notranslate"><span class="pre">.hdr</span></code>. Any other extension, such as <code class="docutils literal notranslate"><span class="pre">.tif</span></code>, or a name that starts with
+“.”, is rejected with an error dialog, and nothing is written.</p></li>
 <li><p><strong>Pending scenes are skipped.</strong> If any exist, WISER asks you to confirm before
 continuing; they won’t be in the output.</p></li>
 <li><p><strong>Hidden scenes are skipped.</strong> Unticked scenes are not exported.</p></li>
