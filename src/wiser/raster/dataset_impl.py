@@ -731,22 +731,25 @@ class GDALRasterDataImpl(RasterDataImpl):
     def delete_dataset(self) -> None:
         """
         We should only be deleting a dataset if it is on disk but the user hasn't explicitly saved it.
+
+        A file that is already gone is left as it is.
+
+        Raises:
+            RuntimeError: if GDAL fails to delete a file that exists.
         """
         if self._save_state == SaveState.IN_DISK_NOT_SAVED:
-            try:
-                if self.gdal_dataset is not None:
-                    filepath = self.get_filepaths()[0]
-                    driver = self.gdal_dataset.GetDriver()
-                    self.gdal_dataset.FlushCache()
-                    self.gdal_dataset = None
-                    driver.Delete(filepath)
-                else:
-                    print(
-                        "Dataset variable is None. Either the dataset "
-                        + "file was deleted or just the variable was deleted."
-                    )
-            except Exception as e:
-                print(f"Couldn't delete dataset. Error: \n {e}")
+            if self.gdal_dataset is not None:
+                filepath = self.get_filepaths()[0]
+                driver = self.gdal_dataset.GetDriver()
+                self.gdal_dataset.FlushCache()
+                self.gdal_dataset = None
+                if os.path.exists(filepath) and driver.Delete(filepath) != gdal.CE_None:
+                    raise RuntimeError(f"GDAL could not delete {filepath}: {gdal.GetLastErrorMsg()}")
+            else:
+                print(
+                    "Dataset variable is None. Either the dataset "
+                    + "file was deleted or just the variable was deleted."
+                )
 
     def __del__(self):
         self.delete_dataset()

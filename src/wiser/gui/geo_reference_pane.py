@@ -29,7 +29,6 @@ class GeoReferencerPane(RasterPane, PointSelector):
             parent=parent,
             max_zoom_scale=64,
             zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16, 24, 32],
-            initial_zoom=1,
         )
         self._pane_type = pane_type
 

@@ -1409,6 +1409,7 @@ def eval_singular_bandmath_expr_async(
     out_dtype = np.dtype(gdal_array.GDALTypeCodeToNumericTypeCode(gdal_type))
 
     # Evaluate
+    evaluator = None
     out_dataset = None
     out_dataset_gdal = None
     futures = []
@@ -1476,7 +1477,8 @@ def eval_singular_bandmath_expr_async(
             out_dataset.delete_underlying_dataset()
         raise e
     finally:
-        evaluator.stop()
+        if evaluator is not None:
+            evaluator.stop()
     return (VariableType.IMAGE_CUBE_DATASET, out_dataset, result_name, expr_info)
 
 

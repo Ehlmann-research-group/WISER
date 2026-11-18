@@ -16,10 +16,12 @@ MULTIPIXEL_PIXEL_OFFSET = 1
 def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False):
     """
     This helper function draws a multi-pixel selection in a rasterview, with
-    various config options passed as arguments.
+    various config options passed as arguments.  Below 100% zoom each pixel is
+    drawn as a one-screen-pixel marker, since its true size would draw nothing.
     """
 
     scale = rasterview.get_scale()
+    size = max(scale, 1)
 
     pen = QPen(color)
     painter.setPen(pen)
@@ -35,7 +37,7 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
                 scale - 2 * MULTIPIXEL_PIXEL_OFFSET,
             )
         else:
-            painter.drawRect(p.x(), p.y(), scale, scale)
+            painter.drawRect(p.x(), p.y(), size, size)
 
 
 class MultiPixelSelectionManipulator(TaskDelegate):
@@ -88,6 +90,7 @@ class MultiPixelSelectionManipulator(TaskDelegate):
             return
 
         scale = self._rasterview.get_scale()
+        size = max(scale, 1)
 
         points_scaled = [scale_qpoint_by_float(p, scale) for p in self._points]
 
@@ -103,7 +106,7 @@ class MultiPixelSelectionManipulator(TaskDelegate):
                     scale - 2 * MULTIPIXEL_PIXEL_OFFSET,
                 )
             else:
-                painter.drawRect(p.x(), p.y(), scale, scale)
+                painter.drawRect(p.x(), p.y(), size, size)
 
 
 class MultiPixelSelectionCreator(MultiPixelSelectionManipulator):

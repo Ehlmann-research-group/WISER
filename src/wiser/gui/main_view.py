@@ -54,7 +54,6 @@ class MainViewWidget(RasterPane):
             embed_toolbar=False,
             max_zoom_scale=16,
             zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
-            initial_zoom=1,
         )
         self._stretch_builder = StretchBuilderDialog(parent=self, app_state=app_state)
         self._export_image = ExportImageDialog(parent=self)
@@ -686,13 +685,19 @@ class MainViewWidget(RasterPane):
                         other.make_point_visible(*target, reference_rasterview=rv)
                 return
 
-    def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
+    def set_viewport_highlight(
+        self, viewport: Union[QRect, QRectF], rasterview: RasterView, scroll_to_viewport: bool = True
+    ):
         """
         Sets the "viewport highlight" to be displayed in this raster-pane. This
         is used to allow the Main View to show the Zoom Pane viewport.
 
         This function always only takes in one viewport and one rasterview because
         the Zoom Pane only has one viewport and rasterview.
+
+        If ``scroll_to_viewport`` is True, a raster-view whose visible area does
+        not contain the viewport is scrolled to center it; if False, no
+        raster-view scrolls.
         """
         dataset = rasterview.get_raster_data()
         if dataset is None:
@@ -712,7 +717,7 @@ class MainViewWidget(RasterPane):
                     rv.update()
                     continue
 
-                if not visible.contains(viewport):
+                if scroll_to_viewport and not visible.contains(viewport):
                     center = QRectF(viewport).center()
                     rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
@@ -735,7 +740,7 @@ class MainViewWidget(RasterPane):
 
                 # We only want to change a rasterview if it has the same underlying dataset
                 if rv_dataset == dataset:
-                    if not visible.contains(viewport):
+                    if scroll_to_viewport and not visible.contains(viewport):
                         center = QRectF(viewport).center()
                         rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 

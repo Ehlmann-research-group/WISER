@@ -297,7 +297,6 @@ class RasterPane(QWidget):
         min_zoom_scale=None,
         max_zoom_scale=None,
         zoom_options=None,
-        initial_zoom=None,
     ):
         super().__init__(parent=parent)
 
@@ -327,7 +326,6 @@ class RasterPane(QWidget):
         self._min_zoom_scale = min_zoom_scale
         self._max_zoom_scale = max_zoom_scale
         self._zoom_options = zoom_options
-        self._initial_zoom = initial_zoom
 
         # The key is for the dataset the viewport belongs to.
         # The value is a list of viewports because one dataset
@@ -1476,7 +1474,14 @@ class RasterPane(QWidget):
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
         colormap = rasterview.get_colormap()
-        dialog = BandChooserDialog(self._app_state, dataset, display_bands, colormap=colormap, parent=self)
+        dialog = BandChooserDialog(
+            self._app_state,
+            dataset,
+            display_bands,
+            colormap=colormap,
+            can_apply_global=not singular_update,
+            parent=self,
+        )
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:

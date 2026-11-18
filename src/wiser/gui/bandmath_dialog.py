@@ -19,7 +19,7 @@ from .generated.band_math_ui import Ui_BandMathDialog
 from .app_state import ApplicationState
 from .rasterview import RasterView
 
-from wiser.raster.dataset import RasterDataBand, RasterDataBatchBand
+from wiser.raster.dataset import RasterDataBand, RasterDataBatchBand, RasterDataDynamicBand
 from wiser.raster.serializable import Serializable, BasicValueSerialized
 from wiser import bandmath
 from wiser.bandmath.utils import (
@@ -28,6 +28,10 @@ from wiser.bandmath.utils import (
     bandmath_error_callback,
 )
 from wiser.bandmath.types import BANDMATH_VALUE_TYPE
+from wiser.bandmath.presets import (
+    DEFAULT_WAVELENGTH_TOLERANCE_NM,
+    SPECTRAL_INDEX_PRESETS,
+)
 from wiser.gui.util import get_plugin_fns
 from wiser.gui.subprocessing_manager import ProcessManager
 from wiser.gui.parallel_task import ParallelTask, ParallelTaskState
@@ -179,7 +183,23 @@ class DatasetBandChooserWidget(QWidget):
     """
     This class presents a dataset-chooser and a band-chooser in a single widget,
     for the selection of a band in a band-math expression.
+
+    The band is chosen either by index from the band list, or by wavelength:
+    a wavelength (in the chosen unit) and a tolerance in nm select the band
+    nearest the wavelength among those within the tolerance, using
+    :meth:`RasterDataDynamicBand.resolve_band_index`.  In wavelength mode the
+    band list is read-only and shows the resolved band; when the wavelength
+    cannot be resolved, the reason is shown below it and
+    :meth:`get_ds_band` raises.
     """
+
+    # Wavelength units offered for the wavelength value.  Only length units, so
+    # the conversion to nm is a scale factor.
+    WAVELENGTH_UNIT_KEYS = ("nm", "um")
+
+    # Emitted when the wavelength binding (mode, wavelength, unit or tolerance)
+    # changes.
+    bindingChanged = Signal()
 
     def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
@@ -195,12 +215,54 @@ class DatasetBandChooserWidget(QWidget):
         self.dataset_chooser = make_dataset_chooser(self._app_state)
         layout.addWidget(self.dataset_chooser, 0, 0)
 
+        self.mode_chooser = QComboBox()
+        self.mode_chooser.addItem(self.tr("Band"), ImageBandBatchChooserWidget.Mode.INDEX.value)
+        self.mode_chooser.addItem(self.tr("Wavelength"), ImageBandBatchChooserWidget.Mode.WAVELENGTH.value)
+        self.mode_chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        layout.addWidget(self.mode_chooser, 0, 1)
+
         self.band_chooser = QComboBox()
         self.band_chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self._populate_band_chooser()
-        layout.addWidget(self.band_chooser, 0, 1)
+        layout.addWidget(self.band_chooser, 0, 2)
+
+        self.ledit_wavelength = QLineEdit()
+        self.ledit_wavelength.setPlaceholderText(self.tr("Wavelength"))
+        self.ledit_wavelength.setValidator(QDoubleValidator(0.0, 1e6, 6, self))
+        layout.addWidget(self.ledit_wavelength, 0, 3)
+
+        self.cbox_wavelength_unit = QComboBox()
+        self.cbox_wavelength_unit.addItems(list(self.WAVELENGTH_UNIT_KEYS))
+        layout.addWidget(self.cbox_wavelength_unit, 0, 4)
+
+        self.lbl_tolerance = QLabel(self.tr(" \u00b1 "))
+        layout.addWidget(self.lbl_tolerance, 0, 5)
+
+        self.ledit_tolerance = QLineEdit(f"{DEFAULT_WAVELENGTH_TOLERANCE_NM:g}")
+        self.ledit_tolerance.setValidator(QDoubleValidator(0.0, 1e6, 6, self))
+        self.ledit_tolerance.setToolTip(
+            self.tr(
+                "Use the band nearest the wavelength among the bands within this many nm. "
+                "If no band is that close, no band is chosen."
+            )
+        )
+        self.ledit_tolerance.setMaximumWidth(50)
+        layout.addWidget(self.ledit_tolerance, 0, 6)
+
+        self.lbl_tolerance_unit = QLabel(self.tr(" nm"))
+        layout.addWidget(self.lbl_tolerance_unit, 0, 7)
+
+        self.lbl_status = QLabel()
+        self.lbl_status.setStyleSheet("QLabel { color: red; }")
+        layout.addWidget(self.lbl_status, 1, 0, 1, 8)
 
         self.dataset_chooser.activated.connect(self._on_dataset_changed)
+        self.mode_chooser.currentIndexChanged.connect(self._on_wavelength_binding_changed)
+        self.ledit_wavelength.editingFinished.connect(self._on_wavelength_binding_changed)
+        self.ledit_tolerance.editingFinished.connect(self._on_wavelength_binding_changed)
+        self.cbox_wavelength_unit.currentIndexChanged.connect(self._on_wavelength_binding_changed)
+
+        self._apply_mode()
 
     def _populate_band_chooser(self):
         """
@@ -245,13 +307,98 @@ class DatasetBandChooserWidget(QWidget):
         of available bands.
         """
         self._populate_band_chooser()
+        self._apply_mode()
 
-    def get_ds_band(self) -> Tuple[int, int]:
+    def _on_wavelength_binding_changed(self, *args):
+        self._apply_mode()
+        self.bindingChanged.emit()
+
+    def _is_wavelength_mode(self) -> bool:
+        return self.mode_chooser.currentData() == ImageBandBatchChooserWidget.Mode.WAVELENGTH.value
+
+    def _apply_mode(self) -> None:
+        """
+        Show the controls of the current mode.  In wavelength mode, resolve the
+        wavelength and show the resolved band in the band list, or the reason
+        it cannot be resolved.
+        """
+        is_wavelength = self._is_wavelength_mode()
+        for w in (
+            self.ledit_wavelength,
+            self.cbox_wavelength_unit,
+            self.lbl_tolerance,
+            self.ledit_tolerance,
+            self.lbl_tolerance_unit,
+        ):
+            w.setVisible(is_wavelength)
+        self.band_chooser.setEnabled(not is_wavelength)
+
+        self.lbl_status.clear()
+        if is_wavelength:
+            try:
+                band_index = self._resolve_wavelength_band()
+            except ValueError as e:
+                self.band_chooser.setCurrentIndex(-1)
+                self.lbl_status.setText(str(e))
+            else:
+                self.band_chooser.setCurrentIndex(self.band_chooser.findData(band_index))
+        self.lbl_status.setVisible(bool(self.lbl_status.text()))
+
+    def _resolve_wavelength_band(self) -> Optional[int]:
+        """
+        Returns the band index the wavelength controls select on the current
+        dataset, or ``None`` when no dataset is chosen or the wavelength or
+        tolerance is blank.
+
+        Raises:
+            ValueError: if the dataset has no wavelengths, or no band lies
+                within the tolerance of the wavelength.
+        """
+        ds_id = self.dataset_chooser.currentData()
+        wavelength_text = self.ledit_wavelength.text().strip()
+        tolerance_text = self.ledit_tolerance.text().strip()
+        if ds_id is None or not wavelength_text or not tolerance_text:
+            return None
+
+        unit = ImageBandBatchChooserWidget.UNIT_MAP[self.cbox_wavelength_unit.currentText()]
+        wavelength_nm = (float(wavelength_text) * unit).to_value(u.nm)
+        return RasterDataDynamicBand(
+            self._app_state.get_dataset(ds_id),
+            wavelength_value=wavelength_nm,
+            wavelength_units=u.nm,
+            epsilon=float(tolerance_text),
+        ).resolve_band_index()
+
+    def set_wavelength(self, wavelength: float, unit_key: str, tolerance_nm: float) -> None:
+        """
+        Switch to wavelength mode with the given wavelength, unit key (one of
+        :attr:`WAVELENGTH_UNIT_KEYS`) and tolerance in nm.
+        """
+        for w in (self.mode_chooser, self.cbox_wavelength_unit):
+            w.blockSignals(True)
+        self.mode_chooser.setCurrentIndex(
+            self.mode_chooser.findData(ImageBandBatchChooserWidget.Mode.WAVELENGTH.value)
+        )
+        self.cbox_wavelength_unit.setCurrentText(unit_key)
+        for w in (self.mode_chooser, self.cbox_wavelength_unit):
+            w.blockSignals(False)
+        self.ledit_wavelength.setText(f"{wavelength:g}")
+        self.ledit_tolerance.setText(f"{tolerance_nm:g}")
+        self._on_wavelength_binding_changed()
+
+    def get_ds_band(self) -> Tuple[int, Optional[int]]:
         """
         This method returns the currently selected dataset and band.  The
         information is reported as a 2-tuple of this form:  (dataset ID,
-        band index).
+        band index).  In wavelength mode the band index is ``None`` while the
+        wavelength or tolerance is blank.
+
+        Raises:
+            ValueError: in wavelength mode, if the dataset has no wavelengths or
+                no band lies within the tolerance of the wavelength.
         """
+        if self._is_wavelength_mode():
+            return (self.dataset_chooser.currentData(), self._resolve_wavelength_band())
         return (self.dataset_chooser.currentData(), self.band_chooser.currentData())
 
 
@@ -1098,6 +1245,19 @@ class BandMathDialog(QDialog):
         self._ui.btn_load_saved_exprs.clicked.connect(self._on_load_saved_exprs)
         self._ui.btn_save_saved_exprs.clicked.connect(self._on_save_saved_exprs)
 
+        # ==================================
+        # Built-in spectral-index presets
+
+        self._ui.cbox_index_presets.addItem(self.tr("Choose a spectral index..."), None)
+        for preset in SPECTRAL_INDEX_PRESETS:
+            self._ui.cbox_index_presets.addItem(f"{preset.name} - {preset.title}", preset)
+            self._ui.cbox_index_presets.setItemData(
+                self._ui.cbox_index_presets.count() - 1,
+                f"{preset.expression}\n\n{preset.reference}",
+                Qt.ToolTipRole,
+            )
+        self._ui.cbox_index_presets.activated.connect(self._on_choose_index_preset)
+
         # Seed the combo-box from the application-state store (the persistent
         # backing for the project file); re-seeded on every show so a project load
         # is reflected, and the two mutation handlers keep the store in sync.
@@ -1843,6 +2003,7 @@ class BandMathDialog(QDialog):
         elif variable_type == bandmath.VariableType.IMAGE_BAND:
             value_widget = DatasetBandChooserWidget(self._app_state)
             value_widget.dataset_chooser.activated.connect(self._on_variable_shape_change)
+            value_widget.bindingChanged.connect(self._analyze_expr)
 
         elif variable_type == bandmath.VariableType.SPECTRUM:
             value_widget = make_spectrum_chooser(self._app_state)
@@ -2033,6 +2194,31 @@ class BandMathDialog(QDialog):
         self._ui.ledit_expression.setText(expr)
         self._analyze_expr()
 
+    def _on_choose_index_preset(self, index):
+        """
+        Set the expression to the chosen spectral-index preset, and bind each of
+        its band variables as an image band chosen by the preset's reference
+        wavelength with the default tolerance.  Each variable keeps the dataset
+        already chosen in its row.
+        """
+        preset = self._ui.cbox_index_presets.itemData(index)
+        if preset is None:
+            return
+
+        self._ui.ledit_expression.setText(preset.expression)
+        self._analyze_expr()
+
+        tbl = self._ui.tbl_variables
+        for var, wavelength in preset.band_wavelengths.items():
+            row = self._find_variable_in_bindings(var)
+            type_widget = tbl.cellWidget(row, 1)
+            if type_widget.currentData() != bandmath.VariableType.IMAGE_BAND:
+                type_widget.setCurrentIndex(type_widget.findData(bandmath.VariableType.IMAGE_BAND))
+                self._on_variable_type_change(type_widget.currentIndex(), var)
+            tbl.cellWidget(row, 2).set_wavelength(
+                wavelength.to_value(u.nm), "nm", DEFAULT_WAVELENGTH_TOLERANCE_NM
+            )
+
     def _on_clear_inputs(self, checked: bool):
         """
         Clears all inputs. The inputs to clear are the expression, the variable bindings, the result_name,
@@ -2084,7 +2270,11 @@ class BandMathDialog(QDialog):
         # Make sure that all variable-bindings are specified, and that there are
         # no obvious errors with the band-math expression.
 
-        bindings = self.get_variable_bindings()
+        try:
+            bindings = self.get_variable_bindings()
+        except ValueError as e:
+            QMessageBox.critical(self, self.tr("Binding Error"), str(e))
+            return
         if not all_bindings_specified(bindings):
             QMessageBox.critical(
                 self,
@@ -2136,8 +2326,8 @@ class BandMathDialog(QDialog):
         # IMAGE_BAND -> dataset ID from DatasetBandChooserWidget
         if var_type == bandmath.VariableType.IMAGE_BAND:
             if isinstance(value_widget, DatasetBandChooserWidget):
-                ds_id, band_idx = value_widget.get_ds_band()
-                if ds_id is None or band_idx is None:
+                ds_id = value_widget.dataset_chooser.currentData()
+                if ds_id is None:
                     return True
                 return self._app_state.has_dataset(ds_id)
             return False

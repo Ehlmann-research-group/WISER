@@ -1618,11 +1618,12 @@ class RasterView(QWidget):
             print(f"WARNING:  Unrecognized color # {color}")
         self.update_display_image(colors=color)
 
-    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
+    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF], round_nearest=False) -> QPoint:
         """
         Takes a position in screen space as a QPointF object, and translates it
-        into a 2-tuple containing the (X, Y) coordinates of the position within
-        the raster data set.
+        into a QPoint holding the integer (X, Y) coordinates of the position
+        within the raster data set, rounded to nearest if ``round_nearest`` is
+        set and truncated otherwise.
         """
         if isinstance(position, QPoint):
             position = QPointF(position)
