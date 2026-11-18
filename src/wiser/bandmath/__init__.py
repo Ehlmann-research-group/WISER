@@ -8,6 +8,7 @@ from .types import (
     BandMathValue,
     BandMathFunction,
     BandMathEvalError,
+    BandMathMemoryError,
 )
 from .parser import get_bandmath_variables, verify_bandmath_expr, bandmath_parses
 
@@ -19,4 +20,5 @@ __all__ = [
     "BandMathValue",
     "BandMathFunction",
     "BandMathEvalError",
+    "BandMathMemoryError",
 ]

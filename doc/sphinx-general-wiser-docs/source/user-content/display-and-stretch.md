@@ -118,6 +118,11 @@ You get one histogram per displayed channel, with the current endpoints marked.
 Changes apply to the image immediately. **OK** keeps the result; **Cancel**
 discards it.
 
+On a large image, applying a stretch can take a few seconds; a progress dialog
+appears when it does. Its **Cancel** puts back the previous stretch in every
+view and in the stretch builder. Opening a large dataset shows the same kind of
+progress dialog, without a Cancel button.
+
 ### Stretch types
 
 **Full Linear Stretch** — maps each band's own minimum and maximum to 0 and
