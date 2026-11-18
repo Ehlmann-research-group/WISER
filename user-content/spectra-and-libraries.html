@@ -543,6 +543,9 @@ only some of the displayed spectra have no data).</p></li>
 <li><p><strong>Bad bands</strong> flagged in the header are left out of the line, which is why a
 spectrum from an airborne cube has gaps at the atmospheric water-vapor
 regions.</p></li>
+<li><p>Pixels equal to the dataset’s <strong>data-ignore value</strong> are left out as gaps
+too. Integer datasets behave the same way: no-data and bad bands are gaps,
+never 0, and a real value of 0 stays 0.</p></li>
 <li><p>The <strong>status bar</strong> reports the pixel coordinate and, for georeferenced data,
 the ground position.</p></li>
 <li><p>Clicking on the plot itself shows the <code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code> value at that point;

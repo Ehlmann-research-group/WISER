@@ -824,6 +824,9 @@ past it so later allocations do not collide.</p>
 The views that display the new dataset render under one progress
 dialog that shows progress only and has no Cancel: opening a dataset
 always displays it.</p>
+<p>Raises <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> if <code class="docutils literal notranslate"><span class="pre">dataset</span></code> is not a <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if its name is <code class="docutils literal notranslate"><span class="pre">None</span></code>; every dataset in the session is
+listed by name in the Save Dataset and Close Dataset menus.</p>
 </dd></dl>
 
 <dl class="py method">

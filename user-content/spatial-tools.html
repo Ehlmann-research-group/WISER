@@ -494,6 +494,7 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#similarity-transform">Similarity Transform</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rotating-and-scaling">Rotating and Scaling</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#translating-coordinate-system">Translating Coordinate System</a></li>
 </ul>
 </li>
@@ -708,6 +709,22 @@ ellipsoid, 1737400 m for the Moon — before choosing a projection.</p>
 <h2>Similarity Transform<a class="headerlink" href="#similarity-transform" title="Link to this heading">#</a></h2>
 <p>The similarity transform tool does two things: rotate/scale an
 image and translate an image’s coordinate system.</p>
+<section id="rotating-and-scaling">
+<h3>Rotating and Scaling<a class="headerlink" href="#rotating-and-scaling" title="Link to this heading">#</a></h3>
+<p>The <strong>Rotate and Scale</strong> tab writes a rotated, scaled copy of a single-band or
+multi-band dataset. <strong>Interpolation Type</strong> offers <strong>Nearest</strong> and <strong>Linear</strong>.</p>
+<p>Output pixels outside the rotated footprint, and pixels whose interpolated
+value would draw on a pixel outside the source or on a masked source pixel,
+are masked and written as the dataset’s data-ignore value (NaN for a
+floating-point dataset that has none). They are never recomputed from
+neighbouring valid pixels, so Linear leaves a narrow masked edge, about one
+source pixel wide, around the footprint and around masked source pixels, that
+Nearest does not. When there are such pixels, an
+integer dataset with no data-ignore value is refused, since it has no value to
+write them as.</p>
+<p>The preview keeps its rotation and scale when you change the dataset, the
+display bands or the stretch.</p>
+</section>
 <section id="translating-coordinate-system">
 <h3>Translating Coordinate System<a class="headerlink" href="#translating-coordinate-system" title="Link to this heading">#</a></h3>
 <p>This section covers the <strong>Translate Coordinate Sys</strong> tool in the Similarity
@@ -789,6 +806,7 @@ ones that have both a spatial reference system and a geotransform.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#similarity-transform">Similarity Transform</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rotating-and-scaling">Rotating and Scaling</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#translating-coordinate-system">Translating Coordinate System</a></li>
 </ul>
 </li>

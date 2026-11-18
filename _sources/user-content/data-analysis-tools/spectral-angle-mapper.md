@@ -30,6 +30,9 @@ spectrum:
 - `SAM Angle, Img: <source>` — the angle (degrees) at every pixel.
 - `SAM CLS, Img: <source>` — a boolean classification (angle < threshold).
 
+Each result keeps the source dataset's georeferencing (map info and coordinate
+system), so a saved result opens in place in GIS software.
+
 ## Using the tool
 
 :::{figure} ../../_static/tutorials/t7_sam_dialog.png

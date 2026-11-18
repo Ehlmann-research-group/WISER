@@ -1135,6 +1135,10 @@ True, bands holding the dataset’s “data ignore value” will be set to
 NaN.  The two filters are independent: a caller that needs to mirror the
 rendered image can mask data-ignore pixels while still showing the raw
 values of bad bands (which the renderer also displays).</p>
+<p>When either filter is on, integer data is returned as the floating-point
+type <code class="docutils literal notranslate"><span class="pre">np.promote_types(dtype,</span> <span class="pre">np.float32)</span></code> so that masked bands can
+hold NaN; this type holds every value of an integer type of up to 32
+bits exactly.  With both filters off the source dtype is returned.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1145,6 +1149,9 @@ rectangle in the raster data.
 If filter_bad_values is set to True, bands that are marked as “bad” in
 the metadata will be set to NaN, and bands with the “data ignore value”
 will also be set to NaN.</p>
+<p>When filter_bad_values is True, integer data is returned as the
+floating-point type <code class="docutils literal notranslate"><span class="pre">np.promote_types(dtype,</span> <span class="pre">np.float32)</span></code> so that
+masked values can hold NaN.  Otherwise the source dtype is returned.</p>
 </dd></dl>
 
 <dl class="py method">
