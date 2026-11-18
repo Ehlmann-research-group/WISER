@@ -47,7 +47,7 @@ class MultiPixelSelectionManipulator(TaskDelegate):
     subclasses customize it as needed.
 
     Left-click toggles a pixel.  Enter or right-click finishes the operation,
-    and Esc cancels it; subclasses check self._cancelled in finish().
+    and Esc or cancel() cancels it; subclasses check self._cancelled in finish().
     """
 
     consumes_context_menu = True
@@ -80,6 +80,10 @@ class MultiPixelSelectionManipulator(TaskDelegate):
 
     def on_context_menu(self, context_menu_event):
         return True
+
+    def cancel(self):
+        self._cancelled = True
+        self.finish()
 
     def draw_state(self, painter):
         if len(self._points) == 0:

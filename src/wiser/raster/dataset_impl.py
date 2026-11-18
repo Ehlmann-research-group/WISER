@@ -43,6 +43,21 @@ from wiser.utils.progress import ProgressCancelled, ProgressReporter
 
 logger = logging.getLogger(__name__)
 
+
+def data_quantity_label(name: Optional[str], units: Optional[str]) -> Optional[str]:
+    """
+    Combines a quantity name and its units into one label:  ``"name (units)"``
+    when both are given, the one given otherwise, and ``None`` when neither is.
+    Leading and trailing whitespace is stripped, and an empty string counts as
+    not given.
+    """
+    name = name.strip() if name is not None else ""
+    units = units.strip() if units is not None else ""
+    if name and units:
+        return f"{name} ({units})"
+    return name or units or None
+
+
 Number = Union[int, float]
 
 CHUNK_WRITE_SIZE = 250000000
@@ -203,6 +218,15 @@ class RasterDataImpl(abc.ABC):
 
     def read_band_info(self) -> List[Dict[str, Any]]:
         pass
+
+    def read_data_quantity(self) -> Optional[str]:
+        """
+        Returns the quantity the stored values represent, with its units where
+        the file states them (e.g. ``"Surface Reflectance (unitless)"``), as
+        declared by the file's metadata.  ``None`` means the file declares no
+        quantity; it is never inferred from the values or the file type.
+        """
+        return None
 
     def read_default_display_bands(
         self,
@@ -673,6 +697,18 @@ class GDALRasterDataImpl(RasterDataImpl):
 
     def read_data_ignore_value(self) -> Optional[Number]:
         return self.data_ignore
+
+    def read_data_quantity(self) -> Optional[str]:
+        """
+        For a file GDAL's netCDF driver opened directly (a netCDF file holding a
+        single data variable), returns that variable's ``long_name`` and
+        ``units`` attributes, combined by :func:`data_quantity_label`.  Returns
+        ``None`` for every other driver.
+        """
+        if self.gdal_dataset.GetDriver().ShortName != "netCDF":
+            return None
+        md = self.gdal_dataset.GetRasterBand(1).GetMetadata()
+        return data_quantity_label(md.get("long_name"), md.get("units"))
 
     def read_geo_transform(self) -> Tuple:
         return self.gdal_dataset.GetGeoTransform()
@@ -1206,6 +1242,21 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
+    def read_data_quantity(self) -> Optional[str]:
+        """
+        Returns the GDAL unit type shared by every band, or ``None`` when a band
+        has none or the bands differ.  Band descriptions are not used:  they
+        name the individual bands (WISER writes wavelengths into them), not the
+        quantity of the values.
+        """
+        unit_types = {
+            self.gdal_dataset.GetRasterBand(i).GetUnitType().strip()
+            for i in range(1, self.gdal_dataset.RasterCount + 1)
+        }
+        if len(unit_types) != 1:
+            return None
+        return data_quantity_label(None, unit_types.pop())
 
 
 class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
@@ -2214,6 +2265,30 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     def read_band_unit(self):
         return self._wavelength_units
 
+    def read_data_quantity(self) -> Optional[str]:
+        """
+        Returns the opened variable's ``long_name`` and ``units`` attributes,
+        combined by :func:`data_quantity_label`.
+
+        Raises
+        ------
+        ValueError
+            If the subdataset's variable cannot be found in the file, or either
+            attribute is not a string.
+        """
+        var_path = self._subdataset_name.split(":")[-1]
+        nc_var = self._nc_resolve_var(self._netcdf_dataset, var_path)
+        if nc_var is None:
+            raise ValueError(f"{self._netcdf_dataset.filepath()} has no variable {var_path!r}")
+
+        attrs = {}
+        for key in ("long_name", "units"):
+            value = nc_var.getncattr(key) if key in nc_var.ncattrs() else None
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"{var_path!r} attribute {key!r} is not a string:  {value!r}")
+            attrs[key] = value
+        return data_quantity_label(attrs["long_name"], attrs["units"])
+
     def read_band_info(self):
         band_info = []
 
@@ -2847,6 +2922,24 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             return b
 
         return None
+
+    def read_data_quantity(self) -> Optional[str]:
+        """
+        Returns the y-axis title of the ENVI ``z plot titles`` header field and
+        the ``data units`` field, combined by :func:`data_quantity_label`.
+        ``z plot titles`` lists the x-axis title, then the y-axis title after
+        the first comma; with no comma it holds only the x-axis title.
+        """
+        md = self.gdal_dataset.GetMetadata("ENVI")
+
+        y_title = None
+        titles = md.get("z_plot_titles", "").strip()
+        if titles.startswith("{") and titles.endswith("}"):
+            titles = titles[1:-1]
+        if "," in titles:
+            y_title = titles.split(",", 1)[1]
+
+        return data_quantity_label(y_title, md.get("data_units"))
 
     def read_data_ignore_value(self):
         """

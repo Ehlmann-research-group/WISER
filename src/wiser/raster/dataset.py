@@ -642,6 +642,9 @@ class RasterDataSet(Serializable):
 
         self._band_info: List[Dict[str, Any]] = impl.read_band_info()
 
+        # The quantity the values represent, as the file declares it
+        self._data_quantity: Optional[str] = impl.read_data_quantity()
+
         self._bad_bands: Optional[List[int]] = impl.read_bad_bands()
 
         # Optional default display bands for the raster data
@@ -668,9 +671,10 @@ class RasterDataSet(Serializable):
         # to WISER, and varies from run to run.
         self._dirty: bool = False
 
-        # A map of band index to BandStats objects, so that we can lazily
-        # compute these values and reuse them.
-        self._cached_band_stats: Dict[int, BandStats] = {}
+        # A map of (band index, data ignore value) to BandStats objects, so
+        # that we can lazily compute these values and reuse them.  The ignore
+        # value is part of the key because it decides which pixels count.
+        self._cached_band_stats: Dict[Tuple[int, Optional[Number]], BandStats] = {}
 
     def _compute_has_wavelengths(self):
         for b in self._band_info:
@@ -825,6 +829,15 @@ class RasterDataSet(Serializable):
         if self._band_info[0].get("wavelength") is None:
             return None
         return self._band_info[0]["wavelength"].unit
+
+    def get_data_quantity(self) -> Optional[str]:
+        """
+        Returns the quantity the dataset's values represent, with its units
+        where the file states them (e.g. ``"Surface Reflectance (unitless)"``),
+        as read by the implementation's ``read_data_quantity()``.  ``None``
+        means the file declares no quantity.
+        """
+        return self._data_quantity
 
     def band_list(self) -> List[Dict[str, Any]]:
         """
@@ -1161,9 +1174,10 @@ class RasterDataSet(Serializable):
                 arr = mask_data_ignore_value(arr, self._data_ignore_value)
 
             # Must get min after making it a masked array
-            if band_index in self._cached_band_stats:
-                band_min = self._cached_band_stats[band_index].get_min()
-                band_max = self._cached_band_stats[band_index].get_max()
+            stats_key = (band_index, self._data_ignore_value)
+            if stats_key in self._cached_band_stats:
+                band_min = self._cached_band_stats[stats_key].get_min()
+                band_max = self._cached_band_stats[stats_key].get_max()
             else:
                 has_inf = np.isinf(arr).any()
 
@@ -1182,7 +1196,7 @@ class RasterDataSet(Serializable):
                 arr = np.ma.masked_array(arr, mask=mask)
             else:
                 arr = normalize_ndarray(arr, band_min, band_max)
-            self._cached_band_stats[(band_index, self._data_ignore_value)] = stats
+            self._cached_band_stats[stats_key] = stats
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
@@ -1237,7 +1251,8 @@ class RasterDataSet(Serializable):
         :class:`BandStats` object.
         """
 
-        stats = self._cached_band_stats.get(band_index)
+        stats_key = (band_index, self._data_ignore_value)
+        stats = self._cached_band_stats.get(stats_key)
         if stats is None:
             if band is None:
                 band = self.get_band_data(band_index)
@@ -1257,7 +1272,7 @@ class RasterDataSet(Serializable):
             band_max = np.nanmax(filtered_band)
             stats = BandStats(band_index, band_min, band_max)
 
-            self._cached_band_stats[band_index] = stats
+            self._cached_band_stats[stats_key] = stats
         return stats
 
     def get_all_bands_at(self, x: int, y: int, filter_bad_values=True, filter_data_ignore_value=True):
@@ -1381,7 +1396,8 @@ class RasterDataSet(Serializable):
         """
         Stores the band stats in this dataset's cache for band stats
         """
-        if index not in self._cached_band_stats:
+        stats_key = (index, self._data_ignore_value)
+        if stats_key not in self._cached_band_stats:
             # Exclude the data ignore sentinel from the statistics; if left in it
             # collapses band_min to the sentinel and washes the display out to a
             # uniform color (see get_band_stats).  Callers reach here from
@@ -1391,7 +1407,7 @@ class RasterDataSet(Serializable):
             band_min = np.nanmin(arr)
             band_max = np.nanmax(arr)
             band_stats = BandStats(index, band_min, band_max)
-            self._cached_band_stats[index] = band_stats
+            self._cached_band_stats[stats_key] = band_stats
 
     def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
         if self._spatial_ref is None:

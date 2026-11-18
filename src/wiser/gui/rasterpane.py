@@ -3,6 +3,7 @@ import os
 from enum import Enum
 from typing import List, Optional, Tuple, Dict, Union
 import numpy as np
+from astropy import units as u
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -22,7 +23,7 @@ from wiser import plugins
 from wiser.raster import roi_export
 from wiser.raster.dataset_impl import NumPyRasterDataImpl
 from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds, transform_geo_coord
-from wiser.raster.dataset import find_display_bands
+from wiser.raster.dataset import DisplayBands, find_display_bands
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, SinglePixelSelection
 from wiser.raster.spectra_export import export_roi_pixel_spectra
@@ -1023,6 +1024,19 @@ class RasterPane(QWidget):
 
         self.update_all_rasterviews()
 
+    def _cancel_task_delegate(self) -> None:
+        """
+        Cancel and clear the active task delegate, if any, so that it commits
+        nothing.  Called before a new task delegate is constructed, so that the
+        new delegate's status text is the one left showing.
+        """
+        if self._task_delegate is None:
+            return
+
+        self._task_delegate.cancel()
+        self._task_delegate = None
+        self.update_all_rasterviews()
+
     def _emit_viewport_change(self, rasterview_pos=None):
         """A helper that emits the viewport-changed event."""
         self.viewport_change.emit(rasterview_pos)
@@ -1066,7 +1080,7 @@ class RasterPane(QWidget):
         if dataset is not None:
             ds_id = dataset.get_id()
             if ds_id not in self._display_bands:
-                display_bands = find_display_bands(dataset)
+                display_bands = self._initial_display_bands(dataset)
                 self._display_bands[ds_id] = display_bands
 
             bands = self._display_bands[ds_id]
@@ -1355,6 +1369,21 @@ class RasterPane(QWidget):
             # tiled view dataset choosers refresh to include the new dataset.
             self._update_rasterview_toolbars()
 
+    def _initial_display_bands(self, dataset: RasterDataSet) -> DisplayBands:
+        """
+        Returns the bands to display when ``dataset`` is first shown in this pane:
+        the dataset's own ``default bands`` if it has them, otherwise the bands
+        nearest the ``general.red/green/blue_wavelength_nm`` preferences (in nm),
+        otherwise the first three bands (or the first band, for datasets with
+        fewer than three bands).  See :func:`find_display_bands`.
+        """
+        return find_display_bands(
+            dataset,
+            red=self._app_state.get_config("general.red_wavelength_nm") * u.nm,
+            green=self._app_state.get_config("general.green_wavelength_nm") * u.nm,
+            blue=self._app_state.get_config("general.blue_wavelength_nm") * u.nm,
+        )
+
     def _view_dataset(self, ds_id):
         """
         This function changes the current raster pane's view to that of the dataset
@@ -1365,7 +1394,7 @@ class RasterPane(QWidget):
         """
         dataset = self._app_state.get_dataset(ds_id)
         if ds_id not in self._display_bands:
-            self._display_bands[ds_id] = find_display_bands(dataset)
+            self._display_bands[ds_id] = self._initial_display_bands(dataset)
 
         self._update_rasterview_toolbars()
 
@@ -1392,12 +1421,16 @@ class RasterPane(QWidget):
         """
         This function handles "dataset removed" events from the application
         state.  It cleans up the locally-recorded display band info for the
-        dataset.  Also, if any rasterviews are showing the dataset, the function
+        dataset and clears the pixel highlight if it references the dataset.
+        Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         """
         if ds_id in self._display_bands:
             del self._display_bands[ds_id]
         self._colormaps.pop(ds_id, None)
+
+        if self._pixel_highlight is not None and self._pixel_highlight.get_dataset().get_id() == ds_id:
+            self.set_pixel_highlight(None)
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
@@ -1702,7 +1735,7 @@ class RasterPane(QWidget):
         then added to a Region of Interest.
         """
 
-        # TODO(donnie):  What to do if the task-delegate already exists?!
+        self._cancel_task_delegate()
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
@@ -1732,6 +1765,7 @@ class RasterPane(QWidget):
             )
 
     def _on_edit_roi_selection_geometry(self, roi, sel_index, rasterview) -> None:
+        self._cancel_task_delegate()
         sel = roi.get_selections()[sel_index]
         selection_type = sel.get_type()
 

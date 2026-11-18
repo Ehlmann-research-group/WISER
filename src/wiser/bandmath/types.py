@@ -357,3 +357,14 @@ class BandMathEvalError(RuntimeError):
     """
 
     pass
+
+
+class BandMathMemoryError(MemoryError):
+    """
+    This subtype of the MemoryError exception is raised before a band-math
+    evaluation starts, when the evaluation's estimated peak memory exceeds the
+    share of available system memory that band math may use.  Nothing has been
+    evaluated or written when it is raised.
+    """
+
+    pass

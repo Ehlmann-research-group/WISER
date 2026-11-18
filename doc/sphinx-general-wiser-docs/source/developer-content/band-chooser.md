@@ -99,8 +99,18 @@ from app config (`general.red_wavelength_nm`, etc.).
 Picks the bands to display when a dataset is first shown, in priority order:
 
 1. The dataset's own `default_display_bands()` (may be a 3-tuple or 1-tuple).
-2. Otherwise, `find_truecolor_bands()` if wavelengths are available.
+2. Otherwise, `find_truecolor_bands()` with the given `red`/`green`/`blue`
+   wavelengths if wavelengths are available.
 3. Otherwise, `(0, 1, 2)` if the dataset has ≥ 3 bands, else `(0,)` (grayscale).
+
+`red`, `green` and `blue` default to the hardcoded `RED_WAVELENGTH`,
+`GREEN_WAVELENGTH` and `BLUE_WAVELENGTH` (700, 530 and 470 nm,
+`src/wiser/raster/utils.py`). The main view, zoom pane and context pane choose a
+newly opened dataset's bands through `RasterPane._initial_display_bands()`
+(`src/wiser/gui/rasterpane.py`), which passes the `general.red_wavelength_nm`,
+`general.green_wavelength_nm` and `general.blue_wavelength_nm` preferences as
+those wavelengths. The order on open is therefore: the dataset's default bands,
+then the bands nearest the preference wavelengths, then the first band(s).
 
 These helpers are also wired to the dialog's buttons: "choose visible-light
 bands" calls `find_truecolor_bands()`, and "choose defaults" reads

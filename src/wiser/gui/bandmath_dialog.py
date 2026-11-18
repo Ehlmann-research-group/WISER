@@ -1412,21 +1412,25 @@ class BandMathDialog(QDialog):
         def status_callback(progress):
             self.on_bandmath_job_status(job, progress)
 
-        process_manager = bandmath.start_bandmath_evaluation(
-            succeeded_callback=success_callback,
-            status_callback=status_callback,
-            error_callback=bandmath_error_callback,
-            started_callback=started_callback,
-            cancelled_callback=cancelled_callback,
-            bandmath_expr=job.get_expression(),
-            expr_info=job.get_expr_info(),
-            app_state=self._app_state,
-            result_name=job.get_result_suffix(),
-            cache=self._app_state.get_cache(),
-            variables=job.get_variables(),
-            functions=functions,
-            subdataset_name=job.get_subdataset_name(),
-        )
+        try:
+            process_manager = bandmath.start_bandmath_evaluation(
+                succeeded_callback=success_callback,
+                status_callback=status_callback,
+                error_callback=bandmath_error_callback,
+                started_callback=started_callback,
+                cancelled_callback=cancelled_callback,
+                bandmath_expr=job.get_expression(),
+                expr_info=job.get_expr_info(),
+                app_state=self._app_state,
+                result_name=job.get_result_suffix(),
+                cache=self._app_state.get_cache(),
+                variables=job.get_variables(),
+                functions=functions,
+                subdataset_name=job.get_subdataset_name(),
+            )
+        except bandmath.BandMathMemoryError as e:
+            QMessageBox.critical(self, self.tr("Not Enough Memory for Band Math"), str(e))
+            return
         job.set_process_manager(process_manager)
 
     def _on_create_batch_job(self):

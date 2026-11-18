@@ -78,8 +78,8 @@ flowchart TD
 | Check for a fully-rendered image | `update_display_image()` | Render cache |
 | Read + normalize each band to `[0, 1]` | `RasterDataSet.get_band_data_normalized()` (`src/wiser/raster/dataset.py`) | Computation cache |
 | Decide per-band vs joint stretch | `RasterView._detect_joint_stretch()` | — |
-| Apply stretch, scale to `uint8` | `make_channel_image()` / `_render_joint_channels()` | Joint result cache (in-view) |
-| Pack channels into ARGB `uint32` | `make_rgb_image()` / `make_grayscale_image()` | — |
+| Apply stretch, scale to `uint8` | `make_channel_image_strips()` / `_render_joint_channels()` | Joint result cache (in-view) |
+| Pack channels into ARGB `uint32` | `make_rgb_image_strips()` / `make_grayscale_image()` | — |
 | Store rendered image | `update_display_image()` | Render cache |
 | Wrap as `QImage` → `QPixmap` | `update_display_image()` | — |
 
@@ -100,9 +100,9 @@ distinguishes the two cases with `_detect_joint_stretch()`, which inspects each
 channel's stretch and returns a joint stretch only if **every** channel agrees
 on the same one (otherwise it logs a warning and falls back to per-band).
 
-- **Per-band path** — for each dirty channel, `make_channel_image()` applies the
-  optional conditioner then the main stretch, clips to `[0, 1]`, and scales to
-  `uint8`.
+- **Per-band path** — for each dirty channel, `make_channel_image_strips()`
+  applies the optional conditioner then the main stretch, clips to `[0, 1]`,
+  and scales to `uint8`, a row strip at a time.
 - **Joint path** — `_render_joint_channels()` gathers all bands into one
   `(H, W, 3)` float32 buffer, applies per-band conditioners, runs
   `apply_multi()` once, then clips and scales each channel. The joint result is
@@ -162,42 +162,63 @@ Both setters null out `RasterView._joint_render_cache` and call
 
 ---
 
-## Known Issue: The Pipeline Runs on the GUI Thread
+## Progress, Cancel, and the GUI Thread
 
 ```{warning}
 `update_display_image()` runs **synchronously on the GUI thread**, and it runs
-**once per pane** — the context pane, main view, and zoom pane each hold a
-`RasterView` that renders the same change. On large images this is the single
-biggest source of interface freezes in WISER.
+**once per pane**: the context pane, main view, and zoom pane each hold a
+`RasterView` that renders the same change. On large images a stretch change or
+a dataset open still takes seconds of GUI-thread time.
 ```
 
-It also means "opening a dataset is slow" is mostly a *rendering* cost rather
-than a read cost. `loader.load_from_file()` probes drivers and reads metadata,
-not pixels; the band read, data-ignore masking, normalization, stretch, and
-compositing all happen here, driven off the `dataset_added` signal.
+"Opening a dataset is slow" is mostly a *rendering* cost rather than a read
+cost. `loader.load_from_file()` probes drivers and reads metadata, not pixels;
+the band read, data-ignore masking, normalization, stretch, and compositing all
+happen here, driven off the `dataset_added` signal.
 
-Because all three paths in [How Changes Reach the Screen](#how-changes-reach-the-screen)
-funnel through this one method, moving it off-thread improves dataset open, the
-stretch builder, and the band chooser together — and a regression here breaks all
-three at once.
+What keeps that time from looking like a hang:
 
-Two constraints shape any fix:
+- **Strips.** The per-channel stretch (`make_channel_image_strips()`) and the
+  RGB packing (`make_rgb_image_strips()`) run in horizontal row strips into
+  preallocated arrays. `strip_rows(width)` sizes a strip so its float32 working
+  copy of a band is about `RENDER_STRIP_BYTES` (8 MiB). The numba or Python
+  kernel is chosen by the whole band's size, so the output is identical to a
+  whole-band render. The joint path is not row-separable; it stays whole-band
+  and reports one step per stage.
+- **One progress dialog.** `ApplicationState.set_stretches()` and
+  `ApplicationState.add_dataset()` run their signal emit inside
+  `render_progress()` (`src/wiser/gui/render_progress.py`). Every
+  `RasterView` render under it reports its band reads, strips, joint stages and
+  pixmap as steps to one `QProgressDialog`, which appears only after the work
+  has taken 500 ms (`MINIMUM_DURATION_MS`), so small images never show it. Once
+  shown, the dialog processes events at each step, which keeps the application
+  repainting and the Cancel button live.
+- **All-or-nothing cancel for a stretch change.** A cancel is checked between
+  steps. Each `RasterView` records its render state before its first change
+  under the progress; on cancel every touched view is restored, including panes
+  that had already finished, the render-cache entries those renders added are
+  removed, `set_stretches()` puts back the previous stretches in
+  `ApplicationState`, and its `stretch_change_cancelled` signal makes the
+  stretch builder reload its controls from them. No pane shows a partial image.
+- **Dataset open shows progress without Cancel.** Opening a dataset always
+  displays it.
+- **A band-chooser change has no dialog.** `set_display_bands()` renders in
+  strips like the others but outside any `render_progress()`, so it reports no
+  progress and cannot be cancelled.
 
-- The `QImage` / `QPixmap` tail cannot leave the GUI thread. The seam has to be
-  cut between the NumPy work and the Qt handoff: finish the array off-thread,
-  build the Qt object on the GUI thread.
-- `_display_data`, `_joint_render_cache`, and the shared render cache are mutated
-  mid-render. Concurrent or stale renders must be canceled, or discarded on
-  arrival, or fast clicking in the band chooser will paint the wrong image.
+A pane holds its previous image until the new one is complete, so during a
+render peak memory is roughly one extra display image per pane.
 
-Note also that the render and computation caches do not currently serve hits (see
-[Data Caching](data-caching.md) and issue #772), so this path runs fully uncached
-today. Profile with that fixed, or the measurement will attribute cost to the
-rendering code that caching was designed to absorb.
+The `QImage` / `QPixmap` tail cannot leave the GUI thread. Moving the NumPy work
+off-thread would need the seam cut between the arrays and the Qt handoff, with
+stale renders discarded on arrival.
 
-Tracked in #758 (moving the NumPy portion off-thread), #764 (making a stretch
-change cancellable), and #69 (LoD-pyramid rendering, which would reduce the cost
-enough to change what the right fix is).
+The render cache does not currently store new entries (see
+[Data Caching](data-caching.md) and issue #772), so this path runs uncached
+today.
+
+Related: #758 (moving the NumPy portion off-thread) and #69 (LoD-pyramid
+rendering, which would reduce the cost enough to change what the right fix is).
 
 ---
 

@@ -264,6 +264,11 @@ class PolygonSelection(Selection):
             raise ValueError("points list must contain at least 3 points")
 
         self._points = list(points)
+
+        # Cached rasterization and the point coordinates it was computed from.  The
+        # points are mutable QPoints that editors change in place, so the cache is
+        # valid only while the current point coordinates equal the stored ones.
+        self._rasterized_points = None
         self._rasterized_poly = None
 
     def num_points(self):
@@ -288,14 +293,18 @@ class PolygonSelection(Selection):
         return self.get_bounding_box().contains(coord)
 
     def get_rasterized_polygon(self) -> RasterizedPolygon:
-        if self._rasterized_poly is None:
-            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
+        """
+        Returns the rasterization of the polygon's current points, recomputing
+        it whenever the point coordinates differ from those last rasterized.
+        """
+        points = [p.toTuple() for p in self._points]
+        if points != self._rasterized_points:
+            self._rasterized_poly = rasterize_polygon(points)
+            self._rasterized_points = points
         return self._rasterized_poly
 
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
-        if self._rasterized_poly is None:
-            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
-        return self._rasterized_poly.get_set()
+        return self.get_rasterized_polygon().get_set()
 
     def __str__(self):
         return f"PolygonSelection[points={self._points}]"
