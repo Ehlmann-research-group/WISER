@@ -22,8 +22,8 @@ For a worked example see
 1. **Type an expression** and press Enter.
 2. WISER parses it. Every name it does not recognize as a function becomes a
    **variable** and gets a row in **Variable bindings**.
-3. **Bind each variable** — choose its type, then the dataset, band or spectrum
-   it refers to.
+3. **Bind each variable** — choose its type, then the dataset, band (by number
+   or by wavelength) or spectrum it refers to.
 4. Give the output a **Result name**.
 5. Click **OK**.
 
@@ -95,6 +95,37 @@ Each variable binds to one of:
 
 Numeric literals may be used directly and need no binding.
 
+### Picking an image band by wavelength
+
+Band numbers do not carry over between sensors. In WISER's band labels, which
+count from 0, the band nearest 860 nm is **Band 64: 857.45 nm** in an EMIT
+scene, **Band 97: 862.47 nm** in an AVIRIS-NG scene and **Band 53: 859.65 nm**
+in an AVIRIS-classic scene (the EMIT, AVIRIS-NG and Cuprite AVIRIS-classic
+scenes WISER is tested with). An **Image Band** variable can therefore be bound by wavelength instead of by band
+number. Its row has three controls after the dataset:
+
+- **Band / Wavelength** — how the band is picked. **Band** chooses from the
+  band list as before.
+- In **Wavelength** mode: the wavelength, its unit (`nm` or `um`), and a
+  tolerance **± nm** (default **10 nm**).
+
+WISER binds the band whose center is nearest the wavelength among the bands
+within the tolerance, and shows that band, with its actual wavelength, in the
+(now read-only) band list, for example **Band 64: 857.45 nm**.
+
+If no band lies within the tolerance, or the dataset has no band wavelengths,
+nothing is bound: the reason appears in red under the row and in the result
+line, and **OK** refuses to run. WISER never falls back to a more distant band.
+Widen the tolerance only if you accept the band it reports.
+
+The 10 nm default is about one band spacing of common imaging spectrometers
+(AVIRIS-NG about 5 nm, EMIT about 7.4 nm, AVIRIS-classic about 10 nm), so on
+those grids a wavelength inside the sensor's range always resolves, while a
+wavelength the sensor does not sample is refused.
+
+Band lists show the wavelength with its unit (**Band 53: 859.65 nm**) whenever
+the band has a wavelength and the file gives no other band name.
+
 Types combine as you would expect: a cube times a number is a cube; a cube
 divided by a spectrum divides every pixel's spectrum band-by-band. WISER checks
 compatibility when it parses and tells you before running if shapes do not
@@ -110,6 +141,27 @@ match.
   one in, so a group can share a common library of indices
 
 Saved expressions are also stored in a {doc}`project <projects>`.
+
+## Spectral-index presets
+
+The **Spectral-index presets** dropdown, under the saved expressions, fills in
+a standard index and binds each of its bands by wavelength (tolerance 10 nm) on
+the dataset already chosen in each row. Check the band each row reports, and
+change the dataset if needed.
+
+| Preset | Expression | Reference wavelengths | Source |
+|---|---|---|---|
+| NDVI | `(nir - red) / (nir + red)` | NIR 860 nm, red 660 nm | Rouse et al. (1974), NASA SP-351 (660/860 nm narrow-band equivalents) |
+| SAVI | `1.5 * (nir - red) / (nir + red + 0.5)` | NIR 860 nm, red 660 nm; L = 0.5 | Huete (1988), *Remote Sens. Environ.* 25, 295-309 (660/860 nm narrow-band equivalents) |
+| NDWI (Gao) | `(r860 - r1240) / (r860 + r1240)` | 860 nm, 1240 nm | Gao (1996), *Remote Sens. Environ.* 58, 257-266 |
+| MSI | `r1600 / r820` | 1600 nm, 820 nm | Hunt and Rock (1989), *Remote Sens. Environ.* 30, 43-54 |
+
+A preset needs a dataset with band wavelengths that covers its reference
+wavelengths. On a sensor that does not sample them, for example a VNIR-only
+camera for NDWI or MSI, or a few-band image with no band near 660 nm, the
+preset reports which wavelength has no band rather than substituting one.
+Presets are built in; they are not added to the saved-expressions list or a
+project.
 
 ---
 
@@ -157,7 +209,7 @@ for that file; the other files still run. Subset spatially before you start
 
 | Purpose | Expression | Notes |
 |---|---|---|
-| Normalized difference (NDVI, NDWI, NDSI…) | `(a - b) / (a + b)` | Bind `a` and `b` to the two bands |
+| Normalized difference (NDVI, NDWI, NDSI…) | `(a - b) / (a + b)` | Bind `a` and `b` to the two bands, or use a preset |
 | Simple ratio | `a / b` | Iron oxide: red / blue |
 | Band depth | `1 - c / (0.5 * s1 + 0.5 * s2)` | `c` the band center, `s1`/`s2` the shoulders |
 | Mask | `a > 0.35` | 1 where true, 0 where false |

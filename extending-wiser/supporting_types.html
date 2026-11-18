@@ -1043,6 +1043,9 @@ list are treated as having all good bands.</p>
 in band-selection UI.  The label always includes the band’s index, its
 description (when one is present), and a <code class="docutils literal notranslate"><span class="pre">(bad)</span></code> marker when the band
 is flagged as a bad band in the dataset metadata.</p>
+<p>When the band has a wavelength and its description is empty or a bare
+number, the description is replaced by the wavelength with its unit to
+two decimals, e.g. <code class="docutils literal notranslate"><span class="pre">Band</span> <span class="pre">53:</span> <span class="pre">859.65</span> <span class="pre">nm</span></code>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1222,7 +1225,7 @@ upper-left corner; add 0.5 for its center.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.geo_to_pixel_coords_exact">
-<span class="sig-name descname"><span class="pre">geo_to_pixel_coords_exact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">geo_coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.geo_to_pixel_coords_exact" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">geo_to_pixel_coords_exact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">geo_coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#wiser.raster.dataset.wiser.raster.dataset.RasterDataSet.RasterDataSet.geo_to_pixel_coords_exact" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">

@@ -27,6 +27,7 @@ from .utils import (
     GREEN_WAVELENGTH,
     BLUE_WAVELENGTH,
     get_spectral_unit_from_any,
+    convert_spectral,
 )
 from .utils import (
     find_band_near_wavelength,
@@ -43,6 +44,14 @@ if TYPE_CHECKING:
     from wiser.raster.loader import RasterDataLoader
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
+
+
+def _is_bare_number(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
 
 
 class GeographicLinkState(enum.Enum):
@@ -1018,8 +1027,16 @@ class RasterDataSet(Serializable):
         in band-selection UI.  The label always includes the band's index, its
         description (when one is present), and a ``(bad)`` marker when the band
         is flagged as a bad band in the dataset metadata.
+
+        When the band has a wavelength and its description is empty or a bare
+        number, the description is replaced by the wavelength with its unit to
+        two decimals, e.g. ``Band 53: 859.65 nm``.
         """
-        desc = self._band_info[band_index].get("description")
+        info = self._band_info[band_index]
+        desc = info.get("description")
+        wavelength = info.get("wavelength")
+        if wavelength is not None and (not desc or _is_bare_number(desc)):
+            desc = f"{wavelength.value:.2f} {wavelength.unit.to_string()}"
         if desc:
             label = f"Band {band_index}: {desc}"
         else:
@@ -1418,7 +1435,7 @@ class RasterDataSet(Serializable):
         py = origin_py + gx * y_rotation + gy * height
         return (int(px + 0.5), int(py + 0.5))  # +0.5 for rounding
 
-    def geo_to_pixel_coords_exact(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[int, int]]:
+    def geo_to_pixel_coords_exact(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[float, float]]:
         if self._geo_transform is None:
             return None
 
@@ -1430,7 +1447,7 @@ class RasterDataSet(Serializable):
         gx, gy = geo_coords
         px = origin_px + gx * width + gy * x_rotation
         py = origin_py + gx * y_rotation + gy * height
-        return (px, py)  # +0.5 for rounding
+        return (px, py)
 
     def is_pixel_in_image_bounds(self, pixel: Tuple[int, int]) -> bool:
         """
@@ -2043,6 +2060,11 @@ class RasterDataDynamicBand(RasterBand, Serializable):
     This class is meant to represent one band in a RasterDataSet that is used when
     batch processing. A user can specify to use the band index in the dataset or
     go based off of wavelength. This functionality is implemented in this class
+
+    Constructed with ``band_index``, or with ``wavelength_value``,
+    ``wavelength_units`` and ``epsilon`` (tolerance in ``wavelength_units``); the
+    constructor raises ValueError when selecting by wavelength on a dataset
+    without wavelengths.  :meth:`get_data` caches the resolved band index.
     """
 
     def __init__(
@@ -2058,35 +2080,51 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             wavelength_value is not None and wavelength_units is not None and epsilon is not None
         ), "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"
         self._band_index = band_index
-        if self._band_index is None:
-            assert self._dataset.has_wavelengths(), (
-                "Dataset must have wavelengths to use RasterDataBatchBand with "
-                "wavelength_value and wavelength_units"
+        if self._band_index is None and not self._dataset.has_wavelengths():
+            raise ValueError(
+                f'Dataset "{self._dataset.get_name()}" has no band wavelengths, so a band '
+                "cannot be selected by wavelength."
             )
         self._wavelength_value = wavelength_value
         self._wavelength_units = wavelength_units
         self._epsilon = epsilon
 
-    def get_data(self, filter_data_ignore_value: bool = True) -> np.ndarray:
+    def resolve_band_index(self) -> int:
+        """
+        Returns the index of the selected band.  A band chosen by index returns
+        that index.  A band chosen by wavelength returns the band whose
+        wavelength is nearest ``wavelength_value`` among the bands within
+        ``epsilon`` of it; both values are in ``wavelength_units``, and the
+        comparison is made in nm.
+
+        Raises:
+            ValueError: if no band lies within ``epsilon`` of the wavelength, or
+                if some but not all bands of the dataset have a wavelength.
+        """
         if self._band_index is not None:
-            return self._dataset.get_band_data(self._band_index, filter_data_ignore_value)
-        else:
-            band_info = self._dataset.get_band_info()
-            wavelength = self._wavelength_value * self._wavelength_units
-            epsilon_quantity = self._epsilon * self._wavelength_units
-            band = find_band_near_wavelength(band_info, wavelength, epsilon_quantity)
-            self._band_index = band
-            return self._dataset.get_band_data(band, filter_data_ignore_value)
+            return self._band_index
+
+        unit = self._wavelength_units
+        band = find_band_near_wavelength(
+            self._dataset.get_band_info(),
+            self._wavelength_value * unit,
+            self._epsilon * unit,
+        )
+        if band is None:
+            span_nm = [convert_spectral(w, u.nm).value for w in self._dataset.get_wavelengths()]
+            raise ValueError(
+                f'No band of dataset "{self._dataset.get_name()}" lies within '
+                f"{self._epsilon:g} {unit.to_string()} of {self._wavelength_value:g} {unit.to_string()}; "
+                f"its bands span {min(span_nm):.2f}-{max(span_nm):.2f} nm."
+            )
+        return band
+
+    def get_data(self, filter_data_ignore_value: bool = True) -> np.ndarray:
+        self._band_index = self.resolve_band_index()
+        return self._dataset.get_band_data(self._band_index, filter_data_ignore_value)
 
     def get_stats(self) -> BandStats:
-        if self._band_index is not None:
-            return self._dataset.get_band_stats(self._band_index)
-        else:
-            band_info = self._dataset.get_band_info()
-            wavelength = self._wavelength_value * self._wavelength_units
-            epsilon_quantity = self._epsilon * self._wavelength_units
-            band = find_band_near_wavelength(band_info, wavelength, epsilon_quantity)
-            return self._dataset.get_band_stats(band)
+        return self._dataset.get_band_stats(self.resolve_band_index())
 
     def is_metadata_same(self, other: "RasterDataDynamicBand") -> bool:
         if self._band_index is not None and other._band_index is not None:

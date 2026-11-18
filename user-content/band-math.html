@@ -484,8 +484,12 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-a-run-works">How a run works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#operators">Operators</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#built-in-functions">Built-in functions</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variables">Variables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variables">Variables</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#picking-an-image-band-by-wavelength">Picking an image band by wavelength</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saved-expressions">Saved expressions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectral-index-presets">Spectral-index presets</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-processing">Batch processing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#memory">Memory</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-expressions">Common expressions</a></li>
@@ -520,8 +524,8 @@ scenes, or apply any per-pixel formula WISER has no dedicated tool for.</p>
 <li><p><strong>Type an expression</strong> and press Enter.</p></li>
 <li><p>WISER parses it. Every name it does not recognize as a function becomes a
 <strong>variable</strong> and gets a row in <strong>Variable bindings</strong>.</p></li>
-<li><p><strong>Bind each variable</strong> — choose its type, then the dataset, band or spectrum
-it refers to.</p></li>
+<li><p><strong>Bind each variable</strong> — choose its type, then the dataset, band (by number
+or by wavelength) or spectrum it refers to.</p></li>
 <li><p>Give the output a <strong>Result name</strong>.</p></li>
 <li><p>Click <strong>OK</strong>.</p></li>
 </ol>
@@ -614,10 +618,38 @@ same variable.</p>
 </table>
 </div>
 <p>Numeric literals may be used directly and need no binding.</p>
+<section id="picking-an-image-band-by-wavelength">
+<h3>Picking an image band by wavelength<a class="headerlink" href="#picking-an-image-band-by-wavelength" title="Link to this heading">#</a></h3>
+<p>Band numbers do not carry over between sensors. In WISER’s band labels, which
+count from 0, the band nearest 860 nm is <strong>Band 64: 857.45 nm</strong> in an EMIT
+scene, <strong>Band 97: 862.47 nm</strong> in an AVIRIS-NG scene and <strong>Band 53: 859.65 nm</strong>
+in an AVIRIS-classic scene (the EMIT, AVIRIS-NG and Cuprite AVIRIS-classic
+scenes WISER is tested with). An <strong>Image Band</strong> variable can therefore be bound by wavelength instead of by band
+number. Its row has three controls after the dataset:</p>
+<ul class="simple">
+<li><p><strong>Band / Wavelength</strong> — how the band is picked. <strong>Band</strong> chooses from the
+band list as before.</p></li>
+<li><p>In <strong>Wavelength</strong> mode: the wavelength, its unit (<code class="docutils literal notranslate"><span class="pre">nm</span></code> or <code class="docutils literal notranslate"><span class="pre">um</span></code>), and a
+tolerance <strong>± nm</strong> (default <strong>10 nm</strong>).</p></li>
+</ul>
+<p>WISER binds the band whose center is nearest the wavelength among the bands
+within the tolerance, and shows that band, with its actual wavelength, in the
+(now read-only) band list, for example <strong>Band 64: 857.45 nm</strong>.</p>
+<p>If no band lies within the tolerance, or the dataset has no band wavelengths,
+nothing is bound: the reason appears in red under the row and in the result
+line, and <strong>OK</strong> refuses to run. WISER never falls back to a more distant band.
+Widen the tolerance only if you accept the band it reports.</p>
+<p>The 10 nm default is about one band spacing of common imaging spectrometers
+(AVIRIS-NG about 5 nm, EMIT about 7.4 nm, AVIRIS-classic about 10 nm), so on
+those grids a wavelength inside the sensor’s range always resolves, while a
+wavelength the sensor does not sample is refused.</p>
+<p>Band lists show the wavelength with its unit (<strong>Band 53: 859.65 nm</strong>) whenever
+the band has a wavelength and the file gives no other band name.</p>
 <p>Types combine as you would expect: a cube times a number is a cube; a cube
 divided by a spectrum divides every pixel’s spectrum band-by-band. WISER checks
 compatibility when it parses and tells you before running if shapes do not
 match.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="saved-expressions">
@@ -629,6 +661,51 @@ session and later ones</p></li>
 one in, so a group can share a common library of indices</p></li>
 </ul>
 <p>Saved expressions are also stored in a <a class="reference internal" href="projects.html"><span class="doc">project</span></a>.</p>
+</section>
+<section id="spectral-index-presets">
+<h2>Spectral-index presets<a class="headerlink" href="#spectral-index-presets" title="Link to this heading">#</a></h2>
+<p>The <strong>Spectral-index presets</strong> dropdown, under the saved expressions, fills in
+a standard index and binds each of its bands by wavelength (tolerance 10 nm) on
+the dataset already chosen in each row. Check the band each row reports, and
+change the dataset if needed.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Preset</p></th>
+<th class="head"><p>Expression</p></th>
+<th class="head"><p>Reference wavelengths</p></th>
+<th class="head"><p>Source</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>NDVI</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(nir</span> <span class="pre">-</span> <span class="pre">red)</span> <span class="pre">/</span> <span class="pre">(nir</span> <span class="pre">+</span> <span class="pre">red)</span></code></p></td>
+<td><p>NIR 860 nm, red 660 nm</p></td>
+<td><p>Rouse et al. (1974), NASA SP-351 (660/860 nm narrow-band equivalents)</p></td>
+</tr>
+<tr class="row-odd"><td><p>SAVI</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1.5</span> <span class="pre">*</span> <span class="pre">(nir</span> <span class="pre">-</span> <span class="pre">red)</span> <span class="pre">/</span> <span class="pre">(nir</span> <span class="pre">+</span> <span class="pre">red</span> <span class="pre">+</span> <span class="pre">0.5)</span></code></p></td>
+<td><p>NIR 860 nm, red 660 nm; L = 0.5</p></td>
+<td><p>Huete (1988), <em>Remote Sens. Environ.</em> 25, 295-309 (660/860 nm narrow-band equivalents)</p></td>
+</tr>
+<tr class="row-even"><td><p>NDWI (Gao)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(r860</span> <span class="pre">-</span> <span class="pre">r1240)</span> <span class="pre">/</span> <span class="pre">(r860</span> <span class="pre">+</span> <span class="pre">r1240)</span></code></p></td>
+<td><p>860 nm, 1240 nm</p></td>
+<td><p>Gao (1996), <em>Remote Sens. Environ.</em> 58, 257-266</p></td>
+</tr>
+<tr class="row-odd"><td><p>MSI</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">r1600</span> <span class="pre">/</span> <span class="pre">r820</span></code></p></td>
+<td><p>1600 nm, 820 nm</p></td>
+<td><p>Hunt and Rock (1989), <em>Remote Sens. Environ.</em> 30, 43-54</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A preset needs a dataset with band wavelengths that covers its reference
+wavelengths. On a sensor that does not sample them, for example a VNIR-only
+camera for NDWI or MSI, or a few-band image with no band near 660 nm, the
+preset reports which wavelength has no band rather than substituting one.
+Presets are built in; they are not added to the saved-expressions list or a
+project.</p>
 </section>
 <hr class="docutils" />
 <section id="batch-processing">
@@ -680,7 +757,7 @@ for that file; the other files still run. Subset spatially before you start
 <tbody>
 <tr class="row-even"><td><p>Normalized difference (NDVI, NDWI, NDSI…)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">(a</span> <span class="pre">-</span> <span class="pre">b)</span> <span class="pre">/</span> <span class="pre">(a</span> <span class="pre">+</span> <span class="pre">b)</span></code></p></td>
-<td><p>Bind <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> to the two bands</p></td>
+<td><p>Bind <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> to the two bands, or use a preset</p></td>
 </tr>
 <tr class="row-odd"><td><p>Simple ratio</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">/</span> <span class="pre">b</span></code></p></td>
@@ -772,8 +849,12 @@ functions</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-a-run-works">How a run works</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#operators">Operators</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#built-in-functions">Built-in functions</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variables">Variables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variables">Variables</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#picking-an-image-band-by-wavelength">Picking an image band by wavelength</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#saved-expressions">Saved expressions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spectral-index-presets">Spectral-index presets</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-processing">Batch processing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#memory">Memory</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-expressions">Common expressions</a></li>

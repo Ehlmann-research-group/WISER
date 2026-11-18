@@ -685,6 +685,9 @@ function returns the value as a NumPy <code class="docutils literal notranslate"
 value is some other type, the function raises a <code class="docutils literal notranslate"><span class="pre">TypeError</span></code>.
 This function should really only be called on image_cubes unless its
 called through make_image_cube_compatible_by_bands</p>
+<p>An image cube backed by a <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> is returned as a 3-D
+<code class="docutils literal notranslate"><span class="pre">[band][y][x]</span></code> array, or as a 2-D <code class="docutils literal notranslate"><span class="pre">[y][x]</span></code> array when <code class="docutils literal notranslate"><span class="pre">band_list</span></code>
+holds one band, whatever the dataset’s storage.</p>
 </dd></dl>
 
 </dd></dl>
