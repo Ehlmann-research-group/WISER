@@ -511,6 +511,7 @@ class SpectralAngleMapperTask(QObject, SemanticTask):
         cache = self._app_state.get_cache()
         target_image_name = self._target.get_name()
         band_descriptions = [f"Spec: {spectrum.get_name()}" for spectrum in self._references]
+        spatial_metadata = self._target.get_spatial_metadata()
 
         out_angle_array = np.asarray(out_angle).transpose(2, 0, 1)
         out_angle_dataset = loader.dataset_from_numpy_array(out_angle_array, cache)
@@ -518,12 +519,14 @@ class SpectralAngleMapperTask(QObject, SemanticTask):
             self._app_state.unique_dataset_name(f"SAM Angle, Img: {target_image_name}"),
         )
         out_angle_dataset.set_band_descriptions(band_descriptions)
+        out_angle_dataset.copy_spatial_metadata(spatial_metadata)
         self._app_state.add_dataset(out_angle_dataset)
 
         out_cls_array = np.asarray(out_classification).transpose(2, 0, 1)
         out_cls_dataset = loader.dataset_from_numpy_array(out_cls_array, cache)
         out_cls_dataset.set_name(self._app_state.unique_dataset_name(f"SAM CLS, Img: {target_image_name}"))
         out_cls_dataset.set_band_descriptions(band_descriptions)
+        out_cls_dataset.copy_spatial_metadata(spatial_metadata)
         self._app_state.add_dataset(out_cls_dataset)
 
 

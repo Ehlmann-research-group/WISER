@@ -407,9 +407,15 @@ class ApplicationState(QObject):
         The views that display the new dataset render under one progress
         dialog that shows progress only and has no Cancel: opening a dataset
         always displays it.
+
+        Raises ``TypeError`` if ``dataset`` is not a ``RasterDataSet``, and
+        ``ValueError`` if its name is ``None``; every dataset in the session is
+        listed by name in the Save Dataset and Close Dataset menus.
         """
         if not isinstance(dataset, RasterDataSet):
             raise TypeError("dataset must be a RasterDataSet")
+        if dataset.get_name() is None:
+            raise ValueError("dataset must have a name before it is added")
 
         if ds_id is None:
             ds_id = self.take_next_id()

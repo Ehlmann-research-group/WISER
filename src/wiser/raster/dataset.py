@@ -54,9 +54,6 @@ def _is_bare_number(text: str) -> bool:
     return True
 
 
-DEFAULT_MASK_VALUE = 0
-
-
 class GeographicLinkState(enum.Enum):
     NO_LINK = 0
     PIXEL = 1
@@ -1286,18 +1283,20 @@ class RasterDataSet(Serializable):
         NaN.  The two filters are independent: a caller that needs to mirror the
         rendered image can mask data-ignore pixels while still showing the raw
         values of bad bands (which the renderer also displays).
+
+        When either filter is on, integer data is returned as the floating-point
+        type ``np.promote_types(dtype, np.float32)`` so that masked bands can
+        hold NaN; this type holds every value of an integer type of up to 32
+        bits exactly.  With both filters off the source dtype is returned.
         """
         arr = self._impl.get_all_bands_at(x, y)
 
         if filter_bad_values or filter_data_ignore_value:
-            arr = arr.copy()
+            arr = arr.astype(np.promote_types(arr.dtype, np.float32))
             for i, v in enumerate(self.get_bad_bands()):
                 if filter_bad_values and v == 0:
                     # Band is marked "bad"
-                    try:
-                        arr[i] = np.nan
-                    except:
-                        arr[i] = DEFAULT_MASK_VALUE
+                    arr[i] = np.nan
 
                 elif (
                     filter_data_ignore_value
@@ -1305,10 +1304,7 @@ class RasterDataSet(Serializable):
                     and math.isclose(arr[i], self._data_ignore_value)
                 ):
                     # Band has the "data ignore" value
-                    try:
-                        arr[i] = np.nan
-                    except:
-                        arr[i] = DEFAULT_MASK_VALUE
+                    arr[i] = np.nan
 
         return arr
 
@@ -1319,12 +1315,14 @@ class RasterDataSet(Serializable):
         If filter_bad_values is set to True, bands that are marked as "bad" in
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
+
+        When filter_bad_values is True, integer data is returned as the
+        floating-point type ``np.promote_types(dtype, np.float32)`` so that
+        masked values can hold NaN.  Otherwise the source dtype is returned.
         """
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
-            arr = arr.copy()
-            # if np.issubdtype(arr.dtype, np.integer):
-            #     arr = arr.astype(np.float32, copy=False)
+            arr = arr.astype(np.promote_types(arr.dtype, np.float32))
             # Make mask for the bad band values
             mask = np.array(self.get_bad_bands())
             assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
@@ -1336,16 +1334,10 @@ class RasterDataSet(Serializable):
             mask = mask.astype(bool)
             for i in range(arr.shape[1]):
                 for j in range(arr.shape[2]):
-                    try:
-                        arr[:, i, j][mask] = np.nan
-                    except BaseException:
-                        arr[:, i, j][mask] = DEFAULT_MASK_VALUE
+                    arr[:, i, j][mask] = np.nan
             if self._data_ignore_value is not None:
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
-                try:
-                    arr[mask_ignore_val] = np.nan
-                except BaseException:
-                    arr[mask_ignore_val] = DEFAULT_MASK_VALUE
+                arr[mask_ignore_val] = np.nan
         return arr
 
     def get_geo_transform(self) -> Tuple:

@@ -60,6 +60,7 @@ class TestImageCoordsSessionReuse(unittest.TestCase):
         ds._set_wkt(_epsg_wkt(epsg))
         ds._set_geo_transform(GEO_TRANSFORM)
         ds.set_dirty(False)
+        ds.set_name(f"EPSG{epsg}")
         self.test_model.app_state.add_dataset(ds)
         return ds
 

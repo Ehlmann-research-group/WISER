@@ -54,6 +54,15 @@ class SimilarityTransformImageWidget(ImageWidget):
 
 
 class SimilarityTransformRasterView(TiledRasterView):
+    _rotation: float = 0.0
+    _scale: float = 1.0
+
+    def set_rotation_scale(self, rotation: float, scale: float) -> None:
+        """Set the preview's rotation (degrees CCW) and isotropic scale, and redraw it."""
+        self._rotation = rotation
+        self._scale = scale
+        self.update_display_image()
+
     def rotate_pixmap(self, pixmap: QPixmap, angle_deg: float) -> QPixmap:
         center = pixmap.rect().center()
 
@@ -69,10 +78,13 @@ class SimilarityTransformRasterView(TiledRasterView):
     def scale_pixmap(self, pixmap: QPixmap, factor: float) -> QPixmap:
         return pixmap.scaled(pixmap.size() * factor, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-    def update_display_image(self, rotation: float = 0.0, scale: float = 1.0, colors=ImageColors.RGB):
+    def update_display_image(self, colors=ImageColors.RGB):
         """
-        Overrides RasterViews version of this function to allow for rotation (degrees) and scaling.
+        Overrides RasterViews version of this function to draw the image with the
+        rotation and scale last given to ``set_rotation_scale``.
         """
+        rotation = self._rotation
+        scale = self._scale
         img_data = None
         if self._raster_data is None:
             # No raster data to display
@@ -228,7 +240,7 @@ class SimilarityTransformPane(RasterPane):
 
     def rotate_and_scale_rasterview(self, rotation: float, scale: float):
         rv: SimilarityTransformRasterView = self.get_rasterview()
-        rv.update_display_image(rotation=rotation, scale=scale)
+        rv.set_rotation_scale(rotation, scale)
 
     def _init_select_tools(self):
         """

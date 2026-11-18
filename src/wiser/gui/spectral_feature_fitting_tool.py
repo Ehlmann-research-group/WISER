@@ -560,6 +560,7 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
         cache = self._app_state.get_cache()
         target_image_name = self._target.get_name()
         band_descriptions = [f"Spec: {spectrum.get_name()}" for spectrum in self._references]
+        spatial_metadata = self._target.get_spatial_metadata()
 
         out_cls_dataset = loader.dataset_from_numpy_array(
             np.asarray(out_classification).transpose(2, 0, 1), cache
@@ -568,6 +569,7 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
             self._app_state.unique_dataset_name(f"SFF CLS, Img: {target_image_name}"),
         )
         out_cls_dataset.set_band_descriptions(band_descriptions)
+        out_cls_dataset.copy_spatial_metadata(spatial_metadata)
         self._app_state.add_dataset(out_cls_dataset)
 
         out_rmse_dataset = loader.dataset_from_numpy_array(np.asarray(out_rmse).transpose(2, 0, 1), cache)
@@ -575,6 +577,7 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
             self._app_state.unique_dataset_name(f"SFF RMSE, Img: {target_image_name}"),
         )
         out_rmse_dataset.set_band_descriptions(band_descriptions)
+        out_rmse_dataset.copy_spatial_metadata(spatial_metadata)
         self._app_state.add_dataset(out_rmse_dataset)
 
         out_scale_dataset = loader.dataset_from_numpy_array(np.asarray(out_scale).transpose(2, 0, 1), cache)
@@ -582,6 +585,7 @@ class SpectralFeatureFittingTask(QObject, SemanticTask):
             self._app_state.unique_dataset_name(f"SFF SCALE, Img: {target_image_name}"),
         )
         out_scale_dataset.set_band_descriptions(band_descriptions)
+        out_scale_dataset.copy_spatial_metadata(spatial_metadata)
         self._app_state.add_dataset(out_scale_dataset)
 
 

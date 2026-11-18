@@ -208,6 +208,24 @@ How definitions are validated and stored:
 The similarity transform tool does two things: rotate/scale an
 image and translate an image's coordinate system.
 
+### Rotating and Scaling
+
+The **Rotate and Scale** tab writes a rotated, scaled copy of a single-band or
+multi-band dataset. **Interpolation Type** offers **Nearest** and **Linear**.
+
+Output pixels outside the rotated footprint, and pixels whose interpolated
+value would draw on a pixel outside the source or on a masked source pixel,
+are masked and written as the dataset's data-ignore value (NaN for a
+floating-point dataset that has none). They are never recomputed from
+neighbouring valid pixels, so Linear leaves a narrow masked edge, about one
+source pixel wide, around the footprint and around masked source pixels, that
+Nearest does not. When there are such pixels, an
+integer dataset with no data-ignore value is refused, since it has no value to
+write them as.
+
+The preview keeps its rotation and scale when you change the dataset, the
+display bands or the stretch.
+
 ### Translating Coordinate System
 
 This section covers the **Translate Coordinate Sys** tool in the Similarity
