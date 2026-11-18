@@ -977,9 +977,18 @@ from app config (<code class="docutils literal notranslate"><span class="pre">ge
 <p>Picks the bands to display when a dataset is first shown, in priority order:</p>
 <ol class="arabic simple">
 <li><p>The dataset’s own <code class="docutils literal notranslate"><span class="pre">default_display_bands()</span></code> (may be a 3-tuple or 1-tuple).</p></li>
-<li><p>Otherwise, <code class="docutils literal notranslate"><span class="pre">find_truecolor_bands()</span></code> if wavelengths are available.</p></li>
+<li><p>Otherwise, <code class="docutils literal notranslate"><span class="pre">find_truecolor_bands()</span></code> with the given <code class="docutils literal notranslate"><span class="pre">red</span></code>/<code class="docutils literal notranslate"><span class="pre">green</span></code>/<code class="docutils literal notranslate"><span class="pre">blue</span></code>
+wavelengths if wavelengths are available.</p></li>
 <li><p>Otherwise, <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">2)</span></code> if the dataset has ≥ 3 bands, else <code class="docutils literal notranslate"><span class="pre">(0,)</span></code> (grayscale).</p></li>
 </ol>
+<p><code class="docutils literal notranslate"><span class="pre">red</span></code>, <code class="docutils literal notranslate"><span class="pre">green</span></code> and <code class="docutils literal notranslate"><span class="pre">blue</span></code> default to the hardcoded <code class="docutils literal notranslate"><span class="pre">RED_WAVELENGTH</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GREEN_WAVELENGTH</span></code> and <code class="docutils literal notranslate"><span class="pre">BLUE_WAVELENGTH</span></code> (700, 530 and 470 nm,
+<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/utils.py</span></code>). The main view, zoom pane and context pane choose a
+newly opened dataset’s bands through <code class="docutils literal notranslate"><span class="pre">RasterPane._initial_display_bands()</span></code>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/rasterpane.py</span></code>), which passes the <code class="docutils literal notranslate"><span class="pre">general.red_wavelength_nm</span></code>,
+<code class="docutils literal notranslate"><span class="pre">general.green_wavelength_nm</span></code> and <code class="docutils literal notranslate"><span class="pre">general.blue_wavelength_nm</span></code> preferences as
+those wavelengths. The order on open is therefore: the dataset’s default bands,
+then the bands nearest the preference wavelengths, then the first band(s).</p>
 <p>These helpers are also wired to the dialog’s buttons: “choose visible-light
 bands” calls <code class="docutils literal notranslate"><span class="pre">find_truecolor_bands()</span></code>, and “choose defaults” reads
 <code class="docutils literal notranslate"><span class="pre">dataset.default_display_bands()</span></code>.</p>

@@ -29,6 +29,10 @@ Choose an **Input Dataset**, enter **K clusters**, and click **OK**. The run
 proceeds in the background. Click **View Centroids** to open any stored result
 and plot its centroid spectra.
 
+Centroid spectra are plotted against the input dataset's wavelengths, recorded
+with the run, so the wavelength axis is kept after the input dataset is closed.
+When the input has no wavelengths, centroids are plotted against band index.
+
 ### Advanced Options
 
 :::{figure} ../../_static/tutorials/t5_kmeans_advanced.png

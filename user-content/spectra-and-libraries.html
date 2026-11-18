@@ -526,6 +526,20 @@ its spectrum is plotted.</p>
 <li><p>The <strong>x-axis</strong> is wavelength when the dataset supplies wavelengths, band
 number otherwise. Units follow the header: nanometers, micrometers, or
 whatever the file declares.</p></li>
+<li><p>The <strong>y-axis</strong> is labeled with the quantity the data declares: a netCDF
+variable’s <code class="docutils literal notranslate"><span class="pre">long_name</span></code> and <code class="docutils literal notranslate"><span class="pre">units</span></code> (EMIT reflectance reads “Surface
+Reflectance (unitless)”), an ENVI header’s <code class="docutils literal notranslate"><span class="pre">z</span> <span class="pre">plot</span> <span class="pre">titles</span></code> y title and
+<code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">units</span></code>, or a GeoTIFF unit type shared by every band. When the displayed
+spectra declare different quantities, or some declare one and others none,
+the label is “Data value (mixed units)”; when none declares one it is
+“Value”. WISER never guesses a quantity the file does not declare.</p></li>
+<li><p>A <strong>single-band</strong> dataset, such as an NDVI band-math result, gives a
+one-value spectrum. It is drawn as a large marker in the selected-point
+symbol, with its value written beside it to 4 significant figures, and the
+x-axis is centered on it.</p></li>
+<li><p>A pixel whose values are all NaN or masked has nothing to draw; the plot
+shows <strong>No data at this pixel</strong> instead (followed by the spectra’s names when
+only some of the displayed spectra have no data).</p></li>
 <li><p><strong>Bad bands</strong> flagged in the header are left out of the line, which is why a
 spectrum from an airborne cube has gaps at the atmospheric water-vapor
 regions.</p></li>
@@ -597,7 +611,7 @@ offers the same thing as <strong>Configure plot…</strong>:</p>
 <td><p><strong>Manually specify X axis range</strong> (<strong>Minimum value:</strong>, <strong>Maximum value:</strong>); <strong>X Axis Units:</strong>; <strong>Manually configure X axis tick marks</strong> (<strong>Major tick marks every</strong>, <strong>Minor tick marks every</strong>); <strong>X Axis Label:</strong></p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Y Axis</strong></p></td>
-<td><p>The same range, tick-mark and label settings as the X axis</p></td>
+<td><p>The same range, tick-mark and label settings as the X axis. A <strong>Y Axis Label:</strong> you enter replaces the automatic label (the data’s declared quantity); clearing the field returns to the automatic label</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>New Spectra</strong></p></td>
 <td><p><strong>Default area-average size</strong> (X and Y) and <strong>Default average mode:</strong> (mean or median)</p></td>

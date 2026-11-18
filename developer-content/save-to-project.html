@@ -1040,7 +1040,7 @@ types, and bad enum values degrade gracefully.</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">runs</span></code></p></td>
 <td><p>PCA / MNF / unmixing / K-Means histories</p></td>
-<td><p>Every record self-contained; datasets referenced softly by id; run ids re-minted on load.</p></td>
+<td><p>Every record self-contained; datasets referenced softly by id; run ids re-minted on load. A K-Means record persists the input’s <code class="docutils literal notranslate"><span class="pre">wavelengths</span></code> (values) and <code class="docutils literal notranslate"><span class="pre">wavelength_units</span></code> (unit string); records without them load as band-index runs.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">crs</span></code></p></td>
 <td><p>User-created coordinate systems</p></td>
