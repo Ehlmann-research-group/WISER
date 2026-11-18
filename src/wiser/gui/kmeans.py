@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
@@ -208,6 +208,10 @@ class KMeansCentroids:
         """Return k, the number of cluster centroids."""
         return self._centroids.shape[0]
 
+    def num_bands(self) -> int:
+        """Return b, the number of bands in each centroid."""
+        return self._centroids.shape[1]
+
 
 # ---------------------------------------------------------------------------
 # Run history (application state) — record + manager
@@ -241,6 +245,16 @@ class KMeansRunRecord:
     scikit-learn.  When the user leaves the seed blank it is drawn explicitly
     before the run (rather than letting sklearn pull from numpy's global state)
     so that even unseeded runs are exactly reproducible.
+
+    ``wavelengths`` is the input dataset's per-band wavelength list at the time
+    the run is recorded, one astropy ``Quantity`` per centroid band, or ``None``
+    when the input had no wavelengths (centroid spectra then plot against band
+    index).  It is snapshotted so the centroid plot keeps its wavelength axis
+    after the input dataset is closed.
+
+    Raises:
+        ValueError: ``wavelengths`` is not ``None`` and its length differs from
+            the centroid band count.
     """
 
     run_id: int
@@ -252,6 +266,14 @@ class KMeansRunRecord:
     params: KMeansParameters
     centroids: KMeansCentroids
     effective_seed: Optional[int]
+    wavelengths: Optional[Tuple[u.Quantity, ...]]
+
+    def __post_init__(self) -> None:
+        if self.wavelengths is not None and len(self.wavelengths) != self.centroids.num_bands():
+            raise ValueError(
+                f"K-Means record has {len(self.wavelengths)} wavelengths for "
+                f"{self.centroids.num_bands()}-band centroids"
+            )
 
 
 class KMeansRunHistoryManager(RunHistoryManagerBase[KMeansRunRecord]):
@@ -667,6 +689,11 @@ class KMeansSemanticTask(QObject, SemanticTask):
                 params=self._params,
                 centroids=centroids_obj,
                 effective_seed=self._effective_seed,
+                wavelengths=(
+                    tuple(self._source_dataset.get_wavelengths())
+                    if self._source_dataset.has_wavelengths()
+                    else None
+                ),
             )
         )
 
@@ -870,7 +897,8 @@ class KMeansRunHistoryDialog(QDialog):
     def _on_view_clicked(self, run_id: int) -> None:
         # Liveness can change between the click and the slot firing; re-fetch
         # the record fresh rather than capturing it in the lambda.  Centroids
-        # are snapshotted in the record, so this works even for closed runs.
+        # and wavelengths are snapshotted in the record, so this works even for
+        # closed runs.
         record = next(
             (r for r in self._history.get_records() if r.run_id == run_id),
             None,
@@ -885,6 +913,7 @@ class KMeansRunHistoryDialog(QDialog):
                 centroids.get_centroid(i).copy(),
                 name=f"{i}-centroid",
                 source_name=source_name,
+                wavelengths=list(record.wavelengths) if record.wavelengths is not None else None,
             )
             for i in range(centroids.num_centroids())
         ]

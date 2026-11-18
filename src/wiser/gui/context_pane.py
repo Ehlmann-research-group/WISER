@@ -14,7 +14,6 @@ from .dataset_chooser import DatasetChooser
 from . import theme
 from .util import add_toolbar_action
 from .app_state import ApplicationState
-from wiser.raster.dataset import find_display_bands
 
 
 class ContextPaneDatasetChooser(DatasetChooser):
@@ -147,7 +146,7 @@ class ContextPane(RasterPane):
             if dataset is not None:
                 ds_id = dataset.get_id()
                 if ds_id not in self._display_bands:
-                    display_bands = find_display_bands(dataset)
+                    display_bands = self._initial_display_bands(dataset)
                     self._display_bands[ds_id] = display_bands
                 bands = self._display_bands[ds_id]
                 stretches = self._app_state.get_stretches(ds_id, bands)
