@@ -973,6 +973,8 @@ class StretchBuilderDialog(QDialog):
 
         self.setLayout(layout)
 
+        self._app_state.stretch_change_cancelled.connect(self._on_stretch_change_cancelled)
+
     def showEvent(self, event: QShowEvent):
         # The scroll-area that contains the channels won't take up its full
         # size, since it doesn't have to.  Also, the full size of the channels
@@ -1112,6 +1114,31 @@ class StretchBuilderDialog(QDialog):
         configuration, one per channel currently being manipulated.
         """
         return [self._get_channel_stretch(i) for i in range(self._num_active_channels)]
+
+    def _on_stretch_change_cancelled(self, ds_id: int, bands: Tuple):
+        """
+        After a cancelled stretch change for the dataset and bands this dialog is
+        showing, reload its controls from the stretches the application state
+        restored.  The reload emits no ``stretch_changed``.
+        """
+        if (
+            not self.isVisible()
+            or ds_id != self._dataset.get_id()
+            or tuple(bands) != tuple(self._display_bands)
+        ):
+            return
+
+        stretches = self._app_state.get_stretches(ds_id, bands)
+        events_enabled = self._enable_stretch_changed_events
+        self._enable_stretch_changed_events = False
+        self.blockSignals(True)
+        try:
+            for channel, stretch in zip(self._channel_widgets, stretches):
+                channel.load_existing_stretch_details(stretch)
+            self._load_existing_stretch_state(stretches[0])
+        finally:
+            self.blockSignals(False)
+            self._enable_stretch_changed_events = events_enabled
 
     def _emit_stretch_changed(self, stretches):
         """

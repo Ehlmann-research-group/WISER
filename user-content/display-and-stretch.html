@@ -618,6 +618,10 @@ decides the mapping.</p>
 <p>You get one histogram per displayed channel, with the current endpoints marked.
 Changes apply to the image immediately. <strong>OK</strong> keeps the result; <strong>Cancel</strong>
 discards it.</p>
+<p>On a large image, applying a stretch can take a few seconds; a progress dialog
+appears when it does. Its <strong>Cancel</strong> puts back the previous stretch in every
+view and in the stretch builder. Opening a large dataset shows the same kind of
+progress dialog, without a Cancel button.</p>
 <section id="stretch-types">
 <h3>Stretch types<a class="headerlink" href="#stretch-types" title="Link to this heading">#</a></h3>
 <p><strong>Full Linear Stretch</strong> — maps each band’s own minimum and maximum to 0 and

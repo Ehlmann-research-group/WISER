@@ -132,6 +132,7 @@ flowchart TD
 | `expr_info` computation | Once | Once per file |
 | Result naming | Unchanged from user input | Prefixed with filename stem |
 | Error handling | Propagates immediately; aborts | Continues; per-file errors collected alongside successes |
+| Memory check | `check_bandmath_memory()` runs in `start_bandmath_evaluation()` before any process starts; `BandMathMemoryError` propagates to the caller, which shows it in a dialog | `check_bandmath_memory()` runs on each file just before it is evaluated; an oversized file is reported as that file's error and the other files still run |
 | Progress reporting | `1 / 1` | `N completed / total files` |
 | Return value | Single result wrapped in a list | List of results (one per file) |
 
@@ -143,26 +144,49 @@ flowchart TD
 
 ```{mermaid}
 flowchart TD
-    A["eval_singular_bandmath_expr()"] --> B["Compute estimated peak memory:\nexpr_info.result_size() × number_of_intermediates"]
-    B --> C{"result_type == IMAGE_CUBE\nAND memory exceeds threshold?"}
-    C -- Yes --> ASYNC["eval_singular_bandmath_expr_async()\nBandMathEvaluatorAsync"]
-    C -- No --> D{"use_synchronous_method\nexplicitly False?"}
-    D -- Yes --> ASYNC
-    D -- No --> SYNC["eval_singular_bandmath_expr_sync()\nBandMathEvaluator"]
+    A["eval_singular_bandmath_expr()"] --> S["select_bandmath_chunking()"]
+    S --> D{"use_synchronous_method\nexplicitly False?"}
+    D -- Yes --> ASYNC["eval_singular_bandmath_expr_async()\nBandMathEvaluatorAsync"]
+    D -- No --> C{"result_type == IMAGE_CUBE?"}
+    C -- No --> SYNC["eval_singular_bandmath_expr_sync()\nBandMathEvaluator"]
+    C -- Yes --> B{"result_size() × number_of_intermediates\n> available memory?"}
+    B -- Yes --> ASYNC
+    B -- No --> E{"whole-array estimate\n> MAX_FRACTION_OF_AVAILABLE_MEMORY\n× available memory?"}
+    E -- Yes --> ASYNC
+    E -- No --> SYNC
 ```
 
-**Memory threshold:** `max_bytes_to_chunk(expr_info.result_size() * number_of_intermediates)`
+**Path selection:** `select_bandmath_chunking()` keeps the existing rule: the
+band-chunked path runs when `use_synchronous_method` is False, or when an
+`IMAGE_CUBE` result's `result_size() * number_of_intermediates` exceeds available
+memory (`max_bytes_to_chunk()`). An `IMAGE_CUBE` result that the rule leaves on the
+whole-array path is moved to the band-chunked path when its whole-array peak
+estimate (`estimate_bandmath_peak_bytes()`) exceeds `MAX_FRACTION_OF_AVAILABLE_MEMORY`
+(0.8) of available memory (`psutil.virtual_memory().available`). In both
+`IMAGE_CUBE` cases the band-window budget is `RATIO_OF_MEM_TO_USE` (0.25) of
+available memory. Other result types always run whole-array unless
+`use_synchronous_method` is False.
+
+**Memory refusal:** `check_bandmath_memory()` estimates the peak for the path
+`select_bandmath_chunking()` chooses and raises `BandMathMemoryError` (a
+`MemoryError` subclass, `src/wiser/bandmath/types.py`) when that estimate still
+exceeds `MAX_FRACTION_OF_AVAILABLE_MEMORY` of available memory. The message gives
+the estimate and the available memory in GB (1e9 bytes) and suggests running the
+expression on a spatial subset. Nothing has been evaluated or written when it is
+raised. See **Memory check** under Key differences for where single and batch jobs
+run it.
 
 Constants (from `src/wiser/bandmath/builtins/constants.py`):
 
 | Constant | Value | Meaning |
 |---|---|---|
 | `MAX_RAM_BYTES` | 4 000 000 000 (4 GB) | Ceiling used if platform query fails |
-| `RATIO_OF_MEM_TO_USE` | 0.25 | Use at most 25 % of available RAM |
+| `RATIO_OF_MEM_TO_USE` | 0.25 | Band-window budget on the chunked path: 25 % of available RAM |
+| `MAX_FRACTION_OF_AVAILABLE_MEMORY` | 0.8 | Whole-array estimate above which an `IMAGE_CUBE` result is band-chunked, and estimate above which band math is refused |
 | `NUM_READERS` | 4 | Async read-thread-pool size |
 | `NUM_WRITERS` | 1 | Async write-thread-pool size |
 
-**In practice:** spectra, scalars, and single-band results always take the sync path because they are not `IMAGE_CUBE`. Large hyperspectral cubes almost always exceed 25 % of available RAM and take the async path.
+**In practice:** spectra, scalars, and single-band results take the sync path because they are not `IMAGE_CUBE`. Large hyperspectral cube results take the async path once their whole-array estimate exceeds 80 % of available RAM.
 
 ---
 
@@ -177,7 +201,7 @@ All data is loaded into memory before evaluation begins. There is no chunking, n
 **Use cases:**
 
 - Results of type `IMAGE_BAND`, `SPECTRUM`, `NUMBER`, `BOOLEAN`, or `STRING`
-- Small `IMAGE_CUBE` results that fit within the memory threshold
+- `IMAGE_CUBE` results whose whole-array estimate is within 80 % of available memory
 - Scalar expressions (always negligible memory)
 
 ---

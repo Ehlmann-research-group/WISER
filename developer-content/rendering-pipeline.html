@@ -846,7 +846,7 @@ window.runMermaid = runMermaid;</script>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-band-vs-joint-stretches">Per-band vs Joint Stretches</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-changes-reach-the-screen">How Changes Reach the Screen</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-the-pipeline-runs-on-the-gui-thread">Known Issue: The Pipeline Runs on the GUI Thread</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-cancel-and-the-gui-thread">Progress, Cancel, and the GUI Thread</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-read-next">Where to Read Next</a></li>
 </ul>
             </nav>
@@ -965,11 +965,11 @@ the Stretch Builder — flows through the shared <a class="reference internal" h
 <td><p>—</p></td>
 </tr>
 <tr class="row-odd"><td><p>Apply stretch, scale to <code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">make_channel_image()</span></code> / <code class="docutils literal notranslate"><span class="pre">_render_joint_channels()</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">make_channel_image_strips()</span></code> / <code class="docutils literal notranslate"><span class="pre">_render_joint_channels()</span></code></p></td>
 <td><p>Joint result cache (in-view)</p></td>
 </tr>
 <tr class="row-even"><td><p>Pack channels into ARGB <code class="docutils literal notranslate"><span class="pre">uint32</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">make_rgb_image()</span></code> / <code class="docutils literal notranslate"><span class="pre">make_grayscale_image()</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">make_rgb_image_strips()</span></code> / <code class="docutils literal notranslate"><span class="pre">make_grayscale_image()</span></code></p></td>
 <td><p>—</p></td>
 </tr>
 <tr class="row-odd"><td><p>Store rendered image</p></td>
@@ -1000,9 +1000,9 @@ distinguishes the two cases with <code class="docutils literal notranslate"><spa
 channel’s stretch and returns a joint stretch only if <strong>every</strong> channel agrees
 on the same one (otherwise it logs a warning and falls back to per-band).</p>
 <ul class="simple">
-<li><p><strong>Per-band path</strong> — for each dirty channel, <code class="docutils literal notranslate"><span class="pre">make_channel_image()</span></code> applies the
-optional conditioner then the main stretch, clips to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>, and scales to
-<code class="docutils literal notranslate"><span class="pre">uint8</span></code>.</p></li>
+<li><p><strong>Per-band path</strong> — for each dirty channel, <code class="docutils literal notranslate"><span class="pre">make_channel_image_strips()</span></code>
+applies the optional conditioner then the main stretch, clips to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>,
+and scales to <code class="docutils literal notranslate"><span class="pre">uint8</span></code>, a row strip at a time.</p></li>
 <li><p><strong>Joint path</strong> — <code class="docutils literal notranslate"><span class="pre">_render_joint_channels()</span></code> gathers all bands into one
 <code class="docutils literal notranslate"><span class="pre">(H,</span> <span class="pre">W,</span> <span class="pre">3)</span></code> float32 buffer, applies per-band conditioners, runs
 <code class="docutils literal notranslate"><span class="pre">apply_multi()</span></code> once, then clips and scales each channel. The joint result is
@@ -1055,39 +1055,59 @@ the originating pane.</p>
 <code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code>, so the next paint reflects the change.</p>
 </section>
 <hr class="docutils" />
-<section id="known-issue-the-pipeline-runs-on-the-gui-thread">
-<h2>Known Issue: The Pipeline Runs on the GUI Thread<a class="headerlink" href="#known-issue-the-pipeline-runs-on-the-gui-thread" title="Link to this heading">#</a></h2>
+<section id="progress-cancel-and-the-gui-thread">
+<h2>Progress, Cancel, and the GUI Thread<a class="headerlink" href="#progress-cancel-and-the-gui-thread" title="Link to this heading">#</a></h2>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p><code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code> runs <strong>synchronously on the GUI thread</strong>, and it runs
-<strong>once per pane</strong> — the context pane, main view, and zoom pane each hold a
-<code class="docutils literal notranslate"><span class="pre">RasterView</span></code> that renders the same change. On large images this is the single
-biggest source of interface freezes in WISER.</p>
+<strong>once per pane</strong>: the context pane, main view, and zoom pane each hold a
+<code class="docutils literal notranslate"><span class="pre">RasterView</span></code> that renders the same change. On large images a stretch change or
+a dataset open still takes seconds of GUI-thread time.</p>
 </div>
-<p>It also means “opening a dataset is slow” is mostly a <em>rendering</em> cost rather
-than a read cost. <code class="docutils literal notranslate"><span class="pre">loader.load_from_file()</span></code> probes drivers and reads metadata,
-not pixels; the band read, data-ignore masking, normalization, stretch, and
-compositing all happen here, driven off the <code class="docutils literal notranslate"><span class="pre">dataset_added</span></code> signal.</p>
-<p>Because all three paths in <a class="reference internal" href="#how-changes-reach-the-screen">How Changes Reach the Screen</a>
-funnel through this one method, moving it off-thread improves dataset open, the
-stretch builder, and the band chooser together — and a regression here breaks all
-three at once.</p>
-<p>Two constraints shape any fix:</p>
+<p>“Opening a dataset is slow” is mostly a <em>rendering</em> cost rather than a read
+cost. <code class="docutils literal notranslate"><span class="pre">loader.load_from_file()</span></code> probes drivers and reads metadata, not pixels;
+the band read, data-ignore masking, normalization, stretch, and compositing all
+happen here, driven off the <code class="docutils literal notranslate"><span class="pre">dataset_added</span></code> signal.</p>
+<p>What keeps that time from looking like a hang:</p>
 <ul class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">QImage</span></code> / <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> tail cannot leave the GUI thread. The seam has to be
-cut between the NumPy work and the Qt handoff: finish the array off-thread,
-build the Qt object on the GUI thread.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">_display_data</span></code>, <code class="docutils literal notranslate"><span class="pre">_joint_render_cache</span></code>, and the shared render cache are mutated
-mid-render. Concurrent or stale renders must be canceled, or discarded on
-arrival, or fast clicking in the band chooser will paint the wrong image.</p></li>
+<li><p><strong>Strips.</strong> The per-channel stretch (<code class="docutils literal notranslate"><span class="pre">make_channel_image_strips()</span></code>) and the
+RGB packing (<code class="docutils literal notranslate"><span class="pre">make_rgb_image_strips()</span></code>) run in horizontal row strips into
+preallocated arrays. <code class="docutils literal notranslate"><span class="pre">strip_rows(width)</span></code> sizes a strip so its float32 working
+copy of a band is about <code class="docutils literal notranslate"><span class="pre">RENDER_STRIP_BYTES</span></code> (8 MiB). The numba or Python
+kernel is chosen by the whole band’s size, so the output is identical to a
+whole-band render. The joint path is not row-separable; it stays whole-band
+and reports one step per stage.</p></li>
+<li><p><strong>One progress dialog.</strong> <code class="docutils literal notranslate"><span class="pre">ApplicationState.set_stretches()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ApplicationState.add_dataset()</span></code> run their signal emit inside
+<code class="docutils literal notranslate"><span class="pre">render_progress()</span></code> (<code class="docutils literal notranslate"><span class="pre">src/wiser/gui/render_progress.py</span></code>). Every
+<code class="docutils literal notranslate"><span class="pre">RasterView</span></code> render under it reports its band reads, strips, joint stages and
+pixmap as steps to one <code class="docutils literal notranslate"><span class="pre">QProgressDialog</span></code>, which appears only after the work
+has taken 500 ms (<code class="docutils literal notranslate"><span class="pre">MINIMUM_DURATION_MS</span></code>), so small images never show it. Once
+shown, the dialog processes events at each step, which keeps the application
+repainting and the Cancel button live.</p></li>
+<li><p><strong>All-or-nothing cancel for a stretch change.</strong> A cancel is checked between
+steps. Each <code class="docutils literal notranslate"><span class="pre">RasterView</span></code> records its render state before its first change
+under the progress; on cancel every touched view is restored, including panes
+that had already finished, the render-cache entries those renders added are
+removed, <code class="docutils literal notranslate"><span class="pre">set_stretches()</span></code> puts back the previous stretches in
+<code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code>, and its <code class="docutils literal notranslate"><span class="pre">stretch_change_cancelled</span></code> signal makes the
+stretch builder reload its controls from them. No pane shows a partial image.</p></li>
+<li><p><strong>Dataset open shows progress without Cancel.</strong> Opening a dataset always
+displays it.</p></li>
+<li><p><strong>A band-chooser change has no dialog.</strong> <code class="docutils literal notranslate"><span class="pre">set_display_bands()</span></code> renders in
+strips like the others but outside any <code class="docutils literal notranslate"><span class="pre">render_progress()</span></code>, so it reports no
+progress and cannot be cancelled.</p></li>
 </ul>
-<p>Note also that the render and computation caches do not currently serve hits (see
-<a class="reference internal" href="data-caching.html"><span class="std std-doc">Data Caching</span></a> and issue #772), so this path runs fully uncached
-today. Profile with that fixed, or the measurement will attribute cost to the
-rendering code that caching was designed to absorb.</p>
-<p>Tracked in #758 (moving the NumPy portion off-thread), #764 (making a stretch
-change cancellable), and #69 (LoD-pyramid rendering, which would reduce the cost
-enough to change what the right fix is).</p>
+<p>A pane holds its previous image until the new one is complete, so during a
+render peak memory is roughly one extra display image per pane.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">QImage</span></code> / <code class="docutils literal notranslate"><span class="pre">QPixmap</span></code> tail cannot leave the GUI thread. Moving the NumPy work
+off-thread would need the seam cut between the arrays and the Qt handoff, with
+stale renders discarded on arrival.</p>
+<p>The render cache does not currently store new entries (see
+<a class="reference internal" href="data-caching.html"><span class="std std-doc">Data Caching</span></a> and issue #772), so this path runs uncached
+today.</p>
+<p>Related: #758 (moving the NumPy portion off-thread) and #69 (LoD-pyramid
+rendering, which would reduce the cost enough to change what the right fix is).</p>
 </section>
 <hr class="docutils" />
 <section id="where-to-read-next">
@@ -1158,7 +1178,7 @@ caches, their keys, lifecycle, and a known issue.</p></li>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-band-vs-joint-stretches">Per-band vs Joint Stretches</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-changes-reach-the-screen">How Changes Reach the Screen</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-issue-the-pipeline-runs-on-the-gui-thread">Known Issue: The Pipeline Runs on the GUI Thread</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#progress-cancel-and-the-gui-thread">Progress, Cancel, and the GUI Thread</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-to-read-next">Where to Read Next</a></li>
 </ul>
   </nav></div>

@@ -1067,19 +1067,35 @@ the Screen” section of the <a class="reference internal" href="rendering-pipel
 In short: <code class="docutils literal notranslate"><span class="pre">App</span></code> stores the stretches in <code class="docutils literal notranslate"><span class="pre">ApplicationState</span></code> (keyed per
 <code class="docutils literal notranslate"><span class="pre">(ds_id,</span> <span class="pre">band_index)</span></code>) and re-emits a state-level <code class="docutils literal notranslate"><span class="pre">stretch_changed</span></code>, which
 <code class="docutils literal notranslate"><span class="pre">RasterPane</span></code> turns into <code class="docutils literal notranslate"><span class="pre">RasterView.set_stretches()</span></code> calls.</p>
+<p>The panes re-render under one cancellable progress dialog. If the user cancels
+it, <code class="docutils literal notranslate"><span class="pre">ApplicationState.set_stretches()</span></code> restores the previous stretches and emits</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stretch_change_cancelled</span> <span class="o">=</span> <span class="n">Signal</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>   <span class="c1"># (dataset_id, display_bands)</span>
+</pre></div>
+</div>
+<p>When the dialog is showing that dataset and those bands, it reloads its controls
+from the restored stretches (<code class="docutils literal notranslate"><span class="pre">_on_stretch_change_cancelled</span></code>) with
+<code class="docutils literal notranslate"><span class="pre">_enable_stretch_changed_events</span></code> off and its signals blocked, so the reload emits
+no <code class="docutils literal notranslate"><span class="pre">stretch_changed</span></code>.</p>
 </section>
 <hr class="docutils" />
 <section id="applying-stretches-during-rendering">
 <h2>Applying Stretches During Rendering<a class="headerlink" href="#applying-stretches-during-rendering" title="Link to this heading">#</a></h2>
 <section id="per-band-path">
 <h3>Per-band path<a class="headerlink" href="#per-band-path" title="Link to this heading">#</a></h3>
-<p>For each dirty channel, <code class="docutils literal notranslate"><span class="pre">RasterView</span></code>’s <code class="docutils literal notranslate"><span class="pre">update_display_image()</span></code> calls:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stretches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stretches</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">get_stretches</span><span class="p">()</span>   <span class="c1"># [conditioner, main]</span>
-<span class="n">new_data</span> <span class="o">=</span> <span class="n">make_channel_image</span><span class="p">(</span><span class="n">band_data</span><span class="p">,</span> <span class="n">stretches</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stretches</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<p>For each dirty channel, <code class="docutils literal notranslate"><span class="pre">RasterView._render_channel()</span></code> stretches the band in
+row strips into one preallocated <code class="docutils literal notranslate"><span class="pre">uint8</span></code> array:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stretches</span> <span class="o">=</span> <span class="n">stretch</span><span class="o">.</span><span class="n">get_stretches</span><span class="p">()</span>   <span class="c1"># [conditioner, main]</span>
+<span class="n">new_data</span> <span class="o">=</span> <span class="n">make_channel_image_strips</span><span class="p">(</span><span class="n">band_data</span><span class="p">,</span> <span class="n">stretches</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stretches</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rows</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">make_channel_image()</span></code> applies the two stretches in order, clips to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>,
-and returns <code class="docutils literal notranslate"><span class="pre">uint8</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">make_channel_image_strips()</span></code> runs <code class="docutils literal notranslate"><span class="pre">make_channel_image</span></code>’s Python or numba
+kernel on <code class="docutils literal notranslate"><span class="pre">rows</span></code> rows at a time, calling <code class="docutils literal notranslate"><span class="pre">step()</span></code> after each strip to report
+progress and check for a cancel. Each strip applies the two stretches in order,
+clips to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>, and scales to <code class="docutils literal notranslate"><span class="pre">uint8</span></code>.</p>
+<p>For uniform histogram edges (every histogram of unconditioned data), the
+equalize stretch finds each value’s bin by index arithmetic rather than a search,
+with output identical to <code class="docutils literal notranslate"><span class="pre">np.interp</span></code>; edges reshaped by a conditioner use
+<code class="docutils literal notranslate"><span class="pre">np.interp</span></code>.</p>
 </section>
 <section id="joint-path-decorrelation">
 <h3>Joint path (decorrelation)<a class="headerlink" href="#joint-path-decorrelation" title="Link to this heading">#</a></h3>
@@ -1130,7 +1146,9 @@ classes each have a pure-Python implementation and a numba-compiled variant. The
 numba version is used only when an array exceeds <code class="docutils literal notranslate"><span class="pre">ARRAY_NUMBA_THRESHOLD</span></code>
 (<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/utils.py</span></code>); below that, JIT warm-up costs
 outweigh the benefit and the Python path is used. The numba wrappers also
-convert <code class="docutils literal notranslate"><span class="pre">float64</span></code> inputs to <code class="docutils literal notranslate"><span class="pre">float32</span></code> for speed and memory. <code class="docutils literal notranslate"><span class="pre">StretchDecorrelation</span></code>
+convert <code class="docutils literal notranslate"><span class="pre">float64</span></code> inputs to <code class="docutils literal notranslate"><span class="pre">float32</span></code> for speed and memory. The jitclasses do
+not inherit from <code class="docutils literal notranslate"><span class="pre">StretchBase</span></code>, so each defines <code class="docutils literal notranslate"><span class="pre">requires_all_bands()</span></code> itself
+and returns <code class="docutils literal notranslate"><span class="pre">False</span></code>, as its Python class does. <code class="docutils literal notranslate"><span class="pre">StretchDecorrelation</span></code>
 has no jitclass variant (a jitclass cannot hold the Python references it needs);
 its numba acceleration lives inside <code class="docutils literal notranslate"><span class="pre">decor_numba</span></code> instead.</p>
 </section>

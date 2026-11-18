@@ -1065,11 +1065,15 @@ window.runMermaid = runMermaid;</script>
 <td><p>Propagates immediately; aborts</p></td>
 <td><p>Continues; per-file errors collected alongside successes</p></td>
 </tr>
-<tr class="row-even"><td><p>Progress reporting</p></td>
+<tr class="row-even"><td><p>Memory check</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">check_bandmath_memory()</span></code> runs in <code class="docutils literal notranslate"><span class="pre">start_bandmath_evaluation()</span></code> before any process starts; <code class="docutils literal notranslate"><span class="pre">BandMathMemoryError</span></code> propagates to the caller, which shows it in a dialog</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">check_bandmath_memory()</span></code> runs on each file just before it is evaluated; an oversized file is reported as that file’s error and the other files still run</p></td>
+</tr>
+<tr class="row-odd"><td><p>Progress reporting</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">1</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">completed</span> <span class="pre">/</span> <span class="pre">total</span> <span class="pre">files</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Return value</p></td>
+<tr class="row-even"><td><p>Return value</p></td>
 <td><p>Single result wrapped in a list</p></td>
 <td><p>List of results (one per file)</p></td>
 </tr>
@@ -1084,13 +1088,34 @@ window.runMermaid = runMermaid;</script>
 <p><code class="docutils literal notranslate"><span class="pre">eval_singular_bandmath_expr()</span></code> contains the central decision: which evaluator to use.</p>
 <pre  class="mermaid">
         flowchart TD
-    A[&quot;eval_singular_bandmath_expr()&quot;] --&gt; B[&quot;Compute estimated peak memory:\nexpr_info.result_size() × number_of_intermediates&quot;]
-    B --&gt; C{&quot;result_type == IMAGE_CUBE\nAND memory exceeds threshold?&quot;}
-    C -- Yes --&gt; ASYNC[&quot;eval_singular_bandmath_expr_async()\nBandMathEvaluatorAsync&quot;]
-    C -- No --&gt; D{&quot;use_synchronous_method\nexplicitly False?&quot;}
-    D -- Yes --&gt; ASYNC
-    D -- No --&gt; SYNC[&quot;eval_singular_bandmath_expr_sync()\nBandMathEvaluator&quot;]
-    </pre><p><strong>Memory threshold:</strong> <code class="docutils literal notranslate"><span class="pre">max_bytes_to_chunk(expr_info.result_size()</span> <span class="pre">*</span> <span class="pre">number_of_intermediates)</span></code></p>
+    A[&quot;eval_singular_bandmath_expr()&quot;] --&gt; S[&quot;select_bandmath_chunking()&quot;]
+    S --&gt; D{&quot;use_synchronous_method\nexplicitly False?&quot;}
+    D -- Yes --&gt; ASYNC[&quot;eval_singular_bandmath_expr_async()\nBandMathEvaluatorAsync&quot;]
+    D -- No --&gt; C{&quot;result_type == IMAGE_CUBE?&quot;}
+    C -- No --&gt; SYNC[&quot;eval_singular_bandmath_expr_sync()\nBandMathEvaluator&quot;]
+    C -- Yes --&gt; B{&quot;result_size() × number_of_intermediates\n&gt; available memory?&quot;}
+    B -- Yes --&gt; ASYNC
+    B -- No --&gt; E{&quot;whole-array estimate\n&gt; MAX_FRACTION_OF_AVAILABLE_MEMORY\n× available memory?&quot;}
+    E -- Yes --&gt; ASYNC
+    E -- No --&gt; SYNC
+    </pre><p><strong>Path selection:</strong> <code class="docutils literal notranslate"><span class="pre">select_bandmath_chunking()</span></code> keeps the existing rule: the
+band-chunked path runs when <code class="docutils literal notranslate"><span class="pre">use_synchronous_method</span></code> is False, or when an
+<code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> result’s <code class="docutils literal notranslate"><span class="pre">result_size()</span> <span class="pre">*</span> <span class="pre">number_of_intermediates</span></code> exceeds available
+memory (<code class="docutils literal notranslate"><span class="pre">max_bytes_to_chunk()</span></code>). An <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> result that the rule leaves on the
+whole-array path is moved to the band-chunked path when its whole-array peak
+estimate (<code class="docutils literal notranslate"><span class="pre">estimate_bandmath_peak_bytes()</span></code>) exceeds <code class="docutils literal notranslate"><span class="pre">MAX_FRACTION_OF_AVAILABLE_MEMORY</span></code>
+(0.8) of available memory (<code class="docutils literal notranslate"><span class="pre">psutil.virtual_memory().available</span></code>). In both
+<code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> cases the band-window budget is <code class="docutils literal notranslate"><span class="pre">RATIO_OF_MEM_TO_USE</span></code> (0.25) of
+available memory. Other result types always run whole-array unless
+<code class="docutils literal notranslate"><span class="pre">use_synchronous_method</span></code> is False.</p>
+<p><strong>Memory refusal:</strong> <code class="docutils literal notranslate"><span class="pre">check_bandmath_memory()</span></code> estimates the peak for the path
+<code class="docutils literal notranslate"><span class="pre">select_bandmath_chunking()</span></code> chooses and raises <code class="docutils literal notranslate"><span class="pre">BandMathMemoryError</span></code> (a
+<code class="docutils literal notranslate"><span class="pre">MemoryError</span></code> subclass, <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/types.py</span></code>) when that estimate still
+exceeds <code class="docutils literal notranslate"><span class="pre">MAX_FRACTION_OF_AVAILABLE_MEMORY</span></code> of available memory. The message gives
+the estimate and the available memory in GB (1e9 bytes) and suggests running the
+expression on a spatial subset. Nothing has been evaluated or written when it is
+raised. See <strong>Memory check</strong> under Key differences for where single and batch jobs
+run it.</p>
 <p>Constants (from <code class="docutils literal notranslate"><span class="pre">src/wiser/bandmath/builtins/constants.py</span></code>):</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -1106,20 +1131,24 @@ window.runMermaid = runMermaid;</script>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RATIO_OF_MEM_TO_USE</span></code></p></td>
 <td><p>0.25</p></td>
-<td><p>Use at most 25 % of available RAM</p></td>
+<td><p>Band-window budget on the chunked path: 25 % of available RAM</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NUM_READERS</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MAX_FRACTION_OF_AVAILABLE_MEMORY</span></code></p></td>
+<td><p>0.8</p></td>
+<td><p>Whole-array estimate above which an <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> result is band-chunked, and estimate above which band math is refused</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NUM_READERS</span></code></p></td>
 <td><p>4</p></td>
 <td><p>Async read-thread-pool size</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NUM_WRITERS</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NUM_WRITERS</span></code></p></td>
 <td><p>1</p></td>
 <td><p>Async write-thread-pool size</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p><strong>In practice:</strong> spectra, scalars, and single-band results always take the sync path because they are not <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code>. Large hyperspectral cubes almost always exceed 25 % of available RAM and take the async path.</p>
+<p><strong>In practice:</strong> spectra, scalars, and single-band results take the sync path because they are not <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code>. Large hyperspectral cube results take the async path once their whole-array estimate exceeds 80 % of available RAM.</p>
 </section>
 <hr class="docutils" />
 <section id="synchronous-transformer-bandmathevaluator">
@@ -1130,7 +1159,7 @@ window.runMermaid = runMermaid;</script>
 <p><strong>Use cases:</strong></p>
 <ul class="simple">
 <li><p>Results of type <code class="docutils literal notranslate"><span class="pre">IMAGE_BAND</span></code>, <code class="docutils literal notranslate"><span class="pre">SPECTRUM</span></code>, <code class="docutils literal notranslate"><span class="pre">NUMBER</span></code>, <code class="docutils literal notranslate"><span class="pre">BOOLEAN</span></code>, or <code class="docutils literal notranslate"><span class="pre">STRING</span></code></p></li>
-<li><p>Small <code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> results that fit within the memory threshold</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IMAGE_CUBE</span></code> results whose whole-array estimate is within 80 % of available memory</p></li>
 <li><p>Scalar expressions (always negligible memory)</p></li>
 </ul>
 </section>

@@ -1042,9 +1042,12 @@ naturally maps to a different entry.</p></li>
 <span id="bandstats--a-separate-smaller-cache"></span><h3><code class="docutils literal notranslate"><span class="pre">BandStats</span></code> — a separate, smaller cache<a class="headerlink" href="#bandstats-a-separate-smaller-cache" title="Link to this heading">#</a></h3>
 <p>Independently of <code class="docutils literal notranslate"><span class="pre">DataCache</span></code>, each <code class="docutils literal notranslate"><span class="pre">RasterDataSet</span></code> keeps a per-band
 <code class="docutils literal notranslate"><span class="pre">BandStats</span></code> (min/max) cache in <code class="docutils literal notranslate"><span class="pre">_cached_band_stats</span></code>
-(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>). It is populated the first time a
-band is read and is what lets normalization reuse min/max without rescanning the
-array.</p>
+(<code class="docutils literal notranslate"><span class="pre">src/wiser/raster/dataset.py</span></code>), keyed by <code class="docutils literal notranslate"><span class="pre">(band_index,</span> <span class="pre">data_ignore_value)</span></code>:
+the data ignore value decides which pixels count, so changing it makes the
+stats be computed again. It is populated the first time a band is read, and
+<code class="docutils literal notranslate"><span class="pre">get_band_data_normalized()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_band_stats()</span></code> and <code class="docutils literal notranslate"><span class="pre">cache_band_stats()</span></code> all
+read and write it under that key, which lets normalization reuse min/max
+without rescanning the array.</p>
 </section>
 </section>
 <hr class="docutils" />

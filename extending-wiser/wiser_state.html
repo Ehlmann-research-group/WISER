@@ -490,6 +490,7 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_added</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_change_cancelled"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.stretch_change_cancelled</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_linear_unmix_history"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_linear_unmix_history()</span></code></a></li>
@@ -645,6 +646,11 @@ passed to the plugin.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed">
 <span class="sig-name descname"><span class="pre">stretch_changed</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_change_cancelled">
+<span class="sig-name descname"><span class="pre">stretch_change_cancelled</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Signal(...)'</span></span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_change_cancelled" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -814,7 +820,10 @@ to the dataset, which is also set on the dataset itself.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">ds_id</span></code> is given (project restore), that id is used verbatim
 instead of allocating a new one, and the internal id counter is advanced
 past it so later allocations do not collide.</p>
-<p>The method will fire a signal indicating that the dataset was added.</p>
+<p>The method will fire a signal indicating that the dataset was added.
+The views that display the new dataset render under one progress
+dialog that shows progress only and has no Cancel: opening a dataset
+always displays it.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -896,7 +905,16 @@ they are all the same size.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches">
 <span class="sig-name descname"><span class="pre">set_stretches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stretches</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">wiser.raster.dataset.List</span><span class="p"><span class="pre">[</span></span><span class="pre">wiser.raster.stretch.StretchBase</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.set_stretches" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Record <code class="docutils literal notranslate"><span class="pre">stretches</span></code> for <code class="docutils literal notranslate"><span class="pre">bands</span></code> of dataset <code class="docutils literal notranslate"><span class="pre">ds_id</span></code> and fire
+<code class="docutils literal notranslate"><span class="pre">stretch_changed</span></code>.  The views re-render under one cancellable progress
+dialog; if the user cancels it, every view keeps its previous image,
+the previous stretches for these bands are restored here, and
+<code class="docutils literal notranslate"><span class="pre">stretch_change_cancelled</span></code> fires with <code class="docutils literal notranslate"><span class="pre">ds_id</span></code> and <code class="docutils literal notranslate"><span class="pre">bands</span></code>.</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>ValueError: if <code class="docutils literal notranslate"><span class="pre">bands</span></code> and <code class="docutils literal notranslate"><span class="pre">stretches</span></code> differ in length.</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_stretches">
@@ -1358,6 +1376,7 @@ change once it has been given to WISER.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_added"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_added</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.roi_removed</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.stretch_changed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.stretch_change_cancelled"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.stretch_change_cancelled</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.active_spectrum_changed</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.collected_spectra_changed</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser.gui.app_state.wiser.gui.app_state.ApplicationState.ApplicationState.get_linear_unmix_history"><code class="docutils literal notranslate"><span class="pre">wiser.gui.app_state.ApplicationState.ApplicationState.get_linear_unmix_history()</span></code></a></li>

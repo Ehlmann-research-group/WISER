@@ -1192,6 +1192,10 @@ class DataVisualizerApp(QMainWindow):
                     variables=variables,
                     functions=functions,
                 )
+            except bandmath.BandMathMemoryError as e:
+                self._activity_monitor.remove_task(activity_id)
+                QMessageBox.critical(self, self.tr("Not Enough Memory for Band Math"), str(e))
+                return
             except Exception as e:
                 logger.exception("Couldn't evaluate band-math expression")
                 QMessageBox.critical(
