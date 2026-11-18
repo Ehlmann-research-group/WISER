@@ -1026,6 +1026,19 @@ class RasterPane(QWidget):
 
         self.update_all_rasterviews()
 
+    def _cancel_task_delegate(self) -> None:
+        """
+        Cancel and clear the active task delegate, if any, so that it commits
+        nothing.  Called before a new task delegate is constructed, so that the
+        new delegate's status text is the one left showing.
+        """
+        if self._task_delegate is None:
+            return
+
+        self._task_delegate.cancel()
+        self._task_delegate = None
+        self.update_all_rasterviews()
+
     def _emit_viewport_change(self, rasterview_pos=None):
         """A helper that emits the viewport-changed event."""
         self.viewport_change.emit(rasterview_pos)
@@ -1410,12 +1423,16 @@ class RasterPane(QWidget):
         """
         This function handles "dataset removed" events from the application
         state.  It cleans up the locally-recorded display band info for the
-        dataset.  Also, if any rasterviews are showing the dataset, the function
+        dataset and clears the pixel highlight if it references the dataset.
+        Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         """
         if ds_id in self._display_bands:
             del self._display_bands[ds_id]
         self._colormaps.pop(ds_id, None)
+
+        if self._pixel_highlight is not None and self._pixel_highlight.get_dataset().get_id() == ds_id:
+            self.set_pixel_highlight(None)
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
@@ -1713,7 +1730,7 @@ class RasterPane(QWidget):
         then added to a Region of Interest.
         """
 
-        # TODO(donnie):  What to do if the task-delegate already exists?!
+        self._cancel_task_delegate()
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
@@ -1743,6 +1760,7 @@ class RasterPane(QWidget):
             )
 
     def _on_edit_roi_selection_geometry(self, roi, sel_index, rasterview) -> None:
+        self._cancel_task_delegate()
         sel = roi.get_selections()[sel_index]
         selection_type = sel.get_type()
 

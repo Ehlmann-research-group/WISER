@@ -1074,7 +1074,7 @@ class MosaicPane(QWidget):
         )
 
     def _on_export_failed(self, message: str) -> None:
-        QMessageBox.warning(self, self.tr("Export failed"), message)
+        QMessageBox.critical(self, self.tr("Export failed"), message)
 
     # -- common grid / target CRS ---------------------------------------------
 
