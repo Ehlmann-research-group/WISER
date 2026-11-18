@@ -31,7 +31,9 @@ GTIFF_WAVELENGTH_DESCRIPTIONS = os.path.join(DATASETS, "caltech_4_100_150_nm_eps
 
 def _open_netcdf(path):
     impl = NetCDF_GDALRasterDataImpl.try_load_file(path, subdataset_name="reflectance", interactive=False)[0]
-    return RasterDataSet(impl)
+    dataset = RasterDataSet(impl)
+    dataset.set_name(os.path.basename(path))
+    return dataset
 
 
 def _envi_copy(tmp_path, extra_header_lines):

@@ -715,6 +715,7 @@ class TestKMeansCentroidWavelengths(unittest.TestCase):
         app_state = self.test_model.app_state
         arr = np.random.default_rng(0).random((6, 8, 8)).astype(np.float32)
         dataset = app_state.get_loader().dataset_from_numpy_array(arr, app_state.get_cache())
+        dataset.set_name("no wavelengths")
         app_state.add_dataset(dataset, view_dataset=False)
         self.assertFalse(dataset.has_wavelengths())
         record = self._run(dataset)
