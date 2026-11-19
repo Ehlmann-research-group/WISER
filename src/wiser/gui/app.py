@@ -212,7 +212,9 @@ class DataVisualizerApp(QMainWindow):
 
         # Context pane
 
-        self._context_pane = ContextPane(self._app_state)
+        self._context_pane = ContextPane(
+            self._app_state, main_view_linked=lambda: self._main_view.is_scrolling_linked()
+        )
         self._make_dockable_pane(
             self._context_pane,
             name="context_pane",
@@ -228,7 +230,11 @@ class DataVisualizerApp(QMainWindow):
 
         # Zoom pane
 
-        self._zoom_pane = ZoomPane(self._app_state, main_view_scale=lambda: self._main_view.get_scale())
+        self._zoom_pane = ZoomPane(
+            self._app_state,
+            main_view_scale=lambda: self._main_view.get_scale(),
+            main_view_linked=lambda: self._main_view.is_scrolling_linked(),
+        )
         dockable = self._make_dockable_pane(
             self._zoom_pane,
             name="zoom_pane",
@@ -1479,9 +1485,7 @@ class DataVisualizerApp(QMainWindow):
 
             self._context_pane.show_dataset(ds)
 
-            self._main_view.set_pixel_highlight(
-                sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True
-            )
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
 
             self._zoom_pane.set_pixel_highlight(sel)
 
@@ -1597,9 +1601,7 @@ class DataVisualizerApp(QMainWindow):
             sel = SinglePixelSelection(ds_point, ds)
 
             # Update the main and zoom windows to show the selected dataset and pixel.
-            self._main_view.set_pixel_highlight(
-                sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True
-            )
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
             # Set the "active spectrum" based on the current config and the

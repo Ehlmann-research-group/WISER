@@ -18,8 +18,7 @@ from .util import get_painter
 from wiser.raster.dataset import (
     RasterDataSet,
     GeographicLinkState,
-    reference_pixel_to_target_pixel_ds,
-    transform_geo_coord,
+    reference_point_to_target_point_ds,
 )
 from wiser.raster.stretch import StretchBase
 
@@ -400,18 +399,7 @@ def reference_point_to_target_point_rasterview(
     if reference_dataset is None or target_dataset is None:
         return None
 
-    link_state = target_dataset.determine_link_state(reference_dataset)
-    if link_state != GeographicLinkState.SPATIAL:
-        return reference_pixel_to_target_pixel_ds(
-            reference_point, reference_dataset, target_dataset, link_state
-        )
-
-    geo_coord = transform_geo_coord(
-        reference_dataset.to_geographic_coords(reference_point),
-        reference_dataset.get_spatial_ref(),
-        target_dataset.get_spatial_ref(),
-    )
-    return target_dataset.geo_to_pixel_coords_exact(geo_coord)
+    return reference_point_to_target_point_ds(reference_point, reference_dataset, target_dataset)
 
 
 def linked_scale_ratio(reference_rasterview: "RasterView", target_rasterview: "RasterView") -> float:

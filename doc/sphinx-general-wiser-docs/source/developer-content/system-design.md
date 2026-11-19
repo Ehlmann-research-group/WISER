@@ -904,8 +904,8 @@ Scenario:  different "unrelated" spectral data sets
     * Fix:    We only show the viewport highlight in the context pane if the
       matching dataset is open in the main window.
 
-* Click in main window; zoom pane should switch to the clicked-on data set,
-  and show the appropriate spectrum in the plot.
+* Click in main window; with linked scrolling off, the zoom pane switches to
+  the clicked-on data set and shows the appropriate spectrum in the plot.
 
 * Click in zoom pane. What should happen in the main image window?
     * We should only show highlighted pixel in views with the same data set.
@@ -928,7 +928,8 @@ Scenario:  different "related" data sets over the same spatial area
     * Context window viewport highlight is easy; all main window views are
       showing the same area.
 
-    * Should zoom pane switch to the clicked-on data set? Currently, zoom pane does not.
+    * The zoom pane keeps its data set and centers on the clicked location
+      mapped into it.
 
 * Click in zoom pane. What should happen in the main image window?
     * Show highlighted pixel in all views.

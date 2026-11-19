@@ -142,6 +142,11 @@ viewport highlight in the WISER configuration dialog.)_ Clicking or scrolling in
 any display pane updates the others. Clicking in the main window or the Zoom
 pane plots that pixel's spectrum in the Spectrum Plot.
 
+With linked views, the Context pane outlines the area shown in every
+main-window panel, mapped onto the dataset it shows, and the Zoom pane keeps its
+dataset: clicking a pixel in any main-window panel centers the Zoom pane on the
+same ground location.
+
 ---
 
 ## Toolbars

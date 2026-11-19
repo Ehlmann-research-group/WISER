@@ -153,6 +153,37 @@ def reference_pixel_to_target_pixel_ds(
     return (x, y)
 
 
+def reference_point_to_target_point_ds(
+    reference_point: Tuple[float, float],
+    reference_dataset: "RasterDataSet",
+    target_dataset: "RasterDataSet",
+) -> Optional[Tuple[float, float]]:
+    """
+    Maps a point in the raster coordinates of ``reference_dataset`` to the
+    raster coordinates of ``target_dataset``, where pixel ``(c, r)`` covers
+    ``[c, c + 1) x [r, r + 1)``.  Unlike :func:`reference_pixel_to_target_pixel_ds`,
+    a spatial link is not rounded to a whole pixel, so a point between pixel
+    corners maps to the same ground.  Returns ``None`` if the datasets cannot
+    be linked.
+
+    Raises:
+        ValueError: If the link state is not one of ``GeographicLinkState``'s,
+            or a spatially linked dataset's geotransform cannot be inverted.
+    """
+    link_state = target_dataset.determine_link_state(reference_dataset)
+    if link_state != GeographicLinkState.SPATIAL:
+        return reference_pixel_to_target_pixel_ds(
+            reference_point, reference_dataset, target_dataset, link_state
+        )
+
+    geo_coord = transform_geo_coord(
+        reference_dataset.to_geographic_coords(reference_point),
+        reference_dataset.get_spatial_ref(),
+        target_dataset.get_spatial_ref(),
+    )
+    return target_dataset.geo_to_pixel_coords_exact(geo_coord)
+
+
 class BandStats:
     """
     Represents the statistics for a given band in a data set.

@@ -1,4 +1,4 @@
-from typing import List, Union, Dict
+from typing import Callable, List, Union, Dict
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -6,7 +6,7 @@ from PySide6.QtWidgets import *
 
 import wiser.gui.generated.resources
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import GeographicLinkState, RasterDataSet
 
 from .rasterview import ScaleToFitMode, RasterView
 from .rasterpane import RasterPane
@@ -66,10 +66,18 @@ class ContextPane(RasterPane):
     toolbar of overview/context related tools.  The pane shows the raster image
     zoomed out, with highlights such as the area visible in the main image
     window, annotation locations, etc.
+
+    ``main_view_linked`` returns whether the main view's views are linked.
+    While they are, the pane outlines the visible area of every main view
+    raster-view whose dataset links to the one it shows, mapped onto it.
     """
 
-    def __init__(self, app_state, parent=None):
+    def __init__(self, app_state, main_view_linked: Callable[[], bool], parent=None):
         super().__init__(app_state=app_state, parent=parent, size_hint=QSize(200, 200))
+        self._main_view_linked = main_view_linked
+
+    def _views_linked(self) -> bool:
+        return self._main_view_linked()
 
     def _init_toolbar(self):
         """
@@ -234,9 +242,23 @@ class ContextPane(RasterPane):
             # if the context pane displayed a dataset but none of the
             # rasterviews did, but in that case, there is no viewport_highlight
             # to set so this function would never be called.
-            if not visible.contains(viewports[0]):
+            # The viewport is in the main view dataset's raster coordinates; when
+            # this pane shows another dataset, map it into this one's first.
+            viewport = viewports[0]
+            reference_ds = rasterviews[0].get_raster_data()
+            rv_ds = rv.get_raster_data()
+            if rv_ds is not reference_ds:
+                link_state = rv_ds.determine_link_state(reference_ds)
+                if link_state == GeographicLinkState.NO_LINK:
+                    rv.update()
+                    continue
+                if link_state == GeographicLinkState.SPATIAL:
+                    viewport = self._transform_viewport_to_polygon(
+                        viewport, reference_ds, rv_ds
+                    ).boundingRect()
+
+            if not visible.contains(viewport):
                 center = QRectF(viewports[0]).center()
-                # TODO (Joshua G-K): Make this compatible with geographic linking
                 rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterviews[0])
 
             # Repaint raster-view
