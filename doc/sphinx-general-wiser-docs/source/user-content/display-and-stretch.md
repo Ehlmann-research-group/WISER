@@ -100,6 +100,13 @@ datasets (each with a geotransform and a spatial reference system) are linked
 by ground location, so they must overlap on the ground. Otherwise two datasets
 are linked pixel for pixel, which requires the **same width and height**.
 
+Each panel has its own zoom. The toolbar zoom controls act on the active
+panel, outlined in the highlight colour: the last one clicked or zoomed with
+Ctrl+scroll. Unlinked panels zoom independently. Linked panels follow the
+active one: pixel-linked panels share its zoom, and georeferenced panels show
+the same area of ground, so a dataset with larger pixels is drawn at a higher
+zoom percentage.
+
 The spectrum plot has its own control, at its top left, for choosing which
 dataset it reads from. Pin it to one dataset and clicking any linked panel
 gives you that dataset's spectrum at the corresponding pixel (the same ground
