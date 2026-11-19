@@ -851,12 +851,14 @@ images of the same samples, or images of different samples. The views may
 optionally be linked so that scrolling in one view will automatically update the
 scroll position in the other views.
 
-The primary constraint for multiple views in the main image window is that they
-will all use the same zoom level. It is not possible to have different views
-with different scroll levels.
+Each view has its own zoom level. The zoom controls act on the active view:
+the view with data that was last clicked or zoomed with Ctrl+wheel (or, if that
+view has no data, the first view with data).
 
-When linked scrolling is turned on, the views will all automatically update to
-match the scroll settings of the top left view.
+When linked scrolling is turned on, the views follow the active view's zoom and
+scroll position. Pixel-linked views use the same zoom level; spatially linked
+views are zoomed to show the same ground extent, so a view of a dataset with
+twice the pixel size is shown at twice the zoom level.
 
 ## Main Window / Zoom Window Interactions
 

@@ -327,6 +327,10 @@ class RasterPane(QWidget):
         self._max_zoom_scale = max_zoom_scale
         self._zoom_options = zoom_options
 
+        # The position of the raster-view that the zoom controls act on.  See
+        # get_active_rasterview().
+        self._active_view_pos: Tuple[int, int] = (0, 0)
+
         # The key is for the dataset the viewport belongs to.
         # The value is a list of viewports because one dataset
         # can show up in the context pane multiple times.
@@ -582,6 +586,7 @@ class RasterPane(QWidget):
                     rasterview.hide_toolbar()
 
         self._num_views = num_views
+        self._update_active_frame()
         self.views_changed.emit(self._num_views)
 
     # region Getters
@@ -700,23 +705,71 @@ class RasterPane(QWidget):
                 visible_ds.append(rasterview._raster_data)
         return visible_ds
 
-    def get_scale(self):
+    def get_active_rasterview(self) -> RasterView:
         """
-        Returns the current zoom scale of this raster pane.  Even when a pane
-        contains multiple views, all views use the same scale, so this function
-        simply returns the scale of the top left view in the pane.
-        """
-        return self._rasterviews[(0, 0)].get_scale()
+        Returns the raster-view that the pane's zoom controls act on:  the
+        raster-view with data that was last pressed with the mouse or zoomed
+        with Ctrl+wheel.  If that raster-view no longer exists or no longer has
+        data, the first raster-view with data is returned (see
+        get_rasterview_with_data()), or the raster-view at (0, 0) if no
+        raster-view has data.
 
-    def set_scale(self, scale):
+        A middle-button (pan) press, and a press on a raster-view's toolbar or
+        on the area around its image, do not make that raster-view active.
         """
-        Sets the zoom scale of this raster pane.  When a pane contains multiple
-        raster views, the scale is set on all of the views.
+        rasterview = self._rasterviews.get(self._active_view_pos)
+        if rasterview is not None and rasterview.get_raster_data() is not None:
+            return rasterview
+
+        rasterview = self.get_rasterview_with_data()
+        if rasterview is None:
+            rasterview = self._rasterviews[(0, 0)]
+        return rasterview
+
+    def _set_active_rasterview(self, rasterview: RasterView) -> None:
+        """
+        Makes ``rasterview`` the raster-view that the pane's zoom controls act
+        on, and updates the zoom widgets to show its scale.
+
+        Raises:
+            ValueError: if ``rasterview`` has no data.
+        """
+        if rasterview.get_raster_data() is None:
+            raise ValueError("A raster-view with no data cannot be the active raster-view")
+
+        self._active_view_pos = self._get_rasterview_position(rasterview)
+        self._update_active_frame()
+        self._update_zoom_widgets()
+
+    def _update_active_frame(self) -> None:
+        """
+        Draws a frame around the active raster-view's scroll area when the pane
+        shows more than one raster-view, and clears it from every other
+        raster-view.
+        """
+        active = self.get_active_rasterview()
+        multi_view = self.is_multi_view()
+        for rv in self._rasterviews.values():
+            style = (
+                "QScrollArea { border: 2px solid palette(highlight); }" if multi_view and rv is active else ""
+            )
+            rv._scroll_area.setStyleSheet(style)
+
+    def get_scale(self) -> float:
+        """
+        Returns the zoom scale of the active raster-view (see
+        get_active_rasterview()).
+        """
+        return self.get_active_rasterview().get_scale()
+
+    def set_scale(self, scale: float) -> None:
+        """
+        Sets the zoom scale of the active raster-view (see
+        get_active_rasterview()).  Other raster-views keep their scale.
 
         As one would expect, this will generate a viewport-changed event.
         """
-        for rv in self._rasterviews.values():
-            rv.scale_image(scale)
+        self.get_active_rasterview().scale_image(scale)
 
     def set_scale_around_point(self, scale: float, point: Tuple[int, int]):
         """
@@ -741,6 +794,9 @@ class RasterPane(QWidget):
     # region _onRaster
 
     def _onRasterMousePress(self, rasterview, mouse_event):
+        if rasterview.get_raster_data() is not None:
+            self._set_active_rasterview(rasterview)
+
         if self._has_delegate_for_rasterview(rasterview):
             done = self._task_delegate.on_mouse_press(mouse_event)
             self._update_delegate(done)
@@ -1088,6 +1144,7 @@ class RasterPane(QWidget):
 
         rasterview.set_raster_data(dataset, bands, stretches)
         self._apply_colormap(rasterview)
+        self._update_active_frame()
         if dataset is not None and self._num_views == (1, 1) and self._dataset_chooser is not None:
             self._dataset_chooser.check_dataset(dataset.get_id())
 
@@ -1969,8 +2026,7 @@ class RasterPane(QWidget):
         # active_roi = self._app_state.get_active_roi()
         with get_painter(widget) as painter:
             for roi in self._app_state.get_rois():
-                # TODO(donnie):  This needs to change for multi-views
-                draw_roi(self.get_rasterview(), painter, roi)
+                draw_roi(rasterview, painter, roi)
 
     def _draw_viewport_highlight(self, rasterview, widget, paint_event):
         """
@@ -2013,27 +2069,26 @@ class RasterPane(QWidget):
             color = self._app_state.get_config("raster.viewport_highlight_color")
             painter.setPen(QPen(color))
 
-            self.draw_highlights(compatible_highlights, painter, widget)
+            self.draw_highlights(compatible_highlights, painter, widget, rasterview.get_scale())
 
     def draw_highlights(
         self,
         highlights: List[Union[QRect, QRectF, QPolygon]],
         painter: QPainter,
         widget: QWidget,
+        scale: float,
     ):
         """
         Draws every highlight in the provided list onto the widget using the painter.
 
-        Each highlight can be a QRect, QRectF, or QPolygon. For rectangle types,
-        the coordinates are scaled using self.get_scale() and clamped to the widget size.
-        For polygons, every point is scaled accordingly.
+        Each highlight can be a QRect, QRectF, or QPolygon, in raster coordinates.
+        For rectangle types, the coordinates are multiplied by ``scale``, the zoom
+        scale of the raster-view that owns ``widget``, and clamped to the widget
+        size.  For polygons, every point is scaled accordingly.
         """
         # Get the highlight color from application configuration.
         color = self._app_state.get_config("raster.viewport_highlight_color")
         painter.setPen(QPen(color))
-
-        # Get the current scale factor.
-        scale = self.get_scale()
 
         for highlight in highlights:
             if isinstance(highlight, (QRect, QRectF)):
@@ -2129,7 +2184,11 @@ class RasterPane(QWidget):
         # Create a QPolygon from the transformed points.
         return QPolygon(transformed_points)
 
-    def _draw_crosshair_at_coord(self, coord, widget):
+    def _draw_crosshair_at_coord(self, coord: QPoint, widget: QWidget, scale: float) -> None:
+        """
+        Draws the pixel reticle on raster pixel ``coord`` of ``widget``, the
+        image widget of a raster-view at zoom scale ``scale``.
+        """
         with get_painter(widget) as painter:
             color = self._app_state.get_config("raster.pixel_cursor_color")
             painter.setPen(QPen(color))
@@ -2137,10 +2196,6 @@ class RasterPane(QWidget):
             # (ds_x, ds_y) is the coordinate within the data-set.
             ds_x = coord.x()
             ds_y = coord.y()
-
-            # This is the size of individual data-set pixels in the display
-            # coordinate system.
-            scale = self.get_scale()
 
             # This is the center of the highlighted pixel.
             screen_x = (ds_x + 0.5) * scale
@@ -2198,4 +2253,4 @@ class RasterPane(QWidget):
 
         coord = self._pixel_highlight.get_pixel()
 
-        self._draw_crosshair_at_coord(coord, widget)
+        self._draw_crosshair_at_coord(coord, widget, rasterview.get_scale())

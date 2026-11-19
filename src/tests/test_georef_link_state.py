@@ -20,6 +20,7 @@ from PySide6.QtCore import QPoint
 
 from test_utils.test_model import WiserTestModel
 from wiser.gui import main_view
+from wiser.gui.rasterview import linked_scale_ratio, reference_point_to_target_point_rasterview
 from wiser.raster.dataset import GeographicLinkState, RasterDataSet, reference_pixel_to_target_pixel_ds
 from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
 from wiser.raster.loader import RasterDataLoader
@@ -205,17 +206,24 @@ def model():
 
 
 def _zoom_in_until_partial(model):
-    """Zoom the main view in until every tile shows at most a third of its dataset."""
-    for _ in range(12):
-        regions = [
-            (rv.get_visible_region(), rv.get_raster_data())
-            for rv in model.main_view.get_all_rasterviews()
-            if rv.get_raster_data() is not None
-        ]
-        if all(3 * r.width() <= ds.get_width() and 3 * r.height() <= ds.get_height() for r, ds in regions):
-            return
-        model.click_main_view_zoom_in()
-    pytest.fail("main view could not be zoomed in to a partial view")
+    """
+    Zoom each main view tile with data in until it shows at most a third of its dataset,
+    leaving tile (0, 0) active.
+    """
+    rows, cols = model.main_view.get_num_views()
+    for pos in [(row, col) for row in range(rows) for col in range(cols)][::-1]:
+        rv = model.get_main_view_rv(pos)
+        ds = rv.get_raster_data()
+        if ds is None:
+            continue
+        model.activate_main_view_rv(pos)
+        for _ in range(12):
+            region = rv.get_visible_region()
+            if 3 * region.width() <= ds.get_width() and 3 * region.height() <= ds.get_height():
+                break
+            model.click_main_view_zoom_in()
+        else:
+            pytest.fail(f"main view tile {pos} could not be zoomed in to a partial view")
 
 
 def _show(model, datasets):
@@ -243,7 +251,7 @@ def _crosshairs(model, monkeypatch, columns):
     monkeypatch.setattr(
         model.main_view,
         "_draw_crosshair_at_coord",
-        lambda coord, widget: drawn.append((coord.x(), coord.y())),
+        lambda coord, widget, scale: drawn.append((coord.x(), coord.y())),
     )
     for col in range(columns):
         rv = model.get_main_view_rv((0, col))
@@ -523,3 +531,167 @@ def test_context_click_centers_coarser_linked_tile_on_the_pixel_center(model, tm
     for col, expected in [(0, (42.75, 35.75)), (1, (85.5, 71.5))]:
         rv = model.get_main_view_rv((0, col))
         assert _scrolled_center(rv) == pytest.approx(expected, abs=0.5 / rv.get_scale() + 1e-9)
+
+
+def _linked_pair(model, leader, follower):
+    """Show ``leader`` in active tile (0, 0) and ``follower`` in (0, 1), with linking on."""
+    model.set_main_view_layout((1, 2))
+    model.set_main_view_rv((0, 0), leader.get_id())
+    model.set_main_view_rv((0, 1), follower.get_id())
+    model.activate_main_view_rv((0, 0))
+    assert model.click_link_button()
+    return model.get_main_view_rv((0, 0)), model.get_main_view_rv((0, 1))
+
+
+def _mapped_center(leader, follower):
+    """The leader's visible centre mapped into the follower's dataset."""
+    return reference_point_to_target_point_rasterview(leader.get_visible_region_center(), leader, follower)
+
+
+@pytest.mark.integration
+def test_linked_scale_ratio_follows_pixel_size(model, tmp_path):
+    fine = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    coarse = model.load_dataset(str(_coarse_copy(tmp_path)))
+    model.set_main_view_layout((1, 2))
+    model.set_main_view_rv((0, 0), fine.get_id())
+    model.set_main_view_rv((0, 1), coarse.get_id())
+    fine_rv, coarse_rv = model.get_main_view_rv((0, 0)), model.get_main_view_rv((0, 1))
+
+    assert linked_scale_ratio(fine_rv, coarse_rv) == pytest.approx(2, rel=1e-9)
+    assert linked_scale_ratio(coarse_rv, fine_rv) == pytest.approx(0.5, rel=1e-9)
+
+
+@pytest.mark.integration
+def test_linked_scale_ratio_is_one_for_a_pixel_link(model):
+    a = model.load_dataset(str(_EPSG4087))
+    b = model.load_dataset(np.zeros((1, a.get_height(), a.get_width()), dtype=np.float32))
+    model.set_main_view_layout((1, 2))
+    model.set_main_view_rv((0, 0), a.get_id())
+    model.set_main_view_rv((0, 1), b.get_id())
+
+    assert linked_scale_ratio(model.get_main_view_rv((0, 0)), model.get_main_view_rv((0, 1))) == 1.0
+
+
+@pytest.mark.integration
+def test_linked_scale_ratio_raises_without_a_link_or_a_dataset(model, tmp_path):
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    far = model.load_dataset(str(_shifted_copy(tmp_path, "far.tif", 1000, 0)))
+    model.set_main_view_layout((1, 3))
+    model.set_main_view_rv((0, 0), a.get_id())
+    model.set_main_view_rv((0, 1), far.get_id())
+    model.set_main_view_rv((0, 2), -1)
+    rvs = [model.get_main_view_rv((0, col)) for col in range(3)]
+
+    with pytest.raises(ValueError, match="NO_LINK"):
+        linked_scale_ratio(rvs[0], rvs[1])
+    with pytest.raises(ValueError, match="must have a dataset"):
+        linked_scale_ratio(rvs[0], rvs[2])
+
+
+def _option_4(model):
+    model.select_main_view_zoom_option(4)
+
+
+def _fit(model):
+    model.click_zoom_to_fit()
+
+
+def _ctrl_wheel(model):
+    model.ctrl_scroll_main_view_rv((0, 0), notches=3)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("zoom", [_option_4, _fit, _ctrl_wheel])
+def test_spatial_linked_zoom_shows_the_same_ground(model, tmp_path, zoom):
+    fine = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    coarse = model.load_dataset(str(_coarse_copy(tmp_path)))
+    fine_rv, coarse_rv = _linked_pair(model, fine, coarse)
+    assert model.main_view._link_view_state == GeographicLinkState.SPATIAL
+
+    zoom(model)
+
+    assert fine_rv.get_scale() != 1.0
+    # Equal ground extent needs a scale proportional to pixel size.
+    assert coarse_rv.get_scale() == pytest.approx(2 * fine_rv.get_scale(), rel=1e-9)
+    assert coarse_rv.get_visible_region_center() == pytest.approx(_mapped_center(fine_rv, coarse_rv), abs=0.5)
+
+
+@pytest.mark.integration
+def test_spatial_linked_follower_exceeds_the_maximum_zoom(model, tmp_path):
+    fine = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    coarse = model.load_dataset(str(_coarse_copy(tmp_path)))
+    fine_rv, coarse_rv = _linked_pair(model, fine, coarse)
+
+    model.select_main_view_zoom_option(16)
+
+    assert fine_rv.get_scale() == 16
+    assert coarse_rv.get_scale() == pytest.approx(32, rel=1e-9)
+    assert coarse_rv.get_visible_region_center() == pytest.approx(
+        _mapped_center(fine_rv, coarse_rv), abs=0.5 / 32 + 1e-9
+    )
+
+
+def _shoelace(points):
+    return abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(points, points[1:] + points[:1]))) / 2
+
+
+@pytest.mark.integration
+def test_spatial_linked_zoom_matches_ground_area_across_crs(model, tmp_path):
+    leader_ds = model.load_dataset(str(_EPSG4087))
+    follower_ds = model.load_dataset(str(_reprojected_same_size(tmp_path, 32611)))
+    leader, follower = _linked_pair(model, leader_ds, follower_ds)
+
+    model.select_main_view_zoom_option(4)
+
+    # The follower's viewport, mapped into the leader's dataset and drawn at the
+    # leader's scale, covers the same screen area as the follower's viewport.
+    viewport, scale = follower._scroll_area.viewport(), follower.get_scale()
+    h, v = follower.get_scrollbar_state()
+    corners = [
+        ((h + x) / scale, (v + y) / scale)
+        for x, y in [
+            (0, 0),
+            (viewport.width(), 0),
+            (viewport.width(), viewport.height()),
+            (0, viewport.height()),
+        ]
+    ]
+    mapped = [reference_point_to_target_point_rasterview(c, follower, leader) for c in corners]
+    leader_screen_area = _shoelace(mapped) * leader.get_scale() ** 2
+    assert np.sqrt(leader_screen_area / (viewport.width() * viewport.height())) == pytest.approx(1, rel=0.01)
+
+
+@pytest.mark.integration
+def test_linked_zoom_is_capped_at_the_maximum_widget_size(model, monkeypatch, tmp_path):
+    fine = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    coarse = model.load_dataset(str(_coarse_copy(tmp_path)))
+    fine_rv, coarse_rv = _linked_pair(model, fine, coarse)
+    messages = []
+    monkeypatch.setattr(model.app_state, "show_status_text", lambda text, seconds=0: messages.append(text))
+
+    model.main_view.set_scale(1e6)
+    model.run()
+
+    assert fine_rv.get_scale() < 1e6
+    for rv in (fine_rv, coarse_rv):
+        size = rv._image_widget.size()
+        assert max(size.width(), size.height()) <= main_view.QWIDGETSIZE_MAX
+    assert coarse_rv.get_scale() == pytest.approx(2 * fine_rv.get_scale(), rel=1e-9)
+    assert len(messages) == 1 and "Zoom limited" in messages[0]
+
+
+@pytest.mark.integration
+def test_link_on_matches_the_active_tiles_zoom(model, tmp_path):
+    fine = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    coarse = model.load_dataset(str(_coarse_copy(tmp_path)))
+    model.set_main_view_layout((1, 2))
+    model.set_main_view_rv((0, 0), coarse.get_id())
+    model.set_main_view_rv((0, 1), fine.get_id())
+    model.activate_main_view_rv((0, 1))
+    model.select_main_view_zoom_option(4)
+    assert model.get_main_view_rv_scale((0, 0)) == 1.0
+
+    assert model.click_link_button()
+
+    assert model.get_main_view_rv_scale((0, 1)) == 4
+    assert model.get_main_view_rv_scale((0, 0)) == pytest.approx(8, rel=1e-9)

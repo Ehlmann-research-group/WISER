@@ -743,24 +743,26 @@ class TestContextPaneClickRecenter(unittest.TestCase):
 
     def _zoom_in_until_partial(self):
         """
-        Zoom the main view in until every tile shows at most a third of its
-        dataset's width and height.  Zooming keeps the view centred, so a point
-        outside the dataset's middle third then starts outside the visible
-        region on any viewport size.
+        Zoom each main view tile with data in until it shows at most a third of
+        its dataset's width and height, leaving tile (0, 0) active.  Zooming
+        keeps the view centred, so a point outside the dataset's middle third
+        then starts outside the visible region on any viewport size.
         """
         tm = self.test_model
-        for _ in range(12):
-            regions = [
-                (rv.get_visible_region(), rv.get_raster_data())
-                for rv in tm.main_view.get_all_rasterviews()
-                if rv.get_raster_data() is not None
-            ]
-            if all(
-                3 * r.width() <= ds.get_width() and 3 * r.height() <= ds.get_height() for r, ds in regions
-            ):
-                return
-            tm.click_main_view_zoom_in()
-        self.fail("main view could not be zoomed in to a partial view")
+        rows, cols = tm.main_view.get_num_views()
+        for pos in [(row, col) for row in range(rows) for col in range(cols)][::-1]:
+            rv = tm.get_main_view_rv(pos)
+            ds = rv.get_raster_data()
+            if ds is None:
+                continue
+            tm.activate_main_view_rv(pos)
+            for _ in range(12):
+                region = rv.get_visible_region()
+                if 3 * region.width() <= ds.get_width() and 3 * region.height() <= ds.get_height():
+                    break
+                tm.click_main_view_zoom_in()
+            else:
+                self.fail(f"main view tile {pos} could not be zoomed in to a partial view")
 
     def _show(self, left_path, right_path, context_path=None):
         """
