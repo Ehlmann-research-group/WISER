@@ -21,11 +21,21 @@ class ZoomPane(RasterPane):
     to INITIAL_ZOOM_FACTOR times the scale returned by ``main_view_scale``,
     rounded up to a whole zoom level and clamped to the pane's 1x-16x range.
     Zoom levels set after that are kept.
+
+    ``main_view_linked`` returns whether the main view's views are linked.
+    While they are, a pixel selected in a linked dataset is shown and centered
+    in the dataset this pane shows.
     """
 
     INITIAL_ZOOM_FACTOR = 4
 
-    def __init__(self, app_state, main_view_scale: Callable[[], float], parent=None):
+    def __init__(
+        self,
+        app_state,
+        main_view_scale: Callable[[], float],
+        main_view_linked: Callable[[], bool],
+        parent=None,
+    ):
         super().__init__(
             app_state=app_state,
             parent=parent,
@@ -35,7 +45,11 @@ class ZoomPane(RasterPane):
             zoom_options=range(1, 17),
         )
         self._main_view_scale = main_view_scale
+        self._main_view_linked = main_view_linked
         self._initial_scale_set = False
+
+    def _views_linked(self) -> bool:
+        return self._main_view_linked()
 
     def show_dataset(self, dataset, rasterview_pos=(0, 0)):
         super().show_dataset(dataset, rasterview_pos)

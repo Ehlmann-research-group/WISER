@@ -17,6 +17,7 @@ from osgeo import gdal, osr
 import tests.context  # noqa: F401 -- adds src/ to sys.path
 
 from PySide6.QtCore import QPoint
+from PySide6.QtGui import QPolygon
 
 from test_utils.test_model import WiserTestModel
 from wiser.gui import main_view
@@ -307,7 +308,7 @@ def test_main_view_draws_no_crosshair_for_a_dataset_it_cannot_link(model, monkey
     _show(model, [a, b])
     assert model.click_link_button()
     # A pixel selected in a pane outside the main view, as the zoom pane's click handler sets it.
-    model.main_view.set_pixel_highlight(SinglePixelSelection(QPoint(5, 5), unlinkable), are_views_linked=True)
+    model.main_view.set_pixel_highlight(SinglePixelSelection(QPoint(5, 5), unlinkable))
 
     assert _crosshairs(model, monkeypatch, 2) == []
 
@@ -695,3 +696,119 @@ def test_link_on_matches_the_active_tiles_zoom(model, tmp_path):
 
     assert model.get_main_view_rv_scale((0, 1)) == 4
     assert model.get_main_view_rv_scale((0, 0)) == pytest.approx(8, rel=1e-9)
+
+
+def _fine_and_coarse(model, tmp_path):
+    """A at the fixture's pixel size and B at twice it on the same origin, so B(x, y) is A(2x, 2y)."""
+    a = model.load_dataset(str(_shifted_copy(tmp_path, "a.tif", 0, 0)))
+    b = model.load_dataset(str(_coarse_copy(tmp_path)))
+    return a, b
+
+
+def _grid_at_8x(model, datasets):
+    """Show ``datasets`` in a 1-row main view, each tile zoomed to 8x through the toolbar."""
+    model.set_main_view_layout((1, len(datasets)))
+    for col, ds in enumerate(datasets):
+        model.set_main_view_rv((0, col), ds.get_id())
+        model.activate_main_view_rv((0, col))
+        model.select_main_view_zoom_option(8)
+
+
+def _corners(rect):
+    return [rect.topLeft(), rect.topRight(), rect.bottomRight(), rect.bottomLeft()]
+
+
+@pytest.mark.integration
+def test_linked_context_pane_outlines_another_tile_mapped_onto_its_dataset(model, tmp_path):
+    a, b = _fine_and_coarse(model, tmp_path)
+    _grid_at_8x(model, [b, a])
+    model.set_context_pane_dataset_chooser_id(a.get_id())
+    recorded = model.get_context_pane_highlight_regions()
+    assert set(recorded) == {a.get_id(), b.get_id()}
+    assert model.get_context_pane_compatible_highlights(a.get_id()) == recorded[a.get_id()]
+
+    assert model.click_link_button()
+
+    recorded = model.get_context_pane_highlight_regions()
+    (a_region,), (b_region,) = recorded[a.get_id()], recorded[b.get_id()]
+    boxes = model.get_context_pane_compatible_highlights(a.get_id())
+    assert all(isinstance(box, QPolygon) for box in boxes)
+    assert sorted([(p.x(), p.y()) for p in box] for box in boxes) == sorted(
+        [
+            [(p.x(), p.y()) for p in _corners(a_region)],
+            [(2 * p.x(), 2 * p.y()) for p in _corners(b_region)],
+        ]
+    )
+
+    assert not model.click_link_button()
+
+    assert model.get_context_pane_compatible_highlights(
+        a.get_id()
+    ) == model.get_context_pane_highlight_region(a.get_id())
+
+
+def _show_zoom_pane_on(model, dataset):
+    model.click_zoom_pane_display_toggle()
+    model.set_zoom_pane_dataset(dataset.get_id())
+    model.set_zoom_pane_zoom_level(8)
+
+
+@pytest.mark.integration
+def test_linked_zoom_pane_centres_a_pixel_selected_in_another_dataset(model, monkeypatch, tmp_path):
+    a, b = _fine_and_coarse(model, tmp_path)
+    _grid_at_8x(model, [b, a])
+    _show_zoom_pane_on(model, b)
+    assert model.click_link_button()
+
+    model.click_raster_coord_main_view_rv((0, 1), (84, 70))
+
+    zoom_rv = model.get_zoom_pane_rasterview()
+    assert model.get_zoom_pane_dataset() is b
+    # The centre of A(84, 70) is (42.25, 35.25) in B.
+    assert _scrolled_center(zoom_rv) == pytest.approx((42.25, 35.25), abs=0.5 / zoom_rv.get_scale() + 1e-9)
+    drawn = []
+    monkeypatch.setattr(
+        model.zoom_pane,
+        "_draw_crosshair_at_coord",
+        lambda coord, widget, scale: drawn.append((coord.x(), coord.y())),
+    )
+    model.zoom_pane._draw_pixel_highlight(zoom_rv, zoom_rv._image_widget, None)
+    assert drawn == [(42, 35)]
+
+
+@pytest.mark.integration
+def test_unlinked_zoom_pane_switches_to_the_clicked_dataset(model, tmp_path):
+    a, b = _fine_and_coarse(model, tmp_path)
+    _grid_at_8x(model, [b, a])
+    _show_zoom_pane_on(model, b)
+
+    model.click_raster_coord_main_view_rv((0, 1), (84, 70))
+
+    assert model.get_zoom_pane_dataset() is a
+    assert model.get_zoom_pane_selected_pixel() == (84, 70)
+
+
+@pytest.mark.integration
+def test_context_pane_on_a_coarser_dataset_recentres_only_when_the_main_view_leaves_it(model, tmp_path):
+    a, b = _fine_and_coarse(model, tmp_path)
+    model.set_main_view_rv((0, 0), a.get_id())
+    model.set_context_pane_dataset_chooser_id(b.get_id())
+    main_rv, context_rv = model.get_main_view_rv((0, 0)), model.get_context_pane_rasterview()
+    main_rv.scale_image(8)
+    main_rv.make_point_visible(80, 70)
+    context_rv.scale_image(4)
+    context_rv.make_point_visible(45, 40)
+    viewport = main_rv.get_visible_region()
+    mapped = model.context_pane._transform_viewport_to_polygon(viewport, a, b).boundingRect()
+    assert context_rv.get_visible_region().contains(mapped)
+    assert not context_rv.get_visible_region().contains(viewport)
+    before = context_rv.get_scrollbar_state()
+
+    model.context_pane.set_viewport_highlight([viewport], [main_rv])
+
+    assert context_rv.get_scrollbar_state() == before
+
+    main_rv.make_point_visible(150, 125)
+    model.context_pane.set_viewport_highlight([main_rv.get_visible_region()], [main_rv])
+
+    assert context_rv.get_visible_region().contains(QPoint(75, 62))

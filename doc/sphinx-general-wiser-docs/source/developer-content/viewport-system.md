@@ -224,6 +224,7 @@ classDiagram
   }
   ```
 - Drawing overlays on top of the raster image: viewport-highlight boxes, pixel crosshairs, ROI polygons
+- Whether those overlays come from linked datasets (`_views_linked()`): when it returns True, viewport highlights and the pixel highlight of a linked dataset are mapped into each view's dataset (`_get_compatible_highlights`, `_draw_pixel_highlight`) and `set_pixel_highlight` recenters views on the mapped point. `MainViewWidget` returns its link button state; `ContextPane` and `ZoomPane` return the main view's
 - ROI creation, editing, deletion, and export operations
 - Toolbar setup (zoom combo box, band chooser, stretch builder, selection tools)
 
@@ -243,7 +244,7 @@ classDiagram
 **Controls:**
 - Automatically fitting the image to the widget size (`_act_fit_to_window` toggle)
 - Dataset lock mode: either "use clicked dataset" (follows what was last clicked in any pane) or locked to a specific dataset ID (`_ds_id`)
-- Rendering viewport-highlight boxes for the main view and/or zoom pane
+- Rendering viewport-highlight boxes for the main view and/or zoom pane; with the main view linked, the box of every main view tile whose dataset links to the one shown, mapped onto it
 
 **Does not control:**
 - Scrolling (the image always fits the window; there is no free scrolling)
@@ -261,6 +262,7 @@ classDiagram
 **Controls:**
 - Magnification range: 1–16× (integer steps only, unlike the main view's ×1.25 multiplier)
 - Zoom increment behavior: `_zoom_in_scale` adds 1, `_zoom_out_scale` subtracts 1
+- With the main view linked, keeping its dataset when a pixel of a linked dataset is selected, and centering and marking that pixel mapped into its own dataset
 
 **Does not control:**
 - Which pixel is centered (set by `App` in response to main-view clicks via `set_pixel_highlight`)
@@ -355,7 +357,7 @@ sequenceDiagram
 
 **Zoom pane scrolled** — `viewport_change` → `App._on_zoom_viewport_change` → `MainViewWidget.set_viewport_highlight()` updates the small box drawn on the main view showing where the zoom pane is looking.
 
-**User clicks a pixel in the main view** — `click_pixel` → `App._on_mainview_raster_pixel_select` → centers and highlights the pixel in the zoom pane, updates the context pane dataset, and pushes the pixel spectrum to the spectrum plot.
+**User clicks a pixel in the main view** — `click_pixel` → `App._on_mainview_raster_pixel_select` → centers and highlights the pixel in the zoom pane, updates the context pane dataset, and pushes the pixel spectrum to the spectrum plot. With linked views the zoom pane keeps its dataset and centers the pixel mapped into it.
 
 **User clicks a pixel in the context pane** — `click_pixel` → `App._on_context_raster_pixel_select` → `MainViewWidget.make_point_visible()` scrolls the main view so the clicked location is visible.
 

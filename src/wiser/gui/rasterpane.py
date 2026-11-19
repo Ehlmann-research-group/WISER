@@ -22,7 +22,12 @@ from wiser import plugins
 
 from wiser.raster import roi_export
 from wiser.raster.dataset_impl import NumPyRasterDataImpl
-from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds, transform_geo_coord
+from wiser.raster.dataset import (
+    RasterDataSet,
+    reference_pixel_to_target_pixel_ds,
+    reference_point_to_target_point_ds,
+    transform_geo_coord,
+)
 from wiser.raster.dataset import DisplayBands, find_display_bands
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, SinglePixelSelection
@@ -1314,16 +1319,26 @@ class RasterPane(QWidget):
         # the rasterviews you want to call it on) and possibly center some of the
         # rasterviews around the viewport
 
+    def _views_linked(self) -> bool:
+        """
+        Returns True if this pane shows highlights from datasets linked to the
+        ones it displays: viewport highlights and the pixel highlight of
+        another dataset are mapped into each raster-view's dataset, and a pixel
+        highlight of another dataset recenters the raster-views.  Returns False
+        here; panes that follow the main view's link button override it.
+        """
+        return False
+
     def set_pixel_highlight(
         self,
         pixel_sel: Optional[SinglePixelSelection],
         recenter: RecenterMode = RecenterMode.ALWAYS,
-        are_views_linked: bool = False,
     ):
         """
         Sets the "pixel highlight" to be displayed in this raster-pane.  This is
         used by both the main image window and the zoom window, to indicate the
-        pixel most recently selected by the user.
+        pixel most recently selected by the user.  A raster-view showing another
+        dataset shows the pixel only when ``_views_linked()`` is True.
         """
         self._pixel_highlight = pixel_sel
 
@@ -1349,7 +1364,7 @@ class RasterPane(QWidget):
                 rasterview.update()
                 continue
 
-            if not are_views_linked and rv_dataset is not dataset:
+            if not self._views_linked() and rv_dataset is not dataset:
                 # The selection's dataset was specified, and the rasterview is
                 # showing a different dataset.  Update the rasterview to remove
                 # any pixel selection, and move on. The views are not linked so
@@ -1388,7 +1403,10 @@ class RasterPane(QWidget):
             if do_recenter:
                 # Scroll the raster-view such that the pixel is in the middle of the
                 # raster-view's visible area.
-                rasterview.make_point_visible(target_coord.x() + 0.5, target_coord.y() + 0.5)
+                center = (coord.x() + 0.5, coord.y() + 0.5)
+                if rv_dataset is not dataset:
+                    center = reference_point_to_target_point_ds(center, dataset, rv_dataset)
+                rasterview.make_point_visible(*center)
 
             # Repaint raster-view
             rasterview.update()
@@ -2123,27 +2141,54 @@ class RasterPane(QWidget):
 
     def _get_compatible_highlights(self, ds_id: int) -> Optional[List[Union[QRect, QRectF, QPolygon]]]:
         """
-        Retrieves a list of highlight regions (QRect or QRectF) that are compatible
-        with the given dataset. Compatibility here is just if the datasets are the
-        same.
+        Retrieves a list of highlight regions that are compatible with the given
+        dataset.  When ``_views_linked()`` is False, only the highlights of that
+        same dataset are compatible.  When it is True, the highlights of every
+        dataset linked to it are, mapped into its raster coordinates: a pixel
+        link as is, a spatial link as a QPolygon.
 
         Args:
             ds_id (str): The identifier of the target dataset.
 
         Returns:
-            List[Union[QRect, QRectF]]: A list of compatible highlight regions,
-            transformed if necessary based on the link state.
+            List[Union[QRect, QRectF, QPolygon]]: A list of compatible highlight
+            regions, transformed if necessary based on the link state.
 
         Raises:
             ValueError: If an unexpected GeographicLinkState is encountered.
         """
-        if self._viewport_highlight:
+        if not self._viewport_highlight:
+            return None
+
+        if not self._views_linked():
             viewports = self._viewport_highlight.get(ds_id, None)
             if viewports is None:
                 return viewports
             viewports = [viewport for viewport in viewports if viewport is not None]
             return viewports
-        return None
+
+        target_ds = self._app_state.get_dataset(ds_id)
+        compatible_highlights = []
+        # Viewports is a list because one dataset can be in multiple rasterviews
+        # and so have multiple viewports
+        for reference_ds_id, viewports in self._viewport_highlight.items():
+            reference_ds = self._app_state.get_dataset(reference_ds_id)
+            link_state = target_ds.determine_link_state(reference_ds)
+            for viewport in viewports:
+                # Happens when you close out of zoom pane
+                if viewport is None:
+                    continue
+                if link_state == GeographicLinkState.NO_LINK:
+                    continue
+                elif link_state == GeographicLinkState.PIXEL:
+                    compatible_highlights.append(viewport)
+                elif link_state == GeographicLinkState.SPATIAL:
+                    compatible_highlights.append(
+                        self._transform_viewport_to_polygon(viewport, reference_ds, target_ds)
+                    )
+                else:
+                    raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
+        return compatible_highlights
 
     def _transform_viewport_to_polygon(
         self,
@@ -2239,18 +2284,32 @@ class RasterPane(QWidget):
         this raster-pane.  The color to draw with is taken from the application
         state's config.
 
-        If there is no "currently selected pixel" highlight, or if the highlight
-        specifies a different dataset than the rasterview is showing, this is a
-        no-op.
+        If there is no "currently selected pixel" highlight, this is a no-op.  So
+        is a highlight of a different dataset than the rasterview is showing,
+        unless ``_views_linked()`` is True and the two datasets can be linked, in
+        which case the pixel is mapped into the rasterview's dataset.
         """
 
         if self._pixel_highlight is None:
             return
 
         dataset = self._pixel_highlight.get_dataset()
-        if dataset is not None and rasterview.get_raster_data() is not dataset:
-            return
 
-        coord = self._pixel_highlight.get_pixel()
+        if self._views_linked():
+            rv_dataset = rasterview.get_raster_data()
+
+            if rv_dataset is None or dataset is None:
+                return
+            reference_point = self._pixel_highlight.get_pixel()
+            reference_pixel = (reference_point.x(), reference_point.y())
+            target_pixel = reference_pixel_to_target_pixel_ds(reference_pixel, dataset, rv_dataset)
+            if target_pixel is None:
+                # The highlighted dataset cannot be linked with this rasterview's.
+                return
+            coord = QPoint(*target_pixel)
+        else:
+            if dataset is not None and rasterview.get_raster_data() is not dataset:
+                return
+            coord = self._pixel_highlight.get_pixel()
 
         self._draw_crosshair_at_coord(coord, widget, rasterview.get_scale())

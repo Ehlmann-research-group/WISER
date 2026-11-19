@@ -34,7 +34,7 @@ from wiser import plugins
 
 from wiser.raster import roi_export
 
-from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
+from wiser.raster.dataset import GeographicLinkState
 
 from wiser.bandmath.types import VariableType
 
@@ -516,6 +516,9 @@ class MainViewWidget(RasterPane):
     def is_scrolling_linked(self):
         return self._link_view_scrolling
 
+    def _views_linked(self) -> bool:
+        return self._link_view_scrolling
+
     def on_rasterview_dataset_changed(self):
         """
         Currently, this function is used to change the dataset link state when
@@ -580,6 +583,8 @@ class MainViewWidget(RasterPane):
             # highlight boxes go away when we stop linking
             for rv in self._rasterviews.values():
                 rv.update()
+        # Panes that follow the link button redraw their highlights.
+        self.viewport_change.emit(self._get_rasterview_position(self.get_active_rasterview()))
 
     def _afterRasterPaint(self, rasterview, widget, paint_event):
         super()._afterRasterPaint(rasterview, widget, paint_event)
@@ -810,78 +815,6 @@ class MainViewWidget(RasterPane):
                 len(list(self._viewport_highlight.values())) == 1
             ), "self._viewport_highlight has more than 1 entry"
         super()._draw_viewport_highlight(rasterview, widget, paint_event)
-
-    def _get_compatible_highlights(self, ds_id) -> Optional[List[Union[QRect, QRectF]]]:
-        """
-        Retrieves a list of highlight regions (QRect or QRectF) that are compatible
-        with the given dataset based on its link state with other datasets.
-
-        Args:
-            ds_id (str): The identifier of the target dataset.
-
-        Returns:
-            List[Union[QRect, QRectF]]: A list of compatible highlight regions,
-            transformed if necessary based on the link state.
-
-        Raises:
-            ValueError: If an unexpected GeographicLinkState is encountered.
-        """
-        if self._viewport_highlight is None:
-            return None
-
-        if self._link_view_scrolling:
-            target_ds = self._app_state.get_dataset(ds_id)
-            compatible_highlights = []
-            # Viewports is a list because one dataset can be in multiple rasterviews
-            # and so have multiple viewports
-            for reference_ds_id, viewports in self._viewport_highlight.items():
-                # Use app state to get the datasets for both
-                reference_ds = self._app_state.get_dataset(reference_ds_id)
-                # Check if they are link compatible
-                link_state = target_ds.determine_link_state(reference_ds)
-                for viewport in viewports:
-                    # Happens when you close out of zoom pane
-                    if viewport is None:
-                        continue
-                    if link_state == GeographicLinkState.NO_LINK:
-                        continue
-                    elif link_state == GeographicLinkState.PIXEL:
-                        compatible_highlights.append(viewport)
-                    elif link_state == GeographicLinkState.SPATIAL:
-                        transformed_viewport = self._transform_viewport_to_polygon(
-                            viewport, reference_ds, target_ds
-                        )
-                        compatible_highlights.append(transformed_viewport)
-                    else:
-                        raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
-            return compatible_highlights
-        else:
-            return super()._get_compatible_highlights(ds_id)
-
-    def _draw_pixel_highlight(self, rasterview, widget, paint_event):
-        if self._pixel_highlight is None:
-            return
-
-        dataset = self._pixel_highlight.get_dataset()
-
-        if self.is_scrolling_linked():
-            rv_dataset = rasterview.get_raster_data()
-
-            if rv_dataset is None or dataset is None:
-                return
-            reference_point = self._pixel_highlight.get_pixel()
-            reference_pixel = (reference_point.x(), reference_point.y())
-            target_pixel = reference_pixel_to_target_pixel_ds(reference_pixel, dataset, rv_dataset)
-            if target_pixel is None:
-                # The highlighted dataset cannot be linked with this rasterview's.
-                return
-            target_point = QPoint(*target_pixel)
-        else:
-            if dataset is not None and rasterview.get_raster_data() is not dataset:
-                return
-            target_point = self._pixel_highlight.get_pixel()
-
-        self._draw_crosshair_at_coord(target_point, widget, rasterview.get_scale())
 
     def _open_savgol_dialog(self, rasterview) -> None:
         dataset = rasterview.get_raster_data()
