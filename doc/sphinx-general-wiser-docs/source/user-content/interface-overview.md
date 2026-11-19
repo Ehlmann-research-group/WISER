@@ -142,6 +142,11 @@ viewport highlight in the WISER configuration dialog.)_ Clicking or scrolling in
 any display pane updates the others. Clicking in the main window or the Zoom
 pane plots that pixel's spectrum in the Spectrum Plot.
 
+With linked views, the Context pane outlines the area shown in every
+main-window panel, mapped onto the dataset it shows, and the Zoom pane keeps its
+dataset: clicking a pixel in any main-window panel centers the Zoom pane on the
+same ground location.
+
 ---
 
 ## Toolbars
@@ -162,7 +167,7 @@ these; the context and zoom panes carry the subset that applies to them.
 | **Stretch builder** | Opens the stretch builder for the displayed bands |
 | **Split/unsplit the main view** | Splits the main window into panels; the dataset, band and stretch controls then move above each panel |
 | **Link view scrolling** | Ties panning and zooming across panels. Displayed datasets must overlap on the ground, or have the same width and height if not georeferenced |
-| **Zoom in**, **Zoom out**, **Zoom to fit**, **Zoom to actual size** | Navigation. The percentage box takes a value directly |
+| **Zoom in**, **Zoom out**, **Zoom to fit**, **Zoom to actual size** | Navigation. The percentage box takes a value directly. With split panels, zoom acts on the active panel, outlined in the highlight colour: the last one clicked or zoomed with Ctrl+scroll. With linked views, panels of datasets with different pixel sizes show the same ground, so a linked panel can pass the usual maximum zoom |
 | **Add new Region of Interest** and **Add selection to current ROI** | See {doc}`Regions of Interest <regions-of-interest>` |
 | **ROI dropdown** | Chooses which ROI a new selection is added to |
 

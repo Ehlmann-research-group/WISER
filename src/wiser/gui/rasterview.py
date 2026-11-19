@@ -1,5 +1,6 @@
 import enum
 import logging
+import math
 import sys
 import time
 
@@ -17,8 +18,7 @@ from .util import get_painter
 from wiser.raster.dataset import (
     RasterDataSet,
     GeographicLinkState,
-    reference_pixel_to_target_pixel_ds,
-    transform_geo_coord,
+    reference_point_to_target_point_ds,
 )
 from wiser.raster.stretch import StretchBase
 
@@ -399,18 +399,45 @@ def reference_point_to_target_point_rasterview(
     if reference_dataset is None or target_dataset is None:
         return None
 
-    link_state = target_dataset.determine_link_state(reference_dataset)
-    if link_state != GeographicLinkState.SPATIAL:
-        return reference_pixel_to_target_pixel_ds(
-            reference_point, reference_dataset, target_dataset, link_state
-        )
+    return reference_point_to_target_point_ds(reference_point, reference_dataset, target_dataset)
 
-    geo_coord = transform_geo_coord(
-        reference_dataset.to_geographic_coords(reference_point),
-        reference_dataset.get_spatial_ref(),
-        target_dataset.get_spatial_ref(),
+
+def linked_scale_ratio(reference_rasterview: "RasterView", target_rasterview: "RasterView") -> float:
+    """
+    Returns the factor to multiply ``reference_rasterview``'s zoom scale by so
+    that ``target_rasterview`` shows the same ground extent.
+
+    For a pixel link the ratio is 1.0.  For a spatial link, the centre ``c`` of
+    the reference view's visible region and the points ``c + (1, 0)`` and
+    ``c + (0, 1)`` are mapped into the target dataset without rounding; the
+    two mapped unit steps form the Jacobian ``J`` of the mapping, and the ratio
+    is ``1 / sqrt(|det J|)``, so one reference pixel and its image in the
+    target cover the same screen area.  The ratio is taken at the view centre
+    and is exact for an affine mapping.  For example, a target with twice the
+    reference's pixel size gives 2.0.
+
+    Raises:
+        ValueError: if either raster-view has no dataset, or the datasets
+            cannot be linked.
+    """
+    reference_dataset = reference_rasterview.get_raster_data()
+    target_dataset = target_rasterview.get_raster_data()
+    if reference_dataset is None or target_dataset is None:
+        raise ValueError("Both raster-views must have a dataset to compute a linked scale ratio")
+
+    link_state = target_dataset.determine_link_state(reference_dataset)
+    if link_state == GeographicLinkState.PIXEL:
+        return 1.0
+    if link_state != GeographicLinkState.SPATIAL:
+        raise ValueError(f"Datasets with link state {link_state} have no linked scale ratio")
+
+    cx, cy = reference_rasterview.get_visible_region_center()
+    (x0, y0), (x1, y1), (x2, y2) = (
+        reference_point_to_target_point_rasterview(point, reference_rasterview, target_rasterview)
+        for point in ((cx, cy), (cx + 1, cy), (cx, cy + 1))
     )
-    return target_dataset.geo_to_pixel_coords_exact(geo_coord)
+    det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+    return 1 / math.sqrt(abs(det))
 
 
 class ImageColors(enum.IntFlag):
@@ -624,8 +651,14 @@ class ImageScrollArea(QScrollArea):
         self.propagate_scroll = True
 
     def wheelEvent(self, event: QWheelEvent):
-        # If Ctrl is pressed, intercept the wheel event to perform zooming
+        # If Ctrl is pressed, intercept the wheel event to perform zooming.  A
+        # raster-view with data becomes the pane's active raster-view, so the
+        # zoom applies to it.  The anchoring scroll propagates, so linked
+        # raster-views follow it.
         if event.modifiers() & Qt.ControlModifier:
+            if self._rasterview.get_raster_data() is not None:
+                self._rasterpane._set_active_rasterview(self._rasterview)
+
             delta = event.angleDelta().y()
             if delta > 0:
                 viewport_pos = event.position().toPoint()  # position() is in viewport coords
@@ -642,8 +675,8 @@ class ImageScrollArea(QScrollArea):
                 new_h_value = int(rx * self.widget().width() - viewport_pos.x())
                 new_v_value = int(ry * self.widget().height() - viewport_pos.y())
 
-                self._update_scrollbar_no_propagation(hbar, new_h_value)
-                self._update_scrollbar_no_propagation(vbar, new_v_value)
+                hbar.setValue(new_h_value)
+                vbar.setValue(new_v_value)
             else:
                 self._rasterpane._on_zoom_out(None)
 

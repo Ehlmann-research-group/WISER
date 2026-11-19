@@ -851,12 +851,14 @@ images of the same samples, or images of different samples. The views may
 optionally be linked so that scrolling in one view will automatically update the
 scroll position in the other views.
 
-The primary constraint for multiple views in the main image window is that they
-will all use the same zoom level. It is not possible to have different views
-with different scroll levels.
+Each view has its own zoom level. The zoom controls act on the active view:
+the view with data that was last clicked or zoomed with Ctrl+wheel (or, if that
+view has no data, the first view with data).
 
-When linked scrolling is turned on, the views will all automatically update to
-match the scroll settings of the top left view.
+When linked scrolling is turned on, the views follow the active view's zoom and
+scroll position. Pixel-linked views use the same zoom level; spatially linked
+views are zoomed to show the same ground extent, so a view of a dataset with
+twice the pixel size is shown at twice the zoom level.
 
 ## Main Window / Zoom Window Interactions
 
@@ -902,8 +904,8 @@ Scenario:  different "unrelated" spectral data sets
     * Fix:    We only show the viewport highlight in the context pane if the
       matching dataset is open in the main window.
 
-* Click in main window; zoom pane should switch to the clicked-on data set,
-  and show the appropriate spectrum in the plot.
+* Click in main window; with linked scrolling off, the zoom pane switches to
+  the clicked-on data set and shows the appropriate spectrum in the plot.
 
 * Click in zoom pane. What should happen in the main image window?
     * We should only show highlighted pixel in views with the same data set.
@@ -926,7 +928,8 @@ Scenario:  different "related" data sets over the same spatial area
     * Context window viewport highlight is easy; all main window views are
       showing the same area.
 
-    * Should zoom pane switch to the clicked-on data set? Currently, zoom pane does not.
+    * The zoom pane keeps its data set and centers on the clicked location
+      mapped into it.
 
 * Click in zoom pane. What should happen in the main image window?
     * Show highlighted pixel in all views.

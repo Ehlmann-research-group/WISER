@@ -766,9 +766,15 @@ class WiserTestModel:
 
     def get_main_view_scale(self):
         """
-        Returns the current zoom scale of the main view's raster panes.
+        Returns the zoom scale of the main view's active raster-view.
         """
         return self.main_view.get_scale()
+
+    def get_main_view_rv_scale(self, rv_pos: Tuple[int, int]) -> float:
+        """
+        Returns the zoom scale of the main view raster-view at rv_pos.
+        """
+        return self.get_main_view_rv(rv_pos).get_scale()
 
     # region State setting
 
@@ -805,6 +811,42 @@ class WiserTestModel:
 
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
+
+    def activate_main_view_rv(self, rv_pos: Tuple[int, int]):
+        """
+        Presses the left mouse button on the image of the main view raster-view
+        at rv_pos, without releasing it, which makes a raster-view with data the
+        main view's active raster-view.
+        """
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonPress,
+            QPointF(1, 1),
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier,
+        )
+        self.get_main_view_rv(rv_pos)._image_widget.mousePressEvent(mouse_event)
+
+    @run_in_wiser_decorator
+    def select_main_view_zoom_option(self, scale: float):
+        """
+        Chooses the zoom combo-box option with the given scale in the main view.
+        """
+        cbox = self.main_view._cbox_zoom
+        index = cbox.findData(scale)
+        if index == -1:
+            raise ValueError(f"No main view zoom option has scale {scale}")
+        cbox.setCurrentIndex(index)
+        cbox.activated.emit(index)
+
+    @run_in_wiser_decorator
+    def type_main_view_zoom(self, text: str):
+        """
+        Types text into the main view's zoom combo-box and finishes editing.
+        """
+        line_edit = self.main_view._cbox_zoom.lineEdit()
+        line_edit.setText(text)
+        line_edit.editingFinished.emit()
 
     def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
         def scroll():
@@ -863,11 +905,17 @@ class WiserTestModel:
         self.app.postEvent(viewport, wheel_event)
         self.run()
 
-    def ctrl_scroll_main_view_rv(self, rv_pos: Tuple[int, int], notches: int):
+    def ctrl_scroll_main_view_rv(
+        self,
+        rv_pos: Tuple[int, int],
+        notches: int,
+        position: Optional[Tuple[float, float]] = None,
+    ):
         """
         Simulates holding Ctrl and scrolling the mouse wheel over the specified main
         view rasterview, which should zoom in (positive notches) or out (negative
-        notches) centered on the middle of the viewport.
+        notches).  ``position`` is the pointer position in the scroll area's
+        viewport coordinates; the middle of the viewport if it is None.
 
         One notch corresponds to the standard Qt wheel delta of 120 units.
         """
@@ -877,8 +925,9 @@ class WiserTestModel:
         # The viewport is the widget that actually receives the wheel events.
         viewport = scroll_area.viewport()
 
-        # Scroll from the center of the viewport.
-        pos = QPointF(viewport.width() / 2, viewport.height() / 2)
+        if position is None:
+            position = (viewport.width() / 2, viewport.height() / 2)
+        pos = QPointF(*position)
         global_pos = viewport.mapToGlobal(pos.toPoint())
 
         wheel_event = QWheelEvent(

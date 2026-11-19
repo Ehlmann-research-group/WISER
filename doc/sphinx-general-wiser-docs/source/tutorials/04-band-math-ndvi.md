@@ -144,7 +144,9 @@ histogram in the stretch dialog first.
 :alt: True-color image and NDVI side by side in a 1x2 grid
 :::
 
-Pan or zoom one panel and the others follow. The status bar confirms with
+Pan or zoom one panel and the others follow. The toolbar zoom buttons act on
+the panel outlined in the highlight colour; click a panel to make it the
+active one. The status bar confirms linking with
 `Linked view scrolling is ON`. Linked scrolling works when the displayed
 datasets overlap on the ground, or have the same width and height, as these
 two do.

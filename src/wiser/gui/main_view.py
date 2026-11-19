@@ -17,7 +17,7 @@ from .mtmf import MTMFDialog
 from .permanent_plugins.pca_plugin import PCAPlugin
 from .plugin_utils import add_plugin_context_menu_items
 from .rasterpane import RasterPane
-from .rasterview import RasterView, reference_point_to_target_point_rasterview
+from .rasterview import RasterView, linked_scale_ratio, reference_point_to_target_point_rasterview
 from .sav_golay import SavGolayDialog
 from .scatter_plot_2D import ScatterPlot2DDialog
 from .smooth_filter import SmoothingFilterDialog, SmoothingFilterKind
@@ -34,12 +34,15 @@ from wiser import plugins
 
 from wiser.raster import roi_export
 
-from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
+from wiser.raster.dataset import GeographicLinkState
 
 from wiser.bandmath.types import VariableType
 
 
 logger = logging.getLogger(__name__)
+
+# Qt's maximum widget width and height (QWIDGETSIZE_MAX), in pixels.
+QWIDGETSIZE_MAX = 16777215
 
 
 class MainViewWidget(RasterPane):
@@ -103,8 +106,8 @@ class MainViewWidget(RasterPane):
     def _init_view_tools(self):
         """
         Initialize view management tools.  This subclass has the ability to show
-        multiple sub-views, all at the same zoom level, and possibly with linked
-        scrolling.
+        multiple sub-views, each with its own zoom level, and possibly with
+        linked scrolling and zooming.
         """
 
         # The split-views chooser is a drop down menu of options the user can
@@ -513,6 +516,9 @@ class MainViewWidget(RasterPane):
     def is_scrolling_linked(self):
         return self._link_view_scrolling
 
+    def _views_linked(self) -> bool:
+        return self._link_view_scrolling
+
     def on_rasterview_dataset_changed(self):
         """
         Currently, this function is used to change the dataset link state when
@@ -525,6 +531,8 @@ class MainViewWidget(RasterPane):
             linkable, link_state = self._app_state.multiple_displayed_datasets_link_compatible()
             if linkable:
                 self._link_view_state = link_state
+                self.set_scale(self.get_scale())
+                self._update_zoom_widgets()
             else:
                 self._act_link_view_scroll.setChecked(False)
                 self._link_view_scrolling = False
@@ -565,14 +573,18 @@ class MainViewWidget(RasterPane):
         if checked:
             self._app_state.show_status_text(self.tr("Linked view scrolling is ON"), 5)
 
-            # Sync scroll state of all raster views to the one in the top left.
-            self._sync_scroll_state(self.get_rasterview())
+            # Match the scale and scroll state of all raster views to the
+            # active raster view.
+            self.set_scale(self.get_scale())
+            self._update_zoom_widgets()
         else:
             self._app_state.show_status_text(self.tr("Linked view scrolling is OFF"), 5)
             # We want this to updatethe main view raster view's highlight box, so the linked
             # highlight boxes go away when we stop linking
             for rv in self._rasterviews.values():
                 rv.update()
+        # Panes that follow the link button redraw their highlights.
+        self.viewport_change.emit(self._get_rasterview_position(self.get_active_rasterview()))
 
     def _afterRasterPaint(self, rasterview, widget, paint_event):
         super()._afterRasterPaint(rasterview, widget, paint_event)
@@ -590,8 +602,7 @@ class MainViewWidget(RasterPane):
             with get_painter(widget) as painter:
                 painter.setPen(QPen(self._interactive_scatter_color, 2))
 
-                # Get the current scale factor for proper coordinate transformation
-                scale = self.get_scale()
+                scale = rasterview.get_scale()
 
                 for row, col in self._interactive_scatter_highlight_points:
                     # Convert dataset coordinates to screen coordinates
@@ -652,6 +663,51 @@ class MainViewWidget(RasterPane):
 
                 else:
                     raise ValueError(f"Geographic link state is incorrect: {link_state}")
+
+    def set_scale(self, scale: float) -> None:
+        """
+        Sets the zoom scale of the active raster-view (see
+        get_active_rasterview()).  With linked views and more than one
+        raster-view, every other raster-view with data is scaled to show the
+        same ground extent:  ``scale * linked_scale_ratio(active, other)``, the
+        same scale for a pixel link.  Raster-views without data are skipped.
+        The followers' scales are not limited by the pane's maximum zoom.
+
+        If a raster-view's scaled image would exceed Qt's maximum widget size
+        (QWIDGETSIZE_MAX pixels), ``scale`` is reduced so the largest scaled
+        image fits, and a status message reports it.
+
+        Raises:
+            ValueError: if a pair of displayed datasets cannot be linked (see
+                linked_scale_ratio()).
+        """
+        active = self.get_active_rasterview()
+        if not (self._link_view_scrolling and self.is_multi_view()) or active.get_raster_data() is None:
+            active.scale_image(scale)
+            return
+
+        ratios = [(active, 1.0)] + [
+            (rv, linked_scale_ratio(active, rv))
+            for rv in self._rasterviews.values()
+            if rv is not active and rv.get_raster_data() is not None
+        ]
+        max_scale = min(
+            QWIDGETSIZE_MAX
+            / (ratio * max(rv.get_raster_data().get_width(), rv.get_raster_data().get_height()))
+            for rv, ratio in ratios
+        )
+        if scale > max_scale:
+            scale = max_scale
+            self._app_state.show_status_text(
+                self.tr(
+                    "Zoom limited to {percent}% so linked views stay within the maximum image size"
+                ).format(percent=int(scale * 100)),
+                10,
+            )
+
+        for rv, ratio in ratios:
+            rv.scale_image(scale * ratio)
+        self._sync_scroll_state(active)
 
     def make_reference_point_visible(self, x, y, reference_rasterview: RasterView) -> None:
         """
@@ -760,78 +816,6 @@ class MainViewWidget(RasterPane):
             ), "self._viewport_highlight has more than 1 entry"
         super()._draw_viewport_highlight(rasterview, widget, paint_event)
 
-    def _get_compatible_highlights(self, ds_id) -> Optional[List[Union[QRect, QRectF]]]:
-        """
-        Retrieves a list of highlight regions (QRect or QRectF) that are compatible
-        with the given dataset based on its link state with other datasets.
-
-        Args:
-            ds_id (str): The identifier of the target dataset.
-
-        Returns:
-            List[Union[QRect, QRectF]]: A list of compatible highlight regions,
-            transformed if necessary based on the link state.
-
-        Raises:
-            ValueError: If an unexpected GeographicLinkState is encountered.
-        """
-        if self._viewport_highlight is None:
-            return None
-
-        if self._link_view_scrolling:
-            target_ds = self._app_state.get_dataset(ds_id)
-            compatible_highlights = []
-            # Viewports is a list because one dataset can be in multiple rasterviews
-            # and so have multiple viewports
-            for reference_ds_id, viewports in self._viewport_highlight.items():
-                # Use app state to get the datasets for both
-                reference_ds = self._app_state.get_dataset(reference_ds_id)
-                # Check if they are link compatible
-                link_state = target_ds.determine_link_state(reference_ds)
-                for viewport in viewports:
-                    # Happens when you close out of zoom pane
-                    if viewport is None:
-                        continue
-                    if link_state == GeographicLinkState.NO_LINK:
-                        continue
-                    elif link_state == GeographicLinkState.PIXEL:
-                        compatible_highlights.append(viewport)
-                    elif link_state == GeographicLinkState.SPATIAL:
-                        transformed_viewport = self._transform_viewport_to_polygon(
-                            viewport, reference_ds, target_ds
-                        )
-                        compatible_highlights.append(transformed_viewport)
-                    else:
-                        raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
-            return compatible_highlights
-        else:
-            return super()._get_compatible_highlights(ds_id)
-
-    def _draw_pixel_highlight(self, rasterview, widget, paint_event):
-        if self._pixel_highlight is None:
-            return
-
-        dataset = self._pixel_highlight.get_dataset()
-
-        if self.is_scrolling_linked():
-            rv_dataset = rasterview.get_raster_data()
-
-            if rv_dataset is None or dataset is None:
-                return
-            reference_point = self._pixel_highlight.get_pixel()
-            reference_pixel = (reference_point.x(), reference_point.y())
-            target_pixel = reference_pixel_to_target_pixel_ds(reference_pixel, dataset, rv_dataset)
-            if target_pixel is None:
-                # The highlighted dataset cannot be linked with this rasterview's.
-                return
-            target_point = QPoint(*target_pixel)
-        else:
-            if dataset is not None and rasterview.get_raster_data() is not dataset:
-                return
-            target_point = self._pixel_highlight.get_pixel()
-
-        self._draw_crosshair_at_coord(target_point, widget)
-
     def _open_savgol_dialog(self, rasterview) -> None:
         dataset = rasterview.get_raster_data()
         if dataset is None:
@@ -868,24 +852,22 @@ class MainViewWidget(RasterPane):
         self._update_zoom_widgets()
 
     def _on_zoom_to_fit(self):
-        """Zoom the view such that the entire image fits in the view."""
-
-        # Use the rasterview at (0, 0) to compute the scale for the image to fit
-        rasterview = self.get_rasterview()
+        """
+        Zoom the active raster-view such that its entire image fits in the
+        view; linked raster-views follow (see set_scale()).
+        """
+        rasterview = self.get_active_rasterview()
         rasterview.scale_image_to_fit()
-
-        # If we are in a multi-view mode, propagate that scale to all views
-        if self.is_multi_view():
-            self.set_scale(rasterview.get_scale())
+        self.set_scale(rasterview.get_scale())
 
         self._update_zoom_widgets()
 
     def _on_zoom_in(self, evt):
-        """Zoom in the zoom-view by one level."""
+        """Zoom in the active raster-view by one level."""
         super()._on_zoom_in(evt)
-        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))
+        self.viewport_change.emit(self._get_rasterview_position(self.get_active_rasterview()))
 
     def _on_zoom_out(self, evt):
-        """Zoom out the zoom-view by one level."""
+        """Zoom out the active raster-view by one level."""
         super()._on_zoom_out(evt)
-        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))
+        self.viewport_change.emit(self._get_rasterview_position(self.get_active_rasterview()))

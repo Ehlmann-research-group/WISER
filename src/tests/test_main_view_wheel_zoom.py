@@ -79,6 +79,40 @@ class TestMainViewWheelZoom(unittest.TestCase):
             (new_region.x(), new_region.y()),
         )
 
+    def _show_two_tiles(self):
+        second = self.test_model.load_dataset(_make_dataset())
+        self.test_model.set_main_view_layout((1, 2))
+        first = self.test_model.get_main_view_rv((0, 0)).get_raster_data()
+        self.test_model.set_main_view_rv((0, 0), first.get_id())
+        self.test_model.set_main_view_rv((0, 1), second.get_id())
+
+    def test_unlinked_ctrl_scroll_zooms_only_that_tile(self):
+        """Ctrl+scroll over an unlinked tile zooms that tile and makes it the active tile."""
+        self._show_two_tiles()
+
+        self.test_model.ctrl_scroll_main_view_rv((0, 1), notches=1)
+
+        self.assertEqual(self.test_model.get_main_view_rv_scale((0, 0)), 1.0)
+        self.assertGreater(self.test_model.get_main_view_rv_scale((0, 1)), 1.0)
+        self.assertIs(
+            self.test_model.main_view.get_active_rasterview(), self.test_model.get_main_view_rv((0, 1))
+        )
+
+    def test_linked_ctrl_scroll_off_centre_keeps_tiles_matched(self):
+        """Ctrl+scroll away from a linked tile's centre leaves the other tile on the same view."""
+        self._show_two_tiles()
+        self.assertTrue(self.test_model.click_link_button())
+        viewport = self.test_model.get_main_view_rv((0, 1))._scroll_area.viewport()
+
+        self.test_model.ctrl_scroll_main_view_rv(
+            (0, 1), notches=1, position=(viewport.width() / 4, viewport.height() / 4)
+        )
+
+        leader, follower = (self.test_model.get_main_view_rv(pos) for pos in [(0, 1), (0, 0)])
+        self.assertGreater(leader.get_scale(), 1.0)
+        self.assertEqual(follower.get_scale(), leader.get_scale())
+        self.assertEqual(follower.get_scrollbar_state(), leader.get_scrollbar_state())
+
 
 if __name__ == "__main__":
     unittest.main()
